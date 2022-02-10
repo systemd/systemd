@@ -258,23 +258,60 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--make-machine-id-directory=yes|no</option></term>
-        <listitem><para>Control creation and deletion of the top-level machine ID directory on the file
-        system containing boot loader entries (i.e. beneath the file system returned by the
-        <option>--print-boot-path</option> option, see above) during <option>install</option> and
-        <option>remove</option>, respectively. Defaults to <literal>no</literal>. See
+        <term><option>--make-entry-directory=yes|no</option></term>
+        <listitem><para>Controls creation and deletion of the <ulink
+        url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1 entry
+        directory on the file system containing resources such as kernel images and initial RAM disk images
+        during <option>install</option> and <option>remove</option>, respectively. The directory is named
+        after the entry token, as specified with <option>--entry-token=</option> parameter described below,
+        and is placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file
+        system returned by the <option>--print-boot-path</option> option, see above). Defaults to
+        <literal>no</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--entry-token=</option></term>
+
+        <listitem><para>Controls how to name and identify boot loader entries for this OS
+        installation. Accepted during <option>install</option>, and takes one of <literal>auto</literal>,
+        <literal>machine-id</literal>, <literal>os-id</literal>, <literal>os-image-id</literal> or an
+        arbitrary string prefixed by <literal>literal:</literal> as argument.</para>
+
+        <para>If set to <option>machine-id</option> the entries are named after the machine ID of the running
+        system (e.g. <literal>b0e793a9baf14b5fa13ecbe84ff637ac</literal>). See
         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details about the machine ID concept and file.</para>
 
-        <para>Overriding this may be desirable to hide the machine ID from the (unencrypted) ESP, configure a
-        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        script, or, conversely, commit a transient machine ID.</para>
+        <para>If set to <option>os-id</option> the entries are named after the OS ID of the running system,
+        i.e. the <varname>ID=</varname> field of
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        (e.g. <literal>fedora</literal>). Similar, if set to <option>os-image-id</option> the entries are
+        named after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
+        <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
 
-        <para>The top-level machine ID directory is useful to allow smooth multi-boot installations: each
-        installed OS instance will have a different machine ID and thus a separate directory to place its
-        boot-time resources in. If this feature is turned off with this option, care needs to be taken that
-        multiple OS instances do not place conflicting files on the shared ESP and Extended Boot Loader
-        Partitions, or that multiple OS instances are not possible.</para></listitem>
+        <para>If set to <option>auto</option> (the default), the <filename>/etc/kernel/entry-token</filename>
+        file will be read if it exists, and the stored value used.  Otherwise if the local machine ID is
+        initialized it is used. Otherwise <varname>IMAGE_ID=</varname> from <filename>os-release</filename>
+        will be used, if set.  Otherwise, <varname>ID=</varname> from <filename>os-release</filename> will be
+        used, if set.</para>
+
+        <para>Unless set to <literal>machine-id</literal>, or when
+        <option>--make-entry-directory=yes</option> is used the selected token string is written to a file
+        <filename>/etc/kernel/entry-token</filename>, to ensure it will be used for future entries. This file
+        is also read by
+        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        in order to identify under which name to generate boot loader entries for newly installed kernels, or
+        to determine the entry names for removing old ones.</para>
+
+        <para>Using the machine ID for naming the entries is generally preferable, however there are cases
+        where using the other identifiers is a good option. Specifically: if the identification data that the
+        machine ID entails shall not be stored on the (unencrypted) <varname>$BOOT</varname> partition, or if
+        the ID shall be generated on first boot and is not known when the entries are prepared. Note that
+        using the machine ID has the benefit that multiple parallel installations of the same OS can coexist
+        on the same medium, and they can update their boot loader entries independently. When using another
+        identifier (such as the OS ID or the OS image ID), parallel installations of the same OS would try to
+        use the same entry name. To support parallel installations, the installer must use a different entry
+        token when adding a second installation.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
