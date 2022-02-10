@@ -121,7 +121,7 @@ static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message 
         }
 
         if (b->vlan_protocol >= 0) {
-                r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_PROTOCOL, b->vlan_protocol);
+                r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_PROTOCOL, htobe16(b->vlan_protocol));
                 if (r < 0)
                         return r;
         }
