@@ -36,6 +36,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -411,7 +412,21 @@ static void boot_entry_file_list(const char *field, const char *root, const char
                 *ret_status = status;
 }
 
-static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
+        [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
+        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
+        [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
+        [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
+
+static int boot_entry_show(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected,
+                bool show_reported) {
+
         int status = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
@@ -419,9 +434,30 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
         assert(e);
 
-        printf("        title: %s%s%s" "%s%s%s\n",
-               ansi_highlight(), boot_entry_title(e), ansi_normal(),
-               ansi_highlight_green(), show_as_default ? " (default)" : "", ansi_normal());
+        printf("         type: %s\n",
+               boot_entry_type_to_string(e->type));
+
+        printf("        title: %s%s%s",
+               ansi_highlight(), boot_entry_title(e), ansi_normal());
+
+        if (show_as_default)
+                printf(" %s(default)%s",
+                       ansi_highlight_green(), ansi_normal());
+
+        if (show_as_selected)
+                printf(" %s(selected)%s",
+                       ansi_highlight_magenta(), ansi_normal());
+
+        if (show_reported) {
+                if (e->type == BOOT_ENTRY_LOADER)
+                        printf(" %s(reported/absent)%s",
+                               ansi_highlight_red(), ansi_normal());
+                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_LOADER_AUTO)
+                        printf(" %s(not reported/new)%s",
+                               ansi_highlight_green(), ansi_normal());
+        }
+
+        putchar('\n');
 
         if (e->id)
                 printf("           id: %s\n", e->id);
@@ -450,6 +486,7 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                                      e->root,
                                      *s,
                                      &status);
+
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t = NULL, *t2 = NULL;
                 _cleanup_strv_free_ char **ts = NULL;
@@ -468,8 +505,15 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
                 printf("      options: %s\n", t2);
         }
+
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
+
+        STRV_FOREACH(s, e->device_tree_overlay)
+                boot_entry_file_list(s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
 
         return -status;
 }
@@ -511,7 +555,11 @@ static int status_entries(
         else {
                 printf("Default Boot Loader Entry:\n");
 
-                r = boot_entry_show(config.entries + config.default_entry, false);
+                r = boot_entry_show(
+                                config.entries + config.default_entry,
+                                /* show_as_default= */ false,
+                                /* show_as_selected= */ false,
+                                /* show_discovered= */ false);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
@@ -1606,7 +1654,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else if (r < 0)
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
-                (void) boot_entries_augment_from_loader(&config, efi_entries);
+                (void) boot_entries_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
 
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
@@ -1616,7 +1664,11 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 printf("Boot Loader Entries:\n");
 
                 for (size_t n = 0; n < config.n_entries; n++) {
-                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
+                        r = boot_entry_show(
+                                        config.entries + n,
+                                        /* show_as_default= */  n == (size_t) config.default_entry,
+                                        /* show_as_selected= */ n == (size_t) config.selected_entry,
+                                        /* show_discovered= */  true);
                         if (r < 0)
                                 return r;
 

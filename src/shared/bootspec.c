@@ -51,6 +51,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->efi);
         strv_free(entry->initrd);
         free(entry->device_tree);
+        strv_free(entry->device_tree_overlay);
 }
 
 static int boot_entry_load(
@@ -64,25 +65,27 @@ static int boot_entry_load(
 
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
-        char *b, *c;
+        char *c;
         int r;
 
         assert(root);
         assert(path);
         assert(entry);
 
-        c = endswith_no_case(path, ".conf");
-        if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
+        r = path_extract_filename(path, &tmp.id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from path '%s': %m", path);
 
-        b = basename(path);
-        tmp.id = strdup(b);
-        tmp.id_old = strndup(b, c - b);
-        if (!tmp.id || !tmp.id_old)
-                return log_oom();
+        c = endswith_no_case(tmp.id, ".conf");
+        if (!c)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", tmp.id);
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+
+        tmp.id_old = strndup(tmp.id, c - tmp.id);
+        if (!tmp.id_old)
+                return log_oom();
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -142,7 +145,15 @@ static int boot_entry_load(
                         r = strv_extend(&tmp.initrd, p);
                 else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
-                else {
+                else if (streq(field, "devicetree-overlay")) {
+                        _cleanup_strv_free_ char **l = NULL;
+
+                        l = strv_split(p, NULL);
+                        if (!l)
+                                return log_oom();
+
+                        r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
+                } else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
                 }
@@ -167,9 +178,11 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_firmware);
         free(config->console_mode);
         free(config->random_seed_mode);
+        free(config->beep);
 
         free(config->entry_oneshot);
         free(config->entry_default);
+        free(config->entry_selected);
 
         for (i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
@@ -234,6 +247,8 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->console_mode, p);
                 else if (streq(field, "random-seed-mode"))
                         r = free_and_strdup(&config->random_seed_mode, p);
+                else if (streq(field, "beep"))
+                        r = free_and_strdup(&config->beep, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
@@ -546,7 +561,7 @@ static int boot_entries_find_unified(
         return 0;
 }
 
-static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
+static bool find_nonunique(const BootEntry *entries, size_t n_entries, bool arr[]) {
         size_t i, j;
         bool non_unique = false;
 
@@ -655,6 +670,55 @@ static int boot_entries_select_default(const BootConfig *config) {
         return config->n_entries - 1;
 }
 
+static int boot_entries_select_selected(const BootConfig *config) {
+
+        assert(config);
+        assert(config->entries || config->n_entries == 0);
+
+        if (!config->entry_selected || config->n_entries == 0)
+                return -1;
+
+        for (int i = config->n_entries - 1; i >= 0; i--)
+                if (streq(config->entry_selected, config->entries[i].id))
+                        return i;
+
+        return -1;
+}
+
+static int boot_load_efi_entry_pointers(BootConfig *config) {
+        int r;
+
+        assert(config);
+
+        if (!is_efi_boot())
+                return 0;
+
+        /* Loads the three "pointers" to boot loader entries from their EFI variables */
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        return 1;
+}
+
 int boot_entries_load_config(
                 const char *esp_path,
                 const char *xbootldr_path,
@@ -700,23 +764,13 @@ int boot_entries_load_config(
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
-        if (is_efi_boot()) {
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-        }
+        r = boot_load_efi_entry_pointers(config);
+        if (r < 0)
+                return r;
 
         config->default_entry = boot_entries_select_default(config);
+        config->selected_entry = boot_entries_select_selected(config);
+
         return 0;
 }
 
@@ -759,7 +813,8 @@ int boot_entries_load_config_auto(
 
 int boot_entries_augment_from_loader(
                 BootConfig *config,
-                char **found_by_loader) {
+                char **found_by_loader,
+                bool only_auto) {
 
         static const char *const title_table[] = {
                 /* Pretty names for a few well-known automatically discovered entries. */
@@ -778,18 +833,17 @@ int boot_entries_augment_from_loader(
          * already included there. */
 
         STRV_FOREACH(i, found_by_loader) {
+                BootEntry *existing;
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
                 char **a, **b;
 
-                if (boot_config_has_entry(config, *i))
+                existing = boot_config_find_entry(config, *i);
+                if (existing) {
+                        existing->reported_by_loader = true;
                         continue;
+                }
 
-                /*
-                 * consider the 'auto-' entries only, because the others
-                 * ones are detected scanning the 'esp' and 'xbootldr'
-                 * directories by boot_entries_load_config()
-                 */
-                if (!startswith(*i, "auto-"))
+                if (only_auto && !startswith(*i, "auto-"))
                         continue;
 
                 c = strdup(*i);
@@ -812,10 +866,11 @@ int boot_entries_augment_from_loader(
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
-                        .type = BOOT_ENTRY_LOADER,
+                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_LOADER_AUTO : BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
+                        .reported_by_loader = true,
                 };
         }
 
