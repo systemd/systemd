@@ -49,10 +49,12 @@ typedef struct BootConfig {
 
         char *entry_oneshot;
         char *entry_default;
+        char *entry_selected;
 
         BootEntry *entries;
         size_t n_entries;
         ssize_t default_entry;
+        ssize_t selected_entry;
 } BootConfig;
 
 static inline bool boot_config_has_entry(BootConfig *config, const char *id) {
