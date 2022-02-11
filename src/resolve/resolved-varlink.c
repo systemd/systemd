@@ -484,7 +484,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         if (p.ifindex < 0)
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
 
-        if (!IN_SET(p.family, AF_UNSPEC, AF_INET, AF_INET6))
+        if (!IN_SET(p.family, AF_INET, AF_INET6))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
