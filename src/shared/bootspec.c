@@ -180,6 +180,7 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_firmware);
         free(config->console_mode);
         free(config->random_seed_mode);
+        free(config->beep);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -247,6 +248,8 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->console_mode, p);
                 else if (streq(field, "random-seed-mode"))
                         r = free_and_strdup(&config->random_seed_mode, p);
+                else if (streq(field, "beep"))
+                        r = free_and_strdup(&config->beep, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;

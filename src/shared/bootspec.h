@@ -45,6 +45,7 @@ typedef struct BootConfig {
         char *auto_firmware;
         char *console_mode;
         char *random_seed_mode;
+        char *beep;
 
         char *entry_oneshot;
         char *entry_default;
