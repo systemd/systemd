@@ -34,6 +34,7 @@
 #include "pretty-print.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -47,6 +48,8 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
+
+#define HASH_VALUE_SIZE 32
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -75,6 +78,59 @@ static void check_efi_path_duplicates(void) {
                 printf("%s", ansi_normal());
                 printf("         It is recommended to pass the EFI SYSTEM path using '--esp-path=...'\n\n");
         }
+}
+
+static void check_efi_random_seed(const char *esp) {
+        _cleanup_free_ char *efivar = NULL, *path = NULL, *random_file = NULL, *output = NULL;
+        size_t efivar_size, random_file_size;
+        int r;
+        size_t cnt;
+        struct sha256_ctx hash;
+
+        if (!esp)
+                return;
+
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderPartitionRandomSeed), NULL, (void *) &efivar, &efivar_size);
+        if (r < 0)
+                return;
+
+        if (efivar_size != HASH_VALUE_SIZE)
+                return;
+
+        path = path_join(esp, "/loader/random-seed");
+        if (!path)
+                log_oom();
+
+        /*
+         * The efi variable exists, but the file doesn't exists
+         * this is sufficient to declare the ESP inconsistent
+         */
+        if (access(path, F_OK))
+                goto fail;
+
+        r = read_full_file(path, &random_file, &random_file_size);
+        if (r < 0)
+                return;
+
+        output = malloc(HASH_VALUE_SIZE);
+        if (!output)
+                log_oom();
+
+        /* "magic" value */
+        cnt = 42;
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(random_file, random_file_size, &hash);
+        sha256_process_bytes(&cnt, sizeof(cnt), &hash);
+        sha256_finish_ctx(&hash, output);
+
+        if (!memcmp(efivar, output, HASH_VALUE_SIZE))
+                return;
+
+fail:
+        printf("%s", ansi_highlight_red());
+        printf("WARNING: the EFI partition might be incorrect because the random-seed mismatches\n");
+        printf("%s", ansi_normal());
+        printf("         It is recommended to pass the EFI path using '--esp-path=...'\n\n");
 }
 
 static void check_xbootldr_path_duplicates(void) {
@@ -1475,6 +1531,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
         check_efi_path_duplicates();
         check_xbootldr_path_duplicates();
+        check_efi_random_seed(arg_esp_path);
 
         if (is_efi_boot()) {
                 static const struct {
@@ -1632,6 +1689,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (config.n_entries == 0) {
                 check_efi_path_duplicates();
                 check_xbootldr_path_duplicates();
+                check_efi_random_seed(arg_esp_path);
 
                 log_info("No boot loader entries found.");
         } else {
@@ -1639,6 +1697,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
                 check_efi_path_duplicates();
                 check_xbootldr_path_duplicates();
+                check_efi_random_seed(arg_esp_path);
 
                 printf("Boot Loader Entries:\n");
 
@@ -1824,6 +1883,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        check_efi_random_seed(arg_esp_path);
+
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
                 r = are_we_installed();
@@ -1902,6 +1963,8 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        check_efi_random_seed(arg_esp_path);
+
         r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL);
         if (r < 0)
                 return r;
@@ -1968,6 +2031,8 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
         r = are_we_installed();
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         if (r > 0) {
                 puts("yes");
@@ -2128,6 +2193,8 @@ static int verb_random_seed(int argc, char *argv[], void *userdata) {
         }
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         r = install_random_seed(arg_esp_path);
         if (r < 0)
