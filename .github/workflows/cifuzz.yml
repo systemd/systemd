@@ -39,6 +39,8 @@ jobs:
           oss-fuzz-project-name: 'systemd'
           dry-run: false
           allowed-broken-targets-percentage: 0
+          # keep-unaffected-fuzz-targets should be removed once https://github.com/google/oss-fuzz/issues/7011 is fixed
+          keep-unaffected-fuzz-targets: true
           sanitizer: ${{ matrix.sanitizer }}
       - name: Run Fuzzers (${{ matrix.sanitizer }})
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
