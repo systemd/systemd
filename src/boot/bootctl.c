@@ -508,6 +508,18 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                         (void) terminal_urlify_path(e->path, NULL, &link);
 
                 printf("       source: %s\n", link ?: e->path);
+
+                /*
+                 * if the entry is a NON "auto-*" one and if the information comes
+                 * from the bootloader only, likely the entry was seen by
+                 * the systemd-boot but then it was removed
+                 */
+                if (!startswith(e->id, "auto-")) {
+                        if (startswith(e->path, "/sys/firmware"))
+                                printf("       status: %sunavailable%s\n", ansi_highlight_red(), ansi_normal());
+                        else
+                                printf("       status: %savailable%s\n", ansi_highlight_green(), ansi_normal());
+                }
         }
         if (e->version)
                 printf("      version: %s\n", e->version);
