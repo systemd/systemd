@@ -78,6 +78,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* bootspec: remove tries counter from boot entry ids
+
 * automatically ignore threaded cgroups in cg_xyz().
 
 * add linker script that implicitly adds symbol for build ID and new coredump
