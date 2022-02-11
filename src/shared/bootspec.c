@@ -564,17 +564,16 @@ static int boot_entries_find_unified(
 }
 
 static bool find_nonunique(const BootEntry *entries, size_t n_entries, bool arr[]) {
-        size_t i, j;
         bool non_unique = false;
 
         assert(entries || n_entries == 0);
         assert(arr || n_entries == 0);
 
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 arr[i] = false;
 
-        for (i = 0; i < n_entries; i++)
-                for (j = 0; j < n_entries; j++)
+        for (size_t i = 0; i < n_entries; i++)
+                for (size_t j = 0; j < n_entries; j++)
                         if (i != j && streq(boot_entry_title(entries + i),
                                             boot_entry_title(entries + j)))
                                 non_unique = arr[i] = arr[j] = true;
@@ -583,22 +582,26 @@ static bool find_nonunique(const BootEntry *entries, size_t n_entries, bool arr[
 }
 
 static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
+        _cleanup_free_ bool *arr = NULL;
         char *s;
-        size_t i;
-        int r;
-        bool arr[n_entries];
 
         assert(entries || n_entries == 0);
+
+        if (n_entries == 0)
+                return 0;
+
+        arr = new(bool, n_entries);
+        if (!arr)
+                return -ENOMEM;
 
         /* Find _all_ non-unique titles */
         if (!find_nonunique(entries, n_entries, arr))
                 return 0;
 
         /* Add version to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i] && entries[i].version) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].version);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].version) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
@@ -608,10 +611,9 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
                 return 0;
 
         /* Add machine-id to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i] && entries[i].machine_id) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].machine_id);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].machine_id) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
@@ -621,10 +623,9 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
                 return 0;
 
         /* Add file name to non-unique titles */
-        for (i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++)
                 if (arr[i]) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].id);
-                        if (r < 0)
+                        if (asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].id) < 0)
                                 return -ENOMEM;
 
                         free_and_replace(entries[i].show_title, s);
