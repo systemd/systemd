@@ -66,25 +66,27 @@ static int boot_entry_load(
 
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
-        char *b, *c;
+        char *c;
         int r;
 
         assert(root);
         assert(path);
         assert(entry);
 
-        c = endswith_no_case(path, ".conf");
-        if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
+        r = path_extract_filename(path, &tmp.id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from path '%s': %m", path);
 
-        b = basename(path);
-        tmp.id = strdup(b);
-        tmp.id_old = strndup(b, c - b);
-        if (!tmp.id || !tmp.id_old)
-                return log_oom();
+        c = endswith_no_case(tmp.id, ".conf");
+        if (!c)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", tmp.id);
 
         if (!efi_loader_entry_name_valid(tmp.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+
+        tmp.id_old = strndup(tmp.id, c - tmp.id);
+        if (!tmp.id_old)
+                return log_oom();
 
         tmp.path = strdup(path);
         if (!tmp.path)
