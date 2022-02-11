@@ -14,6 +14,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "stat-util.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -98,17 +99,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int acquire_path(void) {
         _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
         char **a;
         int r;
 
         if (!strv_isempty(arg_path))
                 return 0;
 
-        r = find_esp_and_warn(NULL, false, &esp_path, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(NULL, /* unprivileged_mode= */ false, &esp_path, NULL, NULL, NULL, NULL, &esp_devid);
         if (r < 0 && r != -ENOKEY) /* ENOKEY means not found, and is the only error the function won't log about on its own */
                 return r;
 
-        r = find_xbootldr_and_warn(NULL, false, &xbootldr_path, NULL);
+        r = find_xbootldr_and_warn(NULL, /* unprivileged_mode= */ false, &xbootldr_path, NULL, &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r;
 
@@ -117,8 +119,10 @@ static int acquire_path(void) {
                                        "Couldn't find $BOOT partition. It is recommended to mount it to /boot.\n"
                                        "Alternatively, use --path= to specify path to mount point.");
 
-        if (esp_path)
+        if (esp_path && xbootldr_path && !devid_set_and_equal(esp_devid, xbootldr_devid)) /* in case the two paths refer to the same inode, suppress one */
                 a = strv_new(esp_path, xbootldr_path);
+        else if (esp_path)
+                a = strv_new(esp_path);
         else
                 a = strv_new(xbootldr_path);
         if (!a)
@@ -130,7 +134,7 @@ static int acquire_path(void) {
                 _cleanup_free_ char *j = NULL;
 
                 j = strv_join(arg_path, ":");
-                log_debug("Using %s as boot loader drop-in search path.", j);
+                log_debug("Using %s as boot loader drop-in search path.", strna(j));
         }
 
         return 0;

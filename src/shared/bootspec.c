@@ -782,6 +782,7 @@ int boot_entries_load_config_auto(
                 BootConfig *config) {
 
         _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
         assert(config);
@@ -802,13 +803,17 @@ int boot_entries_load_config_auto(
                                                "Failed to determine whether /run/boot-loader-entries/ exists: %m");
         }
 
-        r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(override_esp_path, /* unprivileged_mode= */ false, &esp_where, NULL, NULL, NULL, NULL, &esp_devid);
         if (r < 0) /* we don't log about ENOKEY here, but propagate it, leaving it to the caller to log */
                 return r;
 
-        r = find_xbootldr_and_warn(override_xbootldr_path, false, &xbootldr_where, NULL);
+        r = find_xbootldr_and_warn(override_xbootldr_path, /* unprivileged_mode= */ false, &xbootldr_where, NULL, &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
+
+        /* If both paths actually refer to the same inode, suppress the xbootldr path */
+        if (esp_where && xbootldr_where && devid_set_and_equal(esp_devid, xbootldr_devid))
+                xbootldr_where = mfree(xbootldr_where);
 
         return boot_entries_load_config(esp_where, xbootldr_where, config);
 }
@@ -1164,7 +1169,8 @@ static int verify_esp(
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         bool relax_checks;
         dev_t devid;
@@ -1214,9 +1220,16 @@ static int verify_esp(
          * however blkid can't work if we have no privileges to access block devices directly, which is why
          * we use udev in that case. */
         if (unprivileged_mode)
-                return verify_esp_udev(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp_udev(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
         else
-                return verify_esp_blkid(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp_blkid(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+        if (r < 0)
+                return r;
+
+        if (ret_devid)
+                *ret_devid = devid;
+
+        return 0;
 
 finish:
         if (ret_part)
@@ -1227,6 +1240,8 @@ finish:
                 *ret_psize = 0;
         if (ret_uuid)
                 *ret_uuid = SD_ID128_NULL;
+        if (ret_devid)
+                *ret_devid = 0;
 
         return 0;
 }
@@ -1238,7 +1253,8 @@ int find_esp_and_warn(
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         int r;
 
@@ -1249,7 +1265,7 @@ int find_esp_and_warn(
          */
 
         if (path) {
-                r = verify_esp(path, false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp(path, /* searching= */ false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
                 if (r < 0)
                         return r;
 
@@ -1258,13 +1274,21 @@ int find_esp_and_warn(
 
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
+                struct stat st;
+
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s",
                                                path);
 
-                /* Note: when the user explicitly configured things with an env var we won't validate the mount
-                 * point. After all we want this to be useful for testing. */
+                /* Note: when the user explicitly configured things with an env var we won't validate the
+                 * path beyond checking it refers to a directory. After all we want this to be useful for
+                 * testing. */
+
+                if (stat(path, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", path);
+                if (!S_ISDIR(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "ESP path '%s' is not a directory.", path);
 
                 if (ret_part)
                         *ret_part = 0;
@@ -1274,13 +1298,15 @@ int find_esp_and_warn(
                         *ret_psize = 0;
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
+                if (ret_devid)
+                        *ret_devid = st.st_dev;
 
                 goto found;
         }
 
         FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
 
-                r = verify_esp(path, true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp(path, /* searching= */ true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
                 if (r >= 0)
                         goto found;
                 if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
@@ -1447,7 +1473,8 @@ static int verify_xbootldr(
                 const char *p,
                 bool searching,
                 bool unprivileged_mode,
-                sd_id128_t *ret_uuid) {
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         bool relax_checks;
         dev_t devid;
@@ -1465,13 +1492,22 @@ static int verify_xbootldr(
                 goto finish;
 
         if (unprivileged_mode)
-                return verify_xbootldr_udev(devid, searching, ret_uuid);
+                r = verify_xbootldr_udev(devid, searching, ret_uuid);
         else
-                return verify_xbootldr_blkid(devid, searching, ret_uuid);
+                r = verify_xbootldr_blkid(devid, searching, ret_uuid);
+        if (r < 0)
+                return r;
+
+        if (ret_devid)
+                *ret_devid = devid;
+
+        return 0;
 
 finish:
         if (ret_uuid)
                 *ret_uuid = SD_ID128_NULL;
+        if (ret_devid)
+                *ret_devid = 0;
 
         return 0;
 }
@@ -1480,14 +1516,15 @@ int find_xbootldr_and_warn(
                 const char *path,
                 bool unprivileged_mode,
                 char **ret_path,
-                sd_id128_t *ret_uuid) {
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         int r;
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
         if (path) {
-                r = verify_xbootldr(path, false, unprivileged_mode, ret_uuid);
+                r = verify_xbootldr(path, /* searching= */ false, unprivileged_mode, ret_uuid, ret_devid);
                 if (r < 0)
                         return r;
 
@@ -1496,18 +1533,27 @@ int find_xbootldr_and_warn(
 
         path = getenv("SYSTEMD_XBOOTLDR_PATH");
         if (path) {
+                struct stat st;
+
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "$SYSTEMD_XBOOTLDR_PATH does not refer to absolute path, refusing to use it: %s",
                                                path);
 
+                if (stat(path, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", path);
+                if (!S_ISDIR(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "XBOOTLDR path '%s' is not a directory.", path);
+
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
+                if (ret_devid)
+                        *ret_devid = st.st_dev;
 
                 goto found;
         }
 
-        r = verify_xbootldr("/boot", true, unprivileged_mode, ret_uuid);
+        r = verify_xbootldr("/boot", true, unprivileged_mode, ret_uuid, ret_devid);
         if (r >= 0) {
                 path = "/boot";
                 goto found;
