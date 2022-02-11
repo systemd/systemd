@@ -75,7 +75,8 @@ static int acquire_esp(
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         char *np;
         int r;
@@ -86,7 +87,7 @@ static int acquire_esp(
          * we simply eat up the error here, so that --list and --status work too, without noise about
          * this). */
 
-        r = find_esp_and_warn(arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid);
+        r = find_esp_and_warn(arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 if (graceful)
                         return log_info_errno(r, "Couldn't find EFI system partition, skipping.");
@@ -104,16 +105,23 @@ static int acquire_esp(
         return 1;
 }
 
-static int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid) {
+static int acquire_xbootldr(
+                bool unprivileged_mode,
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
+
         char *np;
         int r;
 
-        r = find_xbootldr_and_warn(arg_xbootldr_path, unprivileged_mode, &np, ret_uuid);
+        r = find_xbootldr_and_warn(arg_xbootldr_path, unprivileged_mode, &np, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
+                arg_xbootldr_path = mfree(arg_xbootldr_path);
+
                 if (ret_uuid)
                         *ret_uuid = SD_ID128_NULL;
-                arg_xbootldr_path = mfree(arg_xbootldr_path);
+                if (ret_devid)
+                        *ret_devid = 0;
                 return 0;
         }
         if (r < 0)
@@ -1436,7 +1444,7 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
 static int are_we_installed(void) {
         int r;
 
-        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL);
+        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1468,9 +1476,10 @@ static int are_we_installed(void) {
 
 static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
 
-        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid);
+        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
         if (arg_print_esp_path) {
                 if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
                                    * error the find_esp_and_warn() won't log on its own) */
@@ -1481,7 +1490,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 puts(arg_esp_path);
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, &xbootldr_uuid);
+        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, &xbootldr_uuid, &xbootldr_devid);
         if (arg_print_dollar_boot_path) {
                 if (r == -EACCES)
                         return log_error_errno(r, "Failed to determine XBOOTLDR location: %m");
@@ -1615,7 +1624,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_esp_path || arg_xbootldr_path) {
-                k = status_entries(arg_esp_path, esp_uuid, arg_xbootldr_path, xbootldr_uuid);
+                /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
+                bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
+
+                k = status_entries(
+                                arg_esp_path,
+                                esp_uuid,
+                                same ? NULL : arg_xbootldr_path,
+                                same ? SD_ID128_NULL : xbootldr_uuid);
                 if (k < 0)
                         r = k;
         }
@@ -1626,25 +1642,29 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = {};
         _cleanup_strv_free_ char **efi_entries = NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
         /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
          * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
          * the latter but not the former, hence request the mode, and log about EACCES. */
 
-        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, NULL);
+        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
                 return log_error_errno(r, "Failed to determine ESP: %m");
         if (r < 0)
                 return r;
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, NULL);
+        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, NULL, &xbootldr_devid);
         if (r == -EACCES)
                 return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
         if (r < 0)
                 return r;
 
-        r = boot_entries_load_config(arg_esp_path, arg_xbootldr_path, &config);
+        /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
+        bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
+
+        r = boot_entries_load_config(arg_esp_path, same ? NULL : arg_xbootldr_path, &config);
         if (r < 0)
                 return r;
 
@@ -1840,7 +1860,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
-        r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid);
+        r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
         if (graceful && r == -ENOKEY)
                 return 0; /* If --graceful is specified and we can't find an ESP, handle this cleanly */
         if (r < 0)
@@ -1857,7 +1877,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL);
+        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1917,11 +1937,11 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
 
-        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid);
+        r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid, NULL);
         if (r < 0)
                 return r;
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL);
+        r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -2130,7 +2150,7 @@ static int verb_set_efivar(int argc, char *argv[], void *userdata) {
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = find_esp_and_warn(arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
                 if (!arg_graceful)
