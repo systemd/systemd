@@ -1137,6 +1137,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
+        aux->bus_request = sd_bus_message_ref(q->bus_request);
         aux->request_family = q->request_family;
         aux->complete = resolve_service_hostname_complete;
 
