@@ -1588,6 +1588,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
+        SD_BUS_PROPERTY("ControlGroupId", "t", NULL, offsetof(Unit, cgroup_id), 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
