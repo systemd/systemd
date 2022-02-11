@@ -450,11 +450,13 @@ static const uint8_t msg_information_request[] = {
         0x0f, 0xb4, 0xe5,
         /* MUD URL */
         /* ORO */
-        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
+        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x0c,
         0x00, SD_DHCP6_OPTION_DNS_SERVER,
         0x00, SD_DHCP6_OPTION_DOMAIN,
         0x00, SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00, SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME,
         0x00, SD_DHCP6_OPTION_NTP_SERVER,
+        0x00, SD_DHCP6_OPTION_INF_MAX_RT,
         /* Client ID */
         0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
         CLIENT_ID_BYTES,
@@ -490,11 +492,12 @@ static const uint8_t msg_solicit[] = {
         /* Vendor Options */
         /* MUD URL */
         /* ORO */
-        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
+        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x0a,
         0x00, SD_DHCP6_OPTION_DNS_SERVER,
         0x00, SD_DHCP6_OPTION_DOMAIN,
         0x00, SD_DHCP6_OPTION_SNTP_SERVER,
         0x00, SD_DHCP6_OPTION_NTP_SERVER,
+        0x00, SD_DHCP6_OPTION_SOL_MAX_RT,
         /* Client ID */
         0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
         CLIENT_ID_BYTES,
