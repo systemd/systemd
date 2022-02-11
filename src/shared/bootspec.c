@@ -1265,6 +1265,16 @@ int find_esp_and_warn(
 
                 /* Note: when the user explicitly configured things with an env var we won't validate the mount
                  * point. After all we want this to be useful for testing. */
+
+                if (ret_part)
+                        *ret_part = 0;
+                if (ret_pstart)
+                        *ret_pstart = 0;
+                if (ret_psize)
+                        *ret_psize = 0;
+                if (ret_uuid)
+                        *ret_uuid = SD_ID128_NULL;
+
                 goto found;
         }
 
@@ -1490,6 +1500,9 @@ int find_xbootldr_and_warn(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "$SYSTEMD_XBOOTLDR_PATH does not refer to absolute path, refusing to use it: %s",
                                                path);
+
+                if (ret_uuid)
+                        *ret_uuid = SD_ID128_NULL;
 
                 goto found;
         }
