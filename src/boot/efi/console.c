@@ -147,7 +147,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 }
 
                 return EFI_NOT_READY;
-        } else if (BS->CheckEvent(ST->ConIn->WaitForKey)) {
+        } else if (!EFI_ERROR(BS->CheckEvent(ST->ConIn->WaitForKey))) {
                 EFI_INPUT_KEY k;
 
                 err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
