@@ -635,6 +635,51 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         }
 }
 
+static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *optlen) {
+        _cleanup_free_ be16_t *buf = NULL;
+        be16_t *req_opts;
+        size_t n;
+
+        assert(client);
+        assert(opt);
+        assert(optlen);
+
+        switch (client->state) {
+        case DHCP6_STATE_INFORMATION_REQUEST:
+                n = client->n_req_opts;
+                buf = new(be16_t, n + 2);
+                if (!buf)
+                        return -ENOMEM;
+
+                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
+                buf[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
+                buf[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
+
+                typesafe_qsort(buf, n, be16_compare_func);
+                req_opts = buf;
+                break;
+
+        case DHCP6_STATE_SOLICITATION:
+                n = client->n_req_opts;
+                buf = new(be16_t, n + 1);
+                if (!buf)
+                        return -ENOMEM;
+
+                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
+                buf[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
+
+                typesafe_qsort(buf, n, be16_compare_func);
+                req_opts = buf;
+                break;
+
+        default:
+                n = client->n_req_opts;
+                req_opts = client->req_opts;
+        }
+
+        return dhcp6_option_append(opt, optlen, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
+}
+
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
@@ -712,9 +757,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
                         return r;
         }
 
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
-                                client->n_req_opts * sizeof(be16_t),
-                                client->req_opts);
+        r = client_append_oro(client, &opt, &optlen);
         if (r < 0)
                 return r;
 
