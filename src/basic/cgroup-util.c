@@ -462,14 +462,11 @@ int cg_kill_recursive(
 }
 
 static const char *controller_to_dirname(const char *controller) {
-        const char *e;
-
         assert(controller);
 
-        /* Converts a controller name to the directory name below
-         * /sys/fs/cgroup/ we want to mount it to. Effectively, this
-         * just cuts off the name= prefixed used for named
-         * hierarchies, if it is specified. */
+        /* Converts a controller name to the directory name below /sys/fs/cgroup/ we want to mount it
+         * to. Effectively, this just cuts off the name= prefixed used for named hierarchies, if it is
+         * specified. */
 
         if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 if (cg_hybrid_unified() > 0)
@@ -478,18 +475,14 @@ static const char *controller_to_dirname(const char *controller) {
                         controller = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
         }
 
-        e = startswith(controller, "name=");
-        if (e)
-                return e;
-
-        return controller;
+        return startswith(controller, "name=") ?: controller;
 }
 
-static int join_path_legacy(const char *controller, const char *path, const char *suffix, char **fs) {
+static int join_path_legacy(const char *controller, const char *path, const char *suffix, char **ret) {
         const char *dn;
         char *t = NULL;
 
-        assert(fs);
+        assert(ret);
         assert(controller);
 
         dn = controller_to_dirname(controller);
@@ -505,14 +498,14 @@ static int join_path_legacy(const char *controller, const char *path, const char
         if (!t)
                 return -ENOMEM;
 
-        *fs = t;
+        *ret = t;
         return 0;
 }
 
-static int join_path_unified(const char *path, const char *suffix, char **fs) {
+static int join_path_unified(const char *path, const char *suffix, char **ret) {
         char *t;
 
-        assert(fs);
+        assert(ret);
 
         if (isempty(path) && isempty(suffix))
                 t = strdup("/sys/fs/cgroup");
@@ -525,34 +518,34 @@ static int join_path_unified(const char *path, const char *suffix, char **fs) {
         if (!t)
                 return -ENOMEM;
 
-        *fs = t;
+        *ret = t;
         return 0;
 }
 
-int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
+int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret) {
         int r;
 
-        assert(fs);
+        assert(ret);
 
         if (!controller) {
                 char *t;
 
-                /* If no controller is specified, we return the path
-                 * *below* the controllers, without any prefix. */
+                /* If no controller is specified, we return the path *below* the controllers, without any
+                 * prefix. */
 
                 if (!path && !suffix)
                         return -EINVAL;
 
-                if (!suffix)
+                if (isempty(suffix))
                         t = strdup(path);
-                else if (!path)
+                else if (isempty(path))
                         t = strdup(suffix);
                 else
                         t = path_join(path, suffix);
                 if (!t)
                         return -ENOMEM;
 
-                *fs = path_simplify(t);
+                *ret = path_simplify(t);
                 return 0;
         }
 
@@ -563,13 +556,13 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (r < 0)
                 return r;
         if (r > 0)
-                r = join_path_unified(path, suffix, fs);
+                r = join_path_unified(path, suffix, ret);
         else
-                r = join_path_legacy(controller, path, suffix, fs);
+                r = join_path_legacy(controller, path, suffix, ret);
         if (r < 0)
                 return r;
 
-        path_simplify(*fs);
+        path_simplify(*ret);
         return 0;
 }
 

@@ -2134,7 +2134,6 @@ static int unit_update_cgroup(
         bool created, is_root_slice;
         CGroupMask migrate_mask = 0;
         _cleanup_free_ char *cgroup_full_path = NULL;
-        uint64_t cgroup_id = 0;
         int r;
 
         assert(u);
@@ -2154,11 +2153,14 @@ static int unit_update_cgroup(
         created = r;
 
         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                uint64_t cgroup_id = 0;
+
                 r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_full_path);
                 if (r == 0) {
                         r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
                         if (r < 0)
-                                log_unit_warning_errno(u, r, "Failed to get cgroup ID on cgroup %s, ignoring: %m", cgroup_full_path);
+                                log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                                    "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
                 } else
                         log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(u->cgroup_path));
 
@@ -2168,7 +2170,6 @@ static int unit_update_cgroup(
         /* Start watching it */
         (void) unit_watch_cgroup(u);
         (void) unit_watch_cgroup_memory(u);
-
 
         /* For v2 we preserve enabled controllers in delegated units, adjust others,
          * for v1 we figure out which controller hierarchies need migration. */
