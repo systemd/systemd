@@ -563,7 +563,7 @@ static int boot_entries_find_unified(
         return 0;
 }
 
-static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
+static bool find_nonunique(const BootEntry *entries, size_t n_entries, bool arr[]) {
         size_t i, j;
         bool non_unique = false;
 
@@ -835,11 +835,15 @@ int boot_entries_augment_from_loader(
          * already included there. */
 
         STRV_FOREACH(i, found_by_loader) {
+                BootEntry *existing;
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
                 char **a, **b;
 
-                if (boot_config_has_entry(config, *i))
+                existing = boot_config_find_entry(config, *i);
+                if (existing) {
+                        existing->reported_by_loader = true;
                         continue;
+                }
 
                 if (only_auto && !startswith(*i, "auto-"))
                         continue;
@@ -864,10 +868,11 @@ int boot_entries_augment_from_loader(
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
-                        .type = BOOT_ENTRY_LOADER,
+                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_LOADER_AUTO : BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
+                        .reported_by_loader = true,
                 };
         }
 
