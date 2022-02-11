@@ -11,15 +11,17 @@
 #include "string-util.h"
 
 typedef enum BootEntryType {
-        BOOT_ENTRY_CONF,     /* Type #1 entries: *.conf files */
-        BOOT_ENTRY_UNIFIED,  /* Type #2 entries: *.efi files */
-        BOOT_ENTRY_LOADER,   /* Additional entries augmented from LoaderEntries EFI var */
-        _BOOT_ENTRY_MAX,
-        _BOOT_ENTRY_INVALID = -EINVAL,
+        BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
+        BOOT_ENTRY_UNIFIED,     /* Boot Loader Specification Type #2 entries: *.efi files */
+        BOOT_ENTRY_LOADER,      /* Additional entries augmented from LoaderEntries EFI variable (regular entries) */
+        BOOT_ENTRY_LOADER_AUTO, /* Additional entries augmented from LoaderEntries EFI variable (special "automatic" entries) */
+        _BOOT_ENTRY_TYPE_MAX,
+        _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
 
 typedef struct BootEntry {
         BootEntryType type;
+        bool reported_by_loader;
         char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
         char *path;     /* This is the full path to the drop-in file */
@@ -57,20 +59,21 @@ typedef struct BootConfig {
         ssize_t selected_entry;
 } BootConfig;
 
-static inline bool boot_config_has_entry(BootConfig *config, const char *id) {
-        size_t j;
+static inline BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
+        assert(config);
+        assert(id);
 
-        for (j = 0; j < config->n_entries; j++) {
-                const char* entry_id_old = config->entries[j].id_old;
-                if (streq(config->entries[j].id, id) ||
-                    (entry_id_old && streq(entry_id_old, id)))
-                        return true;
-        }
+        for (size_t j = 0; j < config->n_entries; j++)
+                if (streq_ptr(config->entries[j].id, id) ||
+                    streq_ptr(config->entries[j].id_old, id))
+                        return config->entries + j;
 
-        return false;
+        return NULL;
 }
 
 static inline BootEntry* boot_config_default_entry(BootConfig *config) {
+        assert(config);
+
         if (config->default_entry < 0)
                 return NULL;
 
@@ -83,6 +86,8 @@ int boot_entries_load_config_auto(const char *override_esp_path, const char *ove
 int boot_entries_augment_from_loader(BootConfig *config, char **list, bool only_auto);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
+        assert(entry);
+
         return entry->show_title ?: entry->title ?: entry->id;
 }
 
