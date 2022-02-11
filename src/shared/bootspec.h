@@ -34,6 +34,7 @@ typedef struct BootEntry {
         char *efi;
         char **initrd;
         char *device_tree;
+        char **device_tree_overlay;
 } BootEntry;
 
 typedef struct BootConfig {

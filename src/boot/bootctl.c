@@ -450,6 +450,7 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                                      e->root,
                                      *s,
                                      &status);
+
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t = NULL, *t2 = NULL;
                 _cleanup_strv_free_ char **ts = NULL;
@@ -468,8 +469,15 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
                 printf("      options: %s\n", t2);
         }
+
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
+
+        STRV_FOREACH(s, e->device_tree_overlay)
+                boot_entry_file_list(s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
 
         return -status;
 }

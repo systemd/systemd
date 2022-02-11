@@ -53,6 +53,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->efi);
         strv_free(entry->initrd);
         free(entry->device_tree);
+        strv_free(entry->device_tree_overlay);
 }
 
 static int boot_entry_load(
@@ -146,7 +147,15 @@ static int boot_entry_load(
                         r = strv_extend(&tmp.initrd, p);
                 else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
-                else {
+                else if (streq(field, "devicetree-overlay")) {
+                        _cleanup_strv_free_ char **l = NULL;
+
+                        l = strv_split(p, NULL);
+                        if (!l)
+                                return log_oom();
+
+                        r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
+                } else {
                         log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
                 }
