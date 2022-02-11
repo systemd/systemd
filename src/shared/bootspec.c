@@ -184,6 +184,7 @@ void boot_config_free(BootConfig *config) {
 
         free(config->entry_oneshot);
         free(config->entry_default);
+        free(config->entry_selected);
 
         for (i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
@@ -671,6 +672,55 @@ static int boot_entries_select_default(const BootConfig *config) {
         return config->n_entries - 1;
 }
 
+static int boot_entries_select_selected(const BootConfig *config) {
+
+        assert(config);
+        assert(config->entries || config->n_entries == 0);
+
+        if (!config->entry_selected || config->n_entries == 0)
+                return -1;
+
+        for (int i = config->n_entries - 1; i >= 0; i--)
+                if (streq(config->entry_selected, config->entries[i].id))
+                        return i;
+
+        return -1;
+}
+
+static int boot_load_efi_entry_pointers(BootConfig *config) {
+        int r;
+
+        assert(config);
+
+        if (!is_efi_boot())
+                return 0;
+
+        /* Loads the three "pointers" to boot loader entries from their EFI variables */
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\": %m");
+                if (r == -ENOMEM)
+                        return r;
+        }
+
+        return 1;
+}
+
 int boot_entries_load_config(
                 const char *esp_path,
                 const char *xbootldr_path,
@@ -716,23 +766,13 @@ int boot_entries_load_config(
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
-        if (is_efi_boot()) {
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-
-                r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
-                        if (r == -ENOMEM)
-                                return r;
-                }
-        }
+        r = boot_load_efi_entry_pointers(config);
+        if (r < 0)
+                return r;
 
         config->default_entry = boot_entries_select_default(config);
+        config->selected_entry = boot_entries_select_selected(config);
+
         return 0;
 }
 

@@ -411,7 +411,11 @@ static void boot_entry_file_list(const char *field, const char *root, const char
                 *ret_status = status;
 }
 
-static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+static int boot_entry_show(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected) {
+
         int status = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
@@ -419,9 +423,10 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
         assert(e);
 
-        printf("        title: %s%s%s" "%s%s%s\n",
+        printf("        title: %s%s%s" "%s%s%s" "%s%s%s\n",
                ansi_highlight(), boot_entry_title(e), ansi_normal(),
-               ansi_highlight_green(), show_as_default ? " (default)" : "", ansi_normal());
+               ansi_highlight_green(), show_as_default ? " (default)" : "", ansi_normal(),
+               ansi_highlight_magenta(), show_as_selected ? " (selected)" : "", ansi_normal());
 
         if (e->id)
                 printf("           id: %s\n", e->id);
@@ -519,7 +524,7 @@ static int status_entries(
         else {
                 printf("Default Boot Loader Entry:\n");
 
-                r = boot_entry_show(config.entries + config.default_entry, false);
+                r = boot_entry_show(config.entries + config.default_entry, /* show_as_default= */ false, /* show_as_selected= */ false);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
@@ -1624,7 +1629,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 printf("Boot Loader Entries:\n");
 
                 for (size_t n = 0; n < config.n_entries; n++) {
-                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
+                        r = boot_entry_show(
+                                        config.entries + n,
+                                        n == (size_t) config.default_entry,
+                                        n == (size_t) config.selected_entry);
                         if (r < 0)
                                 return r;
 
