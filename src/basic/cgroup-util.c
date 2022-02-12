@@ -533,7 +533,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
                 /* If no controller is specified, we return the path *below* the controllers, without any
                  * prefix. */
 
-                if (!path && !suffix)
+                if (isempty(path) && isempty(suffix))
                         return -EINVAL;
 
                 if (isempty(suffix))
