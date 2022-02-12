@@ -889,7 +889,7 @@ static int verify_esp_blkid(
         r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
         if (r != 0)
                 return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
+        if (!streq(v, GUID_EFI_SYSTEM_PARTITION))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -982,7 +982,7 @@ static int verify_esp_udev(
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device property: %m");
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
+        if (!streq(v, GUID_EFI_SYSTEM_PARTITION))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -1280,7 +1280,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1299,7 +1299,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "0xea"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION_DOS))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1344,7 +1344,7 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1361,7 +1361,7 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "0xea"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION_DOS))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
