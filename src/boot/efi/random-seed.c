@@ -114,9 +114,10 @@ static EFI_STATUS mangle_random_seed(
                 const void *system_token,
                 UINTN system_token_size,
                 void **ret_new_seed,
-                void **ret_for_kernel) {
+                void **ret_for_kernel,
+                void **ret_for_check_efi_part) {
 
-        _cleanup_freepool_ void *new_seed = NULL, *for_kernel = NULL;
+        _cleanup_freepool_ void *new_seed = NULL, *for_kernel = NULL, *for_check_efi_part = NULL;
         EFI_STATUS err;
         UINTN n;
 
@@ -143,8 +144,14 @@ static EFI_STATUS mangle_random_seed(
         if (EFI_ERROR(err))
                 return err;
 
+        /* Hash the new seed and return to the system for checking the partition.
+         * '42' is a "magic" number. */
+        for_check_efi_part = xallocate_pool(HASH_VALUE_SIZE);
+        hash_once(new_seed, 0, size, NULL, 0, 42, for_check_efi_part);
+
         *ret_new_seed = TAKE_PTR(new_seed);
         *ret_for_kernel = TAKE_PTR(for_kernel);
+        *ret_for_check_efi_part = TAKE_PTR(for_check_efi_part);
 
         return EFI_SUCCESS;
 }
@@ -225,6 +232,7 @@ static void validate_sha256(void) {
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         _cleanup_freepool_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
+        _cleanup_freepool_ void *for_check_efi_part = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
@@ -286,7 +294,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         (void) acquire_rng(size, &rng); /* It's fine if this fails */
 
         /* Calculate new random seed for the disk and what to pass to the kernel */
-        err = mangle_random_seed(seed, rng, size, system_token, system_token_size, &new_seed, &for_kernel);
+        err = mangle_random_seed(seed, rng, size, system_token, system_token_size, &new_seed, &for_kernel, &for_check_efi_part);
         if (EFI_ERROR(err))
                 return err;
 
@@ -306,6 +314,12 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
+
+        /* Save a derived new seed values to check the partition id */
+        err = efivar_set_raw(LOADER_GUID, L"LoaderPartitionRandomSeed", for_check_efi_part, HASH_VALUE_SIZE, 0);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
+
 
         return EFI_SUCCESS;
 }
