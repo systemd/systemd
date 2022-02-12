@@ -76,7 +76,7 @@ static inline BootEntry* boot_config_default_entry(BootConfig *config) {
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
-int boot_entries_augment_from_loader(BootConfig *config, char **list);
+int boot_entries_augment_from_loader(BootConfig *config, char **list, bool only_auto);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;
@@ -84,3 +84,11 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid);
 int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid);
+
+int check_efi_duplicates(bool unprivileged_mode);
+int check_xbootldr_duplicates(bool unprivileged_mode);
+
+#define GUID_EFI_SYSTEM_PARTITION "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+#define GUID_EFI_SYSTEM_PARTITION_DOS "0xef"
+#define GUID_XBOOTLDR_PARTITION "bc13c2ff-59e6-4262-a352-b275fd6f7172"
+#define GUID_XBOOTLDR_PARTITION_DOS "0xea"
