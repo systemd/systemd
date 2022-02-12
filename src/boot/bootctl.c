@@ -68,6 +68,24 @@ static const char *arg_dollar_boot_path(void) {
         return arg_xbootldr_path ?: arg_esp_path;
 }
 
+static void check_efi_path_duplicates(void) {
+        if (check_efi_duplicates(geteuid() != 0) > 1) {
+                printf("%s", ansi_highlight_red());
+                printf("WARNING: found more than one EFI SYSTEM partition !\n");
+                printf("%s", ansi_normal());
+                printf("         It is recommended to pass the EFI SYSTEM path using '--esp-path=...'\n\n");
+        }
+}
+
+static void check_xbootldr_path_duplicates(void) {
+        if (check_xbootldr_duplicates(geteuid() != 0) > 1) {
+                printf("%s", ansi_highlight_red());
+                printf("WARNING: found more than one XBOOTLDR partition !\n");
+                printf("%s", ansi_normal());
+                printf("         It is recommended to pass the XBOOTLDR path using '--boot=...'\n\n");
+        }
+}
+
 static int acquire_esp(
                 bool unprivileged_mode,
                 bool graceful,
@@ -1455,6 +1473,9 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         if (is_efi_boot()) {
                 static const struct {
                         uint64_t flag;
@@ -1608,10 +1629,16 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else
                 (void) boot_entries_augment_from_loader(&config, efi_entries);
 
-        if (config.n_entries == 0)
+        if (config.n_entries == 0) {
+                check_efi_path_duplicates();
+                check_xbootldr_path_duplicates();
+
                 log_info("No boot loader entries found.");
-        else {
+        } else {
                 pager_open(arg_pager_flags);
+
+                check_efi_path_duplicates();
+                check_xbootldr_path_duplicates();
 
                 printf("Boot Loader Entries:\n");
 
@@ -1788,6 +1815,9 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid);
         if (graceful && r == -ENOKEY)
                 return 0; /* If --graceful is specified and we can't find an ESP, handle this cleanly */
@@ -1865,6 +1895,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
@@ -1928,6 +1961,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
+
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
 
         r = are_we_installed();
         if (r < 0)
@@ -2077,6 +2113,9 @@ static int verb_set_efivar(int argc, char *argv[], void *userdata) {
 
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
+
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
 
         r = find_esp_and_warn(arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) {
