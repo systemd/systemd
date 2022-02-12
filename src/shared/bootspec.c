@@ -33,6 +33,7 @@
 #include "unaligned.h"
 #include "util.h"
 #include "virt.h"
+#include "device-util.h"
 
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
@@ -889,7 +890,7 @@ static int verify_esp_blkid(
         r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
         if (r != 0)
                 return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
+        if (!streq(v, GUID_EFI_SYSTEM_PARTITION))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -982,7 +983,7 @@ static int verify_esp_udev(
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device property: %m");
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
+        if (!streq(v, GUID_EFI_SYSTEM_PARTITION))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -1237,6 +1238,118 @@ found:
         return 0;
 }
 
+static int check_part_type_duplicates_blkid(const char *part_uuid, const char *dos_part_uuid) {
+        _cleanup_(blkid_dev_iterate_endp) blkid_dev_iterate iter = NULL;
+        blkid_cache cache = NULL;
+        blkid_dev dev;
+        int count = 0;
+        int r;
+
+        r = blkid_get_cache(&cache, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize blkid cache");
+
+        blkid_probe_all(cache);
+        iter = blkid_dev_iterate_begin(cache);
+        while (blkid_dev_next(iter, &dev) == 0) {
+                _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+                const char *v;
+                const char *devname;
+
+                dev = blkid_verify(cache, dev);
+                if (!dev)
+                        continue;
+
+                devname = blkid_dev_devname(dev);
+
+                errno = 0;
+                b = blkid_new_probe_from_filename(devname);
+                if (!b)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", devname);
+
+                blkid_probe_enable_superblocks(b, 1);
+                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+                blkid_probe_enable_partitions(b, 1);
+                blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+                errno = 0;
+                r = blkid_do_safeprobe(b);
+
+                /*
+                 * Ignore the error because the goal is only to find (if any) partition with
+                 * the same GUID
+                 */
+                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                if (r != 0)
+                        continue;
+
+                if (streq(v, part_uuid))
+                        count++;
+
+                if (dos_part_uuid && streq(v, dos_part_uuid))
+                        count++;
+        }
+
+        return count;
+}
+
+static int check_part_type_duplicates_udev(const char *part_uuid, const char *dos_part_uuid) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+        int count = 0;
+        sd_device *d;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                const char *v;
+
+                r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
+                if (r < 0)
+                        continue;
+                if (streq(v, part_uuid))
+                        count++;
+                if (dos_part_uuid && streq(v, dos_part_uuid))
+                        count++;
+        }
+
+        return count;
+}
+
+int check_xbootldr_duplicates(bool unprivileged_mode) {
+        /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
+         * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
+         * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
+         * however blkid can't work if we have no privileges to access block devices directly, which is why
+         * we use udev in that case. */
+        if (unprivileged_mode)
+                return check_part_type_duplicates_udev(GUID_XBOOTLDR_PARTITION, GUID_XBOOTLDR_PARTITION_DOS);
+        else
+                return check_part_type_duplicates_blkid(GUID_XBOOTLDR_PARTITION, GUID_XBOOTLDR_PARTITION_DOS);
+}
+
+int check_efi_duplicates(bool unprivileged_mode) {
+        /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
+         * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
+         * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
+         * however blkid can't work if we have no privileges to access block devices directly, which is why
+         * we use udev in that case. */
+        if (unprivileged_mode)
+                return check_part_type_duplicates_udev(GUID_EFI_SYSTEM_PARTITION, GUID_EFI_SYSTEM_PARTITION_DOS);
+        else
+                return check_part_type_duplicates_blkid(GUID_EFI_SYSTEM_PARTITION, GUID_EFI_SYSTEM_PARTITION_DOS);
+}
+
 static int verify_xbootldr_blkid(
                 dev_t devid,
                 bool searching,
@@ -1280,7 +1393,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1299,7 +1412,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
-                if (!streq(v, "0xea"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION_DOS))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1344,7 +1457,7 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
@@ -1361,7 +1474,7 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get device property: %m");
-                if (!streq(v, "0xea"))
+                if (!streq(v, GUID_XBOOTLDR_PARTITION_DOS))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);

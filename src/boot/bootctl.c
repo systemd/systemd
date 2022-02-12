@@ -34,6 +34,7 @@
 #include "pretty-print.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -47,6 +48,8 @@
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
+
+#define HASH_VALUE_SIZE 32
 
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -66,6 +69,77 @@ STATIC_DESTRUCTOR_REGISTER(arg_install_layout, freep);
 static const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
         return arg_xbootldr_path ?: arg_esp_path;
+}
+
+static void check_efi_path_duplicates(void) {
+        if (check_efi_duplicates(geteuid() != 0) > 1) {
+                printf("%s", ansi_highlight_red());
+                printf("WARNING: found more than one EFI SYSTEM partition !\n");
+                printf("%s", ansi_normal());
+                printf("         It is recommended to pass the EFI SYSTEM path using '--esp-path=...'\n\n");
+        }
+}
+
+static void check_efi_random_seed(const char *esp) {
+        _cleanup_free_ char *efivar = NULL, *path = NULL, *random_file = NULL, *output = NULL;
+        size_t efivar_size, random_file_size;
+        int r;
+        size_t cnt;
+        struct sha256_ctx hash;
+
+        if (!esp)
+                return;
+
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderPartitionRandomSeed), NULL, (void *) &efivar, &efivar_size);
+        if (r < 0)
+                return;
+
+        if (efivar_size != HASH_VALUE_SIZE)
+                return;
+
+        path = path_join(esp, "/loader/random-seed");
+        if (!path)
+                log_oom();
+
+        /*
+         * The efi variable exists, but the file doesn't exists
+         * this is sufficient to declare the ESP inconsistent
+         */
+        if (access(path, F_OK))
+                goto fail;
+
+        r = read_full_file(path, &random_file, &random_file_size);
+        if (r < 0)
+                return;
+
+        output = malloc(HASH_VALUE_SIZE);
+        if (!output)
+                log_oom();
+
+        /* "magic" value */
+        cnt = 42;
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(random_file, random_file_size, &hash);
+        sha256_process_bytes(&cnt, sizeof(cnt), &hash);
+        sha256_finish_ctx(&hash, output);
+
+        if (!memcmp(efivar, output, HASH_VALUE_SIZE))
+                return;
+
+fail:
+        printf("%s", ansi_highlight_red());
+        printf("WARNING: the EFI partition might be incorrect because the random-seed mismatches\n");
+        printf("%s", ansi_normal());
+        printf("         It is recommended to pass the EFI path using '--esp-path=...'\n\n");
+}
+
+static void check_xbootldr_path_duplicates(void) {
+        if (check_xbootldr_duplicates(geteuid() != 0) > 1) {
+                printf("%s", ansi_highlight_red());
+                printf("WARNING: found more than one XBOOTLDR partition !\n");
+                printf("%s", ansi_normal());
+                printf("         It is recommended to pass the XBOOTLDR path using '--boot=...'\n\n");
+        }
 }
 
 static int acquire_esp(
@@ -434,6 +508,18 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                         (void) terminal_urlify_path(e->path, NULL, &link);
 
                 printf("       source: %s\n", link ?: e->path);
+
+                /*
+                 * if the entry is a NON "auto-*" one and if the information comes
+                 * from the bootloader only, likely the entry was seen by
+                 * the systemd-boot but then it was removed
+                 */
+                if (!startswith(e->id, "auto-")) {
+                        if (startswith(e->path, "/sys/firmware"))
+                                printf("       status: %sunavailable%s\n", ansi_highlight_red(), ansi_normal());
+                        else
+                                printf("       status: %savailable%s\n", ansi_highlight_green(), ansi_normal());
+                }
         }
         if (e->version)
                 printf("      version: %s\n", e->version);
@@ -1455,6 +1541,10 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+        check_efi_random_seed(arg_esp_path);
+
         if (is_efi_boot()) {
                 static const struct {
                         uint64_t flag;
@@ -1608,10 +1698,18 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else
                 (void) boot_entries_augment_from_loader(&config, efi_entries);
 
-        if (config.n_entries == 0)
+        if (config.n_entries == 0) {
+                check_efi_path_duplicates();
+                check_xbootldr_path_duplicates();
+                check_efi_random_seed(arg_esp_path);
+
                 log_info("No boot loader entries found.");
-        else {
+        } else {
                 pager_open(arg_pager_flags);
+
+                check_efi_path_duplicates();
+                check_xbootldr_path_duplicates();
+                check_efi_random_seed(arg_esp_path);
 
                 printf("Boot Loader Entries:\n");
 
@@ -1788,11 +1886,16 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid);
         if (graceful && r == -ENOKEY)
                 return 0; /* If --graceful is specified and we can't find an ESP, handle this cleanly */
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
@@ -1865,9 +1968,14 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         r = acquire_xbootldr(/* unprivileged_mode= */ false, NULL);
         if (r < 0)
@@ -1929,9 +2037,14 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = are_we_installed();
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         if (r > 0) {
                 puts("yes");
@@ -2078,6 +2191,9 @@ static int verb_set_efivar(int argc, char *argv[], void *userdata) {
 static int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
 
+        check_efi_path_duplicates();
+        check_xbootldr_path_duplicates();
+
         r = find_esp_and_warn(arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
@@ -2089,6 +2205,8 @@ static int verb_random_seed(int argc, char *argv[], void *userdata) {
         }
         if (r < 0)
                 return r;
+
+        check_efi_random_seed(arg_esp_path);
 
         r = install_random_seed(arg_esp_path);
         if (r < 0)
