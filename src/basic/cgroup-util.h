@@ -205,6 +205,8 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_rmdir(const char *controller, const char *path);
 
+int cg_is_threaded(const char *controller, const char *path);
+
 typedef enum  {
         CG_KEY_MODE_GRACEFUL = 1 << 0,
 } CGroupKeyMode;

@@ -1688,6 +1688,36 @@ int cg_slice_to_path(const char *unit, char **ret) {
         return 0;
 }
 
+static int cg_is_threaded_one(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL, *contents = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, "cgroup.type", &fs);
+        if (r < 0)
+                return r;
+
+        r = read_one_line_file(fs, &contents);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        return streq_ptr(contents, "domain threaded");
+}
+
+int cg_is_threaded(const char *controller, const char *path) {
+        char prefix[strlen(path) + 1];
+        int r;
+
+        PATH_FOREACH_PREFIX_MORE(prefix, path) {
+                r = cg_is_threaded_one(controller, prefix);
+                if (r != 0)
+                        return r;
+        }
+
+        return false;
+}
+
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value) {
         _cleanup_free_ char *p = NULL;
         int r;
