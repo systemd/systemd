@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "link-config.h"
+#include "link-wifi.h"
 #include "log-link.h"
 #include "memory-util.h"
 #include "net-condition.h"
@@ -62,6 +63,8 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         erase_and_free(config->wol_password);
 
         ordered_hashmap_free_with_destructor(config->sr_iov_by_section, sr_iov_free);
+
+        hashmap_free_with_destructor(config->wlan_interfaces_by_section, wlan_interface_free);
 
         return mfree(config);
 }
@@ -264,7 +267,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         dropin_dirname,
                         "Match\0"
                         "Link\0"
-                        "SR-IOV\0",
+                        "SR-IOV\0"
+                        "VirtualWLANInterface\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
                         CONFIG_PARSE_WARN, config, NULL);
         if (r < 0)
@@ -295,6 +299,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         r = sr_iov_drop_invalid_sections(config->sr_iov_num_vfs, config->sr_iov_by_section);
         if (r < 0)
                 return r;
+
+        link_config_drop_invalid_wlan_interfaces(config);
 
         log_debug("Parsed configuration file %s", filename);
 
@@ -948,6 +954,10 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
                 return r;
 
         r = link_apply_sr_iov_config(link, rtnl);
+        if (r < 0)
+                return r;
+
+        r = link_apply_wlan_interface_config(link);
         if (r < 0)
                 return r;
 

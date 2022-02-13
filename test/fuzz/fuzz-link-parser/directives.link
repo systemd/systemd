@@ -93,3 +93,8 @@ QueryReceiveSideScaling=
 Trust=
 LinkState=
 MACAddress=
+[VirtualWLANInterface]
+Name=
+Type=
+MACAddress=
+WDS=
