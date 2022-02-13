@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -929,10 +930,19 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
                 r = touch_file(path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0444);
                 if (r < 0)
                         return r;
+
+                r = fsync_path_at(AT_FDCWD, path);
+                if (r < 0)
+                        return r;
         } else {
                 r = unlink(path);
                 if (r < 0 && errno != ENOENT)
                         return -errno;
+
+                path = strjoina("/run/udev/tags/", tag);
+                r = fsync_path_at(AT_FDCWD, path);
+                if (r < 0 && r != -ENOENT)
+                        return r;
         }
 
         return 0;
@@ -1082,6 +1092,10 @@ int device_update_db(sd_device *device) {
                 r = -errno;
                 goto fail;
         }
+
+        r = fsync_path_at(AT_FDCWD, path);
+        if (r < 0)
+                goto fail;
 
         log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
                          path, device->devpath);
