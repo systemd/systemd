@@ -848,10 +848,6 @@ int link_drop_foreign_addresses(Link *link) {
         assert(link);
         assert(link->network);
 
-        /* Keep all addresses when KeepConfiguration=yes. */
-        if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
-                return 0;
-
         /* First, mark all addresses. */
         SET_FOREACH(address, link->addresses) {
                 /* We consider IPv6LL addresses to be managed by the kernel, or dropped in link_drop_ipv6ll_addresses() */
