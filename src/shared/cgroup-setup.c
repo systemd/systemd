@@ -346,6 +346,9 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         xsprintf(c, PID_FMT "\n", pid);
 
         r = write_string_file(fs, c, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r == -EOPNOTSUPP && cg_is_threaded(controller, path) > 0)
+                /* When the threaded mode is used, we cannot read/write the file. Let's return recognizable error. */
+                return -EUCLEAN;
         if (r < 0)
                 return r;
 
