@@ -41,6 +41,8 @@ libudevd_core_sources = '''
         udev-netlink.h
         net/link-config.c
         net/link-config.h
+        net/link-wifi.c
+        net/link-wifi.h
 '''.split()
 
 if conf.get('HAVE_KMOD') == 1

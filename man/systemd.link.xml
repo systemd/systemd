@@ -1063,6 +1063,50 @@
   </refsect1>
 
   <refsect1>
+    <title>[VirtualWLANInterface] Section Options</title>
+    <para>The [VirtualWLANInterface] section can be used to add a new virtual wireless LAN interface.
+    The [WLANInterface] section accepts the following keys. Specify multiple [WLANInterface] sections
+    to configure multiple virtual wireless LAN interfaces.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>Specifies the name of the new virtual wireless LAN interface. This option is mandatory.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem>
+          <para>Specifies the type of the interface. Takes one of the <literal>ad-hoc</literal>,
+          <literal>station</literal>, <literal>ap</literal>, <literal>ap-vlan</literal>,
+          <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
+          <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
+          <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>Specifies the MAC address of the virtual wireless LAN interface. Defaults to unset,
+          and the kernel assigns a new MAC address.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WDS=</varname></term>
+        <listitem>
+          <para>Specifies the Wireless Distribution System (WDS) mode (a.k.a. 4 address mode) is used
+          by the interface. Defaults to unset, and the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>

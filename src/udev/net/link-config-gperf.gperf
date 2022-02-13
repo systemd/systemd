@@ -7,6 +7,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"
+#include "link-wifi.h"
 #include "net-condition.h"
 #include "netif-sriov.h"
 #include "socket-util.h"
@@ -114,3 +115,7 @@ SR-IOV.QueryReceiveSideScaling,            config_parse_sr_iov_boolean,         
 SR-IOV.Trust,                              config_parse_sr_iov_boolean,           0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.LinkState,                          config_parse_sr_iov_link_state,        0,                             offsetof(LinkConfig, sr_iov_by_section)
 SR-IOV.MACAddress,                         config_parse_sr_iov_mac,               0,                             offsetof(LinkConfig, sr_iov_by_section)
+VirtualWLANInterface.Name,                 config_parse_wlan_interface_name,      0,                             0
+VirtualWLANInterface.Type,                 config_parse_wlan_interface_type,      0,                             0
+VirtualWLANInterface.MACAddress,           config_parse_wlan_interface_mac,       0,                             0
+VirtualWLANInterface.WDS,                  config_parse_wlan_interface_wds,       0,                             0
