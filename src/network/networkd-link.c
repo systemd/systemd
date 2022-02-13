@@ -1240,10 +1240,13 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         link_drop_requests(link);
 
-        if (network && !force)
+        if (network && !force && network->keep_configuration != KEEP_CONFIGURATION_YES)
                 /* When a new/updated .network file is assigned, first make all configs (addresses,
                  * routes, and so on) foreign, and then drop unnecessary configs later by
-                 * link_drop_foreign_config() in link_configure(). */
+                 * link_drop_foreign_config() in link_configure().
+                 * Note, when KeepConfiguration=yes, link_drop_foreign_config() does nothing. Hence,
+                 * here we need to drop the configs such as addresses, routes, and so on configured by
+                 * the previously assigned .network file. */
                 link_foreignize_config(link);
         else {
                 /* Remove all managed configs. Note, foreign configs are removed in later by
