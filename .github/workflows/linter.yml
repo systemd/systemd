@@ -29,9 +29,10 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: github/super-linter@b8641364ca9a79b3cf07f3c4c59a82709cd39094
+        uses: github/super-linter/slim@b8641364ca9a79b3cf07f3c4c59a82709cd39094
         env:
           DEFAULT_BRANCH: main
+          MULTI_STATUS: false
           # Excludes:
           #   - man/.* - all snippets in man pages (false positives due to
           #              missing shebangs)
