@@ -1688,6 +1688,25 @@ int cg_slice_to_path(const char *unit, char **ret) {
         return 0;
 }
 
+int cg_is_threaded(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL, *contents = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, "cgroup.type", &fs);
+        if (r < 0)
+                return r;
+
+        r = read_full_virtual_file(fs, &contents, NULL);
+        if (r == -ENOENT)
+                return false; /* Assume no. */
+        if (r < 0)
+                return r;
+
+        /* If the cgroup is in the threaded mode, it contains "threaded".
+         * If one of the parents is in the threaded more, it may contain "invalid". */
+        return !!STRSTR_IN_SET(contents, "threaded", "invalid");
+}
+
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value) {
         _cleanup_free_ char *p = NULL;
         int r;
