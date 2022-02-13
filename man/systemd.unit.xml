@@ -1894,9 +1894,9 @@
         <para><command>WantedBy=foo.service</command> in a service
         <filename>bar.service</filename> is mostly equivalent to
         <command>Alias=foo.service.wants/bar.service</command> in the
-        same file. In case of template units, <command>systemctl
-        enable</command> must be called with an instance name, and
-        this instance will be added to the
+        same file. In case of template units listing non template units,
+        <command>systemctl enable</command> must be called with an
+        instance name, and this instance will be added to the
         <filename>.wants/</filename> or
         <filename>.requires/</filename> list of the listed unit. E.g.
         <command>WantedBy=getty.target</command> in a service
