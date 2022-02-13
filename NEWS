@@ -384,7 +384,7 @@ CHANGES WITH 250:
           records.
 
         * The ForceDHCPv6PDOtherInformation= setting in the [DHCPv6] section is
-          now deprecated. Please use the WithoutRA= and UseDelegatedPrefix=
+          now removed. Please use the WithoutRA= and UseDelegatedPrefix=
           settings in the [DHCPv6] section and the DHCPv6Client= setting in the
           [IPv6AcceptRA] section to control when the DHCPv6 client is started
           and how the delegated prefixes are handled by the DHCPv6 client.
