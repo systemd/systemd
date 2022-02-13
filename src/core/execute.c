@@ -4250,7 +4250,9 @@ static int exec_child(
                 }
 
                 r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
-                if (r < 0) {
+                if (r == -EUCLEAN)
+                        log_unit_warning(unit, "Couldn't attach process to cgroup %s. The threaded mode is detected, ignoring.", p);
+                else if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
                 }

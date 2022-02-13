@@ -31,6 +31,25 @@ if grep -q cgroup2 /proc/filesystems ; then
 
     # And now check again, "io" should have vanished
     grep -qv io /sys/fs/cgroup/system.slice/cgroup.controllers
+
+    # test for #22486
+    cat >/run/systemd/system/issue-22486.service <<EOF
+[Service]
+Type=exec
+Delegate=true
+ExecStartPre=mkdir /sys/fs/cgroup/system.slice/issue-22486.service/subtree
+ExecStartPre=bash -c "echo threaded >/sys/fs/cgroup/system.slice/issue-22486.service/subtree/cgroup.type"
+ExecStart=sleep 86400
+ExecReload=/bin/echo reloading
+EOF
+    systemctl daemon-reload
+    systemctl start issue-22486.service
+    systemctl reload issue-22486.service
+    PID=$(systemctl show --property MainPID --value issue-22486.service)
+    stat /proc/$PID
+    systemctl stop issue-22486.service
+    stat /proc/$PID && { echo 'unexpected success'; exit 1; }
+    rm /run/systemd/system/issue-22486.service
 else
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
 fi
