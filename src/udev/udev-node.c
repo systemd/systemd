@@ -105,6 +105,13 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return r;
         }
 
+        r = fsync_path_at(AT_FDCWD, slink);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to sync '%s': %m");
+                (void) unlink(slink);
+                return r;
+        }
+
         return 0;
 }
 
