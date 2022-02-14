@@ -649,7 +649,7 @@ int request_process_stacked_netdev(Request *req) {
 
         assert(req);
         assert(req->link);
-        assert(req->type == REQUEST_TYPE_STACKED_NETDEV);
+        assert(req->type == REQUEST_TYPE_NETDEV_STACKED);
         assert(req->netdev);
         assert(req->netlink_handler);
 
@@ -731,13 +731,13 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
 
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev, false,
                                        &link->create_stacked_netdev_messages,
                                        link_create_stacked_netdev_handler,
                                        NULL);
         } else {
                 link->stacked_netdevs_after_configured_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev, false,
                                        &link->create_stacked_netdev_after_configured_messages,
                                        link_create_stacked_netdev_after_configured_handler,
                                        NULL);
