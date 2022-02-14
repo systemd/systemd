@@ -621,7 +621,7 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
         return 0;
 }
 
-static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
+static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
         assert(link);
 
@@ -653,8 +653,9 @@ int request_process_stacked_netdev(Request *req) {
         assert(req->netdev);
         assert(req->netlink_handler);
 
-        if (!netdev_is_ready_to_create(req->netdev, req->link))
-                return 0;
+        r = netdev_is_ready_to_create(req->netdev, req->link);
+        if (r <= 0)
+                return r;
 
         r = netdev_join(req->netdev, req->link, req->netlink_handler);
         if (r < 0)
