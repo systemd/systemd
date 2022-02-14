@@ -75,7 +75,7 @@ const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
 
 const char *gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
-                char buffer[static ID128_UUID_STRING_MAX]) {
+                char buffer[static SD_ID128_UUID_STRING_MAX]) {
 
         const char *s;
 
@@ -85,7 +85,7 @@ const char *gpt_partition_type_uuid_to_string_harder(
         if (s)
                 return s;
 
-        return id128_to_uuid_string(id, buffer);
+        return sd_id128_to_uuid_string(id, buffer);
 }
 
 int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret) {

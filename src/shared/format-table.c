@@ -1699,11 +1699,11 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_UUID: {
                 char *p;
 
-                p = new(char, ID128_UUID_STRING_MAX);
+                p = new(char, SD_ID128_UUID_STRING_MAX);
                 if (!p)
                         return NULL;
 
-                d->formatted = id128_to_uuid_string(d->id128, p);
+                d->formatted = sd_id128_to_uuid_string(d->id128, p);
                 break;
         }
 
@@ -2562,7 +2562,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_string(ret, SD_ID128_TO_STRING(d->id128));
 
         case TABLE_UUID:
-                return json_variant_new_string(ret, ID128_TO_UUID_STRING(d->id128));
+                return json_variant_new_string(ret, SD_ID128_TO_UUID_STRING(d->id128));
 
         case TABLE_UID:
                 if (!uid_is_valid(d->uid))

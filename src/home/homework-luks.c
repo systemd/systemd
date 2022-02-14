@@ -28,6 +28,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "fsck-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
@@ -703,7 +704,7 @@ static int luks_validate(
                 if (!pp)
                         return errno > 0 ? -errno : -EIO;
 
-                if (!streq_ptr(blkid_partition_get_type_string(pp), "773f91ef-66d4-49b5-bd83-d683bf40ad16"))
+                if (id128_equal_string(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
                         continue;
 
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
@@ -1762,7 +1763,7 @@ static int luks_format(
                         CRYPT_LUKS2,
                         user_record_luks_cipher(hr),
                         user_record_luks_cipher_mode(hr),
-                        ID128_TO_UUID_STRING(uuid),
+                        SD_ID128_TO_UUID_STRING(uuid),
                         volume_key,
                         volume_key_size,
                         &(struct crypt_params_luks2) {
@@ -1858,7 +1859,7 @@ static int make_partition_table(
         if (!t)
                 return log_oom();
 
-        r = fdisk_parttype_set_typestr(t, "773f91ef-66d4-49b5-bd83-d683bf40ad16");
+        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(GPT_USER_HOME));
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -1917,7 +1918,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition name: %m");
 
-        r = fdisk_partition_set_uuid(p, ID128_TO_UUID_STRING(uuid));
+        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
         if (r < 0)
                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
@@ -2745,7 +2746,7 @@ static int ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *userdata
                 if (!result)
                         return log_oom();
 
-                fdisk_ask_string_set_result(ask, id128_to_uuid_string(*(sd_id128_t*) userdata, result));
+                fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) userdata, result));
                 break;
 
         default:
