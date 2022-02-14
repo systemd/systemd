@@ -213,7 +213,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (proc_cmdline_key_streq(key, "usrhash")) {
-                
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
