@@ -248,6 +248,10 @@ _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum)
         assert_return(ret, -EINVAL);
         assert_return(IN_SET(type, 'b', 'c'), -EINVAL);
 
+        if (devnum == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "sd-device: Attempted to allocate device by zero major/minor, refusing.");
+
         /* use /sys/dev/{block,char}/<maj>:<min> link */
         xsprintf(id, "%u:%u", major(devnum), minor(devnum));
 
