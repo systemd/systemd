@@ -1239,10 +1239,7 @@ static int manager_add_device(Manager *m, sd_device *d) {
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire ID_PART_ENTRY_TYPE device property, ignoring: %m");
-        r = sd_id128_from_string(parttype, &id);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse ID_PART_ENTRY_TYPE field '%s', ignoring: %m", parttype);
-        if (!sd_id128_equal(id, GPT_USER_HOME)) {
+        if (id128_equal_string(parttype, GPT_USER_HOME) <= 0) {
                 log_debug("Found partition (%s) we don't care about, ignoring.", sysfs);
                 return 0;
         }
