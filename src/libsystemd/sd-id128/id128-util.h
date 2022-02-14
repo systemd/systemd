@@ -8,12 +8,6 @@
 #include "hash-funcs.h"
 #include "macro.h"
 
-#define ID128_UUID_STRING_MAX 37
-
-char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]);
-
-#define ID128_TO_UUID_STRING(id) id128_to_uuid_string((id), (char[ID128_UUID_STRING_MAX]) {})
-
 bool id128_is_valid(const char *s) _pure_;
 
 typedef enum Id128Format {

@@ -94,7 +94,7 @@ int make_filesystem(
                 bool discard) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
-        char vol_id[CONST_MAX(ID128_UUID_STRING_MAX, 8 + 1)] = {};
+        char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int r;
 
         assert(node);
@@ -144,7 +144,7 @@ int make_filesystem(
         }
 
         if (isempty(vol_id))
-                id128_to_uuid_string(uuid, vol_id);
+                assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
         r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
         if (r < 0)
