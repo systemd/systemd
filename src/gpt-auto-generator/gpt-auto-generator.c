@@ -779,12 +779,16 @@ static int add_mounts(void) {
                         return btrfs_log_dev_root(LOG_ERR, r, "root file system");
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of root file system: %m");
-                if (r == 0) { /* Not backed by block device */
+                if (r == 0) { /* Not backed by a single block device. (Could be NFS or so, or could be multi-device RAID or so) */
                         r = get_block_device_harder("/usr", &devno);
                         if (r == -EUCLEAN)
                                 return btrfs_log_dev_root(LOG_ERR, r, "/usr");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
+                                return log_error_errno(r, "Failed to determine block device of /usr/ file system: %m");
+                        if (r == 0) { /* /usr/ not backed by single block device, either. */
+                                log_debug("Neither root nor /usr/ file system are on a (single) block device.");
+                                return 0;
+                        }
                 }
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
