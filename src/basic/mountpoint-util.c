@@ -298,10 +298,8 @@ fallback_fstat:
         if (fstatat(fd, "", &b, AT_EMPTY_PATH) < 0)
                 return -errno;
 
-        /* A directory with same device and inode as its parent? Must
-         * be the root directory */
-        if (a.st_dev == b.st_dev &&
-            a.st_ino == b.st_ino)
+        /* A directory with same device and inode as its parent? Must be the root directory */
+        if (stat_inode_same(&a, &b))
                 return 1;
 
         return check_st_dev && (a.st_dev != b.st_dev);

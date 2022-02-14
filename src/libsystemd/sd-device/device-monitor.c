@@ -24,6 +24,7 @@
 #include "mountpoint-util.h"
 #include "set.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -195,7 +196,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                                 else
                                         log_debug_errno(errno, "sd-device-monitor: Failed to stat PID1's netns, ignoring: %m");
 
-                        } else if (a.st_dev != b.st_dev || a.st_ino != b.st_ino)
+                        } else if (!stat_inode_same(&a, &b))
                                 log_debug("sd-device-monitor: Netlink socket we listen on is not from host netns, we won't see device events.");
                 }
         }
