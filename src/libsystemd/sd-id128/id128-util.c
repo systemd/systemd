@@ -206,3 +206,19 @@ int id128_get_product(sd_id128_t *ret) {
         *ret = uuid;
         return 0;
 }
+
+int id128_equal_string(const char *s, sd_id128_t id) {
+        sd_id128_t parsed;
+        int r;
+
+        if (!s)
+                return false;
+
+        /* Checks if the specified string matches a valid string representation of the specified 128 bit ID/uuid */
+
+        r = sd_id128_from_string(s, &parsed);
+        if (r < 0)
+                return r;
+
+        return sd_id128_equal(parsed, id);
+}

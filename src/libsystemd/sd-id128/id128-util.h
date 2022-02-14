@@ -34,3 +34,5 @@ extern const struct hash_ops id128_hash_ops;
 sd_id128_t id128_make_v4_uuid(sd_id128_t id);
 
 int id128_get_product(sd_id128_t *ret);
+
+int id128_equal_string(const char *s, sd_id128_t id);
