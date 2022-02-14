@@ -92,6 +92,7 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
 
 int proc_mounted(void);
 
+bool stat_inode_same(const struct stat *a, const struct stat *b);
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
