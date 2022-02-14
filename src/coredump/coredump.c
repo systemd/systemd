@@ -721,7 +721,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
                 return -errno;
 
         /* The process uses system root. */
-        if (proc_root_stat.st_ino == root_stat.st_ino) {
+        if (stat_inode_same(&proc_root_stat, &root_stat)) {
                 *cmdline = NULL;
                 return 0;
         }
