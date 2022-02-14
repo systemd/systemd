@@ -1163,11 +1163,13 @@ install_systemd() {
     mkdir "$initdir/etc/systemd/system/user@.service.d/"
     echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
 
-    # When built with gcov, disable ProtectSystem= and ProtectHome in the test
-    # images, since it prevents gcov to write the coverage reports (*.gcda files)
+    # When built with gcov, disable ProtectSystem= and ProtectHome= in the test
+    # images, since it prevents gcov to write the coverage reports (*.gcda
+    # files). Similarly, set ReadWritePaths= to the $BUIL_DIR in the test image
+    # to make the coverage work with units utilizing DynamicUser=yes.
     if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "$initdir/etc/systemd/system/service.d/"
-        echo -e "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/gcov-override.conf"
+        echo -e "[Service]\nProtectSystem=no\nProtectHome=no\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/service.d/gcov-override.conf"
     fi
 
     # If we're built with -Dportabled=false, tests with systemd-analyze
