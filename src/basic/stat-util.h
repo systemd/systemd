@@ -115,3 +115,9 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
                 struct new_statx nsx;           \
         } var
 #endif
+
+static inline bool devid_set_and_equal(dev_t a, dev_t b) {
+        /* Returns true if a and b definitely refer to the same device. If either is zero, this means "don't
+         * know" and we'll return false */
+        return a == b && a != 0;
+}
