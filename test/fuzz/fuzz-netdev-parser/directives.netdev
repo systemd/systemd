@@ -246,3 +246,7 @@ RoutingAlgorithm=
 PartitionKey=
 Mode=
 IgnoreUserspaceMulticastGroups=
+[WLAN]
+Phy=
+Type=
+WDS=
