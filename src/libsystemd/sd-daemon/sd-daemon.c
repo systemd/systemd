@@ -412,7 +412,7 @@ _public_ int sd_is_mq(int fd, const char *path) {
         }
 
         if (path) {
-                char fpath[PATH_MAX];
+                _cleanup_free_ char *fpath = NULL;
                 struct stat a, b;
 
                 assert_return(path_is_absolute(path), -EINVAL);
@@ -420,8 +420,9 @@ _public_ int sd_is_mq(int fd, const char *path) {
                 if (fstat(fd, &a) < 0)
                         return -errno;
 
-                strncpy(stpcpy(fpath, "/dev/mqueue"), path, sizeof(fpath) - 12);
-                fpath[sizeof(fpath)-1] = 0;
+                fpath = path_join("/dev/mqueue", path);
+                if (!fpath)
+                        return -ENOMEM;
 
                 if (stat(fpath, &b) < 0)
                         return -errno;
