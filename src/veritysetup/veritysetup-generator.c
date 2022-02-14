@@ -285,7 +285,7 @@ static int determine_device(
         if (!*data_what) {
                 memcpy(&data_uuid, m, sizeof(data_uuid));
 
-                *data_what = path_join("/dev/disk/by-partuuid", ID128_TO_UUID_STRING(data_uuid));
+                *data_what = path_join("/dev/disk/by-partuuid", SD_ID128_TO_UUID_STRING(data_uuid));
                 if (!*data_what)
                         return log_oom();
         }
@@ -293,7 +293,7 @@ static int determine_device(
         if (!*hash_what) {
                 memcpy(&verity_uuid, (uint8_t*) m + l - sizeof(verity_uuid), sizeof(verity_uuid));
 
-                *hash_what = path_join("/dev/disk/by-partuuid", ID128_TO_UUID_STRING(verity_uuid));
+                *hash_what = path_join("/dev/disk/by-partuuid", SD_ID128_TO_UUID_STRING(verity_uuid));
                 if (!*hash_what)
                         return log_oom();
         }

@@ -332,9 +332,9 @@ int user_record_add_binding(
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(partition_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(luks_uuid))),
-                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(ID128_TO_UUID_STRING(fs_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
+                                       JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(fs_uuid), "fileSystemUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(fs_uuid))),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher, "luksCipher", JSON_BUILD_STRING(luks_cipher)),
                                        JSON_BUILD_PAIR_CONDITION(!!luks_cipher_mode, "luksCipherMode", JSON_BUILD_STRING(luks_cipher_mode)),
                                        JSON_BUILD_PAIR_CONDITION(luks_volume_key_size != UINT64_MAX, "luksVolumeKeySize", JSON_BUILD_UNSIGNED(luks_volume_key_size)),

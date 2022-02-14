@@ -21,7 +21,7 @@
 
 TEST(id128) {
         sd_id128_t id, id2;
-        char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
+        char t[SD_ID128_STRING_MAX], q[SD_ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
 
@@ -53,7 +53,7 @@ TEST(id128) {
         printf("waldi2: %s\n", b);
         assert_se(streq(t, b));
 
-        printf("waldi3: %s\n", id128_to_uuid_string(ID128_WALDI, q));
+        printf("waldi3: %s\n", sd_id128_to_uuid_string(ID128_WALDI, q));
         assert_se(streq(q, UUID_WALDI));
 
         b = mfree(b);
@@ -136,7 +136,7 @@ TEST(id128) {
         assert_se(ftruncate(fd, 0) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(write(fd, id128_to_uuid_string(id, q), 36) == 36);
+        assert_se(write(fd, sd_id128_to_uuid_string(id, q), 36) == 36);
 
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_PLAIN, &id2) == -EINVAL);

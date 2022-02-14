@@ -18,8 +18,11 @@
   <refnamediv>
     <refname>sd_id128_to_string</refname>
     <refname>SD_ID128_TO_STRING</refname>
-    <refname>sd_id128_from_string</refname>
     <refname>SD_ID128_STRING_MAX</refname>
+    <refname>sd_id128_to_uuid_string</refname>
+    <refname>SD_ID128_TO_UUID_STRING</refname>
+    <refname>SD_ID128_UUID_STRING_MAX</refname>
+    <refname>sd_id128_from_string</refname>
     <refpurpose>Format or parse 128-bit IDs as strings</refpurpose>
   </refnamediv>
 
@@ -29,11 +32,20 @@
 
       <funcsynopsisinfo>#define SD_ID128_STRING_MAX 33U</funcsynopsisinfo>
 
+      <funcsynopsisinfo>#define SD_ID128_UUID_STRING_MAX 37U</funcsynopsisinfo>
+
       <funcsynopsisinfo>#define SD_ID128_TO_STRING(id) …</funcsynopsisinfo>
+
+      <funcsynopsisinfo>#define SD_ID128_TO_UUID_STRING(id) …</funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>char *<function>sd_id128_to_string</function></funcdef>
         <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_STRING_MAX]</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>char *<function>sd_id128_uuid_string</function></funcdef>
+        <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_UUID_STRING_MAX]</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -58,6 +70,10 @@
     which remains valid until the end of the current code block. This is usually the simplest way to acquire
     a string representation of a 128-bit ID in a buffer that is valid in the current code block.</para>
 
+    <para><function>sd_id128_to_uuid_string()</function> and <function>SD_ID128_TO_UUID_STRING()</function>
+    are similar to these two functions/macros, but format the 128bit values as RFC4122 UUIDs, i.e. a series
+    of 36 lowercase hexadeciaml digits and dashes, terminated by a <constant>NUL</constant> byte.</para>
+
     <para><function>sd_id128_from_string()</function> implements the reverse operation: it takes a 33
     character string with 32 hexadecimal digits (either lowercase or uppercase, terminated by
     <constant>NUL</constant>) and parses them back into a 128-bit ID returned in
@@ -65,7 +81,7 @@
     ID formatted as RFC UUID. If <parameter>ret</parameter> is passed as <constant>NULL</constant> the
     function will validate the passed ID string, but not actually return it in parsed form.</para>
 
-    <para>Note that when parsing 37 character UUIDs this is done strictly in Big Endian byte order,
+    <para>Note that when formatting and parsing 36 character UUIDs this is done strictly in Big Endian byte order,
     i.e. according to <ulink url="https://tools.ietf.org/html/rfc4122">RFC4122</ulink> Variant 1 rules, even
     if the UUID encodes a different variant. This matches behaviour in various other Linux userspace
     tools. It's probably wise to avoid UUIDs of other variant types.</para>

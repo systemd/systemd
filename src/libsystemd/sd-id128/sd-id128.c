@@ -19,16 +19,36 @@
 #include "util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
-        unsigned n;
-
         assert_return(s, NULL);
 
-        for (n = 0; n < 16; n++) {
+        for (size_t n = 0; n < 16; n++) {
                 s[n*2] = hexchar(id.bytes[n] >> 4);
                 s[n*2+1] = hexchar(id.bytes[n] & 0xF);
         }
 
-        s[32] = 0;
+        s[SD_ID128_STRING_MAX-1] = 0;
+
+        return s;
+}
+
+_public_ char *sd_id128_to_uuid_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_UUID_STRING_MAX]) {
+        size_t k = 0;
+
+        assert_return(s, NULL);
+
+        /* Similar to sd_id128_to_string() but formats the result as UUID instead of plain hex chars */
+
+        for (size_t n = 0; n < 16; n++) {
+
+                if (IN_SET(n, 4, 6, 8, 10))
+                        s[k++] = '-';
+
+                s[k++] = hexchar(id.bytes[n] >> 4);
+                s[k++] = hexchar(id.bytes[n] & 0xF);
+        }
+
+        assert(k == SD_ID128_UUID_STRING_MAX - 1);
+        s[k] = 0;
 
         return s;
 }

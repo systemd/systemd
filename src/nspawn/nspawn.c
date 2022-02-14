@@ -3453,7 +3453,7 @@ static int inner_child(
 
         assert(!sd_id128_is_null(arg_uuid));
 
-        if (asprintf(envp + n_env++, "container_uuid=%s", ID128_TO_UUID_STRING(arg_uuid)) < 0)
+        if (asprintf(envp + n_env++, "container_uuid=%s", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
                 return log_oom();
 
         if (fdset_size(fds) > 0) {

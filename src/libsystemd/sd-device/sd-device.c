@@ -2198,7 +2198,7 @@ _public_ int sd_device_trigger_with_uuid(
         if (r < 0)
                 return r;
 
-        j = strjoina(s, " ", ID128_TO_UUID_STRING(u));
+        j = strjoina(s, " ", SD_ID128_TO_UUID_STRING(u));
 
         r = sd_device_set_sysattr_value(device, "uevent", j);
         if (r < 0)

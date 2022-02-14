@@ -1512,11 +1512,11 @@ static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *da
         if (fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
                 return -EINVAL;
 
-        ids = new(char, ID128_UUID_STRING_MAX);
+        ids = new(char, SD_ID128_UUID_STRING_MAX);
         if (!ids)
                 return -ENOMEM;
 
-        r = fdisk_ask_string_set_result(ask, id128_to_uuid_string(*(sd_id128_t*) data, ids));
+        r = fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
         if (r < 0)
                 return r;
 
@@ -2030,7 +2030,7 @@ static int context_dump_partitions(Context *context, const char *node) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
-                char uuid_buffer[ID128_UUID_STRING_MAX];
+                char uuid_buffer[SD_ID128_UUID_STRING_MAX];
                 const char *label, *activity = NULL;
 
                 if (p->dropped)
@@ -2176,7 +2176,7 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
         else
                 id = p->type_uuid;
 
-        buf = strdup(ID128_TO_UUID_STRING(id));
+        buf = strdup(SD_ID128_TO_UUID_STRING(id));
 
 done:
         if (!buf)
@@ -2624,7 +2624,7 @@ static int partition_encrypt(
                          CRYPT_LUKS2,
                          "aes",
                          "xts-plain64",
-                         ID128_TO_UUID_STRING(uuid),
+                         SD_ID128_TO_UUID_STRING(uuid),
                          volume_key,
                          volume_key_size,
                          &(struct crypt_params_luks2) {
@@ -3304,7 +3304,7 @@ static uint64_t partition_merge_flags(Partition *p) {
                 if (gpt_partition_type_knows_no_auto(p->type_uuid))
                         SET_FLAG(f, GPT_FLAG_NO_AUTO, p->no_auto);
                 else {
-                        char buffer[ID128_UUID_STRING_MAX];
+                        char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured NoAuto=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->no_auto),
                                     gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
@@ -3315,7 +3315,7 @@ static uint64_t partition_merge_flags(Partition *p) {
                 if (gpt_partition_type_knows_read_only(p->type_uuid))
                         SET_FLAG(f, GPT_FLAG_READ_ONLY, p->read_only);
                 else {
-                        char buffer[ID128_UUID_STRING_MAX];
+                        char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured ReadOnly=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->read_only),
                                     gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
@@ -3326,7 +3326,7 @@ static uint64_t partition_merge_flags(Partition *p) {
                 if (gpt_partition_type_knows_growfs(p->type_uuid))
                         SET_FLAG(f, GPT_FLAG_GROWFS, p->growfs);
                 else {
-                        char buffer[ID128_UUID_STRING_MAX];
+                        char buffer[SD_ID128_UUID_STRING_MAX];
                         log_warning("Configured GrowFileSystem=%s for partition type '%s' that doesn't support it, ignoring.",
                                     yes_no(p->growfs),
                                     gpt_partition_type_uuid_to_string_harder(p->type_uuid, buffer));
@@ -3374,7 +3374,7 @@ static int context_mangle_partitions(Context *context) {
                         if (!sd_id128_equal(p->new_uuid, p->current_uuid)) {
                                 assert(!sd_id128_is_null(p->new_uuid));
 
-                                r = fdisk_partition_set_uuid(p->current_partition, ID128_TO_UUID_STRING(p->new_uuid));
+                                r = fdisk_partition_set_uuid(p->current_partition, SD_ID128_TO_UUID_STRING(p->new_uuid));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set partition UUID: %m");
 
@@ -3412,7 +3412,7 @@ static int context_mangle_partitions(Context *context) {
                         if (!t)
                                 return log_oom();
 
-                        r = fdisk_parttype_set_typestr(t, ID128_TO_UUID_STRING(p->type_uuid));
+                        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(p->type_uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
@@ -3440,7 +3440,7 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition number: %m");
 
-                        r = fdisk_partition_set_uuid(q, ID128_TO_UUID_STRING(p->new_uuid));
+                        r = fdisk_partition_set_uuid(q, SD_ID128_TO_UUID_STRING(p->new_uuid));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition UUID: %m");
 
