@@ -47,6 +47,7 @@
 #include "vxcan.h"
 #include "vxlan.h"
 #include "wireguard.h"
+#include "wlan.h"
 #include "xfrm.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
@@ -86,6 +87,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VXCAN]     = &vxcan_vtable,
         [NETDEV_KIND_VXLAN]     = &vxlan_vtable,
         [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
+        [NETDEV_KIND_WLAN]      = &wlan_vtable,
         [NETDEV_KIND_XFRM]      = &xfrm_vtable,
 };
 
@@ -126,6 +128,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VXCAN]     = "vxcan",
         [NETDEV_KIND_VXLAN]     = "vxlan",
         [NETDEV_KIND_WIREGUARD] = "wireguard",
+        [NETDEV_KIND_WLAN]      = "wlan",
         [NETDEV_KIND_XFRM]      = "xfrm",
 };
 
@@ -352,35 +355,38 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
                 return -EINVAL;
         }
 
-        r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
+        if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
 
-        r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
+                r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
 
-        r = sd_netlink_message_exit_container(message);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+                r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
 
-        if (netdev->kind == NETDEV_KIND_TAP)
-                /* the kernel does not distinguish between tun and tap */
-                kind = "tun";
-        else {
-                kind = netdev_kind_to_string(netdev->kind);
-                if (!kind) {
-                        log_netdev_error(netdev, "Could not get kind");
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+
+                if (netdev->kind == NETDEV_KIND_TAP)
+                        /* the kernel does not distinguish between tun and tap */
+                        kind = "tun";
+                else {
+                        kind = netdev_kind_to_string(netdev->kind);
+                        if (!kind) {
+                                log_netdev_error(netdev, "Could not get kind");
+                                netdev_enter_failed(netdev);
+                                return -EINVAL;
+                        }
+                }
+
+                if (!streq(kind, received_kind)) {
+                        log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
+                                         received_kind, kind);
                         netdev_enter_failed(netdev);
                         return -EINVAL;
                 }
-        }
-
-        if (!streq(kind, received_kind)) {
-                log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
-                                 received_kind, kind);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
         }
 
         netdev->ifindex = ifindex;
@@ -621,22 +627,23 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
         return 0;
 }
 
-static bool netdev_is_ready_to_create(NetDev *netdev, Link *link) {
+static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
-        assert(link);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
+        if (link) {
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        return false;
 
-        if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
-            link->state != LINK_STATE_CONFIGURED)
-                return false;
+                if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
+                    link->state != LINK_STATE_CONFIGURED)
+                        return false;
 
-        if (link->set_link_messages > 0)
-                return false;
+                if (link->set_link_messages > 0)
+                        return false;
+        }
 
         if (NETDEV_VTABLE(netdev)->is_ready_to_create)
                 return NETDEV_VTABLE(netdev)->is_ready_to_create(netdev, link);
@@ -649,12 +656,13 @@ int request_process_stacked_netdev(Request *req) {
 
         assert(req);
         assert(req->link);
-        assert(req->type == REQUEST_TYPE_STACKED_NETDEV);
+        assert(req->type == REQUEST_TYPE_NETDEV_STACKED);
         assert(req->netdev);
         assert(req->netlink_handler);
 
-        if (!netdev_is_ready_to_create(req->netdev, req->link))
-                return 0;
+        r = netdev_is_ready_to_create(req->netdev, req->link);
+        if (r <= 0)
+                return r;
 
         r = netdev_join(req->netdev, req->link, req->netlink_handler);
         if (r < 0)
@@ -731,13 +739,13 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
 
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
                                        &link->create_stacked_netdev_messages,
                                        link_create_stacked_netdev_handler,
                                        NULL);
         } else {
                 link->stacked_netdevs_after_configured_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_STACKED_NETDEV, netdev, false,
+                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
                                        &link->create_stacked_netdev_after_configured_messages,
                                        link_create_stacked_netdev_after_configured_handler,
                                        NULL);
@@ -748,6 +756,24 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
 
         log_link_debug(link, "Requested stacked netdev '%s'", netdev->ifname);
         return 0;
+}
+
+int request_process_independent_netdev(Request *req) {
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NETDEV_INDEPENDENT);
+        assert(req->netdev);
+
+        r = netdev_is_ready_to_create(req->netdev, NULL);
+        if (r <= 0)
+                return r;
+
+        r = netdev_create(req->netdev, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int netdev_load_one(Manager *manager, const char *filename) {
@@ -860,20 +886,14 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT)) {
-                r = netdev_create(netdev, NULL, NULL);
+        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT) ||
+            netdev_is_stacked_and_independent(netdev)) {
+                r = netdev_queue_request(netdev, NULL);
                 if (r < 0)
-                        return r;
+                        return log_netdev_warning_errno(netdev, r, "Failed to request to create: %m");
         }
 
-        if (netdev_is_stacked_and_independent(netdev)) {
-                r = netdev_create(netdev, NULL, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        netdev = NULL;
-
+        TAKE_PTR(netdev);
         return 0;
 }
 

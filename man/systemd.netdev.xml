@@ -192,6 +192,9 @@
 
           <row><entry><varname>ipoib</varname></entry>
           <entry>An IP over Infiniband subinterface.</entry></row>
+
+          <row><entry><varname>wlan</varname></entry>
+          <entry>A virtual wlan interface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -2174,6 +2177,42 @@
         <listitem>
           <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
           userspace. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[WLAN] Section Options</title>
+    <para>The [WLAN] section only applies for virtual WLAN interface, and accepts the following keys:
+    </para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Phy=</varname></term>
+        <listitem>
+          <para>Specifies the name or index of the WLAN physical layer. This option is mandatory.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem>
+          <para>Specifies the type of the interface. Takes one of the <literal>ad-hoc</literal>,
+          <literal>station</literal>, <literal>ap</literal>, <literal>ap-vlan</literal>,
+          <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
+          <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
+          <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WDS=</varname></term>
+        <listitem>
+          <para>Enables the Wireless Distribution System (WDS) mode on the interface. The mode is also
+          known as the 4 address mode. Takes a boolean value. Defaults to unset, and the kernel's
+          default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

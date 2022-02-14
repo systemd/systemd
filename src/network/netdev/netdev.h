@@ -43,6 +43,7 @@
         "-VXLAN\0"                                \
         "-WireGuard\0"                            \
         "-WireGuardPeer\0"                        \
+        "-WLAN\0"                                 \
         "-Xfrm\0"
 
 typedef enum NetDevKind {
@@ -82,6 +83,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_VXCAN,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_WIREGUARD,
+        NETDEV_KIND_WLAN,
         NETDEV_KIND_XFRM,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
@@ -173,6 +175,9 @@ typedef struct NetDevVTable {
 
         /* Generate MAC address when MACAddress= is not specified. */
         bool generate_mac;
+
+        /* When assigning ifindex to the netdev, skip to check if the netdev kind matches. */
+        bool skip_netdev_kind_check;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
@@ -210,6 +215,7 @@ int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
+int request_process_independent_netdev(Request *req);
 int request_process_stacked_netdev(Request *req);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 

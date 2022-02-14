@@ -657,11 +657,13 @@ static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
         Tunnel *t;
 
         assert(netdev);
-        assert(link);
 
         t = TUNNEL(netdev);
 
         assert(t);
+
+        if (t->independent)
+                return true;
 
         return tunnel_get_local_address(t, link, NULL) >= 0;
 }
