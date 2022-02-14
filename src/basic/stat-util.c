@@ -185,8 +185,7 @@ int files_same(const char *filea, const char *fileb, int flags) {
         if (fstatat(AT_FDCWD, fileb, &b, flags) < 0)
                 return -errno;
 
-        return a.st_dev == b.st_dev &&
-               a.st_ino == b.st_ino;
+        return stat_inode_same(&a, &b);
 }
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
