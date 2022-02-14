@@ -351,7 +351,7 @@ void log_device_uevent(sd_device *device, const char *str) {
                          strempty(str), isempty(str) ? "" : " ",
                          seqnum, strna(device_action_to_string(action)),
                          sd_id128_is_null(event_id) ? "" : ", UUID=",
-                         sd_id128_is_null(event_id) ? "" : id128_to_uuid_string(event_id, (char[ID128_UUID_STRING_MAX]){}));
+                         sd_id128_is_null(event_id) ? "" : SD_ID128_TO_UUID_STRING(event_id));
 }
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
