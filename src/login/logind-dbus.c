@@ -2923,9 +2923,9 @@ static int boot_loader_entry_exists(Manager *m, const char *id) {
 
         r = manager_read_efi_boot_loader_entries(m);
         if (r >= 0)
-                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries);
+                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
 
-        return boot_config_has_entry(&config, id);
+        return !!boot_config_find_entry(&config, id);
 }
 
 static int method_set_reboot_to_boot_loader_entry(
@@ -3081,7 +3081,7 @@ static int property_get_boot_loader_entries(
 
         r = manager_read_efi_boot_loader_entries(m);
         if (r >= 0)
-                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries);
+                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
