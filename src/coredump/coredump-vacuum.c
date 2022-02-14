@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "user-util.h"
@@ -167,9 +168,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (!S_ISREG(st.st_mode))
                                 continue;
 
-                        if (exclude_fd >= 0 &&
-                            exclude_st.st_dev == st.st_dev &&
-                            exclude_st.st_ino == st.st_ino)
+                        if (exclude_fd >= 0 && stat_inode_same(&exclude_st, &st))
                                 continue;
 
                         r = hashmap_ensure_allocated(&h, NULL);

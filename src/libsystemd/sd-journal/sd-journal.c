@@ -1317,8 +1317,7 @@ static int add_any_file(
 
         f = ordered_hashmap_get(j->files, path);
         if (f) {
-                if (f->last_stat.st_dev == st.st_dev &&
-                    f->last_stat.st_ino == st.st_ino) {
+                if (stat_inode_same(&f->last_stat, &st)) {
 
                         /* We already track this file, under the same path and with the same device/inode numbers, it's
                          * hence really the same. Mark this file as seen in this generation. This is used to GC old

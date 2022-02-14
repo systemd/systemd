@@ -185,8 +185,7 @@ int files_same(const char *filea, const char *fileb, int flags) {
         if (fstatat(AT_FDCWD, fileb, &b, flags) < 0)
                 return -errno;
 
-        return a.st_dev == b.st_dev &&
-               a.st_ino == b.st_ino;
+        return stat_inode_same(&a, &b);
 }
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
@@ -417,6 +416,18 @@ int proc_mounted(void) {
         return r;
 }
 
+bool stat_inode_same(const struct stat *a, const struct stat *b) {
+
+        /* Returns if the specified stat structure references the same (though possibly modified) inode. Does
+         * a thorough check, comparing inode nr, backing device and if the inode is still of the same type. */
+
+        return a && b &&
+                (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
+                ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
+                a->st_dev == b->st_dev &&
+                a->st_ino == b->st_ino;
+}
+
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
 
         /* Returns if the specified stat structures reference the same, unmodified inode. This check tries to
@@ -428,14 +439,10 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
          * about contents of the file. The purpose here is to detect file contents changes, and nothing
          * else. */
 
-        return a && b &&
-                (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
-                ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
+        return stat_inode_same(a, b) &&
                 a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
                 a->st_mtim.tv_nsec == b->st_mtim.tv_nsec &&
                 (!S_ISREG(a->st_mode) || a->st_size == b->st_size) && /* if regular file, compare file size */
-                a->st_dev == b->st_dev &&
-                a->st_ino == b->st_ino &&
                 (!(S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) || a->st_rdev == b->st_rdev); /* if device node, also compare major/minor, because we can */
 }
 
