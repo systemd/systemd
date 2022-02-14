@@ -84,6 +84,10 @@ struct Manager {
         Hashmap *route_table_numbers_by_name;
         Hashmap *route_table_names_by_number;
 
+        /* Wiphy */
+        Hashmap *wiphy_by_index;
+        Hashmap *wiphy_by_name;
+
         /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;

@@ -42,6 +42,7 @@
 #include "networkd-speed-meter.h"
 #include "networkd-state-file.h"
 #include "networkd-wifi.h"
+#include "networkd-wiphy.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -554,6 +555,9 @@ Manager* manager_free(Manager *m) {
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
+        m->wiphy_by_name = hashmap_free(m->wiphy_by_name);
+        m->wiphy_by_index = hashmap_free_with_destructor(m->wiphy_by_index, wiphy_free);
+
         ordered_set_free_free(m->address_pools);
 
         hashmap_free(m->route_table_names_by_number);
@@ -793,6 +797,20 @@ static int manager_enumerate_nexthop(Manager *m) {
         return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_nexthop);
 }
 
+static int manager_enumerate_nl80211_wiphy(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(m);
+        assert(m->genl);
+
+        r = sd_genl_message_new(m->genl, NL80211_GENL_NAME, NL80211_CMD_GET_WIPHY, &req);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(m, m->genl, req, manager_genl_process_nl80211_wiphy);
+}
+
 static int manager_enumerate_nl80211_config(Manager *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -877,6 +895,12 @@ int manager_enumerate(Manager *m) {
                 log_debug_errno(r, "Could not enumerate routing policy rules, ignoring: %m");
         else if (r < 0)
                 return log_error_errno(r, "Could not enumerate routing policy rules: %m");
+
+        r = manager_enumerate_nl80211_wiphy(m);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate wireless LAN phy, ignoring: %m");
+        else if (r < 0)
+                return log_error_errno(r, "Could not enumerate wireless LAN phy: %m");
 
         r = manager_enumerate_nl80211_config(m);
         if (r == -EOPNOTSUPP)
