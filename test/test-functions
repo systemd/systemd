@@ -1387,6 +1387,20 @@ check_coverage_reports() {
         lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
     fi
 
+    # If the test logs contain lines like:
+    #
+    # ...systemd-resolved[735885]: profiling:/systemd-meson-build/src/shared/libsystemd-shared-250.a.p/base-filesystem.c.gcda:Cannot open
+    #
+    # it means we're possibly missing some coverage since gcov can't write the stats,
+    # usually due to the sandbox being too restrictive (e.g. ProtectSystem=yes,
+    # ProtectHome=yes) or the $BUILD_DIR being inaccessible to non-root users - see
+    # `setfacl` stuff in install_compiled_systemd().
+
+    if "${JOURNALCTL:?}" -q --no-pager -D "${root:?}/var/log/journal" --grep "profiling:.+?gcda:[Cc]annot open"; then
+        derror "Detected possibly missing coverage, check the journal"
+        return 1
+    fi
+
     return 0
 }
 
