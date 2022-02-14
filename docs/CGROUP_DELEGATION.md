@@ -266,6 +266,15 @@ tree by the time it notifies the service manager about start-up readiness, so
 that the service's main cgroup is definitely an inner node by the time the
 service manager might start `ExecStartPost=`.)
 
+(Also note, if you intend to use "threaded" cgroups — as added in Linux 4.14 —,
+then you should do that *two* levels down from the main service cgroup your
+turned delegation on for. Why that? You need one level so that systemd can
+properly create the `.control` subgroup, as described above. But that one
+cannot be threaded, since that would mean `.control` has to be threaded too —
+this is a requirement of threaded cgroups: either a cgroup and all its siblings
+are threaded or none –, but systemd expects it to be a regular cgroup. Thus you
+have to nest a second cgroup beneath it which then can be threaded.)
+
 ## Three Scenarios
 
 Let's say you write a container manager, and you wonder what to do regarding
