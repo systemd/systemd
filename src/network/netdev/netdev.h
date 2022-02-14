@@ -173,6 +173,9 @@ typedef struct NetDevVTable {
 
         /* Generate MAC address when MACAddress= is not specified. */
         bool generate_mac;
+
+        /* When assigning ifindex to the netdev, skip to check if the netdev kind matches. */
+        bool skip_netdev_kind_check;
 } NetDevVTable;
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];

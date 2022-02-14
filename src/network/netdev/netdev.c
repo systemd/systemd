@@ -352,35 +352,38 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
                 return -EINVAL;
         }
 
-        r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
+        if (!NETDEV_VTABLE(netdev)->skip_netdev_kind_check) {
 
-        r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
+                r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not get LINKINFO: %m");
 
-        r = sd_netlink_message_exit_container(message);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+                r = sd_netlink_message_read_string(message, IFLA_INFO_KIND, &received_kind);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not get KIND: %m");
 
-        if (netdev->kind == NETDEV_KIND_TAP)
-                /* the kernel does not distinguish between tun and tap */
-                kind = "tun";
-        else {
-                kind = netdev_kind_to_string(netdev->kind);
-                if (!kind) {
-                        log_netdev_error(netdev, "Could not get kind");
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not exit container: %m");
+
+                if (netdev->kind == NETDEV_KIND_TAP)
+                        /* the kernel does not distinguish between tun and tap */
+                        kind = "tun";
+                else {
+                        kind = netdev_kind_to_string(netdev->kind);
+                        if (!kind) {
+                                log_netdev_error(netdev, "Could not get kind");
+                                netdev_enter_failed(netdev);
+                                return -EINVAL;
+                        }
+                }
+
+                if (!streq(kind, received_kind)) {
+                        log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
+                                         received_kind, kind);
                         netdev_enter_failed(netdev);
                         return -EINVAL;
                 }
-        }
-
-        if (!streq(kind, received_kind)) {
-                log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
-                                 received_kind, kind);
-                netdev_enter_failed(netdev);
-                return -EINVAL;
         }
 
         netdev->ifindex = ifindex;
