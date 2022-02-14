@@ -886,7 +886,21 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
 
                 test_lease_managed(client);
 
-                assert_se(sd_event_exit(sd_dhcp6_client_get_event(client), 0) >= 0);
+                switch (test_client_sent_message_count) {
+                case 3:
+                        assert_se(sd_dhcp6_client_stop(client) >= 0);
+                        assert_se(sd_dhcp6_client_start(client) >= 0);
+                        assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
+                        break;
+
+                case 4:
+                        assert_se(sd_event_exit(sd_dhcp6_client_get_event(client), 0) >= 0);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+
                 break;
 
         case DHCP6_CLIENT_EVENT_TEST_ADVERTISED: {
@@ -933,6 +947,11 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet,
         case 2:
                 test_client_callback(client_ref, DHCP6_CLIENT_EVENT_TEST_ADVERTISED, NULL);
                 test_client_verify_request(packet, len);
+                assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
+                break;
+
+        case 3:
+                test_client_verify_solicit(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
 
@@ -983,7 +1002,7 @@ static void test_dhcp6_client(void) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        assert_se(test_client_sent_message_count == 3);
+        assert_se(test_client_sent_message_count == 4);
 
         test_fd[1] = safe_close(test_fd[1]);
 }
