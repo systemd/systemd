@@ -47,6 +47,7 @@ static void request_free_object(RequestType type, void *object) {
                 neighbor_free(object);
                 break;
         case REQUEST_TYPE_NETDEV_STACKED:
+                netdev_unref(object);
                 break;
         case REQUEST_TYPE_NEXTHOP:
                 nexthop_free(object);
