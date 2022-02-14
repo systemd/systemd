@@ -23,6 +23,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "util.h"
@@ -150,9 +151,7 @@ _public_ int sd_is_fifo(int fd, const char *path) {
                         return -errno;
                 }
 
-                return
-                        st_path.st_dev == st_fd.st_dev &&
-                        st_path.st_ino == st_fd.st_ino;
+                return stat_inode_same(&st_path, &st_fd);
         }
 
         return 1;
@@ -181,9 +180,7 @@ _public_ int sd_is_special(int fd, const char *path) {
                 }
 
                 if (S_ISREG(st_fd.st_mode) && S_ISREG(st_path.st_mode))
-                        return
-                                st_path.st_dev == st_fd.st_dev &&
-                                st_path.st_ino == st_fd.st_ino;
+                        return stat_inode_same(&st_path, &st_fd);
                 else if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
                         return st_path.st_rdev == st_fd.st_rdev;
                 else
@@ -429,8 +426,7 @@ _public_ int sd_is_mq(int fd, const char *path) {
                 if (stat(fpath, &b) < 0)
                         return -errno;
 
-                if (a.st_dev != b.st_dev ||
-                    a.st_ino != b.st_ino)
+                if (!stat_inode_same(&a, &b))
                         return 0;
         }
 

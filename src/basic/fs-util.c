@@ -856,8 +856,7 @@ int conservative_renameat(
         if (fstat(new_fd, &new_stat) < 0)
                 goto do_rename;
 
-        if (new_stat.st_ino == old_stat.st_ino &&
-            new_stat.st_dev == old_stat.st_dev)
+        if (stat_inode_same(&new_stat, &old_stat))
                 goto is_same;
 
         if (old_stat.st_mode != new_stat.st_mode ||
