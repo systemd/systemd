@@ -46,6 +46,7 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_NEIGHBOR:
                 neighbor_free(object);
                 break;
+        case REQUEST_TYPE_NETDEV_INDEPENDENT:
         case REQUEST_TYPE_NETDEV_STACKED:
                 netdev_unref(object);
                 break;
@@ -101,10 +102,12 @@ void request_drop(Request *req) {
 
 static void request_hash_func(const Request *req, struct siphash *state) {
         assert(req);
-        assert(req->link);
         assert(state);
 
-        siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
+        siphash24_compress_boolean(req->link, state);
+        if (req->link)
+                siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
+
         siphash24_compress(&req->type, sizeof(req->type), state);
 
         switch (req->type) {
@@ -116,6 +119,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ADDRESS_LABEL:
         case REQUEST_TYPE_BRIDGE_FDB:
         case REQUEST_TYPE_BRIDGE_MDB:
+        case REQUEST_TYPE_NETDEV_INDEPENDENT:
         case REQUEST_TYPE_NETDEV_STACKED:
                 /* TODO: Currently, these types do not have any specific hash and compare functions.
                  * Fortunately, all these objects are 'static', thus we can use the trivial functions. */
@@ -165,12 +169,16 @@ static int request_compare_func(const struct Request *a, const struct Request *b
 
         assert(a);
         assert(b);
-        assert(a->link);
-        assert(b->link);
 
-        r = CMP(a->link->ifindex, b->link->ifindex);
+        r = CMP(!!a->link, !!b->link);
         if (r != 0)
                 return r;
+
+        if (a->link) {
+                r = CMP(a->link->ifindex, b->link->ifindex);
+                if (r != 0)
+                        return r;
+        }
 
         r = CMP(a->type, b->type);
         if (r != 0)
@@ -184,6 +192,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         case REQUEST_TYPE_ADDRESS_LABEL:
         case REQUEST_TYPE_BRIDGE_FDB:
         case REQUEST_TYPE_BRIDGE_MDB:
+        case REQUEST_TYPE_NETDEV_INDEPENDENT:
         case REQUEST_TYPE_NETDEV_STACKED:
                 return trivial_compare_func(a->object, b->object);
         case REQUEST_TYPE_DHCP_SERVER:
@@ -221,6 +230,48 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 request_hash_func,
                 request_compare_func,
                 request_free);
+
+int netdev_queue_request(
+                NetDev *netdev,
+                Request **ret) {
+
+        _cleanup_(request_freep) Request *req = NULL;
+        Request *existing;
+        int r;
+
+        assert(netdev);
+        assert(netdev->manager);
+
+        req = new(Request, 1);
+        if (!req)
+                return -ENOMEM;
+
+        *req = (Request) {
+                .netdev = netdev_ref(netdev),
+                .type = REQUEST_TYPE_NETDEV_INDEPENDENT,
+                .consume_object = true,
+        };
+
+        existing = ordered_set_get(netdev->manager->request_queue, req);
+        if (existing) {
+                /* To prevent from removing the existing request. */
+                req->netdev = netdev_unref(req->netdev);
+
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
+
+        r = ordered_set_ensure_put(&netdev->manager->request_queue, &request_hash_ops, req);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = req;
+
+        TAKE_PTR(req);
+        return 1;
+}
 
 int link_queue_request(
                 Link *link,
@@ -342,6 +393,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         case REQUEST_TYPE_NEIGHBOR:
                                 r = request_process_neighbor(req);
                                 break;
+                        case REQUEST_TYPE_NETDEV_INDEPENDENT:
+                                r = request_process_independent_netdev(req);
+                                break;
                         case REQUEST_TYPE_NETDEV_STACKED:
                                 r = request_process_stacked_netdev(req);
                                 break;
@@ -369,9 +423,10 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         default:
                                 return -EINVAL;
                         }
-                        if (r < 0)
-                                link_enter_failed(req->link);
-                        if (r > 0) {
+                        if (r < 0) {
+                                if (req->link)
+                                        link_enter_failed(req->link);
+                        } else if (r > 0) {
                                 ordered_set_remove(manager->request_queue, req);
                                 request_free(req);
                                 processed = true;

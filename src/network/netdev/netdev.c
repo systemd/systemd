@@ -623,20 +623,21 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
 
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
-        assert(link);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
+        if (link) {
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        return false;
 
-        if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
-            link->state != LINK_STATE_CONFIGURED)
-                return false;
+                if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
+                    link->state != LINK_STATE_CONFIGURED)
+                        return false;
 
-        if (link->set_link_messages > 0)
-                return false;
+                if (link->set_link_messages > 0)
+                        return false;
+        }
 
         if (NETDEV_VTABLE(netdev)->is_ready_to_create)
                 return NETDEV_VTABLE(netdev)->is_ready_to_create(netdev, link);
@@ -751,6 +752,44 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         return 0;
 }
 
+int request_process_independent_netdev(Request *req) {
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NETDEV_INDEPENDENT);
+        assert(req->netdev);
+
+        r = netdev_is_ready_to_create(req->netdev, NULL);
+        if (r <= 0)
+                return r;
+
+        r = netdev_create(req->netdev, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int netdev_request(NetDev *netdev) {
+        int r;
+
+        assert(netdev);
+
+        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT) &&
+            !netdev_is_stacked_and_independent(netdev))
+                return 0;
+
+        r = netdev_is_ready_to_create(netdev, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* If the netdev has no dependency, then create it now. */
+                return netdev_create(netdev, NULL, NULL);
+
+        /* Otherwise, wait for the dependencies being resolved. */
+        return netdev_queue_request(netdev, NULL);
+}
+
 int netdev_load_one(Manager *manager, const char *filename) {
         _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         const char *dropin_dirname;
@@ -861,20 +900,11 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT)) {
-                r = netdev_create(netdev, NULL, NULL);
-                if (r < 0)
-                        return r;
-        }
+        r = netdev_request(netdev);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Failed to request to create: %m");
 
-        if (netdev_is_stacked_and_independent(netdev)) {
-                r = netdev_create(netdev, NULL, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        netdev = NULL;
-
+        TAKE_PTR(netdev);
         return 0;
 }
 
