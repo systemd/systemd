@@ -28,6 +28,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "fsck-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
@@ -703,7 +704,7 @@ static int luks_validate(
                 if (!pp)
                         return errno > 0 ? -errno : -EIO;
 
-                if (!streq_ptr(blkid_partition_get_type_string(pp), "773f91ef-66d4-49b5-bd83-d683bf40ad16"))
+                if (id128_equal_string(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
                         continue;
 
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
