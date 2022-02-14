@@ -27,6 +27,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "vxcan.h"
 #include "vxlan.h"
 #include "wireguard.h"
+#include "wlan.h"
 #include "xfrm.h"
 %}
 struct ConfigPerfItem;
@@ -258,3 +259,6 @@ BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,
 IPoIB.PartitionKey,                       config_parse_ipoib_pkey,                   0,                             offsetof(IPoIB, pkey)
 IPoIB.Mode,                               config_parse_ipoib_mode,                   0,                             offsetof(IPoIB, mode)
 IPoIB.IgnoreUserspaceMulticastGroups,     config_parse_tristate,                     0,                             offsetof(IPoIB, umcast)
+VirtualWLAN.PhysicalDevice,               config_parse_wiphy,                        0,                             0
+VirtualWLAN.Type,                         config_parse_wlan_iftype,                  0,                             offsetof(WLan, iftype)
+VirtualWLAN.WDS,                          config_parse_tristate,                     0,                             offsetof(WLan, wds)

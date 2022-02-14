@@ -192,6 +192,9 @@
 
           <row><entry><varname>ipoib</varname></entry>
           <entry>An IP over Infiniband subinterface.</entry></row>
+
+          <row><entry><varname>virtual-wlan</varname></entry>
+          <entry>A virtual local wireless network (WLAN) interface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -2174,6 +2177,43 @@
         <listitem>
           <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
           userspace. Defaults to unset, and the kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[VirtualWLAN] Section Options</title>
+    <para>The [VirtualWLAN] section only applies to virtual WLAN interfaces, and accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PhysicalDevice=</varname></term>
+        <listitem>
+          <para>Specifies the name or index of the WLAN physical WLAN device (e.g. <literal>0</literal>
+          or <literal>phy0</literal>). The list of the physical WLAN devices that exist os the host can
+          be obtained by <command>iw phy</command> command. This option is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+        <listitem>
+          <para>Specifies the type of the interface. Takes one of the <literal>ad-hoc</literal>,
+          <literal>station</literal>, <literal>ap</literal>, <literal>ap-vlan</literal>,
+          <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
+          <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
+          <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>WDS=</varname></term>
+        <listitem>
+          <para>Enables the Wireless Distribution System (WDS) mode on the interface. The mode is also
+          known as the <literal>4 address mode</literal>. Takes a boolean value. Defaults to unset, and
+          the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

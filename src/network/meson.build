@@ -53,6 +53,8 @@ sources = files('''
         netdev/vxcan.h
         netdev/wireguard.c
         netdev/wireguard.h
+        netdev/wlan.c
+        netdev/wlan.h
         netdev/xfrm.c
         netdev/xfrm.h
         networkd-address-generation.c

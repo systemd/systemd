@@ -43,6 +43,7 @@
         "-VXLAN\0"                                \
         "-WireGuard\0"                            \
         "-WireGuardPeer\0"                        \
+        "-VirtualWLAN\0"                          \
         "-Xfrm\0"
 
 typedef enum NetDevKind {
@@ -82,6 +83,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_VXCAN,
         NETDEV_KIND_VXLAN,
         NETDEV_KIND_WIREGUARD,
+        NETDEV_KIND_WLAN,
         NETDEV_KIND_XFRM,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
