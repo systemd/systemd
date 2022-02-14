@@ -11,18 +11,26 @@ sources = files('''
         netdev/bridge.h
         netdev/dummy.c
         netdev/dummy.h
+        netdev/fou-tunnel.c
+        netdev/fou-tunnel.h
         netdev/ifb.c
         netdev/ifb.h
         netdev/ipoib.c
         netdev/ipoib.h
         netdev/ipvlan.c
         netdev/ipvlan.h
+        netdev/l2tp-tunnel.c
+        netdev/l2tp-tunnel.h
+        netdev/macsec.c
+        netdev/macsec.h
         netdev/macvlan.c
         netdev/macvlan.h
-        netdev/netdev.c
         netdev/netdev-util.c
         netdev/netdev-util.h
+        netdev/netdev.c
         netdev/netdev.h
+        netdev/netdevsim.c
+        netdev/netdevsim.h
         netdev/nlmon.c
         netdev/nlmon.h
         netdev/tunnel.c
@@ -45,14 +53,6 @@ sources = files('''
         netdev/vxcan.h
         netdev/wireguard.c
         netdev/wireguard.h
-        netdev/netdevsim.c
-        netdev/netdevsim.h
-        netdev/fou-tunnel.c
-        netdev/fou-tunnel.h
-        netdev/l2tp-tunnel.c
-        netdev/l2tp-tunnel.h
-        netdev/macsec.c
-        netdev/macsec.h
         netdev/xfrm.c
         netdev/xfrm.h
         networkd-address-generation.c
