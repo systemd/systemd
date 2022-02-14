@@ -1070,6 +1070,9 @@ install_compiled_systemd() {
     if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "${initdir}/${BUILD_DIR:?}/"
         rsync -am --include='*/' --include='*.gcno' --exclude='*' "${BUILD_DIR:?}/" "${initdir}/${BUILD_DIR:?}/"
+        # Set effective & default ACLs for the build dir so unprivileged
+        # processes can write gcda files with coverage stats
+        setfacl -R -m 'd:o:rwX' -m 'o:rwX' "${initdir}/${BUILD_DIR:?}/"
     fi
 }
 
