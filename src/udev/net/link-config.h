@@ -81,6 +81,8 @@ struct LinkConfig {
         uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
 
+        Hashmap *wlan_interfaces_by_section;
+
         LIST_FIELDS(LinkConfig, configs);
 };
 
