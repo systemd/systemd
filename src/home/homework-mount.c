@@ -209,6 +209,13 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
         if (r < 0)
                 return log_oom();
 
+        /* Also map the container range. People can use that to place containers owned by high UIDs in their
+         * home directories if they really want. We won't manage this UID range for them but pass it through
+         * 1:1, and it will lose its meaning once migrated between hosts. */
+        r = append_identity_range(&text, CONTAINER_UID_BASE_MIN, CONTAINER_UID_BASE_MAX+1, stored_uid);
+        if (r < 0)
+                return log_oom();
+
         /* Leave everything else unmapped, starting from UID_NOBODY itself. Specifically, this means the
          * whole space outside of 16bit remains unmapped */
 
