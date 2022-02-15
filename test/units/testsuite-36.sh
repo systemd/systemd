@@ -181,7 +181,7 @@ else
     echo "PID1 NUMAPolicy support - Bind policy w/o mask"
     writePID1NUMAPolicy "bind"
     pid1ReloadWithJournal
-    grep "Failed to set NUMA memory policy: Invalid argument" "$journalLog"
+    grep "Failed to set NUMA memory policy, ignoring: Invalid argument" "$journalLog"
 
     echo "PID1 NUMAPolicy support - Bind policy w/ mask"
     writePID1NUMAPolicy "bind" "0"
@@ -191,7 +191,7 @@ else
     echo "PID1 NUMAPolicy support - Interleave policy w/o mask"
     writePID1NUMAPolicy "interleave"
     pid1ReloadWithJournal
-    grep "Failed to set NUMA memory policy: Invalid argument" "$journalLog"
+    grep "Failed to set NUMA memory policy, ignoring: Invalid argument" "$journalLog"
 
     echo "PID1 NUMAPolicy support - Interleave policy w/ mask"
     writePID1NUMAPolicy "interleave" "0"
@@ -202,7 +202,7 @@ else
     writePID1NUMAPolicy "preferred"
     pid1ReloadWithJournal
     # Preferred policy with empty node mask is actually allowed and should reset allocation policy to default
-    grep "Failed to set NUMA memory policy: Invalid argument" "$journalLog" && { echo >&2 "unexpected pass"; exit 1; }
+    grep "Failed to set NUMA memory policy, ignoring: Invalid argument" "$journalLog" && { echo >&2 "unexpected pass"; exit 1; }
 
     echo "PID1 NUMAPolicy support - Preferred policy w/ mask"
     writePID1NUMAPolicy "preferred" "0"

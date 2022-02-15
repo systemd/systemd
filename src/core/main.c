@@ -1755,7 +1755,7 @@ static void update_cpu_affinity(bool skip_setup) {
         log_debug("Setting CPU affinity to %s.", strnull(mask));
 
         if (sched_setaffinity(0, arg_cpu_affinity.allocated, arg_cpu_affinity.set) < 0)
-                log_warning_errno(errno, "Failed to set CPU affinity: %m");
+                log_warning_errno(errno, "Failed to set CPU affinity, ignoring: %m");
 }
 
 static void update_numa_policy(bool skip_setup) {
@@ -1776,7 +1776,7 @@ static void update_numa_policy(bool skip_setup) {
         if (r == -EOPNOTSUPP)
                 log_debug_errno(r, "NUMA support not available, ignoring.");
         else if (r < 0)
-                log_warning_errno(r, "Failed to set NUMA memory policy: %m");
+                log_warning_errno(r, "Failed to set NUMA memory policy, ignoring: %m");
 }
 
 static void filter_args(
@@ -1955,7 +1955,7 @@ static int do_reexecute(
                 (void) execve(args[0], (char* const*) args, saved_env);
                 return log_error_errno(errno, "Failed to execute /bin/sh, giving up: %m");
         } else
-                return log_warning_errno(r, "Failed to execute /sbin/init, giving up: %m");
+                return log_error_errno(r, "Failed to execute /sbin/init, giving up: %m");
 }
 
 static int invoke_main_loop(
@@ -2257,7 +2257,7 @@ static int initialize_runtime(
         if (!arg_system)
                 /* Become reaper of our children */
                 if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
-                        log_warning_errno(errno, "Failed to make us a subreaper: %m");
+                        log_warning_errno(errno, "Failed to make us a subreaper, ignoring: %m");
 
         /* Bump up RLIMIT_NOFILE for systemd itself */
         (void) bump_rlimit_nofile(saved_rlimit_nofile);
