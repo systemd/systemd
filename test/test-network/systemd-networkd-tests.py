@@ -1918,6 +1918,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet6 2002:da8:1:0:1034:56ff:fe78:9abc/64 scope global dynamic', output)
 
+    @unittest.skip(reason="Causes kernel panic on recent kernels: https://bugzilla.kernel.org/show_bug.cgi?id=208315")
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
                                         'macsec.network', '12-dummy.netdev')
