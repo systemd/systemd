@@ -1157,6 +1157,9 @@ install_systemd() {
 
     # enable debug logging in PID1
     echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
+    if [[ -n "$TEST_SYSTEMD_LOG_LEVEL" ]]; then
+        echo DefaultEnvironment=SYSTEMD_LOG_LEVEL="$TEST_SYSTEMD_LOG_LEVEL" >>"$initdir/etc/systemd/system.conf"
+    fi
     # store coredumps in journal
     echo Storage=journal >>"$initdir/etc/systemd/coredump.conf"
     # Propagate SYSTEMD_UNIT_PATH to user systemd managers
