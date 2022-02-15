@@ -5933,5 +5933,4 @@ if __name__ == '__main__':
         env.update({ 'UBSAN_OPTIONS' : ubsan_options })
 
     sys.argv[1:] = unknown_args
-    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
-                                                     verbosity=3))
+    unittest.main(verbosity=3)
