@@ -15,7 +15,7 @@ size_t page_size(void) _pure_;
 #define PAGE_ALIGN_DOWN(l) ((l) & ~(page_size() - 1))
 #define PAGE_OFFSET(l) ((l) & (page_size() - 1))
 
-/* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
+/* Normal memcpy() requires src to be nonnull. We do nothing if n is 0. */
 static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
                 return dst;
@@ -23,7 +23,15 @@ static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
         return memcpy(dst, src, n);
 }
 
-/* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
+/* Normal mempcpy() requires src to be nonnull. We do nothing if n is 0. */
+static inline void *mempcpy_safe(void *dst, const void *src, size_t n) {
+        if (n == 0)
+                return dst;
+        assert(src);
+        return mempcpy(dst, src, n);
+}
+
+/* Normal memcmp() requires s1 and s2 to be nonnull. We do nothing if n is 0. */
 static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
         if (n == 0)
                 return 0;
