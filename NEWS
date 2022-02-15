@@ -12,18 +12,39 @@ CHANGES WITH 251:
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
 
-        * In v250 systemd-homed started making use of UID mapped mounts for the
-          home areas if the kernel and used file system support it. Files are
-          now internally owned by the "nobody" user (i.e. the user typically
-          used for indicating "this ownership is not mapped"), and dynamically
-          mapped to the UID used locally on the system via the UID mapping
-          mount logic of recent kernels.
-          In the current implementation systemd-homed only maps a limited
-          number of UIDs and GIDs making it impossible to run unprivileged
-          containers that want to map a full POSIX compliant UID and GID range
-          with their rootfs located within the systemd-homed managed home area.
-          This will be fixed in subsequent releases. See
-          https://github.com/systemd/systemd/pull/22239 for a proposal.
+        * Starting with v250 systemd-homed uses UID/GID mapping on the mounts
+          of activated home directories it manages (if the kernel and selected
+          file systems support it). So far it mapped three UID ranges: the
+          range from 0…60000, the user's own UID, and the range 60514…65534,
+          leaving everything else unmapped (in other words, the 16bit UID range
+          is mapped almost fully, with the exception of the UID subrange used
+          for systemd-homed users, with one exception from that: the user's own
+          UID). Unmapped UIDs may not be used for file ownership in the home
+          dirctory — any chown() attempts with them will fail. With this
+          release a fourth range is added to these mappings:
+          524288…1879048191. This range is the UID range intended for container
+          uses, see:
+
+                  https://systemd.io/UIDS-GIDS
+
+          This range may be used for container managers that place container OS
+          trees in the home directory (which is a questionable approach, for
+          quota, permission, SUID handling and network file system
+          compatibility reasons, but nonetheless apparently commonplace). Note
+          that this mapping is mapped 1:1 in a pass-through fashion, i.e. the
+          UID assignments from the range are not managed or mapped by
+          `systemd-homed`, and must be managed with other mechanisms, in the
+          context of the local system.
+
+          Typically, a better approach to user namespacing in relevant
+          container managers would be to leave container OS trees on disk at
+          UID offset 0, but then map them to a dynamically allocated runtime
+          UID range via another UID mount map at container invocation
+          time. That way user namespace UID ranges become strictly a runtime
+          concept, and do not leak into persistent file systems, persistent
+          user databases or persistent configuration, thus greatly simplifying
+          handling, and improving compatibility with home directories intended
+          to be portable like the ones managed by systemd-homed.
 
 CHANGES WITH 250:
 
