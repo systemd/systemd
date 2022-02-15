@@ -5,6 +5,9 @@
 # pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 # systemd-networkd tests
 
+# These tests can be executed in the systemd mkosi image when booted in QEMU. After booting the QEMU VM,
+# simply run this file which can be found in the VM at /root/src/test/test-network/systemd-networkd-tests.py.
+
 import argparse
 import errno
 import itertools
