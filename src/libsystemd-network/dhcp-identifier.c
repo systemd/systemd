@@ -91,7 +91,7 @@ static int dhcp_identifier_set_duid_llt(const uint8_t *addr, size_t addr_len, ui
         unaligned_write_be32(&ret_duid->llt.time, time_from_2000y);
         memcpy(ret_duid->llt.haddr, addr, addr_len);
 
-        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->llt.htype) + sizeof(ret_duid->llt.time) + addr_len;
+        *ret_len = offsetof(struct duid, llt.haddr) + addr_len;
 
         return 0;
 }
@@ -115,7 +115,7 @@ static int dhcp_identifier_set_duid_ll(const uint8_t *addr, size_t addr_len, uin
         unaligned_write_be16(&ret_duid->ll.htype, arp_type);
         memcpy(ret_duid->ll.haddr, addr, addr_len);
 
-        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->ll.htype) + addr_len;
+        *ret_len = offsetof(struct duid, ll.haddr) + addr_len;
 
         return 0;
 }
@@ -146,7 +146,7 @@ int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *r
         hash = htole64(siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
         memcpy(ret_duid->en.id, &hash, sizeof(ret_duid->en.id));
 
-        *ret_len = sizeof(ret_duid->type) + sizeof(ret_duid->en);
+        *ret_len = offsetof(struct duid, en.id) + sizeof(ret_duid->en.id);
 
         if (test_mode)
                 assert_se(memcmp(ret_duid, (const uint8_t[]) { 0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2 }, *ret_len) == 0);
@@ -166,9 +166,9 @@ static int dhcp_identifier_set_duid_uuid(struct duid *ret_duid, size_t *ret_len)
                 return r;
 
         unaligned_write_be16(&ret_duid->type, DUID_TYPE_UUID);
-        memcpy(ret_duid->raw.data, &machine_id, sizeof(machine_id));
+        memcpy(&ret_duid->uuid.uuid, &machine_id, sizeof(machine_id));
 
-        *ret_len = sizeof(ret_duid->type) + sizeof(machine_id);
+        *ret_len = offsetof(struct duid, uuid.uuid) + sizeof(machine_id);
 
         return 0;
 }
