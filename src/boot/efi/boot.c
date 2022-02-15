@@ -53,6 +53,7 @@ typedef struct {
         CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
         CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        CHAR16 *sort_key;   /* The string to use as primary sory key, usually ID= from os-release, possibly suffixed */
         CHAR16 *version;    /* The raw (human readable) version string of the entry */
         CHAR16 *machine_id;
         EFI_HANDLE *device;
@@ -540,6 +541,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"            id: %s\n", entry->id);
                 ps_string(L"         title: %s\n", entry->title);
                 ps_string(L"    title show: %s\n", streq_ptr(entry->title, entry->title_show) ? NULL : entry->title_show);
+                ps_string(L"      sort key: %s\n", entry->sort_key);
                 ps_string(L"       version: %s\n", entry->version);
                 ps_string(L"    machine-id: %s\n", entry->machine_id);
                 if (entry->device)
@@ -1026,6 +1028,7 @@ static void config_entry_free(ConfigEntry *entry) {
         FreePool(entry->id);
         FreePool(entry->title_show);
         FreePool(entry->title);
+        FreePool(entry->sort_key);
         FreePool(entry->version);
         FreePool(entry->machine_id);
         FreePool(entry->loader);
@@ -1427,6 +1430,12 @@ static void config_entry_add_from_file(
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"sort-key", key) == 0) {
+                        FreePool(entry->sort_key);
+                        entry->sort_key = xstra_to_str(value);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"version", key) == 0) {
                         FreePool(entry->version);
                         entry->version = xstra_to_str(value);
@@ -1643,12 +1652,39 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         assert(a);
         assert(b);
 
-        /* Order entries that have no tries left to the beginning of the list */
-        if (a->tries_left != 0 && b->tries_left == 0)
-                return 1;
+        /* Order entries that have no tries left to the end of the list */
         if (a->tries_left == 0 && b->tries_left != 0)
+                return 1;
+        if (a->tries_left != 0 && b->tries_left == 0)
                 return -1;
 
+        /* If there's a sort key defined for *both* entries, then we do new-style ordering, i.e. by
+         * sort-key/machine-id/version, with a final fallback to id. If there's no sort key for either, we do
+         * old-style ordering, i.e. by id only. If one has sort key and the other does not, we put new-style
+         * before old-style. */
+        r = CMP(!a->sort_key, !b->sort_key);
+        if (r != 0) /* one is old-style, one new-style */
+                return r;
+        if (a->sort_key && b->sort_key) {
+
+                r = strcmp(a->sort_key, b->sort_key);
+                if (r != 0)
+                        return r;
+
+                /* If multiple installations of the same OS are around, group by machine ID */
+                r = strcmp_ptr(a->machine_id, b->machine_id);
+                if (r != 0)
+                        return r;
+
+                /* If the sort key was defined, then order by version now (downwards, putting the newest first) */
+                r = -strverscmp_improved(a->version, b->version);
+                if (r != 0)
+                        return r;
+        }
+
+        /* Now order by ID (the version is likely part of the ID, thus note that this might put the oldest
+         * version last, not first, i.e. specifying a sort key explicitly is thus generally preferable, to
+         * take benefit of the explicit sorting above.) */
         r = strverscmp_improved(a->id, b->id);
         if (r != 0)
                 return r;
@@ -1657,16 +1693,16 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
             b->tries_left == UINTN_MAX)
                 return 0;
 
-        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left last */
-        if (a->tries_left > b->tries_left)
-                return 1;
+        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
         if (a->tries_left < b->tries_left)
+                return 1;
+        if (a->tries_left > b->tries_left)
                 return -1;
 
         /* If they have the same number of tries left, then let the one win which was tried fewer times so far */
-        if (a->tries_done < b->tries_done)
-                return 1;
         if (a->tries_done > b->tries_done)
+                return 1;
+        if (a->tries_done < b->tries_done)
                 return -1;
 
         return 0;
@@ -1678,7 +1714,7 @@ static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
         if (!needle)
                 return IDX_INVALID;
 
-        for (INTN i = config->entry_count - 1; i >= 0; i--)
+        for (UINTN i = 0; i < config->entry_count; i++)
                 if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
                         return i;
 
@@ -1713,9 +1749,8 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        /* select the last suitable entry */
-        i = config->entry_count;
-        while (i--) {
+        /* select the first suitable entry */
+        for (i = 0; i < config->entry_count; i++) {
                 if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
@@ -1843,6 +1878,7 @@ static ConfigEntry *config_entry_add_loader(
                 CHAR16 key,
                 const CHAR16 *title,
                 const CHAR16 *loader,
+                const CHAR16 *sort_key,
                 const CHAR16 *version) {
 
         ConfigEntry *entry;
@@ -1861,6 +1897,7 @@ static ConfigEntry *config_entry_add_loader(
                 .device = device,
                 .loader = xstrdup(loader),
                 .id = xstrdup(id),
+                .sort_key = xstrdup(sort_key),
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
@@ -1935,7 +1972,7 @@ static ConfigEntry *config_entry_add_loader_auto(
         if (EFI_ERROR(err))
                 return NULL;
 
-        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
+        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL, NULL);
 }
 
 static void config_entry_add_osx(Config *config) {
@@ -2113,7 +2150,7 @@ static void config_entry_add_linux(
                 _cleanup_freepool_ CHAR16 *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL,
                         *path = NULL;
-                const CHAR16 *good_name, *good_version;
+                const CHAR16 *good_name, *good_version, *good_sort_key;
                 _cleanup_freepool_ CHAR8 *content = NULL;
                 UINTN offs[_SECTION_MAX] = {};
                 UINTN szs[_SECTION_MAX] = {};
@@ -2194,7 +2231,7 @@ static void config_entry_add_linux(
                         }
                 }
 
-                if (!bootspec_pick_name_version(
+                if (!bootspec_pick_name_version_sort_key(
                                     os_pretty_name,
                                     os_image_id,
                                     os_name,
@@ -2204,7 +2241,8 @@ static void config_entry_add_linux(
                                     os_version_id,
                                     os_build_id,
                                     &good_name,
-                                    &good_version))
+                                    &good_version,
+                                    &good_sort_key))
                         continue;
 
                 path = xpool_print(L"\\EFI\\Linux\\%s", f->FileName);
@@ -2212,10 +2250,11 @@ static void config_entry_add_linux(
                                 config,
                                 device,
                                 LOADER_UNIFIED_LINUX,
-                                f->FileName,
+                                /* id= */ f->FileName,
                                 /* key= */ 'l',
-                                good_name,
-                                path,
+                                /* title= */ good_name,
+                                /* loader= */ path,
+                                /* sort_key= */ good_sort_key,
                                 good_version);
 
                 config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
