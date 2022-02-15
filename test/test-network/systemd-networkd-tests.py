@@ -726,7 +726,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         '12-dummy.link',
         '25-address-static.network',
         '25-veth.netdev',
-        'netdev-link-local-addressing-yes.network',
+        '26-netdev-link-local-addressing-yes.network',
     ]
 
     def setUp(self):
@@ -740,7 +740,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_altname(self):
-        copy_unit_to_networkd_unit_path('netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
+        copy_unit_to_networkd_unit_path('26-netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
         check_output('udevadm control --reload')
         start_networkd()
         self.wait_online(['dummy98:degraded'])
@@ -882,7 +882,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
     def test_delete_links(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network',
-                                        '25-veth.netdev', 'netdev-link-local-addressing-yes.network')
+                                        '25-veth.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
@@ -1070,31 +1070,31 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-wireguard.network',
         '25-xfrm.netdev',
         '25-xfrm-independent.netdev',
-        '6rd.network',
-        'erspan.network',
-        'gre.network',
-        'gretap.network',
-        'gretun.network',
-        'ip6gretap.network',
-        'ip6gretun.network',
-        'ip6tnl-slaac.network',
-        'ip6tnl.network',
-        'ipip.network',
-        'ipv6-prefix.network',
-        'ipvlan.network',
-        'ipvtap.network',
-        'isatap.network',
-        'macsec.network',
-        'macvlan.network',
-        'macvtap.network',
-        'netdev-link-local-addressing-yes.network',
-        'sit.network',
-        'vti6.network',
-        'vti.network',
-        'vxlan-ipv6.network',
-        'vxlan-test1.network',
-        'vxlan.network',
-        'xfrm.network',
+        '25-6rd.network',
+        '25-erspan.network',
+        '25-gre.network',
+        '25-gretap.network',
+        '25-gretun.network',
+        '25-ip6gretap.network',
+        '25-ip6gretun.network',
+        '25-ip6tnl-slaac.network',
+        '25-ip6tnl.network',
+        '25-ipip.network',
+        '25-ipv6-prefix.network',
+        '25-ipvlan.network',
+        '25-ipvtap.network',
+        '25-isatap.network',
+        '26-macsec.network',
+        '25-macvlan.network',
+        '25-macvtap.network',
+        '26-netdev-link-local-addressing-yes.network',
+        '25-sit.network',
+        '25-vti6.network',
+        '25-vti.network',
+        '25-vxlan-ipv6.network',
+        '25-vxlan-test1.network',
+        '25-vxlan.network',
+        '25-xfrm.network',
     ]
 
     fou_ports = [
@@ -1144,7 +1144,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('bareudp')
     def test_bareudp(self):
-        copy_unit_to_networkd_unit_path('25-bareudp.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-bareudp.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['bareudp99:degraded'])
@@ -1156,7 +1156,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('batman-adv')
     def test_batadv(self):
-        copy_unit_to_networkd_unit_path('25-batadv.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-batadv.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['batadv99:degraded'])
@@ -1249,8 +1249,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode):
                 if mode != 'private':
                     self.tearDown()
-                copy_unit_to_networkd_unit_path('21-macvtap.netdev', 'netdev-link-local-addressing-yes.network',
-                                                '11-dummy.netdev', 'macvtap.network')
+                copy_unit_to_networkd_unit_path('21-macvtap.netdev', '26-netdev-link-local-addressing-yes.network',
+                                                '11-dummy.netdev', '25-macvtap.network')
                 with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a') as f:
                     f.write('[MACVTAP]\nMode=' + mode)
                 start_networkd()
@@ -1267,8 +1267,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode):
                 if mode != 'private':
                     self.tearDown()
-                copy_unit_to_networkd_unit_path('21-macvlan.netdev', 'netdev-link-local-addressing-yes.network',
-                                                '11-dummy.netdev', 'macvlan.network')
+                copy_unit_to_networkd_unit_path('21-macvlan.netdev', '26-netdev-link-local-addressing-yes.network',
+                                                '11-dummy.netdev', '25-macvlan.network')
                 with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a') as f:
                     f.write('[MACVLAN]\nMode=' + mode)
                 start_networkd()
@@ -1311,8 +1311,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode, flag=flag):
                 if mode != 'L2':
                     self.tearDown()
-                copy_unit_to_networkd_unit_path('25-ipvlan.netdev', 'netdev-link-local-addressing-yes.network',
-                                                '11-dummy.netdev', 'ipvlan.network')
+                copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '26-netdev-link-local-addressing-yes.network',
+                                                '11-dummy.netdev', '25-ipvlan.network')
                 with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a') as f:
                     f.write('[IPVLAN]\nMode=' + mode + '\nFlags=' + flag)
 
@@ -1329,8 +1329,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             with self.subTest(mode=mode, flag=flag):
                 if mode != 'L2':
                     self.tearDown()
-                copy_unit_to_networkd_unit_path('25-ipvtap.netdev', 'netdev-link-local-addressing-yes.network',
-                                                '11-dummy.netdev', 'ipvtap.network')
+                copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '26-netdev-link-local-addressing-yes.network',
+                                                '11-dummy.netdev', '25-ipvtap.network')
                 with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a') as f:
                     f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
@@ -1342,7 +1342,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, 'ipvtap  *mode ' + mode.lower() + ' ' + flag)
 
     def test_veth(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'netdev-link-local-addressing-yes.network',
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '26-netdev-link-local-addressing-yes.network',
                                         '25-veth-mtu.netdev')
         start_networkd()
 
@@ -1388,21 +1388,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_vrf(self):
-        copy_unit_to_networkd_unit_path('25-vrf.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-vrf.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['vrf99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
-        copy_unit_to_networkd_unit_path('25-vcan.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-vcan.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['vcan99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('vxcan')
     def test_vxcan(self):
-        copy_unit_to_networkd_unit_path('25-vxcan.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-vxcan.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['vxcan99:carrier', 'vxcan-peer:carrier'])
@@ -1524,7 +1524,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertEqual(output, '0x4d3')
 
     def test_geneve(self):
-        copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['geneve99:degraded'])
@@ -1537,7 +1537,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'udp6zerocsumrx')
 
     def test_ipip_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ipip.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ipip.network',
                                         '25-ipip-tunnel.netdev', '25-tunnel.network',
                                         '25-ipip-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
@@ -1559,7 +1559,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ipip (ipip )?remote any local any dev dummy98')
 
     def test_gre_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretun.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gretun.network',
                                         '25-gre-tunnel.netdev', '25-tunnel.network',
                                         '25-gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
@@ -1597,7 +1597,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'oseq')
 
     def test_ip6gre_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretun.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gretun.network',
                                         '25-ip6gre-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6gre-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ip6gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
@@ -1626,7 +1626,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ip6gre remote any local any dev dummy98')
 
     def test_gretap_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'gretap.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gretap.network',
                                         '25-gretap-tunnel.netdev', '25-tunnel.network',
                                         '25-gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
@@ -1648,7 +1648,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oseq')
 
     def test_ip6gretap_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6gretap.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gretap.network',
                                         '25-ip6gretap-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
@@ -1662,7 +1662,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local any dev dummy98')
 
     def test_vti_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti.network',
                                         '25-vti-tunnel.netdev', '25-tunnel.network',
                                         '25-vti-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-vti-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
@@ -1684,7 +1684,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vti remote any local any dev dummy98')
 
     def test_vti6_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'vti6.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti6.network',
                                         '25-vti6-tunnel.netdev', '25-tunnel.network',
                                         '25-vti6-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-vti6-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
@@ -1702,13 +1702,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'vti6 remote (any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_ip6tnl_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'ip6tnl.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6tnl.network',
                                         '25-ip6tnl-tunnel.netdev', '25-tunnel.network',
                                         '25-ip6tnl-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
-                                        '25-veth.netdev', 'ip6tnl-slaac.network', 'ipv6-prefix.network',
+                                        '25-veth.netdev', '25-ip6tnl-slaac.network', '25-ipv6-prefix.network',
                                         '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network',
-                                        '25-ip6tnl-external.netdev', 'netdev-link-local-addressing-yes.network')
+                                        '25-ip6tnl-external.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
         self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
                           'ip6tnl-slaac:degraded', 'ip6tnl-external:degraded',
@@ -1740,7 +1740,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('default dev ip6tnl-slaac proto static', output)
 
     def test_sit_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'sit.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-sit.network',
                                         '25-sit-tunnel.netdev', '25-tunnel.network',
                                         '25-sit-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                                         '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
@@ -1762,7 +1762,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "sit (ip6ip )?remote any local any dev dummy98")
 
     def test_isatap_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'isatap.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-isatap.network',
                                         '25-isatap-tunnel.netdev', '25-tunnel.network')
         start_networkd()
         self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
@@ -1772,7 +1772,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "isatap ")
 
     def test_6rd_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', '6rd.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-6rd.network',
                                         '25-6rd-tunnel.netdev', '25-tunnel.network')
         start_networkd()
         self.wait_online(['sittun99:routable', 'dummy98:degraded'])
@@ -1783,7 +1783,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfERSPANModuleIsNotAvailable()
     def test_erspan_tunnel(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'erspan.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
                                         '25-erspan-tunnel.netdev', '25-tunnel.network',
                                         '25-erspan-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
@@ -1806,22 +1806,22 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'oseq')
 
     def test_tunnel_independent(self):
-        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['ipiptun99:carrier'])
 
     def test_tunnel_independent_loopback(self):
-        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent-loopback.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent-loopback.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['ipiptun99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
     def test_xfrm(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'xfrm.network',
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-xfrm.network',
                                         '25-xfrm.netdev', '25-xfrm-independent.netdev',
-                                        'netdev-link-local-addressing-yes.network')
+                                        '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['dummy98:degraded', 'xfrm98:degraded', 'xfrm99:degraded'])
@@ -1868,11 +1868,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
 
     def test_vxlan(self):
-        copy_unit_to_networkd_unit_path('11-dummy.netdev', 'vxlan-test1.network',
-                                        '25-vxlan.netdev', 'vxlan.network',
-                                        '25-vxlan-ipv6.netdev', 'vxlan-ipv6.network',
-                                        '25-vxlan-independent.netdev', 'netdev-link-local-addressing-yes.network',
-                                        '25-veth.netdev', '25-vxlan-veth99.network', 'ipv6-prefix.network',
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-vxlan-test1.network',
+                                        '25-vxlan.netdev', '25-vxlan.network',
+                                        '25-vxlan-ipv6.netdev', '25-vxlan-ipv6.network',
+                                        '25-vxlan-independent.netdev', '26-netdev-link-local-addressing-yes.network',
+                                        '25-veth.netdev', '25-vxlan-veth99.network', '25-ipv6-prefix.network',
                                         '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network')
         start_networkd()
 
@@ -1921,7 +1921,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     @unittest.skip(reason="Causes kernel panic on recent kernels: https://bugzilla.kernel.org/show_bug.cgi?id=208315")
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',
-                                        'macsec.network', '12-dummy.netdev')
+                                        '26-macsec.network', '12-dummy.netdev')
         start_networkd()
 
         self.wait_online(['dummy98:degraded', 'macsec99:routable'])
@@ -1948,14 +1948,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '0: PN [0-9]*, state off, key 02030400000000000000000000000000')
 
     def test_nlmon(self):
-        copy_unit_to_networkd_unit_path('25-nlmon.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-nlmon.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['nlmon99:carrier'])
 
     @expectedFailureIfModuleIsNotAvailable('ifb')
     def test_ifb(self):
-        copy_unit_to_networkd_unit_path('25-ifb.netdev', 'netdev-link-local-addressing-yes.network')
+        copy_unit_to_networkd_unit_path('25-ifb.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
         self.wait_online(['ifb99:degraded'])
@@ -2113,14 +2113,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-vrf.netdev',
         '25-vrf.network',
         '26-link-local-addressing-ipv6.network',
-        'dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network',
-        'dhcp-server-with-ipv6-prefix.network',
-        'ipv6ra-prefix-client-with-static-ipv4-address.network',
-        'ipv6-prefix-with-delay.network',
-        'routing-policy-rule-dummy98.network',
-        'routing-policy-rule-test1.network',
-        'routing-policy-rule-reconfigure1.network',
-        'routing-policy-rule-reconfigure2.network',
+        '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network',
+        '25-dhcp-server-with-ipv6-prefix.network',
+        '25-ipv6ra-prefix-client-with-static-ipv4-address.network',
+        '25-ipv6-prefix-with-delay.network',
+        '25-routing-policy-rule-dummy98.network',
+        '25-routing-policy-rule-test1.network',
+        '25-routing-policy-rule-reconfigure1.network',
+        '25-routing-policy-rule-reconfigure2.network',
     ]
 
     networkd_conf_dropins = [
@@ -2392,7 +2392,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, routable_map[carrier])
 
     def test_routing_policy_rule(self):
-        copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-routing-policy-rule-test1.network', '11-dummy.netdev')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
@@ -2430,8 +2430,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_routing_policy_rule_issue_11280(self):
-        copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
-                                        'routing-policy-rule-dummy98.network', '12-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-routing-policy-rule-test1.network', '11-dummy.netdev',
+                                        '25-routing-policy-rule-dummy98.network', '12-dummy.netdev')
 
         for _ in range(3):
             # Remove state files only first time
@@ -2450,7 +2450,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             stop_networkd(remove_state_files=False)
 
     def test_routing_policy_rule_reconfigure(self):
-        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure2.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-routing-policy-rule-reconfigure2.network', '11-dummy.netdev')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
@@ -2465,7 +2465,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('10112:	from all oif test1 lookup 1011', output)
 
-        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure1.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-routing-policy-rule-reconfigure1.network', '11-dummy.netdev')
         run(*networkctl_cmd, 'reload', env=env)
         time.sleep(1)
         self.wait_online(['test1:degraded'])
@@ -3504,7 +3504,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'limit 200000p')
 
     def test_wait_online_ipv4(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-with-ipv6-prefix.network', 'dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-with-ipv6-prefix.network', '25-dhcp-client-ipv4-ipv6ra-prefix-client-with-delay.network')
         start_networkd()
 
         self.wait_online(['veth99:routable'], ipv4=True)
@@ -3512,7 +3512,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'192.168.5.[0-9]+', ipv='-4', timeout_sec=1)
 
     def test_wait_online_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix-with-delay.network', 'ipv6ra-prefix-client-with-static-ipv4-address.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6-prefix-with-delay.network', '25-ipv6ra-prefix-client-with-static-ipv4-address.network')
         start_networkd()
 
         self.wait_online(['veth99:routable'], ipv6=True)
@@ -3526,7 +3526,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
     units = [
         '12-dummy.netdev',
-        'state-file-tests.network',
+        '25-state-file-tests.network',
     ]
 
     def setUp(self):
@@ -3539,7 +3539,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_state_file(self):
-        copy_unit_to_networkd_unit_path('12-dummy.netdev', 'state-file-tests.network')
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-state-file-tests.network')
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -3566,7 +3566,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
             self.assertRegex(data, r'REQUIRED_FAMILY_FOR_ONLINE=both')
             self.assertRegex(data, r'ACTIVATION_POLICY=up')
-            self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/state-file-tests.network')
+            self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/25-state-file-tests.network')
             self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
             self.assertRegex(data, r'DOMAINS=hogehoge')
@@ -3641,8 +3641,8 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         '23-primary-slave.network',
         '25-bond-active-backup-slave.netdev',
         '25-bond.netdev',
-        'bond99.network',
-        'bond-slave.network']
+        '25-bond99.network',
+        '25-bond-slave.network']
 
     def setUp(self):
         remove_links(self.links)
@@ -3690,7 +3690,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
 
     def test_bond_operstate(self):
         copy_unit_to_networkd_unit_path('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',
-                                        'bond99.network','bond-slave.network')
+                                        '25-bond99.network','25-bond-slave.network')
         start_networkd()
         self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bond99:routable'])
 
@@ -3758,8 +3758,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         '26-bridge-vlan-master.network',
         '26-bridge-vlan-slave-issue-20373.network',
         '26-bridge-vlan-slave.network',
-        'bridge99-ignore-carrier-loss.network',
-        'bridge99.network'
+        '25-bridge99-ignore-carrier-loss.network',
+        '25-bridge99.network'
     ]
 
     routing_policy_rule_tables = ['100']
@@ -3865,7 +3865,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
-                                        'bridge99.network')
+                                        '25-bridge99.network')
         start_networkd()
         self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
 
@@ -3988,7 +3988,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def test_bridge_ignore_carrier_loss(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
-                                        'bridge99-ignore-carrier-loss.network')
+                                        '25-bridge99-ignore-carrier-loss.network')
         start_networkd()
         self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
 
@@ -4007,7 +4007,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
     def test_bridge_ignore_carrier_loss_frequent_loss_and_gain(self):
         copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-slave-interface-1.network',
-                                        'bridge99-ignore-carrier-loss.network')
+                                        '25-bridge99-ignore-carrier-loss.network')
         start_networkd()
         self.wait_online(['bridge99:no-carrier'])
 
@@ -4192,11 +4192,11 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     units = [
         '25-veth.netdev',
-        'ipv6-prefix.network',
-        'ipv6-prefix-veth.network',
-        'ipv6-prefix-veth-token-static.network',
-        'ipv6-prefix-veth-token-prefixstable.network',
-        'ipv6-prefix-veth-token-prefixstable-without-address.network']
+        '25-ipv6-prefix.network',
+        '25-ipv6-prefix-veth.network',
+        '25-ipv6-prefix-veth-token-static.network',
+        '25-ipv6-prefix-veth-token-prefixstable.network',
+        '25-ipv6-prefix-veth-token-prefixstable-without-address.network']
 
     def setUp(self):
         remove_links(self.links)
@@ -4208,7 +4208,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_ipv6_prefix_delegation(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4226,7 +4226,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:1:0')
 
     def test_ipv6_token_static(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-static.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4238,7 +4238,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:2:0:fa:de:ca:fe')
 
     def test_ipv6_token_prefixstable(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-prefixstable.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4248,7 +4248,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc', output) # EUI64
 
     def test_ipv6_token_prefixstable_without_address(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-prefixstable-without-address.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable-without-address.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4266,14 +4266,14 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     units = [
         '12-dummy.netdev',
         '25-veth.netdev',
-        'dhcp-client.network',
-        'dhcp-client-static-lease.network',
-        'dhcp-client-timezone-router.network',
-        'dhcp-server.network',
-        'dhcp-server-downstream.network',
-        'dhcp-server-static-lease.network',
-        'dhcp-server-timezone-router.network',
-        'dhcp-server-uplink.network',
+        '25-dhcp-client.network',
+        '25-dhcp-client-static-lease.network',
+        '25-dhcp-client-timezone-router.network',
+        '25-dhcp-server.network',
+        '25-dhcp-server-downstream.network',
+        '25-dhcp-server-static-lease.network',
+        '25-dhcp-server-timezone-router.network',
+        '25-dhcp-server-uplink.network',
     ]
 
     def setUp(self):
@@ -4286,7 +4286,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4298,8 +4298,8 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
     def test_dhcp_server_with_uplink(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client.network', 'dhcp-server-downstream.network',
-                                        '12-dummy.netdev', 'dhcp-server-uplink.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
+                                        '12-dummy.netdev', '25-dhcp-server-uplink.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4311,7 +4311,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('NTP: 192.168.5.1', output)
 
     def test_emit_router_timezone(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-timezone-router.network', 'dhcp-server-timezone-router.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-client-timezone-router.network', '25-dhcp-server-timezone-router.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4322,7 +4322,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Time Zone: Europe/Berlin', output)
 
     def test_dhcp_server_static_lease(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-client-static-lease.network', 'dhcp-server-static-lease.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-client-static-lease.network', '25-dhcp-server-static-lease.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4339,12 +4339,12 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         ]
 
     units = [
-        'agent-veth-client.netdev',
-        'agent-veth-server.netdev',
-        'agent-client.network',
-        'agent-server.network',
-        'agent-client-peer.network',
-        'agent-server-peer.network',
+        '25-agent-veth-client.netdev',
+        '25-agent-veth-server.netdev',
+        '25-agent-client.network',
+        '25-agent-server.network',
+        '25-agent-client-peer.network',
+        '25-agent-server-peer.network',
         ]
 
     def setUp(self):
@@ -4375,37 +4375,37 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-veth.netdev',
         '25-vrf.netdev',
         '25-vrf.network',
-        'dhcp-client-allow-list.network',
-        'dhcp-client-anonymize.network',
-        'dhcp-client-decline.network',
-        'dhcp-client-gateway-ipv4.network',
-        'dhcp-client-gateway-ipv6.network',
-        'dhcp-client-gateway-onlink-implicit.network',
-        'dhcp-client-ipv4-dhcp-settings.network',
-        'dhcp-client-ipv4-only-ipv6-disabled.network',
-        'dhcp-client-ipv4-only.network',
-        'dhcp-client-ipv4-use-routes-use-gateway.network',
-        'dhcp-client-ipv6-only.network',
-        'dhcp-client-keep-configuration-dhcp-on-stop.network',
-        'dhcp-client-keep-configuration-dhcp.network',
-        'dhcp-client-listen-port.network',
-        'dhcp-client-reassign-static-routes-ipv4.network',
-        'dhcp-client-reassign-static-routes-ipv6.network',
-        'dhcp-client-route-metric.network',
-        'dhcp-client-route-table.network',
-        'dhcp-client-use-dns-ipv4-and-ra.network',
-        'dhcp-client-use-dns-ipv4.network',
-        'dhcp-client-use-dns-no.network',
-        'dhcp-client-use-dns-yes.network',
-        'dhcp-client-use-domains.network',
-        'dhcp-client-vrf.network',
-        'dhcp-client-with-ipv4ll.network',
-        'dhcp-client-with-static-address.network',
-        'dhcp-client.network',
-        'dhcp-server-decline.network',
-        'dhcp-server-veth-peer.network',
-        'dhcp-v4-server-veth-peer.network',
-        'static.network']
+        '25-dhcp-client-allow-list.network',
+        '25-dhcp-client-anonymize.network',
+        '25-dhcp-client-decline.network',
+        '25-dhcp-client-gateway-ipv4.network',
+        '25-dhcp-client-gateway-ipv6.network',
+        '25-dhcp-client-gateway-onlink-implicit.network',
+        '25-dhcp-client-ipv4-dhcp-settings.network',
+        '25-dhcp-client-ipv4-only-ipv6-disabled.network',
+        '25-dhcp-client-ipv4-only.network',
+        '25-dhcp-client-ipv4-use-routes-use-gateway.network',
+        '25-dhcp-client-ipv6-only.network',
+        '25-dhcp-client-keep-configuration-dhcp-on-stop.network',
+        '25-dhcp-client-keep-configuration-dhcp.network',
+        '25-dhcp-client-listen-port.network',
+        '25-dhcp-client-reassign-static-routes-ipv4.network',
+        '25-dhcp-client-reassign-static-routes-ipv6.network',
+        '25-dhcp-client-route-metric.network',
+        '25-dhcp-client-route-table.network',
+        '25-dhcp-client-use-dns-ipv4-and-ra.network',
+        '25-dhcp-client-use-dns-ipv4.network',
+        '25-dhcp-client-use-dns-no.network',
+        '25-dhcp-client-use-dns-yes.network',
+        '25-dhcp-client-use-domains.network',
+        '25-dhcp-client-vrf.network',
+        '25-dhcp-client-with-ipv4ll.network',
+        '25-dhcp-client-with-static-address.network',
+        '25-dhcp-client.network',
+        '25-dhcp-server-decline.network',
+        '25-dhcp-server-veth-peer.network',
+        '25-dhcp-v4-server-veth-peer.network',
+        '25-static.network']
 
     def setUp(self):
         stop_dnsmasq()
@@ -4423,7 +4423,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp_client_ipv6_only(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -4447,7 +4447,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'token :: dev veth99')
 
     def test_dhcp_client_ipv4_only(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only-ipv6-disabled.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only-ipv6-disabled.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -4501,8 +4501,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.tearDown()
 
     def _test_dhcp_client_ipv4_use_routes_gateway(self, use_routes, use_gateway, dns_and_ntp_routes, classless):
-        testunit = 'dhcp-client-ipv4-use-routes-use-gateway.network'
-        testunits = ['25-veth.netdev', 'dhcp-server-veth-peer.network', testunit]
+        testunit = '25-dhcp-client-ipv4-use-routes-use-gateway.network'
+        testunits = ['25-veth.netdev', '25-dhcp-server-veth-peer.network', testunit]
         testunits.append(f'{testunit}.d/use-routes-{use_routes}.conf')
         testunits.append(f'{testunit}.d/use-gateway-{use_gateway}.conf')
         testunits.append(f'{testunit}.d/use-dns-and-ntp-routes-{dns_and_ntp_routes}.conf')
@@ -4571,7 +4571,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_dhcp_client_ipv4_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4587,7 +4587,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5')
 
     def test_dhcp_client_settings(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-dhcp-settings.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-dhcp-settings.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -4625,7 +4625,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertTrue(search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp_client_settings_anonymize(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-anonymize.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-anonymize.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4636,7 +4636,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertFalse(search_words_in_dnsmasq_log('26:mtu'))
 
     def test_dhcp_client_listen_port(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-listen-port.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq('--dhcp-alternate-port=67,5555')
@@ -4647,8 +4647,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.* dynamic')
 
     def test_dhcp_client_with_static_address(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network',
-                                        'dhcp-client-with-static-address.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network',
+                                        '25-dhcp-client-with-static-address.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4666,7 +4666,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.1 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
 
     def test_dhcp_route_table_id(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-table.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-route-table.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4678,7 +4678,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.1')
 
     def test_dhcp_route_metric(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-route-metric.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4691,8 +4691,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.181 metric 24', output)
 
     def test_dhcp_client_reassign_static_routes_ipv4(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-reassign-static-routes-ipv4.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-reassign-static-routes-ipv4.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4726,8 +4726,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.7.0/24 proto static')
 
     def test_dhcp_client_reassign_static_routes_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-reassign-static-routes-ipv6.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-reassign-static-routes-ipv6.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4757,7 +4757,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
 
     def test_dhcp_keep_configuration_dhcp(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-keep-configuration-dhcp.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-keep-configuration-dhcp.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4795,7 +4795,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        with open(os.path.join(network_unit_file_path, 'dhcp-client-keep-configuration-dhcp.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a') as f:
             f.write('[Network]\nDHCP=no\n')
 
         start_networkd()
@@ -4811,7 +4811,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.*')
 
     def test_dhcp_keep_configuration_dhcp_on_stop(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-keep-configuration-dhcp-on-stop.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4837,7 +4837,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, r'192.168.5.*')
 
     def test_dhcp_client_reuse_address_as_static(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4857,9 +4857,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         static_network = '\n'.join(['[Match]', 'Name=veth99', '[Network]', 'IPv6AcceptRA=no', 'Address=' + ipv4_address.group(), 'Address=' + ipv6_address.group()])
         print(static_network)
 
-        remove_unit_from_networkd_path(['dhcp-client.network'])
+        remove_unit_from_networkd_path(['25-dhcp-client.network'])
 
-        with open(os.path.join(network_unit_file_path, 'static.network'), mode='w') as f:
+        with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w') as f:
             f.write(static_network)
 
         # When networkd started, the links are already configured, so let's wait for 5 seconds
@@ -4879,7 +4879,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_dhcp_client_vrf(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-vrf.network',
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-vrf.network',
                                         '25-vrf.netdev', '25-vrf.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -4922,8 +4922,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertEqual(output, '')
 
     def test_dhcp_client_gateway_ipv4(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-gateway-ipv4.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-gateway-ipv4.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4934,7 +4934,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]*')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
-        with open(os.path.join(network_unit_file_path, 'dhcp-client-gateway-ipv4.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-gateway-ipv4.network'), mode='a') as f:
             f.write('[DHCPv4]\nUseGateway=no\n')
 
         rc = call(*networkctl_cmd, 'reload', env=env)
@@ -4949,8 +4949,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
     def test_dhcp_client_gateway_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-gateway-ipv6.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-gateway-ipv6.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4961,8 +4961,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-gateway-onlink-implicit.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-gateway-onlink-implicit.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq()
@@ -4980,8 +4980,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'onlink')
 
     def test_dhcp_client_with_ipv4ll_with_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-with-ipv4ll.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -5017,8 +5017,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
     def test_dhcp_client_with_ipv4ll_without_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-with-ipv4ll.network')
         start_networkd()
         # we need to increase timeout above default, as this will need to wait for
         # systemd-networkd to get the dhcpv4 transient failure event
@@ -5041,8 +5041,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.255\.255\.255 scope link', scope='link', ipv='-4')
 
     def test_dhcp_client_route_remove_on_renew(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-ipv4-only-ipv6-disabled.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-ipv4-only-ipv6-disabled.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(ipv4_range='192.168.5.100,192.168.5.199', lease_time='2m')
@@ -5089,7 +5089,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 1024')
 
     def test_dhcp_client_use_dns_yes(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-yes.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-dns-yes.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5110,7 +5110,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_dhcp_client_use_dns_no(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-no.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-dns-no.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5128,7 +5128,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '2600::1')
 
     def test_dhcp_client_use_dns_ipv4(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-dns-ipv4.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5146,7 +5146,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '2600::1')
 
     def test_dhcp_client_use_dns_ipv4_and_ra(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-dns-ipv4-and-ra.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-dns-ipv4-and-ra.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5164,7 +5164,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2600::1')
 
     def test_dhcp_client_use_domains(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-use-domains.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-domains.network')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5181,7 +5181,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'example.com')
 
     def test_dhcp_client_decline(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-decline.network', 'dhcp-client-decline.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-decline.network', '25-dhcp-client-decline.network')
 
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -5191,7 +5191,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
     def test_dhcp_client_allow_list(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-decline.network', 'dhcp-client-allow-list.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-decline.network', '25-dhcp-client-allow-list.network')
 
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -5219,18 +5219,18 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         '25-veth-downstream-veth97.netdev',
         '25-veth-downstream-veth98.netdev',
         '80-6rd-tunnel.network',
-        'dhcp-pd-downstream-dummy97.network',
-        'dhcp-pd-downstream-dummy98.network',
-        'dhcp-pd-downstream-dummy99.network',
-        'dhcp-pd-downstream-test1.network',
-        'dhcp-pd-downstream-veth97.network',
-        'dhcp-pd-downstream-veth97-peer.network',
-        'dhcp-pd-downstream-veth98.network',
-        'dhcp-pd-downstream-veth98-peer.network',
-        'dhcp4-6rd-server.network',
-        'dhcp4-6rd-upstream.network',
-        'dhcp6pd-server.network',
-        'dhcp6pd-upstream.network',
+        '25-dhcp-pd-downstream-dummy97.network',
+        '25-dhcp-pd-downstream-dummy98.network',
+        '25-dhcp-pd-downstream-dummy99.network',
+        '25-dhcp-pd-downstream-test1.network',
+        '25-dhcp-pd-downstream-veth97.network',
+        '25-dhcp-pd-downstream-veth97-peer.network',
+        '25-dhcp-pd-downstream-veth98.network',
+        '25-dhcp-pd-downstream-veth98-peer.network',
+        '25-dhcp4-6rd-server.network',
+        '25-dhcp4-6rd-upstream.network',
+        '25-dhcp6pd-server.network',
+        '25-dhcp6pd-upstream.network',
     ]
 
     def setUp(self):
@@ -5247,13 +5247,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_dhcp6pd(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp6pd-server.network', 'dhcp6pd-upstream.network',
-                                        '25-veth-downstream-veth97.netdev', 'dhcp-pd-downstream-veth97.network', 'dhcp-pd-downstream-veth97-peer.network',
-                                        '25-veth-downstream-veth98.netdev', 'dhcp-pd-downstream-veth98.network', 'dhcp-pd-downstream-veth98-peer.network',
-                                        '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
-                                        'dhcp-pd-downstream-dummy97.network',
-                                        '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
-                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
+                                        '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
+                                        '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
+                                        '11-dummy.netdev', '25-dhcp-pd-downstream-test1.network',
+                                        '25-dhcp-pd-downstream-dummy97.network',
+                                        '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
+                                        '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network')
 
         start_networkd()
         self.wait_online(['veth-peer:routable'])
@@ -5617,13 +5617,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertIn('via ::10.0.0.1 dev {}'.format(tunnel_name), output)
 
     def test_dhcp4_6rd(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp4-6rd-server.network', 'dhcp4-6rd-upstream.network',
-                                        '25-veth-downstream-veth97.netdev', 'dhcp-pd-downstream-veth97.network', 'dhcp-pd-downstream-veth97-peer.network',
-                                        '25-veth-downstream-veth98.netdev', 'dhcp-pd-downstream-veth98.network', 'dhcp-pd-downstream-veth98-peer.network',
-                                        '11-dummy.netdev', 'dhcp-pd-downstream-test1.network',
-                                        'dhcp-pd-downstream-dummy97.network',
-                                        '12-dummy.netdev', 'dhcp-pd-downstream-dummy98.network',
-                                        '13-dummy.netdev', 'dhcp-pd-downstream-dummy99.network',
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp4-6rd-server.network', '25-dhcp4-6rd-upstream.network',
+                                        '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
+                                        '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
+                                        '11-dummy.netdev', '25-dhcp-pd-downstream-test1.network',
+                                        '25-dhcp-pd-downstream-dummy97.network',
+                                        '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
+                                        '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network',
                                         '80-6rd-tunnel.network')
 
         start_networkd()
@@ -5684,10 +5684,10 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
     units = [
         '12-dummy.netdev',
         '25-veth.netdev',
-        'ipv6ra-prefix-client-deny-list.network',
-        'ipv6ra-prefix-client.network',
-        'ipv6ra-prefix.network',
-        'ipv6ra-uplink.network',
+        '25-ipv6ra-prefix-client-deny-list.network',
+        '25-ipv6ra-prefix-client.network',
+        '25-ipv6ra-prefix.network',
+        '25-ipv6ra-uplink.network',
     ]
 
     def setUp(self):
@@ -5700,8 +5700,8 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         stop_networkd(show_logs=True)
 
     def test_ipv6_route_prefix(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client.network', 'ipv6ra-prefix.network',
-                                        '12-dummy.netdev', 'ipv6ra-uplink.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6ra-prefix-client.network', '25-ipv6ra-prefix.network',
+                                        '12-dummy.netdev', '25-ipv6ra-uplink.network')
 
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
@@ -5740,8 +5740,8 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
     def test_ipv6_route_prefix_deny_list(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6ra-prefix-client-deny-list.network', 'ipv6ra-prefix.network',
-                                        '12-dummy.netdev', 'ipv6ra-uplink.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-ipv6ra-prefix-client-deny-list.network', '25-ipv6ra-prefix.network',
+                                        '12-dummy.netdev', '25-ipv6ra-uplink.network')
 
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
