@@ -45,6 +45,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->root);
         free(entry->title);
         free(entry->show_title);
+        free(entry->sort_key);
         free(entry->version);
         free(entry->machine_id);
         free(entry->architecture);
@@ -131,6 +132,8 @@ static int boot_entry_load(
 
                 if (streq(field, "title"))
                         r = free_and_strdup(&tmp.title, p);
+                else if (streq(field, "sort-key"))
+                        r = free_and_strdup(&tmp.sort_key, p);
                 else if (streq(field, "version"))
                         r = free_and_strdup(&tmp.version, p);
                 else if (streq(field, "machine-id"))
@@ -263,6 +266,31 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        if (a->sort_key) {
+
+                if (!b->sort_key)
+                        return -1;
+
+                r = strcmp(a->sort_key, b->sort_key);
+                if (r != 0)
+                        return r;
+
+                r = strcmp_ptr(a->machine_id, b->machine_id);
+                if (r != 0)
+                        return r;
+
+                r = -strverscmp_improved(a->version, b->version);
+                if (r != 0)
+                        return r;
+
+        } else if (b->sort_key)
+                return 1;
+
         return strverscmp_improved(a->id, b->id);
 }
 
@@ -311,7 +339,7 @@ static int boot_entry_load_unified(
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_UNIFIED,
         };
-        const char *k, *good_name, *good_version;
+        const char *k, *good_name, *good_version, *good_sort_key;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -339,7 +367,7 @@ static int boot_entry_load_unified(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
 
-        if (!bootspec_pick_name_version(
+        if (!bootspec_pick_name_version_sort_key(
                             os_pretty_name,
                             os_image_id,
                             os_name,
@@ -349,7 +377,8 @@ static int boot_entry_load_unified(
                             os_version_id,
                             os_build_id,
                             &good_name,
-                            &good_version))
+                            &good_version,
+                            &good_sort_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
         r = path_extract_filename(path, &tmp.id);
@@ -385,6 +414,10 @@ static int boot_entry_load_unified(
 
         tmp.title = strdup(good_name);
         if (!tmp.title)
+                return log_oom();
+
+        tmp.sort_key = strdup(good_sort_key);
+        if (!tmp.sort_key)
                 return log_oom();
 
         tmp.version = strdup(good_version);
@@ -634,6 +667,19 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         return 0;
 }
 
+static int boot_config_find(const BootConfig *config, const char *id) {
+        assert(config);
+
+        if (!id)
+                return -1;
+
+        for (size_t i = 0; i < config->n_entries; i++)
+                if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
+                        return i;
+
+        return -1;
+}
+
 static int boot_entries_select_default(const BootConfig *config) {
         int i;
 
@@ -645,47 +691,45 @@ static int boot_entries_select_default(const BootConfig *config) {
                 return -1; /* -1 means "no default" */
         }
 
-        if (config->entry_oneshot)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_oneshot, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
-                                          config->entries[i].id);
-                                return i;
-                        }
+        if (config->entry_oneshot) {
+                i = boot_config_find(config, config->entry_oneshot);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
 
-        if (config->entry_default)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_default, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
-                                          config->entries[i].id);
-                                return i;
-                        }
+        if (config->entry_default) {
+                i = boot_config_find(config, config->entry_default);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
 
-        if (config->default_pattern)
-                for (i = config->n_entries - 1; i >= 0; i--)
-                        if (fnmatch(config->default_pattern, config->entries[i].id, FNM_CASEFOLD) == 0) {
-                                log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
-                                          config->entries[i].id, config->default_pattern);
-                                return i;
-                        }
+        if (config->default_pattern) {
+                i = boot_config_find(config, config->default_pattern);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
+                                  config->entries[i].id, config->default_pattern);
+                        return i;
+                }
+        }
 
-        log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].id);
-        return config->n_entries - 1;
+        log_debug("Found default: first entry \"%s\"", config->entries[0].id);
+        return 0;
 }
 
 static int boot_entries_select_selected(const BootConfig *config) {
-
         assert(config);
         assert(config->entries || config->n_entries == 0);
 
         if (!config->entry_selected || config->n_entries == 0)
                 return -1;
 
-        for (int i = config->n_entries - 1; i >= 0; i--)
-                if (streq(config->entry_selected, config->entries[i].id))
-                        return i;
-
-        return -1;
+        return boot_config_find(config, config->entry_selected);
 }
 
 static int boot_load_efi_entry_pointers(BootConfig *config) {
