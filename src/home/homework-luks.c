@@ -1859,7 +1859,7 @@ static int make_partition_table(
         if (!t)
                 return log_oom();
 
-        r = fdisk_parttype_set_typestr(t, SD_ID128_TO_UUID_STRING(GPT_USER_HOME));
+        r = fdisk_parttype_set_typestr(t, GPT_USER_HOME_STR);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
