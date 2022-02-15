@@ -28,8 +28,8 @@ struct sd_dhcp6_lease {
         usec_t lifetime_valid;
         struct in6_addr server_address;
 
-        DHCP6IA *ia_na;
-        DHCP6IA *ia_pd;
+        DHCP6IA *ia_na; /* Identity association non-temporary addresses */
+        DHCP6IA *ia_pd; /* Identity association prefix delegation */
 
         DHCP6Address *addr_iter;
         DHCP6Address *prefix_iter;
