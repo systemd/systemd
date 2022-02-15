@@ -1619,6 +1619,8 @@ static void config_load_entries(
         assert(device);
         assert(root_dir);
 
+        /* Adds Boot Loader Type #1 entries (i.e. /loader/entries/….conf) */
+
         err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
         if (EFI_ERROR(err))
                 return;
@@ -2125,6 +2127,8 @@ static void config_entry_add_linux(
         ConfigEntry *entry;
         UINTN f_size = 0;
         EFI_STATUS err;
+
+        /* Adds Boot Loader Type #2 entries (i.e. /EFI/Linux/….efi) */
 
         assert(config);
         assert(device);
