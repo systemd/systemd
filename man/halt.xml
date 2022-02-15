@@ -84,13 +84,8 @@
         <term><option>-f</option></term>
         <term><option>--force</option></term>
 
-        <listitem><para>Force immediate halt, power-off, or reboot. When
-        specified once, this results in an immediate but clean shutdown
-        by the system manager. When specified twice, this results in an
-        immediate shutdown without contacting the system manager. See the
-        description of <option>--force</option> in
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for more details.</para></listitem>
+        <listitem><para>Force immediate halt, power-off, reboot. Do
+        not contact the init system.</para></listitem>
       </varlistentry>
 
       <varlistentry>
