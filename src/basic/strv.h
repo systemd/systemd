@@ -182,10 +182,22 @@ void strv_print(char * const *l);
                 _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
+#define STRSTR_IN_SET(x, ...)                                   \
+        ({                                                      \
+                const char *_x = (x);                           \
+                char *_found = NULL, **_i;                      \
+                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
+                        _found = strstr(_x, *_i);               \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
+                _found;                                         \
+        })
+
 #define STARTSWITH_SET(p, ...)                                  \
         ({                                                      \
                 const char *_p = (p);                           \
-                char  *_found = NULL, **_i;                     \
+                char *_found = NULL, **_i;                      \
                 STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
                         _found = startswith(_p, *_i);           \
                         if (_found)                             \
@@ -197,7 +209,7 @@ void strv_print(char * const *l);
 #define ENDSWITH_SET(p, ...)                                    \
         ({                                                      \
                 const char *_p = (p);                           \
-                char  *_found = NULL, **_i;                     \
+                char *_found = NULL, **_i;                      \
                 STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
                         _found = endswith(_p, *_i);             \
                         if (_found)                             \
