@@ -427,11 +427,13 @@ static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
         VxLan *v;
 
         assert(netdev);
-        assert(link);
 
         v = VXLAN(netdev);
 
         assert(v);
+
+        if (v->independent)
+                return true;
 
         return vxlan_get_local_address(v, link, NULL, NULL) >= 0;
 }
