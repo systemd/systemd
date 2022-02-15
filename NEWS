@@ -383,8 +383,8 @@ CHANGES WITH 250:
           whether to use the relevant fields from the IPv6 Router Advertisement
           records.
 
-        * The ForceDHCPv6PDOtherInformation= setting in the [DHCPv6] section is
-          now removed. Please use the WithoutRA= and UseDelegatedPrefix=
+        * The ForceDHCPv6PDOtherInformation= setting in the [DHCPv6] section
+          has been removed. Please use the WithoutRA= and UseDelegatedPrefix=
           settings in the [DHCPv6] section and the DHCPv6Client= setting in the
           [IPv6AcceptRA] section to control when the DHCPv6 client is started
           and how the delegated prefixes are handled by the DHCPv6 client.
