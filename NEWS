@@ -21,13 +21,42 @@ CHANGES WITH 251:
           for breaking backward compatibility instead, as nobody should be
           affected, given the state of the current interface.
 
-        * Service monitor environment variables will only be passed to OnFailure=/OnSuccess=
-          handlers if exactly one unit lists the handler unit as OnFailure=/OnSuccess=.
-          Therefore, $MONITOR_METADATA is no longer used, and instead separate
-          variables are used: $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE,
-          $MONITOR_EXIT_STATUS, $MONITOR_INVOCATION_ID and $MONITOR_UNIT.
-          For cases when a single handler needs to watch multiple units, use a
-          templated handler.
+        * Service monitor environment variables will only be passed to
+          OnFailure=/OnSuccess= handlers if exactly one unit lists the handler
+          unit as OnFailure=/OnSuccess=.  Therefore, $MONITOR_METADATA is no
+          longer used, and instead separate variables are used:
+          $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE, $MONITOR_EXIT_STATUS,
+          $MONITOR_INVOCATION_ID and $MONITOR_UNIT.  For cases when a single
+          handler needs to watch multiple units, use a templated handler.
+
+        * kernel-install's and bootctl's Boot Loader Specification Type #1
+          entry generation logic has been reworked. The user may now pick
+          explicitly by which "token" string to name the installation's boot
+          entries, through the new /etc/kernel/entry-token file or the new
+          --entry-token= switch to bootctl. By default — as before — the
+          entries are named after the local machine ID. However, in "golden
+          image" environments, where the machine ID shall be initialized on
+          first boot (as opposed to at installation time before first boot) the
+          machine ID is not be available at build time to name the entry
+          after. In this case the the --entry-token= switch to bootctl (or the
+          /etc/kernel/entry-token file) may be used to override the "token" to
+          identify the entry by, and use another ID, for example the IMAGE_ID=
+          or ID= fields from /etc/os-release. This will make the OS images
+          independent of any machine ID, and ensure that the images will not
+          carry any identifiable information before first boot, but on the
+          other hand means that multiple parallel installations of the very
+          same image on the same disk cannot be supported. Summary: if you are
+          building golden images that shall acquire identity information
+          exclusively on first boot, make sure to both remove /etc/machine-id
+          *and* to write /etc/kernel/entry-token to the value of the IMAGE_ID
+          or ID field of /etc/os-release or another suitable identifier before
+          deploying the image.
+
+        * The --make-machine-id-directory= switch to bootctl has been replaced
+          by --make-entry-directory=, given that the entry directory is not
+          necessarily named after the machine ID, but after some other suitable
+          ID as selected via --entry-token= described above. The old name of
+          the option is still understood to maximize compatibility.
 
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
