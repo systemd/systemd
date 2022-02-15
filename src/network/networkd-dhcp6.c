@@ -432,7 +432,19 @@ int dhcp6_start_on_ra(Link *link, bool information_request) {
                         return r;
 
                 if (inf_req == information_request)
+                        /* The client is already running in the requested mode. */
                         return 0;
+
+                if (!inf_req) {
+                        log_link_debug(link,
+                                       "The DHCPv6 client is already running in the managed mode, "
+                                       "refusing to start the client in the information requesting mode.");
+                        return 0;
+                }
+
+                log_link_debug(link,
+                               "The DHCPv6 client is running in the information requesting mode. "
+                               "Restarting the client in the managed mode.");
 
                 r = sd_dhcp6_client_stop(link->dhcp6_client);
                 if (r < 0)

@@ -170,7 +170,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 struct duid duid;
                 size_t duid_len;
 
-                assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
+                assert_se(dhcp_identifier_set_duid_en(/* test_mode = */ true, &duid, &duid_len) >= 0);
                 assert_se(dhcp_identifier_set_iaid(42, mac_addr, ETH_ALEN, true, /* use_mac = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
