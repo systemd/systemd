@@ -28,12 +28,13 @@ typedef enum RequestType {
         REQUEST_TYPE_IPV6_PROXY_NDP,
         REQUEST_TYPE_NDISC,
         REQUEST_TYPE_NEIGHBOR,
+        REQUEST_TYPE_NETDEV_INDEPENDENT,
+        REQUEST_TYPE_NETDEV_STACKED,
         REQUEST_TYPE_NEXTHOP,
         REQUEST_TYPE_RADV,
         REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
         REQUEST_TYPE_SET_LINK,
-        REQUEST_TYPE_STACKED_NETDEV,
         REQUEST_TYPE_TRAFFIC_CONTROL,
         REQUEST_TYPE_UP_DOWN,
         _REQUEST_TYPE_MAX,
@@ -65,6 +66,10 @@ typedef struct Request {
 } Request;
 
 void request_drop(Request *req);
+
+int netdev_queue_request(
+                NetDev *netdev,
+                Request **ret);
 
 int link_queue_request(
                 Link *link,

@@ -8,6 +8,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wifi.h"
+#include "networkd-wiphy.h"
 #include "string-util.h"
 #include "wifi-util.h"
 
@@ -72,6 +73,8 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
                 log_debug_errno(r, "nl80211: failed to determine genl message command, ignoring: %m");
                 return 0;
         }
+        if (IN_SET(cmd, NL80211_CMD_NEW_WIPHY, NL80211_CMD_DEL_WIPHY))
+                return manager_genl_process_nl80211_wiphy(genl, message, manager);
         if (!IN_SET(cmd, NL80211_CMD_SET_INTERFACE, NL80211_CMD_NEW_INTERFACE, NL80211_CMD_DEL_INTERFACE)) {
                 log_debug("nl80211: ignoring nl80211 %s(%u) message.",
                           strna(nl80211_cmd_to_string(cmd)), cmd);
