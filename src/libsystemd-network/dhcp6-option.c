@@ -236,9 +236,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
         if (r < 0)
                 return r;
 
-        memcpy_safe(*buf, optval, optlen);
-
-        *buf += optlen;
+        *buf = mempcpy_safe(*buf, optval, optlen);
         *buflen -= optlen;
 
         return 0;
@@ -294,9 +292,7 @@ static int option_append_ia_address(uint8_t **buf, size_t *buflen, const struct 
         if (r < 0)
                 return r;
 
-        memcpy(*buf, &a, sizeof(struct iaaddr));
-
-        *buf += sizeof(struct iaaddr);
+        *buf = mempcpy(*buf, &a, sizeof(struct iaaddr));
         *buflen -= sizeof(struct iaaddr);
 
         return offsetof(DHCP6Option, data) + sizeof(struct iaaddr);
@@ -324,9 +320,7 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct i
         if (r < 0)
                 return r;
 
-        memcpy(*buf, &p, sizeof(struct iapdprefix));
-
-        *buf += sizeof(struct iapdprefix);
+        *buf = mempcpy(*buf, &p, sizeof(struct iapdprefix));
         *buflen -= sizeof(struct iapdprefix);
 
         return offsetof(DHCP6Option, data) + sizeof(struct iapdprefix);
@@ -357,7 +351,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
-                len = sizeof(be32_t); /* IA_TA does not have lifetime. */
+                len = sizeof(header.id); /* IA_TA does not have lifetime. */
                 header = (struct ia_header) {
                         .id = ia->header.id,
                 };
@@ -377,8 +371,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         *buf += offsetof(DHCP6Option, data);
         *buflen -= offsetof(DHCP6Option, data);
 
-        memcpy(*buf, &header, len);
-        *buf += len;
+        *buf = mempcpy(*buf, &header, len);
         *buflen -= len;
 
         LIST_FOREACH(addresses, addr, ia->addresses) {
