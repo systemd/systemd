@@ -10,9 +10,6 @@
 #include "user-util.h"
 #include "userdb.h"
 
-#define MAP_UID_START 60514
-#define MAP_UID_END 60577
-
 static int check_etc_passwd_collisions(
                 const char *directory,
                 const char *name,
@@ -157,11 +154,11 @@ static int find_free_uid(const char *directory, uid_t max_uid, uid_t *current_ui
         assert(current_uid);
 
         for (;; (*current_uid) ++) {
-                if (*current_uid > MAP_UID_END || *current_uid > max_uid)
+                if (*current_uid > MAP_UID_MAX || *current_uid > max_uid)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EBUSY),
                                         "No suitable available UID in range " UID_FMT "…" UID_FMT " in container detected, can't map user.",
-                                        MAP_UID_START, MAP_UID_END);
+                                        MAP_UID_MIN, MAP_UID_MAX);
 
                 r = check_etc_passwd_collisions(directory, NULL, *current_uid);
                 if (r < 0)
@@ -202,7 +199,7 @@ int bind_user_prepare(
                 BindUserContext **ret) {
 
         _cleanup_(bind_user_context_freep) BindUserContext *c = NULL;
-        uid_t current_uid = MAP_UID_START;
+        uid_t current_uid = MAP_UID_MIN;
         char **n;
         int r;
 
