@@ -228,7 +228,7 @@ static int show_cgroup_name(
                         printf("%s%s%s %s%s%s: %s\n",
                                prefix,
                                glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
-                               special_glyph(SPECIAL_GLYPH_ARROW),
+                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                                ansi_blue(), x, ansi_normal(),
                                y);
                 }
