@@ -221,13 +221,11 @@ static void test_dns_stream(bool tls) {
         log_info("test-resolved-stream: Started %s test", tls ? "TLS" : "TCP");
 
 #if ENABLE_DNS_OVER_TLS
-        if (tls) {
-                /* For TLS mode, use DNS_OVER_TLS_OPPORTUNISTIC instead of
-                 * DNS_OVER_TLS_YES, just to make certificate validation more
-                 * lenient, allowing us to use self-signed certificates.
-                 * We never downgrade, everything we test always goes over TLS */
+        if (tls)
+                /* For TLS mode, use DNS_OVER_TLS_OPPORTUNISTIC instead of DNS_OVER_TLS_YES, just to make
+                 * certificate validation more lenient, allowing us to use self-signed certificates.  We
+                 * never downgrade, everything we test always goes over TLS */
                 manager.dns_over_tls_mode = DNS_OVER_TLS_OPPORTUNISTIC;
-        }
 #endif
 
         assert_se(sd_event_new(&event) >= 0);

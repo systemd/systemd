@@ -125,15 +125,12 @@ static char *combine_entries(const char *one, const char *two) {
 
         /* Body from @one */
         n = l1 - (b1 - one);
-        if (n > 0) {
-                memcpy(p, b1, n);
-                p += n;
-
+        if (n > 0)
+                p = mempcpy(p, b1, n);
         /* Body from @two */
-        } else {
+        else {
                 n = l2 - (b2 - two);
-                memcpy(p, b2, n);
-                p += n;
+                p = mempcpy(p, b2, n);
         }
 
         assert(p - dest <= (ptrdiff_t)(l1 + l2));
