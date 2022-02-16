@@ -466,7 +466,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
           ps_bool(L"                   TPM: %s\n",      tpm_present());
-            Print(L"          console mode: %d/%d (%lux%lu @%ux%u)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max, screen_width, screen_height);
+            Print(L"          console mode: %d/%ld (" FMT_U L"x" FMT_U L" @%ux%u)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1), x_max, y_max, screen_width, screen_height);
 
         Print(L"\n--- Press any key to continue. ---\n\n");
         console_key_read(&key, UINT64_MAX);
@@ -479,7 +479,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_MENU_HIDDEN:
             Print(L"               timeout: menu-hidden\n"); break;
         default:
-            Print(L"               timeout: %lu s\n", config->timeout_sec_config);
+            Print(L"               timeout: %u s\n", config->timeout_sec_config);
         }
 
         switch (config->timeout_sec_efivar) {
@@ -490,7 +490,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_MENU_HIDDEN:
             Print(L"     timeout (EFI var): menu-hidden\n"); break;
         default:
-            Print(L"     timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
+            Print(L"     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
         }
 
         ps_string(L"               default: %s\n", config->entry_default_config);
@@ -525,7 +525,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry = config->entries[i];
 
-                    Print(L"  config entry: %lu/%lu\n", i + 1, config->entry_count);
+                    Print(L"  config entry: " FMT_U L"/" FMT_U L"\n", i + 1, config->entry_count);
                 ps_string(L"            id: %s\n", entry->id);
                 ps_string(L"         title: %s\n", entry->title);
                 ps_string(L"    title show: %s\n", streq_ptr(entry->title, entry->title_show) ? NULL : entry->title_show);
@@ -540,7 +540,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 
                   ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
                 if (entry->tries_left != UINTN_MAX) {
-                    Print(L"         tries: %lu done, %lu left\n", entry->tries_done, entry->tries_left);
+                    Print(L"         tries: " FMT_U L" done, " FMT_U L" left\n", entry->tries_done, entry->tries_left);
                     Print(L"  current path: %s\\%s\n",  entry->path, entry->current_name);
                     Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
@@ -1320,7 +1320,7 @@ good:
         prefix = xstrdup(file);
         prefix[i] = 0;
 
-        entry->next_name = xpool_print(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
+        entry->next_name = xpool_print(L"%s+" FMT_U L"-" FMT_U L"%s", prefix, next_left, next_done, suffix ?: L"");
 }
 
 static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
