@@ -60,7 +60,7 @@ int sd_dhcp_server_configure_pool(
         assert_return(server, -EINVAL);
         assert_return(address, -EINVAL);
         assert_return(address->s_addr != INADDR_ANY, -EINVAL);
-        assert_return(prefixlen <= 32, -ERANGE);
+        assert_return(prefixlen <= 32, -EINVAL);
 
         assert_se(in4_addr_prefixlen_to_netmask(&netmask_addr, prefixlen));
         netmask = netmask_addr.s_addr;
@@ -68,27 +68,54 @@ int sd_dhcp_server_configure_pool(
         server_off = be32toh(address->s_addr & ~netmask);
         broadcast_off = be32toh(~netmask);
 
-        /* the server address cannot be the subnet address */
-        assert_return(server_off != 0, -ERANGE);
+        assert(server_off <= broadcast_off);
 
-        /* nor the broadcast address */
-        assert_return(server_off != broadcast_off, -ERANGE);
+        if (prefixlen == 32) {
+                /* no pool exists. */
+                assert(server_off == 0);
 
-        /* 0 offset means we should set a default, we skip the first (subnet) address
-           and take the next one */
-        if (offset == 0)
-                offset = 1;
+                if (offset != 0)
+                        return -EINVAL;
 
-        size_max = (broadcast_off + 1) /* the number of addresses in the subnet */
-                   - offset /* exclude the addresses before the offset */
-                   - 1; /* exclude the last (broadcast) address */
+                size_max = 0;
 
-        /* The pool must contain at least one address */
-        assert_return(size_max >= 1, -ERANGE);
+        } else if (prefixlen == 31) {
+                /* only one address exists in the pool. */
+                assert(server_off <= 1);
 
-        if (size != 0)
-                assert_return(size <= size_max, -ERANGE);
-        else
+                switch (offset) {
+                case 0: /* default, automatically determined. */
+                        offset = server_off == 0 ? 1 : 0;
+                        break;
+                case 1:
+                        if (server_off == 1) /* conflict */
+                                return -EINVAL;
+                        break;
+                default:
+                        return -ERANGE;
+                }
+
+                size_max = 1;
+
+        } else {
+                /* the server address cannot be the subnet address nor the broadcast address */
+                if (server_off == 0 || server_off == broadcast_off)
+                        return -EINVAL;
+
+                /* 0 offset means we should set a default, we skip the first (subnet) address
+                 * and take the next one */
+                if (offset == 0)
+                        offset = 1;
+
+                size_max = (broadcast_off + 1) /* the number of addresses in the subnet */
+                           - offset /* exclude the addresses before the offset */
+                           - 1; /* exclude the last (broadcast) address */
+        }
+
+        if (size != UINT32_MAX) {
+                if (size > size_max)
+                        return -ERANGE;
+        } else
                 size = size_max;
 
         if (server->address != address->s_addr || server->netmask != netmask || server->pool_size != size || server->pool_offset != offset) {
@@ -797,6 +824,9 @@ static bool address_is_in_pool(sd_dhcp_server *server, be32_t address) {
         if (server->pool_size == 0)
                 return false;
 
+        if (address == server->address)
+                return false;
+
         if (be32toh(address) < (be32toh(server->subnet) | server->pool_offset) ||
             be32toh(address) >= (be32toh(server->subnet) | (server->pool_offset + server->pool_size)))
                 return false;
@@ -1042,10 +1072,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 be32_t address = INADDR_ANY;
 
                 log_dhcp_server(server, "DISCOVER (0x%x)", be32toh(req->message->xid));
-
-                if (server->pool_size == 0)
-                        /* no pool allocated */
-                        return 0;
 
                 /* for now pick a random free address from the pool */
                 if (static_lease)

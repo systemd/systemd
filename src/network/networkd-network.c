@@ -423,6 +423,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_pd_subnet_id = -1,
                 .dhcp_pd_route_metric = DHCP6PD_ROUTE_METRIC,
 
+                .dhcp_server_pool_size = UINT32_MAX,
                 .dhcp_server_bind_to_interface = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
