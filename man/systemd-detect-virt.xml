@@ -62,7 +62,7 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="13">VM</entry>
+            <entry valign="top" morerows="14">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
