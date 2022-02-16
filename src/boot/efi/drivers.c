@@ -71,7 +71,7 @@ static EFI_STATUS reconnect(void) {
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
                   if (EFI_ERROR(err))
-                          log_error_status_stall(err, L"Failed to reconnect handle %u, ignoring: %r", i, err);
+                          log_error_status_stall(err, L"Failed to reconnect handle %" PRIuN L", ignoring: %r", i, err);
           }
 
           return EFI_SUCCESS;
