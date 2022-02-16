@@ -493,7 +493,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"           secure boot: %s (%s)\n", yes_no(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)), secure_boot_mode_to_string(secure));
           ps_bool(L"                  shim: %s\n",      shim_loaded());
           ps_bool(L"                   TPM: %s\n",      tpm_present());
-            Print(L"          console mode: %d/%d (%lux%lu @%ux%u)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max, screen_width, screen_height);
+            Print(L"          console mode: %d/%ld (%" PRIuN L"x%" PRIuN L" @%ux%u)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1), x_max, y_max, screen_width, screen_height);
 
         if (!ps_continue())
                 return;
@@ -506,7 +506,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_MENU_HIDDEN:
             Print(L"               timeout: menu-hidden\n"); break;
         default:
-            Print(L"               timeout: %lu s\n", config->timeout_sec_config);
+            Print(L"               timeout: %u s\n", config->timeout_sec_config);
         }
 
         switch (config->timeout_sec_efivar) {
@@ -517,7 +517,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_MENU_HIDDEN:
             Print(L"     timeout (EFI var): menu-hidden\n"); break;
         default:
-            Print(L"     timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
+            Print(L"     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
         }
 
         ps_string(L"               default: %s\n", config->entry_default_config);
@@ -552,7 +552,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry = config->entries[i];
 
-                    Print(L"  config entry: %lu/%lu\n", i + 1, config->entry_count);
+                    Print(L"  config entry: %" PRIuN L"/%" PRIuN L"\n", i + 1, config->entry_count);
                 ps_string(L"            id: %s\n", entry->id);
                 ps_string(L"         title: %s\n", entry->title);
                 ps_string(L"    title show: %s\n", streq_ptr(entry->title, entry->title_show) ? NULL : entry->title_show);
@@ -568,7 +568,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 
                   ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
                 if (entry->tries_left != UINTN_MAX) {
-                    Print(L"         tries: %lu done, %lu left\n", entry->tries_done, entry->tries_left);
+                    Print(L"         tries: %" PRIuN L" done, %" PRIuN L" left\n", entry->tries_done, entry->tries_left);
                     Print(L"  current path: %s\\%s\n",  entry->path, entry->current_name);
                     Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
@@ -920,10 +920,14 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
-                        status = xpool_print(L"systemd-boot " GIT_VERSION " (" EFI_MACHINE_TYPE_NAME "), "
-                                             L"UEFI Specification %d.%02d, Vendor %s %d.%02d",
-                                             ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff,
-                                             ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                        status = xpool_print(
+                                        L"systemd-boot " GIT_VERSION L" (" EFI_MACHINE_TYPE_NAME L"), "
+                                        L"UEFI Specification %u.%02u, Vendor %s %u.%02u",
+                                        ST->Hdr.Revision >> 16,
+                                        ST->Hdr.Revision & 0xffff,
+                                        ST->FirmwareVendor,
+                                        ST->FirmwareRevision >> 16,
+                                        ST->FirmwareRevision & 0xffff);
                         break;
 
                 case KEYPRESS(0, 0, 'p'):
@@ -1362,7 +1366,7 @@ good:
         prefix = xstrdup(file);
         prefix[i] = 0;
 
-        entry->next_name = xpool_print(L"%s+%u-%u%s", prefix, next_left, next_done, suffix ?: L"");
+        entry->next_name = xpool_print(L"%s+%" PRIuN L"-%" PRIuN L"%s", prefix, next_left, next_done, suffix ?: L"");
 }
 
 static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
@@ -2074,7 +2078,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 CHAR16 name[sizeof(L"Boot0000")];
                 UINTN buf_size;
 
-                SPrint(name, sizeof(name), L"Boot%04x", boot_order[i]);
+                SPrint(name, sizeof(name), L"Boot%04x", (UINT32) boot_order[i]);
                 err = efivar_get_raw(EFI_GLOBAL_GUID, name, &buf, &buf_size);
                 if (EFI_ERROR(err))
                         continue;
@@ -2458,10 +2462,10 @@ static void export_variables(
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
-        infostr = xpool_print(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+        infostr = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", infostr, 0);
 
-        typestr = xpool_print(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        typestr = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, 0);
 
         (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);

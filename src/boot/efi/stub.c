@@ -131,14 +131,14 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-                s = xpool_print(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                s = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-                s = xpool_print(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                s = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
