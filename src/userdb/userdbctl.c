@@ -79,6 +79,7 @@ static int show_user(UserRecord *ur, Table *table) {
 
                 r = table_add_many(
                                 table,
+                                TABLE_STRING, "",
                                 TABLE_STRING, ur->user_name,
                                 TABLE_STRING, user_disposition_to_string(user_record_disposition(ur)),
                                 TABLE_UID, ur->uid,
@@ -86,7 +87,7 @@ static int show_user(UserRecord *ur, Table *table) {
                                 TABLE_STRING, empty_to_null(ur->real_name),
                                 TABLE_STRING, user_record_home_directory(ur),
                                 TABLE_STRING, user_record_shell(ur),
-                                TABLE_INT, (int) user_record_disposition(ur));
+                                TABLE_INT, 0);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -99,6 +100,115 @@ static int show_user(UserRecord *ur, Table *table) {
         return 0;
 }
 
+static const struct {
+        uid_t first, last;
+        const char *name;
+        UserDisposition disposition;
+} uid_range_table[] = {
+        {
+                .first = 1,
+                .last = SYSTEM_UID_MAX,
+                .name = "system",
+                .disposition = USER_SYSTEM,
+        },
+        {
+                .first = DYNAMIC_UID_MIN,
+                .last = DYNAMIC_UID_MAX,
+                .name = "dynamic system",
+                .disposition = USER_DYNAMIC,
+        },
+        {
+                .first = CONTAINER_UID_BASE_MIN,
+                .last = CONTAINER_UID_BASE_MAX,
+                .name = "container",
+                .disposition = USER_CONTAINER,
+        },
+#if ENABLE_HOMED
+        {
+                .first = HOME_UID_MIN,
+                .last = HOME_UID_MAX,
+                .name = "systemd-homed",
+                .disposition = USER_REGULAR,
+        },
+#endif
+        {
+                .first = MAP_UID_MIN,
+                .last = MAP_UID_MAX,
+                .name = "mapped",
+                .disposition = USER_REGULAR,
+        },
+};
+
+static int table_add_uid_boundaries(Table *table) {
+        int r;
+
+        assert(table);
+
+        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+                _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                               " begin ", uid_range_table[i].name, " users ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                if (!name)
+                        return log_oom();
+
+                comment = strjoin("First ", uid_range_table[i].name, " user");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_UID, uid_range_table[i].first,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_EMPTY,
+                                TABLE_INT, -1); /* sort before an other entry with the same UID */
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                free(name);
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                               " end ", uid_range_table[i].name, " users ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                if (!name)
+                        return log_oom();
+
+                free(comment);
+                comment = strjoin("Last ", uid_range_table[i].name, " user");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_UID, uid_range_table[i].last,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_EMPTY,
+                                TABLE_EMPTY,
+                                TABLE_INT, 1); /* sort after an other entry with the same UID */
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return ELEMENTSOF(uid_range_table) * 2;
+}
+
 static int display_user(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         bool draw_separator = false;
@@ -108,15 +218,15 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
-                table = table_new("name", "disposition", "uid", "gid", "realname", "home", "shell", "disposition-numeric");
+                table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, (size_t) 7, (size_t) 2);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 8);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
 
         if (argc > 1) {
@@ -186,6 +296,12 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
+                int boundary_lines;
+
+                boundary_lines = table_add_uid_boundaries(table);
+                if (boundary_lines < 0)
+                        return boundary_lines;
+
                 if (table_get_rows(table) > 1) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
@@ -194,7 +310,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
 
                 if (arg_legend) {
                         if (table_get_rows(table) > 1)
-                                printf("\n%zu users listed.\n", table_get_rows(table) - 1);
+                                printf("\n%zu users listed.\n", table_get_rows(table) - 1 - boundary_lines);
                         else
                                 printf("No users.\n");
                 }
@@ -246,11 +362,12 @@ static int show_group(GroupRecord *gr, Table *table) {
 
                 r = table_add_many(
                                 table,
+                                TABLE_STRING, "",
                                 TABLE_STRING, gr->group_name,
                                 TABLE_STRING, user_disposition_to_string(group_record_disposition(gr)),
                                 TABLE_GID, gr->gid,
                                 TABLE_STRING, gr->description,
-                                TABLE_INT, (int) group_record_disposition(gr));
+                                TABLE_INT, 0);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -263,6 +380,69 @@ static int show_group(GroupRecord *gr, Table *table) {
         return 0;
 }
 
+static int table_add_gid_boundaries(Table *table) {
+        int r;
+
+        assert(table);
+
+        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+                _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                               " begin ", uid_range_table[i].name, " groups ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                if (!name)
+                        return log_oom();
+
+                comment = strjoin("First ", uid_range_table[i].name, " group");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_GID, uid_range_table[i].first,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_INT, -1); /* sort before an other entry with the same GID */
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                free(name);
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                               " end ", uid_range_table[i].name, " groups ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                if (!name)
+                        return log_oom();
+
+                free(comment);
+                comment = strjoin("Last ", uid_range_table[i].name, " group");
+                if (!comment)
+                        return log_oom();
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, name,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_GID, uid_range_table[i].last,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_STRING, comment,
+                                TABLE_SET_COLOR, ansi_grey(),
+                                TABLE_INT, 1); /* sort after an other entry with the same GID */
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return ELEMENTSOF(uid_range_table) * 2;
+}
 
 static int display_group(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -273,14 +453,14 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 arg_output = argc > 1 ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
-                table = table_new("name", "disposition", "gid", "description", "disposition-numeric");
+                table = table_new(" ", "name", "disposition", "gid", "description", "order");
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, (size_t) 3, (size_t) 2);
-                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 5);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
 
         if (argc > 1) {
@@ -351,6 +531,12 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
+                int boundary_lines;
+
+                boundary_lines = table_add_gid_boundaries(table);
+                if (boundary_lines < 0)
+                        return boundary_lines;
+
                 if (table_get_rows(table) > 1) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
@@ -359,7 +545,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
 
                 if (arg_legend) {
                         if (table_get_rows(table) > 1)
-                                printf("\n%zu groups listed.\n", table_get_rows(table) - 1);
+                                printf("\n%zu groups listed.\n", table_get_rows(table) - 1 - boundary_lines);
                         else
                                 printf("No groups.\n");
                 }
