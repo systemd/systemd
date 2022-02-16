@@ -57,7 +57,10 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         assert(vendor);
         assert(name);
 
-        SPrint(str, ELEMENTSOF(str), L"%u", i);
+        /* Note that SPrint has no native sized length specifier and will always use ValueToString()
+         * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
+         * 64bit machines. */
+        ValueToString(str, FALSE, i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -236,7 +239,8 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
         if (usec == 0)
                 return;
 
-        SPrint(str, ELEMENTSOF(str), L"%ld", usec);
+        /* See comment on ValueToString in efivar_set_uint_string(). */
+        ValueToString(str, FALSE, usec);
         efivar_set(vendor, name, str, 0);
 }
 
