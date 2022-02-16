@@ -6,6 +6,7 @@ TEST_DESCRIPTION="Basic systemd setup"
 IMAGE_NAME="basic"
 RUN_IN_UNPRIVILEGED_CONTAINER=${RUN_IN_UNPRIVILEGED_CONTAINER:-yes}
 TEST_REQUIRE_INSTALL_TESTS=0
+TEST_MASK_SERVICES=0
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
