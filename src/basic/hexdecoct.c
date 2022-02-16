@@ -683,8 +683,7 @@ static int base64_append_width(
                         s += indent;
                 }
 
-                memcpy(s, x + width * line, act);
-                s += act;
+                s = mempcpy(s, x + width * line, act);
                 *(s++) = line < lines - 1 ? '\n' : '\0';
                 avail -= act;
         }
