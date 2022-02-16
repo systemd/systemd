@@ -1751,8 +1751,8 @@ static void update_cpu_affinity(bool skip_setup) {
 
         assert(arg_cpu_affinity.allocated > 0);
 
-        mask = cpu_set_to_string(&arg_cpu_affinity);
-        log_debug("Setting CPU affinity to %s.", strnull(mask));
+        mask = cpu_set_to_range_string(&arg_cpu_affinity);
+        log_debug("Setting CPU affinity to {%s}.", strnull(mask));
 
         if (sched_setaffinity(0, arg_cpu_affinity.allocated, arg_cpu_affinity.set) < 0)
                 log_warning_errno(errno, "Failed to set CPU affinity, ignoring: %m");
@@ -1769,7 +1769,7 @@ static void update_numa_policy(bool skip_setup) {
         if (DEBUG_LOGGING) {
                 policy = mpol_to_string(numa_policy_get_type(&arg_numa_policy));
                 nodes = cpu_set_to_range_string(&arg_numa_policy.nodes);
-                log_debug("Setting NUMA policy to %s, with nodes %s.", strnull(policy), strnull(nodes));
+                log_debug("Setting NUMA policy to %s, with nodes {%s}.", strnull(policy), strnull(nodes));
         }
 
         r = apply_numa_policy(&arg_numa_policy);
