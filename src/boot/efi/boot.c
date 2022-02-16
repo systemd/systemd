@@ -12,6 +12,7 @@
 #include "drivers.h"
 #include "efivars-fundamental.h"
 #include "graphics.h"
+#include "initrd.h"
 #include "linux.h"
 #include "measure.h"
 #include "pe.h"
@@ -2225,12 +2226,21 @@ static void config_load_xbootldr(
         config_load_entries(config, new_device, root_dir, NULL);
 }
 
-static EFI_STATUS initrd_prepare(const ConfigEntry *entry, CHAR16 **ret_options) {
+static EFI_STATUS initrd_prepare(
+                const ConfigEntry *entry,
+                CHAR16 **ret_options,
+                UINT8 **ret_initrd,
+                UINTN *ret_initrd_size) {
+
         assert(entry);
         assert(ret_options);
+        assert(ret_initrd);
+        assert(ret_initrd_size);
 
         if (entry->type != LOADER_LINUX || !entry->initrd) {
                 ret_options = NULL;
+                ret_initrd = NULL;
+                ret_initrd_size = 0;
                 return EFI_SUCCESS;
         }
 
@@ -2241,6 +2251,14 @@ static EFI_STATUS initrd_prepare(const ConfigEntry *entry, CHAR16 **ret_options)
          * if linux_x86.c is dropped. */
         _cleanup_freepool_ CHAR16 *options = NULL;
 
+        EFI_STATUS err;
+        UINTN size = 0;
+        _cleanup_freepool_ UINT8 *initrd = NULL;
+
+        _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(entry->device);
+        if (!root)
+                return EFI_DEVICE_ERROR;
+
         CHAR16 **i;
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_freepool_ CHAR16 *o = options;
@@ -2248,6 +2266,29 @@ static EFI_STATUS initrd_prepare(const ConfigEntry *entry, CHAR16 **ret_options)
                         options = xpool_print(L"%s initrd=%s", o, *i);
                 else
                         options = xpool_print(L"initrd=%s", *i);
+
+                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
+                if (EFI_ERROR(err))
+                        return err;
+
+                _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+                err = get_file_info_harder(handle, &info, NULL);
+                if (EFI_ERROR(err))
+                        return err;
+
+                UINTN new_size, read_size = info->FileSize;
+                if (__builtin_add_overflow(size, read_size, &new_size))
+                        return EFI_OUT_OF_RESOURCES;
+                initrd = xreallocate_pool(initrd, size, new_size);
+
+                err = handle->Read(handle, &read_size, initrd + size);
+                if (EFI_ERROR(err))
+                        return err;
+
+                /* Make sure the actual read size is what we expected. */
+                assert(size + read_size == new_size);
+                size = new_size;
         }
 
         if (entry->options) {
@@ -2256,6 +2297,8 @@ static EFI_STATUS initrd_prepare(const ConfigEntry *entry, CHAR16 **ret_options)
         }
 
         *ret_options = TAKE_PTR(options);
+        *ret_initrd = TAKE_PTR(initrd);
+        *ret_initrd_size = size;
         return EFI_SUCCESS;
 }
 
@@ -2289,10 +2332,17 @@ static EFI_STATUS image_start(
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
 
+        UINTN initrd_size = 0;
+        _cleanup_freepool_ UINT8 *initrd = NULL;
         _cleanup_freepool_ CHAR16 *options_initrd = NULL;
-        err = initrd_prepare(entry, &options_initrd);
+        err = initrd_prepare(entry, &options_initrd, &initrd, &initrd_size);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
+
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        err = initrd_register(initrd, initrd_size, &initrd_handle);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
         CHAR16 *options = options_initrd ?: entry->options;
         if (options) {
