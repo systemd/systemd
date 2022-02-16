@@ -87,7 +87,7 @@ struct Manager {
         bool unlink_nologin;
 
         char *wall_message;
-        unsigned enable_wall_messages;
+        bool enable_wall_messages;
         sd_event_source *wall_message_timeout_source;
 
         bool shutdown_dry_run;
