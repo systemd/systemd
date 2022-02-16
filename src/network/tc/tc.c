@@ -183,9 +183,8 @@ int request_process_traffic_control(Request *req) {
         tc = ASSERT_PTR(req->traffic_control);
 
         r = traffic_control_is_ready_to_configure(link, tc);
-        if (r <= 0) {
+        if (r <= 0)
                 return r;
-        }
 
         r = traffic_control_configure(link, tc);
         if (r < 0)
