@@ -233,6 +233,27 @@ safely use the NSS user database as allocation check, too. Note that if you
 follow this scheme no changes to `/etc/passwd` need to be made, thus minimizing
 the artifacts the container manager persistently leaves in the system.
 
+5. `systemd-homed` by default mounts the home directories it manages with UID
+mapping applied. It will map four UID ranges into that uidmap, and leave
+everything else unmapped: the range from 0…60000, the user's own UID, the range
+60514…65534, and the container range 524288…1879048191. This means
+files/directories in home directories managed by `systemd-homed` cannot be
+owned by UIDs/GIDs outside of these four ranges (attempts to `chown()` files to
+UIDs outside of these ranges will fail). Thus, if container trees are to be
+placed within a home directory managed by `systemd-homed` they should take
+these ranges into consideration and either place the trees at base UID 0 (and
+then map them to a higher UID range for use in user namespacing via another
+level of UID mapped mounts, at *runtime*) or at a base UID from the container
+UID range. That said, placing container trees (and in fact any
+files/directories not owned by the home directory's user) in home directories
+is generally a questionable idea (regardless of whether `systemd-homed` is used
+or not), given this typically breaks quota assumptions, makes it impossible for
+users to properly manage all files in their own home directory due to
+permission problems, introduces security issues around SETUID and severely
+restricts compatibility with networked home directories. Typically, it's a much
+better idea to place container images outside of the home directory,
+i.e. somewhere below `/var/` or similar.
+
 ## Summary
 
 |               UID/GID | Purpose               | Defined By    | Listed in                     |
