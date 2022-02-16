@@ -39,6 +39,29 @@ static bool arg_chain = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 
+static const char *user_disposition_to_color(UserDisposition d) {
+        assert(d >= 0);
+        assert(d < _USER_DISPOSITION_MAX);
+
+        switch (d) {
+        case USER_INTRINSIC:
+                return ansi_red();
+
+        case USER_SYSTEM:
+        case USER_DYNAMIC:
+                return ansi_green();
+
+        case USER_CONTAINER:
+                return ansi_cyan();
+
+        case USER_RESERVED:
+                return ansi_red();
+
+        default:
+                return NULL;
+        }
+}
+
 static int show_user(UserRecord *ur, Table *table) {
         int r;
 
@@ -74,14 +97,18 @@ static int show_user(UserRecord *ur, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE:
+        case OUTPUT_TABLE: {
+                UserDisposition d;
+
                 assert(table);
+                d = user_record_disposition(ur);
 
                 r = table_add_many(
                                 table,
                                 TABLE_STRING, "",
                                 TABLE_STRING, ur->user_name,
-                                TABLE_STRING, user_disposition_to_string(user_record_disposition(ur)),
+                                TABLE_SET_COLOR, user_disposition_to_color(d),
+                                TABLE_STRING, user_disposition_to_string(d),
                                 TABLE_UID, ur->uid,
                                 TABLE_GID, user_record_gid(ur),
                                 TABLE_STRING, empty_to_null(ur->real_name),
@@ -92,6 +119,7 @@ static int show_user(UserRecord *ur, Table *table) {
                         return table_log_add_error(r);
 
                 break;
+        }
 
         default:
                 assert_not_reached();
@@ -357,14 +385,18 @@ static int show_group(GroupRecord *gr, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE:
+        case OUTPUT_TABLE: {
+                UserDisposition d;
+
                 assert(table);
+                d = group_record_disposition(gr);
 
                 r = table_add_many(
                                 table,
                                 TABLE_STRING, "",
                                 TABLE_STRING, gr->group_name,
-                                TABLE_STRING, user_disposition_to_string(group_record_disposition(gr)),
+                                TABLE_SET_COLOR, user_disposition_to_color(d),
+                                TABLE_STRING, user_disposition_to_string(d),
                                 TABLE_GID, gr->gid,
                                 TABLE_STRING, gr->description,
                                 TABLE_INT, 0);
@@ -372,6 +404,7 @@ static int show_group(GroupRecord *gr, Table *table) {
                         return table_log_add_error(r);
 
                 break;
+        }
 
         default:
                 assert_not_reached();
