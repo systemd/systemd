@@ -24,6 +24,17 @@
 #define UINT64_MAX ((UINT64) -1)
 #endif
 
+/* gnu-efi has no format specifier for (U)INTN. */
+#if __SIZEOF_POINTER__ == 4
+#  define PRIuN L"u"
+#  define PRIdN L"d"
+#elif __SIZEOF_POINTER__ == 8
+#  define PRIuN L"lu"
+#  define PRIdN L"ld"
+#else
+#  error "Unexpected pointer size"
+#endif
+
 #define xnew_alloc(type, n, alloc)                                           \
         ({                                                                   \
                 UINTN _alloc_size;                                           \
