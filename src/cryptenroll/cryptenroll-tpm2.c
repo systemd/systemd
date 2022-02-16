@@ -80,7 +80,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         assert_se(node = crypt_get_device_name(cd));
 
-        r = tpm2_seal(device, pcr_mask, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_seal(device, pcr_mask, NULL, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
         if (r < 0)
                 return r;
 
@@ -97,7 +97,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         /* Quick verification that everything is in order, we are not in a hurry after all. */
         log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, &secret2, &secret2_size);
+        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, NULL, &secret2, &secret2_size);
         if (r < 0)
                 return r;
 
