@@ -78,7 +78,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* doc: prep a document explaining resolved's internal objects, i.e. Query
+  vs. Question vs. Transaction vs. Stream and so on.
+
+* userbdctl: show user types via colors, also display UID range info in some way
+
 * bootspec: remove tries counter from boot entry ids
+
+* bootspec: bring UEFI and userspace enumeration of bootspec entries back into
+  sync, i.e. parse out tries in both
 
 * automatically ignore threaded cgroups in cg_xyz().
 
