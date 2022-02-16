@@ -39,6 +39,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_BRANCH]             = "|-",
                         [SPECIAL_GLYPH_TREE_RIGHT]              = "`-",
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
+                        [SPECIAL_GLYPH_TREE_TOP]                = ",-",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
                         [SPECIAL_GLYPH_WHITE_CIRCLE]            = "*",
@@ -51,7 +52,9 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
                         [SPECIAL_GLYPH_DARK_SHADE]              = "X",
                         [SPECIAL_GLYPH_SIGMA]                   = "S",
-                        [SPECIAL_GLYPH_ARROW]                   = "->",
+                        [SPECIAL_GLYPH_ARROW_RIGHT]             = "->",
+                        [SPECIAL_GLYPH_ARROW_UP]                = "^",
+                        [SPECIAL_GLYPH_ARROW_DOWN]              = "v",
                         [SPECIAL_GLYPH_ELLIPSIS]                = "...",
                         [SPECIAL_GLYPH_EXTERNAL_LINK]           = "[LNK]",
                         [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = ":-]",
@@ -75,6 +78,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_BRANCH]             = "\342\224\234\342\224\200", /* ├─ */
                         [SPECIAL_GLYPH_TREE_RIGHT]              = "\342\224\224\342\224\200", /* └─ */
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",                       /*    */
+                        [SPECIAL_GLYPH_TREE_TOP]                = "\u250C\342\224\200",       /* ┌─ */
 
                         /* Single glyphs in both cases */
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
@@ -89,9 +93,11 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = "\342\226\221",             /* ░ */
                         [SPECIAL_GLYPH_DARK_SHADE]              = "\342\226\223",             /* ▒ */
                         [SPECIAL_GLYPH_SIGMA]                   = "\316\243",                 /* Σ */
+                        [SPECIAL_GLYPH_ARROW_UP]                = "\u2191",                   /* ↑ (actually called: UPWARDS ARROW) */
+                        [SPECIAL_GLYPH_ARROW_DOWN]              = "\u2193",                   /* ↓ (actually called: DOWNWARDS ARROW) */
 
                         /* Single glyph in Unicode, two in ASCII */
-                        [SPECIAL_GLYPH_ARROW]                   = "\342\206\222",             /* → (actually called: RIGHTWARDS ARROW) */
+                        [SPECIAL_GLYPH_ARROW_RIGHT]             = "\342\206\222",             /* → (actually called: RIGHTWARDS ARROW) */
 
                         /* Single glyph in Unicode, three in ASCII */
                         [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … (actually called: HORIZONTAL ELLIPSIS) */

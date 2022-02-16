@@ -1969,9 +1969,9 @@ static int format_size_change(uint64_t from, uint64_t to, char **ret) {
                 if (from == to || to == UINT64_MAX)
                         t = strdup(FORMAT_BYTES(from));
                 else
-                        t = strjoin(FORMAT_BYTES(from), " ", special_glyph(SPECIAL_GLYPH_ARROW), " ", FORMAT_BYTES(to));
+                        t = strjoin(FORMAT_BYTES(from), " ", special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ", FORMAT_BYTES(to));
         } else if (to != UINT64_MAX)
-                t = strjoin(special_glyph(SPECIAL_GLYPH_ARROW), " ", FORMAT_BYTES(to));
+                t = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ", FORMAT_BYTES(to));
         else {
                 *ret = NULL;
                 return 0;

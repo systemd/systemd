@@ -41,7 +41,7 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s (owned by %s) %s %s (owned by %s) during canonicalization of %s.",
-                                 strna(n1), strna(user_a), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), strna(user_b), path);
+                                 strna(n1), strna(user_a), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(n2), strna(user_b), path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
