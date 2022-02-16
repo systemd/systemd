@@ -2022,6 +2022,85 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
         return 0;
 }
 
+static int link_update_driver(Link *link, sd_netlink_message *message) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(message);
+
+        /* Driver is already read. Assuming the driver is never changed. */
+        if (link->driver)
+                return 0;
+
+        /* When udevd is running, read the driver after the interface is initialized by udevd.
+         * Otherwise, ethtool may not work correctly. See issue #22538.
+         * When udevd is not running, read the value when the interface is detected. */
+        if (link->state != (udev_available() ? LINK_STATE_INITIALIZED : LINK_STATE_PENDING))
+                return 0;
+
+        r = ethtool_get_driver(&link->manager->ethtool_fd, link->ifname, &link->driver);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
+                return 0;
+        }
+
+        log_link_debug(link, "Found driver: %s", strna(link->driver));
+
+        if (streq_ptr(link->driver, "dsa")) {
+                uint32_t dsa_master_ifindex = 0;
+
+                r = sd_netlink_message_read_u32(message, IFLA_LINK, &dsa_master_ifindex);
+                if (r < 0 && r != -ENODATA)
+                        return log_link_debug_errno(link, r, "rtnl: failed to read ifindex of the DSA master interface: %m");
+
+                if (dsa_master_ifindex > INT_MAX) {
+                        log_link_debug(link, "rtnl: received too large DSA master ifindex (%"PRIu32" > INT_MAX), ignoring.",
+                                       dsa_master_ifindex);
+                        dsa_master_ifindex = 0;
+                }
+
+                link->dsa_master_ifindex = (int) dsa_master_ifindex;
+        }
+
+        return 0;
+}
+
+static int link_update_permanent_hardware_address(Link *link, sd_netlink_message *message) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(message);
+
+        if (link->permanent_hw_addr.length > 0)
+                return 0;
+
+        /* When udevd is running, read the permanent hardware address after the interface is
+         * initialized by udevd. Otherwise, ethtool may not work correctly. See issue #22538.
+         * When udevd is not running, read the value when the interface is detected. */
+        if (link->state != (udev_available() ? LINK_STATE_INITIALIZED : LINK_STATE_PENDING))
+                return 0;
+
+        r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute: %m");
+
+                if (netlink_message_read_hw_addr(message, IFLA_ADDRESS, NULL) >= 0) {
+                        /* Fallback to ethtool, if the link has a hardware address. */
+                        r = ethtool_get_permanent_hw_addr(&link->manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
+                        if (r < 0)
+                                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
+                }
+        }
+
+        if (link->permanent_hw_addr.length > 0)
+                log_link_debug(link, "Saved permanent hardware address: %s", HW_ADDR_TO_STR(&link->permanent_hw_addr));
+
+        return 0;
+}
+
 static int link_update_hardware_address(Link *link, sd_netlink_message *message) {
         struct hw_addr_data addr;
         int r;
@@ -2309,6 +2388,14 @@ static int link_update(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
+        r = link_update_driver(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_permanent_hardware_address(link, message);
+        if (r < 0)
+                return r;
+
         r = link_update_hardware_address(link, message);
         if (r < 0)
                 return r;
@@ -2420,44 +2507,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
         log_link_debug(link, "Saved new link: ifindex=%i, iftype=%s(%u), kind=%s",
                        link->ifindex, strna(arphrd_to_name(link->iftype)), link->iftype, strna(link->kind));
-
-        r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute, ignoring: %m");
-
-                if (netlink_message_read_hw_addr(message, IFLA_ADDRESS, NULL) >= 0) {
-                        /* Fallback to ethtool, if the link has a hardware address. */
-                        r = ethtool_get_permanent_hw_addr(&manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
-                        if (r < 0)
-                                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
-                }
-        }
-        if (link->permanent_hw_addr.length > 0)
-                log_link_debug(link, "Saved permanent hardware address: %s", HW_ADDR_TO_STR(&link->permanent_hw_addr));
-
-        r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
-        else
-                log_link_debug(link, "Found driver: %s", strna(link->driver));
-
-        if (streq_ptr(link->driver, "dsa")) {
-                uint32_t dsa_master_ifindex;
-
-                r = sd_netlink_message_read_u32(message, IFLA_LINK, &dsa_master_ifindex);
-                if (r < 0) {
-                        dsa_master_ifindex = 0;
-                        if (r != -ENODATA)
-                                log_link_warning_errno(link, r, "rtnl: failed to read ifindex of the DSA master interface, ignoring: %m");
-                } else if (dsa_master_ifindex > INT_MAX) {
-                        dsa_master_ifindex = 0;
-                        log_link_warning(link, "rtnl: received too large DSA master ifindex (%"PRIu32" > INT_MAX), ignoring.",
-                                         dsa_master_ifindex);
-                }
-
-                link->dsa_master_ifindex = (int) dsa_master_ifindex;
-        }
 
         *ret = TAKE_PTR(link);
         return 0;
