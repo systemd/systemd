@@ -336,7 +336,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         if (!quiet)
                                 log_info("Created symlink %s %s %s.",
                                          changes[i].path,
-                                         special_glyph(SPECIAL_GLYPH_ARROW),
+                                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                                          changes[i].source);
                         break;
                 case UNIT_FILE_UNLINK:
