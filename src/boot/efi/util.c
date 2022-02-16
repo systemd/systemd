@@ -57,7 +57,7 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         assert(vendor);
         assert(name);
 
-        SPrint(str, ELEMENTSOF(str), L"%u", i);
+        ValueToString(str, FALSE, i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -236,7 +236,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
         if (usec == 0)
                 return;
 
-        SPrint(str, ELEMENTSOF(str), L"%ld", usec);
+        ValueToString(str, FALSE, usec);
         efivar_set(vendor, name, str, 0);
 }
 
