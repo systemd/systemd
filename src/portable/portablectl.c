@@ -502,12 +502,12 @@ static int print_changes(sd_bus_message *m) {
                         break;
 
                 if (streq(type, "symlink"))
-                        log_info("Created symlink %s %s %s.", path, special_glyph(SPECIAL_GLYPH_ARROW), source);
+                        log_info("Created symlink %s %s %s.", path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), source);
                 else if (streq(type, "copy")) {
                         if (isempty(source))
                                 log_info("Copied %s.", path);
                         else
-                                log_info("Copied %s %s %s.", source, special_glyph(SPECIAL_GLYPH_ARROW), path);
+                                log_info("Copied %s %s %s.", source, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), path);
                 } else if (streq(type, "unlink"))
                         log_info("Removed %s.", path);
                 else if (streq(type, "write"))

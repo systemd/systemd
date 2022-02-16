@@ -8,10 +8,6 @@
 #include "time-util.h"
 #include "user-record.h"
 
-/* See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
-#define HOME_UID_MIN 60001
-#define HOME_UID_MAX 60513
-
 /* Put some limits on disk sizes: not less than 5M, not more than 5T */
 #define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
 #define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
