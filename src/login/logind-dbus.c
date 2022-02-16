@@ -2058,10 +2058,10 @@ static int update_schedule_file(Manager *m) {
 
         fprintf(f,
                 "USEC="USEC_FMT"\n"
-                "WARN_WALL=%i\n"
+                "WARN_WALL=%s\n"
                 "MODE=%s\n",
                 m->scheduled_shutdown_timeout,
-                m->enable_wall_messages,
+                one_zero(m->enable_wall_messages),
                 handle_action_to_string(m->scheduled_shutdown_type->handle));
 
         if (!isempty(m->wall_message)) {
@@ -3116,7 +3116,7 @@ static int method_set_wall_message(
         int r;
         Manager *m = userdata;
         char *wall_message;
-        unsigned enable_wall_messages;
+        int enable_wall_messages;
 
         assert(message);
         assert(m);
@@ -3277,7 +3277,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", NULL, NULL, offsetof(Manager, enable_wall_messages), 0),
+        SD_BUS_WRITABLE_PROPERTY("EnableWallMessages", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, enable_wall_messages), 0),
         SD_BUS_WRITABLE_PROPERTY("WallMessage", "s", NULL, NULL, offsetof(Manager, wall_message), 0),
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
