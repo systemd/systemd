@@ -18,4 +18,5 @@
 #RootDistanceMaxSec=5
 #PollIntervalMinSec=32
 #PollIntervalMaxSec=2048
+#ConnectionRetrySec=30
 #SaveIntervalSec=60
