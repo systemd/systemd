@@ -797,6 +797,9 @@ static bool address_is_in_pool(sd_dhcp_server *server, be32_t address) {
         if (server->pool_size == 0)
                 return false;
 
+        if (address == server->address)
+                return false;
+
         if (be32toh(address) < (be32toh(server->subnet) | server->pool_offset) ||
             be32toh(address) >= (be32toh(server->subnet) | (server->pool_offset + server->pool_size)))
                 return false;
