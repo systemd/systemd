@@ -5,6 +5,7 @@ set -e
 TEST_DESCRIPTION="UDEV"
 IMAGE_NAME="default"
 TEST_NO_NSPAWN=1
+TEST_SAVE_JOURNAL=yes
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
