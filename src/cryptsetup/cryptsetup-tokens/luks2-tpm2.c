@@ -41,7 +41,7 @@ int acquire_luks2_key(
                         pcr_mask, pcr_bank,
                         primary_alg,
                         key_data, key_data_size,
-                        policy_hash, policy_hash_size,
+                        policy_hash, policy_hash_size, NULL,
                         ret_decrypted_key, ret_decrypted_key_size);
 }
 

@@ -64,7 +64,7 @@ int acquire_tpm2_key(
                 blob = loaded_blob;
         }
 
-        return tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, policy_hash, policy_hash_size, ret_decrypted_key, ret_decrypted_key_size);
+        return tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, policy_hash, policy_hash_size, NULL, ret_decrypted_key, ret_decrypted_key_size);
 }
 
 int find_tpm2_auto_data(
