@@ -15,6 +15,8 @@ ACTION=="add", SUBSYSTEM=="mem", KERNEL=="null", TAG+="added"
 ACTION=="change", SUBSYSTEM=="mem", KERNEL=="null", TAG+="changed"
 EOF
 
+stat -f /run/udev
+
 udevadm control --reload
 SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
