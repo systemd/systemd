@@ -20,6 +20,7 @@
 #include "path-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -722,4 +723,18 @@ int on_ac_power(void) {
                 log_debug("All non-battery power supplies are offline, assuming system is running with battery.");
 
         return found_online || !found_offline;
+}
+
+bool udev_available(void) {
+        static int cache = -1;
+
+        /* The service systemd-udevd is started only when /sys is read write.
+         * See systemd-udevd.service: ConditionPathIsReadWrite=/sys
+         * Also, our container interface (http://systemd.io/CONTAINER_INTERFACE/) states that /sys must
+         * be mounted in read-only mode in containers. */
+
+        if (cache >= 0)
+                return cache;
+
+        return (cache = path_is_read_only_fs("/sys/") <= 0);
 }
