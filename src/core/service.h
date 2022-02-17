@@ -185,6 +185,8 @@ struct Service {
         NotifyAccess notify_access;
         NotifyState notify_state;
 
+        sd_bus_slot *bus_name_pid_lookup_slot;
+
         sd_event_source *exec_fd_event_source;
 
         ServiceFDStore *fd_store;
