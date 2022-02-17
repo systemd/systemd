@@ -685,17 +685,19 @@ static int service_setup_bus_name(Service *s) {
         assert(s);
 
         /* If s->bus_name is not set, then the unit will be refused by service_verify() later. */
-        if (s->type != SERVICE_DBUS || !s->bus_name)
+        if (!s->bus_name)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        if (s->type == SERVICE_DBUS) {
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
-        /* We always want to be ordered against dbus.socket if both are in the transaction. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+                /* We always want to be ordered against dbus.socket if both are in the transaction. */
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        }
 
         r = unit_watch_bus_name(UNIT(s), s->bus_name);
         if (r == -EEXIST)
