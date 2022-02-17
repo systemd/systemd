@@ -94,6 +94,7 @@ int rtnl_get_link_info(
                 int ifindex,
                 unsigned short *ret_iftype,
                 unsigned *ret_flags,
+                char **ret_kind,
                 struct hw_addr_data *ret_hw_addr,
                 struct hw_addr_data *ret_permanent_hw_addr);
 

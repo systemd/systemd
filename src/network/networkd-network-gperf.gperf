@@ -52,6 +52,7 @@ Match.PermanentMACAddress,                   config_parse_hw_addrs,             
 Match.Path,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.path)
 Match.Driver,                                config_parse_match_strv,                                  0,                             offsetof(Network, match.driver)
 Match.Type,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.iftype)
+Match.Kind,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.kind)
 Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match.wlan_iftype)
 Match.SSID,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.ssid)
 Match.BSSID,                                 config_parse_ether_addrs,                                 0,                             offsetof(Network, match.bssid)
