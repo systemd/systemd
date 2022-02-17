@@ -64,6 +64,7 @@ Packages=
         # Run `autoload -Uz compinit; compinit` from a zsh shell in the booted image to enable completions.
         zsh
         # Required to run systemd-networkd-tests.py
+        python
         iproute
         dnsmasq
         wireguard-tools
