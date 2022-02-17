@@ -1034,7 +1034,10 @@ int tpm2_unseal(
                         &public,
                         &hmac_key);
         if (rc != TSS2_RC_SUCCESS) {
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                // If we're in lockout mode, we should see a lockout error here,
+                // which we need to translate for the caller.
+                int e = (rc == TPM2_RC_LOCKOUT) ? ENOLCK : ENOTRECOVERABLE;
+                r = log_error_errno(SYNTHETIC_ERRNO(e),
                                     "Failed to load HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
                 goto finish;
         }
