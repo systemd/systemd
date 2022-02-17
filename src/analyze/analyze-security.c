@@ -1902,7 +1902,7 @@ static int assess(const SecurityInfo *info,
                         name = info->id;
 
                 printf("\n%s %sOverall exposure level for %s%s: %s%" PRIu64 ".%" PRIu64 " %s%s %s\n",
-                       special_glyph(SPECIAL_GLYPH_ARROW),
+                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                        ansi_highlight(),
                        name,
                        ansi_normal(),
