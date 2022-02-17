@@ -85,6 +85,7 @@
       <xi:include href="systemd.link.xml" xpointer="path" />
       <xi:include href="systemd.link.xml" xpointer="driver" />
       <xi:include href="systemd.link.xml" xpointer="type" />
+      <xi:include href="systemd.link.xml" xpointer="kind" />
       <xi:include href="systemd.link.xml" xpointer="property" />
 
       <varlistentry>
