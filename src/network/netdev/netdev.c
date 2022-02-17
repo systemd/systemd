@@ -277,7 +277,7 @@ static int netdev_enter_ready(NetDev *netdev) {
         log_netdev_info(netdev, "netdev ready");
 
         if (NETDEV_VTABLE(netdev)->post_create)
-                NETDEV_VTABLE(netdev)->post_create(netdev, NULL, NULL);
+                NETDEV_VTABLE(netdev)->post_create(netdev, NULL);
 
         return 0;
 }

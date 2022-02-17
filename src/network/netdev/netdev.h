@@ -165,7 +165,7 @@ typedef struct NetDevVTable {
         int (*create_after_configured)(NetDev *netdev, Link *link);
 
         /* perform additional configuration after netdev has been createad */
-        int (*post_create)(NetDev *netdev, Link *link, sd_netlink_message *message);
+        int (*post_create)(NetDev *netdev, Link *link);
 
         /* verify that compulsory configuration options were specified */
         int (*config_verify)(NetDev *netdev, const char *filename);

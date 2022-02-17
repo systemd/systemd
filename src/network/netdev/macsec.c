@@ -474,7 +474,7 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
         return 0;
 }
 
-static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_message *m) {
+static int netdev_macsec_configure(NetDev *netdev, Link *link) {
         TransmitAssociation *a;
         ReceiveChannel *c;
         MACsec *s;
