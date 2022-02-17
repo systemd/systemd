@@ -142,6 +142,7 @@ typedef struct Link {
         bool sr_iov_configured:1;
         bool activated:1;
         bool master_set:1;
+        bool netdev_configured:1;
         bool stacked_netdevs_created:1;
 
         sd_dhcp_server *dhcp_server;
