@@ -28,6 +28,7 @@ Match.OriginalName,                        config_parse_match_ifnames,          
 Match.Path,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.path)
 Match.Driver,                              config_parse_match_strv,               0,                             offsetof(LinkConfig, match.driver)
 Match.Type,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.iftype)
+Match.Kind,                                config_parse_match_strv,               0,                             offsetof(LinkConfig, match.kind)
 Match.Property,                            config_parse_match_property,           0,                             offsetof(LinkConfig, match.property)
 Match.Host,                                config_parse_net_condition,            CONDITION_HOST,                offsetof(LinkConfig, conditions)
 Match.Virtualization,                      config_parse_net_condition,            CONDITION_VIRTUALIZATION,      offsetof(LinkConfig, conditions)

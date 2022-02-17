@@ -1168,6 +1168,7 @@ static int link_get_network(Link *link, Network **ret) {
                                 &link->permanent_hw_addr,
                                 link->driver,
                                 link->iftype,
+                                link->kind,
                                 link->ifname,
                                 link->alternative_names,
                                 link->wlan_iftype,

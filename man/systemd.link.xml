@@ -178,6 +178,20 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry id='kind'>
+        <term><varname>Kind=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of shell-style globs matching the device kind, as exposed by
+          <command>networkctl status <replaceable>INTERFACE</replaceable></command> or
+          <command>ip -d link show <replaceable>INTERFACE</replaceable></command>. If the list is
+          prefixed with a "!", the test is inverted. Some valid values are <literal>bond</literal>,
+          <literal>bridge</literal>, <literal>gre</literal>, <literal>tun</literal>,
+          <literal>veth</literal>. Valid kinds are given by netlink's <literal>IFLA_INFO_KIND</literal>
+          attribute, so this is not comprehensive.
+          </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry id='property'>
         <term><varname>Property=</varname></term>
         <listitem>

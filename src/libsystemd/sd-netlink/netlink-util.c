@@ -366,11 +366,13 @@ int rtnl_get_link_info(
                 int ifindex,
                 unsigned short *ret_iftype,
                 unsigned *ret_flags,
+                char **ret_kind,
                 struct hw_addr_data *ret_hw_addr,
                 struct hw_addr_data *ret_permanent_hw_addr) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         struct hw_addr_data addr = HW_ADDR_NULL, perm_addr = HW_ADDR_NULL;
+        _cleanup_free_ char *kind = NULL;
         unsigned short iftype;
         unsigned flags;
         int r;
@@ -409,6 +411,19 @@ int rtnl_get_link_info(
                         return r;
         }
 
+        if (ret_kind) {
+                r = sd_netlink_message_enter_container(reply, IFLA_LINKINFO);
+                if (r >= 0) {
+                        r = sd_netlink_message_read_string_strdup(reply, IFLA_INFO_KIND, &kind);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+
+                        r = sd_netlink_message_exit_container(reply);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (ret_hw_addr) {
                 r = netlink_message_read_hw_addr(reply, IFLA_ADDRESS, &addr);
                 if (r < 0 && r != -ENODATA)
@@ -425,6 +440,8 @@ int rtnl_get_link_info(
                 *ret_iftype = iftype;
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_kind)
+                *ret_kind = TAKE_PTR(kind);
         if (ret_hw_addr)
                 *ret_hw_addr = addr;
         if (ret_permanent_hw_addr)
