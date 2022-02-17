@@ -163,7 +163,7 @@ static int netdev_batadv_post_create_message(NetDev *netdev, sd_netlink_message 
         return 0;
 }
 
-static int netdev_batadv_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+static int netdev_batadv_post_create(NetDev *netdev, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
