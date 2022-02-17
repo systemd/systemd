@@ -49,6 +49,12 @@
 #include "verbs.h"
 #include "virt.h"
 
+#ifdef __x86_64__
+#  define EFI_MACHINE_TYPE_ALT_NAME "ia32"
+#else
+#  define EFI_MACHINE_TYPE_ALT_NAME NULL
+#endif
+
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static bool arg_print_esp_path = false;
@@ -59,10 +65,12 @@ static bool arg_graceful = false;
 static int arg_make_machine_id_directory = 0;
 static sd_id128_t arg_machine_id = SD_ID128_NULL;
 static char *arg_install_layout = NULL;
+static char *arg_arch = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_install_layout, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_arch, freep);
 
 static const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -249,6 +257,30 @@ finish:
         (void) munmap(buf, st.st_size);
         *v = x;
         return r;
+}
+
+static const char *efi_arch(void) {
+#ifdef __x86_64__
+        _cleanup_free_ char *platform_size = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/firmware/efi/fw_platform_size", &platform_size);
+        if (r == -ENOENT)
+                return EFI_MACHINE_TYPE_NAME;
+        if (r < 0) {
+                log_error_errno(r, "Error reading EFI firmware platform size: %m");
+                return EFI_MACHINE_TYPE_NAME;
+        }
+
+        if (streq(platform_size, "64"))
+                return EFI_MACHINE_TYPE_NAME;
+        if (streq(platform_size, "32"))
+                return EFI_MACHINE_TYPE_ALT_NAME;
+
+        log_warning("Unknown EFI platform size: %s", platform_size);
+#endif
+
+        return EFI_MACHINE_TYPE_NAME;
 }
 
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
@@ -780,10 +812,17 @@ static int install_binaries(const char *esp_path, bool force) {
         if (!d)
                 return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
+        const char *suffix = ".efi", *suffix_signed = ".efi.signed";
+        if (!streq_ptr(arg_arch, "all")) {
+                const char *arch = arg_arch ?: efi_arch();
+                suffix = strjoina(arch, suffix);
+                suffix_signed = strjoina(arch, suffix_signed);
+        }
+
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \""BOOTLIBDIR"\": %m")) {
                 int k;
 
-                if (!endswith_no_case(de->d_name, ".efi") && !endswith_no_case(de->d_name, ".efi.signed"))
+                if (!endswith_no_case(de->d_name, suffix) && !endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
                 /* skip the .efi file, if there's a .signed version of it */
@@ -1313,6 +1352,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       variables cannot be written\n"
                "     --make-machine-id-directory=yes|no|auto\n"
                "                       Create $BOOT/$MACHINE_ID\n"
+               "  -a --arch=ARCH       EFI arch for installed binaries\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1348,6 +1388,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER                  },
                 { "graceful",                  no_argument,       NULL, ARG_GRACEFUL                  },
                 { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_MACHINE_ID_DIRECTORY },
+                { "arch",                      required_argument, NULL, 'a'                           },
                 {}
         };
 
@@ -1414,6 +1455,17 @@ static int parse_argv(int argc, char *argv[]) {
                                         return r;
                                 arg_make_machine_id_directory = b;
                         }
+                        break;
+
+                case 'a':
+                        if (streq(optarg, "auto"))
+                                arg_arch = mfree(arg_arch);
+                        else if (STR_IN_SET(optarg, "all", EFI_MACHINE_TYPE_NAME, EFI_MACHINE_TYPE_ALT_NAME)) {
+                                r = free_and_strdup(&arg_arch, optarg);
+                                if (r < 0)
+                                        return log_oom();
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown EFI arch: %s", optarg);
                         break;
 
                 case '?':
@@ -1549,6 +1601,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("System:\n");
                 printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
+                printf("         Arch: %s\n", efi_arch());
                 printf("  Secure Boot: %sd (%s)\n",
                        enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
                        secure_boot_mode_to_string(secure));
@@ -1924,11 +1977,14 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
         (void) sync_everything();
 
-        if (arg_touch_variables)
-                r = install_variables(arg_esp_path,
-                                      part, pstart, psize, uuid,
-                                      "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
-                                      install);
+        if (arg_touch_variables) {
+                if (streq_ptr(arg_arch, "all"))
+                        log_warning("Not changing EFI variables with --arch=all.");
+                else {
+                        char *path = strjoina("/EFI/systemd/systemd-boot", arg_arch ?: efi_arch(), ".efi");
+                        r = install_variables(arg_esp_path, part, pstart, psize, uuid, path, install);
+                }
+        }
 
         return r;
 }
@@ -1987,7 +2043,11 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (!arg_touch_variables)
                 return r;
 
-        q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
+        if (streq_ptr(arg_arch, "all"))
+                return log_warning_errno(r, "Not changing EFI variables with --arch=all.");
+
+        char *path = strjoina("/EFI/systemd/systemd-boot", arg_arch ?: efi_arch(), ".efi");
+        q = remove_variables(uuid, path, true);
         if (q < 0 && r >= 0)
                 r = q;
 
