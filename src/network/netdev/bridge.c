@@ -28,20 +28,25 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, Multic
                          "Failed to parse bridge multicast router setting");
 
 /* callback for bridge netdev's parameter set */
-static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+static int bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(netdev);
+        assert(link);
         assert(m);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_netdev_warning_errno(netdev, r, "Bridge parameters could not be set: %m");
+                log_link_warning_errno(link, r, "Bridge parameters could not be set: %m");
+                link_enter_failed(link);
                 return 1;
         }
 
-        log_netdev_debug(netdev, "Bridge parameters set success");
+        log_link_debug(link, "Bridge parameters set success");
 
+        link->netdev_configured = true;
         return 1;
 }
 
@@ -167,14 +172,13 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
-                               netdev_destroy_callback, netdev);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, bridge_set_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
-        netdev_ref(netdev);
-
-        return r;
+        link_ref(link);
+        return 0;
 }
 
 int config_parse_bridge_igmp_version(
