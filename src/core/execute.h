@@ -343,21 +343,21 @@ static inline bool exec_context_with_rootfs(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1 << 0,
-        EXEC_APPLY_CHROOT      = 1 << 1,
-        EXEC_APPLY_TTY_STDIN   = 1 << 2,
-        EXEC_PASS_LOG_UNIT     = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1 << 6,
-        EXEC_IS_CONTROL        = 1 << 7,
-        EXEC_CONTROL_CGROUP    = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
-        EXEC_WRITE_CREDENTIALS = 1 << 9, /* Set up the credential store logic */
+        EXEC_APPLY_SANDBOXING      = 1 << 0,
+        EXEC_APPLY_CHROOT          = 1 << 1,
+        EXEC_APPLY_TTY_STDIN       = 1 << 2,
+        EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
+        EXEC_CGROUP_DELEGATE       = 1 << 6,
+        EXEC_IS_CONTROL            = 1 << 7,
+        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 10,
-        EXEC_SETENV_RESULT     = 1 << 11,
-        EXEC_SET_WATCHDOG      = 1 << 12,
+        EXEC_PASS_FDS              = 1 << 10,
+        EXEC_SETENV_RESULT         = 1 << 11,
+        EXEC_SET_WATCHDOG          = 1 << 12,
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
