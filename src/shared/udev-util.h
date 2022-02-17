@@ -55,6 +55,8 @@ int udev_queue_init(void);
 
 int on_ac_power(void);
 
+bool udev_available(void);
+
 #if HAVE_SYS_SDT_H
 
 /* Each trace point can have different number of additional arguments. Note that when the macro is used only
