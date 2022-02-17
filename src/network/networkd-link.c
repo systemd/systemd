@@ -129,6 +129,9 @@ bool link_ipv6_enabled(Link *link) {
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         assert(link);
 
+        if (!link->netdev_configured)
+                return false;
+
         if (!link->network) {
                 if (!allow_unmanaged)
                         return false;
@@ -1229,7 +1232,7 @@ static int link_reconfigure_impl(Link *link, bool force) {
                 /* If link is in initialized state, then link->network is also NULL. */
                 force = true;
 
-        if (link->network == network && !force)
+        if (link->network == network && link->netdev == netdev && !force)
                 return 0;
 
         if (network) {
@@ -1273,8 +1276,15 @@ static int link_reconfigure_impl(Link *link, bool force) {
         link_free_engines(link);
         link->network = network_unref(link->network);
 
+        /* Even if the link is unmanaged, that is, no .network file is assigned to the link, we need to
+         * reconfigure the link with assigned .netdev file, as people may use networkd only for
+         * creating and configuring netdev through the .netdev file. Hence, this must be done before
+         * the link entering the unmanaged state below. */
         netdev_unref(link->netdev);
         link->netdev = netdev_ref(netdev);
+        r = link_configure_netdev(link);
+        if (r < 0)
+                return r;
 
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);
