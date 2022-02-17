@@ -76,6 +76,7 @@ Packages=
         e2fsprogs
         compsize
         # Required to run systemd-networkd-tests.py
+        python
         iproute
         iproute-tc
         dnsmasq

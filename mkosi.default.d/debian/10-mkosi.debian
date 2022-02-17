@@ -73,3 +73,9 @@ Packages=
         locales
         nano
         strace
+        # Required to run systemd-networkd-tests.py
+        python3
+        iproute2
+        dnsmasq-base
+        wireguard-tools
+        isc-dhcp-server
