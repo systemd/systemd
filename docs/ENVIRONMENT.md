@@ -219,10 +219,6 @@ All tools:
   user/group records for dynamically registered service users (i.e. users
   registered through `DynamicUser=1`).
 
-* `$SYSTEMD_NSS_BYPASS_BUS=1` — if set, `nss-systemd` won't use D-Bus to do
-  dynamic user lookups. This is primarily useful to make `nss-systemd` work
-  safely from within `dbus-daemon`.
-
 `systemd-timedated`:
 
 * `$SYSTEMD_TIMEDATED_NTP_SERVICES=…` — colon-separated list of unit names of
