@@ -41,6 +41,7 @@ typedef enum LinkState {
 
 typedef struct Manager Manager;
 typedef struct Network Network;
+typedef struct NetDev NetDev;
 typedef struct DUID DUID;
 
 typedef struct Link {
@@ -83,6 +84,7 @@ typedef struct Link {
         sd_event_source *carrier_lost_timer;
 
         Network *network;
+        NetDev *netdev;
 
         LinkState state;
         LinkOperationalState operstate;
