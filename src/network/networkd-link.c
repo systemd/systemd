@@ -156,6 +156,12 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         return true;
 }
 
+int request_link_is_ready_to_configure(Request *req) {
+        assert(req);
+
+        return link_is_ready_to_configure(req->link, false);
+}
+
 void link_ntp_settings_clear(Link *link) {
         link->ntp = strv_free(link->ntp);
 }
@@ -561,7 +567,6 @@ static int link_request_stacked_netdevs(Link *link) {
         assert(link);
 
         link->stacked_netdevs_created = false;
-        link->stacked_netdevs_after_configured_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
                 r = link_request_stacked_netdev(link, netdev);
@@ -573,8 +578,6 @@ static int link_request_stacked_netdevs(Link *link) {
                 link->stacked_netdevs_created = true;
                 link_check_ready(link);
         }
-        if (link->create_stacked_netdev_after_configured_messages == 0)
-                link->stacked_netdevs_after_configured_created = true;
 
         return 0;
 }
@@ -907,7 +910,7 @@ static void link_drop_requests(Link *link) {
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue)
                 if (req->link == link)
-                        request_drop(req);
+                        request_unref(ordered_set_remove(link->manager->request_queue, req));
 }
 
 static Link *link_drop(Link *link) {
