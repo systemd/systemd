@@ -253,10 +253,8 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         assert(ret);
 
         netdev = hashmap_get(manager->netdevs, name);
-        if (!netdev) {
-                *ret = NULL;
+        if (!netdev)
                 return -ENOENT;
-        }
 
         *ret = netdev;
 
