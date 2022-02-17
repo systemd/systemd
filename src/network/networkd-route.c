@@ -871,18 +871,11 @@ static bool route_by_kernel(const Route *route) {
 
 static void link_unmark_wireguard_routes(Link *link) {
         Route *route, *existing;
-        NetDev *netdev;
         Wireguard *w;
 
         assert(link);
 
-        if (!streq_ptr(link->kind, "wireguard"))
-                return;
-
-        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
-                return;
-
-        w = WIREGUARD(netdev);
+        w = WIREGUARD(link->netdev);
         if (!w)
                 return;
 
@@ -1387,20 +1380,13 @@ static int link_request_static_route(Link *link, Route *route) {
 }
 
 static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
-        NetDev *netdev;
         Wireguard *w;
         Route *route;
         int r;
 
         assert(link);
 
-        if (!streq_ptr(link->kind, "wireguard"))
-                return 0;
-
-        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
-                return 0;
-
-        w = WIREGUARD(netdev);
+        w = WIREGUARD(link->netdev);
         if (!w)
                 return 0;
 
