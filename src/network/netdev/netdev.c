@@ -276,9 +276,6 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         log_netdev_info(netdev, "netdev ready");
 
-        if (NETDEV_VTABLE(netdev)->post_create)
-                NETDEV_VTABLE(netdev)->post_create(netdev, NULL);
-
         return 0;
 }
 
@@ -737,6 +734,49 @@ static int netdev_request_to_create(NetDev *netdev) {
                         return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
         }
 
+        return 0;
+}
+
+static int netdev_process_configure(Request *req, Link *link, void *userdata) {
+        NetDev *netdev = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_UNMANAGED))
+                return false;
+
+        if (netdev->state != NETDEV_STATE_READY)
+                return false;
+
+        assert(NETDEV_VTABLE(netdev)->post_create);
+        r = NETDEV_VTABLE(netdev)->post_create(netdev, link);
+        if (r < 0)
+                return log_netdev_warning_errno(netdev, r, "Failed to configure netdev: %m");
+
+        return 1;
+}
+
+int link_configure_netdev(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->netdev ||
+            !NETDEV_VTABLE(link->netdev)->post_create) {
+                link->netdev_configured = true;
+                return 0;
+        }
+
+        r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_CONFIGURE,
+                                    netdev_ref(link->netdev), (mfree_func_t) netdev_unref,
+                                    trivial_hash_func, trivial_compare_func,
+                                    netdev_process_configure,
+                                    NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuration of netdev: %m");
+
+        link->netdev_configured = false;
         return 0;
 }
 
