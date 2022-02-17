@@ -21,9 +21,9 @@ actions:
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
     # Drop backported patches from the specfile, but keep the downstream-only ones
-    # - Patch0000-0499: backported patches from upstream
+    # - Patch(0000-0499): backported patches from upstream
     # - Patch0500-9999: downstream-only patches
-    - "sed -ri '/^Patch0[0-4]?[0-9]{0,2}\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+    - "sed -ri '/^Patch(0[0-4]?[0-9]{0,2})?\\:.+\\.patch/d' .packit_rpm/systemd.spec"
     # Build the RPM with --werror. Even though --werror doesn't work in all
     # cases (see [0]), we can't use -Dc_args=/-Dcpp_args= here because of the
     # RPM hardening macros, that use $CFLAGS/$CPPFLAGS (see [1]).
