@@ -13,7 +13,6 @@
 #include "networkd-ipv4acd.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
@@ -271,7 +270,7 @@ static uint32_t address_prefix(const Address *a) {
                 return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
 }
 
-void address_hash_func(const Address *a, struct siphash *state) {
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -977,9 +976,6 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, error_msg);
@@ -990,108 +986,86 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int address_configure(
-                const Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+static int address_configure(Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        Address *address;
+        Link *link;
         int r;
 
-        assert(address);
-        assert(IN_SET(address->family, AF_INET, AF_INET6));
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
+
+        address = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
 
         log_address_debug(address, "Configuring", link);
 
-        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
-                                            link->ifindex, address->family);
+        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &m, link->ifindex, address->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_NEWADDR message: %m");
 
-        r = address_set_netlink_message(address, req, link);
+        r = address_set_netlink_message(address, m, link);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_addr_set_scope(req, address->scope);
+        r = sd_rtnl_message_addr_set_scope(m, address->scope);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set scope: %m");
 
         if (in_addr_is_set(address->family, &address->in_addr_peer)) {
-                r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
+                r = netlink_message_append_in_addr_union(m, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
         } else if (address_may_set_broadcast(address, link)) {
-                r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                r = sd_netlink_message_append_in_addr(m, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_BROADCAST attribute: %m");
         }
 
         if (address->family == AF_INET && address->label) {
-                r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
+                r = sd_netlink_message_append_string(m, IFA_LABEL, address->label);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_LABEL attribute: %m");
         }
 
-        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO,
+        r = sd_netlink_message_append_cache_info(m, IFA_CACHEINFO,
                                                  address_set_cinfo(address, &(struct ifa_cacheinfo) {}));
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = sd_netlink_message_append_u32(req, IFA_RT_PRIORITY, address->route_metric);
+        r = sd_netlink_message_append_u32(m, IFA_RT_PRIORITY, address->route_metric);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_RT_PRIORITY attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
+        r = request_call_netlink_async(link->manager->rtnl, m, req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        link_ref(link);
+        address_enter_configuring(address);
         return 0;
 }
 
-void address_cancel_request(Address *address) {
-        Request req;
-
-        assert(address);
-        assert(address->link);
-
-        if (!address_is_requesting(address))
-                return;
-
-        req = (Request) {
-                .link = address->link,
-                .type = REQUEST_TYPE_ADDRESS,
-                .address = address,
-        };
-
-        request_drop(ordered_set_get(address->link->manager->request_queue, &req));
-        address_cancel_requesting(address);
-}
-
-static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int address_is_ready_to_configure(Request *req) {
+        Address *address;
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->static_address_messages > 0);
+        assert(req);
 
-        link->static_address_messages--;
+        address = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        r = request_link_is_ready_to_configure(req);
         if (r <= 0)
                 return r;
 
-        if (link->static_address_messages == 0) {
-                log_link_debug(link, "Addresses set");
-                link->static_addresses_configured = true;
-                link_check_ready(link);
-        }
+        if (FLAGS_SET(address->state, NETWORK_CONFIG_STATE_PROBING))
+                return false;
 
-        return 1;
+        /* Refuse adding more than the limit */
+        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return false;
+
+        return true;
 }
 
 int link_request_address(
@@ -1099,7 +1073,7 @@ int link_request_address(
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Address *acquired, *existing;
@@ -1153,14 +1127,40 @@ int link_request_address(
                 return r;
 
         log_address_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_full(link, REQUEST_TYPE_ADDRESS,
+                                    existing, NULL,
+                                    (hash_func_t) address_hash_func,
+                                    (compare_func_t) address_compare_func,
+                                    address_is_ready_to_configure,
+                                    address_configure,
+                                    message_counter, netlink_handler, ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address: %m");
         if (r == 0)
                 return 0;
 
         address_enter_requesting(existing);
+
+        return 1;
+}
+
+static int static_address_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+
+        link = ASSERT_PTR(req->link);
+
+        r = address_configure_handler_internal(nl, m, link, "Failed to set static address");
+        if (r <= 0)
+                return r;
+
+        if (link->static_address_messages == 0) {
+                log_link_debug(link, "Addresses set");
+                link->static_addresses_configured = true;
+                link_check_ready(link);
+        }
 
         return 1;
 }
@@ -1208,49 +1208,25 @@ int link_request_static_addresses(Link *link) {
         return 0;
 }
 
-static bool address_is_ready_to_configure(Link *link, const Address *address) {
-        assert(link);
+void address_cancel_request(Address *address) {
+        Request req;
+
         assert(address);
+        assert(address->link);
 
-        if (!link_is_ready_to_configure(link, false))
-                return false;
+        if (!address_is_requesting(address))
+                return;
 
-        if (FLAGS_SET(address->state, NETWORK_CONFIG_STATE_PROBING))
-                return false;
+        req = (Request) {
+                .link = address->link,
+                .type = REQUEST_TYPE_ADDRESS,
+                .userdata = address,
+                .hash_func = (hash_func_t) address_hash_func,
+                .compare_func = (compare_func_t) address_compare_func,
+        };
 
-        /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
-                return false;
-
-        return true;
-}
-
-int request_process_address(Request *req) {
-        Address *existing;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->link);
-        assert(req->address);
-        assert(req->type == REQUEST_TYPE_ADDRESS);
-
-        link = req->link;
-
-        r = address_get(link, req->address, &existing);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get address: %m");
-
-        if (!address_is_ready_to_configure(link, existing))
-                return 0;
-
-        r = address_configure(req->address, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure address: %m");
-
-        address_enter_configuring(existing);
-
-        return 1;
+        request_unref(ordered_set_get(address->link->manager->request_queue, &req));
+        address_cancel_requesting(address);
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
