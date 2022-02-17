@@ -398,6 +398,8 @@ static void service_done(Unit *u) {
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
+        s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
+
         service_release_resources(u);
 }
 
@@ -709,17 +711,19 @@ static int service_setup_bus_name(Service *s) {
         assert(s);
 
         /* If s->bus_name is not set, then the unit will be refused by service_verify() later. */
-        if (s->type != SERVICE_DBUS || !s->bus_name)
+        if (!s->bus_name)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        if (s->type == SERVICE_DBUS) {
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
 
-        /* We always want to be ordered against dbus.socket if both are in the transaction. */
-        r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+                /* We always want to be ordered against dbus.socket if both are in the transaction. */
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to add dependency on " SPECIAL_DBUS_SOCKET ": %m");
+        }
 
         r = unit_watch_bus_name(UNIT(s), s->bus_name);
         if (r == -EEXIST)
@@ -1677,7 +1681,7 @@ static int service_spawn(
                 return -ENOMEM;
 
         /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
-        SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
+        SET_FLAG(exec_params.flags, EXEC_NSS_DYNAMIC_BYPASS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
         strv_free_and_replace(exec_params.environment, final_env);
@@ -4320,6 +4324,53 @@ static int service_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
+static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        const sd_bus_error *e;
+        Unit *u = userdata;
+        uint32_t pid;
+        Service *s;
+        int r;
+
+        assert(reply);
+        assert(u);
+
+        s = SERVICE(u);
+        s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
+
+        if (!s->bus_name ||
+            pid_is_valid(s->main_pid) ||
+            !IN_SET(s->state,
+                    SERVICE_START,
+                    SERVICE_START_POST,
+                    SERVICE_RUNNING,
+                    SERVICE_RELOAD))
+                return 1;
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r, "GetConnectionUnixProcessID() failed: %s", bus_error_message(e, r));
+                return 1;
+        }
+
+        r = sd_bus_message_read(reply, "u", &pid);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 1;
+        }
+
+        if (!pid_is_valid(pid)) {
+                log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "GetConnectionUnixProcessID() returned invalid PID");
+                return 1;
+        }
+
+        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, (pid_t) pid);
+
+        service_set_main_pid(s, pid);
+        unit_watch_pid(UNIT(s), pid, false);
+        return 1;
+}
+
 static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
 
         Service *s = SERVICE(u);
@@ -4351,27 +4402,30 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
                         service_enter_start_post(s);
 
         } else if (new_owner &&
-                   s->main_pid <= 0 &&
+                   !pid_is_valid(s->main_pid) &&
                    IN_SET(s->state,
                           SERVICE_START,
                           SERVICE_START_POST,
                           SERVICE_RUNNING,
                           SERVICE_RELOAD)) {
 
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
-
                 /* Try to acquire PID from bus service */
 
-                r = sd_bus_get_name_creds(u->manager->api_bus, s->bus_name, SD_BUS_CREDS_PID, &creds);
-                if (r >= 0)
-                        r = sd_bus_creds_get_pid(creds, &pid);
-                if (r >= 0) {
-                        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pid);
+                s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
 
-                        service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid, false);
-                }
+                r = sd_bus_call_method_async(
+                                u->manager->api_bus,
+                                &s->bus_name_pid_lookup_slot,
+                                "org.freedesktop.DBus",
+                                "/org/freedesktop/DBus",
+                                "org.freedesktop.DBus",
+                                "GetConnectionUnixProcessID",
+                                bus_name_pid_lookup_callback,
+                                s,
+                                "s",
+                                s->bus_name);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to request owner PID of service name, ignoring: %m");
         }
 }
 
