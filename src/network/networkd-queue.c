@@ -278,6 +278,7 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_IPV6_PROXY_NDP]                   = "IPv6 proxy NDP",
         [REQUEST_TYPE_NDISC]                            = "NDisc",
         [REQUEST_TYPE_NEIGHBOR]                         = "neighbor",
+        [REQUEST_TYPE_NETDEV_CONFIGURE]                 = "configuring netdev",
         [REQUEST_TYPE_NETDEV_INDEPENDENT]               = "independent netdev",
         [REQUEST_TYPE_NETDEV_STACKED]                   = "stacked netdev",
         [REQUEST_TYPE_NEXTHOP]                          = "nexthop",

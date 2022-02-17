@@ -462,6 +462,9 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
+        if (!link->netdev_configured)
+                return false;
+
         switch (req->type) {
         case REQUEST_TYPE_SET_LINK_BOND:
         case REQUEST_TYPE_SET_LINK_BRIDGE:
