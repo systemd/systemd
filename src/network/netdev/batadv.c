@@ -97,20 +97,25 @@ int config_parse_badadv_bandwidth (
 }
 
 /* callback for batman netdev's parameter set */
-static int netdev_batman_set_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+static int batman_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
-        assert(netdev);
+        assert(link);
         assert(m);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_netdev_warning_errno(netdev, r, "BATADV parameters could not be set: %m");
+                log_link_warning_errno(link, r, "BATADV parameters could not be set: %m");
+                link_enter_failed(link);
                 return 1;
         }
 
-        log_netdev_debug(netdev, "BATADV parameters set success");
+        log_link_debug(link, "BATADV parameters set success");
 
+        link->netdev_configured = true;
         return 1;
 }
 
@@ -177,14 +182,13 @@ static int netdev_batadv_post_create(NetDev *netdev, Link *link) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
-        r = netlink_call_async(netdev->manager->genl, NULL, message, netdev_batman_set_handler,
-                               netdev_destroy_callback, netdev);
+        r = netlink_call_async(netdev->manager->genl, NULL, message, batman_set_handler,
+                               link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
-        netdev_ref(netdev);
-
-        return r;
+        link_ref(link);
+        return 0;
 }
 
 static int netdev_batadv_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
