@@ -55,6 +55,7 @@
 #include "sysctl-util.h"
 #include "tclass.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
@@ -172,7 +173,7 @@ static int manager_connect_udev(Manager *m) {
 
         /* udev does not initialize devices inside containers, so we rely on them being already
          * initialized before entering the container. */
-        if (path_is_read_only_fs("/sys") > 0)
+        if (!udev_available())
                 return 0;
 
         r = sd_device_monitor_new(&m->device_monitor);

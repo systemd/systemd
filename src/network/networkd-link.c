@@ -59,7 +59,6 @@
 #include "networkd-sysctl.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -1451,8 +1450,7 @@ static int link_check_initialized(Link *link) {
 
         assert(link);
 
-        if (path_is_read_only_fs("/sys") > 0)
-                /* no udev */
+        if (!udev_available())
                 return link_initialized_and_synced(link);
 
         /* udev should be around */
