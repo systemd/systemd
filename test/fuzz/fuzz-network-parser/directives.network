@@ -17,6 +17,7 @@ MulticastRouter=
 [Match]
 KernelVersion=
 Type=
+Kind=
 Driver=
 Architecture=
 Firmware=

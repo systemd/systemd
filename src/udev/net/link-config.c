@@ -361,6 +361,7 @@ Link *link_free(Link *link) {
                 return NULL;
 
         sd_device_unref(link->device);
+        free(link->kind);
         free(link->driver);
         return mfree(link);
 }
@@ -402,7 +403,8 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get \"addr_assign_type\" attribute, ignoring: %m");
 
-        r = rtnl_get_link_info(rtnl, link->ifindex, &link->iftype, &link->flags, &link->hw_addr, &link->permanent_hw_addr);
+        r = rtnl_get_link_info(rtnl, link->ifindex, &link->iftype, &link->flags,
+                               &link->kind, &link->hw_addr, &link->permanent_hw_addr);
         if (r < 0)
                 return r;
 
@@ -439,6 +441,7 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
                                 &link->permanent_hw_addr,
                                 link->driver,
                                 link->iftype,
+                                link->kind,
                                 link->ifname,
                                 /* alternative_names = */ NULL,
                                 /* wlan_iftype = */ 0,

@@ -263,7 +263,7 @@ typedef struct VxLanInfo {
 
 typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
-        char netdev_kind[NETDEV_KIND_MAX];
+        char *netdev_kind;
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
@@ -364,6 +364,7 @@ static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
 static LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
+                free(array[i].netdev_kind);
                 free(array[i].ssid);
                 free(array[i].qdisc);
                 strv_free(array[i].alternative_names);
@@ -374,7 +375,6 @@ static LinkInfo* link_info_array_free(LinkInfo *array) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
 static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
-        const char *received_kind;
         int r;
 
         assert(m);
@@ -384,15 +384,17 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_read_string(m, IFLA_INFO_KIND, &received_kind);
-        if (r < 0)
+        r = sd_netlink_message_read_string_strdup(m, IFLA_INFO_KIND, &info->netdev_kind);
+        if (r < 0) {
+                (void) sd_netlink_message_exit_container(m);
                 return r;
+        }
 
         r = sd_netlink_message_enter_container(m, IFLA_INFO_DATA);
         if (r < 0)
                 return r;
 
-        if (streq(received_kind, "bridge")) {
+        if (streq(info->netdev_kind, "bridge")) {
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_FORWARD_DELAY, &info->forward_delay);
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_HELLO_TIME, &info->hello_time);
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_MAX_AGE, &info->max_age);
@@ -402,12 +404,12 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
                 (void) sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &info->port_state);
-        } if (streq(received_kind, "bond")) {
+        } if (streq(info->netdev_kind, "bond")) {
                 (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_DOWNDELAY, &info->downdelay);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_UPDELAY, &info->updelay);
-        } else if (streq(received_kind, "vxlan")) {
+        } else if (streq(info->netdev_kind, "vxlan")) {
                 (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_ID, &info->vxlan_info.vni);
 
                 r = sd_netlink_message_read_in_addr(m, IFLA_VXLAN_GROUP, &info->vxlan_info.group.in);
@@ -437,12 +439,12 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_L2MISS, &info->vxlan_info.l2miss);
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TOS, &info->vxlan_info.tos);
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TTL, &info->vxlan_info.ttl);
-        } else if (streq(received_kind, "vlan"))
+        } else if (streq(info->netdev_kind, "vlan"))
                 (void) sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &info->vlan_id);
-        else if (STR_IN_SET(received_kind, "ipip", "sit")) {
+        else if (STR_IN_SET(info->netdev_kind, "ipip", "sit")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_REMOTE, &info->remote.in);
-        } else if (streq(received_kind, "geneve")) {
+        } else if (streq(info->netdev_kind, "geneve")) {
                 (void) sd_netlink_message_read_u32(m, IFLA_GENEVE_ID, &info->vni);
 
                 r = sd_netlink_message_read_in_addr(m, IFLA_GENEVE_REMOTE, &info->remote.in);
@@ -460,26 +462,24 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_RX, &info->csum6_rx);
                 (void) sd_netlink_message_read_u16(m, IFLA_GENEVE_PORT, &info->tunnel_port);
                 (void) sd_netlink_message_read_u32(m, IFLA_GENEVE_LABEL, &info->label);
-        } else if (STR_IN_SET(received_kind, "gre", "gretap", "erspan")) {
+        } else if (STR_IN_SET(info->netdev_kind, "gre", "gretap", "erspan")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_REMOTE, &info->remote.in);
-        } else if (STR_IN_SET(received_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
+        } else if (STR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_LOCAL, &info->local.in6);
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_REMOTE, &info->remote.in6);
-        } else if (streq(received_kind, "vti")) {
+        } else if (streq(info->netdev_kind, "vti")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_VTI_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_VTI_REMOTE, &info->remote.in);
-        } else if (streq(received_kind, "vti6")) {
+        } else if (streq(info->netdev_kind, "vti6")) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_LOCAL, &info->local.in6);
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_REMOTE, &info->remote.in6);
-        } else if (STR_IN_SET(received_kind, "macvlan", "macvtap"))
+        } else if (STR_IN_SET(info->netdev_kind, "macvlan", "macvtap"))
                 (void) sd_netlink_message_read_u32(m, IFLA_MACVLAN_MODE, &info->macvlan_mode);
-        else if (streq(received_kind, "ipvlan")) {
+        else if (streq(info->netdev_kind, "ipvlan")) {
                 (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_MODE, &info->ipvlan_mode);
                 (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_FLAGS, &info->ipvlan_flags);
         }
-
-        strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
         (void) sd_netlink_message_exit_container(m);
         (void) sd_netlink_message_exit_container(m);
@@ -1643,6 +1643,9 @@ static int link_status_one(
                            TABLE_EMPTY,
                            TABLE_STRING, "Type:",
                            TABLE_STRING, strna(t),
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Kind:",
+                           TABLE_STRING, strna(info->netdev_kind),
                            TABLE_EMPTY,
                            TABLE_STRING, "State:");
         if (r < 0)
