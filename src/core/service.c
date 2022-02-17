@@ -1681,7 +1681,7 @@ static int service_spawn(
                 return -ENOMEM;
 
         /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
-        SET_FLAG(exec_params.flags, EXEC_NSS_BYPASS_BUS,
+        SET_FLAG(exec_params.flags, EXEC_NSS_DYNAMIC_BYPASS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
         strv_free_and_replace(exec_params.environment, final_env);
