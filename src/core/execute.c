@@ -1865,11 +1865,11 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use D-Bus look up dynamic
-         * users via PID 1, possibly dead-locking the dbus daemon. This way it will not use D-Bus to resolve names, but
-         * check the database directly. */
-        if (p->flags & EXEC_NSS_BYPASS_BUS) {
-                x = strdup("SYSTEMD_NSS_BYPASS_BUS=1");
+        /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use blocking
+         * Varlink calls back to us for look up dynamic users in PID 1. Break the deadlock between D-Bus and
+         * PID 1 by disabling use of PID1' NSS interface for looking up dynamic users. */
+        if (p->flags & EXEC_NSS_DYNAMIC_BYPASS) {
+                x = strdup("SYSTEMD_NSS_DYNAMIC_BYPASS=1");
                 if (!x)
                         return -ENOMEM;
                 our_env[n_env++] = x;

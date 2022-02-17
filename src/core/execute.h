@@ -376,7 +376,7 @@ typedef enum ExecFlags {
         EXEC_APPLY_TTY_STDIN       = 1 << 2,
         EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
         EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS        = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
         EXEC_CGROUP_DELEGATE       = 1 << 6,
         EXEC_IS_CONTROL            = 1 << 7,
         EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
