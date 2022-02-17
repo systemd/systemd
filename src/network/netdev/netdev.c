@@ -276,9 +276,6 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         log_netdev_info(netdev, "netdev ready");
 
-        if (NETDEV_VTABLE(netdev)->post_create)
-                NETDEV_VTABLE(netdev)->post_create(netdev, NULL);
-
         return 0;
 }
 
@@ -733,6 +730,60 @@ static int netdev_request(NetDev *netdev) {
 
         /* Otherwise, wait for the dependencies being resolved. */
         return netdev_queue_request(netdev, request_netdev_is_ready_to_create, request_independent_netdev_create, NULL);
+}
+
+static int netdev_configure(Request *req) {
+        NetDev *netdev;
+        Link *link;
+
+        assert(req);
+
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
+
+        return NETDEV_VTABLE(netdev)->post_create(netdev, link);
+}
+
+static int netdev_is_ready_to_configure(Request *req) {
+        NetDev *netdev;
+        Link *link;
+
+        assert(req);
+
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
+
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_UNMANAGED))
+                return false;
+
+        if (netdev->state != NETDEV_STATE_READY)
+                return false;
+
+        return true;
+}
+
+int link_configure_netdev(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->netdev ||
+            !NETDEV_VTABLE(link->netdev)->post_create) {
+                link->netdev_configured = true;
+                return 0;
+        }
+
+        r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_CONFIGURE,
+                                    netdev_ref(link->netdev), (mfree_func_t) netdev_unref,
+                                    trivial_hash_func, trivial_compare_func,
+                                    netdev_is_ready_to_configure,
+                                    netdev_configure,
+                                    NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuration of netdev: %m");
+
+        link->netdev_configured = false;
+        return 0;
 }
 
 int netdev_load_one(Manager *manager, const char *filename) {
