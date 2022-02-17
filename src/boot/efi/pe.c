@@ -12,17 +12,22 @@
 #define MAX_SECTIONS 96
 
 #if defined(__i386__)
-        #define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_IA32
+#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_IA32
+#  define TARGET_MACHINE_TYPE_ALT EFI_IMAGE_MACHINE_X64
 #elif defined(__x86_64__)
-        #define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_X64
+#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_X64
 #elif defined(__aarch64__)
-        #define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_AARCH64
+#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_AARCH64
 #elif defined(__arm__)
-        #define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_ARMTHUMB_MIXED
+#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_ARMTHUMB_MIXED
 #elif defined(__riscv) && __riscv_xlen == 64
-        #define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_RISCV64
+#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_RISCV64
 #else
-        #error Unknown EFI arch
+#  error Unknown EFI arch
+#endif
+
+#ifndef TARGET_MACHINE_TYPE_ALT
+#  define TARGET_MACHINE_TYPE_ALT 0
 #endif
 
 struct DosFileHeader {
@@ -117,10 +122,11 @@ static inline BOOLEAN verify_dos(const struct DosFileHeader *dos) {
         return CompareMem(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
 }
 
-static inline BOOLEAN verify_pe(const struct PeFileHeader *pe) {
+static inline BOOLEAN verify_pe(const struct PeFileHeader *pe, BOOLEAN allow_alt) {
         assert(pe);
         return CompareMem(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
-               pe->FileHeader.Machine == TARGET_MACHINE_TYPE &&
+               (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
+                (allow_alt && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_ALT)) &&
                pe->FileHeader.NumberOfSections > 0 &&
                pe->FileHeader.NumberOfSections <= MAX_SECTIONS &&
                IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
@@ -160,6 +166,46 @@ static void locate_sections(
         }
 }
 
+static UINT32 get_compat_entry_address(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
+        UINTN addr = 0, size = 0;
+        const CHAR8 *sections[] = { (CHAR8 *) ".compat", NULL };
+
+        locate_sections(
+                (struct PeSectionHeader *) ((UINT8 *) dos + section_table_offset(dos, pe)),
+                pe->FileHeader.NumberOfSections,
+                sections,
+                &addr,
+                NULL,
+                &size);
+
+        if (size == 0)
+                return 0;
+
+        typedef struct {
+                UINT8 type;
+                UINT8 size;
+                UINT16 machine_type;
+                UINT32 entry_point;
+        } _packed_ LinuxPeCompat1;
+
+        while (size >= sizeof(LinuxPeCompat1)) {
+                LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((UINT8 *) dos + addr);
+
+                if (compat->type == 0 || compat->size == 0)
+                        break;
+
+                if (compat->type == 1 &&
+                    compat->size >= sizeof(LinuxPeCompat1) &&
+                    compat->machine_type == TARGET_MACHINE_TYPE)
+                        return compat->entry_point;
+
+                addr += compat->size;
+                size = LESS_BY(size, compat->size);
+        }
+
+        return 0;
+}
+
 EFI_STATUS pe_alignment_info(
                 const void *base,
                 UINT32 *ret_entry_point_address,
@@ -171,20 +217,30 @@ EFI_STATUS pe_alignment_info(
 
         assert(base);
         assert(ret_entry_point_address);
-        assert(ret_size_of_image);
-        assert(ret_section_alignment);
 
         dos = (const struct DosFileHeader *) base;
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
         pe = (const struct PeFileHeader*) ((const UINT8 *)base + dos->ExeHeader);
-        if (!verify_pe(pe))
+        if (!verify_pe(pe, TRUE))
                 return EFI_LOAD_ERROR;
 
-        *ret_entry_point_address = pe->OptionalHeader.AddressOfEntryPoint;
-        *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
-        *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
+        UINT32 entry_address = pe->OptionalHeader.AddressOfEntryPoint;
+
+        /* Look for a compat entry point. */
+        if (pe->FileHeader.Machine != TARGET_MACHINE_TYPE) {
+                entry_address = get_compat_entry_address(dos, pe);
+                if (entry_address == 0)
+                        /* Image type not supported and no compat entry found. */
+                        return EFI_UNSUPPORTED;
+        }
+
+        *ret_entry_point_address = entry_address;
+        if (ret_size_of_image)
+                *ret_size_of_image = pe->OptionalHeader.SizeOfImage;
+        if (ret_section_alignment)
+                *ret_section_alignment = pe->OptionalHeader.SectionAlignment;
         return EFI_SUCCESS;
 }
 
@@ -207,7 +263,7 @@ EFI_STATUS pe_memory_locate_sections(
                 return EFI_LOAD_ERROR;
 
         pe = (const struct PeFileHeader*)&base[dos->ExeHeader];
-        if (!verify_pe(pe))
+        if (!verify_pe(pe, FALSE))
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
@@ -255,7 +311,7 @@ EFI_STATUS pe_file_locate_sections(
         err = handle->Read(handle, &len, &pe);
         if (EFI_ERROR(err))
                 return err;
-        if (len != sizeof(pe) || !verify_pe(&pe))
+        if (len != sizeof(pe) || !verify_pe(&pe, FALSE))
                 return EFI_LOAD_ERROR;
 
         section_table_len = pe.FileHeader.NumberOfSections * sizeof(struct PeSectionHeader);
