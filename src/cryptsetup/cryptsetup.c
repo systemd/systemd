@@ -818,20 +818,19 @@ static bool libcryptsetup_plugins_support(void) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
 static int acquire_pins_from_env_variable(char ***ret_pins) {
-        char *e;
+        _cleanup_(erase_and_freep) char *envpin = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
+        int r;
 
         assert(ret_pins);
 
-        e = getenv("PIN");
-        if (e) {
-                pins = strv_new(e);
+        r = getenv_steal_erase("PIN", &envpin);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (r > 0) {
+                pins = strv_new(envpin);
                 if (!pins)
                         return log_oom();
-
-                string_erase(e);
-                if (unsetenv("PIN") < 0)
-                        return log_error_errno(errno, "Failed to unset $PIN: %m");
         }
 
         *ret_pins = TAKE_PTR(pins);
