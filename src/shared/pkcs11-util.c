@@ -275,15 +275,17 @@ int pkcs11_token_login(
 
         for (unsigned tries = 0; tries < 3; tries++) {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
-                char **i, *e;
+                _cleanup_(erase_and_freep) char *envpin = NULL;
+                char **i;
 
-                e = getenv("PIN");
-                if (e) {
-                        passwords = strv_new(e);
+                r = getenv_steal_erase("PIN", &envpin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+                if (r > 0) {
+                        passwords = strv_new(envpin);
                         if (!passwords)
                                 return log_oom();
 
-                        assert_se(unsetenv_erase("PIN") >= 0);
                 } else if (headless)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
                 else {
