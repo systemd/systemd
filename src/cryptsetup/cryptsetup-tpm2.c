@@ -305,26 +305,14 @@ int find_tpm2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
 
-                /* The flags field is optional and used to encode newly introduced features */
-                w = json_variant_by_key(v, "tpm2-flags");
+                w = json_variant_by_key(v, "tpm2-pin");
                 if (w) {
-                        if (!json_variant_is_array(w)) {
-                                return log_error_errno(
-                                        SYNTHETIC_ERRNO(EINVAL),
-                                        "TPM2 token data flags field is not an array.");
-                        }
-                        JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                                const char *fs = NULL;
-                                if (!json_variant_is_string(e))
-                                        return log_error_errno(
-                                                SYNTHETIC_ERRNO(EINVAL),
-                                                "TPM2 token data flag is not a string.");
-                                fs = json_variant_string(e);
-                                assert(fs);
-                                r = tpm2_flag_from_string(fs);
-                                if (r > 0)
-                                        flags |= r;
-                        }
+                        if (!json_variant_is_boolean(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "TPM2 PIN policy is not a boolean.");
+
+                        if (json_variant_boolean(w))
+                                flags |= TPM2_FLAGS_USE_PIN;
                 }
 
                 break;
