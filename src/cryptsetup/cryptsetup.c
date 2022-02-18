@@ -1301,6 +1301,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         NULL, 0, /* we don't know the policy hash */
+                                        0, /* PIN is currently unhandled in this case */
+                                        until,
+                                        arg_headless,
+                                        arg_ask_password_flags,
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
@@ -1335,6 +1339,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         for (;;) {
                                 uint32_t pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
+                                int tpm2_flags;
 
                                 r = find_tpm2_auto_data(
                                                 cd,
@@ -1346,7 +1351,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
                                                 &keyslot,
-                                                &token);
+                                                &token,
+                                                &tpm2_flags);
                                 if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header. */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
@@ -1369,6 +1375,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 NULL, 0, 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
+                                                tpm2_flags,
+                                                until,
+                                                arg_headless,
+                                                arg_ask_password_flags,
                                                 &decrypted_key, &decrypted_key_size);
                                 if (r != -EPERM)
                                         break;
