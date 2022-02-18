@@ -736,5 +736,5 @@ bool udev_available(void) {
         if (cache >= 0)
                 return cache;
 
-        return (cache = path_is_read_only_fs("/sys/") <= 0);
+        return (cache = (path_is_read_only_fs("/sys/") <= 0));
 }
