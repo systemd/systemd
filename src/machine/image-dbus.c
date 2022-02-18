@@ -227,8 +227,7 @@ int bus_image_method_mark_read_only(
 
         Image *image = userdata;
         Manager *m = image->userdata;
-        bool read_only;
-        int r;
+        int read_only, r;
 
         assert(message);
 
