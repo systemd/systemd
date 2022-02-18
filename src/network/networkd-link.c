@@ -129,6 +129,9 @@ bool link_ipv6_enabled(Link *link) {
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         assert(link);
 
+        if (!link->netdev_configured)
+                return false;
+
         if (!link->network) {
                 if (!allow_unmanaged)
                         return false;
@@ -154,6 +157,12 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
                 return false;
 
         return true;
+}
+
+int request_link_is_ready_to_configure(Request *req) {
+        assert(req);
+
+        return link_is_ready_to_configure(req->link, false);
 }
 
 void link_ntp_settings_clear(Link *link) {
@@ -228,6 +237,7 @@ static Link *link_free(Link *link) {
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->sd_device);
+        netdev_unref(link->netdev);
 
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
@@ -561,7 +571,6 @@ static int link_request_stacked_netdevs(Link *link) {
         assert(link);
 
         link->stacked_netdevs_created = false;
-        link->stacked_netdevs_after_configured_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
                 r = link_request_stacked_netdev(link, netdev);
@@ -573,8 +582,6 @@ static int link_request_stacked_netdevs(Link *link) {
                 link->stacked_netdevs_created = true;
                 link_check_ready(link);
         }
-        if (link->create_stacked_netdev_after_configured_messages == 0)
-                link->stacked_netdevs_after_configured_created = true;
 
         return 0;
 }
@@ -907,7 +914,7 @@ static void link_drop_requests(Link *link) {
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue)
                 if (req->link == link)
-                        request_drop(req);
+                        request_unref(ordered_set_remove(link->manager->request_queue, req));
 }
 
 static Link *link_drop(Link *link) {
@@ -1204,14 +1211,40 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
+static int link_reconfigure_netdev(Link *link, NetDev *netdev) {
+        int r;
+
+        assert(link);
+
+        if (link->netdev && link->netdev == netdev)
+                return 0;
+
+        netdev_unref(link->netdev);
+        link->netdev = netdev_ref(netdev);
+
+        if (netdev)
+                log_link_debug(link, "Found matching netdev '%s'.", netdev->filename);
+
+        r = link_configure_netdev(link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
+        NetDev *netdev = NULL;
         int r;
 
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
                 return 0;
+
+        r = netdev_get(link->manager, link->ifname, &netdev);
+        if (r < 0 && r != -ENOENT)
+                return r;
 
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
@@ -1222,7 +1255,7 @@ static int link_reconfigure_impl(Link *link, bool force) {
                 force = true;
 
         if (link->network == network && !force)
-                return 0;
+                return link_reconfigure_netdev(link, netdev);
 
         if (network) {
                 if (link->state == LINK_STATE_INITIALIZED)
@@ -1264,6 +1297,14 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         link_free_engines(link);
         link->network = network_unref(link->network);
+
+        /* Even if the link is unmanaged, that is, no .network file is assigned to the link, we need to
+         * reconfigure the link with assigned .netdev file, as people may use networkd only for
+         * creating and configuring netdev through the .netdev file. Hence, this must be done before
+         * the link entering the unmanaged state below. */
+        r = link_reconfigure_netdev(link, netdev);
+        if (r < 0)
+                return r;
 
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);

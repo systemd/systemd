@@ -68,8 +68,6 @@ int tclass_compare_func(const TClass *a, const TClass *b);
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
 int link_request_tclass(Link *link, TClass *tclass);
-int tclass_is_ready_to_configure(Link *link, TClass *tclass);
-int tclass_configure(Link *link, TClass *tclass);
 int tclass_section_verify(TClass *tclass);
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

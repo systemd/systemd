@@ -437,12 +437,13 @@ static void wireguard_resolve_endpoints(NetDev *netdev) {
                         break;
 }
 
-static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+static int netdev_wireguard_post_create(NetDev *netdev, Link *link) {
         assert(netdev);
         assert(WIREGUARD(netdev));
 
         (void) wireguard_set_interface(netdev);
         wireguard_resolve_endpoints(netdev);
+        link->netdev_configured = true;
         return 0;
 }
 
