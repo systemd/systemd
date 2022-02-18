@@ -837,7 +837,16 @@ int tpm2_seal(
         };
         if (pin) {
                 size_t pin_len = strlen(pin);
-                assert(pin_len <= 32);
+                /* According to "Trusted Platform Module, Part 2: Structures", 10.4.5, authValue is limited
+                 * by the maximum digest size. At the minimum, we can count on SHA-256 (256 bits / 32 bytes)
+                 * being supported, so that's our limit. */
+                if (pin_len > 32) {
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "PIN provided is too long (%lu bytes, up to 32 bytes allowed)",
+                                        pin_len);
+                        goto finish;
+                }
                 memcpy(hmac_sensitive.sensitive.userAuth.buffer, pin, pin_len);
                 hmac_sensitive.sensitive.userAuth.size = pin_len;
         }
@@ -1034,21 +1043,40 @@ int tpm2_unseal(
                         &public,
                         &hmac_key);
         if (rc != TSS2_RC_SUCCESS) {
-                // If we're in lockout mode, we should see a lockout error here,
-                // which we need to translate for the caller.
-                int e = (rc == TPM2_RC_LOCKOUT) ? ENOLCK : ENOTRECOVERABLE;
-                r = log_error_errno(SYNTHETIC_ERRNO(e),
-                                    "Failed to load HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
+                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
+                 * need to translate for the caller. */
+                if (rc == TPM2_RC_LOCKOUT)
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOLCK),
+                                        "TPM2 device is in dictionay attack lockout mode.");
+                else
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to load HMAC key in TPM: %s",
+                                        sym_Tss2_RC_Decode(rc));
                 goto finish;
         }
 
         if (pin) {
-                TPM2B_AUTH auth = {0};
+                TPM2B_AUTH auth = {};
                 size_t pin_len = strlen(pin);
-                assert(pin_len <= 32);
+                if (pin_len > 32) {
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "PIN provided is too long (%lu bytes, up to 32 bytes allowed)",
+                                        pin_len);
+                        goto finish;
+                }
                 memcpy(auth.buffer, pin, pin_len);
                 auth.size = pin_len;
-                sym_Esys_TR_SetAuth(c.esys_context, hmac_key, &auth);
+                rc = sym_Esys_TR_SetAuth(c.esys_context, hmac_key, &auth);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to load PIN in TPM: %s",
+                                        sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
         }
 
         log_debug("Unsealing HMAC key.");
