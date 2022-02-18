@@ -75,18 +75,21 @@ typedef enum UnitDependencyAtom {
         /* Trigger a dependency on unsuccessful service exit. */
         UNIT_ATOM_ON_FAILURE                          = UINT64_C(1) << 24,
 
+        /* Pass exit status to a triggered OnFailure=/OnSuccess= dependency */
+        UNIT_ATOM_PROPAGATE_EXIT_STATUS               = UINT64_C(1) << 25,
+
         /* The remaining atoms map 1:1 to the equally named high-level deps */
-        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 25,
-        UNIT_ATOM_AFTER                               = UINT64_C(1) << 26,
-        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 27,
-        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 28,
-        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 29,
-        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 30,
-        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 31,
-        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 32,
-        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 33,
-        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 34,
-        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 35) - 1,
+        UNIT_ATOM_BEFORE                              = UINT64_C(1) << 26,
+        UNIT_ATOM_AFTER                               = UINT64_C(1) << 27,
+        UNIT_ATOM_TRIGGERS                            = UINT64_C(1) << 28,
+        UNIT_ATOM_TRIGGERED_BY                        = UINT64_C(1) << 29,
+        UNIT_ATOM_PROPAGATES_RELOAD_TO                = UINT64_C(1) << 30,
+        UNIT_ATOM_JOINS_NAMESPACE_OF                  = UINT64_C(1) << 31,
+        UNIT_ATOM_REFERENCES                          = UINT64_C(1) << 32,
+        UNIT_ATOM_REFERENCED_BY                       = UINT64_C(1) << 33,
+        UNIT_ATOM_IN_SLICE                            = UINT64_C(1) << 34,
+        UNIT_ATOM_SLICE_OF                            = UINT64_C(1) << 35,
+        _UNIT_DEPENDENCY_ATOM_MAX                     = (UINT64_C(1) << 36) - 1,
         _UNIT_DEPENDENCY_ATOM_INVALID                 = -EINVAL,
 } UnitDependencyAtom;
 

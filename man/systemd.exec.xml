@@ -3600,9 +3600,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.</para>
 
           <para>
-          The contents of this variable consists of a semi-colon separated list of metadata fields associated with the triggering
-          service. For each service which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname>
-          dependency the following fields will be set:
+          The contents of this variable consists of a list of metadata fields associated with the triggering
+          service. The following fields will be set:
           </para>
 
           <itemizedlist>
@@ -3622,6 +3621,12 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           <programlisting>
 SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=triggering.service
           </programlisting>
+
+          <para>
+          Note that if multiple services trigger the same unit, no metadata will be passed all - consider
+          using a template handler unit for that case. For example, <literal>OnFailure=handler@%n.service</literal>
+          for non-templated units, or <literal>OnFailure=handler@%p-%i.service</literal> for templated units.
+          </para>
 
           </listitem>
 
