@@ -227,8 +227,7 @@ int bus_image_method_mark_read_only(
 
         Image *image = userdata;
         Manager *m = image->userdata;
-        bool read_only;
-        int r;
+        int read_only, r;
 
         assert(message);
 
@@ -239,7 +238,7 @@ int bus_image_method_mark_read_only(
         const char *details[] = {
                 "image", image->name,
                 "verb", "mark_read_only",
-                "read_only", (read_only?"1":"0"),
+                "read_only", one_zero(read_only),
                 NULL
         };
 
