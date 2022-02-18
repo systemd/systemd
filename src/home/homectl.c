@@ -201,24 +201,25 @@ static int acquire_existing_password(
                 AskPasswordFlags flags) {
 
         _cleanup_(strv_free_erasep) char **password = NULL;
+        _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
-        char *e;
         int r;
 
         assert(user_name);
         assert(hr);
 
-        e = getenv("PASSWORD");
-        if (e) {
+        r = getenv_steal_erase("PASSWORD", &envpw);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire password from environment: %m");
+        if (r > 0) {
                 /* People really shouldn't use environment variables for passing passwords. We support this
                  * only for testing purposes, and do not document the behaviour, so that people won't
                  * actually use this outside of testing. */
 
-                r = user_record_set_password(hr, STRV_MAKE(e), true);
+                r = user_record_set_password(hr, STRV_MAKE(envpw), true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
-                assert_se(unsetenv_erase("PASSWORD") >= 0);
                 return 1;
         }
 
@@ -261,24 +262,25 @@ static int acquire_recovery_key(
                 AskPasswordFlags flags) {
 
         _cleanup_(strv_free_erasep) char **recovery_key = NULL;
+        _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
-        char *e;
         int r;
 
         assert(user_name);
         assert(hr);
 
-        e = getenv("RECOVERY_KEY");
-        if (e) {
+        r = getenv_steal_erase("PASSWORD", &envpw);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire password from environment: %m");
+        if (r > 0) {
                 /* People really shouldn't use environment variables for passing secrets. We support this
                  * only for testing purposes, and do not document the behaviour, so that people won't
                  * actually use this outside of testing. */
 
-                r = user_record_set_password(hr, STRV_MAKE(e), true); /* recovery keys are stored in the record exactly like regular passwords! */
+                r = user_record_set_password(hr, STRV_MAKE(envpw), true); /* recovery keys are stored in the record exactly like regular passwords! */
                 if (r < 0)
                         return log_error_errno(r, "Failed to store recovery key: %m");
 
-                assert_se(unsetenv_erase("RECOVERY_KEY") >= 0);
                 return 1;
         }
 
@@ -318,20 +320,21 @@ static int acquire_token_pin(
                 AskPasswordFlags flags) {
 
         _cleanup_(strv_free_erasep) char **pin = NULL;
+        _cleanup_(erase_and_freep) char *envpin = NULL;
         _cleanup_free_ char *question = NULL;
-        char *e;
         int r;
 
         assert(user_name);
         assert(hr);
 
-        e = getenv("PIN");
-        if (e) {
-                r = user_record_set_token_pin(hr, STRV_MAKE(e), false);
+        r = getenv_steal_erase("PIN", &envpin);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (r > 0) {
+                r = user_record_set_token_pin(hr, STRV_MAKE(envpin), false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store token PIN: %m");
 
-                assert_se(unsetenv_erase("PIN") >= 0);
                 return 1;
         }
 
@@ -1150,33 +1153,25 @@ static int acquire_new_password(
                 bool suggest,
                 char **ret) {
 
+        _cleanup_(erase_and_freep) char *envpw = NULL;
         unsigned i = 5;
-        char *e;
         int r;
 
         assert(user_name);
         assert(hr);
 
-        e = getenv("NEWPASSWORD");
-        if (e) {
-                _cleanup_(erase_and_freep) char *copy = NULL;
-
+        r = getenv_steal_erase("NEWPASSWORD", &envpw);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire password from environment: %m");
+        if (r > 0) {
                 /* As above, this is not for use, just for testing */
 
-                if (ret) {
-                        copy = strdup(e);
-                        if (!copy)
-                                return log_oom();
-                }
-
-                r = user_record_set_password(hr, STRV_MAKE(e), /* prepend = */ true);
+                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend = */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
-                assert_se(unsetenv_erase("NEWPASSWORD") >= 0);
-
                 if (ret)
-                        *ret = TAKE_PTR(copy);
+                        *ret = TAKE_PTR(envpw);
 
                 return 0;
         }

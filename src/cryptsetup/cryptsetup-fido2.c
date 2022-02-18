@@ -30,12 +30,12 @@ int acquire_fido2_key(
                 size_t *ret_decrypted_key_size,
                 AskPasswordFlags ask_password_flags) {
 
+        _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
         _cleanup_free_ void *loaded_salt = NULL;
         bool device_exists = false;
         const char *salt;
         size_t salt_size;
-        char *e;
         int r;
 
         ask_password_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
@@ -66,13 +66,13 @@ int acquire_fido2_key(
                 salt = loaded_salt;
         }
 
-        e = getenv("PIN");
-        if (e) {
-                pins = strv_new(e);
+        r = getenv_steal_erase("PIN", &envpw);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire password from environment: %m");
+        if (r > 0) {
+                pins = strv_new(envpw);
                 if (!pins)
                         return log_oom();
-
-                assert_se(unsetenv_erase("PIN") >= 0);
         }
 
         for (;;) {
