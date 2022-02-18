@@ -447,6 +447,80 @@ static int address_set_masquerade(Address *address, bool add) {
         return 0;
 }
 
+static void address_add_nft_set_context(NFTSetContext *nft_set_context, const Address *address) {
+        assert(nft_set_context);
+        assert(address);
+
+        if (nft_set_context->nfproto > 0) {
+                int r;
+
+                r = nft_set_element_add_in_addr(nft_set_context, address->family,
+                                                &address->in_addr, address->prefixlen);
+                if (r < 0) {
+                        int r2;
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        r2 = in_addr_to_string(address->family, &address->in_addr, &addr_str);
+                        log_warning_errno(r, "Adding NFT family %s table %s set %s for IP address %s/%d failed, ignoring: %m",
+                                          nfproto_to_string(nft_set_context->nfproto),
+                                          nft_set_context->table,
+                                          nft_set_context->set,
+                                          r2 == 0? addr_str: "(error while translating to string)",
+                                          address->prefixlen);
+                }
+        }
+}
+
+static void address_del_nft_set_context(NFTSetContext *nft_set_context, const Address *address) {
+        assert(nft_set_context);
+        assert(address);
+
+        if (nft_set_context->nfproto > 0) {
+                int r;
+
+                r = nft_set_element_del_in_addr(nft_set_context, address->family,
+                                                &address->in_addr, address->prefixlen);
+                if (r < 0) {
+                        int r2;
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        r2 = in_addr_to_string(address->family, &address->in_addr, &addr_str);
+                        log_warning_errno(r, "Deleting NFT family %s table %s set %s for IP address %s/%d failed, ignoring: %m",
+                                          nfproto_to_string(nft_set_context->nfproto),
+                                          nft_set_context->table,
+                                          nft_set_context->set,
+                                          r2 == 0? addr_str: "(error while translating to string)",
+                                          address->prefixlen);
+                }
+        }
+}
+
+static void address_add_nft_set(const Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network)
+                return;
+
+        if (address->family == AF_INET)
+                address_add_nft_set_context(&address->link->network->ipv4_nft_set_context, address);
+        else if (address->family == AF_INET6)
+                address_add_nft_set_context(&address->link->network->ipv6_nft_set_context, address);
+}
+
+static void address_del_nft_set(const Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network)
+                return;
+
+        if (address->family == AF_INET)
+                address_del_nft_set_context(&address->link->network->ipv4_nft_set_context, address);
+        else if (address->family == AF_INET6)
+                address_del_nft_set_context(&address->link->network->ipv6_nft_set_context, address);
+}
+
 static int address_add(Link *link, Address *address) {
         int r;
 
@@ -491,6 +565,8 @@ static int address_update(Address *address) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
+        address_add_nft_set(address);
+
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
                 if (r < 0)
@@ -516,6 +592,8 @@ static int address_drop(Address *address) {
         r = address_set_masquerade(address, false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
+
+        address_del_nft_set(address);
 
         if (address->state == 0)
                 address_free(address);

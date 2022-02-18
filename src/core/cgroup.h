@@ -6,6 +6,7 @@
 #include "bpf-lsm.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "firewall-util.h"
 #include "list.h"
 #include "time-util.h"
 
@@ -194,6 +195,8 @@ struct CGroupContext {
         ManagedOOMMode moom_mem_pressure;
         uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
         ManagedOOMPreference moom_preference;
+
+        NFTSetContext nft_set_context;
 };
 
 /* Used when querying IP accounting data */
