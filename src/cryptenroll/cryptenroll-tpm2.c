@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
+#include "env-util.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
@@ -58,11 +60,78 @@ static int search_policy_hash(
         return -ENOENT; /* Not found */
 }
 
+static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
+        _cleanup_free_ char *pin_str = NULL;
+        int r;
+        TPM2Flags flags = 0;
+
+        assert(ret_pin_str);
+        assert(ret_flags);
+
+        r = getenv_steal_erase("NEWPIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (r > 0)
+                flags |= TPM2_FLAGS_USE_PIN;
+        else {
+                for (size_t i = 5;; i--) {
+                        _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
+
+                        if (i <= 0)
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
+
+                        pin = strv_free_erase(pin);
+                        r = ask_password_auto(
+                                        "Please enter TPM2 PIN:",
+                                        "drive-harddisk",
+                                        NULL,
+                                        "tpm2-pin",
+                                        "cryptenroll.tpm2-pin",
+                                        USEC_INFINITY,
+                                        0,
+                                        &pin);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to ask for user pin: %m");
+                        assert(strv_length(pin) == 1);
+
+                        r = ask_password_auto(
+                                        "Please enter TPM2 PIN (repeat):",
+                                        "drive-harddisk",
+                                        NULL,
+                                        "tpm2-pin",
+                                        "cryptenroll.tpm2-pin",
+                                        USEC_INFINITY,
+                                        0,
+                                        &pin2);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to ask for user pin: %m");
+                        assert(strv_length(pin) == 1);
+
+                        if (strv_equal(pin, pin2)) {
+                                pin_str = strdup(*pin);
+                                if (!pin_str)
+                                        return log_oom();
+                                flags |= TPM2_FLAGS_USE_PIN;
+                                break;
+                        }
+
+                        log_error("PINs didn't match, please try again!");
+                }
+        }
+
+        *ret_flags = flags;
+        *ret_pin_str = TAKE_PTR(pin_str);
+
+        return 0;
+}
+
 int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                uint32_t pcr_mask) {
+                uint32_t pcr_mask,
+                bool use_pin) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -71,7 +140,9 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_free_ void *blob = NULL, *hash = NULL;
         uint16_t pcr_bank, primary_alg;
         const char *node;
+        _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
+        TPM2Flags flags = 0;
 
         assert(cd);
         assert(volume_key);
@@ -80,7 +151,13 @@ int enroll_tpm2(struct crypt_device *cd,
 
         assert_se(node = crypt_get_device_name(cd));
 
-        r = tpm2_seal(device, pcr_mask, NULL, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        if (use_pin) {
+                r = get_pin(&pin_str, &flags);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
         if (r < 0)
                 return r;
 
@@ -97,7 +174,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         /* Quick verification that everything is in order, we are not in a hurry after all. */
         log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, NULL, &secret2, &secret2_size);
+        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
         if (r < 0)
                 return r;
 
@@ -123,7 +200,7 @@ int enroll_tpm2(struct crypt_device *cd,
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-        r = tpm2_make_luks2_json(keyslot, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, &v);
+        r = tpm2_make_luks2_json(keyslot, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, flags, &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 
