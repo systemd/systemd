@@ -1,13 +1,56 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "cryptsetup-tpm2.h"
+#include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "tpm2-util.h"
+
+static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
+        _cleanup_free_ char *pin_str = NULL;
+        _cleanup_strv_free_erase_ char **pin = NULL;
+        int r;
+
+        assert(ret_pin_str);
+
+        r = getenv_steal_erase("PIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (!r) {
+                if (headless)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "PIN querying disabled via 'headless' option. "
+                                        "Use the '$PIN' environment variable.");
+
+                pin = strv_free_erase(pin);
+                r = ask_password_auto(
+                                "Please enter TPM2 PIN:",
+                                "drive-harddisk",
+                                NULL,
+                                "tpm2-pin",
+                                "cryptsetup.tpm2-pin",
+                                until,
+                                ask_password_flags,
+                                &pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to ask for user pin: %m");
+                assert(strv_length(pin) == 1);
+
+                pin_str = strdup(pin[0]);
+                if (!pin_str)
+                        return log_oom();
+        }
+
+        *ret_pin_str = TAKE_PTR(pin_str);
+
+        return r;
+}
 
 int acquire_tpm2_key(
                 const char *volume_name,
@@ -22,6 +65,10 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                TPM2Flags flags,
+                usec_t until,
+                bool headless,
+                AskPasswordFlags ask_password_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -64,7 +111,51 @@ int acquire_tpm2_key(
                 blob = loaded_blob;
         }
 
-        return tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, policy_hash, policy_hash_size, NULL, ret_decrypted_key, ret_decrypted_key_size);
+        if (!(flags & TPM2_FLAGS_USE_PIN))
+                return tpm2_unseal(
+                                device,
+                                pcr_mask,
+                                pcr_bank,
+                                primary_alg,
+                                blob,
+                                blob_size,
+                                policy_hash,
+                                policy_hash_size,
+                                NULL,
+                                ret_decrypted_key,
+                                ret_decrypted_key_size);
+
+        for (int i = 5;; i--) {
+                _cleanup_(erase_and_freep) char *pin_str = NULL;
+
+                if (i <= 0)
+                        return -EACCES;
+
+                r = get_pin(until, ask_password_flags, headless, &pin_str);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_unseal(
+                                device,
+                                pcr_mask,
+                                pcr_bank,
+                                primary_alg,
+                                blob,
+                                blob_size,
+                                policy_hash,
+                                policy_hash_size,
+                                pin_str,
+                                ret_decrypted_key,
+                                ret_decrypted_key_size);
+                /* We get this error in case there is an authentication policy mismatch. This should
+                 * not happen, but this avoids confusing behavior, just in case. */
+                if (IN_SET(r, -EPERM, -ENOLCK))
+                        return r;
+                if (r < 0)
+                        continue;
+
+                return r;
+        }
 }
 
 int find_tpm2_auto_data(
@@ -79,11 +170,13 @@ int find_tpm2_auto_data(
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
-                int *ret_token) {
+                int *ret_token,
+                TPM2Flags *ret_flags) {
 
         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
         size_t blob_size = 0, policy_hash_size = 0;
         int r, keyslot = -1, token = -1;
+        TPM2Flags flags = 0;
         uint32_t pcr_mask = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
@@ -196,6 +289,16 @@ int find_tpm2_auto_data(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
 
+                w = json_variant_by_key(v, "tpm2-pin");
+                if (w) {
+                        if (!json_variant_is_boolean(w))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "TPM2 PIN policy is not a boolean.");
+
+                        if (json_variant_boolean(w))
+                                flags |= TPM2_FLAGS_USE_PIN;
+                }
+
                 break;
         }
 
@@ -215,6 +318,7 @@ int find_tpm2_auto_data(
         *ret_token = token;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
+        *ret_flags = flags;
 
         return 0;
 }
