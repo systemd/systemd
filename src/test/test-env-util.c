@@ -406,17 +406,17 @@ TEST(setenv_systemd_exec_pid) {
         assert_se(set_unset_env("SYSTEMD_EXEC_PID", saved, 1) >= 0);
 }
 
-TEST(unsetenv_erase) {
+TEST(getenv_steal_erase) {
         int r;
 
-        r = safe_fork("(sd-unsetenverase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
                 _cleanup_strv_free_ char **l = NULL;
                 char **e;
 
                 /* child */
 
-                assert_se(unsetenv_erase("thisenvvardefinitelywontexist") == 0);
+                assert_se(getenv_steal_erase("thisenvvardefinitelywontexist", NULL) == 0);
 
                 l = strv_new("FOO=BAR", "QUUX=PIFF", "ONE=TWO", "A=B");
                 assert_se(strv_length(l) == 4);
@@ -424,7 +424,7 @@ TEST(unsetenv_erase) {
                 environ = l;
 
                 STRV_FOREACH(e, environ) {
-                        _cleanup_free_ char *n = NULL;
+                        _cleanup_free_ char *n = NULL, *copy1 = NULL, *copy2 = NULL;
                         char *eq;
 
                         eq = strchr(*e, '=');
@@ -434,9 +434,13 @@ TEST(unsetenv_erase) {
                         n = strndup(*e, eq - *e);
                         assert_se(n);
 
-                        assert_se(streq_ptr(getenv(n), eq + 1));
+                        copy1 = strdup(eq + 1);
+                        assert_se(copy1);
+
+                        assert_se(streq_ptr(getenv(n), copy1));
                         assert_se(getenv(n) == eq + 1);
-                        assert_se(unsetenv_erase(n) > 0);
+                        assert_se(getenv_steal_erase(n, &copy2) > 0);
+                        assert_se(streq_ptr(copy1, copy2));
                         assert_se(isempty(eq + 1));
                         assert_se(!getenv(n));
                 }

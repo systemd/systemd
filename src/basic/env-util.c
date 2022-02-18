@@ -868,19 +868,36 @@ int getenv_path_list(const char *name, char ***ret_paths) {
         return 1;
 }
 
-int unsetenv_erase(const char *name) {
-        char *p;
+int getenv_steal_erase(const char *name, char **ret) {
+        _cleanup_(erase_and_freep) char *a = NULL;
+        char *e;
 
         assert(name);
 
-        p = getenv(name);
-        if (!p)
-                return 0;
+        /* Reads an environment variable, makes a copy of it, erases its memory in the environment block and removes
+         * it from there. Usecase: reading passwords from the env block (which is a bad idea, but useful for
+         * testing, and given that people are likely going to misuse this, be thorough) */
 
-        string_erase(p);
+        e = getenv(name);
+        if (!e) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        if (ret) {
+                a = strdup(e);
+                if (!a)
+                        return -ENOMEM;
+        }
+
+        string_erase(e);
 
         if (unsetenv(name) < 0)
                 return -errno;
+
+        if (ret)
+                *ret = TAKE_PTR(a);
 
         return 1;
 }
