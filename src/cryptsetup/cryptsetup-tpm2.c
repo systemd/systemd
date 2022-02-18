@@ -11,7 +11,7 @@
 #include "random-util.h"
 #include "tpm2-util.h"
 
-static int get_pin(char **ret_pin_str) {
+static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, char **ret_pin_str) {
         char *pin_str = NULL;
         int r = 0;
         const char *e;
@@ -34,8 +34,8 @@ static int get_pin(char **ret_pin_str) {
                         NULL,
                         "tpm2-pin",
                         "cryptsetup.tpm2-pin",
-                        USEC_INFINITY,
-                        0,
+                        until,
+                        ask_password_flags,
                         &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user pin: %m");
@@ -120,13 +120,18 @@ int acquire_tpm2_key(
         }
 
         if (flags & TPM2_FLAGS_USE_PIN) {
+                if (headless)
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOPKG),
+                                "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
+
                 for (int i = 5;; i--) {
                         _cleanup_(erase_and_freep) char *pin_str = NULL;
 
                         if (i <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Failed to unlock, giving up!");
 
-                        r = get_pin(&pin_str);
+                        r = get_pin(until, ask_password_flags, &pin_str);
                         if (r == -EPERM)
                                 continue;
                         if (r < 0)
