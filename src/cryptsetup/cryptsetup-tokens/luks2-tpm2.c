@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "hexdecoct.h"
 #include "json.h"
+#include "log.h"
 #include "luks2-tpm2.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 int acquire_luks2_key(
@@ -17,10 +20,12 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                const char *pin,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_free_ char *auto_device = NULL;
+        char *pin_str = NULL;
         int r;
 
         assert(ret_decrypted_key);
@@ -41,7 +46,7 @@ int acquire_luks2_key(
                         pcr_mask, pcr_bank,
                         primary_alg,
                         key_data, key_data_size,
-                        policy_hash, policy_hash_size, NULL,
+                        policy_hash, policy_hash_size, pin_str,
                         ret_decrypted_key, ret_decrypted_key_size);
 }
 
@@ -53,7 +58,8 @@ int parse_luks2_tpm2_data(
                 uint16_t *ret_pcr_bank,
                 uint16_t *ret_primary_alg,
                 char **ret_base64_blob,
-                char **ret_hex_policy_hash) {
+                char **ret_hex_policy_hash,
+                int *ret_flags) {
 
         int r;
         JsonVariant *w, *e;
@@ -138,11 +144,30 @@ int parse_luks2_tpm2_data(
         if (!hex_policy_hash)
                 return -ENOMEM;
 
+        int flags = 0;
+        w = json_variant_by_key(v, "tpm2-flags");
+        if (w) {
+                const char *fs = NULL;
+                if (!json_variant_is_array(w))
+                        return -EINVAL;
+                JSON_VARIANT_ARRAY_FOREACH(e, w) {
+                        if (!json_variant_is_string(e))
+                                return -EINVAL;
+                        fs = json_variant_string(e);
+                        if (!fs)
+                                return -EINVAL;
+                        r = tpm2_flag_from_string(fs);
+                        if (r > 0)
+                                flags |= r;
+                }
+        }
+
         *ret_pcr_mask = pcr_mask;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
         *ret_base64_blob = TAKE_PTR(base64_blob);
         *ret_hex_policy_hash = TAKE_PTR(hex_policy_hash);
+        *ret_flags = flags;
 
         return 0;
 }
