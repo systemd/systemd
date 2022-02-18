@@ -537,12 +537,17 @@ int radv_update_mac(Link *link) {
         return 0;
 }
 
-static int radv_is_ready_to_configure(Link *link) {
+static int radv_is_ready_to_configure(Request *req) {
         bool needs_uplink = false;
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->network);
+        assert(req);
+
+        link = ASSERT_PTR(req->link);
+
+        if (!link->network)
+                return false;
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
@@ -582,19 +587,13 @@ static int radv_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_radv(Request *req) {
+static int radv_process_request(Request *req) {
         Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_RADV);
 
-        link = req->link;
-
-        r = radv_is_ready_to_configure(link);
-        if (r <= 0)
-                return r;
+        link = ASSERT_PTR(req->link);
 
         r = radv_configure(link);
         if (r < 0)
@@ -622,7 +621,7 @@ int link_request_radv(Link *link) {
         if (link->radv)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_RADV, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_RADV, radv_is_ready_to_configure, radv_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Advertisement engine: %m");
 

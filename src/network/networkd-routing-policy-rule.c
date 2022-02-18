@@ -153,7 +153,7 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
         return 0;
 }
 
-void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
+static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
         siphash24_compress(&rule->family, sizeof(rule->family), state);
@@ -194,7 +194,7 @@ void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash
         }
 }
 
-int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -604,21 +604,16 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
         return 0;
 }
 
-static int routing_policy_rule_configure(
-                RoutingPolicyRule *rule,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int routing_policy_rule_configure(Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        RoutingPolicyRule *rule;
+        Link *link;
         int r;
 
-        assert(rule);
-        assert(IN_SET(rule->family, AF_INET, AF_INET6));
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
+
+        rule = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
 
         log_routing_policy_rule_debug(rule, "Configuring", link, link->manager);
 
@@ -630,12 +625,9 @@ static int routing_policy_rule_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not create netlink message: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
-                               link_netlink_destroy_callback, link);
+        r = request_call_netlink_async(link->manager->rtnl, m, req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send netlink message: %m");
-
-        link_ref(link);
 
         routing_policy_rule_enter_configuring(rule);
         return r;
@@ -730,19 +722,14 @@ void link_foreignize_routing_policy_rules(Link *link) {
         }
 }
 
-static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(rtnl);
         assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->static_routing_policy_rule_messages > 0);
+        assert(req);
 
-        link->static_routing_policy_rule_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -764,7 +751,7 @@ static int link_request_routing_policy_rule(
                 Link *link,
                 RoutingPolicyRule *rule,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         RoutingPolicyRule *existing;
@@ -795,8 +782,13 @@ static int link_request_routing_policy_rule(
                 existing->source = rule->source;
 
         log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
-        r = link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_full(link, REQUEST_TYPE_ROUTING_POLICY_RULE,
+                                    existing, NULL,
+                                    (hash_func_t) routing_policy_rule_hash_func,
+                                    (compare_func_t) routing_policy_rule_compare_func,
+                                    request_link_is_ready_to_configure,
+                                    routing_policy_rule_configure,
+                                    message_counter, netlink_handler, ret);
         if (r <= 0)
                 return r;
 
@@ -856,24 +848,6 @@ int link_request_static_routing_policy_rules(Link *link) {
         }
 
         return 0;
-}
-
-int request_process_routing_policy_rule(Request *req) {
-        int r;
-
-        assert(req);
-        assert(req->link);
-        assert(req->rule);
-        assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
-
-        if (!link_is_ready_to_configure(req->link, false))
-                return 0;
-
-        r = routing_policy_rule_configure(req->rule, req->link, req->netlink_handler);
-        if (r < 0)
-                return r;
-
-        return 1;
 }
 
 static const RoutingPolicyRule kernel_rules[] = {
