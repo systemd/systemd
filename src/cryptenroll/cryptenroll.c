@@ -409,8 +409,8 @@ static int prepare_luks(
                 size_t *ret_volume_key_size) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
-        char *e = NULL;
         size_t vks;
         int r;
 
@@ -445,23 +445,17 @@ static int prepare_luks(
         if (!vk)
                 return log_oom();
 
-        e = getenv("PASSWORD");
-        if (e) {
-                _cleanup_(erase_and_freep) char *password = NULL;
-
-                password = strdup(e);
-                if (!password)
-                        return log_oom();
-
-                assert_se(unsetenv_erase("PASSWORD") >= 0);
-
+        r = getenv_steal_erase("PASSWORD", &envpw);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire password from environment: %m");
+        if (r > 0) {
                 r = crypt_volume_key_get(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 vk,
                                 &vks,
-                                password,
-                                strlen(password));
+                                envpw,
+                                strlen(envpw));
                 if (r < 0)
                         return log_error_errno(r, "Password from environment variable $PASSWORD did not work.");
         } else {
