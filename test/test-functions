@@ -1552,7 +1552,7 @@ check_result_nspawn() {
 
     # Run additional test-specific checks if defined by check_result_nspawn_hook()
     if declare -F check_result_nspawn_hook >/dev/null; then
-        if ! check_result_nspawn_hook; then
+        if ! check_result_nspawn_hook "${workspace}"; then
             derror "check_result_nspawn_hook() returned with EC > 0"
             ret=4
         fi
@@ -1571,15 +1571,15 @@ check_result_qemu() {
     check_result_common "${initdir:?}"
     ret=$?
 
-    _umount_dir "${initdir:?}"
-
     # Run additional test-specific checks if defined by check_result_qemu_hook()
     if declare -F check_result_qemu_hook >/dev/null; then
-        if ! check_result_qemu_hook; then
+        if ! check_result_qemu_hook "${initdir:?}"; then
             derror "check_result_qemu_hook() returned with EC > 0"
             ret=4
         fi
     fi
+
+    _umount_dir "${initdir:?}"
 
     return $ret
 }
