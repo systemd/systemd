@@ -253,10 +253,8 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
         assert(ret);
 
         netdev = hashmap_get(manager->netdevs, name);
-        if (!netdev) {
-                *ret = NULL;
+        if (!netdev)
                 return -ENOENT;
-        }
 
         *ret = netdev;
 
@@ -277,9 +275,6 @@ static int netdev_enter_ready(NetDev *netdev) {
         netdev->state = NETDEV_STATE_READY;
 
         log_netdev_info(netdev, "netdev ready");
-
-        if (NETDEV_VTABLE(netdev)->post_create)
-                NETDEV_VTABLE(netdev)->post_create(netdev, NULL, NULL);
 
         return 0;
 }
@@ -544,17 +539,14 @@ static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message 
         return 0;
 }
 
-static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
+static int independent_netdev_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
-        assert(!link || callback);
 
         /* create netdev */
         if (NETDEV_VTABLE(netdev)->create) {
-                assert(!link);
-
                 r = NETDEV_VTABLE(netdev)->create(netdev);
                 if (r < 0)
                         return r;
@@ -567,64 +559,67 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
 
-        r = netdev_create_message(netdev, link, m);
+        r = netdev_create_message(netdev, NULL, m);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
 
-        if (link) {
-                r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
-                                       link_netlink_destroy_callback, link);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
+        r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
+                               netdev_destroy_callback, netdev);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
 
-                link_ref(link);
-        } else {
-                r = netlink_call_async(netdev->manager->rtnl, NULL, m, netdev_create_handler,
-                                       netdev_destroy_callback, netdev);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
-
-                netdev_ref(netdev);
-        }
+        netdev_ref(netdev);
 
         netdev->state = NETDEV_STATE_CREATING;
-
         log_netdev_debug(netdev, "Creating");
         return 0;
 }
 
-static int netdev_create_after_configured(NetDev *netdev, Link *link) {
-        assert(netdev);
-        assert(link);
-        assert(NETDEV_VTABLE(netdev)->create_after_configured);
+static int request_independent_netdev_create(Request *req) {
+        assert(req);
 
-        return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
+        return independent_netdev_create(req->userdata);
 }
 
-int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
+static int stacked_netdev_create(Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        NetDev *netdev;
+        Link *link;
         int r;
 
-        assert(netdev);
-        assert(netdev->manager);
-        assert(netdev->manager->rtnl);
+        assert(req);
 
-        switch (netdev_get_create_type(netdev)) {
-        case NETDEV_CREATE_STACKED:
-                r = netdev_create(netdev, link, callback);
-                if (r < 0)
-                        return r;
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
 
-                break;
-        case NETDEV_CREATE_AFTER_CONFIGURED:
-                r = netdev_create_after_configured(netdev, link);
-                if (r < 0)
-                        return r;
-                break;
-        default:
-                assert_not_reached();
-        }
+        r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not allocate netlink message: %m");
 
+        r = netdev_create_message(netdev, link, m);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not create netlink message: %m");
+
+        r = request_call_netlink_async(netdev->manager->rtnl, m, req);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not send netlink message: %m");
+
+        netdev->state = NETDEV_STATE_CREATING;
+        log_netdev_debug(netdev, "Creating");
         return 0;
+}
+
+static int stacked_netdev_after_configured_create(Request *req) {
+        NetDev *netdev;
+        Link *link;
+
+        assert(req);
+
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
+
+        assert(NETDEV_VTABLE(netdev)->create_after_configured);
+        return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
 }
 
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
@@ -651,34 +646,19 @@ static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         return true;
 }
 
-int request_process_stacked_netdev(Request *req) {
-        int r;
-
+static int request_netdev_is_ready_to_create(Request *req) {
         assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_NETDEV_STACKED);
-        assert(req->netdev);
-        assert(req->netlink_handler);
-
-        r = netdev_is_ready_to_create(req->netdev, req->link);
-        if (r <= 0)
-                return r;
-
-        r = netdev_join(req->netdev, req->link, req->netlink_handler);
-        if (r < 0)
-                return log_link_error_errno(req->link, r, "Failed to create stacked netdev '%s': %m", req->netdev->ifname);
-
-        return 1;
+        return netdev_is_ready_to_create(req->userdata, req->link);
 }
 
-static int link_create_stacked_netdev_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
         assert(m);
-        assert(link);
+        assert(req);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -687,39 +667,10 @@ static int link_create_stacked_netdev_handler_internal(sd_netlink *rtnl, sd_netl
                 return 0;
         }
 
-        return 1;
-}
-
-static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        assert(link);
-        assert(link->create_stacked_netdev_messages > 0);
-
-        link->create_stacked_netdev_messages--;
-
-        if (link_create_stacked_netdev_handler_internal(rtnl, m, link) <= 0)
-                return 0;
-
         if (link->create_stacked_netdev_messages == 0) {
                 link->stacked_netdevs_created = true;
                 log_link_debug(link, "Stacked netdevs created.");
                 link_check_ready(link);
-        }
-
-        return 0;
-}
-
-static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        assert(link);
-        assert(link->create_stacked_netdev_after_configured_messages > 0);
-
-        link->create_stacked_netdev_after_configured_messages--;
-
-        if (link_create_stacked_netdev_handler_internal(rtnl, m, link) <= 0)
-                return 0;
-
-        if (link->create_stacked_netdev_after_configured_messages == 0) {
-                link->stacked_netdevs_after_configured_created = true;
-                log_link_debug(link, "Stacked netdevs created.");
         }
 
         return 0;
@@ -739,41 +690,26 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
 
         if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
                 link->stacked_netdevs_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
-                                       &link->create_stacked_netdev_messages,
-                                       link_create_stacked_netdev_handler,
-                                       NULL);
-        } else {
-                link->stacked_netdevs_after_configured_created = false;
-                r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
-                                       &link->create_stacked_netdev_after_configured_messages,
-                                       link_create_stacked_netdev_after_configured_handler,
-                                       NULL);
-        }
+                r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
+                                            netdev_ref(netdev), (mfree_func_t) netdev_unref,
+                                            trivial_hash_func, trivial_compare_func,
+                                            request_netdev_is_ready_to_create,
+                                            stacked_netdev_create,
+                                            &link->create_stacked_netdev_messages,
+                                            create_stacked_netdev_handler, NULL);
+        } else
+                r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
+                                            netdev_ref(netdev), (mfree_func_t) netdev_unref,
+                                            trivial_hash_func, trivial_compare_func,
+                                            request_netdev_is_ready_to_create,
+                                            stacked_netdev_after_configured_create,
+                                            NULL, NULL, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
 
         log_link_debug(link, "Requested stacked netdev '%s'", netdev->ifname);
         return 0;
-}
-
-int request_process_independent_netdev(Request *req) {
-        int r;
-
-        assert(req);
-        assert(req->type == REQUEST_TYPE_NETDEV_INDEPENDENT);
-        assert(req->netdev);
-
-        r = netdev_is_ready_to_create(req->netdev, NULL);
-        if (r <= 0)
-                return r;
-
-        r = netdev_create(req->netdev, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        return 1;
 }
 
 static int netdev_request(NetDev *netdev) {
@@ -790,10 +726,64 @@ static int netdev_request(NetDev *netdev) {
                 return r;
         if (r > 0)
                 /* If the netdev has no dependency, then create it now. */
-                return netdev_create(netdev, NULL, NULL);
+                return independent_netdev_create(netdev);
 
         /* Otherwise, wait for the dependencies being resolved. */
-        return netdev_queue_request(netdev, NULL);
+        return netdev_queue_request(netdev, request_netdev_is_ready_to_create, request_independent_netdev_create, NULL);
+}
+
+static int netdev_configure(Request *req) {
+        NetDev *netdev;
+        Link *link;
+
+        assert(req);
+
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
+
+        return NETDEV_VTABLE(netdev)->post_create(netdev, link);
+}
+
+static int netdev_is_ready_to_configure(Request *req) {
+        NetDev *netdev;
+        Link *link;
+
+        assert(req);
+
+        netdev = ASSERT_PTR(req->userdata);
+        link = ASSERT_PTR(req->link);
+
+        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_UNMANAGED))
+                return false;
+
+        if (netdev->state != NETDEV_STATE_READY)
+                return false;
+
+        return true;
+}
+
+int link_configure_netdev(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->netdev ||
+            !NETDEV_VTABLE(link->netdev)->post_create) {
+                link->netdev_configured = true;
+                return 0;
+        }
+
+        r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_CONFIGURE,
+                                    netdev_ref(link->netdev), (mfree_func_t) netdev_unref,
+                                    trivial_hash_func, trivial_compare_func,
+                                    netdev_is_ready_to_configure,
+                                    netdev_configure,
+                                    NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuration of netdev: %m");
+
+        link->netdev_configured = false;
+        return 0;
 }
 
 int netdev_load_one(Manager *manager, const char *filename) {

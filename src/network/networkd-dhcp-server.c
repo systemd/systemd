@@ -364,16 +364,18 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
 }
 
-static int dhcp4_server_configure(Link *link) {
+static int dhcp4_server_configure(Request *req) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
         DHCPStaticLease *static_lease;
-        Link *uplink = NULL;
+        Link *link, *uplink = NULL;
         Address *address;
         bool bind_to_interface;
         int r;
 
-        assert(link);
+        assert(req);
+
+        link = ASSERT_PTR(req->link);
 
         log_link_debug(link, "Configuring DHCP Server.");
 
@@ -520,28 +522,16 @@ static int dhcp4_server_configure(Link *link) {
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
 
         log_link_debug(link, "Offering DHCPv4 leases");
-
-        return 1;
+        return 0;
 }
 
-int link_request_dhcp_server(Link *link) {
-        assert(link);
-
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
-
-        if (link->dhcp_server)
-                return 0;
-
-        log_link_debug(link, "Requesting DHCP server.");
-        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
-}
-
-static bool dhcp_server_is_ready_to_configure(Link *link) {
-        Link *uplink = NULL;
+static int dhcp4_server_is_ready_to_configure(Request *req) {
+        Link *link, *uplink = NULL;
         Address *a;
 
-        assert(link);
+        assert(req);
+
+        link = ASSERT_PTR(req->link);
 
         if (!link->network)
                 return false;
@@ -573,15 +563,19 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_dhcp_server(Request *req) {
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
+int link_request_dhcp_server(Link *link) {
+        assert(link);
 
-        if (!dhcp_server_is_ready_to_configure(req->link))
+        if (!link_dhcp4_server_enabled(link))
                 return 0;
 
-        return dhcp4_server_configure(req->link);
+        if (link->dhcp_server)
+                return 0;
+
+        log_link_debug(link, "Requesting DHCP server.");
+        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER,
+                                  dhcp4_server_is_ready_to_configure,
+                                  dhcp4_server_configure, NULL);
 }
 
 int config_parse_dhcp_server_relay_agent_suboption(
