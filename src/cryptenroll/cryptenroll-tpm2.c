@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "cryptenroll-tpm2.h"
 #include "ask-password-api.h"
+#include "cryptenroll-tpm2.h"
 #include "env-util.h"
 #include "hexdecoct.h"
 #include "json.h"
@@ -62,11 +62,9 @@ static int search_policy_hash(
 
 static int get_pin(char **ret_pin_str, int *ret_flags) {
         char *pin_str = NULL;
-        int r = 0;
-        int flags = 0;
+        int r = 0, flags = 0;
         const char *e;
-        _cleanup_strv_free_erase_ char **pin = NULL;
-        _cleanup_strv_free_erase_ char **pin2 = NULL;
+        _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
 
         e = getenv("NEWPIN");
         if (e) {
@@ -80,21 +78,20 @@ static int get_pin(char **ret_pin_str, int *ret_flags) {
                 for (int i = 5;; i--) {
                         size_t pin_len;
 
-                        if (i <= 0) {
+                        if (i <= 0)
                                 return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
-                        }
+                                                SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
 
                         pin = strv_free_erase(pin);
                         r = ask_password_auto(
-                                "Please enter TPM2 PIN:",
-                                "drive-harddisk",
-                                NULL,
-                                "tpm2-pin",
-                                "cryptsetup.tpm2-pin",
-                                USEC_INFINITY,
-                                0,
-                                &pin);
+                                        "Please enter TPM2 PIN:",
+                                        "drive-harddisk",
+                                        NULL,
+                                        "tpm2-pin",
+                                        "cryptenroll.tpm2-pin",
+                                        USEC_INFINITY,
+                                        0,
+                                        &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
                         assert(strv_length(pin) == 1);
@@ -108,14 +105,14 @@ static int get_pin(char **ret_pin_str, int *ret_flags) {
                         }
 
                         r = ask_password_auto(
-                                "Please enter TPM2 PIN (repeat):",
-                                "drive-harddisk",
-                                NULL,
-                                "tpm2-pin",
-                                "cryptsetup.tpm2-pin",
-                                USEC_INFINITY,
-                                0,
-                                &pin2);
+                                        "Please enter TPM2 PIN (repeat):",
+                                        "drive-harddisk",
+                                        NULL,
+                                        "tpm2-pin",
+                                        "cryptenroll.tpm2-pin",
+                                        USEC_INFINITY,
+                                        0,
+                                        &pin2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
                         assert(strv_length(pin) == 1);
