@@ -6,6 +6,12 @@
 #include "json.h"
 #include "macro.h"
 
+typedef enum TPM2Flags {
+        TPM2_FLAGS_USE_PIN = 1,
+        _TPM2_FLAGS_MAX,
+        _TPM2_FLAGS_INVALID = -EINVAL
+} TPM2Flags;
+
 #if HAVE_TPM2
 
 #include <tss2/tss2_esys.h>
@@ -49,7 +55,7 @@ int tpm2_find_device_auto(int log_level, char **ret);
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, JsonVariant **ret);
+int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, TPM2Flags flags, JsonVariant **ret);
 
 bool tpm2_valid_pin(const char *pin);
 
@@ -81,6 +87,8 @@ int tpm2_pcr_bank_from_string(const char *bank);
 
 const char *tpm2_primary_alg_to_string(uint16_t bank);
 int tpm2_primary_alg_from_string(const char *alg);
+TPM2Flags tpm2_flag_from_string(const char *flag);
+const char *tpm2_flags_to_string(TPM2Flags flags);
 
 typedef struct {
         uint32_t search_pcr_mask;

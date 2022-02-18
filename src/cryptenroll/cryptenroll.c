@@ -32,6 +32,7 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_tpm2_pin = false;
 static char *arg_node = NULL;
 static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
@@ -100,6 +101,8 @@ static int help(void) {
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                       Specify TPM2 PCRs to seal against\n"
+               "     --tpm2-with-pin=BOOL\n"
+               "                       Whether to require entering a PIN to unlock the volume\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
                "\nSee the %s for details.\n",
@@ -121,6 +124,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_DEVICE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
+                ARG_TPM2_PIN,
                 ARG_WIPE_SLOT,
                 ARG_FIDO2_WITH_PIN,
                 ARG_FIDO2_WITH_UP,
@@ -139,6 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV    },
                 { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS        },
+                { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_PIN         },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT        },
                 {}
         };
@@ -297,6 +302,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_tpm2_pcr_mask = mask;
                         else
                                 arg_tpm2_pcr_mask |= mask;
+
+                        break;
+                }
+
+                case ARG_TPM2_PIN: {
+                        r = parse_boolean_argument("--tpm2-with-pin=", optarg, &arg_tpm2_pin);
+                        if (r < 0)
+                                return r;
 
                         break;
                 }
@@ -558,7 +571,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
