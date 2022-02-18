@@ -82,6 +82,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_tpm2_pin = false;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 
@@ -386,6 +387,16 @@ static int parse_one_option(const char *option) {
                         else
                                 arg_tpm2_pcr_mask |= mask;
                 }
+
+        } else if ((val = startswith(option, "tpm2-pin="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_tpm2_pin = r;
 
         } else if ((val = startswith(option, "try-empty-password="))) {
 
@@ -1301,7 +1312,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         NULL, 0, /* we don't know the policy hash */
-                                        0, /* PIN is currently unhandled in this case */
+                                        arg_tpm2_pin,
                                         until,
                                         arg_headless,
                                         arg_ask_password_flags,
