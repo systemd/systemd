@@ -3,9 +3,11 @@
 
 #include <sys/types.h>
 
+#include "ask-password-api.h"
 #include "cryptsetup-util.h"
 #include "log.h"
 #include "time-util.h"
+#include "tpm2-util.h"
 
 #if HAVE_TPM2
 
@@ -22,6 +24,10 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                TPM2Flags flags,
+                usec_t until,
+                bool headless,
+                AskPasswordFlags ask_password_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
@@ -37,7 +43,8 @@ int find_tpm2_auto_data(
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
-                int *ret_token);
+                int *ret_token,
+                TPM2Flags *ret_flags);
 
 #else
 
@@ -54,6 +61,10 @@ static inline int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                TPM2Flags flags,
+                usec_t until,
+                bool headless,
+                AskPasswordFlags ask_password_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -73,7 +84,8 @@ static inline int find_tpm2_auto_data(
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
-                int *ret_token) {
+                int *ret_token,
+                TPM2Flags *ret_flags) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 support not available.");
