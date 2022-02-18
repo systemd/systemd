@@ -13,7 +13,7 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                const char *pin,
+                int flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 

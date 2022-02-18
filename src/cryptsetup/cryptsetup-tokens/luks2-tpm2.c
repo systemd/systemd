@@ -21,7 +21,7 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                const char *pin,
+                int flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -50,6 +50,11 @@ int acquire_luks2_key(
                         return log_oom();
 
                 assert_se(unsetenv_erase("PIN") >= 0);
+        } else {
+                /* PIN entry is not supported by plugin, let it fallback, possibly to sd-cryptsetup's
+                 * internal handling. */
+                if (flags & TPM2_FLAGS_USE_PIN)
+                        return -EOPNOTSUPP;
         }
 
         return tpm2_unseal(
@@ -165,8 +170,7 @@ int parse_luks2_tpm2_data(
                         if (!json_variant_is_string(e))
                                 return -EINVAL;
                         fs = json_variant_string(e);
-                        if (!fs)
-                                return -EINVAL;
+                        assert(fs);
                         r = tpm2_flag_from_string(fs);
                         if (r > 0)
                                 flags |= r;

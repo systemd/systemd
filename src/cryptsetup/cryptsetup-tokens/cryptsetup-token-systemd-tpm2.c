@@ -104,7 +104,7 @@ _public_ int cryptsetup_token_open(
                         blob_size,
                         policy_hash,
                         policy_hash_size,
-                        NULL,
+                        flags,
                         &decrypted_key,
                         &decrypted_key_size);
         if (r < 0)
