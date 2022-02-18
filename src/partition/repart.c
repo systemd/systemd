@@ -2678,7 +2678,7 @@ static int partition_encrypt(
                 if (keyslot < 0)
                         return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, &v);
+                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, 0, &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 
