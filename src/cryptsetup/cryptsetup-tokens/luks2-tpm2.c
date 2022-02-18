@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "ask-password-api.h"
 #include "hexdecoct.h"
 #include "json.h"
@@ -25,7 +26,8 @@ int acquire_luks2_key(
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_free_ char *auto_device = NULL;
-        char *pin_str = NULL;
+        _cleanup_(erase_and_freep) char *pin_str = NULL;
+        const char *e;
         int r;
 
         assert(ret_decrypted_key);
@@ -39,6 +41,15 @@ int acquire_luks2_key(
                         return r;
 
                 device = auto_device;
+        }
+
+        e = getenv("PIN");
+        if (e) {
+                pin_str = strdup(e);
+                if (!pin_str)
+                        return log_oom();
+
+                assert_se(unsetenv_erase("PIN") >= 0);
         }
 
         return tpm2_unseal(
