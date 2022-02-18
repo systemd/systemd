@@ -11,7 +11,7 @@
 #include "random-util.h"
 #include "tpm2-util.h"
 
-static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, char **ret_pin_str) {
+static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
         char *pin_str = NULL;
         int r = 0;
         const char *e;
@@ -26,6 +26,12 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, char **ret
                 assert_se(unsetenv_erase("PIN") >= 0);
         } else {
                 size_t pin_len;
+
+                if (headless)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "PIN querying disabled via 'headless' option. "
+                                        "Use the '$PIN' environment variable.");
 
                 pin = strv_free_erase(pin);
                 r = ask_password_auto(
@@ -42,7 +48,7 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, char **ret
                 assert(strv_length(pin) == 1);
 
                 /* Enforce a PIN length of at least 4 characters to avoid unnecessary unseal
-                 * attempts, which increase the dictionay attack counter and of up to 32 characters
+                 * attempts, which increase the dictionary attack counter and of up to 32 characters
                  * (the maximum supported for authValue). */
                 pin_len = strlen(*pin);
                 if (pin_len >= 4 && pin_len <= 32) {
@@ -120,24 +126,41 @@ int acquire_tpm2_key(
         }
 
         if (flags & TPM2_FLAGS_USE_PIN) {
-                if (headless)
-                        return log_error_errno(
-                                SYNTHETIC_ERRNO(ENOPKG),
-                                "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
-
                 for (int i = 5;; i--) {
                         _cleanup_(erase_and_freep) char *pin_str = NULL;
 
                         if (i <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Failed to unlock, giving up!");
+                                return -EACCES;
 
-                        r = get_pin(until, ask_password_flags, &pin_str);
+                        r = get_pin(until, ask_password_flags, headless, &pin_str);
                         if (r == -EPERM)
                                 continue;
                         if (r < 0)
                                 return r;
 
                         r = tpm2_unseal(
+                                        device,
+                                        pcr_mask,
+                                        pcr_bank,
+                                        primary_alg,
+                                        blob,
+                                        blob_size,
+                                        policy_hash,
+                                        policy_hash_size,
+                                        pin_str,
+                                        ret_decrypted_key,
+                                        ret_decrypted_key_size);
+                        /* We get this error in case there is an authentication policy mismatch. This should
+                         * not happen, but this avoids confusing behavior, just in case. */
+                        if (IN_SET(r, -EPERM, -ENOLCK))
+                                return r;
+                        if (r < 0)
+                                continue;
+
+                        return r;
+                }
+        } else
+                return tpm2_unseal(
                                 device,
                                 pcr_mask,
                                 pcr_bank,
@@ -146,36 +169,9 @@ int acquire_tpm2_key(
                                 blob_size,
                                 policy_hash,
                                 policy_hash_size,
-                                pin_str,
+                                NULL,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
-                        /* We get this error in case there is an authentication policy mismatch. This should
-                         * not happen, but this avoids confusing behavior, just in case. */
-                        if (r == -EPERM)
-                                return r;
-                        if (r == -ENOLCK)
-                                return log_error_errno(
-                                        r,
-                                        "TPM2 is in dictionary attack lockout, no unlock possible right now.");
-                        if (r < 0)
-                                continue;
-
-                        return r;
-                }
-        } else {
-                return tpm2_unseal(
-                        device,
-                        pcr_mask,
-                        pcr_bank,
-                        primary_alg,
-                        blob,
-                        blob_size,
-                        policy_hash,
-                        policy_hash_size,
-                        NULL,
-                        ret_decrypted_key,
-                        ret_decrypted_key_size);
-        }
 }
 
 int find_tpm2_auto_data(
@@ -324,10 +320,7 @@ int find_tpm2_auto_data(
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "TPM2 token data flag is not a string.");
                                 fs = json_variant_string(e);
-                                if (!fs)
-                                        return log_error_errno(
-                                                SYNTHETIC_ERRNO(EINVAL),
-                                                "TPM2 token data flag parsing failed.");
+                                assert(fs);
                                 r = tpm2_flag_from_string(fs);
                                 if (r > 0)
                                         flags |= r;
