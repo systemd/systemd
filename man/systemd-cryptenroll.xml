@@ -300,6 +300,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-with-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN
+        when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. The pin
+        needs to be 4-32 characters long. Defaults to <literal>no</literal>. Note that incorrect PIN entry
+        when unlocking increments the dictionary attack lockout mechanism, and may lock out users for a
+        prolonged time, depending on configuration.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--wipe-slot=</option><arg rep="repeat">SLOT</arg></term>
 
         <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
