@@ -2375,12 +2375,7 @@ static void service_enter_restart(Service *s) {
 
         if (unit_has_job_type(UNIT(s), JOB_STOP)) {
                 /* Don't restart things if we are going down anyway */
-                log_unit_info(UNIT(s), "Stop job pending for unit, delaying automatic restart.");
-
-                r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));
-                if (r < 0)
-                        goto fail;
-
+                log_unit_info(UNIT(s), "Stop job pending for unit, skipping automatic restart.");
                 return;
         }
 
