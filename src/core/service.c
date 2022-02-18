@@ -21,6 +21,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "format-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
@@ -1919,6 +1920,12 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* Reset TTY ownership if necessary */
         exec_context_revert_tty(&s->exec_context);
+
+        if (s->exec_context.cgroup_nft_family > 0)
+                (void) nft_set_element_del_uint32(s->exec_context.cgroup_nft_family,
+                                                  s->exec_context.cgroup_nft_table,
+                                                  s->exec_context.cgroup_nft_set,
+                                                  UNIT(s)->cgroup_id);
 
         return;
 

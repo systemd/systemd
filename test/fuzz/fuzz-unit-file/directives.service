@@ -147,6 +147,7 @@ CacheDirectory=
 CacheDirectoryMode=
 Capabilities=
 CapabilityBoundingSet=
+CgroupNFTSet=
 ConfigurationDirectory=
 ConfigurationDirectoryMode=
 CoredumpFilter=

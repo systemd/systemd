@@ -22,6 +22,7 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio-util.h"
@@ -1156,6 +1157,24 @@ static int bus_property_get_exec_dir_symlink(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_cgroup_nft_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "(iss)", c->cgroup_nft_family, c->cgroup_nft_table, c->cgroup_nft_set);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1244,6 +1263,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CgroupNFTSet", "(iss)", property_get_cgroup_nft_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AmbientCapabilities", "t", NULL, offsetof(ExecContext, capability_ambient_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3865,6 +3885,50 @@ int bus_exec_context_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
+
+                return 1;
+
+        } else if (streq(name, "CgroupNFTSet")) {
+                int family;
+                const char *table, *set, *family_str;
+
+                r = sd_bus_message_read(message, "(iss)", &family, &table, &set);
+                if (r < 0)
+                        return r;
+
+                if (family > 0) {
+                        family_str = nfproto_to_string(family);
+                        if (!family_str)
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT family not valid");
+                }
+
+                if (isempty(table))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT table name not valid");
+
+                if (isempty(set))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT set name not valid");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+
+                        if (family == 0) {
+                                c->cgroup_nft_family = 0;
+                                c->cgroup_nft_table = mfree(c->cgroup_nft_table);
+                                c->cgroup_nft_set = mfree(c->cgroup_nft_set);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                c->cgroup_nft_family = family;
+
+                                r = free_and_strdup(&c->cgroup_nft_table, table);
+                                if (r < 0)
+                                        return r;
+
+                                r = free_and_strdup(&c->cgroup_nft_set, set);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(u, flags, name, "%s=%s:%s:%s", name, family_str, table, set);
+                        }
+                }
 
                 return 1;
 
