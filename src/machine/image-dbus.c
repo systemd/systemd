@@ -238,7 +238,7 @@ int bus_image_method_mark_read_only(
         const char *details[] = {
                 "image", image->name,
                 "verb", "mark_read_only",
-                "read_only", (read_only?"1":"0"),
+                "read_only", one_zero(read_only),
                 NULL
         };
 
