@@ -1639,7 +1639,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
+        printf("%s attach VOLUME SOURCEDEVICE [KEY-FILE] [OPTIONS]\n"
                "%s detach VOLUME\n\n"
                "Attaches or detaches an encrypted block device.\n"
                "\nSee the %s for details.\n",
@@ -1721,7 +1721,7 @@ static int run(int argc, char *argv[]) {
                 unsigned tries;
                 usec_t until;
 
-                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
+                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [KEY-FILE] [OPTIONS] */
 
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
