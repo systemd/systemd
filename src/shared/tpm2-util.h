@@ -10,6 +10,10 @@
 #include <tss2/tss2_mu.h>
 #include <tss2/tss2_rc.h>
 
+typedef enum {
+        TPM2_FLAGS_USE_PIN = 1
+} systemd_tpm2_flags;
+
 extern TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket);
 extern TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket);
 extern void (*sym_Esys_Finalize)(ESYS_CONTEXT **context);
@@ -47,10 +51,9 @@ int tpm2_find_device_auto(int log_level, char **ret);
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, int flags, JsonVariant **ret);
+int tpm2_make_luks2_json(int keyslot, uint32_t pcr_mask, uint16_t pcr_bank, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, systemd_tpm2_flags flags, JsonVariant **ret);
 
 #define TPM2_PCRS_MAX 24
-#define TPM2_FLAGS_USE_PIN 1
 
 /* Default to PCR 7 only */
 #define TPM2_PCR_MASK_DEFAULT (UINT32_C(1) << 7)
@@ -78,8 +81,8 @@ int tpm2_pcr_bank_from_string(const char *bank);
 
 const char *tpm2_primary_alg_to_string(uint16_t bank);
 int tpm2_primary_alg_from_string(const char *alg);
-int tpm2_flag_from_string(const char *flag);
-const char *tpm2_flags_to_string(int flags);
+systemd_tpm2_flags tpm2_flag_from_string(const char *flag);
+const char *tpm2_flags_to_string(systemd_tpm2_flags flags);
 
 typedef struct {
         uint32_t search_pcr_mask;

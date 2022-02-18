@@ -1353,7 +1353,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         for (;;) {
                                 uint32_t pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
-                                int tpm2_flags;
+                                systemd_tpm2_flags tpm2_flags;
 
                                 r = find_tpm2_auto_data(
                                                 cd,

@@ -7,6 +7,7 @@
 #include "cryptsetup-util.h"
 #include "log.h"
 #include "time-util.h"
+#include "tpm2-util.h"
 
 #if HAVE_TPM2
 
@@ -23,7 +24,7 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                int flags,
+                systemd_tpm2_flags flags,
                 usec_t until,
                 bool headless,
                 AskPasswordFlags ask_password_flags,
@@ -43,7 +44,7 @@ int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
                 int *ret_token,
-                int *ret_flags);
+                systemd_tpm2_flags *ret_flags);
 
 #else
 
@@ -60,7 +61,7 @@ static inline int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                int flags,
+                systemd_tpm2_flags flags,
                 usec_t until,
                 bool headless,
                 AskPasswordFlags ask_password_flags,
@@ -84,7 +85,7 @@ static inline int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
                 int *ret_token,
-                int *ret_flags) {
+                systemd_tpm2_flags *ret_flags) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 support not available.");
