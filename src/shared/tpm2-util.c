@@ -1048,7 +1048,7 @@ int tpm2_unseal(
                 if (rc == TPM2_RC_LOCKOUT)
                         r = log_error_errno(
                                         SYNTHETIC_ERRNO(ENOLCK),
-                                        "TPM2 device is in dictionay attack lockout mode.");
+                                        "TPM2 device is in dictionary attack lockout mode.");
                 else
                         r = log_error_errno(
                                         SYNTHETIC_ERRNO(ENOTRECOVERABLE),
