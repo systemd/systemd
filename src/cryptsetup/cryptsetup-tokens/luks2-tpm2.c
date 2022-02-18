@@ -83,6 +83,7 @@ int parse_luks2_tpm2_data(
         uint16_t pcr_bank = UINT16_MAX, primary_alg = TPM2_ALG_ECC;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        systemd_tpm2_flags flags = 0;
 
         assert(json);
         assert(ret_pcr_mask);
@@ -160,21 +161,13 @@ int parse_luks2_tpm2_data(
         if (!hex_policy_hash)
                 return -ENOMEM;
 
-        systemd_tpm2_flags flags = 0;
-        w = json_variant_by_key(v, "tpm2-flags");
+        w = json_variant_by_key(v, "tpm2-pin");
         if (w) {
-                const char *fs = NULL;
-                if (!json_variant_is_array(w))
+                if (!json_variant_is_boolean(w))
                         return -EINVAL;
-                JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                        if (!json_variant_is_string(e))
-                                return -EINVAL;
-                        fs = json_variant_string(e);
-                        assert(fs);
-                        r = tpm2_flag_from_string(fs);
-                        if (r > 0)
-                                flags |= r;
-                }
+
+                if (json_variant_boolean(w))
+                        flags |= TPM2_FLAGS_USE_PIN;
         }
 
         *ret_pcr_mask = pcr_mask;

@@ -1325,7 +1325,6 @@ int tpm2_make_luks2_json(
         if (r < 0)
                 return -ENOMEM;
 
-        bool use_pin = flags & TPM2_FLAGS_USE_PIN;
         r = json_build(&v,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
@@ -1335,7 +1334,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
-                                       JSON_BUILD_PAIR_CONDITION(use_pin, "tpm2-flags", JSON_BUILD_ARRAY(JSON_BUILD_STRING("pin"))))
+                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)))
                         );
         if (r < 0)
                 return r;

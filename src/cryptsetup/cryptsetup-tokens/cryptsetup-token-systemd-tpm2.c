@@ -176,7 +176,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-primary-alg:  %s\n", strna(tpm2_primary_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
-        crypt_log(cd, "\ttpm2-flags: %s\n", strna(tpm2_flags_to_string(flags)));
+        crypt_log(cd, "\ttpm2-pin: %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
 }
 
 /*
@@ -274,18 +274,11 @@ _public_ int cryptsetup_token_validate(
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
 
-        /* The flags field is optional and used to encode newly introduced features */
-        w = json_variant_by_key(v, "tpm2-flags");
+        w = json_variant_by_key(v, "tpm2-pin");
         if (w) {
-                if (!json_variant_is_array(w)) {
-                        crypt_log_debug(cd, "TPM2 token data flags field is not an array.");
+                if (!json_variant_is_boolean(w)) {
+                        crypt_log_debug(cd, "TPM2 PIN policy is not a boolean.");
                         return 1;
-                }
-                JSON_VARIANT_ARRAY_FOREACH(e, w) {
-                        if (!json_variant_is_string(e)) {
-                                crypt_log_debug(cd, "TPM2 token flag is not a string.");
-                                return 1;
-                        }
                 }
         }
 
