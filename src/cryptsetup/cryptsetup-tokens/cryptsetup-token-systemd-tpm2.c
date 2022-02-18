@@ -6,8 +6,10 @@
 #include "cryptsetup-token.h"
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
+#include "json.h"
 #include "luks2-tpm2.h"
 #include "memory-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 #include "version.h"
 
@@ -78,7 +80,8 @@ _public_ int cryptsetup_token_open(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash);
+        TPM2Flags flags = 0;
+        r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash, &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -101,6 +104,7 @@ _public_ int cryptsetup_token_open(
                         blob_size,
                         policy_hash,
                         policy_hash_size,
+                        flags,
                         &decrypted_key,
                         &decrypted_key_size);
         if (r < 0)
@@ -135,6 +139,7 @@ _public_ void cryptsetup_token_dump(
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
         int r;
+        TPM2Flags flags = 0;
         uint32_t pcr_mask;
         uint16_t pcr_bank, primary_alg;
         size_t decoded_blob_size;
@@ -144,7 +149,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash);
+        r = parse_luks2_tpm2_data(json, UINT32_MAX, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash, &flags);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " metadata: %m.");
 
@@ -171,6 +176,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-primary-alg:  %s\n", strna(tpm2_primary_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-blob:  %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
+        crypt_log(cd, "\ttpm2-pin: %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
 }
 
 /*
@@ -267,6 +273,14 @@ _public_ int cryptsetup_token_validate(
         r = unhexmem(json_variant_string(w), SIZE_MAX, NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
+
+        w = json_variant_by_key(v, "tpm2-pin");
+        if (w) {
+                if (!json_variant_is_boolean(w)) {
+                        crypt_log_debug(cd, "TPM2 PIN policy is not a boolean.");
+                        return 1;
+                }
+        }
 
         return 0;
 }

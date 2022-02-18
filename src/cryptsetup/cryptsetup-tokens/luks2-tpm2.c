@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
+#include "env-util.h"
 #include "hexdecoct.h"
 #include "json.h"
+#include "log.h"
 #include "luks2-tpm2.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 int acquire_luks2_key(
@@ -17,10 +21,12 @@ int acquire_luks2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                TPM2Flags flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_free_ char *auto_device = NULL;
+        _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r;
 
         assert(ret_decrypted_key);
@@ -36,12 +42,22 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
+        r = getenv_steal_erase("PIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (!r) {
+                /* PIN entry is not supported by plugin, let it fallback, possibly to sd-cryptsetup's
+                 * internal handling. */
+                if (flags & TPM2_FLAGS_USE_PIN)
+                        return -EOPNOTSUPP;
+        }
+
         return tpm2_unseal(
                         device,
                         pcr_mask, pcr_bank,
                         primary_alg,
                         key_data, key_data_size,
-                        policy_hash, policy_hash_size, NULL,
+                        policy_hash, policy_hash_size, pin_str,
                         ret_decrypted_key, ret_decrypted_key_size);
 }
 
@@ -53,7 +69,8 @@ int parse_luks2_tpm2_data(
                 uint16_t *ret_pcr_bank,
                 uint16_t *ret_primary_alg,
                 char **ret_base64_blob,
-                char **ret_hex_policy_hash) {
+                char **ret_hex_policy_hash,
+                TPM2Flags *ret_flags) {
 
         int r;
         JsonVariant *w, *e;
@@ -61,6 +78,7 @@ int parse_luks2_tpm2_data(
         uint16_t pcr_bank = UINT16_MAX, primary_alg = TPM2_ALG_ECC;
         _cleanup_free_ char *base64_blob = NULL, *hex_policy_hash = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        TPM2Flags flags = 0;
 
         assert(json);
         assert(ret_pcr_mask);
@@ -138,11 +156,21 @@ int parse_luks2_tpm2_data(
         if (!hex_policy_hash)
                 return -ENOMEM;
 
+        w = json_variant_by_key(v, "tpm2-pin");
+        if (w) {
+                if (!json_variant_is_boolean(w))
+                        return -EINVAL;
+
+                if (json_variant_boolean(w))
+                        flags |= TPM2_FLAGS_USE_PIN;
+        }
+
         *ret_pcr_mask = pcr_mask;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
         *ret_base64_blob = TAKE_PTR(base64_blob);
         *ret_hex_policy_hash = TAKE_PTR(hex_policy_hash);
+        *ret_flags = flags;
 
         return 0;
 }
