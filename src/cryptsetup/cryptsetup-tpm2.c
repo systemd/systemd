@@ -79,7 +79,7 @@ int acquire_tpm2_key(
                 size_t key_data_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                int flags,
+                systemd_tpm2_flags flags,
                 usec_t until,
                 bool headless,
                 AskPasswordFlags ask_password_flags,
@@ -187,12 +187,12 @@ int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 int *ret_keyslot,
                 int *ret_token,
-                int *ret_flags) {
+                systemd_tpm2_flags *ret_flags) {
 
         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
         size_t blob_size = 0, policy_hash_size = 0;
         int r, keyslot = -1, token = -1;
-        int flags = 0;
+        systemd_tpm2_flags flags = 0;
         uint32_t pcr_mask = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */

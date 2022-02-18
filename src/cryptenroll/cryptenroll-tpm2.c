@@ -60,9 +60,10 @@ static int search_policy_hash(
         return -ENOENT; /* Not found */
 }
 
-static int get_pin(char **ret_pin_str, int *ret_flags) {
+static int get_pin(char **ret_pin_str, systemd_tpm2_flags *ret_flags) {
         char *pin_str = NULL;
-        int r = 0, flags = 0;
+        int r = 0;
+        systemd_tpm2_flags flags = 0;
         const char *e;
         _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
 
@@ -149,7 +150,7 @@ int enroll_tpm2(struct crypt_device *cd,
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
-        int flags = 0;
+        systemd_tpm2_flags flags = 0;
 
         assert(cd);
         assert(volume_key);

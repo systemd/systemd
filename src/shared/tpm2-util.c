@@ -1292,7 +1292,7 @@ int tpm2_make_luks2_json(
                 size_t blob_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
-                int flags,
+                systemd_tpm2_flags flags,
                 JsonVariant **ret) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
@@ -1380,13 +1380,13 @@ int tpm2_primary_alg_from_string(const char *alg) {
         return -EINVAL;
 }
 
-int tpm2_flag_from_string(const char *flag) {
+systemd_tpm2_flags tpm2_flag_from_string(const char *flag) {
         if (streq_ptr(flag, "pin"))
                 return TPM2_FLAGS_USE_PIN;
         return -EINVAL;
 }
 
-const char *tpm2_flags_to_string(int flags) {
+const char *tpm2_flags_to_string(systemd_tpm2_flags flags) {
         if (flags & TPM2_FLAGS_USE_PIN)
                 return "pin";
         return NULL;

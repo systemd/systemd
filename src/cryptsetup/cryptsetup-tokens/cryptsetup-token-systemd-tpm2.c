@@ -80,7 +80,7 @@ _public_ int cryptsetup_token_open(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        int flags = 0;
+        systemd_tpm2_flags flags = 0;
         r = parse_luks2_tpm2_data(json, params.search_pcr_mask, &pcr_mask, &pcr_bank, &primary_alg, &base64_blob, &hex_policy_hash, &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -139,7 +139,7 @@ _public_ void cryptsetup_token_dump(
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
         int r;
-        int flags = 0;
+        systemd_tpm2_flags flags = 0;
         uint32_t pcr_mask;
         uint16_t pcr_bank, primary_alg;
         size_t decoded_blob_size;
