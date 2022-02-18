@@ -1006,6 +1006,22 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 }
                 break;
 
+        case SD_BUS_TYPE_UINT64:
+                if (endswith(name, "Timestamp")) {
+                        char timestamp_str[FORMAT_TIMESTAMP_MAX] = "n/a";
+                        uint64_t timestamp;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &timestamp);
+                        if (r < 0)
+                                return r;
+
+                        (void) format_timestamp_style(timestamp_str, sizeof(timestamp_str), timestamp, arg_timestamp_style);
+                        bus_print_property_value(name, expected_value, flags, timestamp_str);
+
+                        return 1;
+                }
+                break;
+
         case SD_BUS_TYPE_STRUCT:
 
                 if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
