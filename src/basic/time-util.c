@@ -324,6 +324,7 @@ char *format_timestamp_style(
         assert(buf);
 
         switch (style) {
+                case TIMESTAMP_UNIX:
                 case TIMESTAMP_PRETTY:
                         break;
                 case TIMESTAMP_US:
@@ -361,6 +362,13 @@ char *format_timestamp_style(
 
         if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return NULL;
+
+        if (style == TIMESTAMP_UNIX) {
+                if (strftime(buf, l, "@%s", &tm) <= 0)
+                        return NULL; /* Doesn't fit */
+
+                return buf;
+        }
 
         /* Start with the week day */
         assert((size_t) tm.tm_wday < ELEMENTSOF(weekdays));
@@ -1628,6 +1636,7 @@ int time_change_fd(void) {
 }
 
 static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
+        [TIMESTAMP_UNIX] = "unix",
         [TIMESTAMP_PRETTY] = "pretty",
         [TIMESTAMP_US] = "us",
         [TIMESTAMP_UTC] = "utc",
