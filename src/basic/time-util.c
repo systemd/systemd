@@ -325,6 +325,7 @@ char *format_timestamp_style(
 
         switch (style) {
                 case TIMESTAMP_PRETTY:
+                case TIMESTAMP_UNIX:
                         break;
                 case TIMESTAMP_US:
                         us = true;
@@ -361,6 +362,13 @@ char *format_timestamp_style(
 
         if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return NULL;
+
+        if (style == TIMESTAMP_UNIX) {
+                if (strftime(buf, l, "@%s", &tm) <= 0)
+                        return NULL; /* Doesn't fit */
+
+                return buf;
+        }
 
         /* Start with the week day */
         assert((size_t) tm.tm_wday < ELEMENTSOF(weekdays));
@@ -1632,6 +1640,7 @@ static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
         [TIMESTAMP_US] = "us",
         [TIMESTAMP_UTC] = "utc",
         [TIMESTAMP_US_UTC] = "us+utc",
+        [TIMESTAMP_UNIX] = "unix",
 };
 
 /* Use the macro for enum → string to allow for aliases */
