@@ -48,16 +48,15 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headl
                 assert(strv_length(pin) == 1);
 
                 /* Enforce a PIN length of at least 4 characters to avoid unnecessary unseal
-                 * attempts, which increase the dictionary attack counter and of up to 32 characters
-                 * (the maximum supported for authValue). */
+                 * attempts, which increment the dictionary attack counter. */
                 pin_len = strlen(*pin);
-                if (pin_len >= 4 && pin_len <= 32) {
+                if (pin_len >= 4) {
                         pin_str = strdup(*pin);
                         goto finish;
                 }
 
                 return log_error_errno(
-                        SYNTHETIC_ERRNO(EPERM), "Incorrect PIN length (must be 4-32 characters)!");
+                        SYNTHETIC_ERRNO(EPERM), "Incorrect PIN length (must be at least 4 characters)!");
         }
 
 finish:
