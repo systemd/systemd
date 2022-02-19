@@ -298,6 +298,7 @@ static int systemctl_help(void) {
                "     --plain             Print unit dependencies as a list instead of a tree\n"
                "     --timestamp=FORMAT  Change format of printed timestamps.\n"
                "                         'pretty' (default): 'Day YYYY-MM-DD HH:MM:SS TZ\n"
+               "                         'unix': '@seconds-since-the-epoch'\n"
                "                         'us': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ\n"
                "                         'utc': 'Day YYYY-MM-DD HH:MM:SS UTC\n"
                "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
