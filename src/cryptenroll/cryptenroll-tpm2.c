@@ -98,10 +98,10 @@ static int get_pin(char **ret_pin_str, systemd_tpm2_flags *ret_flags) {
                         assert(strv_length(pin) == 1);
 
                         /* Enforce a PIN length of at least 4 characters (fewer than that provides no serious
-                         * protection) and 32 characters (maximum of TPM2 authValue). */
+                         * protection). */
                         pin_len = strlen(*pin);
-                        if (pin_len < 4 || pin_len > 32) {
-                                log_error("Incorrect PIN length (must be 4-32 characters)!");
+                        if (pin_len < 4) {
+                                log_error("Incorrect PIN length (must be at least 4 characters)!");
                                 continue;
                         }
 
