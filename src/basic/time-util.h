@@ -30,6 +30,7 @@ typedef struct triple_timestamp {
 } triple_timestamp;
 
 typedef enum TimestampStyle {
+        TIMESTAMP_EPOCH,
         TIMESTAMP_PRETTY,
         TIMESTAMP_US,
         TIMESTAMP_UTC,
