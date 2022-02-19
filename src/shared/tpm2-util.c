@@ -14,6 +14,7 @@
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "time-util.h"
 
 static void *libtss2_esys_dl = NULL;
@@ -737,6 +738,14 @@ finish:
         return r;
 }
 
+static void *hash_pin(const char *pin, uint8_t ret_digest[32]) {
+        struct sha256_ctx hash;
+        size_t pin_len = strlen(pin);
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(pin, pin_len, &hash);
+        return sha256_finish_ctx(&hash, ret_digest);
+}
+
 int tpm2_seal(
                 const char *device,
                 uint32_t pcr_mask,
@@ -836,19 +845,11 @@ int tpm2_seal(
                 .sensitive.data.size = 32,
         };
         if (pin) {
-                size_t pin_len = strlen(pin);
-                /* According to "Trusted Platform Module, Part 2: Structures", 10.4.5, authValue is limited
-                 * by the maximum digest size. At the minimum, we can count on SHA-256 (256 bits / 32 bytes)
-                 * being supported, so that's our limit. */
-                if (pin_len > 32) {
-                        r = log_error_errno(
-                                        SYNTHETIC_ERRNO(EINVAL),
-                                        "PIN provided is too long (%lu bytes, up to 32 bytes allowed)",
-                                        pin_len);
-                        goto finish;
-                }
-                memcpy(hmac_sensitive.sensitive.userAuth.buffer, pin, pin_len);
-                hmac_sensitive.sensitive.userAuth.size = pin_len;
+                uint8_t pin_hash[32] = {};
+
+                hash_pin(pin, pin_hash);
+                memcpy(hmac_sensitive.sensitive.userAuth.buffer, pin_hash, sizeof(pin_hash));
+                hmac_sensitive.sensitive.userAuth.size = sizeof(pin_hash);
         }
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
@@ -1059,16 +1060,12 @@ int tpm2_unseal(
 
         if (pin) {
                 TPM2B_AUTH auth = {};
-                size_t pin_len = strlen(pin);
-                if (pin_len > 32) {
-                        r = log_error_errno(
-                                        SYNTHETIC_ERRNO(EINVAL),
-                                        "PIN provided is too long (%lu bytes, up to 32 bytes allowed)",
-                                        pin_len);
-                        goto finish;
-                }
-                memcpy(auth.buffer, pin, pin_len);
-                auth.size = pin_len;
+                uint8_t pin_hash[32] = {};
+
+                hash_pin(pin, pin_hash);
+                memcpy(auth.buffer, pin_hash, sizeof(pin_hash));
+                auth.size = sizeof(pin_hash);
+
                 rc = sym_Esys_TR_SetAuth(c.esys_context, hmac_key, &auth);
                 if (rc != TSS2_RC_SUCCESS) {
                         r = log_error_errno(
