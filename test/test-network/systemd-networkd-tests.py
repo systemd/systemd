@@ -5080,7 +5080,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         dummy99: auto -> 0x03 (No address assignment)
         veth97:  0x08
         veth98:  0x09
-        veth99:  0x10 (ignored, as it is upstream)
+        veth99:  0x10
         '''
 
         print('### ip -6 address show dev veth99 scope global')
@@ -5089,9 +5089,12 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         # IA_NA
         self.assertRegex(output, 'inet6 3ffe:501:ffff:100::[0-9]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         # address in IA_PD (Token=static)
-        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]00:1a:2b:3c:4d/56 (metric 256 |)scope global dynamic')
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]10:1a:2b:3c:4d/64 (metric 256 |)scope global dynamic')
         # address in IA_PD (Token=eui64)
-        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]00:1034:56ff:fe78:9abc/56 (metric 256 |)scope global dynamic')
+        self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]10:1034:56ff:fe78:9abc/64 (metric 256 |)scope global dynamic')
+        # address in IA_PD (temporary)
+        # Note that the temporary addresses may appear after the link enters configured state
+        self.wait_address('veth99', 'inet6 3ffe:501:ffff:[2-9a-f]10:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
 
         print('### ip -6 address show dev test1 scope global')
         output = check_output('ip -6 address show dev test1 scope global')
@@ -5099,7 +5102,6 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         # address in IA_PD (Token=static)
         self.assertRegex(output, 'inet6 3ffe:501:ffff:[2-9a-f]00:1a:2b:3c:4d/64 (metric 256 |)scope global dynamic mngtmpaddr')
         # address in IA_PD (temporary)
-        # Note that the temporary addresses may appear after the link enters configured state
         self.wait_address('test1', 'inet6 3ffe:501:ffff:[2-9a-f]00:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global temporary dynamic', ipv='-6')
 
         print('### ip -6 address show dev dummy98 scope global')
@@ -5164,7 +5166,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print('### ip -6 route show dev veth99')
         output = check_output('ip -6 route show dev veth99')
         print(output)
-        self.assertRegex(output, '3ffe:501:ffff:[2-9a-f]00::/56 proto kernel metric [0-9]* expires')
+        self.assertRegex(output, '3ffe:501:ffff:[2-9a-f]10::/64 proto kernel metric [0-9]* expires')
 
         print('### ip -6 route show dev test1')
         output = check_output('ip -6 route show dev test1')
@@ -5258,6 +5260,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         dummy97: 0x01 (The link will appear later)
         dummy98: 0x02
         dummy99: auto -> 0x03 (No address assignment)
+        6rd-XXX: auto -> 0x0[34]
         veth97:  0x08
         veth98:  0x09
         veth99:  0x10
@@ -5299,7 +5302,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 address show dev dummy99 scope global')
         print(output)
         # Assign=no
-        self.assertNotRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+03')
+        self.assertNotRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[34]')
 
         print('### ip -6 address show dev veth97 scope global')
         output = check_output('ip -6 address show dev veth97 scope global')
@@ -5364,7 +5367,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print('### ip -6 route show dev dummy99')
         output = check_output('ip -6 route show dev dummy99')
         print(output)
-        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+03::/64 proto dhcp metric [0-9]* expires')
+        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+0[34]::/64 proto dhcp metric [0-9]* expires')
 
         print('### ip -6 route show dev veth97')
         output = check_output('ip -6 route show dev veth97')
@@ -5411,13 +5414,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print('### ip -6 address show dev {}'.format(tunnel_name))
         output = check_output('ip -6 address show dev {}'.format(tunnel_name))
         print(output)
-        self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+00:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/56 (metric 256 |)scope global dynamic')
+        self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[34]:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global dynamic')
         self.assertRegex(output, 'inet6 ::10.100.100.[0-9]+/96 scope global')
 
         print('### ip -6 route show dev {}'.format(tunnel_name))
         output = check_output('ip -6 route show dev {}'.format(tunnel_name))
         print(output)
-        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+00::/56 proto kernel metric [0-9]* expires')
+        self.assertRegex(output, '2001:db8:6464:[0-9a-f]+0[34]::/64 proto kernel metric [0-9]* expires')
         self.assertRegex(output, '::/96 proto kernel metric [0-9]*')
 
         print('### ip -6 route show default')
