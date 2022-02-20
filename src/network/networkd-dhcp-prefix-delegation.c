@@ -487,19 +487,12 @@ static int dhcp_pd_get_preferred_subnet_prefix(
                                                       "subnet id %" PRIu64 " is out of range. Only have %" PRIu64 " subnets.",
                                                       link->network->dhcp_pd_subnet_id, UINT64_C(1) << (64 - pd_prefix_len));
 
-                if (link_get_by_dhcp_pd_subnet_prefix(link->manager, &prefix, &assigned_link) >= 0 &&
-                    assigned_link != link) {
-                        _cleanup_free_ char *assigned_buf = NULL;
-
-                        (void) in6_addr_to_string(&prefix, &assigned_buf);
-                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(EAGAIN),
-                                                      "The requested prefix %s is already assigned to another link.",
-                                                      strna(assigned_buf));
-                }
-
                 *ret = prefix;
                 return 0;
         }
+
+        if (dhcp_pd_get_assigned_subnet_prefix(link, pd_prefix, pd_prefix_len, ret) >= 0)
+                return 0;
 
         for (uint64_t n = 0; ; n++) {
                 /* If we do not have an allocation preference just iterate
@@ -517,11 +510,16 @@ static int dhcp_pd_get_preferred_subnet_prefix(
 
                 /* Check that the prefix is not assigned to another link. */
                 if (link_get_by_dhcp_pd_subnet_prefix(link->manager, &prefix, &assigned_link) < 0 ||
-                    assigned_link == link) {
-                        *ret = prefix;
-                        return 0;
-                }
+                    assigned_link == link)
+                        break;
         }
+
+        r = link_add_dhcp_pd_subnet_prefix(link, &prefix);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to save acquired free subnet prefix: %m");
+
+        *ret = prefix;
+        return 0;
 }
 
 static int dhcp_pd_assign_subnet_prefix(
@@ -540,9 +538,9 @@ static int dhcp_pd_assign_subnet_prefix(
         assert(link->network);
         assert(pd_prefix);
 
-        if (dhcp_pd_get_assigned_subnet_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0 &&
-            dhcp_pd_get_preferred_subnet_prefix(link, pd_prefix, pd_prefix_len, &prefix) < 0)
-                return 0;
+        r = dhcp_pd_get_preferred_subnet_prefix(link, pd_prefix, pd_prefix_len, &prefix);
+        if (r < 0)
+                return r == -ERANGE ? 0 : r;
 
         (void) in6_addr_prefix_to_string(&prefix, 64, &buf);
 
@@ -568,12 +566,6 @@ static int dhcp_pd_assign_subnet_prefix(
         if (r < 0)
                 return log_link_warning_errno(link, r,
                                               "Failed to assign/update address for prefix %s: %m",
-                                              strna(buf));
-
-        r = link_add_dhcp_pd_subnet_prefix(link, &prefix);
-        if (r < 0)
-                return log_link_warning_errno(link, r,
-                                              "Failed to save assigned prefix %s: %m",
                                               strna(buf));
 
         log_link_debug(link, "Assigned prefix %s", strna(buf));
