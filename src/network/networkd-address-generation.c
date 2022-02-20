@@ -252,8 +252,8 @@ static int generate_addresses(
         return 0;
 }
 
-int dhcp_pd_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
-        return generate_addresses(link, link->network->dhcp_pd_tokens, &DHCP_PD_APP_ID, prefix, prefixlen, ret);
+int dhcp_pd_generate_addresses(Link *link, const struct in6_addr *prefix, Set **ret) {
+        return generate_addresses(link, link->network->dhcp_pd_tokens, &DHCP_PD_APP_ID, prefix, 64, ret);
 }
 
 int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
