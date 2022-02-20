@@ -20,7 +20,7 @@ CHANGES WITH 251:
           is mapped almost fully, with the exception of the UID subrange used
           for systemd-homed users, with one exception from that: the user's own
           UID). Unmapped UIDs may not be used for file ownership in the home
-          dirctory — any chown() attempts with them will fail. With this
+          directory — any chown() attempts with them will fail. With this
           release a fourth range is added to these mappings:
           524288…1879048191. This range is the UID range intended for container
           uses, see:
