@@ -15,6 +15,8 @@ systemd_analyze_sources = files('''
         analyze-filesystems.h
         analyze-security.c
         analyze-security.h
+        analyze-service-watchdogs.c
+        analyze-service-watchdogs.h
         analyze-syscall-filter.c
         analyze-syscall-filter.h
         analyze-timespan.c
