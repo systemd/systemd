@@ -37,6 +37,8 @@ systemd_analyze_sources = files('''
         analyze-timespan.h
         analyze-timestamp.c
         analyze-timestamp.h
+        analyze-unit-files.c
+        analyze-unit-files.h
         analyze-unit-paths.c
         analyze-unit-paths.h
         analyze-verify.c
