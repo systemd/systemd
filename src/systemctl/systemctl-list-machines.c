@@ -219,7 +219,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         return 0;
 }
 
-int list_machines(int argc, char *argv[], void *userdata) {
+int verb_list_machines(int argc, char *argv[], void *userdata) {
         struct machine_info *machine_infos = NULL;
         sd_bus *bus;
         int r, rc;

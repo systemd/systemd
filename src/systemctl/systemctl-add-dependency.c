@@ -7,7 +7,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int add_dependency(int argc, char *argv[], void *userdata) {
+int verb_add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
@@ -78,7 +78,9 @@ int add_dependency(int argc, char *argv[], void *userdata) {
                         goto finish;
                 }
 
-                r = daemon_reload(argc, argv, userdata);
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                if (r > 0)
+                        r = 0;
         }
 
 finish:
