@@ -31,6 +31,7 @@
 #include "analyze-time-data.h"
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
+#include "analyze-unit-paths.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -478,21 +479,6 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *j = strv_join(v, ", ");
                 printf("aliases: %s ← %s\n", k, j);
         }
-
-        return 0;
-}
-
-static int dump_unit_paths(int argc, char *argv[], void *userdata) {
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        int r;
-        char **p;
-
-        r = lookup_paths_init(&paths, arg_scope, 0, NULL);
-        if (r < 0)
-                return log_error_errno(r, "lookup_paths_init() failed: %m");
-
-        STRV_FOREACH(p, paths.search_path)
-                puts(*p);
 
         return 0;
 }
