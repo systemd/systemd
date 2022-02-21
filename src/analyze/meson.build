@@ -3,6 +3,8 @@
 systemd_analyze_sources = files('''
         analyze-calendar.c
         analyze-calendar.h
+        analyze-capability.c
+        analyze-capability.h
         analyze-condition.c
         analyze-condition.h
         analyze-dot.c
