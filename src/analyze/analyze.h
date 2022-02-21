@@ -32,6 +32,7 @@ extern bool arg_offline;
 extern unsigned arg_threshold;
 extern unsigned arg_iterations;
 extern usec_t arg_base_time;
+extern char *arg_unit;
 extern JsonFormatFlags arg_json_format_flags;
 extern bool arg_quiet;
 extern char *arg_profile;
