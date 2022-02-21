@@ -100,7 +100,7 @@ bool arg_offline = false;
 unsigned arg_threshold = 100;
 unsigned arg_iterations = 1;
 usec_t arg_base_time = USEC_INFINITY;
-static char *arg_unit = NULL;
+char *arg_unit = NULL;
 JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 bool arg_quiet = false;
 char *arg_profile = NULL;
@@ -161,10 +161,6 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
         if (timespan && parse_time(p, NULL, USEC_PER_SEC) >= 0)
                 log_notice("Hint: this expression is a valid timespan. "
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
-}
-
-static int do_condition(int argc, char *argv[], void *userdata) {
-        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
 }
 
 static int help(int argc, char *argv[], void *userdata) {

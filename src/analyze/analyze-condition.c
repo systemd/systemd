@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "analyze.h"
 #include "analyze-condition.h"
 #include "analyze-verify-util.h"
 #include "condition.h"
@@ -73,7 +74,7 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         return r;
 }
 
-int verify_conditions(char **lines, UnitFileScope scope, const char *unit, const char *root) {
+static int verify_conditions(char **lines, UnitFileScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r, q = 1;
@@ -135,4 +136,8 @@ int verify_conditions(char **lines, UnitFileScope scope, const char *unit, const
                 log_notice("Conditions %s.", q > 0 ? "succeeded" : "failed");
 
         return r > 0 && q > 0 ? 0 : -EIO;
+}
+
+int do_condition(int argc, char *argv[], void *userdata) {
+        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
 }
