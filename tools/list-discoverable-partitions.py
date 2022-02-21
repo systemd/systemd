@@ -142,7 +142,7 @@ DESCRIPTIONS = {
 def extract(file):
     for line in file:
         # print(line)
-        m = re.match(r'^#define\s+GPT_(.*SD_ID128_MAKE.*)', line)
+        m = re.match(r'^#define\s+GPT_(.*SD_ID128_MAKE\(.*\))', line)
         if not m:
             continue
 
