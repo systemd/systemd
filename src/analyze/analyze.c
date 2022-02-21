@@ -23,6 +23,7 @@
 #include "analyze-elf.h"
 #include "analyze-exit-status.h"
 #include "analyze-filesystems.h"
+#include "analyze-log-control.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
@@ -433,19 +434,6 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
 
         puts(buf);
         return 0;
-}
-
-static int verb_log_control(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(IN_SET(argc, 1, 2));
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
-
-        return verb_log_control_common(bus, "org.freedesktop.systemd1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
 static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int flags) {
