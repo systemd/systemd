@@ -33,6 +33,8 @@ systemd_analyze_sources = files('''
         analyze-service-watchdogs.h
         analyze-syscall-filter.c
         analyze-syscall-filter.h
+        analyze-time.c
+        analyze-time.h
         analyze-time-data.c
         analyze-time-data.h
         analyze-timespan.c
