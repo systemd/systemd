@@ -43,14 +43,10 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
-        e = getenv("PIN");
-        if (e) {
-                pin_str = strdup(e);
-                if (!pin_str)
-                        return log_oom();
-
-                assert_se(unsetenv_erase("PIN") >= 0);
-        } else {
+        r = getenv_steal_erase("PIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (r > 0) {
                 /* PIN entry is not supported by plugin, let it fallback, possibly to sd-cryptsetup's
                  * internal handling. */
                 if (flags & TPM2_FLAGS_USE_PIN)

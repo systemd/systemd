@@ -14,17 +14,12 @@
 static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
         char *pin_str = NULL;
         int r = 0;
-        const char *e;
         _cleanup_strv_free_erase_ char **pin = NULL;
 
-        e = getenv("PIN");
-        if (e) {
-                pin_str = strdup(e);
-                if (!pin_str)
-                        return log_oom();
-
-                assert_se(unsetenv_erase("PIN") >= 0);
-        } else {
+        r = getenv_steal_erase("PIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (!r) {
                 size_t pin_len;
 
                 if (headless)

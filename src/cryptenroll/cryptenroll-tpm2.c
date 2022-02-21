@@ -64,17 +64,13 @@ static int get_pin(char **ret_pin_str, systemd_tpm2_flags *ret_flags) {
         char *pin_str = NULL;
         int r = 0;
         systemd_tpm2_flags flags = 0;
-        const char *e;
         _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
 
-        e = getenv("NEWPIN");
-        if (e) {
-                pin_str = strdup(e);
-                if (!pin_str)
-                        return log_oom();
+        r = getenv_steal_erase("NEWPIN", &pin_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        if (r > 0) {
                 flags |= TPM2_FLAGS_USE_PIN;
-
-                assert_se(unsetenv_erase("NEWPIN") >= 0);
         } else {
                 for (int i = 5;; i--) {
                         size_t pin_len;
