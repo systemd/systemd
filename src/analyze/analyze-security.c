@@ -3,6 +3,7 @@
 #include <sys/utsname.h>
 
 #include "af-list.h"
+#include "analyze.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
@@ -11,6 +12,8 @@
 #include "bus-util.h"
 #include "copy.h"
 #include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "in-addr-prefix-util.h"
 #include "locale-util.h"
@@ -2753,7 +2756,7 @@ static int offline_security_checks(char **filenames,
         return r;
 }
 
-int analyze_security(sd_bus *bus,
+static int analyze_security(sd_bus *bus,
                      char **units,
                      JsonVariant *policy,
                      UnitFileScope scope,
@@ -2885,4 +2888,52 @@ int analyze_security(sd_bus *bus,
                         return log_error_errno(r, "Failed to output table: %m");
         }
         return ret;
+}
+
+int do_security(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *policy = NULL;
+        int r;
+        unsigned line, column;
+
+        if (!arg_offline) {
+                r = acquire_bus(&bus, NULL);
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport);
+        }
+
+        pager_open(arg_pager_flags);
+
+        if (arg_security_policy) {
+                r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
+        } else {
+                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_free_ char *pp = NULL;
+
+                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (f) {
+                        r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
+                        if (r < 0)
+                                return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
+                }
+        }
+
+        return analyze_security(bus,
+                                strv_skip(argv, 1),
+                                policy,
+                                arg_scope,
+                                arg_man,
+                                arg_generators,
+                                arg_offline,
+                                arg_threshold,
+                                arg_root,
+                                arg_profile,
+                                arg_json_format_flags,
+                                arg_pager_flags,
+                                /*flags=*/ 0);
 }
