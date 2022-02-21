@@ -16,6 +16,7 @@
 #include "analyze-blame.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
+#include "analyze-cat-config.h"
 #include "analyze-condition.h"
 #include "analyze-dot.h"
 #include "analyze-dump.h"
@@ -87,7 +88,7 @@ UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
 static bool arg_man = true;
 static bool arg_generators = false;
-static char *arg_root = NULL;
+char *arg_root = NULL;
 static char *arg_image = NULL;
 static char *arg_security_policy = NULL;
 static bool arg_offline = false;
@@ -431,42 +432,6 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
                 return r;
 
         puts(buf);
-        return 0;
-}
-
-static int cat_config(int argc, char *argv[], void *userdata) {
-        char **arg, **list;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        list = strv_skip(argv, 1);
-        STRV_FOREACH(arg, list) {
-                const char *t = NULL;
-
-                if (arg != list)
-                        print_separator();
-
-                if (path_is_absolute(*arg)) {
-                        const char *dir;
-
-                        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
-                                t = path_startswith(*arg, dir);
-                                if (t)
-                                        break;
-                        }
-
-                        if (!t)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Path %s does not start with any known prefix.", *arg);
-                } else
-                        t = *arg;
-
-                r = conf_files_cat(arg_root, t);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
 }
 
