@@ -34,6 +34,7 @@ typedef enum TimestampStyle {
         TIMESTAMP_US,
         TIMESTAMP_UTC,
         TIMESTAMP_US_UTC,
+        TIMESTAMP_UNIX,
         _TIMESTAMP_STYLE_MAX,
         _TIMESTAMP_STYLE_INVALID = -EINVAL,
 } TimestampStyle;
