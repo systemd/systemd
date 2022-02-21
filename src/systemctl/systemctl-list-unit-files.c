@@ -133,7 +133,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         return 0;
 }
 
-int list_unit_files(int argc, char *argv[], void *userdata) {
+int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         unsigned c = 0;

@@ -6,7 +6,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int daemon_reload(int argc, char *argv[], void *userdata) {
+int verb_daemon_reload(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;

@@ -126,7 +126,7 @@ int telinit_parse_argv(int argc, char *argv[]) {
 
 int start_with_fallback(void) {
         /* First, try systemd via D-Bus. */
-        if (start_unit(0, NULL, NULL) == 0)
+        if (verb_start(0, NULL, NULL) == 0)
                 return 0;
 
 #if HAVE_SYSV_COMPAT
@@ -141,7 +141,7 @@ int start_with_fallback(void) {
 
 int reload_with_fallback(void) {
         /* First, try systemd via D-Bus. */
-        if (daemon_reload(0, NULL, NULL) >= 0)
+        if (verb_daemon_reload(0, NULL, NULL) >= 0)
                 return 0;
 
         /* Nothing else worked, so let's try signals */

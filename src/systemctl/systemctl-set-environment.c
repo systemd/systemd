@@ -59,7 +59,7 @@ static int print_variable(const char *s) {
         return 0;
 }
 
-int show_environment(int argc, char *argv[], void *userdata) {
+int verb_show_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *text;
@@ -111,7 +111,7 @@ static void invalid_callback(const char *p, void *userdata) {
         log_debug("Ignoring invalid environment assignment \"%s\".", strnull(t));
 }
 
-int set_environment(int argc, char *argv[], void *userdata) {
+int verb_set_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
@@ -146,7 +146,7 @@ int set_environment(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-int import_environment(int argc, char *argv[], void *userdata) {
+int verb_import_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus;
