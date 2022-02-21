@@ -325,6 +325,11 @@ TEST(format_timestamp) {
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
 
+                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UNIX));
+                log_debug("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+
                 assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC));
                 log_debug("%s", buf);
                 assert_se(parse_timestamp(buf, &y) >= 0);

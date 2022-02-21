@@ -320,11 +320,13 @@ char *format_timestamp_style(
         time_t sec;
         size_t n;
         bool utc = false, us = false;
+        int r;
 
         assert(buf);
 
         switch (style) {
                 case TIMESTAMP_PRETTY:
+                case TIMESTAMP_UNIX:
                         break;
                 case TIMESTAMP_US:
                         us = true;
@@ -349,6 +351,14 @@ char *format_timestamp_style(
                 return NULL; /* Not enough space even for the shortest form. */
         if (t <= 0 || t == USEC_INFINITY)
                 return NULL; /* Timestamp is unset */
+
+        if (style == TIMESTAMP_UNIX) {
+                r = snprintf(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
+                if (r < 0 || (size_t) r >= l)
+                        return NULL; /* Doesn't fit */
+
+                return buf;
+        }
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
@@ -1632,6 +1642,7 @@ static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
         [TIMESTAMP_US] = "us",
         [TIMESTAMP_UTC] = "utc",
         [TIMESTAMP_US_UTC] = "us+utc",
+        [TIMESTAMP_UNIX] = "unix",
 };
 
 /* Use the macro for enum → string to allow for aliases */
