@@ -2324,12 +2324,47 @@ static EFI_STATUS image_start(
         err = initrd_prepare(entry, &options_initrd, &initrd, &initrd_size);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
+        CHAR16 *options = options_initrd ?: entry->options;
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
 
         err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
+        if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
+                /* If LoadImage fails, we may still start the kernel manually the same way we do for the
+                 * unified stub loader, which will then call the compat entry point if one exists. *
+
+                 * Better be on the safe side. */
+                if (secure_boot_enabled())
+                        return log_error_status_stall(
+                                err,
+                                L"Kernel image '%s' is unsupported by firmware. Refusing to "
+                                L"try compat entry point because of secure boot.",
+                                entry->loader);
+
+                UINTN cmdline_len = (StrSize(options) / sizeof(CHAR16)) * sizeof(CHAR8);
+                _cleanup_freepool_ CHAR8 *cmdline = xallocate_pool(cmdline_len);
+                for (UINTN i = 0; i < cmdline_len; i++)
+                        cmdline[i] = options[i];
+                (void) tpm_log_load_options(options);
+
+                _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(entry->device);
+                if (!root)
+                        return log_error_status_stall(EFI_DEVICE_ERROR, L"Error opening device root for '%s'.", entry->loader);
+
+                UINTN linux_size = 0;
+                _cleanup_freepool_ CHAR8 *linux_buffer = NULL;
+                err = file_read(root, entry->loader, 0, 0, &linux_buffer, &linux_size);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Error reading kernel image '%s': %r", entry->loader, err);
+
+                err = linux_exec(parent_image, cmdline, cmdline_len, linux_buffer, linux_size, initrd, initrd_size);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Error executing kernel image '%s': %r", entry->loader, err);
+
+                return err;
+        }
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
@@ -2355,7 +2390,6 @@ static EFI_STATUS image_start(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
 
-        CHAR16 *options = options_initrd ?: entry->options;
         if (options) {
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = StrSize(options);

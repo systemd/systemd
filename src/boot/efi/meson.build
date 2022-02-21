@@ -369,8 +369,9 @@ stub_sources = files(
 
 if efi_arch[1] in ['ia32', 'x86_64']
         stub_sources += files('linux_x86.c')
+        systemd_boot_sources += files('linux.c')
 else
-        stub_sources += files('linux.c')
+        common_sources += files('linux.c')
 endif
 
 # BCD parser only makes sense on arches that Windows supports.
