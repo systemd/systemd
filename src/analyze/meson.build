@@ -11,6 +11,8 @@ systemd_analyze_sources = files('''
         analyze-cat-config.h
         analyze-condition.c
         analyze-condition.h
+        analyze-critical-chain.c
+        analyze-critical-chain.h
         analyze-dot.c
         analyze-dot.h
         analyze-dump.c
