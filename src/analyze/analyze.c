@@ -15,6 +15,7 @@
 #include "analyze.h"
 #include "analyze-calendar.h"
 #include "analyze-condition.h"
+#include "analyze-dump.h"
 #include "analyze-elf.h"
 #include "analyze-filesystems.h"
 #include "analyze-security.h"
@@ -96,7 +97,7 @@ static char **arg_dot_from_patterns = NULL;
 static char **arg_dot_to_patterns = NULL;
 static usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
-static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
@@ -176,7 +177,7 @@ typedef struct HostInfo {
         char *architecture;
 } HostInfo;
 
-static int acquire_bus(sd_bus **bus, bool *use_full_bus) {
+int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         bool user = arg_scope != UNIT_FILE_SYSTEM;
         int r;
 
@@ -1376,60 +1377,6 @@ static int dot(int argc, char *argv[], void *userdata) {
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
 
         return 0;
-}
-
-static int dump_fallback(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *text = NULL;
-        int r;
-
-        assert(bus);
-
-        r = bus_call_method(bus, bus_systemd_mgr, "Dump", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue method call Dump: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fputs(text, stdout);
-        return 0;
-}
-
-static int dump(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int fd = -1;
-        int r;
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
-
-        pager_open(arg_pager_flags);
-
-        if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
-                return dump_fallback(bus);
-
-        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
-        if (r < 0) {
-                /* fall back to Dump if DumpByFileDescriptor is not supported */
-                if (!IN_SET(r, -EACCES, -EBADR))
-                        return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s",
-                                               bus_error_message(&error, r));
-
-                return dump_fallback(bus);
-        }
-
-        r = sd_bus_message_read(reply, "h", &fd);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fflush(stdout);
-        return copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
 }
 
 static int cat_config(int argc, char *argv[], void *userdata) {
