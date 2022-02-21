@@ -9,6 +9,8 @@ systemd_analyze_sources = files('''
         analyze-security.h
         analyze-timespan.c
         analyze-timespan.h
+        analyze-timestamp.c
+        analyze-timestamp.h
         analyze-verify.c
         analyze-verify.h
         analyze.c
