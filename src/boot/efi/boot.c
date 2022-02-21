@@ -181,6 +181,9 @@ static BOOLEAN line_edit(
                         cursor_color = TEXT_ATTR_SWAP(cursor_color);
 
                         err = console_key_read(&key, 750 * 1000);
+                        if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
+                                return FALSE;
+
                         print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
                 } while (EFI_ERROR(err));
 
@@ -440,8 +443,16 @@ static void ps_bool(const CHAR16 *fmt, BOOLEAN value) {
         Print(fmt, yes_no(value));
 }
 
-static void print_status(Config *config, CHAR16 *loaded_image_path) {
+static BOOLEAN ps_continue(void) {
         UINT64 key;
+        EFI_STATUS err;
+
+        Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+        err = console_key_read(&key, UINT64_MAX);
+        return !EFI_ERROR(err) && !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
+}
+
+static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINTN x_max, y_max;
         SecureBootMode secure;
         _cleanup_freepool_ CHAR16 *device_part_uuid = NULL;
@@ -469,8 +480,8 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
           ps_bool(L"                  shim: %s\n",      shim_loaded());
             Print(L"          console mode: %d/%d (%lu x %lu)\n", ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - 1LL, x_max, y_max);
 
-        Print(L"\n--- Press any key to continue. ---\n\n");
-        console_key_read(&key, UINT64_MAX);
+        if (!ps_continue())
+                return;
 
         switch (config->timeout_sec_config) {
         case TIMEOUT_UNSET:
@@ -518,8 +529,8 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
             Print(L"console-mode (EFI var): %ld\n", config->console_mode_efivar);
 
-        Print(L"\n--- Press any key to continue. ---\n\n");
-        console_key_read(&key, UINT64_MAX);
+        if (!ps_continue())
+                return;
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 ConfigEntry *entry = config->entries[i];
@@ -545,10 +556,8 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                     Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
 
-                Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
-                console_key_read(&key, UINT64_MAX);
-                if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q') || key == KEYPRESS(0, 0, 'Q'))
-                        break;
+                if (!ps_continue())
+                        return;
         }
 }
 
@@ -731,7 +740,12 @@ static BOOLEAN menu_run(
                 }
 
                 err = console_key_read(&key, timeout_remain > 0 ? 1000 * 1000 : UINT64_MAX);
+                if (err == EFI_NOT_READY)
+                        /* No input device returned a key, try again. This
+                         * normally should not happen. */
+                        continue;
                 if (err == EFI_TIMEOUT) {
+                        assert(timeout_remain > 0);
                         timeout_remain--;
                         if (timeout_remain == 0) {
                                 exit = TRUE;
@@ -740,8 +754,13 @@ static BOOLEAN menu_run(
 
                         /* update status */
                         continue;
-                } else
-                        timeout_remain = 0;
+                }
+                if (EFI_ERROR(err)) {
+                        exit = TRUE;
+                        break;
+                }
+
+                timeout_remain = 0;
 
                 /* clear status after keystroke */
                 if (status) {
