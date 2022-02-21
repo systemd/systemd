@@ -116,7 +116,7 @@ static int set_exit_code(uint8_t code) {
         return 0;
 }
 
-int start_special(int argc, char *argv[], void *userdata) {
+int verb_start_special(int argc, char *argv[], void *userdata) {
         bool termination_action; /* An action that terminates the manager, can be performed also by
                                   * signal. */
         enum action a;
@@ -197,7 +197,7 @@ int start_special(int argc, char *argv[], void *userdata) {
 
         if (arg_force >= 1 &&
             (termination_action || IN_SET(a, ACTION_KEXEC, ACTION_EXIT)))
-                r = trivial_method(argc, argv, userdata);
+                r = verb_trivial_method(argc, argv, userdata);
         else {
                 /* First try logind, to allow authentication with polkit */
                 if (IN_SET(a,
@@ -229,7 +229,7 @@ int start_special(int argc, char *argv[], void *userdata) {
                          * behaviour. */
                         arg_no_block = true;
 
-                r = start_unit(argc, argv, userdata);
+                r = verb_start(argc, argv, userdata);
         }
 
         if (termination_action && arg_force < 2 &&
@@ -239,7 +239,7 @@ int start_special(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-int start_system_special(int argc, char *argv[], void *userdata) {
+int verb_start_system_special(int argc, char *argv[], void *userdata) {
         /* Like start_special above, but raises an error when running in user mode */
 
         if (arg_scope != UNIT_FILE_SYSTEM)
@@ -247,5 +247,5 @@ int start_system_special(int argc, char *argv[], void *userdata) {
                                        "Bad action for %s mode.",
                                        arg_scope == UNIT_FILE_GLOBAL ? "--global" : "--user");
 
-        return start_special(argc, argv, userdata);
+        return verb_start_special(argc, argv, userdata);
 }

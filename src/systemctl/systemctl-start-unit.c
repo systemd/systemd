@@ -261,7 +261,7 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
         return extra_args;
 }
 
-int start_unit(int argc, char *argv[], void *userdata) {
+int verb_start(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;

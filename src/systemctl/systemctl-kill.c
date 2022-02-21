@@ -6,7 +6,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int kill_unit(int argc, char *argv[], void *userdata) {
+int verb_kill(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         char *kill_who = NULL, **name;
         sd_bus *bus;

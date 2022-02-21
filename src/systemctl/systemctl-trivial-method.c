@@ -8,7 +8,7 @@
 
 /* A generic implementation for cases we just need to invoke a simple method call on the Manager object. */
 
-int trivial_method(int argc, char *argv[], void *userdata) {
+int verb_trivial_method(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
         sd_bus *bus;

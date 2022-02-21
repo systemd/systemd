@@ -7,7 +7,7 @@
 #include "bus-map-properties.h"
 #include "time-util.h"
 
-int list_machines(int argc, char *argv[], void *userdata);
+int verb_list_machines(int argc, char *argv[], void *userdata);
 
 struct machine_info {
         bool is_host;

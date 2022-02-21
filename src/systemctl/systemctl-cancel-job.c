@@ -8,13 +8,13 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int cancel_job(int argc, char *argv[], void *userdata) {
+int verb_cancel(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         char **name;
         int r;
 
         if (argc <= 1) /* Shortcut to trivial_method() if no argument is given */
-                return trivial_method(argc, argv, userdata);
+                return verb_trivial_method(argc, argv, userdata);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)

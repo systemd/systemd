@@ -7,7 +7,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int service_watchdogs(int argc, char *argv[], void *userdata) {
+int verb_service_watchdogs(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int b, r;

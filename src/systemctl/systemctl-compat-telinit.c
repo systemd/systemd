@@ -128,7 +128,7 @@ int start_with_fallback(void) {
         int r;
 
         /* First, try systemd via D-Bus. */
-        r = start_unit(0, NULL, NULL);
+        r = verb_start(0, NULL, NULL);
         if (r == 0)
                 return 0;
 
@@ -143,7 +143,7 @@ int start_with_fallback(void) {
 
 int reload_with_fallback(void) {
         /* First, try systemd via D-Bus. */
-        if (daemon_reload(0, NULL, NULL) >= 0)
+        if (verb_daemon_reload(0, NULL, NULL) >= 0)
                 return 0;
 
         /* Nothing else worked, so let's try signals */
