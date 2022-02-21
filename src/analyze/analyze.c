@@ -1871,7 +1871,7 @@ static int run(int argc, char *argv[]) {
                 { "critical-chain",    VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
                 { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
-                /* The following seven verbs are deprecated */
+                /* ↓ The following seven verbs are deprecated, from here … ↓ */
                 { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
                 { "log-target",        VERB_ANY, 2,        0,            verb_log_control       },
                 { "set-log-level",     2,        2,        0,            verb_log_control       },
@@ -1879,6 +1879,7 @@ static int run(int argc, char *argv[]) {
                 { "set-log-target",    2,        2,        0,            verb_log_control       },
                 { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
                 { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
+                /* ↑ … until here ↑ */
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
                 { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            do_unit_files          },
