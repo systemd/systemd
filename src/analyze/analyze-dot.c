@@ -123,7 +123,7 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
         return 0;
 }
 
-int dot(int argc, char *argv[], void *userdata) {
+int verb_dot(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

@@ -128,7 +128,7 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
         return 0;
 }
 
-int do_elf_inspection(int argc, char *argv[], void *userdata) {
+int verb_elf_inspection(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         return analyze_elf(strv_skip(argv, 1), arg_json_format_flags);

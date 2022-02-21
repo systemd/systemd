@@ -9,7 +9,7 @@
 #include "pretty-print.h"
 #include "strv.h"
 
-int cat_config(int argc, char *argv[], void *userdata) {
+int verb_cat_config(int argc, char *argv[], void *userdata) {
         char **arg, **list;
         int r;
 

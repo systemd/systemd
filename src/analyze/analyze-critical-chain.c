@@ -195,7 +195,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         return list_dependencies_one(bus, name, 0, &units, 0);
 }
 
-int analyze_critical_chain(int argc, char *argv[], void *userdata) {
+int verb_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         Hashmap *h;

@@ -54,7 +54,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
         return 0;
 }
 
-int do_verify(int argc, char *argv[], void *userdata) {
+int verb_verify(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **filenames = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
         int r;

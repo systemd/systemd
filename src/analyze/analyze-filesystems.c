@@ -108,7 +108,7 @@ static void dump_filesystem_set(const FilesystemSet *set) {
         }
 }
 
-int dump_filesystems(int argc, char *argv[], void *userdata) {
+int verb_filesystems(int argc, char *argv[], void *userdata) {
         bool first = true;
 
 #if ! HAVE_LIBBPF

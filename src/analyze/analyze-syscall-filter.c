@@ -86,7 +86,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                 printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
 }
 
-int dump_syscall_filters(int argc, char *argv[], void *userdata) {
+int verb_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
         pager_open(arg_pager_flags);

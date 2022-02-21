@@ -15,7 +15,7 @@ static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int f
         return false;
 }
 
-int do_unit_files(int argc, char *argv[], void *userdata) {
+int verb_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         char **patterns = strv_skip(argv, 1);

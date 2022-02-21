@@ -6,7 +6,7 @@
 #include "capability-util.h"
 #include "format-table.h"
 
-int dump_capabilities(int argc, char *argv[], void *userdata) {
+int verb_capabilities(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         unsigned last_cap;
         int r;

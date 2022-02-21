@@ -6,7 +6,7 @@
 #include "bus-locator.h"
 #include "parse-util.h"
 
-int service_watchdogs(int argc, char *argv[], void *userdata) {
+int verb_service_watchdogs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b, r;

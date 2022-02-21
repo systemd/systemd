@@ -7,4 +7,4 @@ typedef enum AnalyzeSecurityFlags {
         ANALYZE_SECURITY_ONLY_LONG_RUNNING = 1 << 2,
 } AnalyzeSecurityFlags;
 
-int do_security(int argc, char *argv[], void *userdata);
+int verb_security(int argc, char *argv[], void *userdata);

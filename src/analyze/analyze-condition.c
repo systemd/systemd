@@ -138,6 +138,6 @@ static int verify_conditions(char **lines, UnitFileScope scope, const char *unit
         return r > 0 && q > 0 ? 0 : -EIO;
 }
 
-int do_condition(int argc, char *argv[], void *userdata) {
+int verb_condition(int argc, char *argv[], void *userdata) {
         return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
 }
