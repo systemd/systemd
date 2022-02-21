@@ -46,6 +46,7 @@ typedef struct UnitTimes {
 } UnitTimes;
 
 int acquire_boot_times(sd_bus *bus, BootTimes **ret);
+int pretty_boot_time(sd_bus *bus, char **ret);
 
 UnitTimes* unit_times_free_array(UnitTimes *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);

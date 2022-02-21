@@ -18,6 +18,7 @@ extern DotMode arg_dot;
 extern char **arg_dot_from_patterns, **arg_dot_to_patterns;
 extern PagerFlags arg_pager_flags;
 extern BusTransport arg_transport;
+extern const char *arg_host;
 extern UnitFileScope arg_scope;
 extern unsigned arg_iterations;
 extern usec_t arg_base_time;
