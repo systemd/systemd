@@ -3,10 +3,15 @@
 
 #include "missing_efi.h"
 
-#define EFI_CONTROL_PRESSED             (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED)
-#define EFI_ALT_PRESSED                 (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED)
+enum {
+        EFI_SHIFT_PRESSED   = EFI_RIGHT_SHIFT_PRESSED|EFI_LEFT_SHIFT_PRESSED,
+        EFI_CONTROL_PRESSED = EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED,
+        EFI_ALT_PRESSED     = EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED,
+        EFI_LOGO_PRESSED    = EFI_RIGHT_LOGO_PRESSED|EFI_LEFT_LOGO_PRESSED,
+};
+
 #define KEYPRESS(keys, scan, uni) ((((UINT64)keys) << 32) | (((UINT64)scan) << 16) | (uni))
-#define KEYCHAR(k) ((k) & 0xffff)
+#define KEYCHAR(k) ((CHAR16)(k))
 #define CHAR_CTRL(c) ((c) - 'a' + 1)
 
 enum {
