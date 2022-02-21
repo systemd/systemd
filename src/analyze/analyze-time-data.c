@@ -7,7 +7,6 @@
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "special.h"
-#include "strxcpyx.h"
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -127,14 +126,11 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
 }
 
 int pretty_boot_time(sd_bus *bus, char **ret) {
-        BootTimes *t;
-        static char buf[4096];
-        size_t size;
-        char *ptr;
-        int r;
-        usec_t activated_time = USEC_INFINITY;
-        _cleanup_free_ char *path = NULL, *unit_id = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *unit_id = NULL, *text = NULL;
+        usec_t activated_time = USEC_INFINITY;
+        BootTimes *t;
+        int r;
 
         r = acquire_boot_times(bus, &t);
         if (r < 0)
@@ -152,54 +148,59 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                         "Id",
                         &error,
                         &unit_id);
-        if (r < 0) {
-                log_error_errno(r, "default.target doesn't seem to exist: %s", bus_error_message(&error, r));
-                unit_id = NULL;
-        }
+        if (r < 0)
+                log_warning_errno(r, "default.target doesn't seem to exist, ignoring: %s", bus_error_message(&error, r));
 
         r = bus_get_uint64_property(bus, path,
                         "org.freedesktop.systemd1.Unit",
                         "ActiveEnterTimestampMonotonic",
                         &activated_time);
-        if (r < 0) {
-                log_info_errno(r, "Could not get time to reach default.target, ignoring: %m");
-                activated_time = USEC_INFINITY;
-        }
+        if (r < 0)
+                log_warning_errno(r, "Could not get time to reach default.target, ignoring: %m");
 
-        ptr = buf;
-        size = sizeof(buf);
+        text = strdup("Startup finished in ");
+        if (!text)
+                return log_oom();
 
-        size = strpcpyf(&ptr, size, "Startup finished in ");
-        if (t->firmware_time > 0)
-                size = strpcpyf(&ptr, size, "%s (firmware) + ", FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC));
-        if (t->loader_time > 0)
-                size = strpcpyf(&ptr, size, "%s (loader) + ", FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC));
+        if (t->firmware_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC), " (firmware) + "))
+                return log_oom();
+        if (t->loader_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC), " (loader) + "))
+                return log_oom();
+        if (t->kernel_done_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC), " (kernel) + "))
+                return log_oom();
+        if (t->initrd_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
+                return log_oom();
+
+        if (!strextend(&text, FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC), " (userspace) "))
+                return log_oom();
+
         if (t->kernel_done_time > 0)
-                size = strpcpyf(&ptr, size, "%s (kernel) + ", FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC));
-        if (t->initrd_time > 0)
-                size = strpcpyf(&ptr, size, "%s (initrd) + ", FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC));
-
-        size = strpcpyf(&ptr, size, "%s (userspace) ", FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC));
-        if (t->kernel_done_time > 0)
-                strpcpyf(&ptr, size, "= %s ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC));
+                if (!strextend(&text, "= ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
+                        return log_oom();
 
         if (unit_id && timestamp_is_set(activated_time)) {
                 usec_t base = t->userspace_time > 0 ? t->userspace_time : t->reverse_offset;
 
-                size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id,
-                                FORMAT_TIMESPAN(activated_time - base, USEC_PER_MSEC));
-        } else if (unit_id && activated_time == 0)
-                size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
-        else if (unit_id && activated_time == USEC_INFINITY)
-                size = strpcpyf(&ptr, size, "\nCould not get time to reach %s.", unit_id);
-        else if (!unit_id)
-                size = strpcpyf(&ptr, size, "\ncould not find default.target");
+                if (!strextend(&text, "\n", unit_id, " reached after ", FORMAT_TIMESPAN(activated_time - base, USEC_PER_MSEC), " in userspace."))
+                        return log_oom();
 
-        ptr = strdup(buf);
-        if (!ptr)
-                return log_oom();
+        } else if (unit_id && activated_time == 0) {
 
-        *ret = ptr;
+                if (!strextend(&text, "\n", unit_id, " was never reached."))
+                        return log_oom();
+
+        } else if (unit_id && activated_time == USEC_INFINITY) {
+
+                if (!strextend(&text, "\nCould not get time to reach ", unit_id, "."))
+                        return log_oom();
+
+        } else if (!unit_id) {
+
+                if (!strextend(&text, "\ncould not find default.target."))
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(text);
         return 0;
 }
 
