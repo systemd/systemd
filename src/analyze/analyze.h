@@ -20,6 +20,7 @@ extern PagerFlags arg_pager_flags;
 extern BusTransport arg_transport;
 extern const char *arg_host;
 extern UnitFileScope arg_scope;
+extern char *arg_root;
 extern unsigned arg_iterations;
 extern usec_t arg_base_time;
 extern bool arg_quiet;
