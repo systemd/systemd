@@ -6,8 +6,8 @@ import sys
 import uuid
 
 HEADER = f'''\
-| Partition Type UUID | Name | Allowed File Systems | Explanation |
-|---------------------|------|----------------------|-------------|
+| Name | Partition Type UUID | Allowed File Systems | Explanation |
+|------|---------------------|----------------------|-------------|
 '''
 
 ARCHITECTURES = {
@@ -142,7 +142,7 @@ DESCRIPTIONS = {
 def extract(file):
     for line in file:
         # print(line)
-        m = re.match(r'^#define\s+GPT_(.*SD_ID128_MAKE.*)', line)
+        m = re.match(r'^#define\s+GPT_(.*SD_ID128_MAKE\(.*\))', line)
         if not m:
             continue
 
