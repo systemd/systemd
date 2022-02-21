@@ -22,7 +22,7 @@
 #define EDIT_MARKER_START "### Anything between here and the comment below will become the new contents of the file"
 #define EDIT_MARKER_END "### Lines below this comment will be discarded"
 
-int cat(int argc, char *argv[], void *userdata) {
+int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
@@ -497,7 +497,7 @@ static int trim_edit_markers(const char *path) {
         return 0;
 }
 
-int edit(int argc, char *argv[], void *userdata) {
+int verb_edit(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
@@ -570,7 +570,7 @@ int edit(int argc, char *argv[], void *userdata) {
         r = 0;
 
         if (!arg_no_reload && !install_client_side())
-                r = daemon_reload(argc, argv, userdata);
+                r = verb_daemon_reload(argc, argv, userdata);
 
 end:
         STRV_FOREACH_PAIR(original, tmp, paths) {

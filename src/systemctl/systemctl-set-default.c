@@ -76,7 +76,7 @@ static int determine_default(char **ret_name) {
         }
 }
 
-int get_default(int argc, char *argv[], void *userdata) {
+int verb_get_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -91,7 +91,7 @@ int get_default(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-int set_default(int argc, char *argv[], void *userdata) {
+int verb_set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
@@ -133,7 +133,7 @@ int set_default(int argc, char *argv[], void *userdata) {
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload)
-                        r = daemon_reload(argc, argv, userdata);
+                        r = verb_daemon_reload(argc, argv, userdata);
                 else
                         r = 0;
         }

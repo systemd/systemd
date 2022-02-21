@@ -3,7 +3,7 @@
 
 #include "systemctl.h"
 
-int start_unit(int argc, char *argv[], void *userdata);
+int verb_start(int argc, char *argv[], void *userdata);
 
 struct action_metadata {
         const char *target;
