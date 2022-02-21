@@ -569,8 +569,11 @@ int verb_edit(int argc, char *argv[], void *userdata) {
 
         r = 0;
 
-        if (!arg_no_reload && !install_client_side())
-                r = verb_daemon_reload(argc, argv, userdata);
+        if (!arg_no_reload && !install_client_side()) {
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                if (r > 0)
+                        r = 0;
+        }
 
 end:
         STRV_FOREACH_PAIR(original, tmp, paths) {

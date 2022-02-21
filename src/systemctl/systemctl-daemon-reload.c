@@ -6,7 +6,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int verb_daemon_reload(int argc, char *argv[], void *userdata) {
+int daemon_reload(enum action action, bool graceful) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *method;
@@ -19,7 +19,7 @@ int verb_daemon_reload(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        switch (arg_action) {
+        switch (action) {
 
         case ACTION_RELOAD:
                 method = "Reload";
@@ -29,13 +29,8 @@ int verb_daemon_reload(int argc, char *argv[], void *userdata) {
                 method = "Reexecute";
                 break;
 
-        case ACTION_SYSTEMCTL:
-                method = streq(argv[0], "daemon-reexec") ? "Reexecute" :
-                                     /* "daemon-reload" */ "Reload";
-                break;
-
         default:
-                assert_not_reached();
+                return -EINVAL;
         }
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
@@ -50,14 +45,36 @@ int verb_daemon_reload(int argc, char *argv[], void *userdata) {
         r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
 
         /* On reexecution, we expect a disconnect, not a reply */
-        if (IN_SET(r, -ETIMEDOUT, -ECONNRESET) && streq(method, "Reexecute"))
-                r = 0;
+        if (IN_SET(r, -ETIMEDOUT, -ECONNRESET) && action == ACTION_REEXEC)
+                return 1;
+        if (r < 0) {
+                if (graceful) { /* If graceful mode is selected, debug log, but don't fail */
+                        log_debug_errno(r, "Failed to reload daemon via the bus, ignoring: %s", bus_error_message(&error, r));
+                        return 0;
+                }
 
-        if (r < 0 && arg_action == ACTION_SYSTEMCTL)
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+        }
 
-        /* Note that for the legacy commands (i.e. those with action != ACTION_SYSTEMCTL) we support
-         * fallbacks to the old ways of doing things, hence don't log any error in that case here. */
+        return 1;
+}
 
-        return r < 0 ? r : 0;
+int verb_daemon_reload(int argc, char *argv[], void *userdata) {
+        enum action a;
+        int r;
+
+        assert(argc >= 1);
+
+        if (streq(argv[0], "daemon-reexec"))
+                a = ACTION_REEXEC;
+        else if (streq(argv[0], "daemon-reload"))
+                a = ACTION_RELOAD;
+        else
+                assert_not_reached();
+
+        r = daemon_reload(a, /* graceful= */ false);
+        if (r < 0)
+                return r;
+
+        return 0;
 }

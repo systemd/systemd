@@ -142,13 +142,14 @@ int start_with_fallback(void) {
 }
 
 int reload_with_fallback(void) {
-        /* First, try systemd via D-Bus. */
-        if (verb_daemon_reload(0, NULL, NULL) >= 0)
-                return 0;
 
-        /* Nothing else worked, so let's try signals */
         assert(IN_SET(arg_action, ACTION_RELOAD, ACTION_REEXEC));
 
+        /* First, try systemd via D-Bus */
+        if (daemon_reload(arg_action, /* graceful= */ true) > 0)
+                return 0;
+
+        /* That didn't work, so let's try signals */
         if (kill(1, arg_action == ACTION_RELOAD ? SIGHUP : SIGTERM) < 0)
                 return log_error_errno(errno, "kill() failed: %m");
 
@@ -157,7 +158,7 @@ int reload_with_fallback(void) {
 
 int exec_telinit(char *argv[]) {
         (void) rlimit_nofile_safe();
-        execv(TELINIT, argv);
+        (void) execv(TELINIT, argv);
 
         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                "Couldn't find an alternative telinit implementation to spawn.");
