@@ -167,6 +167,14 @@ mouse:usb:v04f2p0963:name:Chicony 2.4G Multimedia Wireless Kit:*
  MOUSE_DPI=1000@142
 
 ##########################################
+# CST
+##########################################
+
+# CST Laser Trackball
+mouse:usb:v5332p1400:name:Clearly Superior Technologies. CST Laser Trackball:*
+ MOUSE_DPI=400@1000 *800@1000 1600@1000
+
+##########################################
 # Dell
 ##########################################
 
