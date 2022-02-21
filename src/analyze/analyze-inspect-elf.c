@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-elf.h"
+#include "analyze.h"
+#include "analyze-inspect-elf.h"
 #include "elf-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -10,7 +11,7 @@
 #include "path-util.h"
 #include "strv.h"
 
-int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
+static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
         char **filename;
         int r;
 
@@ -125,4 +126,10 @@ int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
         }
 
         return 0;
+}
+
+int do_elf_inspection(int argc, char *argv[], void *userdata) {
+        pager_open(arg_pager_flags);
+
+        return analyze_elf(strv_skip(argv, 1), arg_json_format_flags);
 }

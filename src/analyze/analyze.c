@@ -21,9 +21,9 @@
 #include "analyze-critical-chain.h"
 #include "analyze-dot.h"
 #include "analyze-dump.h"
-#include "analyze-elf.h"
 #include "analyze-exit-status.h"
 #include "analyze-filesystems.h"
+#include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
@@ -228,12 +228,6 @@ static int do_verify(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Couldn't process aliases: %m");
 
         return verify_units(filenames, arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
-}
-
-static int do_elf_inspection(int argc, char *argv[], void *userdata) {
-        pager_open(arg_pager_flags);
-
-        return analyze_elf(strv_skip(argv, 1), arg_json_format_flags);
 }
 
 static int help(int argc, char *argv[], void *userdata) {
