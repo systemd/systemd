@@ -40,8 +40,8 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 
 ## Defined Partition Type UUIDs
 
-| Partition Type UUID | Name | Allowed File Systems | Explanation |
-|---------------------|------|----------------------|-------------|
+| Name | Partition Type UUID | Allowed File Systems | Explanation |
+|------|---------------------|----------------------|-------------|
 | _Root Partition (Alpha)_ | `6523f8ae-3eb1-4e2a-a05a-18b695ae656f` | Any native, optionally in LUKS | On systems with matching architecture, the first partition with this type UUID on the disk containing the active EFI ESP is automatically mounted to the root directory <tt>/</tt>. If the partition is encrypted with LUKS or has dm-verity integrity data (see below), the device mapper file will be named `/dev/mapper/root`. |
 | _Root Partition (ARC)_ | `d27f46ed-2919-4cb8-bd25-9531f3c16534` | ditto | ditto |
 | _Root Partition (32-bit ARM)_ | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | ditto | ditto |

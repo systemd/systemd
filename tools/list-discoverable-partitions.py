@@ -6,8 +6,8 @@ import sys
 import uuid
 
 HEADER = f'''\
-| Partition Type UUID | Name | Allowed File Systems | Explanation |
-|---------------------|------|----------------------|-------------|
+| Name | Partition Type UUID | Allowed File Systems | Explanation |
+|------|---------------------|----------------------|-------------|
 '''
 
 ARCHITECTURES = {
