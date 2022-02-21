@@ -59,6 +59,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "format-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
@@ -5147,6 +5148,19 @@ int exec_spawn(Unit *unit,
                 }
         }
 
+        if (context->cgroup_nft_family > 0) {
+                r = nft_set_element_add_uint32(context->cgroup_nft_family,
+                                               context->cgroup_nft_table,
+                                               context->cgroup_nft_set,
+                                               unit->cgroup_id);
+                if (r < 0)
+                        log_info("Adding NFT family %s table %s set %s cgroup %" PRIu64 " failed, ignoring: %m",
+                                 nfproto_to_string(context->cgroup_nft_family),
+                                 context->cgroup_nft_table,
+                                 context->cgroup_nft_set,
+                                 unit->cgroup_id);
+        }
+
         pid = fork();
         if (pid < 0)
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");
@@ -5308,6 +5322,10 @@ void exec_context_done(ExecContext *c) {
         c->ipc_namespace_path = mfree(c->ipc_namespace_path);
 
         c->log_namespace = mfree(c->log_namespace);
+
+        c->cgroup_nft_family = 0;
+        c->cgroup_nft_table = mfree(c->cgroup_nft_table);
+        c->cgroup_nft_set = mfree(c->cgroup_nft_set);
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
@@ -6093,6 +6111,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 #endif
                 fputc('\n', f);
         }
+
+        if (c->cgroup_nft_family > 0)
+                fprintf(f, "%sCgroupNFTSet: %s:%s:%s\n", prefix,
+                        nfproto_to_string(c->cgroup_nft_family),
+                        c->cgroup_nft_table, c->cgroup_nft_set);
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
                 MountOptions *o;

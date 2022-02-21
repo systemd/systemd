@@ -16,6 +16,7 @@
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -2043,6 +2044,36 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
+
+                return 1;
+        }
+
+        if (streq(field, "CgroupNFTSet")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "(iss)", 0, NULL, NULL);
+                else {
+                        _cleanup_free_ char *word = NULL;
+                        int family;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r <= 0 || isempty(word))
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+                        family = nfproto_from_string(word);
+                        if (family < 0)
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r <= 0 || isempty(word))
+                                return log_error_errno(r, "Failed to parse %s: %m", field);
+
+                        r = sd_bus_message_append(m, "(sv)", field, "(iss)", family, word, eq);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 return 1;
         }

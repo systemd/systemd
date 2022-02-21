@@ -37,6 +37,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -6523,4 +6524,76 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_cgroup_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *resolved = NULL, *word = NULL;
+        char *table, *set;
+        ExecContext *c = data;
+        Unit *u = userdata;
+        int family, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->cgroup_nft_family = 0;
+                c->cgroup_nft_table = mfree(c->cgroup_nft_table);
+                c->cgroup_nft_set = mfree(c->cgroup_nft_set);
+
+                return 0;
+        }
+
+        r = extract_first_word(&rvalue, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || isempty(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse cgroup NFT set, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        family = nfproto_from_string(word);
+        if (family < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family %s, ignoring: %s", word, rvalue);
+                return 0;
+        }
+
+        r = extract_first_word(&rvalue, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || isempty(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse cgroup NFT set, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_path_printf(u, word, &resolved);
+        if (r < 0 || isempty(word)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
+                return 0;
+        }
+        table = strdup(resolved);
+
+        r = unit_path_printf(u, rvalue, &resolved);
+        if (r < 0 || isempty(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+        set = strdup(resolved);
+
+        c->cgroup_nft_family = family;
+        c->cgroup_nft_table = TAKE_PTR(table);
+        c->cgroup_nft_set = TAKE_PTR(set);
+
+        return 0;
 }

@@ -29,3 +29,9 @@ int fw_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
+
+const char *nfproto_to_string(int i) _const_;
+int nfproto_from_string(const char *s) _pure_;
+
+int nft_set_element_add_uint32(int nfproto, const char *table, const char *set, uint32_t element);
+int nft_set_element_del_uint32(int nfproto, const char *table, const char *set, uint32_t element);

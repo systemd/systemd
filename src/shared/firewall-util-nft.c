@@ -19,6 +19,7 @@
 #include "in-addr-util.h"
 #include "macro.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"
@@ -1067,4 +1068,75 @@ int fw_nftables_add_local_dnat(
 
         /* table created anew; previous address already gone */
         return fw_nftables_add_local_dnat_internal(ctx, add, af, protocol, local_port, remote, remote_port, NULL);
+}
+
+static const char *const nfproto_table[] = {
+        [NFPROTO_ARP] = "arp",
+        [NFPROTO_BRIDGE] = "bridge",
+        [NFPROTO_INET] = "inet",
+        [NFPROTO_IPV4] = "ip",
+        [NFPROTO_IPV6] = "ip6",
+        [NFPROTO_NETDEV] = "netdev",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
+
+#define NFT_SET_MSGS 3
+
+static int nft_set_element_op_uint32(bool add, int nfproto, const char *table, const char *set, uint32_t element) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
+        sd_netlink_message *transaction[NFT_SET_MSGS] = {};
+        _cleanup_free_ uint32_t *serial = NULL;
+        size_t tsize;
+        int r;
+
+        assert(table);
+        assert(set);
+
+        r = sd_nfnl_socket_open(&nfnl);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_message_batch_begin(nfnl, &transaction[0]);
+        if (r < 0)
+                return r;
+        tsize = 1;
+
+        if (add)
+                r = sd_nfnl_nft_message_new_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
+        else
+                r = sd_nfnl_nft_message_del_setelems_begin(nfnl, &transaction[tsize], nfproto, table, set);
+        if (r < 0)
+                goto out_unref;
+
+        r = sd_nfnl_nft_message_add_setelem(transaction[tsize], 0, &element, sizeof(element), NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_add_setelem_end(transaction[tsize]);
+        if (r < 0)
+                return r;
+        ++tsize;
+        assert(tsize < NFT_SET_MSGS);
+        r = sd_nfnl_message_batch_end(nfnl, &transaction[tsize]);
+        if (r < 0)
+                return r;
+
+        ++tsize;
+        r = sd_netlink_sendv(nfnl, transaction, tsize, &serial);
+
+        log_debug("%s NFT family %d table %s set %s element %d", add? "Added" : "Deleted", nfproto, table, set, element);
+
+out_unref:
+        while (tsize > 0)
+                sd_netlink_message_unref(transaction[--tsize]);
+        return r < 0 ? r : 0;
+}
+
+int nft_set_element_add_uint32(int nfproto, const char *table, const char *set, uint32_t element) {
+        return nft_set_element_op_uint32(true, nfproto, table, set, element);
+}
+
+int nft_set_element_del_uint32(int nfproto, const char *table, const char *set, uint32_t element) {
+        return nft_set_element_op_uint32(false, nfproto, table, set, element);
 }

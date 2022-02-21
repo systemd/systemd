@@ -341,6 +341,10 @@ struct ExecContext {
         char *network_namespace_path;
         char *ipc_namespace_path;
 
+        int cgroup_nft_family;
+        char *cgroup_nft_table;
+        char *cgroup_nft_set;
+
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
         usec_t timeout_clean_usec;
