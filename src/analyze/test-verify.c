@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include "analyze-verify.h"
+
+#include "analyze-verify-util.h"
 #include "tests.h"
 
 static void test_verify_nonexistent(void) {

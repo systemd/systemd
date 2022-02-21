@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "analyze-condition.h"
-#include "analyze-verify.h"
+#include "analyze-verify-util.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "load-fragment.h"

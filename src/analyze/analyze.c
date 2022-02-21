@@ -90,7 +90,7 @@ PagerFlags arg_pager_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
 UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
-static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
+RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
 bool arg_man = true;
 bool arg_generators = false;
 char *arg_root = NULL;
@@ -151,53 +151,6 @@ int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *proper
         return 0;
 }
 
-static int process_aliases(char *argv[], char *tempdir, char ***ret) {
-        _cleanup_strv_free_ char **filenames = NULL;
-        char **filename;
-        int r;
-
-        assert(argv);
-        assert(tempdir);
-        assert(ret);
-
-        STRV_FOREACH(filename, strv_skip(argv, 1)) {
-                _cleanup_free_ char *src = NULL, *dst = NULL, *base = NULL;
-                const char *parse_arg;
-
-                parse_arg = *filename;
-                r = extract_first_word(&parse_arg, &src, ":", EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_RETAIN_ESCAPE);
-                if (r < 0)
-                        return r;
-
-                if (!parse_arg) {
-                        r = strv_consume(&filenames, TAKE_PTR(src));
-                        if (r < 0)
-                                return r;
-
-                        continue;
-                }
-
-                r = path_extract_filename(parse_arg, &base);
-                if (r < 0)
-                        return r;
-
-                dst = path_join(tempdir, base);
-                if (!dst)
-                        return -ENOMEM;
-
-                r = copy_file(src, dst, 0, 0644, 0, 0, COPY_REFLINK);
-                if (r < 0)
-                        return r;
-
-                r = strv_consume(&filenames, TAKE_PTR(dst));
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(filenames);
-        return 0;
-}
-
 void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
         if (calendar && calendar_spec_from_string(p, NULL) >= 0)
                 log_notice("Hint: this expression is a valid calendar specification. "
@@ -212,22 +165,6 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
 
 static int do_condition(int argc, char *argv[], void *userdata) {
         return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
-}
-
-static int do_verify(int argc, char *argv[], void *userdata) {
-        _cleanup_strv_free_ char **filenames = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
-        int r;
-
-        r = mkdtemp_malloc("/tmp/systemd-analyze-XXXXXX", &tempdir);
-        if (r < 0)
-                return log_error_errno(r, "Failed to setup working directory: %m");
-
-        r = process_aliases(argv, tempdir, &filenames);
-        if (r < 0)
-                return log_error_errno(r, "Couldn't process aliases: %m");
-
-        return verify_units(filenames, arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
 }
 
 static int help(int argc, char *argv[], void *userdata) {

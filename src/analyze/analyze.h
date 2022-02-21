@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "analyze-verify-util.h"
 #include "bus-util.h"
 #include "json.h"
 #include "pager.h"
@@ -22,6 +23,7 @@ extern PagerFlags arg_pager_flags;
 extern BusTransport arg_transport;
 extern const char *arg_host;
 extern UnitFileScope arg_scope;
+extern RecursiveErrors arg_recursive_errors;
 extern bool arg_man;
 extern bool arg_generators;
 extern char *arg_root;
