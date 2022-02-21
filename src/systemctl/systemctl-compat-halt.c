@@ -76,6 +76,7 @@ int halt_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        /* called in sysvinit system as last command in shutdown/reboot so this is always forceful */
         if (utmp_get_runlevel(&runlevel, NULL) >= 0)
                 if (IN_SET(runlevel, '0', '6'))
                         arg_force = 2;
@@ -191,5 +192,5 @@ int halt_main(void) {
                 return 0;
 
         r = halt_now(arg_action);
-        return log_error_errno(r, "Failed to reboot: %m");
+        return log_error_errno(r, "Failed to %s: %m", action_table[arg_action].verb);
 }
