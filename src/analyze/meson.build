@@ -17,12 +17,12 @@ systemd_analyze_sources = files('''
         analyze-dot.h
         analyze-dump.c
         analyze-dump.h
-        analyze-elf.c
-        analyze-elf.h
         analyze-exit-status.c
         analyze-exit-status.h
         analyze-filesystems.c
         analyze-filesystems.h
+        analyze-inspect-elf.c
+        analyze-inspect-elf.h
         analyze-log-control.c
         analyze-log-control.h
         analyze-plot.c
