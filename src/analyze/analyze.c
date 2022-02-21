@@ -12,9 +12,11 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "analyze.h"
 #include "analyze-condition.h"
 #include "analyze-elf.h"
 #include "analyze-security.h"
+#include "analyze-timespan.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -2028,7 +2030,7 @@ static int dump_filesystems(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static void parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
+void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
         if (calendar && calendar_spec_from_string(p, NULL) >= 0)
                 log_notice("Hint: this expression is a valid calendar specification. "
                            "Use 'systemd-analyze calendar \"%s\"' instead?", p);
@@ -2040,71 +2042,6 @@ static void parsing_hint(const char *p, bool calendar, bool timestamp, bool time
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
-static int dump_timespan(int argc, char *argv[], void *userdata) {
-        char **input_timespan;
-
-        STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
-                _cleanup_(table_unrefp) Table *table = NULL;
-                usec_t output_usecs;
-                TableCell *cell;
-                int r;
-
-                r = parse_time(*input_timespan, &output_usecs, USEC_PER_SEC);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse time span '%s': %m", *input_timespan);
-                        parsing_hint(*input_timespan, true, true, false);
-                        return r;
-                }
-
-                table = table_new("name", "value");
-                if (!table)
-                        return log_oom();
-
-                table_set_header(table, false);
-
-                assert_se(cell = table_get_cell(table, 0, 0));
-                r = table_set_ellipsize_percent(table, cell, 100);
-                if (r < 0)
-                        return r;
-
-                r = table_set_align_percent(table, cell, 100);
-                if (r < 0)
-                        return r;
-
-                assert_se(cell = table_get_cell(table, 0, 1));
-                r = table_set_ellipsize_percent(table, cell, 100);
-                if (r < 0)
-                        return r;
-
-                r = table_add_many(table,
-                                   TABLE_STRING, "Original:",
-                                   TABLE_STRING, *input_timespan);
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_cell_stringf(table, NULL, "%ss:", special_glyph(SPECIAL_GLYPH_MU));
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_add_many(table,
-                                   TABLE_UINT64, output_usecs,
-                                   TABLE_STRING, "Human:",
-                                   TABLE_TIMESPAN, output_usecs,
-                                   TABLE_SET_COLOR, ansi_highlight());
-                if (r < 0)
-                        return table_log_add_error(r);
-
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return r;
-
-                if (input_timespan[1])
-                        putchar('\n');
-        }
-
-        return 0;
-}
-
 static int test_timestamp_one(const char *p) {
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
@@ -2114,7 +2051,7 @@ static int test_timestamp_one(const char *p) {
         r = parse_timestamp(p, &usec);
         if (r < 0) {
                 log_error_errno(r, "Failed to parse \"%s\": %m", p);
-                parsing_hint(p, true, false, true);
+                time_parsing_hint(p, /* calendar= */ true, /* timestamp= */ false, /* timespan= */ true);
                 return r;
         }
 
@@ -2204,7 +2141,7 @@ static int test_calendar_one(usec_t n, const char *p) {
         r = calendar_spec_from_string(p, &spec);
         if (r < 0) {
                 log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
-                parsing_hint(p, false, true, true);
+                time_parsing_hint(p, /* calendar= */ false, /* timestamp= */ true, /* timespan= */ true);
                 return r;
         }
 
