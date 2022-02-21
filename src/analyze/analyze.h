@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "bus-util.h"
+#include "json.h"
 #include "pager.h"
 #include "time-util.h"
 #include "unit-file.h"
@@ -21,10 +22,17 @@ extern PagerFlags arg_pager_flags;
 extern BusTransport arg_transport;
 extern const char *arg_host;
 extern UnitFileScope arg_scope;
+extern bool arg_man;
+extern bool arg_generators;
 extern char *arg_root;
+extern char *arg_security_policy;
+extern bool arg_offline;
+extern unsigned arg_threshold;
 extern unsigned arg_iterations;
 extern usec_t arg_base_time;
+extern JsonFormatFlags arg_json_format_flags;
 extern bool arg_quiet;
+extern char *arg_profile;
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus);
 

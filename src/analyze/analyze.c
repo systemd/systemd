@@ -91,19 +91,19 @@ BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
 UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
-static bool arg_man = true;
-static bool arg_generators = false;
+bool arg_man = true;
+bool arg_generators = false;
 char *arg_root = NULL;
 static char *arg_image = NULL;
-static char *arg_security_policy = NULL;
-static bool arg_offline = false;
-static unsigned arg_threshold = 100;
+char *arg_security_policy = NULL;
+bool arg_offline = false;
+unsigned arg_threshold = 100;
 unsigned arg_iterations = 1;
 usec_t arg_base_time = USEC_INFINITY;
 static char *arg_unit = NULL;
-static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 bool arg_quiet = false;
-static char *arg_profile = NULL;
+char *arg_profile = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -228,54 +228,6 @@ static int do_verify(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Couldn't process aliases: %m");
 
         return verify_units(filenames, arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
-}
-
-static int do_security(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *policy = NULL;
-        int r;
-        unsigned line, column;
-
-        if (!arg_offline) {
-                r = acquire_bus(&bus, NULL);
-                if (r < 0)
-                        return bus_log_connect_error(r, arg_transport);
-        }
-
-        pager_open(arg_pager_flags);
-
-        if (arg_security_policy) {
-                r = json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
-        } else {
-                _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_free_ char *pp = NULL;
-
-                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-
-                if (f) {
-                        r = json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
-                        if (r < 0)
-                                return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
-                }
-        }
-
-        return analyze_security(bus,
-                                strv_skip(argv, 1),
-                                policy,
-                                arg_scope,
-                                arg_man,
-                                arg_generators,
-                                arg_offline,
-                                arg_threshold,
-                                arg_root,
-                                arg_profile,
-                                arg_json_format_flags,
-                                arg_pager_flags,
-                                /*flags=*/ 0);
 }
 
 static int do_elf_inspection(int argc, char *argv[], void *userdata) {
