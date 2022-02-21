@@ -333,6 +333,32 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
         return r;
 }
 
+/* Switches cgroup into threaded mode if parent desires so
+ * Returns negative errno on failure.
+ */
+int cg_adjust_threaded(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL, *contents = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, "cgroup.type", &fs);
+        if (r < 0)
+                return r;
+
+        r = read_full_virtual_file(fs, &contents, NULL);
+        if (r == -ENOENT)
+                return 0; /* Assume no threaded cgroups */
+        if (r < 0)
+                return r;
+
+        if (!streq_skip_trailing_chars(contents, "domain invalid", NEWLINE))
+                return 0;
+
+        r = write_string_file(fs, "threaded", WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return r;
+        return 0;
+}
+
 int cg_attach(const char *controller, const char *path, pid_t pid) {
         _cleanup_free_ char *fs = NULL;
         char c[DECIMAL_STR_MAX(pid_t) + 2];
