@@ -11,6 +11,8 @@ systemd_analyze_sources = files('''
         analyze-dump.h
         analyze-elf.c
         analyze-elf.h
+        analyze-exit-status.c
+        analyze-exit-status.h
         analyze-filesystems.c
         analyze-filesystems.h
         analyze-security.c
