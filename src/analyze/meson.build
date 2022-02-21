@@ -7,6 +7,8 @@ systemd_analyze_sources = files('''
         analyze-condition.h
         analyze-elf.c
         analyze-elf.h
+        analyze-filesystems.c
+        analyze-filesystems.h
         analyze-security.c
         analyze-security.h
         analyze-timespan.c
