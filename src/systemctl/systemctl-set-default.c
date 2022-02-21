@@ -132,9 +132,11 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                         goto finish;
 
                 /* Try to reload if enabled */
-                if (!arg_no_reload)
-                        r = verb_daemon_reload(argc, argv, userdata);
-                else
+                if (!arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                        if (r > 0)
+                                r = 0;
+                } else
                         r = 0;
         }
 

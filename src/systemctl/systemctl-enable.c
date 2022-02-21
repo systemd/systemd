@@ -86,7 +86,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (strv_isempty(names)) {
                 if (arg_no_reload || install_client_side())
                         return 0;
-                return verb_daemon_reload(argc, argv, userdata);
+
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                return r > 0 ? 0 : r;
         }
 
         if (streq(verb, "disable")) {
@@ -234,9 +236,11 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         goto finish;
 
                 /* Try to reload if enabled */
-                if (!arg_no_reload)
-                        r = verb_daemon_reload(argc, argv, userdata);
-                else
+                if (!arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                        if (r > 0)
+                                r = 0;
+                } else
                         r = 0;
         }
 

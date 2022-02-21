@@ -78,7 +78,9 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
                         goto finish;
                 }
 
-                r = verb_daemon_reload(argc, argv, userdata);
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                if (r > 0)
+                        r = 0;
         }
 
 finish:
