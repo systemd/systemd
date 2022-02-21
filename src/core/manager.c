@@ -813,6 +813,7 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .watchdog_overridden[WATCHDOG_RUNTIME] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_REBOOT] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_PRETIMEOUT] = USEC_INFINITY,
 
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
@@ -1540,6 +1541,9 @@ Manager* manager_free(Manager *m) {
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
+
+        free(m->watchdog_pretimeout_governor);
+        free(m->watchdog_pretimeout_governor_overridden);
 
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
@@ -3216,7 +3220,8 @@ usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
         if (MANAGER_IS_USER(m))
                 return USEC_INFINITY;
 
-        if (timestamp_is_set(m->watchdog_overridden[t]))
+        if (timestamp_is_set(m->watchdog_overridden[t]) ||
+            (t == WATCHDOG_PRETIMEOUT && m->watchdog_overridden[t] != USEC_INFINITY))
                 return m->watchdog_overridden[t];
 
         return m->watchdog[t];
@@ -3232,9 +3237,12 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (m->watchdog[t] == timeout)
                 return;
 
-        if (t == WATCHDOG_RUNTIME)
+        if (t == WATCHDOG_RUNTIME) {
                 if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME]))
                         (void) watchdog_setup(timeout);
+        } else if (t == WATCHDOG_PRETIMEOUT)
+                if (m->watchdog_overridden[WATCHDOG_PRETIMEOUT] == USEC_INFINITY)
+                        (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog[t] = timeout;
 }
@@ -3253,9 +3261,60 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 usec_t usec = timestamp_is_set(timeout) ? timeout : m->watchdog[t];
 
                 (void) watchdog_setup(usec);
-        }
+        } else if (t == WATCHDOG_PRETIMEOUT)
+                (void) watchdog_setup_pretimeout(timeout);
 
         m->watchdog_overridden[t] = timeout;
+}
+
+int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor, governor))
+                return 0;
+
+        p = strdup(governor);
+        if (!p)
+                return -ENOMEM;
+
+        r = watchdog_setup_pretimeout_governor(governor);
+        if (r < 0)
+                return r;
+
+        free_and_replace(m->watchdog_pretimeout_governor, p);
+
+        return 0;
+}
+
+int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (streq_ptr(m->watchdog_pretimeout_governor_overridden, governor))
+                return 0;
+
+        p = strdup(governor);
+        if (!p)
+                return -ENOMEM;
+
+        r = watchdog_setup_pretimeout_governor(governor);
+        if (r < 0)
+                return r;
+
+        free_and_replace(m->watchdog_pretimeout_governor_overridden, p);
+
+        return 0;
 }
 
 int manager_reload(Manager *m) {
