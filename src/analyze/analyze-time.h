@@ -1,4 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-int analyze_time(int argc, char *argv[], void *userdata);
+int verb_time(int argc, char *argv[], void *userdata);

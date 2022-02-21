@@ -29,7 +29,7 @@ static int dump_fallback(sd_bus *bus) {
         return 0;
 }
 
-int dump(int argc, char *argv[], void *userdata) {
+int verb_dump(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

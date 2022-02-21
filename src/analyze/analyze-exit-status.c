@@ -5,7 +5,7 @@
 #include "exit-status.h"
 #include "format-table.h"
 
-int dump_exit_status(int argc, char *argv[], void *userdata) {
+int verb_exit_status(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 

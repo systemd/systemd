@@ -78,7 +78,7 @@ static int test_timestamp_one(const char *p) {
         return table_print(table, NULL);
 }
 
-int test_timestamp(int argc, char *argv[], void *userdata) {
+int verb_timestamp(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
         char **p;
 

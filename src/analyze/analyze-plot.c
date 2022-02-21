@@ -178,7 +178,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
         return 1;
 }
 
-int analyze_plot(int argc, char *argv[], void *userdata) {
+int verb_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
