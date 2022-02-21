@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-blame.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
 #include "analyze-condition.h"
@@ -24,6 +25,7 @@
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
 #include "analyze-syscall-filter.h"
+#include "analyze-time-data.h"
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-verify.h"
@@ -98,7 +100,7 @@ static usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
-static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
 static bool arg_man = true;
 static bool arg_generators = false;
@@ -121,50 +123,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
-
-typedef struct BootTimes {
-        usec_t firmware_time;
-        usec_t loader_time;
-        usec_t kernel_time;
-        usec_t kernel_done_time;
-        usec_t initrd_time;
-        usec_t userspace_time;
-        usec_t finish_time;
-        usec_t security_start_time;
-        usec_t security_finish_time;
-        usec_t generators_start_time;
-        usec_t generators_finish_time;
-        usec_t unitsload_start_time;
-        usec_t unitsload_finish_time;
-        usec_t initrd_security_start_time;
-        usec_t initrd_security_finish_time;
-        usec_t initrd_generators_start_time;
-        usec_t initrd_generators_finish_time;
-        usec_t initrd_unitsload_start_time;
-        usec_t initrd_unitsload_finish_time;
-
-        /*
-         * If we're analyzing the user instance, all timestamps will be offset
-         * by its own start-up timestamp, which may be arbitrarily big.
-         * With "plot", this causes arbitrarily wide output SVG files which almost
-         * completely consist of empty space. Thus we cancel out this offset.
-         *
-         * This offset is subtracted from times above by acquire_boot_times(),
-         * but it still needs to be subtracted from unit-specific timestamps
-         * (so it is stored here for reference).
-         */
-        usec_t reverse_offset;
-} BootTimes;
-
-typedef struct UnitTimes {
-        bool has_data;
-        char *name;
-        usec_t activating;
-        usec_t activated;
-        usec_t deactivated;
-        usec_t deactivating;
-        usec_t time;
-} UnitTimes;
 
 typedef struct HostInfo {
         char *hostname;
@@ -209,7 +167,6 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
                         property,
                         &error,
                         't', val);
-
         if (r < 0)
                 return log_error_errno(r, "Failed to parse reply: %s", bus_error_message(&error, r));
 
@@ -290,106 +247,6 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
         return 0;
 }
 
-static UnitTimes* unit_times_free_array(UnitTimes *t) {
-        for (UnitTimes *p = t; p && p->has_data; p++)
-                free(p->name);
-        return mfree(t);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
-
-static void subtract_timestamp(usec_t *a, usec_t b) {
-        assert(a);
-
-        if (*a > 0) {
-                assert(*a >= b);
-                *a -= b;
-        }
-}
-
-static int acquire_boot_times(sd_bus *bus, BootTimes **bt) {
-        static const struct bus_properties_map property_map[] = {
-                { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(BootTimes, firmware_time)                 },
-                { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, loader_time)                   },
-                { "KernelTimestamp",                          "t", NULL, offsetof(BootTimes, kernel_time)                   },
-                { "InitRDTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, initrd_time)                   },
-                { "UserspaceTimestampMonotonic",              "t", NULL, offsetof(BootTimes, userspace_time)                },
-                { "FinishTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, finish_time)                   },
-                { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
-                { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
-                { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
-                { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
-                { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
-                { "UnitsLoadFinishTimestampMonotonic",        "t", NULL, offsetof(BootTimes, unitsload_finish_time)         },
-                { "InitRDSecurityStartTimestampMonotonic",    "t", NULL, offsetof(BootTimes, initrd_security_start_time)    },
-                { "InitRDSecurityFinishTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_security_finish_time)   },
-                { "InitRDGeneratorsStartTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_generators_start_time)  },
-                { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(BootTimes, initrd_generators_finish_time) },
-                { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_unitsload_start_time)   },
-                { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_unitsload_finish_time)  },
-                {},
-        };
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        static BootTimes times;
-        static bool cached = false;
-        int r;
-
-        if (cached)
-                goto finish;
-
-        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
-
-        r = bus_map_all_properties(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        property_map,
-                        BUS_MAP_STRDUP,
-                        &error,
-                        NULL,
-                        &times);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get timestamp properties: %s", bus_error_message(&error, r));
-
-        if (times.finish_time <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINPROGRESS),
-                                       "Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
-                                       "Please try again later.\n"
-                                       "Hint: Use 'systemctl%s list-jobs' to see active jobs",
-                                       times.finish_time,
-                                       arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
-
-        if (arg_scope == UNIT_FILE_SYSTEM && times.security_start_time > 0) {
-                /* security_start_time is set when systemd is not running under container environment. */
-                if (times.initrd_time > 0)
-                        times.kernel_done_time = times.initrd_time;
-                else
-                        times.kernel_done_time = times.userspace_time;
-        } else {
-                /*
-                 * User-instance-specific or container-system-specific timestamps processing
-                 * (see comment to reverse_offset in BootTimes).
-                 */
-                times.reverse_offset = times.userspace_time;
-
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time =
-                        times.userspace_time = times.security_start_time = times.security_finish_time = 0;
-
-                subtract_timestamp(&times.finish_time, times.reverse_offset);
-
-                subtract_timestamp(&times.generators_start_time, times.reverse_offset);
-                subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
-
-                subtract_timestamp(&times.unitsload_start_time, times.reverse_offset);
-                subtract_timestamp(&times.unitsload_finish_time, times.reverse_offset);
-        }
-
-        cached = true;
-
-finish:
-        *bt = &times;
-        return 0;
-}
-
 static HostInfo* free_host_info(HostInfo *hi) {
         if (!hi)
                 return NULL;
@@ -405,88 +262,6 @@ static HostInfo* free_host_info(HostInfo *hi) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(HostInfo *, free_host_info);
-
-static int acquire_time_data(sd_bus *bus, UnitTimes **out) {
-        static const struct bus_properties_map property_map[] = {
-                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(UnitTimes, activating)   },
-                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(UnitTimes, activated)    },
-                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(UnitTimes, deactivating) },
-                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(UnitTimes, deactivated)  },
-                {},
-        };
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(unit_times_free_arrayp) UnitTimes *unit_times = NULL;
-        BootTimes *boot_times = NULL;
-        size_t c = 0;
-        UnitInfo u;
-        int r;
-
-        r = acquire_boot_times(bus, &boot_times);
-        if (r < 0)
-                return r;
-
-        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
-                UnitTimes *t;
-
-                if (!GREEDY_REALLOC(unit_times, c + 2))
-                        return log_oom();
-
-                unit_times[c + 1].has_data = false;
-                t = &unit_times[c];
-                t->name = NULL;
-
-                assert_cc(sizeof(usec_t) == sizeof(uint64_t));
-
-                r = bus_map_all_properties(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                u.unit_path,
-                                property_map,
-                                BUS_MAP_STRDUP,
-                                &error,
-                                NULL,
-                                t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s",
-                                               u.id, bus_error_message(&error, r));
-
-                subtract_timestamp(&t->activating, boot_times->reverse_offset);
-                subtract_timestamp(&t->activated, boot_times->reverse_offset);
-                subtract_timestamp(&t->deactivating, boot_times->reverse_offset);
-                subtract_timestamp(&t->deactivated, boot_times->reverse_offset);
-
-                if (t->activated >= t->activating)
-                        t->time = t->activated - t->activating;
-                else if (t->deactivated >= t->activating)
-                        t->time = t->deactivated - t->activating;
-                else
-                        t->time = 0;
-
-                if (t->activating == 0)
-                        continue;
-
-                t->name = strdup(u.id);
-                if (!t->name)
-                        return log_oom();
-
-                t->has_data = true;
-                c++;
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        *out = TAKE_PTR(unit_times);
-        return c;
-}
 
 static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         static const struct bus_properties_map hostname_map[] = {
@@ -1125,65 +900,6 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
         h = hashmap_free(h);
         return 0;
-}
-
-static int analyze_blame(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        TableCell *cell;
-        int n, r;
-
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
-
-        n = acquire_time_data(bus, &times);
-        if (n <= 0)
-                return n;
-
-        table = table_new("time", "unit");
-        if (!table)
-                return log_oom();
-
-        table_set_header(table, false);
-
-        assert_se(cell = table_get_cell(table, 0, 0));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
-
-        r = table_set_align_percent(table, cell, 100);
-        if (r < 0)
-                return r;
-
-        assert_se(cell = table_get_cell(table, 0, 1));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
-
-        r = table_set_sort(table, (size_t) 0);
-        if (r < 0)
-                return r;
-
-        r = table_set_reverse(table, 0, true);
-        if (r < 0)
-                return r;
-
-        for (UnitTimes *u = times; u->has_data; u++) {
-                if (u->time <= 0)
-                        continue;
-
-                r = table_add_many(table,
-                                   TABLE_TIMESPAN_MSEC, u->time,
-                                   TABLE_STRING, u->name);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        pager_open(arg_pager_flags);
-
-        return table_print(table, NULL);
 }
 
 static int analyze_time(int argc, char *argv[], void *userdata) {
