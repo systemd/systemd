@@ -46,7 +46,7 @@ ColumnLimit:     109
 CompactNamespaces: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 8
-ContinuationIndentWidth: 8
+ContinuationIndentWidth: 16
 Cpp11BracedListStyle: false
 ForEachMacros:
   - BITMAP_FOREACH
