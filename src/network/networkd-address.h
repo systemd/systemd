@@ -79,8 +79,15 @@ int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
 void link_foreignize_addresses(Link *link);
 bool link_address_is_dynamic(const Link *link, const Address *address);
-int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret);
-int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret);
+int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret);
+static inline int link_get_ipv6_address(Link *link, const struct in6_addr *address, unsigned char prefixlen, Address **ret) {
+        assert(address);
+        return link_get_address(link, AF_INET6, &(union in_addr_union) { .in6 = *address }, prefixlen, ret);
+}
+static inline int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret) {
+        assert(address);
+        return link_get_address(link, AF_INET, &(union in_addr_union) { .in = *address }, prefixlen, ret);
+}
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
 void address_cancel_request(Address *address);
