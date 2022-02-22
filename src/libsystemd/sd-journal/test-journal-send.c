@@ -5,7 +5,9 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
+
 #include "fileio.h"
+#include "journal-send.h"
 #include "macro.h"
 #include "memory-util.h"
 
@@ -90,6 +92,10 @@ static void test_journal_send(void) {
         assert_se(sd_journal_sendv(graph2, 1) == 0);
         assert_se(sd_journal_sendv(message1, 1) == 0);
         assert_se(sd_journal_sendv(message2, 1) == 0);
+
+        /* The above syslog() opens a fd which is stored in libc, and the valgrind reports the fd is
+         * leaked when we do not call closelog(). */
+        closelog();
 }
 
 int main(int argc, char *argv[]) {
@@ -99,5 +105,6 @@ int main(int argc, char *argv[]) {
         /* Sleep a bit to make it easy for journald to collect metadata. */
         sleep(1);
 
+        close_journal_fd();
         return 0;
 }
