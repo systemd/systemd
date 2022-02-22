@@ -49,6 +49,34 @@ grep -qv io /sys/fs/cgroup/system.slice/cgroup.controllers
 # Check that unprivileged delegation works for scopes
 test_scope_unpriv_delegation
 
+# And now for something (not) completely different...
+if [ ! -f /sys/fs/cgroup/init.scope/cgroup.type ] ; then
+	echo "Skippint TEST-19-DELEGATE threads test, cgroup v2 doesn't support cgroup.type" >&2
+	exit 0
+fi
+
+SERVICE_PATH="$(mktemp /etc/systemd/system/test-delegate-XXX.service)"
+SERVICE_NAME="${SERVICE_PATH##*/}"
+
+cat >"$SERVICE_PATH" <<EOF
+[Service]
+Delegate=true
+ExecStartPre=/bin/mkdir /sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree
+ExecStartPre=/bin/bash -c "echo threaded >/sys/fs/cgroup/system.slice/$SERVICE_NAME/subtree/cgroup.type"
+ExecStart=/bin/sleep 86400
+ExecReload=/bin/echo pretending to reload
+
+EOF
+
+systemctl daemon-reload
+systemctl start "$SERVICE_NAME"
+systemctl status "$SERVICE_NAME"
+# The reload SHOULD succeed
+systemctl reload "$SERVICE_NAME" || { echo 'unexpected reload failure'; exit 1; }
+systemctl stop "$SERVICE_NAME"
+
+rm -f "$SERVICE_PATH"
+
 echo OK >/testok
 
 exit 0
