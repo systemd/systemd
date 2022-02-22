@@ -123,6 +123,9 @@
       Support for <filename>/etc/hosts</filename> may be disabled with <varname>ReadEtcHosts=no</varname>,
       see <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para></listitem>
+
+      <listitem><para>The <varname>Synthesize=</varname> option is not set to false.
+      </para></listitem>
     </itemizedlist>
   </refsect1>
 
