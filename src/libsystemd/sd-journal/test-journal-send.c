@@ -90,6 +90,8 @@ static void test_journal_send(void) {
         assert_se(sd_journal_sendv(graph2, 1) == 0);
         assert_se(sd_journal_sendv(message1, 1) == 0);
         assert_se(sd_journal_sendv(message2, 1) == 0);
+
+        closelog();
 }
 
 int main(int argc, char *argv[]) {
