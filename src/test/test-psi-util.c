@@ -3,19 +3,22 @@
 #include <linux/loadavg.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "psi-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static void test_read_mem_pressure(void) {
         _cleanup_(unlink_tempfilep) char path[] = "/tmp/pressurereadtestXXXXXX";
+        _cleanup_close_ int fd = -1;
         ResourcePressure rp;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
 
-        assert_se(mkstemp(path));
+        assert_se((fd = mkostemp_safe(path)) >= 0);
 
         assert_se(read_resource_pressure("/verylikelynonexistentpath", PRESSURE_TYPE_SOME, &rp) < 0);
         assert_se(read_resource_pressure(path, PRESSURE_TYPE_SOME, &rp) < 0);
