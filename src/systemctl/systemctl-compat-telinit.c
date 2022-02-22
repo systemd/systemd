@@ -125,8 +125,11 @@ int telinit_parse_argv(int argc, char *argv[]) {
 }
 
 int start_with_fallback(void) {
+        int r;
+
         /* First, try systemd via D-Bus. */
-        if (start_unit(0, NULL, NULL) == 0)
+        r = start_unit(0, NULL, NULL);
+        if (r == 0)
                 return 0;
 
 #if HAVE_SYSV_COMPAT
@@ -135,8 +138,7 @@ int start_with_fallback(void) {
                 return 0;
 #endif
 
-        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                               "Failed to talk to init daemon.");
+        return log_error_errno(r, "Failed to talk to init daemon: %m");
 }
 
 int reload_with_fallback(void) {
