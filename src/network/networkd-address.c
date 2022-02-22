@@ -271,7 +271,7 @@ static uint32_t address_prefix(const Address *a) {
                 return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
 }
 
-void address_hash_func(const Address *a, struct siphash *state) {
+static void address_kernel_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -293,7 +293,7 @@ void address_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-int address_compare_func(const Address *a1, const Address *a2) {
+static int address_kernel_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
@@ -322,10 +322,49 @@ int address_compare_func(const Address *a1, const Address *a2) {
 }
 
 DEFINE_PRIVATE_HASH_OPS(
-        address_hash_ops,
+        address_kernel_hash_ops,
         Address,
-        address_hash_func,
-        address_compare_func);
+        address_kernel_hash_func,
+        address_kernel_compare_func);
+
+void address_hash_func(const Address *a, struct siphash *state) {
+        assert(a);
+
+        siphash24_compress(&a->family, sizeof(a->family), state);
+
+        /* treat any other address family as AF_UNSPEC */
+        if (!IN_SET(a->family, AF_INET, AF_INET6))
+                return;
+
+        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+        siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
+}
+
+int address_compare_func(const Address *a1, const Address *a2) {
+        int r;
+
+        r = CMP(a1->family, a2->family);
+        if (r != 0)
+                return r;
+
+        if (!IN_SET(a1->family, AF_INET, AF_INET6))
+                return 0;
+
+        r = CMP(a1->prefixlen, a2->prefixlen);
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
+        if (r != 0)
+                return r;
+
+        return 0;
+}
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_hash_ops_free,
@@ -496,30 +535,16 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return 0;
 }
 
-int link_get_ipv6_address(Link *link, const struct in6_addr *address, Address **ret) {
-        _cleanup_(address_freep) Address *a = NULL;
+int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
         int r;
 
         assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        r = address_new(&a);
-        if (r < 0)
-                return r;
-
-        /* address_compare_func() only compares the local address for IPv6 case. So, it is enough to
-         * set only family and the address. */
-        a->family = AF_INET6;
-        a->in_addr.in6 = *address;
-
-        return address_get(link, a, ret);
-}
-
-int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned char prefixlen, Address **ret) {
-        int r;
-
-        assert(link);
-        assert(address);
+        /* This find an Address object on the link which matches the given address and prefix length
+         * and does not have peer address. When the prefixlen is zero, then an Address object with an
+         * arbitrary prefixlen will be returned. */
 
         if (prefixlen != 0) {
                 _cleanup_(address_freep) Address *a = NULL;
@@ -530,8 +555,8 @@ int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned ch
                 if (r < 0)
                         return r;
 
-                a->family = AF_INET;
-                a->in_addr.in = *address;
+                a->family = family;
+                a->in_addr = *address;
                 a->prefixlen = prefixlen;
 
                 return address_get(link, a, ret);
@@ -539,10 +564,13 @@ int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned ch
                 Address *a;
 
                 SET_FOREACH(a, link->addresses) {
-                        if (a->family != AF_INET)
+                        if (a->family != family)
                                 continue;
 
-                        if (!in4_addr_equal(&a->in_addr.in, address))
+                        if (!in_addr_equal(family, &a->in_addr, address))
+                                continue;
+
+                        if (in_addr_is_set(family, &a->in_addr_peer))
                                 continue;
 
                         if (ret)
@@ -558,30 +586,14 @@ int link_get_ipv4_address(Link *link, const struct in_addr *address, unsigned ch
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
         Address *a;
         Link *link;
-        int r;
 
         assert(manager);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        if (family == AF_INET) {
-                HASHMAP_FOREACH(link, manager->links_by_index)
-                        if (link_get_ipv4_address(link, &address->in, 0, &a) >= 0)
-                                return check_ready ? address_is_ready(a) : address_exists(a);
-        } else {
-                _cleanup_(address_freep) Address *tmp = NULL;
-
-                r = address_new(&tmp);
-                if (r < 0)
-                        return r;
-
-                tmp->family = family;
-                tmp->in_addr = *address;
-
-                HASHMAP_FOREACH(link, manager->links_by_index)
-                        if (address_get(link, tmp, &a) >= 0)
-                                return check_ready ? address_is_ready(a) : address_exists(a);
-        }
+        HASHMAP_FOREACH(link, manager->links_by_index)
+                if (link_get_address(link, family, address, 0, &a) >= 0)
+                        return check_ready ? address_is_ready(a) : address_exists(a);
 
         return false;
 }
@@ -1980,8 +1992,10 @@ int network_drop_invalid_addresses(Network *network) {
                         address_free(dup);
                 }
 
-                /* Do not use address_hash_ops_free here. Otherwise, all address settings will be freed. */
-                r = set_ensure_put(&addresses, &address_hash_ops, address);
+                /* Use address_kernel_hash_ops here. The function address_kernel_compare_func() matches
+                 * how kernel compares addresses, and is more lenient than address_compare_func().
+                 * Hence, the logic of dedup here is stricter than when address_hash_ops is used. */
+                r = set_ensure_put(&addresses, &address_kernel_hash_ops, address);
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
