@@ -162,6 +162,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UnitCondition*, unit_condition_free);
 
 typedef struct UnitStatusInfo {
         const char *id;
+        const char *type;
         const char *load_state;
         const char *active_state;
         const char *freezer_state;
@@ -432,6 +433,18 @@ static void print_status_info(
                         printf("      Until: %s; %s\n",
                                FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
                                FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
+                }
+
+                if (!streq_ptr(i->type, "target") &&
+                        STRPTR_IN_SET(i->active_state, "inactive", "failed") &&
+                        timestamp_is_set(i->active_enter_timestamp) &&
+                        timestamp_is_set(i->active_exit_timestamp) &&
+                        i->active_exit_timestamp >= i->active_enter_timestamp) {
+
+                        usec_t duration;
+
+                        duration = i->active_exit_timestamp - i->active_enter_timestamp;
+                        printf("   Duration: %s\n", FORMAT_TIMESPAN(duration, MSEC_PER_SEC));
                 }
         } else
                 printf("\n");
@@ -1853,6 +1866,7 @@ static int show_one(
                 {}
         }, status_map[] = {
                 { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
+                { "Type",                           "s",               NULL,           offsetof(UnitStatusInfo, type)                              },
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
