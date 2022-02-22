@@ -300,12 +300,11 @@ static void test_oomd_pressure_above(void) {
         assert_se(store_loadavg_fixed_point(1, 11, &(ctx[1].memory_pressure.avg300)) == 0);
         ctx[1].mem_pressure_limit = threshold;
 
-
         /* High memory pressure */
         assert_se(h1 = hashmap_new(&string_hash_ops));
         assert_se(hashmap_put(h1, "/herp.slice", &ctx[0]) >= 0);
         assert_se(oomd_pressure_above(h1, 0 /* duration */, &t1) == 1);
-        assert_se(set_contains(t1, &ctx[0]) == true);
+        assert_se(set_contains(t1, &ctx[0]));
         assert_se(c = hashmap_get(h1, "/herp.slice"));
         assert_se(c->mem_pressure_limit_hit_start > 0);
 
@@ -313,14 +312,14 @@ static void test_oomd_pressure_above(void) {
         assert_se(h2 = hashmap_new(&string_hash_ops));
         assert_se(hashmap_put(h2, "/derp.slice", &ctx[1]) >= 0);
         assert_se(oomd_pressure_above(h2, 0 /* duration */, &t2) == 0);
-        assert_se(t2 == NULL);
+        assert_se(!t2);
         assert_se(c = hashmap_get(h2, "/derp.slice"));
         assert_se(c->mem_pressure_limit_hit_start == 0);
 
         /* High memory pressure w/ multiple cgroups */
         assert_se(hashmap_put(h1, "/derp.slice", &ctx[1]) >= 0);
         assert_se(oomd_pressure_above(h1, 0 /* duration */, &t3) == 1);
-        assert_se(set_contains(t3, &ctx[0]) == true);
+        assert_se(set_contains(t3, &ctx[0]));
         assert_se(set_size(t3) == 1);
         assert_se(c = hashmap_get(h1, "/herp.slice"));
         assert_se(c->mem_pressure_limit_hit_start > 0);
