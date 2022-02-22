@@ -5,7 +5,9 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
+
 #include "fileio.h"
+#include "journal-send.h"
 #include "macro.h"
 #include "memory-util.h"
 
@@ -103,5 +105,6 @@ int main(int argc, char *argv[]) {
         /* Sleep a bit to make it easy for journald to collect metadata. */
         sleep(1);
 
+        close_journal_fd();
         return 0;
 }
