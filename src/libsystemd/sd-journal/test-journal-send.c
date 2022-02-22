@@ -90,6 +90,10 @@ static void test_journal_send(void) {
         assert_se(sd_journal_sendv(graph2, 1) == 0);
         assert_se(sd_journal_sendv(message1, 1) == 0);
         assert_se(sd_journal_sendv(message2, 1) == 0);
+
+        /* The above syslog() opens a fd which is stored in libc, and the valgrind reports the fd is
+         * leaked when we do not call closelog(). */
+        closelog();
 }
 
 int main(int argc, char *argv[]) {
