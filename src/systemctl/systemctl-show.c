@@ -433,6 +433,13 @@ static void print_status_info(
                                FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
                                FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
                 }
+
+                if (STRPTR_IN_SET(i->active_state, "inactive", "failed")) {
+                        usec_t duration;
+
+                        duration = i->active_exit_timestamp - i->active_enter_timestamp;
+                        printf("   Duration: %s\n", FORMAT_TIMESPAN(duration, USEC_PER_SEC));
+                }
         } else
                 printf("\n");
 
