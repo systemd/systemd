@@ -18,7 +18,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
+static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_POWEROFF] = {
                 .handle                          = HANDLE_POWEROFF,
                 .target                          = SPECIAL_POWEROFF_TARGET,
@@ -113,11 +113,12 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
         },
 };
 
-const HandleActionData* manager_item_for_handle(HandleAction handle) {
-        assert(handle >= 0);
-        assert(handle < (ssize_t) ELEMENTSOF(action_table));
+const HandleActionData* handle_action_lookup(HandleAction action) {
 
-        return &action_table[handle];
+        if (action < 0 || (size_t) action >= ELEMENTSOF(handle_action_data_table))
+                return NULL;
+
+        return &handle_action_data_table[action];
 }
 
 int manager_handle_action(
@@ -218,7 +219,7 @@ int manager_handle_action(
                                        inhibit_what_to_string(m->delayed_action->inhibit_what),
                                        handle_action_to_string(handle));
 
-        inhibit_operation = manager_item_for_handle(handle)->inhibit_what;
+        inhibit_operation = handle_action_lookup(handle)->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
@@ -241,7 +242,7 @@ int manager_handle_action(
 
         log_info("%s", message_table[handle]);
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, manager_item_for_handle(handle), &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, handle_action_lookup(handle), &error);
         if (r < 0)
                 return log_error_errno(r, "Failed to execute %s operation: %s",
                                        handle_action_to_string(handle),
