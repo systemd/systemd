@@ -167,6 +167,7 @@ static bool test_pointers(sd_device *dev,
         bool finger_but_no_pen = false;
         bool has_mouse_button = false;
         bool is_mouse = false;
+        bool is_abs_mouse = false;
         bool is_touchpad = false;
         bool is_touchscreen = false;
         bool is_tablet = false;
@@ -231,7 +232,7 @@ static bool test_pointers(sd_device *dev,
                 else if (has_mouse_button)
                         /* This path is taken by VMware's USB mouse, which has
                          * absolute axes, but no touch/pressure button. */
-                        is_mouse = true;
+                        is_abs_mouse = true;
                 else if (has_touch || is_direct)
                         is_touchscreen = true;
                 else if (has_joystick_axes_or_buttons)
@@ -263,7 +264,7 @@ static bool test_pointers(sd_device *dev,
 
         if (is_pointing_stick)
                 udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
-        if (is_mouse)
+        if (is_mouse || is_abs_mouse)
                 udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
         if (is_touchpad)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
@@ -276,7 +277,7 @@ static bool test_pointers(sd_device *dev,
         if (is_tablet_pad)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TABLET_PAD", "1");
 
-        return is_tablet || is_mouse || is_touchpad || is_touchscreen || is_joystick || is_pointing_stick;
+        return is_tablet || is_mouse || is_abs_mouse || is_touchpad || is_touchscreen || is_joystick || is_pointing_stick;
 }
 
 /* key like devices */
