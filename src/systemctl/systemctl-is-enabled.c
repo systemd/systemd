@@ -56,7 +56,7 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
         return 0;
 }
 
-int unit_is_enabled(int argc, char *argv[], void *userdata) {
+int verb_is_enabled(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
         char **name;

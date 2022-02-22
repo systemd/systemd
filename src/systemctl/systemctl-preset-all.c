@@ -7,7 +7,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int preset_all(int argc, char *argv[], void *userdata) {
+int verb_preset_all(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         int r;
@@ -51,7 +51,9 @@ int preset_all(int argc, char *argv[], void *userdata) {
                         goto finish;
                 }
 
-                r = daemon_reload(argc, argv, userdata);
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                if (r > 0)
+                        r = 0;
         }
 
 finish:
