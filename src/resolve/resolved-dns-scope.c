@@ -584,11 +584,13 @@ static DnsScopeMatch match_subnet_reverse_lookups(
 
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
-                int ifindex,
-                uint64_t flags,
-                const char *domain) {
+                DnsQuery *q) {
 
+        DnsQuestion *question;
         DnsSearchDomain *d;
+        const char *domain;
+        uint64_t flags;
+        int ifindex;
 
         /* This returns the following return values:
          *
@@ -602,7 +604,18 @@ DnsScopeMatch dns_scope_good_domain(
          */
 
         assert(s);
-        assert(domain);
+        assert(q);
+
+        question = dns_query_question_for_protocol(q, s->protocol);
+        if (!question)
+                return DNS_SCOPE_NO;
+
+        domain = dns_question_first_name(question);
+        if (!domain)
+                return DNS_SCOPE_NO;
+
+        ifindex = q->ifindex;
+        flags = q->flags;
 
         /* Checks if the specified domain is something to look up on this scope. Note that this accepts
          * non-qualified hostnames, i.e. those without any search path suffixed. */

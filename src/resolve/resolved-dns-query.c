@@ -737,13 +737,8 @@ int dns_query_go(DnsQuery *q) {
 
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
-                const char *name;
 
-                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
-                if (!name)
-                        continue;
-
-                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
+                match = dns_scope_good_domain(s, q);
                 assert(match >= 0);
                 if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
                                       * that matches this well */
@@ -769,13 +764,8 @@ int dns_query_go(DnsQuery *q) {
 
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
-                const char *name;
 
-                name = dns_question_first_name(dns_query_question_for_protocol(q, s->protocol));
-                if (!name)
-                        continue;
-
-                match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
+                match = dns_scope_good_domain(s, q);
                 assert(match >= 0);
                 if (match < found)
                         continue;
