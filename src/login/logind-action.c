@@ -18,7 +18,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
+static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_POWEROFF] = {
                 .handle                          = HANDLE_POWEROFF,
                 .target                          = SPECIAL_POWEROFF_TARGET,
@@ -113,7 +113,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
         },
 };
 
-const ActionTableItem* manager_item_for_handle(HandleAction handle) {
+const HandleActionData* manager_item_for_handle(HandleAction handle) {
         assert(handle >= 0);
         assert(handle < (ssize_t) ELEMENTSOF(action_table));
 

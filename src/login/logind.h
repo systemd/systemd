@@ -71,14 +71,14 @@ struct Manager {
         /* If a shutdown/suspend was delayed due to an inhibitor this
            contains the action we are supposed to start after the
            delay is over */
-        const ActionTableItem *delayed_action;
+        const HandleActionData *delayed_action;
 
         /* If a shutdown/suspend is currently executed, then this is
          * the job of it */
         char *action_job;
         sd_event_source *inhibit_timeout_source;
 
-        const ActionTableItem *scheduled_shutdown_type;
+        const HandleActionData *scheduled_shutdown_type;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;
