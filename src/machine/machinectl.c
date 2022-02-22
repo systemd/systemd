@@ -850,11 +850,11 @@ static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
                i->read_only ? "read-only" : "writable",
                i->read_only ? ansi_normal() : "");
 
-        if (i->crtime > 0 && i->crtime < USEC_INFINITY)
+        if (timestamp_is_set(i->crtime))
                 printf("\t Created: %s; %s\n",
                        FORMAT_TIMESTAMP(i->crtime), FORMAT_TIMESTAMP_RELATIVE(i->crtime));
 
-        if (i->mtime > 0 && i->mtime < USEC_INFINITY)
+        if (timestamp_is_set(i->mtime))
                 printf("\tModified: %s; %s\n",
                        FORMAT_TIMESTAMP(i->mtime), FORMAT_TIMESTAMP_RELATIVE(i->mtime));
 

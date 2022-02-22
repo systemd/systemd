@@ -208,7 +208,7 @@ static void service_start_watchdog(Service *s) {
         assert(s);
 
         watchdog_usec = service_get_watchdog_usec(s);
-        if (IN_SET(watchdog_usec, 0, USEC_INFINITY)) {
+        if (!timestamp_is_set(watchdog_usec)) {
                 service_stop_watchdog(s);
                 return;
         }
@@ -279,7 +279,7 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 
         assert(s);
 
-        if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
+        if (!timestamp_is_set(extend_timeout_usec))
                 return;
 
         extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);

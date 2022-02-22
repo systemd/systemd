@@ -421,7 +421,7 @@ static void print_status_info(
                     STRPTR_IN_SET(i->active_state, "activating")          ? i->inactive_exit_timestamp :
                                                                             i->active_exit_timestamp;
 
-        if (timestamp > 0 && timestamp < USEC_INFINITY) {
+        if (timestamp_is_set(timestamp)) {
                 printf(" since %s; %s\n",
                        FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(timestamp));
@@ -455,7 +455,7 @@ static void print_status_info(
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
 
-                if (next_elapse > 0 && next_elapse < USEC_INFINITY)
+                if (timestamp_is_set(next_elapse))
                         printf("    Trigger: %s; %s\n",
                                FORMAT_TIMESTAMP_STYLE(next_elapse, arg_timestamp_style),
                                FORMAT_TIMESTAMP_RELATIVE(next_elapse));
