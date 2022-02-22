@@ -196,6 +196,7 @@ static void test_catalog_file_lang(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
+        _cleanup_close_ int fd = -1;
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -218,7 +219,7 @@ int main(int argc, char *argv[]) {
         test_catalog_import_merge();
         test_catalog_import_merge_no_body();
 
-        assert_se(mkostemp_safe(database) >= 0);
+        assert_se((fd = mkostemp_safe(database)) >= 0);
 
         test_catalog_update(database);
 
