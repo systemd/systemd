@@ -1916,7 +1916,7 @@ static int method_do_shutdown_or_sleep(
         }
 
         if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
-                a = manager_item_for_handle(HANDLE_KEXEC);
+                a = handle_action_lookup(HANDLE_KEXEC);
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->delayed_action)
@@ -1960,7 +1960,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_POWEROFF),
+                        handle_action_lookup(HANDLE_POWEROFF),
                         sd_bus_message_is_method_call(message, NULL, "PowerOffWithFlags"),
                         error);
 }
@@ -1970,7 +1970,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_REBOOT),
+                        handle_action_lookup(HANDLE_REBOOT),
                         sd_bus_message_is_method_call(message, NULL, "RebootWithFlags"),
                         error);
 }
@@ -1980,7 +1980,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_HALT),
+                        handle_action_lookup(HANDLE_HALT),
                         sd_bus_message_is_method_call(message, NULL, "HaltWithFlags"),
                         error);
 }
@@ -1990,7 +1990,7 @@ static int method_suspend(sd_bus_message *message, void *userdata, sd_bus_error 
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_SUSPEND),
+                        handle_action_lookup(HANDLE_SUSPEND),
                         sd_bus_message_is_method_call(message, NULL, "SuspendWithFlags"),
                         error);
 }
@@ -2000,7 +2000,7 @@ static int method_hibernate(sd_bus_message *message, void *userdata, sd_bus_erro
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_HIBERNATE),
+                        handle_action_lookup(HANDLE_HIBERNATE),
                         sd_bus_message_is_method_call(message, NULL, "HibernateWithFlags"),
                         error);
 }
@@ -2010,7 +2010,7 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_HYBRID_SLEEP),
+                        handle_action_lookup(HANDLE_HYBRID_SLEEP),
                         sd_bus_message_is_method_call(message, NULL, "HybridSleepWithFlags"),
                         error);
 }
@@ -2020,7 +2020,7 @@ static int method_suspend_then_hibernate(sd_bus_message *message, void *userdata
 
         return method_do_shutdown_or_sleep(
                         m, message,
-                        manager_item_for_handle(HANDLE_SUSPEND_THEN_HIBERNATE),
+                        handle_action_lookup(HANDLE_SUSPEND_THEN_HIBERNATE),
                         sd_bus_message_is_method_call(message, NULL, "SuspendThenHibernateWithFlags"),
                         error);
 }
@@ -2083,7 +2083,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
                 return;
 
         /* assign parsed type only after we know usec is also valid */
-        m->scheduled_shutdown_type = manager_item_for_handle(handle);
+        m->scheduled_shutdown_type = handle_action_lookup(handle);
 
         if (warn_wall) {
                 r = parse_boolean(warn_wall);
@@ -2265,7 +2265,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (!IN_SET(handle, HANDLE_POWEROFF, HANDLE_REBOOT, HANDLE_HALT, HANDLE_KEXEC))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
-        a = manager_item_for_handle(handle);
+        a = handle_action_lookup(handle);
         assert(a);
         assert(a->polkit_action);
 
@@ -2418,7 +2418,7 @@ static int method_can_shutdown_or_sleep(
         if (handle >= 0) {
                 const char *target;
 
-                target = manager_item_for_handle(handle)->target;
+                target = handle_action_lookup(handle)->target;
                 if (target) {
                         _cleanup_free_ char *load_state = NULL;
 
@@ -2485,7 +2485,7 @@ static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_e
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_POWEROFF),
+                        m, message, handle_action_lookup(HANDLE_POWEROFF),
                         error);
 }
 
@@ -2493,7 +2493,7 @@ static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_err
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_REBOOT),
+                        m, message, handle_action_lookup(HANDLE_REBOOT),
                         error);
 }
 
@@ -2501,7 +2501,7 @@ static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_HALT),
+                        m, message, handle_action_lookup(HANDLE_HALT),
                         error);
 }
 
@@ -2509,7 +2509,7 @@ static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_er
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_SUSPEND),
+                        m, message, handle_action_lookup(HANDLE_SUSPEND),
                         error);
 }
 
@@ -2517,7 +2517,7 @@ static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_HIBERNATE),
+                        m, message, handle_action_lookup(HANDLE_HIBERNATE),
                         error);
 }
 
@@ -2525,7 +2525,7 @@ static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_b
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_HYBRID_SLEEP),
+                        m, message, handle_action_lookup(HANDLE_HYBRID_SLEEP),
                         error);
 }
 
@@ -2533,7 +2533,7 @@ static int method_can_suspend_then_hibernate(sd_bus_message *message, void *user
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
-                        m, message, manager_item_for_handle(HANDLE_SUSPEND_THEN_HIBERNATE),
+                        m, message, handle_action_lookup(HANDLE_SUSPEND_THEN_HIBERNATE),
                         error);
 }
 
