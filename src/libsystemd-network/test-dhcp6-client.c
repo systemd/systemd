@@ -78,8 +78,6 @@ static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(client_ref, sd_dhcp6_client_unrefp);
-
 static void test_client_basic(void) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         int v;
@@ -1004,6 +1002,7 @@ static void test_dhcp6_client(void) {
 
         assert_se(test_client_sent_message_count == 4);
 
+        assert_se(!sd_dhcp6_client_unref(client_ref));
         test_fd[1] = safe_close(test_fd[1]);
 }
 
