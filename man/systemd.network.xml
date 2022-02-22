@@ -824,12 +824,11 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>DHCPPrefixDelegation=</varname></term>
         <listitem>
-          <para>Takes a boolean value. When enabled, requests subnet prefixes acquired by a DHCPv6
-          client, or by a DHCPv4 client through the 6RD option  configured on another link. By default,
-          an address within each delegated prefix will be assigned, and the prefixes will be announced
-          through IPv6 Router Advertisement when <varname>IPv6SendRA=</varname> is enabled. Such
-          default settings can be configured in the [DHCPPrefixDelegation] section. Defaults to
-          disabled.</para>
+          <para>Takes a boolean value. When enabled, requests subnet prefixes on another link via the DHCPv6
+          protocol or via the 6RD option in the DHCPv4 protocol. An address within each delegated prefix will
+          be assigned, and the prefixes will be announced through IPv6 Router Advertisement if
+          <varname>IPv6SendRA=</varname> is enabled. This behaviour can be configured in the
+          [DHCPPrefixDelegation] section. Defaults to disabled.</para>
         </listitem>
       </varlistentry>
 
@@ -3686,7 +3685,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <term><option>dst-host</option></term>
               <listitem><para>
                 Flows are defined only by destination address. Equivalent to the
-                <literal>srchost</literal> option for <command>tc qdisc</command> command. See also
+                <literal>dsthost</literal> option for <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
               </para></listitem>
             </varlistentry>
