@@ -856,7 +856,7 @@ void user_update_last_session_timer(User *u) {
         assert(!u->timer_event_source);
 
         user_stop_delay = user_get_stop_delay(u);
-        if (IN_SET(user_stop_delay, 0, USEC_INFINITY))
+        if (!timestamp_is_set(user_stop_delay))
                 return;
 
         if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {

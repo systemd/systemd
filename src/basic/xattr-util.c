@@ -199,7 +199,7 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         assert(fd >= 0);
 
-        if (IN_SET(usec, 0, USEC_INFINITY))
+        if (!timestamp_is_set(usec))
                 usec = now(CLOCK_REALTIME);
 
         le = htole64((uint64_t) usec);
