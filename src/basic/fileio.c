@@ -1195,7 +1195,7 @@ int write_timestamp_file_atomic(const char *fn, usec_t n) {
         /* Creates a "timestamp" file, that contains nothing but a
          * usec_t timestamp, formatted in ASCII. */
 
-        if (n <= 0 || n >= USEC_INFINITY)
+        if (!timestamp_is_set(n))
                 return -ERANGE;
 
         xsprintf(ln, USEC_FMT "\n", n);
@@ -1216,7 +1216,7 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         if (r < 0)
                 return r;
 
-        if (t <= 0 || t >= (uint64_t) USEC_INFINITY)
+        if (!timestamp_is_set(t))
                 return -ERANGE;
 
         *ret = (usec_t) t;
