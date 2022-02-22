@@ -1129,68 +1129,8 @@ $ systemd-analyze verify /tmp/source:alias.service
           </tgroup>
         </table>
 
-          <example>
-          <title>JSON Policy</title>
-          <para>The JSON file passed as a path parameter to <option>--security-policy=</option>
-          has a top-level JSON object, with keys being the assessment test identifiers mentioned
-          above. The values in the file should be JSON objects with one or more of the
-          following fields: description_na (string), description_good (string), description_bad
-          (string), weight (unsigned integer), and range (unsigned integer). If any of these fields
-          corresponding to a specific id of the unit file is missing from the JSON object, the
-          default built-in field value corresponding to that same id is used for security analysis
-          as default. The weight and range fields are used in determining the overall exposure level
-          of the unit files: the value of each setting is assigned a badness score, which is multiplied
-          by the policy weight and divided by the policy range to determine the overall exposure that
-          the setting implies. The computed badness is summed across all settings in the unit file,
-          normalized to the 1…100 range, and used to determine the overall exposure level of the unit.
-          By allowing users to manipulate these fields, the 'security' verb gives them the option to
-          decide for themself which ids are more important and hence should have a greater effect on
-          the exposure level. A weight of <literal>0</literal> means the setting will not be
-          checked.</para>
-
-          <programlisting>
-          {
-            "PrivateDevices":
-              {
-              "description_good": "Service has no access to hardware devices",
-              "description_bad": "Service potentially has access to hardware devices",
-              "weight": 1000,
-              "range": 1
-              },
-            "PrivateMounts":
-              {
-              "description_good": "Service cannot install system mounts",
-              "description_bad": "Service may install system mounts",
-              "weight": 1000,
-              "range": 1
-              },
-            "PrivateNetwork":
-              {
-              "description_good": "Service has no access to the host's network",
-              "description_bad": "Service has access to the host's network",
-              "weight": 2500,
-              "range": 1
-              },
-            "PrivateTmp":
-              {
-              "description_good": "Service has no access to other software's temporary files",
-              "description_bad": "Service has access to other software's temporary files",
-              "weight": 1000,
-              "range": 1
-              },
-            "PrivateUsers":
-              {
-              "description_good": "Service does not have access to other users",
-              "description_bad": "Service has access to other users",
-              "weight": 1000,
-              "range": 1
-              }
-          }
-            </programlisting>
-          </example>
-        </listitem>
+        <para>See example "JSON Policy" below.</para></listitem>
       </varlistentry>
-
 
       <varlistentry>
         <term><option>--json=<replaceable>MODE</replaceable></option></term>
@@ -1260,6 +1200,70 @@ $ systemd-analyze verify /tmp/source:alias.service
   </refsect1>
 
   <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>JSON Policy</title>
+
+      <para>The JSON file passed as a path parameter to <option>--security-policy=</option> has a top-level
+      JSON object, with keys being the assessment test identifiers mentioned above. The values in the file
+      should be JSON objects with one or more of the following fields: <option>description_na</option>
+      (string), <option>description_good</option> (string), <option>description_bad</option> (string),
+      <option>weight</option> (unsigned integer), and <option>range</option> (unsigned integer). If any of
+      these fields corresponding to a specific id of the unit file is missing from the JSON object, the
+      default built-in field value corresponding to that same id is used for security analysis as default.
+      The weight and range fields are used in determining the overall exposure level of the unit files: the
+      value of each setting is assigned a badness score, which is multiplied by the policy weight and divided
+      by the policy range to determine the overall exposure that the setting implies. The computed badness is
+      summed across all settings in the unit file, normalized to the 1…100 range, and used to determine the
+      overall exposure level of the unit.  By allowing users to manipulate these fields, the 'security' verb
+      gives them the option to decide for themself which ids are more important and hence should have a
+      greater effect on the exposure level. A weight of <literal>0</literal> means the setting will not be
+      checked.</para>
+
+      <programlisting>
+{
+  "PrivateDevices":
+    {
+    "description_good": "Service has no access to hardware devices",
+    "description_bad": "Service potentially has access to hardware devices",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateMounts":
+    {
+    "description_good": "Service cannot install system mounts",
+    "description_bad": "Service may install system mounts",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateNetwork":
+    {
+    "description_good": "Service has no access to the host's network",
+    "description_bad": "Service has access to the host's network",
+    "weight": 2500,
+    "range": 1
+    },
+  "PrivateTmp":
+    {
+    "description_good": "Service has no access to other software's temporary files",
+    "description_bad": "Service has access to other software's temporary files",
+    "weight": 1000,
+    "range": 1
+    },
+  "PrivateUsers":
+    {
+    "description_good": "Service does not have access to other users",
+    "description_bad": "Service has access to other users",
+    "weight": 1000,
+    "range": 1
+    }
+}
+      </programlisting>
+    </example>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>
