@@ -43,7 +43,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is rebooting",
                 .log_message                     = "reboot",
         },
-        [HANDLE_HALT] =  {
+        [HANDLE_HALT] = {
                 .handle                          = HANDLE_HALT,
                 .target                          = SPECIAL_HALT_TARGET,
                 .inhibit_what                    = INHIBIT_SHUTDOWN,
@@ -55,7 +55,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is halting",
                 .log_message                     = "halt",
         },
-        [HANDLE_KEXEC] =  {
+        [HANDLE_KEXEC] = {
                 .handle                          = HANDLE_KEXEC,
                 .target                          = SPECIAL_KEXEC_TARGET,
                 .inhibit_what                    = INHIBIT_SHUTDOWN,
@@ -67,7 +67,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is rebooting with kexec",
                 .log_message                     = "kexec",
         },
-        [HANDLE_SUSPEND] =  {
+        [HANDLE_SUSPEND] = {
                 .handle                          = HANDLE_SUSPEND,
                 .target                          = SPECIAL_SUSPEND_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -76,7 +76,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.suspend-ignore-inhibit",
                 .sleep_operation                 = SLEEP_SUSPEND,
         },
-        [HANDLE_HIBERNATE] =  {
+        [HANDLE_HIBERNATE] = {
                 .handle                          = HANDLE_HIBERNATE,
                 .target                          = SPECIAL_HIBERNATE_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -85,7 +85,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_HIBERNATE,
         },
-        [HANDLE_HYBRID_SLEEP] =  {
+        [HANDLE_HYBRID_SLEEP] = {
                 .handle                          = HANDLE_HYBRID_SLEEP,
                 .target                          = SPECIAL_HYBRID_SLEEP_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -94,7 +94,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_HYBRID_SLEEP,
         },
-        [HANDLE_SUSPEND_THEN_HIBERNATE] =  {
+        [HANDLE_SUSPEND_THEN_HIBERNATE] = {
                 .handle                          = HANDLE_SUSPEND_THEN_HIBERNATE,
                 .target                          = SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -103,7 +103,7 @@ static const HandleActionData action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_SUSPEND_THEN_HIBERNATE,
         },
-        [HANDLE_FACTORY_RESET] =  {
+        [HANDLE_FACTORY_RESET] = {
                 .handle                          = HANDLE_FACTORY_RESET,
                 .target                          = SPECIAL_FACTORY_RESET_TARGET,
                 .inhibit_what                    = _INHIBIT_WHAT_INVALID,
