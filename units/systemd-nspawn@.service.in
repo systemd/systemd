@@ -13,7 +13,7 @@ Documentation=man:systemd-nspawn(1)
 Wants=modprobe@tun.service modprobe@loop.service modprobe@dm-mod.service
 PartOf=machines.target
 Before=machines.target
-After=network.target systemd-resolved.service modprobe@tun.service modprobe@loop.service modprobe@dm-mod.service
+After=network.target modprobe@tun.service modprobe@loop.service modprobe@dm-mod.service
 RequiresMountsFor=/var/lib/machines/%i
 
 [Service]
