@@ -11,7 +11,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-int switch_root(int argc, char *argv[], void *userdata) {
+int verb_switch_root(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;

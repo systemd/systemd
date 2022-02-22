@@ -62,7 +62,7 @@ static int normalize_names(char **names, bool warn_if_path) {
         return 0;
 }
 
-int enable_unit(int argc, char *argv[], void *userdata) {
+int verb_enable(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
         UnitFileChange *changes = NULL;
@@ -86,7 +86,9 @@ int enable_unit(int argc, char *argv[], void *userdata) {
         if (strv_isempty(names)) {
                 if (arg_no_reload || install_client_side())
                         return 0;
-                return daemon_reload(argc, argv, userdata);
+
+                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                return r > 0 ? 0 : r;
         }
 
         if (streq(verb, "disable")) {
@@ -234,9 +236,11 @@ int enable_unit(int argc, char *argv[], void *userdata) {
                         goto finish;
 
                 /* Try to reload if enabled */
-                if (!arg_no_reload)
-                        r = daemon_reload(argc, argv, userdata);
-                else
+                if (!arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                        if (r > 0)
+                                r = 0;
+                } else
                         r = 0;
         }
 
@@ -273,7 +277,7 @@ int enable_unit(int argc, char *argv[], void *userdata) {
                                 new_args[i + 1] = basename(names[i]);
                         new_args[i + 1] = NULL;
 
-                        r = start_unit(len + 1, new_args, userdata);
+                        r = verb_start(len + 1, new_args, userdata);
                 }
         }
 
