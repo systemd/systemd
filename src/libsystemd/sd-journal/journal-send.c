@@ -6,6 +6,9 @@
 #include <stddef.h>
 #include <sys/un.h>
 #include <unistd.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
 
@@ -14,8 +17,9 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "io-util.h"
 #include "fileio.h"
+#include "io-util.h"
+#include "journal-send.h"
 #include "memfd-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -39,10 +43,10 @@
  * all its threads, and all its subprocesses. This means we need to
  * initialize it atomically, and need to operate on it atomically
  * never assuming we are the only user */
+static int fd_plus_one = 0;
 
 static int journal_fd(void) {
         int fd;
-        static int fd_plus_one = 0;
 
 retry:
         if (fd_plus_one > 0)
@@ -61,6 +65,24 @@ retry:
 
         return fd;
 }
+
+#if VALGRIND
+void close_journal_fd(void) {
+        /* Be nice to valgrind. This is not atomic. This must be used only in tests. */
+
+        if (!RUNNING_ON_VALGRIND)
+                return;
+
+        if (getpid() != gettid())
+                return;
+
+        if (fd_plus_one <= 0)
+                return;
+
+        safe_close(fd_plus_one - 1);
+        fd_plus_one = 0;
+}
+#endif
 
 _public_ int sd_journal_print(int priority, const char *format, ...) {
         int r;
