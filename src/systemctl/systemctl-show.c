@@ -433,6 +433,18 @@ static void print_status_info(
                                FORMAT_TIMESTAMP_STYLE(until_timestamp, arg_timestamp_style),
                                FORMAT_TIMESTAMP_RELATIVE(until_timestamp));
                 }
+
+                if (!endswith(i->id, ".target") &&
+                        STRPTR_IN_SET(i->active_state, "inactive", "failed") &&
+                        timestamp_is_set(i->active_enter_timestamp) &&
+                        timestamp_is_set(i->active_exit_timestamp) &&
+                        i->active_exit_timestamp >= i->active_enter_timestamp) {
+
+                        usec_t duration;
+
+                        duration = i->active_exit_timestamp - i->active_enter_timestamp;
+                        printf("   Duration: %s\n", FORMAT_TIMESPAN(duration, MSEC_PER_SEC));
+                }
         } else
                 printf("\n");
 
