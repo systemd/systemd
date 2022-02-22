@@ -484,3 +484,6 @@ option('analyze', type: 'boolean', value: 'true',
 
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
+
+option('skip-deps', type : 'boolean', value : 'false',
+       description : 'skip optional dependencies')
