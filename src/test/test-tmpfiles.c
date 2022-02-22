@@ -35,7 +35,7 @@ TEST(tmpfiles) {
         assert_se(endswith(ans, " (deleted)"));
 
         fd2 = mkostemp_safe(pattern);
-        assert_se(fd >= 0);
+        assert_se(fd2 >= 0);
         assert_se(unlink(pattern) == 0);
 
         assert_se(asprintf(&cmd2, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd2) > 0);
@@ -47,6 +47,7 @@ TEST(tmpfiles) {
         pattern = strjoina(p, "/tmpfiles-test");
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
+        fd = safe_close(fd);
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
         assert_se(fd >= 0);
         assert_se(write(fd, "foobar\n", 7) == 7);
