@@ -51,7 +51,6 @@ static uint8_t advertisement[] = {
         0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-static sd_event_source *test_hangcheck;
 static bool test_stopped;
 static int test_fd[2];
 static sd_event_source *recv_router_advertisement;
@@ -100,13 +99,6 @@ static const struct in6_addr test_rdnss = { { { 0x20, 0x01, 0x0d, 0xb8,
                                                 0x00, 0x00, 0x00, 0x01 } } };
 static const char *test_dnssl[] = { "lab.intra",
                                     NULL };
-
-static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
-                             void *userdata) {
-        assert_se(false);
-
-        return 0;
-}
 
 static void test_radv_prefix(void) {
         sd_radv_prefix *p;
@@ -341,16 +333,13 @@ static void test_ra(void) {
         assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0],
                                   EPOLLIN, radv_recv, ra) >= 0);
 
-        assert_se(sd_event_add_time_relative(
-                                  e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                  2 *USEC_PER_SEC, 0,
-                                  test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+                                             2 * USEC_PER_SEC, 0,
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);
 
-        sd_event_loop(e);
-
-        test_hangcheck = sd_event_source_unref(test_hangcheck);
+        assert_se(sd_event_loop(e) >= 0);
 
         ra = sd_radv_unref(ra);
         assert_se(!ra);

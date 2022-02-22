@@ -981,7 +981,7 @@ static void test_dhcp6_client(void) {
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
                                              2 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(ETIMEDOUT)) >= 0);
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
