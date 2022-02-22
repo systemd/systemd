@@ -19,15 +19,17 @@ typedef enum HandleAction {
         _HANDLE_ACTION_INVALID = -EINVAL,
 } HandleAction;
 
-typedef struct ActionTableItem ActionTableItem;
-
-#define handle_action_valid(x) (x && (x < _HANDLE_ACTION_MAX))
+typedef struct HandleActionData HandleActionData;
 
 #include "logind-inhibit.h"
 #include "logind.h"
 #include "sleep-config.h"
 
-struct ActionTableItem {
+static inline bool handle_action_valid(HandleAction a) {
+        return a >= 0 && a < _HANDLE_ACTION_MAX;
+}
+
+struct HandleActionData {
         HandleAction handle;
         const char *target;
         InhibitWhat inhibit_what;
@@ -50,7 +52,6 @@ int manager_handle_action(
 const char* handle_action_to_string(HandleAction h) _const_;
 HandleAction handle_action_from_string(const char *s) _pure_;
 
-const ActionTableItem* manager_item_for_handle(HandleAction handle);
-HandleAction manager_handle_for_item(const ActionTableItem* a);
+const HandleActionData* handle_action_lookup(HandleAction handle);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_handle_action);
