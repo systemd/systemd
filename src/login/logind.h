@@ -68,17 +68,15 @@ struct Manager {
         usec_t inhibit_delay_max;
         usec_t user_stop_delay;
 
-        /* If a shutdown/suspend was delayed due to an inhibitor this
-           contains the action we are supposed to start after the
-           delay is over */
+        /* If a shutdown/suspend was delayed due to an inhibitor this contains the action we are supposed to
+         * start after the delay is over */
         const HandleActionData *delayed_action;
 
-        /* If a shutdown/suspend is currently executed, then this is
-         * the job of it */
+        /* If a shutdown/suspend is currently executed, then this is the job of it */
         char *action_job;
         sd_event_source *inhibit_timeout_source;
 
-        const HandleActionData *scheduled_shutdown_type;
+        const HandleActionData *scheduled_shutdown_action;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;

@@ -365,7 +365,7 @@ static int property_get_scheduled_shutdown(
                 return r;
 
         r = sd_bus_message_append(reply, "st",
-                m->scheduled_shutdown_type ? handle_action_to_string(m->scheduled_shutdown_type->handle) : NULL,
+                m->scheduled_shutdown_action ? handle_action_to_string(m->scheduled_shutdown_action->handle) : NULL,
                 m->scheduled_shutdown_timeout);
         if (r < 0)
                 return r;
@@ -1944,7 +1944,7 @@ static int method_do_shutdown_or_sleep(
         reset_scheduled_shutdown(m);
 
         m->scheduled_shutdown_timeout = 0;
-        m->scheduled_shutdown_type = a;
+        m->scheduled_shutdown_action = a;
 
         (void) setup_wall_message_timer(m, message);
 
@@ -2083,7 +2083,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
                 return;
 
         /* assign parsed type only after we know usec is also valid */
-        m->scheduled_shutdown_type = handle_action_lookup(handle);
+        m->scheduled_shutdown_action = handle_action_lookup(handle);
 
         if (warn_wall) {
                 r = parse_boolean(warn_wall);
@@ -2126,7 +2126,7 @@ static int update_schedule_file(Manager *m) {
         int r;
 
         assert(m);
-        assert(m->scheduled_shutdown_type);
+        assert(m->scheduled_shutdown_action);
 
         r = mkdir_parents_label(SHUTDOWN_SCHEDULE_FILE, 0755);
         if (r < 0)
@@ -2140,7 +2140,7 @@ static int update_schedule_file(Manager *m) {
 
         serialize_usec(f, "USEC", m->scheduled_shutdown_timeout);
         serialize_item_format(f, "WARN_WALL", "%s", one_zero(m->enable_wall_messages));
-        serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_type->handle));
+        serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_action->handle));
         serialize_item_format(f, "UID", UID_FMT, m->scheduled_shutdown_uid);
 
         if (m->scheduled_shutdown_tty)
@@ -2177,7 +2177,7 @@ static void reset_scheduled_shutdown(Manager *m) {
         m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
         m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
 
-        m->scheduled_shutdown_type = NULL;
+        m->scheduled_shutdown_action = NULL;
         m->scheduled_shutdown_timeout = USEC_INFINITY;
         m->scheduled_shutdown_uid = UID_INVALID;
         m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
@@ -2204,7 +2204,7 @@ static int manager_scheduled_shutdown_handler(
 
         assert(m);
 
-        a = m->scheduled_shutdown_type;
+        a = m->scheduled_shutdown_action;
         assert(a);
 
         /* Don't allow multiple jobs being executed at the same time */
@@ -2227,7 +2227,7 @@ static int manager_scheduled_shutdown_handler(
                 return 0;
         }
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, m->scheduled_shutdown_type, &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, m->scheduled_shutdown_action, &error);
         if (r < 0) {
                 log_error_errno(r, "Scheduled shutdown to %s failed: %m", a->target);
                 goto error;
@@ -2273,7 +2273,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (r != 0)
                 return r;
 
-        m->scheduled_shutdown_type = a;
+        m->scheduled_shutdown_action = a;
         m->shutdown_dry_run = dry_run;
         m->scheduled_shutdown_timeout = elapse;
 
@@ -2330,12 +2330,12 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         assert(m);
         assert(message);
 
-        cancelled = m->scheduled_shutdown_type
-                && !IN_SET(m->scheduled_shutdown_type->handle, HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
+        cancelled = m->scheduled_shutdown_action
+                && !IN_SET(m->scheduled_shutdown_action->handle, HANDLE_IGNORE, _HANDLE_ACTION_INVALID);
         if (!cancelled)
                 return sd_bus_reply_method_return(message, "b", false);
 
-        a = m->scheduled_shutdown_type;
+        a = m->scheduled_shutdown_action;
         if (!a->polkit_action)
                 return sd_bus_error_set(error, SD_BUS_ERROR_AUTH_FAILED, "Unsupported shutdown type");
 
