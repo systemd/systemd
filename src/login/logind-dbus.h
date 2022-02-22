@@ -15,7 +15,7 @@ int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char 
 
 int manager_dispatch_delayed(Manager *manager, bool timeout);
 
-int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const ActionTableItem *a, sd_bus_error *error);
+int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const HandleActionData *a, sd_bus_error *error);
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
