@@ -185,7 +185,7 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 
 #else
-int dump_syscall_filters(int argc, char *argv[], void *userdata) {
+int verb_syscall_filters(int argc, char *argv[], void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with syscall filters, sorry.");
 }
 #endif
