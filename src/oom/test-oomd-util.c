@@ -283,7 +283,7 @@ static void test_oomd_system_context_acquire(void) {
 static void test_oomd_pressure_above(void) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_set_free_ Set *t1 = NULL, *t2 = NULL, *t3 = NULL;
-        OomdCGroupContext ctx[2], *c;
+        OomdCGroupContext ctx[2] = {}, *c;
         loadavg_t threshold;
 
         assert_se(store_loadavg_fixed_point(80, 0, &threshold) == 0);
