@@ -124,29 +124,27 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
          * The two may be out of sync on some firmware, giving us double input. */
         if (conInEx) {
                 EFI_KEY_DATA keydata;
-                UINT64 keypress;
                 UINT32 shift = 0;
 
                 err = conInEx->ReadKeyStrokeEx(conInEx, &keydata);
                 if (EFI_ERROR(err))
                         return err;
 
-                /* do not distinguish between left and right keys */
-                if (keydata.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) {
-                        if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED))
+                if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
+                        /* Do not distinguish between left and right keys (set both flags). */
+                        if (keydata.KeyState.KeyShiftState & EFI_SHIFT_PRESSED)
+                                shift |= EFI_SHIFT_PRESSED;
+                        if (keydata.KeyState.KeyShiftState & EFI_CONTROL_PRESSED)
                                 shift |= EFI_CONTROL_PRESSED;
-                        if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED))
+                        if (keydata.KeyState.KeyShiftState & EFI_ALT_PRESSED)
                                 shift |= EFI_ALT_PRESSED;
+                        if (keydata.KeyState.KeyShiftState & EFI_LOGO_PRESSED)
+                                shift |= EFI_LOGO_PRESSED;
                 }
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
-                keypress = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
-                if (keypress > 0) {
-                        *key = keypress;
-                        return EFI_SUCCESS;
-                }
-
-                return EFI_NOT_READY;
+                *key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
+                return EFI_SUCCESS;
         } else if (!EFI_ERROR(BS->CheckEvent(ST->ConIn->WaitForKey))) {
                 EFI_INPUT_KEY k;
 
