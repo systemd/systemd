@@ -698,12 +698,12 @@
         done. If set to <literal>grow</literal> the home area is grown to the size configured via
         <option>--disk-size=</option> should it currently be smaller. If it already matches the configured
         size or is larger no operation is executed. If set to <literal>shrink-and-grow</literal> the home
-        area is also resized to the minimal size used disk space and file system constraints permit, during
-        logout. This mode thus ensures that while a home area is activated it is sized to the configured
-        size, but while deactivated it is compacted taking up only the minimal space possible. Note that if
-        the system is powered off abnormally or if the user otherwise not logged out cleanly the shrinking
-        operation will not take place, and the user has to re-login/logout again before it is executed
-        again.</para></listitem>
+        area is also resized during logout to the minimal size the used disk space and file system
+        constraints permit. This mode thus ensures that while a home area is activated it is sized to the
+        configured size, but while deactivated it is compacted taking up only the minimal space possible.
+        Note that if the system is powered off abnormally or if the user otherwise not logged out cleanly the
+        shrinking operation will not take place, and the user has to re-login/logout again before it is
+        executed again.</para></listitem>
       </varlistentry>
 
       <varlistentry>

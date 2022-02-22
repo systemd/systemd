@@ -74,10 +74,10 @@
       <varlistentry>
         <term><option>--json=</option><replaceable>FORMAT</replaceable></term>
 
-        <listitem><para>Selects JSON out mode (like <option>--output=json</option>) and selects the precise
-        display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
-        <literal>pretty</literal> human-friendly whitespace and newlines are inserted in the output to make
-        the JSON data more readable. If <literal>short</literal> all superfluous whitespace is
+        <listitem><para>Selects JSON output mode (like <option>--output=json</option>) and selects the
+        precise display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
+        <literal>pretty</literal>, human-friendly whitespace and newlines are inserted in the output to make
+        the JSON data more readable. If <literal>short</literal>, all superfluous whitespace is
         suppressed.</para></listitem>
       </varlistentry>
 

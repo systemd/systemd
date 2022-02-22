@@ -94,7 +94,7 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_CACHE</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, the cache of previously queried records will
-        not be used by <filename>systemd-resolved</filename>.</para></listitem>
+        not be used by <command>systemd-resolved</command>.</para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -121,7 +121,7 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_NETWORK</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, answers will be returned without using the
-        network, i.e. either from local sources or the cache in <filename>systemd-resolved</filename>.
+        network, i.e. either from local sources or the cache in <command>systemd-resolved</command>.
         </para></listitem>
       </varlistentry>
     </variablelist>
@@ -130,8 +130,8 @@
   <refsect1>
     <title>Example</title>
 
-    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables <command>nss-resolve</command>
-    correctly:</para>
+    <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
+    <command>nss-resolve</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
 <programlisting>passwd:         compat systemd

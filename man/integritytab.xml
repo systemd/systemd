@@ -50,7 +50,7 @@
     <literal>UUID=</literal> followed by the UUID,
     <literal>PARTUUID=</literal> followed by the partition UUID,
     <literal>LABEL=</literal> followed by the label,
-    <literal>PARTLABEL=</literal> followed by the partition label,
+    <literal>PARTLABEL=</literal> followed by the partition label.
     </para>
 
     <para>The third field if present contains an absolute filename path to a key file or a <literal>-</literal>

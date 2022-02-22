@@ -812,7 +812,7 @@
       <varlistentry>
         <term><varname>TransmitVLANSTAGHardwareAcceleration=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, transmit VLAN STAG HW acceleration is enabled.
+          <para>Takes a boolean. If set to true, transmit VLAN STAG hardware acceleration is enabled.
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
