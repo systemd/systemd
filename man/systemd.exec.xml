@@ -1964,9 +1964,7 @@ RestrictFileSystems=ext4</programlisting>
               </row>
               <row>
                 <entry>@known</entry>
-                <entry>All known filesystems defined by the kernel. This list is defined statically in systemd based on a kernel
-                version that was available when this systemd version was released. It will become progressively more
-                out-of-date as the kernel is updated.</entry>
+                <entry>All known filesystems defined by the kernel. This list is defined statically in systemd based on a kernel version that was available when this systemd version was released. It will become progressively more out-of-date as the kernel is updated.</entry>
               </row>
             </tbody>
           </tgroup>

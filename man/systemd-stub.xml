@@ -94,9 +94,12 @@
       then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
       authenticated credentials for use with <varname>LoadCredentialEncrypted=</varname> in the UEFI System
       Partition. See
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for
       details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
-      PCR 4 (if a TPM is present)</para></listitem>
+      PCR 4 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
       are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
