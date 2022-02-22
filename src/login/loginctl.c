@@ -469,7 +469,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         else
                 printf("%"PRIu32"\n", i.uid);
 
-        if (i.timestamp.realtime > 0 && i.timestamp.realtime < USEC_INFINITY)
+        if (timestamp_is_set(i.timestamp.realtime))
                 printf("\t   Since: %s; %s\n",
                        FORMAT_TIMESTAMP(i.timestamp.realtime),
                        FORMAT_TIMESTAMP_RELATIVE(i.timestamp.realtime));
@@ -592,7 +592,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         else
                 printf("%"PRIu32"\n", i.uid);
 
-        if (i.timestamp.realtime > 0 && i.timestamp.realtime < USEC_INFINITY)
+        if (timestamp_is_set(i.timestamp.realtime))
                 printf("\t   Since: %s; %s\n",
                        FORMAT_TIMESTAMP(i.timestamp.realtime),
                        FORMAT_TIMESTAMP_RELATIVE(i.timestamp.realtime));
