@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "oomd-util.h"
@@ -13,6 +14,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 static int fork_and_sleep(unsigned sleep_min) {
         usec_t n, timeout, ts;
@@ -244,12 +246,13 @@ static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
 
 static void test_oomd_system_context_acquire(void) {
         _cleanup_(unlink_tempfilep) char path[] = "/oomdgetsysctxtestXXXXXX";
+        _cleanup_close_ int fd = -1;
         OomdSystemContext ctx;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
 
-        assert_se(mkstemp(path));
+        assert_se((fd = mkostemp_safe(path)) >= 0);
 
         assert_se(oomd_system_context_acquire("/verylikelynonexistentpath", &ctx) == -ENOENT);
 

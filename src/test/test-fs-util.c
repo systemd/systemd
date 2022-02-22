@@ -29,10 +29,11 @@ static const char *arg_test_dir = NULL;
 
 TEST(chase_symlinks) {
         _cleanup_free_ char *result = NULL;
+        _cleanup_close_ int pfd = -1;
         char *temp;
         const char *top, *p, *pslash, *q, *qslash;
         struct stat st;
-        int r, pfd;
+        int r;
 
         temp = strjoina(arg_test_dir ?: "/tmp", "/test-chase.XXXXXX");
         assert_se(mkdtemp(temp));
@@ -318,6 +319,7 @@ TEST(chase_symlinks) {
         assert_se(fstat(pfd, &st) >= 0);
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
+        pfd = safe_close(pfd);
 
         /* s1 -> s2 -> nonexistent */
         q = strjoina(temp, "/s1");
@@ -331,6 +333,7 @@ TEST(chase_symlinks) {
         assert_se(fstat(pfd, &st) >= 0);
         assert_se(S_ISLNK(st.st_mode));
         result = mfree(result);
+        pfd = safe_close(pfd);
 
         /* Test CHASE_STEP */
 
