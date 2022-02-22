@@ -2304,7 +2304,7 @@ Table=1234</programlisting></para>
                   <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                   <citerefentry><refentrytitle>sd_id128_from_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                   and
-                  <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                  <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                 </para>
                 <para>
                   Note that the <literal>prefixstable</literal> algorithm uses both the interface
