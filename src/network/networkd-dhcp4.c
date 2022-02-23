@@ -925,8 +925,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->lifetime_preferred_usec = lifetime_usec;
         addr->lifetime_valid_usec = lifetime_usec;
         addr->prefixlen = prefixlen;
-        if (prefixlen <= 30)
-                addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
+        address_set_broadcast(addr, link);
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
