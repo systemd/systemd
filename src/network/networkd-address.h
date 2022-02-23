@@ -70,7 +70,7 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
 int address_remove(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
-void address_set_broadcast(Address *a);
+void address_set_broadcast(Address *a, Link *link);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
