@@ -328,6 +328,15 @@ void address_hash_func(const Address *a, struct siphash *state) {
         siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
         siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
         siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
+
+        if (a->family == AF_INET) {
+                /* On update, the kernel ignores the address label and broadcast address, hence we need
+                 * to distinguish addresses with different labels or broadcast addresses. Otherwise,
+                 * the label or broadcast address change will not be applied when we reconfigure the
+                 * interface. */
+                siphash24_compress_string(a->label, state);
+                siphash24_compress(&a->broadcast, sizeof(a->broadcast), state);
+        }
 }
 
 int address_compare_func(const Address *a1, const Address *a2) {
@@ -351,6 +360,16 @@ int address_compare_func(const Address *a1, const Address *a2) {
         r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
         if (r != 0)
                 return r;
+
+        if (a1->family == AF_INET) {
+                r = strcmp_ptr(a1->label, a2->label);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
+                if (r != 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -525,6 +544,7 @@ int address_get(Link *link, const Address *in, Address **ret) {
 }
 
 int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
+        Address *a;
         int r;
 
         assert(link);
@@ -536,40 +556,50 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
          * arbitrary prefixlen will be returned. */
 
         if (prefixlen != 0) {
-                _cleanup_(address_freep) Address *a = NULL;
+                _cleanup_(address_freep) Address *tmp = NULL;
 
                 /* If prefixlen is set, then we can use address_get(). */
 
-                r = address_new(&a);
+                r = address_new(&tmp);
                 if (r < 0)
                         return r;
 
-                a->family = family;
-                a->in_addr = *address;
-                a->prefixlen = prefixlen;
+                tmp->family = family;
+                tmp->in_addr = *address;
+                tmp->prefixlen = prefixlen;
+                address_set_broadcast(tmp, link);
 
-                return address_get(link, a, ret);
-        } else {
-                Address *a;
-
-                SET_FOREACH(a, link->addresses) {
-                        if (a->family != family)
-                                continue;
-
-                        if (!in_addr_equal(family, &a->in_addr, address))
-                                continue;
-
-                        if (in_addr_is_set(family, &a->in_addr_peer))
-                                continue;
-
+                if (address_get(link, tmp, &a) >= 0) {
                         if (ret)
                                 *ret = a;
 
                         return 0;
                 }
 
-                return -ENOENT;
+                if (family == AF_INET6)
+                        return -ENOENT;
+
+                /* IPv4 addresses may have label and/or non-default broadcast address.
+                 * Hence, we need to always fallback below. */
         }
+
+        SET_FOREACH(a, link->addresses) {
+                if (a->family != family)
+                        continue;
+
+                if (!in_addr_equal(family, &a->in_addr, address))
+                        continue;
+
+                if (in_addr_is_set(family, &a->in_addr_peer))
+                        continue;
+
+                if (ret)
+                        *ret = a;
+
+                return 0;
+        }
+
+        return -ENOENT;
 }
 
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
