@@ -643,6 +643,11 @@ static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
 
                 if (link->set_link_messages > 0)
                         return false;
+
+                /* If stacked netdevs are created before the underlying interface being activated, then
+                 * the activation policy for the netdevs are ignored. See issue #22593. */
+                if (!link->activated)
+                        return false;
         }
 
         if (NETDEV_VTABLE(netdev)->is_ready_to_create)
