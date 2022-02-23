@@ -2056,6 +2056,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'test1',
         'veth-peer',
         'veth99',
+        'vlan99',
         'vrf99',
     ]
 
@@ -2063,6 +2064,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '12-dummy.netdev',
         '12-dummy.network',
+        '21-vlan.netdev',
+        '21-vlan-test1.network',
         '23-active-slave.network',
         '24-keep-configuration-static.network',
         '24-search-domain.network',
@@ -3118,10 +3121,12 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.wait_operstate('test1', 'routable')
 
-    def _test_activation_policy(self, test):
+    def _test_activation_policy(self, test, interface):
         conffile = '25-activation-policy.network'
         if test:
             conffile = f'{conffile}.d/{test}.conf'
+        if interface == 'vlan99':
+            copy_unit_to_networkd_unit_path('21-vlan.netdev', '21-vlan-test1.network')
         copy_unit_to_networkd_unit_path('11-dummy.netdev', conffile, dropins=False)
         start_networkd()
 
@@ -3131,36 +3136,38 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         next_up = not expect_up
 
         if test.endswith('down'):
-            self.wait_activated('test1')
+            self.wait_activated(interface)
 
         for iteration in range(4):
             with self.subTest(iteration=iteration, expect_up=expect_up):
                 operstate = 'routable' if expect_up else 'off'
                 setup_state = 'configured' if expect_up else ('configuring' if iteration == 0 else None)
-                self.wait_operstate('test1', operstate, setup_state=setup_state, setup_timeout=20)
+                self.wait_operstate(interface, operstate, setup_state=setup_state, setup_timeout=20)
 
                 if expect_up:
-                    self.assertIn('UP', check_output('ip link show test1'))
-                    self.assertIn('192.168.10.30/24', check_output('ip address show test1'))
-                    self.assertIn('default via 192.168.10.1', check_output('ip route show dev test1'))
+                    self.assertIn('UP', check_output(f'ip link show {interface}'))
+                    self.assertIn('192.168.10.30/24', check_output(f'ip address show {interface}'))
+                    self.assertIn('default via 192.168.10.1', check_output(f'ip route show dev {interface}'))
                 else:
-                    self.assertIn('DOWN', check_output('ip link show test1'))
+                    self.assertIn('DOWN', check_output(f'ip link show {interface}'))
 
             if next_up:
-                check_output('ip link set dev test1 up')
+                check_output(f'ip link set dev {interface} up')
             else:
-                check_output('ip link set dev test1 down')
+                check_output(f'ip link set dev {interface} down')
             expect_up = initial_up if always else next_up
             next_up = not next_up
             if always:
                 time.sleep(1)
 
     def test_activation_policy(self):
-        for test in ['up', 'always-up', 'manual', 'always-down', 'down', '']:
-            with self.subTest(test=test):
-                self.setUp()
-                self._test_activation_policy(test)
-                self.tearDown()
+        for interface in ['test1', 'vlan99']:
+            with self.subTest(interface=interface):
+                for test in ['up', 'always-up', 'manual', 'always-down', 'down', '']:
+                    with self.subTest(test=test):
+                        self.setUp()
+                        self._test_activation_policy(test, interface)
+                        self.tearDown()
 
     def _test_activation_policy_required_for_online(self, policy, required):
         conffile = '25-activation-policy.network'
