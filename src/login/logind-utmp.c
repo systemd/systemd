@@ -10,6 +10,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "event-util.h"
 #include "format-util.h"
 #include "logind.h"
 #include "path-util.h"
@@ -147,19 +148,15 @@ int manager_setup_wall_message_timer(Manager *m) {
         if (elapse == 0)
                 return 0;
 
-        if (m->wall_message_timeout_source) {
-                r = sd_event_source_set_time(m->wall_message_timeout_source, n + elapse);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed. %m");
+        r = event_reset_time(m->event, &m->wall_message_timeout_source,
+                             CLOCK_REALTIME,
+                             n + elapse, 0,
+                             wall_message_timeout_handler, m,
+                             0, "wall-message-timer", true);
 
-                r = sd_event_source_set_enabled(m->wall_message_timeout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
-        } else {
-                r = sd_event_add_time(m->event, &m->wall_message_timeout_source,
-                                      CLOCK_REALTIME, n + elapse, 0, wall_message_timeout_handler, m);
-                if (r < 0)
-                        return log_error_errno(r, "sd_event_add_time() failed. %m");
+        if (r < 0) {
+                m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
+                return log_error_errno(r, "Failed to set up wall message timer: %m");
         }
 
         return 0;
