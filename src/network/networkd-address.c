@@ -174,8 +174,9 @@ void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in
         }
 }
 
-static bool address_may_have_broadcast(const Address *a) {
+static bool address_needs_to_set_broadcast(const Address *a, Link *link) {
         assert(a);
+        assert(link);
 
         if (a->family != AF_INET)
                 return false;
@@ -188,38 +189,26 @@ static bool address_may_have_broadcast(const Address *a) {
         if (a->prefixlen > 30)
                 return false;
 
+        /* If explicitly configured, do not update the address. */
+        if (in4_addr_is_set(&a->broadcast))
+                return false;
+
         if (a->set_broadcast >= 0)
                 return a->set_broadcast;
 
-        return true; /* Defaults to true. */
+        /* Defaults to true, except for wireguard, as typical configuration for wireguard does not set
+         * broadcast. */
+        return !streq_ptr(link->kind, "wireguard");
 }
 
-void address_set_broadcast(Address *a) {
-        assert(a);
-
-        if (!address_may_have_broadcast(a))
-                return;
-
-        /* If explicitly configured, do not update the address. */
-        if (in4_addr_is_set(&a->broadcast))
-                return;
-
-        /* If Address= is 0.0.0.0, then the broadcast address will be set later in address_acquire(). */
-        if (in4_addr_is_null(&a->in_addr.in))
-                return;
-
-        a->broadcast.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
-}
-
-static bool address_may_set_broadcast(const Address *a, const Link *link) {
+void address_set_broadcast(Address *a, Link *link) {
         assert(a);
         assert(link);
 
-        if (!address_may_have_broadcast(a))
-                return false;
+        if (!address_needs_to_set_broadcast(a, link))
+                return;
 
-        /* Typical configuration for wireguard does not set broadcast. */
-        return !streq_ptr(link->kind, "wireguard");
+        a->broadcast.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
 }
 
 static struct ifa_cacheinfo *address_set_cinfo(const Address *a, struct ifa_cacheinfo *cinfo) {
@@ -975,7 +964,6 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
                 return r;
 
         na->in_addr = in_addr;
-        address_set_broadcast(na);
 
         *ret = TAKE_PTR(na);
         return 1;
@@ -1037,7 +1025,7 @@ static int address_configure(
                 r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
-        } else if (address_may_set_broadcast(address, link)) {
+        } else if (in4_addr_is_set(&address->broadcast)) {
                 r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_BROADCAST attribute: %m");
@@ -1130,6 +1118,21 @@ int link_request_address(
 
                 address = acquired;
                 consume_object = true;
+        }
+
+        if (address_needs_to_set_broadcast(address, link)) {
+                if (!consume_object) {
+                        Address *a;
+
+                        r = address_dup(address, &a);
+                        if (r < 0)
+                                return r;
+
+                        address = a;
+                        consume_object = true;
+                }
+
+                address_set_broadcast(address, link);
         }
 
         if (address_get(link, address, &existing) < 0) {
@@ -1922,10 +1925,11 @@ static int address_section_verify(Address *address) {
                                          address->section->filename, address->section->line);
         }
 
-        if (address_may_have_broadcast(address))
-                address_set_broadcast(address);
-        else if (address->broadcast.s_addr != 0) {
-                log_warning("%s: broadcast address is set for IPv6 address or IPv4 address with prefixlength larger than 30. "
+        if (in4_addr_is_set(&address->broadcast) &&
+            (address->family == AF_INET6 || address->prefixlen > 30 ||
+             in_addr_is_set(address->family, &address->in_addr_peer))) {
+                log_warning("%s: broadcast address is set for an IPv6 address, "
+                            "an IPv4 address with peer address, or with prefix length larger than 30. "
                             "Ignoring Broadcast= setting in the [Address] section from line %u.",
                             address->section->filename, address->section->line);
 
