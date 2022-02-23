@@ -1646,8 +1646,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
       <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
-      --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
-      systemd passwd dnf fedora-release vim-minimal glibc-minimal-langpack
+      --repo=fedora --repo=updates --setopt=install_weak_deps=False install \
+      passwd dnf fedora-release vim-minimal systemd systemd-networkd
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
