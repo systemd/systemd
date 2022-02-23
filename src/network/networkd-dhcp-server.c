@@ -106,7 +106,7 @@ int link_request_dhcp_server_address(Link *link) {
         address->family = AF_INET;
         address->in_addr.in = link->network->dhcp_server_address;
         address->prefixlen = link->network->dhcp_server_address_prefixlen;
-        address_set_broadcast(address);
+        address_set_broadcast(address, link);
 
         if (address_get(link, address, &existing) >= 0 &&
             address_exists(existing) &&

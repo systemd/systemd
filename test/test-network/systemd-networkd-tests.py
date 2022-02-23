@@ -2149,6 +2149,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         call('ip netns del ns99', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def test_address_static(self):
+        # test for #22515. The address will be removed and replaced with /64 prefix.
+        rc = call('ip link add dummy98 type dummy')
+        self.assertEqual(rc, 0)
+        rc = call('ip link set dev dummy98 up')
+        self.assertEqual(rc, 0)
+        rc = call('ip -6 address add 2001:db8:0:f101::15/128 dev dummy98')
+        self.assertEqual(rc, 0)
+        self.wait_address('dummy98', '2001:db8:0:f101::15/128', ipv='-6')
+        rc = call('ip -4 address add 10.3.2.3/16 brd 10.3.255.250 scope global label dummy98:hoge dev dummy98')
+        self.assertEqual(rc, 0)
+        self.wait_address('dummy98', '10.3.2.3/16 brd 10.3.255.250', ipv='-4')
+
         copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
         start_networkd()
 
