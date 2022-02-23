@@ -82,13 +82,15 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_PROPAGATES_STOP_TO]     = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
                                         UNIT_ATOM_PROPAGATE_STOP,
 
-        [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE |
-                                        UNIT_ATOM_BACK_REFERENCE_IMPLIED,
+        [UNIT_ON_SUCCESS_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS_FROM |
+                                        UNIT_ATOM_REFERENCES,
 
-        [UNIT_ON_SUCCESS]             = UNIT_ATOM_ON_SUCCESS |
-                                        UNIT_ATOM_BACK_REFERENCE_IMPLIED,
+        [UNIT_ON_FAILURE_OF]          = UNIT_ATOM_PROPAGATE_EXIT_STATUS_FROM |
+                                        UNIT_ATOM_REFERENCES,
 
         /* These are simple dependency types: they consist of a single atom only */
+        [UNIT_ON_FAILURE]             = UNIT_ATOM_ON_FAILURE,
+        [UNIT_ON_SUCCESS]             = UNIT_ATOM_ON_SUCCESS,
         [UNIT_BEFORE]                 = UNIT_ATOM_BEFORE,
         [UNIT_AFTER]                  = UNIT_ATOM_AFTER,
         [UNIT_TRIGGERS]               = UNIT_ATOM_TRIGGERS,
@@ -104,8 +106,6 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
          * things discoverable/debuggable as they are the inverse dependencies to some of the above. As they
          * have no effect of their own, they all map to no atoms at all, i.e. the value 0. */
         [UNIT_RELOAD_PROPAGATED_FROM] = 0,
-        [UNIT_ON_SUCCESS_OF]          = 0,
-        [UNIT_ON_FAILURE_OF]          = 0,
         [UNIT_STOP_PROPAGATED_FROM]   = 0,
 };
 

@@ -3598,9 +3598,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.</para>
 
           <para>
-          The contents of this variable consists of a semi-colon separated list of metadata fields associated with the triggering
-          service. For each service which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname>
-          dependency the following fields will be set:
+          The contents of this variable consists of a list of metadata fields associated with the triggering
+          service. The following fields will be set:
           </para>
 
           <itemizedlist>
@@ -3620,6 +3619,12 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           <programlisting>
 SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=triggering.service
           </programlisting>
+
+          <para>
+          Note that if multiple services trigger the same unit, no metadata will be passed all - consider
+          using a template handler unit for that case. For example, <literal>OnFailure=handler@%n.service</literal>
+          for non-templated units, or <literal>OnFailure=handler@%p-%i.service</literal> for templated units.
+          </para>
 
           </listitem>
 
@@ -4066,7 +4071,7 @@ SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCAT
     <title>Examples</title>
 
       <example>
-        <title><varname>$MONITOR_METADATA</varname> usage</title>
+        <title><varname>$MONITOR_<replaceable>*</replaceable></varname> usage</title>
 
         <para>A service <filename index="false">myfailer.service</filename> which can trigger an
         <varname>OnFailure=</varname> dependency.</para>
@@ -4100,33 +4105,31 @@ ExecStart=/bin/mysecondprogram
 Description=Acts on service failing or succeeding
 
 [Service]
-ExecStart=/bin/bash -c "echo $MONITOR_METADATA"
+ExecStart=/bin/bash -c "echo $MONITOR_SERVICE_RESULT $MONITOR_EXIT_CODE $MONITOR_EXIT_STATUS $MONITOR_INVOCATION_ID $MONITOR_UNIT"
         </programlisting>
 
         <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
         then <filename index="false">myhandler.service</filename> would be triggered and the
-        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+        monitor variables would be set as follows:</para>
 
         <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service
+MONITOR_SERVICE_RESULT=result-string
+MONITOR_EXIT_CODE=exit-code
+MONITOR_EXIT_STATUS=exit-status
+MONITOR_INVOCATION_ID=invocation-id
+MONITOR_UNIT=myfailer.service
         </programlisting>
 
         <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
         then <filename index="false">myhandler.service</filename> would be triggered and the
-        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+        monitor variables would be set as follows:</para>
 
         <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
-        </programlisting>
-
-        <para>If <filename index="false">myfailer.service</filename> and <filename index="false">mysuccess.service</filename> were to run and exit,
-        there is a chance that the triggered dependency start job might be merged. Thus only a single invocation of
-        <filename index="false">myhandler.service</filename> would be triggered. In this case the <varname>$MONITOR_METADATA</varname> variable
-        would be a list containing exit metadata for both of <filename index="false">myfailer.service</filename>
-        and <filename index="false">mysuccess.service</filename>.</para>
-
-        <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service;SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+MONITOR_SERVICE_RESULT=result-string
+MONITOR_EXIT_CODE=exit-code
+MONITOR_EXIT_STATUS=exit-status
+MONITOR_INVOCATION_ID=invocation-id
+MONITOR_UNIT=mysuccess.service
         </programlisting>
 
     </example>
