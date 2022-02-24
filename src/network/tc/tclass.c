@@ -7,7 +7,9 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-network.h"
 #include "networkd-queue.h"
 #include "parse-util.h"
 #include "set.h"
@@ -32,7 +34,6 @@ static int tclass_new(TClassKind kind, TClass **ret) {
                         return -ENOMEM;
 
                 *tclass = (TClass) {
-                        .meta.kind = TC_KIND_TCLASS,
                         .parent = TC_H_ROOT,
                         .kind = kind,
                 };
@@ -42,7 +43,6 @@ static int tclass_new(TClassKind kind, TClass **ret) {
                 if (!tclass)
                         return -ENOMEM;
 
-                tclass->meta.kind = TC_KIND_TCLASS;
                 tclass->parent = TC_H_ROOT;
                 tclass->kind = kind;
 
@@ -61,7 +61,7 @@ static int tclass_new(TClassKind kind, TClass **ret) {
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(tclass_freep) TClass *tclass = NULL;
-        TrafficControl *existing;
+        TClass *existing;
         int r;
 
         assert(network);
@@ -73,19 +73,12 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         if (r < 0)
                 return r;
 
-        existing = hashmap_get(network->tc_by_section, n);
+        existing = hashmap_get(network->tclasses_by_section, n);
         if (existing) {
-                TClass *t;
-
-                if (existing->kind != TC_KIND_TCLASS)
+                if (existing->kind != kind)
                         return -EINVAL;
 
-                t = TC_TO_TCLASS(existing);
-
-                if (t->kind != kind)
-                        return -EINVAL;
-
-                *ret = t;
+                *ret = existing;
                 return 0;
         }
 
@@ -97,7 +90,7 @@ int tclass_new_static(TClassKind kind, Network *network, const char *filename, u
         tclass->section = TAKE_PTR(n);
         tclass->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->tc_by_section, &config_section_hash_ops, tclass->section, tclass);
+        r = hashmap_ensure_put(&network->tclasses_by_section, &config_section_hash_ops, tclass->section, tclass);
         if (r < 0)
                 return r;
 
@@ -110,12 +103,12 @@ TClass* tclass_free(TClass *tclass) {
                 return NULL;
 
         if (tclass->network && tclass->section)
-                hashmap_remove(tclass->network->tc_by_section, tclass->section);
+                hashmap_remove(tclass->network->tclasses_by_section, tclass->section);
 
         config_section_free(tclass->section);
 
         if (tclass->link)
-                set_remove(tclass->link->traffic_control, TC(tclass));
+                set_remove(tclass->link->tclasses, tclass);
 
         free(tclass->tca_kind);
         return mfree(tclass);
@@ -154,19 +147,25 @@ int tclass_compare_func(const TClass *a, const TClass *b) {
         return strcmp_ptr(tclass_get_tca_kind(a), tclass_get_tca_kind(b));
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        tclass_hash_ops,
+        TClass,
+        tclass_hash_func,
+        tclass_compare_func,
+        tclass_free);
+
 static int tclass_get(Link *link, const TClass *in, TClass **ret) {
-        TrafficControl *existing;
-        int r;
+        TClass *existing;
 
         assert(link);
         assert(in);
 
-        r = traffic_control_get(link, TC(in), &existing);
-        if (r < 0)
-                return r;
+        existing = set_get(link->tclasses, in);
+        if (!existing)
+                return -ENOENT;
 
         if (ret)
-                *ret = TC_TO_TCLASS(existing);
+                *ret = existing;
         return 0;
 }
 
@@ -176,9 +175,11 @@ static int tclass_add(Link *link, TClass *tclass) {
         assert(link);
         assert(tclass);
 
-        r = traffic_control_add(link, TC(tclass));
+        r = set_ensure_put(&link->tclasses, &tclass_hash_ops, tclass);
         if (r < 0)
                 return r;
+        if (r == 0)
+                return -EEXIST;
 
         tclass->link = link;
         return 0;
@@ -214,18 +215,11 @@ static int tclass_dup(const TClass *src, TClass **ret) {
 }
 
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret) {
-        TrafficControl *tc;
+        TClass *tclass;
 
         assert(link);
 
-        SET_FOREACH(tc, link->traffic_control) {
-                TClass *tclass;
-
-                if (tc->kind != TC_KIND_TCLASS)
-                        continue;
-
-                tclass = TC_TO_TCLASS(tc);
-
+        SET_FOREACH(tclass, link->tclasses) {
                 if (tclass->classid != classid)
                         continue;
 
@@ -287,10 +281,11 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int tclass_configure(Link *link, TClass *tclass) {
+static int tclass_configure(TClass *tclass, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
+        assert(tclass);
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
@@ -318,16 +313,37 @@ int tclass_configure(Link *link, TClass *tclass) {
                 return log_link_debug_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
-
-        tclass_enter_configuring(tclass);
         return 0;
 }
 
-int tclass_is_ready_to_configure(Link *link, TClass *tclass) {
-        assert(link);
+static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         assert(tclass);
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
 
         return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
+}
+
+int request_process_tclass(Request *req) {
+        TClass *tclass;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert_se(link = req->link);
+        assert_se(tclass = req->tclass);
+
+        if (!tclass_is_ready_to_configure(tclass, link))
+                return 0;
+
+        r = tclass_configure(tclass, link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure TClass: %m");
+
+        tclass_enter_configuring(tclass);
+        return 1;
 }
 
 int link_request_tclass(Link *link, TClass *tclass) {
@@ -353,7 +369,7 @@ int link_request_tclass(Link *link, TClass *tclass) {
                 existing->source = tclass->source;
 
         log_tclass_debug(existing, link, "Requesting");
-        r = link_queue_request(link, REQUEST_TYPE_TRAFFIC_CONTROL, TC(existing), false,
+        r = link_queue_request(link, REQUEST_TYPE_TC_CLASS, existing, false,
                                &link->tc_messages, NULL, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request TClass: %m");
@@ -471,7 +487,7 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         return 1;
 }
 
-int tclass_section_verify(TClass *tclass) {
+static int tclass_section_verify(TClass *tclass) {
         int r;
 
         assert(tclass);
@@ -486,6 +502,16 @@ int tclass_section_verify(TClass *tclass) {
         }
 
         return 0;
+}
+
+void network_drop_invalid_tclass(Network *network) {
+        TClass *tclass;
+
+        assert(network);
+
+        HASHMAP_FOREACH(tclass, network->tclasses_by_section)
+                if (tclass_section_verify(tclass) < 0)
+                        tclass_free(tclass);
 }
 
 int config_parse_tclass_parent(
