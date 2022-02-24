@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Match]
-Name=vlan6
-
-[Network]
-IPv6AcceptRA=false
-Address=100.100.100.2/24
