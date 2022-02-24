@@ -474,7 +474,7 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
         return 0;
 }
 
-static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_message *m) {
+static int netdev_macsec_configure(NetDev *netdev, Link *link) {
         TransmitAssociation *a;
         ReceiveChannel *c;
         MACsec *s;
@@ -496,6 +496,10 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_messag
                         return r;
         }
 
+        // FIXME:
+        // Setting link->netdev_configured should be moved somewhere in the callback in the above.
+        // However, currently, configuring macsec triggers kernel panic, hence we cannot test.
+        link->netdev_configured = true;
         return 0;
 }
 
