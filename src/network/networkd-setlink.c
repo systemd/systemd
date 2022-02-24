@@ -546,7 +546,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                  * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
-                        r = link_down(link);
+                        r = link_down_now(link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return false;
@@ -558,7 +558,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                         /* This is the second attempt to set hardware address. On the first attempt
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
                          * The first attempt failed as the interface was up. */
-                        r = link_down(link);
+                        r = link_down_now(link);
                         if (r < 0) {
                                 link_enter_failed(link);
                                 return false;
@@ -588,7 +588,7 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                          * is outdated, and checking the counter causes a deadlock. */
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
-                                r = link_down(link);
+                                r = link_down_now(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
                                         return false;
@@ -1084,19 +1084,6 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
         return 0;
 }
 
-int link_down(Link *link) {
-        int r;
-
-        assert(link);
-
-        r = link_up_or_down(link, false, link_down_handler);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to bring down interface: %m");
-
-        link->set_flags_messages++;
-        return 0;
-}
-
 static bool link_is_ready_to_activate(Link *link) {
         assert(link);
 
@@ -1242,6 +1229,60 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to bring link %s", up_or_down(up));
+        return 0;
+}
+
+static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->set_flags_messages > 0);
+
+        link->set_flags_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not bring down interface, ignoring");
+
+        r = link_call_getlink(link, get_link_update_flag_handler);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        link->set_flags_messages++;
+        return 0;
+}
+
+int link_down_now(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Bringing link down");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not set link flags: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_down_now_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link->set_flags_messages++;
+        link_ref(link);
         return 0;
 }
 
