@@ -54,6 +54,7 @@ int server_name_new(
                 const char *string) {
 
         ServerName *n, *tail;
+        const char *type_name = NULL;
 
         assert(m);
         assert(string);
@@ -72,15 +73,19 @@ int server_name_new(
         if (type == SERVER_SYSTEM) {
                 LIST_FIND_TAIL(names, m->system_servers, tail);
                 LIST_INSERT_AFTER(names, m->system_servers, tail, n);
+                type_name = "system";
         } else if (type == SERVER_LINK) {
                 LIST_FIND_TAIL(names, m->link_servers, tail);
                 LIST_INSERT_AFTER(names, m->link_servers, tail, n);
+                type_name = "link";
         } else if (type == SERVER_FALLBACK) {
                 LIST_FIND_TAIL(names, m->fallback_servers, tail);
                 LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
+                type_name = "fallback";
         } else if (type == SERVER_RUNTIME) {
                 LIST_FIND_TAIL(names, m->runtime_servers, tail);
                 LIST_INSERT_AFTER(names, m->runtime_servers, tail, n);
+                type_name = "runtime";
         } else
                 assert_not_reached();
 
@@ -91,7 +96,7 @@ int server_name_new(
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new server %s.", string);
+        log_debug("Added new %s server %s.", type_name, string);
 
         if (ret)
                 *ret = n;
