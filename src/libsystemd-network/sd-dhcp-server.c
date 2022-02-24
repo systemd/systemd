@@ -21,6 +21,7 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
+#include "utf8.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -162,6 +163,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         sd_event_unref(server->event);
 
+        free(server->filename);
         free(server->timezone);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
@@ -268,6 +270,26 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
         assert_return(server, NULL);
 
         return server->event;
+}
+
+int sd_dhcp_server_set_next_server(sd_dhcp_server *server, const struct in_addr *next_server) {
+        assert_return(server, -EINVAL);
+
+        if (next_server)
+                server->next_server = *next_server;
+        else
+                server->next_server = (struct in_addr) {};
+
+        return 0;
+}
+
+int sd_dhcp_server_set_filename(sd_dhcp_server *server, const char *filename) {
+        assert_return(server, -EINVAL);
+
+        if (filename && !ascii_is_valid(filename))
+                return -EINVAL;
+
+        return free_and_strdup(&server->filename, filename);
 }
 
 int sd_dhcp_server_stop(sd_dhcp_server *server) {
@@ -539,6 +561,7 @@ static int server_send_offer_or_ack(
                 return r;
 
         packet->dhcp.yiaddr = address;
+        packet->dhcp.siaddr = server->next_server.s_addr;
 
         lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
@@ -558,6 +581,22 @@ static int server_send_offer_or_ack(
                                        in4_addr_is_set(&server->router_address) ?
                                        &server->router_address.s_addr :
                                        &server->address);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->filename) {
+                /* The pxelinux magic option is marked as deprecated, but let's append it for older
+                 * implementations. */
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       SD_DHCP_OPTION_PXELINUX_MAGIC, 4,
+                                       (const uint8_t[]) { 0xf1, 0x00, 0x74, 0x7e });
+                if (r < 0)
+                        return r;
+
+                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                       SD_DHCP_OPTION_CONFIGURATION_FILE,
+                                       strlen(server->filename), server->filename);
                 if (r < 0)
                         return r;
         }
