@@ -609,11 +609,13 @@ class Utilities():
         needle = f'{link}: Bringing link {state}'
         flag = state.upper()
         for iteration in range(timeout+1):
+            if iteration != 0:
+                time.sleep(1)
+            if not link_exists(link):
+                continue
             output = check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
             if needle in output and flag in check_output(f'ip link show {link}'):
                 return True
-            if iteration < timeout:
-                time.sleep(1)
         if fail_assert:
             self.fail(f'Timed out waiting for {link} activated.')
         return False
@@ -638,13 +640,14 @@ class Utilities():
             setup_state = r'\S+'
 
         for secs in range(setup_timeout + 1):
+            if secs != 0:
+                time.sleep(1)
+            if not link_exists(link):
+                continue
             output = check_output(*networkctl_cmd, '-n', '0', 'status', link, env=env)
             print(output)
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
                 return True
-            # don't bother sleeping if time is up
-            if secs < setup_timeout:
-                time.sleep(1)
         if fail_assert:
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
