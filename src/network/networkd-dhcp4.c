@@ -177,16 +177,14 @@ static int dhcp4_retry(Link *link) {
         return dhcp4_request_address_and_routes(link, false);
 }
 
-static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->dhcp4_messages > 0);
+        assert(m);
+        assert(req);
 
-        link->dhcp4_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r == -ENETUNREACH && !link->dhcp4_route_retrying) {
@@ -829,13 +827,13 @@ int dhcp4_lease_lost(Link *link) {
         return link_request_static_routes(link, true);
 }
 
-static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->dhcp4_messages > 0);
+        assert(req);
 
-        link->dhcp4_messages--;
+        link = ASSERT_PTR(req->link);
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
         if (r <= 0)
@@ -925,8 +923,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->lifetime_preferred_usec = lifetime_usec;
         addr->lifetime_valid_usec = lifetime_usec;
         addr->prefixlen = prefixlen;
-        if (prefixlen <= 30)
-                addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
+        address_set_broadcast(addr, link);
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
         addr->route_metric = link->network->dhcp_route_metric;
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
@@ -1598,29 +1595,24 @@ static int dhcp4_configure_duid(Link *link) {
         return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
 }
 
-int request_process_dhcp4_client(Request *req) {
-        Link *link;
+static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP4_CLIENT);
-
-        link = req->link;
+        assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
+                return false;
 
         if (!IN_SET(link->hw_addr.length, ETH_ALEN, INFINIBAND_ALEN) ||
             hw_addr_is_null(&link->hw_addr))
                 /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
-                return 0;
+                return false;
 
         r = dhcp4_configure_duid(link);
         if (r <= 0)
                 return r;
 
-        r = dhcp4_configure(req->link);
+        r = dhcp4_configure(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure DHCPv4 client: %m");
 
@@ -1630,7 +1622,6 @@ int request_process_dhcp4_client(Request *req) {
 
         log_link_debug(link, "DHCPv4 client is configured%s.",
                        r > 0 ? ", acquiring DHCPv4 lease" : "");
-
         return 1;
 }
 
@@ -1645,7 +1636,7 @@ int link_request_dhcp4_client(Link *link) {
         if (link->dhcp_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP4_CLIENT, dhcp4_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv4 client: %m");
 
