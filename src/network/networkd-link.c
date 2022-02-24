@@ -562,7 +562,6 @@ static int link_request_stacked_netdevs(Link *link) {
         assert(link);
 
         link->stacked_netdevs_created = false;
-        link->stacked_netdevs_after_configured_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
                 r = link_request_stacked_netdev(link, netdev);
@@ -574,8 +573,6 @@ static int link_request_stacked_netdevs(Link *link) {
                 link->stacked_netdevs_created = true;
                 link_check_ready(link);
         }
-        if (link->create_stacked_netdev_after_configured_messages == 0)
-                link->stacked_netdevs_after_configured_created = true;
 
         return 0;
 }
