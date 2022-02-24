@@ -1270,30 +1270,24 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
 }
 
 int request_process_address(Request *req) {
-        Address *existing;
+        Address *address;
         Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->address);
         assert(req->type == REQUEST_TYPE_ADDRESS);
 
-        link = req->link;
+        address = ASSERT_PTR(req->address);
+        link = ASSERT_PTR(req->link);
 
-        r = address_get(link, req->address, &existing);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get address: %m");
-
-        if (!address_is_ready_to_configure(link, existing))
+        if (!address_is_ready_to_configure(link, address))
                 return 0;
 
-        r = address_configure(req->address, link, req->netlink_handler);
+        r = address_configure(address, link, req->netlink_handler);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address: %m");
 
-        address_enter_configuring(existing);
-
+        address_enter_configuring(address);
         return 1;
 }
 
