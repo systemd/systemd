@@ -33,6 +33,7 @@
 #include "networkd-sriov.h"
 #include "parse-util.h"
 #include "path-lookup.h"
+#include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"
 #include "socket-util.h"
@@ -40,7 +41,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "tc.h"
+#include "tclass.h"
 #include "util.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */
@@ -322,7 +323,8 @@ int network_verify(Network *network) {
         network_drop_invalid_prefixes(network);
         network_drop_invalid_route_prefixes(network);
         network_drop_invalid_routing_policy_rules(network);
-        network_drop_invalid_traffic_control(network);
+        network_drop_invalid_qdisc(network);
+        network_drop_invalid_tclass(network);
         r = sr_iov_drop_invalid_sections(UINT32_MAX, network->sr_iov_by_section);
         if (r < 0)
                 return r;
@@ -756,7 +758,8 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
-        hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
+        hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
+        hashmap_free_with_destructor(network->tclasses_by_section, tclass_free);
 
         free(network->name);
 
