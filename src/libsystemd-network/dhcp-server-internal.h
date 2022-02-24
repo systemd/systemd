@@ -65,6 +65,8 @@ struct sd_dhcp_server {
         char *timezone;
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+        struct in_addr next_server;
+        char *filename;
 
         OrderedSet *extra_options;
         OrderedSet *vendor_options;
