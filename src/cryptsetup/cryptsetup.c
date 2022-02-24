@@ -82,6 +82,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL;
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static bool arg_tpm2_pin = false;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 
@@ -386,6 +387,16 @@ static int parse_one_option(const char *option) {
                         else
                                 arg_tpm2_pcr_mask |= mask;
                 }
+
+        } else if ((val = startswith(option, "tpm2-pin="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_tpm2_pin = r;
 
         } else if ((val = startswith(option, "try-empty-password="))) {
 
@@ -1301,9 +1312,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         NULL, 0, /* we don't know the policy hash */
+                                        arg_tpm2_pin,
+                                        until,
+                                        arg_headless,
+                                        arg_ask_password_flags,
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
+                        if (r == -EACCES || r == -ENOLCK) {
+                                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
+                        }
                         if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
@@ -1335,6 +1353,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         for (;;) {
                                 uint32_t pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
+                                systemd_tpm2_flags tpm2_flags;
 
                                 r = find_tpm2_auto_data(
                                                 cd,
@@ -1346,7 +1365,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
                                                 &keyslot,
-                                                &token);
+                                                &token,
+                                                &tpm2_flags);
                                 if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header. */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
@@ -1369,7 +1389,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 NULL, 0, 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
+                                                tpm2_flags,
+                                                until,
+                                                arg_headless,
+                                                arg_ask_password_flags,
                                                 &decrypted_key, &decrypted_key_size);
+                                if (r == -EACCES || r == -ENOLCK) {
+                                        return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
+                                }
                                 if (r != -EPERM)
                                         break;
 
