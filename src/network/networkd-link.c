@@ -210,7 +210,8 @@ static Link *link_free(Link *link) {
         link->nexthops = set_free(link->nexthops);
         link->neighbors = set_free(link->neighbors);
         link->addresses = set_free(link->addresses);
-        link->traffic_control = set_free(link->traffic_control);
+        link->qdiscs = set_free(link->qdiscs);
+        link->tclasses = set_free(link->tclasses);
 
         link->dhcp_pd_prefixes = set_free(link->dhcp_pd_prefixes);
 
