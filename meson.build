@@ -1052,7 +1052,7 @@ libmount = dependency('mount',
 want_libfdisk = get_option('fdisk')
 if want_libfdisk != 'false' and not skip_deps
         libfdisk = dependency('fdisk',
-                              version : '>= 2.33',
+                              version : '>= 2.32',
                               required : want_libfdisk == 'true')
         have = libfdisk.found()
 else
