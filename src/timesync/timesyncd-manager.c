@@ -14,6 +14,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -825,22 +826,25 @@ int manager_connect(Manager *m) {
                         bool restart = true;
 
                         /* Our current server name list is exhausted,
-                         * let's find the next one to iterate. First
-                         * we try the system list, then the link list.
-                         * After having processed the link list we
-                         * jump back to the system list. However, if
-                         * both lists are empty, we change to the
-                         * fallback list. */
+                         * let's find the next one to iterate. First we try the runtime list, then the system list,
+                         * then the link list. After having processed the link list we jump back to the system list
+                         * if no runtime server list.
+                         * However, if all lists are empty, we change to the fallback list. */
                         if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
-                                f = m->system_servers;
+                                f = m->runtime_servers;
+                                if (!f)
+                                        f = m->system_servers;
                                 if (!f)
                                         f = m->link_servers;
                         } else {
                                 f = m->link_servers;
-                                if (!f)
-                                        f = m->system_servers;
-                                else
+                                if (f)
                                         restart = false;
+                                else {
+                                        f = m->runtime_servers;
+                                        if (!f)
+                                                f = m->system_servers;
+                                }
                         }
 
                         if (!f)
@@ -925,6 +929,16 @@ void manager_flush_server_names(Manager  *m, ServerType t) {
         if (t == SERVER_FALLBACK)
                 while (m->fallback_servers)
                         server_name_free(m->fallback_servers);
+
+        if (t == SERVER_RUNTIME)
+                manager_flush_runtime_servers(m);
+}
+
+void manager_flush_runtime_servers(Manager *m) {
+        assert(m);
+
+        while (m->runtime_servers)
+                server_name_free(m->runtime_servers);
 }
 
 Manager* manager_free(Manager *m) {
@@ -934,6 +948,7 @@ Manager* manager_free(Manager *m) {
         manager_disconnect(m);
         manager_flush_server_names(m, SERVER_SYSTEM);
         manager_flush_server_names(m, SERVER_LINK);
+        manager_flush_server_names(m, SERVER_RUNTIME);
         manager_flush_server_names(m, SERVER_FALLBACK);
 
         sd_event_source_unref(m->event_retry);
@@ -947,6 +962,8 @@ Manager* manager_free(Manager *m) {
         sd_event_unref(m->event);
 
         sd_bus_flush_close_unref(m->bus);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         return mfree(m);
 }

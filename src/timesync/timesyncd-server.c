@@ -85,6 +85,9 @@ int server_name_new(
         } else if (type == SERVER_FALLBACK) {
                 LIST_FIND_TAIL(names, m->fallback_servers, tail);
                 LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
+        } else if (type == SERVER_RUNTIME) {
+                LIST_FIND_TAIL(names, m->runtime_servers, tail);
+                LIST_INSERT_AFTER(names, m->runtime_servers, tail, n);
         } else
                 assert_not_reached();
 
@@ -114,6 +117,8 @@ ServerName *server_name_free(ServerName *n) {
                         LIST_REMOVE(names, n->manager->link_servers, n);
                 else if (n->type == SERVER_FALLBACK)
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
+                else if (n->type == SERVER_RUNTIME)
+                        LIST_REMOVE(names, n->manager->runtime_servers, n);
                 else
                         assert_not_reached();
 

@@ -1,18 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/capability.h>
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-internal.h"
 #include "bus-log-control-api.h"
+#include "bus-polkit.h"
 #include "bus-protocol.h"
 #include "bus-util.h"
+#include "dns-domain.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
+#include "strv.h"
 #include "time-util.h"
 #include "timesyncd-bus.h"
+#include "user-util.h"
 
 static int property_get_servers(
                 sd_bus *bus,
@@ -41,6 +47,54 @@ static int property_get_servers(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int method_set_runtime_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_strv_free_ char **msg_names = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+        assert(message);
+
+        r = sd_bus_message_read_strv(message, &msg_names);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, msg_names) {
+                r = dns_name_is_valid_or_address(*name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *name);
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NTP server name or address, refusing: %s", *name);
+        }
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.timesync1.set-runtime-servers",
+                                    NULL, true, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Polkit will call us back */
+                return 1;
+
+        manager_flush_runtime_servers(m);
+
+        STRV_FOREACH(name, msg_names) {
+                r = server_name_new(m, NULL, SERVER_RUNTIME, *name);
+                if (r < 0) {
+                        manager_flush_runtime_servers(m);
+
+                        return log_error_errno(r, "Failed to add runtime server '%s': %m", *name);
+                }
+        }
+
+        m->exhausted_servers = true;
+        manager_set_server_name(m, NULL);
+        (void) manager_connect(m);
+
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int property_get_current_server_name(
@@ -162,6 +216,7 @@ static const sd_bus_vtable manager_vtable[] = {
 
         SD_BUS_PROPERTY("LinkNTPServers", "as", property_get_servers, offsetof(Manager, link_servers), 0),
         SD_BUS_PROPERTY("SystemNTPServers", "as", property_get_servers, offsetof(Manager, system_servers), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeNTPServers", "as", property_get_servers, offsetof(Manager, runtime_servers), 0),
         SD_BUS_PROPERTY("FallbackNTPServers", "as", property_get_servers, offsetof(Manager, fallback_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ServerName", "s", property_get_current_server_name, offsetof(Manager, current_server_name), 0),
         SD_BUS_PROPERTY("ServerAddress", "(iay)", property_get_current_server_address, offsetof(Manager, current_server_address), 0),
@@ -171,6 +226,13 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PollIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_usec), 0),
         SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),
+
+        SD_BUS_METHOD_WITH_NAMES("SetRuntimeNTPServers",
+                                 "as",
+                                 SD_BUS_PARAM(runtime_servers),
+                                 NULL,,
+                                 method_set_runtime_servers,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

@@ -11,6 +11,7 @@ typedef enum ServerType {
         SERVER_SYSTEM,
         SERVER_FALLBACK,
         SERVER_LINK,
+        SERVER_RUNTIME,
 } ServerType;
 
 #include "timesyncd-manager.h"
