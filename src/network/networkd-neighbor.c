@@ -198,7 +198,7 @@ static int neighbor_configure(
                 Link *link,
                 link_netlink_message_handler_t callback) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(neighbor);
@@ -210,24 +210,23 @@ static int neighbor_configure(
 
         log_neighbor_debug(neighbor, "Configuring", link);
 
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_NEWNEIGH,
                                       link->ifindex, neighbor->family);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate netlink message: %m");
+                return r;
 
-        r = neighbor_configure_message(neighbor, link, req);
+        r = neighbor_configure_message(neighbor, link, m);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create netlink message: %m");
+                return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send netlink message: %m");
+                return r;
 
         link_ref(link);
 
-        neighbor_enter_configuring(neighbor);
-        return r;
+        return 0;
 }
 
 static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -449,20 +448,24 @@ void link_foreignize_neighbors(Link *link) {
 }
 
 int request_process_neighbor(Request *req) {
+        Neighbor *neighbor;
+        Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->neighbor);
         assert(req->type == REQUEST_TYPE_NEIGHBOR);
 
-        if (!link_is_ready_to_configure(req->link, false))
+        neighbor = ASSERT_PTR(req->neighbor);
+        link = ASSERT_PTR(req->link);
+
+        if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = neighbor_configure(req->neighbor, req->link, req->netlink_handler);
+        r = neighbor_configure(neighbor, link, req->netlink_handler);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(link, r, "Failed to configure neighbor: %m");
 
+        neighbor_enter_configuring(neighbor);
         return 1;
 }
 
