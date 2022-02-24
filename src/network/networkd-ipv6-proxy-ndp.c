@@ -53,7 +53,7 @@ static int ipv6_proxy_ndp_address_configure(
                 Link *link,
                 link_netlink_message_handler_t callback) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(address);
@@ -63,26 +63,25 @@ static int ipv6_proxy_ndp_address_configure(
         assert(callback);
 
         /* create new netlink message */
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_INET6);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_NEWNEIGH, link->ifindex, AF_INET6);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
+                return r;
 
-        r = sd_rtnl_message_neigh_set_flags(req, NTF_PROXY);
+        r = sd_rtnl_message_neigh_set_flags(m, NTF_PROXY);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set neighbor flags: %m");
+                return r;
 
-        r = sd_netlink_message_append_in6_addr(req, NDA_DST, address);
+        r = sd_netlink_message_append_in6_addr(m, NDA_DST, address);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+                return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
-
-        return 1;
+        return 0;
 }
 
 int link_request_static_ipv6_proxy_ndp_addresses(Link *link) {
@@ -114,15 +113,22 @@ int link_request_static_ipv6_proxy_ndp_addresses(Link *link) {
 }
 
 int request_process_ipv6_proxy_ndp_address(Request *req) {
+        Link *link;
+        int r;
+
         assert(req);
-        assert(req->link);
         assert(req->ipv6_proxy_ndp);
         assert(req->type == REQUEST_TYPE_IPV6_PROXY_NDP);
+        assert_se(link = req->link);
 
-        if (!link_is_ready_to_configure(req->link, false))
+        if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        return ipv6_proxy_ndp_address_configure(req->ipv6_proxy_ndp, req->link, req->netlink_handler);
+        r = ipv6_proxy_ndp_address_configure(req->ipv6_proxy_ndp, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure IPv6 proxy NDP address: %m");
+
+        return 1;
 }
 
 int config_parse_ipv6_proxy_ndp_address(

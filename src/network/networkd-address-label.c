@@ -96,7 +96,7 @@ static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message 
 }
 
 static int address_label_configure(AddressLabel *label, Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(label);
@@ -106,31 +106,30 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         assert(link->manager->rtnl);
         assert(callback);
 
-        r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &req, RTM_NEWADDRLABEL,
+        r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &m, RTM_NEWADDRLABEL,
                                           link->ifindex, AF_INET6);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_NEWADDR message: %m");
+                return r;
 
-        r = sd_rtnl_message_addrlabel_set_prefixlen(req, label->prefixlen);
+        r = sd_rtnl_message_addrlabel_set_prefixlen(m, label->prefixlen);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set prefixlen: %m");
+                return r;
 
-        r = sd_netlink_message_append_u32(req, IFAL_LABEL, label->label);
+        r = sd_netlink_message_append_u32(m, IFAL_LABEL, label->label);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFAL_LABEL attribute: %m");
+                return r;
 
-        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->prefix);
+        r = sd_netlink_message_append_in6_addr(m, IFA_ADDRESS, &label->prefix);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
+                return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
-
-        return 1;
+        return 0;
 }
 
 int link_request_static_address_labels(Link *link) {
@@ -161,15 +160,23 @@ int link_request_static_address_labels(Link *link) {
 }
 
 int request_process_address_label(Request *req) {
+        Link *link;
+        int r;
+
         assert(req);
-        assert(req->link);
         assert(req->label);
         assert(req->type == REQUEST_TYPE_ADDRESS_LABEL);
 
-        if (!link_is_ready_to_configure(req->link, false))
+        link = ASSERT_PTR(req->link);
+
+        if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        return address_label_configure(req->label, req->link, req->netlink_handler);
+        r = address_label_configure(req->label, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure address label: %m");
+
+        return 1;
 }
 
 static int address_label_section_verify(AddressLabel *label) {

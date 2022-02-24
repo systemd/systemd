@@ -430,7 +430,7 @@ static int nexthop_configure(
                 Link *link,
                 link_netlink_message_handler_t callback) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(link);
@@ -442,16 +442,14 @@ static int nexthop_configure(
 
         log_nexthop_debug(nexthop, "Configuring", link);
 
-        r = sd_rtnl_message_new_nexthop(link->manager->rtnl, &req,
-                                        RTM_NEWNEXTHOP, nexthop->family,
-                                        nexthop->protocol);
+        r = sd_rtnl_message_new_nexthop(link->manager->rtnl, &m, RTM_NEWNEXTHOP, nexthop->family, nexthop->protocol);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWNEXTHOP message: %m");
+                return r;
 
         if (nexthop->id > 0) {
-                r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+                r = sd_netlink_message_append_u32(m, NHA_ID, nexthop->id);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
+                        return r;
         }
 
         if (!hashmap_isempty(nexthop->group)) {
@@ -466,38 +464,36 @@ static int nexthop_configure(
                 HASHMAP_FOREACH(nhg, nexthop->group)
                         *p++ = *nhg;
 
-                r = sd_netlink_message_append_data(req, NHA_GROUP, group, sizeof(struct nexthop_grp) * hashmap_size(nexthop->group));
+                r = sd_netlink_message_append_data(m, NHA_GROUP, group, sizeof(struct nexthop_grp) * hashmap_size(nexthop->group));
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append NHA_GROUP attribute: %m");
+                        return r;
 
         } else if (nexthop->blackhole) {
-                r = sd_netlink_message_append_flag(req, NHA_BLACKHOLE);
+                r = sd_netlink_message_append_flag(m, NHA_BLACKHOLE);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append NHA_BLACKHOLE attribute: %m");
+                        return r;
         } else {
-                r = sd_netlink_message_append_u32(req, NHA_OIF, link->ifindex);
+                r = sd_netlink_message_append_u32(m, NHA_OIF, link->ifindex);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append NHA_OIF attribute: %m");
+                        return r;
 
                 if (in_addr_is_set(nexthop->family, &nexthop->gw)) {
-                        r = netlink_message_append_in_addr_union(req, NHA_GATEWAY, nexthop->family, &nexthop->gw);
+                        r = netlink_message_append_in_addr_union(m, NHA_GATEWAY, nexthop->family, &nexthop->gw);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not append NHA_GATEWAY attribute: %m");
+                                return r;
 
-                        r = sd_rtnl_message_nexthop_set_flags(req, nexthop->flags & RTNH_F_ONLINK);
+                        r = sd_rtnl_message_nexthop_set_flags(m, nexthop->flags & RTNH_F_ONLINK);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to set nexthop flags: %m");
+                                return r;
                 }
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
-
-        nexthop_enter_configuring(nexthop);
         return 0;
 }
 
@@ -808,20 +804,24 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 }
 
 int request_process_nexthop(Request *req) {
+        NextHop *nexthop;
+        Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->nexthop);
         assert(req->type == REQUEST_TYPE_NEXTHOP);
 
-        if (!nexthop_is_ready_to_configure(req->link, req->nexthop))
+        nexthop = ASSERT_PTR(req->nexthop);
+        link = ASSERT_PTR(req->link);
+
+        if (!nexthop_is_ready_to_configure(link, nexthop))
                 return 0;
 
-        r = nexthop_configure(req->nexthop, req->link, req->netlink_handler);
+        r = nexthop_configure(nexthop, link, req->netlink_handler);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(link, r, "Failed to configure nexthop");
 
+        nexthop_enter_configuring(nexthop);
         return 1;
 }
 

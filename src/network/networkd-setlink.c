@@ -1068,16 +1068,16 @@ static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t c
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+                return r;
 
         r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not set link flags: %m");
+                return r;
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
 
@@ -1114,7 +1114,7 @@ int request_process_activation(Request *req) {
 
         r = link_up_or_down(link, up, req->netlink_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
+                return log_link_warning_errno(link, r, "Failed to activate link: %m");
 
         return 1;
 }
@@ -1209,7 +1209,7 @@ int request_process_link_up_or_down(Request *req) {
 
         r = link_up_or_down(link, up, req->netlink_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to bring %s: %m", up_or_down(up));
+                return log_link_warning_errno(link, r, "Failed to bring link %s: %m", up_or_down(up));
 
         return 1;
 }
@@ -1223,8 +1223,8 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, &link->set_flags_messages,
                                up ? link_up_handler : link_down_handler, &req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request to bring %s link: %m",
-                                            up_or_down(up));
+                return log_link_warning_errno(link, r, "Failed to request to bring link %s: %m",
+                                              up_or_down(up));
 
         req->userdata = INT_TO_PTR(up);
 
