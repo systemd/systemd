@@ -707,19 +707,6 @@ static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_messa
 }
 
 static int link_create_stacked_netdev_after_configured_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        assert(link);
-        assert(link->create_stacked_netdev_after_configured_messages > 0);
-
-        link->create_stacked_netdev_after_configured_messages--;
-
-        if (link_create_stacked_netdev_handler_internal(rtnl, m, link) <= 0)
-                return 0;
-
-        if (link->create_stacked_netdev_after_configured_messages == 0) {
-                link->stacked_netdevs_after_configured_created = true;
-                log_link_debug(link, "Stacked netdevs created.");
-        }
-
         return 0;
 }
 
@@ -741,13 +728,9 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
                                        &link->create_stacked_netdev_messages,
                                        link_create_stacked_netdev_handler,
                                        NULL);
-        } else {
-                link->stacked_netdevs_after_configured_created = false;
+        } else
                 r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
-                                       &link->create_stacked_netdev_after_configured_messages,
-                                       link_create_stacked_netdev_after_configured_handler,
-                                       NULL);
-        }
+                                       NULL, link_create_stacked_netdev_after_configured_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
