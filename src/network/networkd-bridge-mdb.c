@@ -177,6 +177,8 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
 static bool bridge_mdb_is_ready_to_configure(Link *link) {
         Link *master;
 
+        assert(link);
+
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
