@@ -42,6 +42,7 @@ typedef enum LinkState {
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct NetDev NetDev;
+typedef struct Request Request;
 typedef struct DUID DUID;
 
 typedef struct Link {

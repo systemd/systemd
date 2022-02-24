@@ -65,19 +65,14 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         return 0;
 }
 
-static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(rtnl);
         assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->static_address_label_messages > 0);
+        assert(req);
 
-        link->static_address_label_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -95,16 +90,14 @@ static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message 
         return 1;
 }
 
-static int address_label_configure(AddressLabel *label, Link *link, link_netlink_message_handler_t callback) {
+static int address_label_configure(AddressLabel *label, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(label);
         assert(link);
-        assert(link->ifindex > 0);
         assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &m, RTM_NEWADDRLABEL,
                                           link->ifindex, AF_INET6);
@@ -123,29 +116,24 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
-                               link_netlink_destroy_callback, link);
+        r = request_call_netlink_async(link->manager->rtnl, m, req);
         if (r < 0)
                 return r;
 
-        link_ref(link);
         return 0;
 }
 
-int request_process_address_label(Request *req) {
-        Link *link;
+static int address_label_process_request(Request *req, Link *link, void *userdata) {
+        AddressLabel *label = ASSERT_PTR(userdata);
         int r;
 
         assert(req);
-        assert(req->label);
-        assert(req->type == REQUEST_TYPE_ADDRESS_LABEL);
-
-        link = ASSERT_PTR(req->link);
+        assert(link);
 
         if (!link_is_ready_to_configure(link, false))
-                return 0;
+                return false;
 
-        r = address_label_configure(req->label, link, req->netlink_handler);
+        r = address_label_configure(label, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address label: %m");
 
@@ -162,8 +150,11 @@ int link_request_static_address_labels(Link *link) {
         link->static_address_labels_configured = false;
 
         HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
-                r = link_queue_request(link, REQUEST_TYPE_ADDRESS_LABEL, label, false,
-                                       &link->static_address_label_messages, address_label_configure_handler, NULL);
+                r = link_queue_request_full(link, REQUEST_TYPE_ADDRESS_LABEL,
+                                            label, NULL, trivial_hash_func, trivial_compare_func,
+                                            address_label_process_request,
+                                            &link->static_address_label_messages,
+                                            address_label_configure_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to request address label: %m");
         }
