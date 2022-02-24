@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "parse-util.h"
 #include "qdisc.h"
 #include "htb.h"
