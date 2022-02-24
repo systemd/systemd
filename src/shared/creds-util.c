@@ -534,6 +534,7 @@ int encrypt_credential_and_warn(
 
                 r = tpm2_seal(tpm2_device,
                               tpm2_pcr_mask,
+                              NULL,
                               &tpm2_key,
                               &tpm2_key_size,
                               &tpm2_blob,
@@ -803,6 +804,7 @@ int decrypt_credential_and_warn(
                                 le32toh(t->blob_size),
                                 t->policy_hash_and_blob + le32toh(t->blob_size),
                                 le32toh(t->policy_hash_size),
+                                NULL,
                                 &tpm2_key,
                                 &tpm2_key_size);
                 if (r < 0)
