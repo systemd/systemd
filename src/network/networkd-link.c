@@ -57,6 +57,7 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -457,6 +458,9 @@ void link_check_ready(Link *link) {
 
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
+
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer is not applied.", __func__);
 
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
@@ -1144,6 +1148,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_apply_bearer(link);
+        if (r < 0)
+                return r;
+
         if (!link_has_carrier(link))
                 return 0;
 
@@ -1152,11 +1160,14 @@ static int link_configure(Link *link) {
 
 static int link_get_network(Link *link, Network **ret) {
         Network *network;
+        Bearer *b = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(ret);
+
+        (void) link_get_bearer(link, &b);
 
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;
@@ -1173,7 +1184,8 @@ static int link_get_network(Link *link, Network **ret) {
                                 link->alternative_names,
                                 link->wlan_iftype,
                                 link->ssid,
-                                &link->bssid);
+                                &link->bssid,
+                                b ? b->apn : NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1204,7 +1216,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_impl(Link *link, bool force) {
+int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
         int r;
 
