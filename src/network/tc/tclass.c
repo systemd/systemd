@@ -261,15 +261,14 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        strna(tclass_get_tca_kind(tclass)));
 }
 
-static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->tc_messages > 0);
-        link->tc_messages--;
+        assert(m);
+        assert(req);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -287,47 +286,65 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int tclass_configure(Link *link, TClass *tclass) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+static int tclass_configure(TClass *tclass, Link *link, Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(tclass);
         assert(link);
         assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
+        assert(req);
 
         log_tclass_debug(tclass, link, "Configuring");
 
-        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWTCLASS,
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &m, RTM_NEWTCLASS,
                                                 link->ifindex, tclass->classid, tclass->parent);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not create RTM_NEWTCLASS message: %m");
+                return r;
 
-        r = sd_netlink_message_append_string(req, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
+        r = sd_netlink_message_append_string(m, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
         if (r < 0)
                 return r;
 
         if (TCLASS_VTABLE(tclass)->fill_message) {
-                r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, req);
+                r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, m);
                 if (r < 0)
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_netlink_destroy_callback, link);
+        r = request_call_netlink_async(link->manager->rtnl, m, req);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
-
-        link_ref(link);
+                return r;
 
         tclass_enter_configuring(tclass);
         return 0;
 }
 
-int tclass_is_ready_to_configure(Link *link, TClass *tclass) {
+static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
+        assert(tclass);
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
+}
+
+static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
+        int r;
+
+        assert(req);
         assert(link);
         assert(tclass);
 
-        return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
+        if (!tclass_is_ready_to_configure(tclass, link))
+                return 0;
+
+        r = tclass_configure(tclass, link, req);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure TClass: %m");
+
+        return 1;
 }
 
 int link_request_tclass(Link *link, TClass *tclass) {
@@ -353,8 +370,14 @@ int link_request_tclass(Link *link, TClass *tclass) {
                 existing->source = tclass->source;
 
         log_tclass_debug(existing, link, "Requesting");
-        r = link_queue_request(link, REQUEST_TYPE_TRAFFIC_CONTROL, TC(existing), false,
-                               &link->tc_messages, NULL, NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_TC_CLASS,
+                                    existing, NULL,
+                                    tclass_hash_func,
+                                    tclass_compare_func,
+                                    tclass_process_request,
+                                    &link->tc_messages,
+                                    tclass_handler,
+                                    NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request TClass: %m");
         if (r == 0)

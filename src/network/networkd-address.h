@@ -10,13 +10,13 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
+#include "networkd-queue.h"
 #include "networkd-util.h"
 #include "time-util.h"
 
 typedef struct Address Address;
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
 
 struct Address {
@@ -90,23 +90,21 @@ static inline int link_get_ipv4_address(Link *link, const struct in_addr *addres
 }
 int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
-void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
-int request_process_address(Request *req);
+void address_cancel_request(Address *address);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
 int network_drop_invalid_addresses(Network *network);
 
-void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
