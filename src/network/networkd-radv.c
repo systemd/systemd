@@ -582,15 +582,10 @@ static int radv_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_radv(Request *req) {
-        Link *link;
+static int radv_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_RADV);
-
-        link = req->link;
+        assert(link);
 
         r = radv_is_ready_to_configure(link);
         if (r <= 0)
@@ -622,7 +617,7 @@ int link_request_radv(Link *link) {
         if (link->radv)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_RADV, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_RADV, radv_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Advertisement engine: %m");
 
