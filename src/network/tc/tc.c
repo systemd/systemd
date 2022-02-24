@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "macro.h"
-#include "networkd-queue.h"
 #include "qdisc.h"
 #include "tc.h"
 #include "tclass.h"
@@ -99,20 +98,6 @@ int traffic_control_add(Link *link, TrafficControl *tc) {
         return 0;
 }
 
-static int traffic_control_configure(Link *link, TrafficControl *tc) {
-        assert(link);
-        assert(tc);
-
-        switch (tc->kind) {
-        case TC_KIND_QDISC:
-                return qdisc_configure(link, TC_TO_QDISC(tc));
-        case TC_KIND_TCLASS:
-                return tclass_configure(link, TC_TO_TCLASS(tc));
-        default:
-                assert_not_reached();
-        }
-}
-
 static int link_request_traffic_control_one(Link *link, TrafficControl *tc) {
         assert(link);
         assert(tc);
@@ -151,46 +136,6 @@ int link_request_traffic_control(Link *link) {
         }
 
         return 0;
-}
-
-static int traffic_control_is_ready_to_configure(Link *link, TrafficControl *tc) {
-        assert(link);
-        assert(tc);
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
-
-        switch(tc->kind) {
-        case TC_KIND_QDISC:
-                return qdisc_is_ready_to_configure(link, TC_TO_QDISC(tc));
-        case TC_KIND_TCLASS:
-                return tclass_is_ready_to_configure(link, TC_TO_TCLASS(tc));
-        default:
-                assert_not_reached();
-        }
-}
-
-int request_process_traffic_control(Request *req) {
-        TrafficControl *tc;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->traffic_control);
-        assert(req->type == REQUEST_TYPE_TRAFFIC_CONTROL);
-
-        link = ASSERT_PTR(req->link);
-        tc = ASSERT_PTR(req->traffic_control);
-
-        r = traffic_control_is_ready_to_configure(link, tc);
-        if (r <= 0)
-                return r;
-
-        r = traffic_control_configure(link, tc);
-        if (r < 0)
-                return r;
-
-        return 1;
 }
 
 static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact) {

@@ -3,8 +3,6 @@
 
 #include "networkd-link.h"
 
-typedef struct Request Request;
-
 typedef enum TrafficControlKind {
         TC_KIND_QDISC,
         TC_KIND_TCLASS,
@@ -45,4 +43,3 @@ int traffic_control_get(Link *link, const TrafficControl *in, TrafficControl **r
 int traffic_control_add(Link *link, TrafficControl *tc);
 
 int link_request_traffic_control(Link *link);
-int request_process_traffic_control(Request *req);

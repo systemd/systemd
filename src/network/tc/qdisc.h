@@ -86,8 +86,6 @@ int qdisc_compare_func(const QDisc *a, const QDisc *b);
 int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
 
 int link_request_qdisc(Link *link, QDisc *qdisc);
-int qdisc_is_ready_to_configure(Link *link, QDisc *qdisc);
-int qdisc_configure(Link *link, QDisc *qdisc);
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
