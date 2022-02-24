@@ -1,7 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "string-table.h"
 #include "timesyncd-server.h"
+
+static const char * const server_type_table[_SERVER_TYPE_MAX] = {
+        [SERVER_SYSTEM]   = "system",
+        [SERVER_FALLBACK] = "fallback",
+        [SERVER_LINK]     = "link",
+        [SERVER_RUNTIME]  = "runtime",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(server_type, ServerType);
 
 int server_address_new(
                 ServerName *n,
@@ -96,7 +106,7 @@ int server_name_new(
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new server %s.", string);
+        log_debug("Added new %s server %s.", server_type_to_string(type), string);
 
         if (ret)
                 *ret = n;
