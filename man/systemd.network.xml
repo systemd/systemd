@@ -2627,6 +2627,23 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NextServer=</varname></term>
+
+        <listitem>
+          <para>Takes an IPv4 address. Configures the next server used by e.g. PXE boot systems.
+          Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Filename=</varname></term>
+
+        <listitem>
+          <para>Takes a path or url to a file loaded by e.g. a PXE boot loader. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendOption=</varname></term>
         <listitem>
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type
