@@ -42,11 +42,13 @@ struct Manager {
         LIST_HEAD(ServerName, system_servers);
         LIST_HEAD(ServerName, link_servers);
         LIST_HEAD(ServerName, fallback_servers);
+        LIST_HEAD(ServerName, runtime_servers);
 
         bool have_fallbacks:1;
 
         RateLimit ratelimit;
         bool exhausted_servers;
+        bool runtime_servers_changed;
 
         /* network */
         sd_event_source *network_event_source;
@@ -122,5 +124,6 @@ void manager_flush_server_names(Manager *m, ServerType t);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
+bool manager_is_connected(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
