@@ -588,17 +588,17 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
 
         r = sd_rtnl_message_new_routing_policy_rule(rule->manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate netlink message: %m");
+                return log_warning_errno(r, "Could not allocate netlink message: %m");
 
         r = routing_policy_rule_set_netlink_message(rule, m, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not create netlink message: %m");
+                return log_warning_errno(r, "Could not create netlink message: %m");
 
         r = netlink_call_async(rule->manager->rtnl, NULL, m,
                                routing_policy_rule_remove_handler,
                                NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not send netlink message: %m");
+                return log_warning_errno(r, "Could not send netlink message: %m");
 
         routing_policy_rule_enter_removing(rule);
         return 0;
@@ -624,21 +624,19 @@ static int routing_policy_rule_configure(
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate netlink message: %m");
+                return r;
 
         r = routing_policy_rule_set_netlink_message(rule, m, link);
         if (r < 0)
-                return log_error_errno(r, "Could not create netlink message: %m");
+                return r;
 
         r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send netlink message: %m");
+                return r;
 
         link_ref(link);
-
-        routing_policy_rule_enter_configuring(rule);
-        return r;
+        return 0;
 }
 
 static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
@@ -859,20 +857,24 @@ int link_request_static_routing_policy_rules(Link *link) {
 }
 
 int request_process_routing_policy_rule(Request *req) {
+        RoutingPolicyRule *rule;
+        Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->rule);
         assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
 
-        if (!link_is_ready_to_configure(req->link, false))
+        link = ASSERT_PTR(req->link);
+        rule = ASSERT_PTR(req->rule);
+
+        if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = routing_policy_rule_configure(req->rule, req->link, req->netlink_handler);
+        r = routing_policy_rule_configure(rule, link, req->netlink_handler);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
 
+        routing_policy_rule_enter_configuring(rule);
         return 1;
 }
 
