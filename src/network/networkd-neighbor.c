@@ -229,6 +229,28 @@ static int neighbor_configure(
         return 0;
 }
 
+int request_process_neighbor(Request *req) {
+        Neighbor *neighbor;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NEIGHBOR);
+
+        neighbor = ASSERT_PTR(req->neighbor);
+        link = ASSERT_PTR(req->link);
+
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        r = neighbor_configure(neighbor, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure neighbor: %m");
+
+        neighbor_enter_configuring(neighbor);
+        return 1;
+}
+
 static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -445,28 +467,6 @@ void link_foreignize_neighbors(Link *link) {
 
         SET_FOREACH(neighbor, link->neighbors)
                 neighbor->source = NETWORK_CONFIG_SOURCE_FOREIGN;
-}
-
-int request_process_neighbor(Request *req) {
-        Neighbor *neighbor;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->type == REQUEST_TYPE_NEIGHBOR);
-
-        neighbor = ASSERT_PTR(req->neighbor);
-        link = ASSERT_PTR(req->link);
-
-        if (!link_is_ready_to_configure(link, false))
-                return 0;
-
-        r = neighbor_configure(neighbor, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure neighbor: %m");
-
-        neighbor_enter_configuring(neighbor);
-        return 1;
 }
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
