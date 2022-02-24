@@ -124,5 +124,6 @@ void manager_flush_server_names(Manager *m, ServerType t);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
+bool manager_is_connected(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);

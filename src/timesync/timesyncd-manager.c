@@ -1013,7 +1013,9 @@ clear:
         return r;
 }
 
-static bool manager_is_connected(Manager *m) {
+bool manager_is_connected(Manager *m) {
+        assert(m);
+
         /* Return true when the manager is sending a request, resolving a server name, or
          * in a poll interval. */
         return m->server_socket >= 0 || m->resolve_query || m->event_timer;
