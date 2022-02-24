@@ -1266,49 +1266,6 @@ static int route_configure(
         return 0;
 }
 
-void route_cancel_request(Route *route, Link *link) {
-        Request req;
-
-        assert(route);
-
-        link = route->link ?: link;
-
-        assert(link);
-
-        if (!route_is_requesting(route))
-                return;
-
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_ROUTE,
-                .route = route,
-        };
-
-        request_drop(ordered_set_get(link->manager->request_queue, &req));
-        route_cancel_requesting(route);
-}
-
-static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->static_route_messages > 0);
-
-        link->static_route_messages--;
-
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
-        if (r <= 0)
-                return r;
-
-        if (link->static_route_messages == 0) {
-                log_link_debug(link, "Routes set");
-                link->static_routes_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
 static int route_is_ready_to_configure(const Route *route, Link *link) {
         int r;
 
@@ -1501,6 +1458,27 @@ int link_request_route(
         return 1;
 }
 
+static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->static_route_messages > 0);
+
+        link->static_route_messages--;
+
+        r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
+        if (r <= 0)
+                return r;
+
+        if (link->static_route_messages == 0) {
+                log_link_debug(link, "Routes set");
+                link->static_routes_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
 static int link_request_static_route(Link *link, Route *route) {
         assert(link);
         assert(link->manager);
@@ -1579,6 +1557,28 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         }
 
         return 0;
+}
+
+void route_cancel_request(Route *route, Link *link) {
+        Request req;
+
+        assert(route);
+
+        link = route->link ?: link;
+
+        assert(link);
+
+        if (!route_is_requesting(route))
+                return;
+
+        req = (Request) {
+                .link = link,
+                .type = REQUEST_TYPE_ROUTE,
+                .route = route,
+        };
+
+        request_drop(ordered_set_get(link->manager->request_queue, &req));
+        route_cancel_requesting(route);
 }
 
 static int process_route_one(

@@ -1083,46 +1083,6 @@ static int address_configure(
         return 0;
 }
 
-void address_cancel_request(Address *address) {
-        Request req;
-
-        assert(address);
-        assert(address->link);
-
-        if (!address_is_requesting(address))
-                return;
-
-        req = (Request) {
-                .link = address->link,
-                .type = REQUEST_TYPE_ADDRESS,
-                .address = address,
-        };
-
-        request_drop(ordered_set_get(address->link->manager->request_queue, &req));
-        address_cancel_requesting(address);
-}
-
-static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->static_address_messages > 0);
-
-        link->static_address_messages--;
-
-        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
-        if (r <= 0)
-                return r;
-
-        if (link->static_address_messages == 0) {
-                log_link_debug(link, "Addresses set");
-                link->static_addresses_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
 static bool address_is_ready_to_configure(Link *link, const Address *address) {
         assert(link);
         assert(address);
@@ -1248,6 +1208,27 @@ int link_request_address(
         return 1;
 }
 
+static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->static_address_messages > 0);
+
+        link->static_address_messages--;
+
+        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        if (r <= 0)
+                return r;
+
+        if (link->static_address_messages == 0) {
+                log_link_debug(link, "Addresses set");
+                link->static_addresses_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
 int link_request_static_address(Link *link, Address *address, bool consume) {
         assert(link);
         assert(address);
@@ -1289,6 +1270,25 @@ int link_request_static_addresses(Link *link) {
         }
 
         return 0;
+}
+
+void address_cancel_request(Address *address) {
+        Request req;
+
+        assert(address);
+        assert(address->link);
+
+        if (!address_is_requesting(address))
+                return;
+
+        req = (Request) {
+                .link = address->link,
+                .type = REQUEST_TYPE_ADDRESS,
+                .address = address,
+        };
+
+        request_drop(ordered_set_get(address->link->manager->request_queue, &req));
+        address_cancel_requesting(address);
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
