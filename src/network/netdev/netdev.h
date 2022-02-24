@@ -213,7 +213,6 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
-int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 
 int request_process_independent_netdev(Request *req);
 int request_process_stacked_netdev(Request *req);
