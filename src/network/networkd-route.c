@@ -1166,7 +1166,7 @@ static int route_configure(
                 Link *link,
                 link_netlink_message_handler_t callback) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(route);
@@ -1179,90 +1179,88 @@ static int route_configure(
 
         log_route_debug(route, "Configuring", link, link->manager);
 
-        r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
-                                      RTM_NEWROUTE, route->family,
-                                      route->protocol);
+        r = sd_rtnl_message_new_route(link->manager->rtnl, &m, RTM_NEWROUTE, route->family, route->protocol);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create netlink message: %m");
+                return r;
 
-        r = sd_rtnl_message_route_set_type(req, route->type);
+        r = sd_rtnl_message_route_set_type(m, route->type);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not set route type: %m");
+                return r;
 
-        r = route_set_netlink_message(route, req, link);
+        r = route_set_netlink_message(route, m, link);
         if (r < 0)
-                return log_error_errno(r, "Could not fill netlink message: %m");
+                return r;
 
         if (route->lifetime_usec != USEC_INFINITY) {
-                r = sd_netlink_message_append_u32(req, RTA_EXPIRES,
+                r = sd_netlink_message_append_u32(m, RTA_EXPIRES,
                         MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_EXPIRES attribute: %m");
+                        return r;
         }
 
         if (route->ttl_propagate >= 0) {
-                r = sd_netlink_message_append_u8(req, RTA_TTL_PROPAGATE, route->ttl_propagate);
+                r = sd_netlink_message_append_u8(m, RTA_TTL_PROPAGATE, route->ttl_propagate);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_TTL_PROPAGATE attribute: %m");
+                        return r;
         }
 
-        r = sd_netlink_message_open_container(req, RTA_METRICS);
+        r = sd_netlink_message_open_container(m, RTA_METRICS);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append RTA_METRICS attribute: %m");
+                return r;
 
         if (route->mtu > 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_MTU, route->mtu);
+                r = sd_netlink_message_append_u32(m, RTAX_MTU, route->mtu);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_MTU attribute: %m");
+                        return r;
         }
 
         if (route->initcwnd > 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_INITCWND, route->initcwnd);
+                r = sd_netlink_message_append_u32(m, RTAX_INITCWND, route->initcwnd);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_INITCWND attribute: %m");
+                        return r;
         }
 
         if (route->initrwnd > 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_INITRWND, route->initrwnd);
+                r = sd_netlink_message_append_u32(m, RTAX_INITRWND, route->initrwnd);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_INITRWND attribute: %m");
+                        return r;
         }
 
         if (route->quickack >= 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_QUICKACK, route->quickack);
+                r = sd_netlink_message_append_u32(m, RTAX_QUICKACK, route->quickack);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_QUICKACK attribute: %m");
+                        return r;
         }
 
         if (route->fast_open_no_cookie >= 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_FASTOPEN_NO_COOKIE, route->fast_open_no_cookie);
+                r = sd_netlink_message_append_u32(m, RTAX_FASTOPEN_NO_COOKIE, route->fast_open_no_cookie);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_FASTOPEN_NO_COOKIE attribute: %m");
+                        return r;
         }
 
         if (route->advmss > 0) {
-                r = sd_netlink_message_append_u32(req, RTAX_ADVMSS, route->advmss);
+                r = sd_netlink_message_append_u32(m, RTAX_ADVMSS, route->advmss);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTAX_ADVMSS attribute: %m");
+                        return r;
         }
 
-        r = sd_netlink_message_close_container(req);
+        r = sd_netlink_message_close_container(m);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append RTA_METRICS attribute: %m");
+                return r;
 
         if (!ordered_set_isempty(route->multipath_routes)) {
                 assert(route->nexthop_id == 0);
                 assert(!in_addr_is_set(route->gw_family, &route->gw));
 
-                r = append_nexthops(link, route, req);
+                r = append_nexthops(link, route, m);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
+                        return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
         return 0;
