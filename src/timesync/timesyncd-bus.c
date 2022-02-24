@@ -8,9 +8,11 @@
 #include "bus-log-control-api.h"
 #include "bus-protocol.h"
 #include "bus-util.h"
+#include "dns-domain.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
+#include "strv.h"
 #include "time-util.h"
 #include "timesyncd-bus.h"
 
@@ -41,6 +43,79 @@ static int property_get_servers(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int property_get_runtime_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
+
+        return property_get_servers(bus, path, interface, property, reply, &m->runtime_servers, error);
+}
+
+static int property_set_runtime_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_strv_free_ char **names = NULL;
+        Manager *m = userdata;
+        char **name;
+        int r;
+
+        assert(m);
+        assert(bus);
+        assert(message);
+
+        r = sd_bus_message_read_strv(message, &names);
+        if (r < 0)
+                return r;
+
+        while (m->runtime_servers)
+                server_name_free(m->runtime_servers);
+
+        STRV_FOREACH(name, names) {
+                r = dns_name_is_valid_or_address(*name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *name);
+
+                if (r == 0) {
+                        log_error("Invalid NTP server name or address, ignoring: %s", *name);
+                        continue;
+                }
+
+                r = server_name_new(m, NULL, SERVER_RUNTIME, *name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add runtime server '%s': %m", *name);
+        }
+
+        if (m->runtime_servers)
+                m->runtime_servers_changed = true;
+
+        if (manager_is_connected(m)) {
+                if (m->current_server_address &&
+                    m->current_server_address->name &&
+                    m->current_server_address->name->type == SERVER_RUNTIME &&
+                    !strv_find(names, m->current_server_address->name->string)) {
+                        manager_connect(m);
+                }
+        } else {
+                manager_connect(m);
+        }
+
+        return 0;
 }
 
 static int property_get_current_server_name(
@@ -163,6 +238,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("LinkNTPServers", "as", property_get_servers, offsetof(Manager, link_servers), 0),
         SD_BUS_PROPERTY("SystemNTPServers", "as", property_get_servers, offsetof(Manager, system_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FallbackNTPServers", "as", property_get_servers, offsetof(Manager, fallback_servers), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_WRITABLE_PROPERTY("RuntimeNTPServers", "as", property_get_runtime_servers, property_set_runtime_servers, 0, 0),
         SD_BUS_PROPERTY("ServerName", "s", property_get_current_server_name, offsetof(Manager, current_server_name), 0),
         SD_BUS_PROPERTY("ServerAddress", "(iay)", property_get_current_server_address, offsetof(Manager, current_server_address), 0),
         SD_BUS_PROPERTY("RootDistanceMaxUSec", "t", bus_property_get_usec, offsetof(Manager, root_distance_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
