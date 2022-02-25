@@ -103,8 +103,8 @@ L2TP.TunnelId,                            config_parse_l2tp_tunnel_id,          
 L2TP.PeerTunnelId,                        config_parse_l2tp_tunnel_id,               0,                             offsetof(L2tpTunnel, peer_tunnel_id)
 L2TP.UDPSourcePort,                       config_parse_ip_port,                      0,                             offsetof(L2tpTunnel, l2tp_udp_sport)
 L2TP.UDPDestinationPort,                  config_parse_ip_port,                      0,                             offsetof(L2tpTunnel, l2tp_udp_dport)
-L2TP.Local,                               config_parse_l2tp_tunnel_address,          0,                             offsetof(L2tpTunnel, local)
-L2TP.Remote,                              config_parse_l2tp_tunnel_address,          0,                             offsetof(L2tpTunnel, remote)
+L2TP.Local,                               config_parse_l2tp_tunnel_local_address,    0,                             0
+L2TP.Remote,                              config_parse_l2tp_tunnel_remote_address,   0,                             0
 L2TP.EncapsulationType,                   config_parse_l2tp_encap_type,              0,                             offsetof(L2tpTunnel, l2tp_encap_type)
 L2TP.UDPCheckSum,                         config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp_csum)
 L2TP.UDP6CheckSumRx,                      config_parse_bool,                         0,                             offsetof(L2tpTunnel, udp6_csum_rx)
