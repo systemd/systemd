@@ -728,6 +728,28 @@ void link_foreignize_routing_policy_rules(Link *link) {
         }
 }
 
+int request_process_routing_policy_rule(Request *req) {
+        RoutingPolicyRule *rule;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
+
+        link = ASSERT_PTR(req->link);
+        rule = ASSERT_PTR(req->rule);
+
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        r = routing_policy_rule_configure(rule, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
+
+        routing_policy_rule_enter_configuring(rule);
+        return 1;
+}
+
 static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -854,28 +876,6 @@ int link_request_static_routing_policy_rules(Link *link) {
         }
 
         return 0;
-}
-
-int request_process_routing_policy_rule(Request *req) {
-        RoutingPolicyRule *rule;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
-
-        link = ASSERT_PTR(req->link);
-        rule = ASSERT_PTR(req->rule);
-
-        if (!link_is_ready_to_configure(link, false))
-                return 0;
-
-        r = routing_policy_rule_configure(rule, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
-
-        routing_policy_rule_enter_configuring(rule);
-        return 1;
 }
 
 static const RoutingPolicyRule kernel_rules[] = {

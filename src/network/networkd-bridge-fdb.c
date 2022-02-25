@@ -194,33 +194,6 @@ static int bridge_fdb_configure(BridgeFDB *fdb, Link *link, link_netlink_message
         return 0;
 }
 
-int link_request_static_bridge_fdb(Link *link) {
-        BridgeFDB *fdb;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        link->static_bridge_fdb_configured = false;
-
-        HASHMAP_FOREACH(fdb, link->network->bridge_fdb_entries_by_section) {
-                r = link_queue_request(link, REQUEST_TYPE_BRIDGE_FDB, fdb, false,
-                                       &link->static_bridge_fdb_messages, bridge_fdb_configure_handler, NULL);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to request static bridge FDB entry: %m");
-        }
-
-        if (link->static_bridge_fdb_messages == 0) {
-                link->static_bridge_fdb_configured = true;
-                link_check_ready(link);
-        } else {
-                log_link_debug(link, "Setting bridge FDB entries");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-        }
-
-        return 0;
-}
-
 static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
         Link *out = NULL;
 
@@ -264,6 +237,33 @@ int request_process_bridge_fdb(Request *req) {
                 return log_link_warning_errno(link, r, "Failed to configure bridge FDB: %m");
 
         return 1;
+}
+
+int link_request_static_bridge_fdb(Link *link) {
+        BridgeFDB *fdb;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        link->static_bridge_fdb_configured = false;
+
+        HASHMAP_FOREACH(fdb, link->network->bridge_fdb_entries_by_section) {
+                r = link_queue_request(link, REQUEST_TYPE_BRIDGE_FDB, fdb, false,
+                                       &link->static_bridge_fdb_messages, bridge_fdb_configure_handler, NULL);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to request static bridge FDB entry: %m");
+        }
+
+        if (link->static_bridge_fdb_messages == 0) {
+                link->static_bridge_fdb_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting bridge FDB entries");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
 }
 
 void network_drop_invalid_bridge_fdb_entries(Network *network) {
