@@ -602,19 +602,35 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
         return -ENOENT;
 }
 
-int manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
-        Address *a;
+int manager_get_address(Manager *manager, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
         Link *link;
 
         assert(manager);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
-        HASHMAP_FOREACH(link, manager->links_by_index)
-                if (link_get_address(link, family, address, 0, &a) >= 0)
-                        return check_ready ? address_is_ready(a) : address_exists(a);
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        continue;
 
-        return false;
+                if (link_get_address(link, family, address, prefixlen, ret) >= 0)
+                        return 0;
+        }
+
+        return -ENOENT;
+}
+
+bool manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+        Address *a;
+
+        assert(manager);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (manager_get_address(manager, family, address, 0, &a) < 0)
+                return false;
+
+        return check_ready ? address_is_ready(a) : address_exists(a);
 }
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
