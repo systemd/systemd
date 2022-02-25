@@ -982,6 +982,9 @@ bool string_is_safe(const char *p) {
         /* Checks if the specified string contains no quotes or control characters */
 
         for (const char *t = p; *t; t++) {
+                if ((unsigned char) *t >= 128) /* no invalid ASCII characters, i.e values between 0 and 127, inclusive. */
+                        return false;
+
                 if (*t > 0 && *t < ' ') /* no control characters */
                         return false;
 
