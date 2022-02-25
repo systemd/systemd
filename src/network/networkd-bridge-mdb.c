@@ -115,7 +115,7 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
 /* send a request to the kernel to add an MDB entry */
 static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct br_mdb_entry entry;
         int r;
 
@@ -156,22 +156,71 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
                 assert_not_reached();
         }
 
-        /* create new RTM message */
-        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &req, RTM_NEWMDB,
+        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &m, RTM_NEWMDB,
                                     link->master_ifindex > 0 ? link->master_ifindex : link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_NEWMDB message: %m");
+                return r;
 
-        r = sd_netlink_message_append_data(req, MDBA_SET_ENTRY, &entry, sizeof(entry));
+        r = sd_netlink_message_append_data(m, MDBA_SET_ENTRY, &entry, sizeof(entry));
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not append MDBA_SET_ENTRY attribute: %m");
+                return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+                return r;
 
         link_ref(link);
+        return 0;
+}
+
+static bool bridge_mdb_is_ready_to_configure(Link *link) {
+        Link *master;
+
+        assert(link);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (!link->master_set)
+                return false;
+
+        if (link->master_ifindex <= 0 && streq_ptr(link->kind, "bridge"))
+                return true; /* The interface is bridge master. */
+
+        if (link_get_master(link, &master) < 0)
+                return false;
+
+        if (!streq_ptr(master->kind, "bridge"))
+                return false;
+
+        if (!IN_SET(master->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return false;
+
+        if (master->set_flags_messages > 0)
+                return false;
+
+        if (!link_has_carrier(master))
+                return false;
+
+        return true;
+}
+
+int request_process_bridge_mdb(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->mdb);
+        assert(req->type == REQUEST_TYPE_BRIDGE_MDB);
+        assert_se(link = req->link);
+
+        if (!bridge_mdb_is_ready_to_configure(link))
+                return 0;
+
+        r = bridge_mdb_configure(req->mdb, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure bridge MDB: %m");
 
         return 1;
 }
@@ -208,48 +257,6 @@ finish:
         }
 
         return 0;
-}
-
-static bool bridge_mdb_is_ready_to_configure(Link *link) {
-        Link *master;
-
-        if (!link_is_ready_to_configure(link, false))
-                return false;
-
-        if (!link->master_set)
-                return false;
-
-        if (link->master_ifindex <= 0 && streq_ptr(link->kind, "bridge"))
-                return true; /* The interface is bridge master. */
-
-        if (link_get_master(link, &master) < 0)
-                return false;
-
-        if (!streq_ptr(master->kind, "bridge"))
-                return false;
-
-        if (!IN_SET(master->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
-
-        if (master->set_flags_messages > 0)
-                return false;
-
-        if (!link_has_carrier(master))
-                return false;
-
-        return true;
-}
-
-int request_process_bridge_mdb(Request *req) {
-        assert(req);
-        assert(req->link);
-        assert(req->mdb);
-        assert(req->type == REQUEST_TYPE_BRIDGE_MDB);
-
-        if (!bridge_mdb_is_ready_to_configure(req->link))
-                return 0;
-
-        return bridge_mdb_configure(req->mdb, req->link, req->netlink_handler);
 }
 
 static int bridge_mdb_verify(BridgeMDB *mdb) {
