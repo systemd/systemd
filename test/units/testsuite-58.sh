@@ -129,8 +129,9 @@ systemd-repart --pretty=yes --definitions /tmp/testsuite-58-issue-21817-defs/ "$
 sfdisk --dump "$LOOP" | tee /tmp/testsuite-58-issue-21817.dump
 losetup -d "$LOOP"
 
-grep -qF 'p1 : start=        2048, size=      102400, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709,' /tmp/testsuite-58-issue-21817.dump
-grep -qF 'p2 : start=      104448, size=      100319,' /tmp/testsuite-58-issue-21817.dump
+grep -qiF "p1 : start=        2048, size=      102400, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709," /tmp/testsuite-58-issue-21817.dump
+# Accept both unpadded (pre-v2.38 util-linux) and padded (v2.38+ util-linux) sizes
+grep -qE "p2 : start=      104448, size=      (100319| 98304)," /tmp/testsuite-58-issue-21817.dump
 
 rm /tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
 rm -r /tmp/testsuite-58-issue-21817-defs/
