@@ -83,16 +83,55 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
         return 0;
 }
 
-static int l2tp_get_local_address(L2tpTunnel *t, Link *link, union in_addr_union *ret) {
+static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
+        Link *link = NULL;
+        L2tpTunnel *t;
+        int r;
+
+        assert(netdev);
+        assert(netdev->manager);
+
+        t = L2TP(netdev);
+
         assert(t);
 
+        if (t->local_ifname) {
+                r = link_get_by_name(netdev->manager, t->local_ifname, &link);
+                if (r < 0)
+                        return r;
+
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        return -EBUSY;
+        }
+
         if (t->local_type < 0) {
+                Address *a;
+
+                if (link)
+                        r = link_get_address(link, t->family, &t->local, 0, &a);
+                else
+                        r = manager_get_address(netdev->manager, t->family, &t->local, 0, &a);
+                if (r < 0)
+                        return r;
+
+                if (!address_is_ready(a))
+                        return -EBUSY;
+
                 if (ret)
                         *ret = t->local;
                 return 0;
         }
 
-        return link_get_local_address(link, t->local_type, t->family, NULL, ret);
+        if (link)
+                return link_get_local_address(link, t->local_type, t->family, NULL, ret);
+
+        HASHMAP_FOREACH(link, netdev->manager->links_by_index) {
+                r = link_get_local_address(link, t->local_type, t->family, NULL, ret);
+                if (r >= 0)
+                        return r;
+        }
+
+        return -ENOENT;
 }
 
 static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
@@ -334,7 +373,7 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
         assert(netdev);
         assert_se(t = L2TP(netdev));
 
-        r = l2tp_get_local_address(t, link, &local_address);
+        r = l2tp_get_local_address(netdev, &local_address);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not find local address.");
 
@@ -360,16 +399,9 @@ static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
 }
 
 static int netdev_l2tp_is_ready_to_create(NetDev *netdev, Link *link) {
-        L2tpTunnel *t;
-
         assert(netdev);
-        assert(link);
 
-        t = L2TP(netdev);
-
-        assert(t);
-
-        return l2tp_get_local_address(t, link, NULL) >= 0;
+        return l2tp_get_local_address(netdev, NULL) >= 0;
 }
 
 int config_parse_l2tp_tunnel_local_address(
@@ -384,8 +416,10 @@ int config_parse_l2tp_tunnel_local_address(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ char *addr_or_type = NULL, *ifname = NULL;
         NetDevLocalAddressType type;
         L2tpTunnel *t = userdata;
+        const char *p;
         int r;
 
         assert(filename);
@@ -394,6 +428,7 @@ int config_parse_l2tp_tunnel_local_address(
         assert(userdata);
 
         if (isempty(rvalue)) {
+                t->local_ifname = mfree(t->local_ifname);
                 t->local = IN_ADDR_NULL;
                 t->local_type = NETDEV_LOCAL_ADDRESS_AUTO;
 
@@ -403,8 +438,33 @@ int config_parse_l2tp_tunnel_local_address(
                 return 0;
         }
 
-        type = netdev_local_address_type_compat_from_string(rvalue);
+        p = rvalue;
+        r = extract_first_word(&p, &addr_or_type, "@", 0);
+        if (r < 0)
+                return log_oom();
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid L2TP Tunnel address specified in %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        if (!isempty(p)) {
+                if (!ifname_valid_full(p, IFNAME_VALID_ALTERNATIVE)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid interface name in %s=, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+
+                ifname = strdup(p);
+                if (!ifname)
+                        return log_oom();
+        }
+
+        type = netdev_local_address_type_compat_from_string(addr_or_type);
         if (type >= 0) {
+                free_and_replace(t->local_ifname, ifname);
                 t->local = IN_ADDR_NULL;
                 t->local_type = type;
 
@@ -415,9 +475,9 @@ int config_parse_l2tp_tunnel_local_address(
         }
 
         if (t->family == AF_UNSPEC)
-                r = in_addr_from_string_auto(rvalue, &t->family, &t->local);
+                r = in_addr_from_string_auto(addr_or_type, &t->family, &t->local);
         else
-                r = in_addr_from_string(t->family, rvalue, &t->local);
+                r = in_addr_from_string(t->family, addr_or_type, &t->local);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid L2TP Tunnel address specified in %s=, ignoring assignment: %s",
@@ -425,6 +485,7 @@ int config_parse_l2tp_tunnel_local_address(
                 return 0;
         }
 
+        free_and_replace(t->local_ifname, ifname);
         t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         return 0;
 }
@@ -722,6 +783,7 @@ static void l2tp_tunnel_done(NetDev *netdev) {
 
         assert(t);
 
+        free(t->local_ifname);
         ordered_hashmap_free_with_destructor(t->sessions_by_section, l2tp_session_free);
 }
 

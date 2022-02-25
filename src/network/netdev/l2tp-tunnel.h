@@ -51,6 +51,7 @@ struct L2tpTunnel {
         bool udp6_csum_rx;
         bool udp6_csum_tx;
 
+        char *local_ifname;
         NetDevLocalAddressType local_type;
         union in_addr_union local;
         union in_addr_union remote;
