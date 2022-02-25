@@ -228,6 +228,7 @@ static Link *link_free(Link *link) {
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->sd_device);
+        netdev_unref(link->netdev);
 
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
@@ -561,7 +562,6 @@ static int link_request_stacked_netdevs(Link *link) {
         assert(link);
 
         link->stacked_netdevs_created = false;
-        link->stacked_netdevs_after_configured_created = false;
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
                 r = link_request_stacked_netdev(link, netdev);
@@ -573,8 +573,6 @@ static int link_request_stacked_netdevs(Link *link) {
                 link->stacked_netdevs_created = true;
                 link_check_ready(link);
         }
-        if (link->create_stacked_netdev_after_configured_messages == 0)
-                link->stacked_netdevs_after_configured_created = true;
 
         return 0;
 }
@@ -1206,12 +1204,17 @@ static int link_get_network(Link *link, Network **ret) {
 
 static int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
+        NetDev *netdev = NULL;
         int r;
 
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
                 return 0;
+
+        r = netdev_get(link->manager, link->ifname, &netdev);
+        if (r < 0 && r != -ENOENT)
+                return r;
 
         r = link_get_network(link, &network);
         if (r < 0 && r != -ENOENT)
@@ -1264,6 +1267,9 @@ static int link_reconfigure_impl(Link *link, bool force) {
 
         link_free_engines(link);
         link->network = network_unref(link->network);
+
+        netdev_unref(link->netdev);
+        link->netdev = netdev_ref(netdev);
 
         if (!network) {
                 link_set_state(link, LINK_STATE_UNMANAGED);
