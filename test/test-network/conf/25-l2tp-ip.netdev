@@ -6,7 +6,7 @@ Name=l2tp99
 [L2TP]
 TunnelId=10
 PeerTunnelId=12
-Local=static
+Local=static@test1
 Remote=192.168.30.101
 EncapsulationType=ip
 
