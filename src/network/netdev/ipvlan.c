@@ -80,16 +80,13 @@ const NetDevVTable ipvtap_vtable = {
 };
 
 IPVlanMode link_get_ipvlan_mode(Link *link) {
-        NetDev *netdev;
+        IPVlan *ipvlan;
 
-        if (!streq_ptr(link->kind, "ipvlan"))
+        assert(link);
+
+        ipvlan = IPVLAN(link->netdev);
+        if (!ipvlan)
                 return _NETDEV_IPVLAN_MODE_INVALID;
 
-        if (netdev_get(link->manager, link->ifname, &netdev) < 0)
-                return _NETDEV_IPVLAN_MODE_INVALID;
-
-        if (netdev->kind != NETDEV_KIND_IPVLAN)
-                return _NETDEV_IPVLAN_MODE_INVALID;
-
-        return IPVLAN(netdev)->mode;
+        return ipvlan->mode;
 }
