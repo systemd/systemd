@@ -184,7 +184,8 @@ sfdisk --dump "$LOOP" | tee /tmp/testsuite-58-issue-21817.dump
 losetup -d "$LOOP"
 
 grep -qiF "p1 : start=        2048, size=      102400, type=${root_guid}," /tmp/testsuite-58-issue-21817.dump
-grep -qF 'p2 : start=      104448, size=      100319,' /tmp/testsuite-58-issue-21817.dump
+# Accept both unpadded (pre-v2.38 util-linux) and padded (v2.38+ util-linux) sizes
+grep -qE "p2 : start=      104448, size=      (100319| 98304)," /tmp/testsuite-58-issue-21817.dump
 
 rm /tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
 rm -r /tmp/testsuite-58-issue-21817-defs/
