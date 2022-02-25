@@ -103,7 +103,6 @@ typedef enum NetDevState {
 typedef enum NetDevCreateType {
         NETDEV_CREATE_INDEPENDENT,
         NETDEV_CREATE_STACKED,
-        NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
@@ -159,9 +158,6 @@ typedef struct NetDevVTable {
 
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
-
-        /* create netdev after link is fully configured */
-        int (*create_after_configured)(NetDev *netdev, Link *link);
 
         /* perform additional configuration after netdev has been createad */
         int (*post_create)(NetDev *netdev, Link *link);
