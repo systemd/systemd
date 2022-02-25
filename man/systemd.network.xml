@@ -869,7 +869,6 @@ Table=1234</programlisting></para>
         <term><varname>IPoIB=</varname></term>
         <term><varname>IPVLAN=</varname></term>
         <term><varname>IPVTAP=</varname></term>
-        <term><varname>L2TP=</varname></term>
         <term><varname>MACsec=</varname></term>
         <term><varname>MACVLAN=</varname></term>
         <term><varname>MACVTAP=</varname></term>
@@ -878,7 +877,7 @@ Table=1234</programlisting></para>
         <term><varname>VXLAN=</varname></term>
         <term><varname>Xfrm=</varname></term>
         <listitem>
-          <para>The name of an IPoIB, IPVLAN, IPVTAP, L2TP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
+          <para>The name of an IPoIB, IPVLAN, IPVTAP, MACsec, MACVLAN, MACVTAP, tunnel, VLAN,
           VXLAN, or Xfrm to be created on the link. See
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           This option may be specified more than once.</para>

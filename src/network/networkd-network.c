@@ -871,7 +871,6 @@ int config_parse_stacked_netdev(
                       NETDEV_KIND_IPOIB,
                       NETDEV_KIND_IPVLAN,
                       NETDEV_KIND_IPVTAP,
-                      NETDEV_KIND_L2TP,
                       NETDEV_KIND_MACSEC,
                       NETDEV_KIND_MACVLAN,
                       NETDEV_KIND_MACVTAP,
