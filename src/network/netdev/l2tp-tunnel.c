@@ -432,7 +432,7 @@ static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, N
         return 1;
 }
 
-static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
+static int l2tp_create_tunnel(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         union in_addr_union local_address;
         L2tpTunnel *t;
@@ -854,9 +854,9 @@ const NetDevVTable l2tptnl_vtable = {
         .object_size = sizeof(L2tpTunnel),
         .init = l2tp_tunnel_init,
         .sections = NETDEV_COMMON_SECTIONS "L2TP\0L2TPSession\0",
-        .create_after_configured = l2tp_create_tunnel,
+        .create = l2tp_create_tunnel,
         .done = l2tp_tunnel_done,
-        .create_type = NETDEV_CREATE_AFTER_CONFIGURED,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
         .is_ready_to_create = netdev_l2tp_is_ready_to_create,
         .config_verify = netdev_l2tp_tunnel_verify,
 };
