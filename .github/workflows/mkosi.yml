@@ -48,19 +48,6 @@ jobs:
     - name: Configure
       run: echo -e "[Distribution]\nDistribution=${{ matrix.distro }}\n" >mkosi.default
 
-    # Ubuntu's systemd-nspawn doesn't support faccessat2() syscall, which is
-    # required, since current Arch's glibc implements faccessat() via faccessat2().
-    - name: Update systemd-nspawn
-      if: ${{ matrix.distro == 'arch' }}
-      run: |
-        echo "deb-src http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs) main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
-        sudo apt update
-        sudo apt build-dep systemd
-        meson build
-        ninja -C build
-        sudo ln -svf "$PWD/build/systemd-nspawn" "$(which systemd-nspawn)"
-        systemd-nspawn --version
-
     - name: Build ${{ matrix.distro }}
       run: ./.github/workflows/run_mkosi.sh --build-environment=CI_BUILD=1 --kernel-command-line "${{ env.KERNEL_CMDLINE }}" build
 
