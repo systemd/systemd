@@ -528,21 +528,7 @@ static int dhcp4_server_configure(Link *link) {
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
 
         log_link_debug(link, "Offering DHCPv4 leases");
-
-        return 1;
-}
-
-int link_request_dhcp_server(Link *link) {
-        assert(link);
-
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
-
-        if (link->dhcp_server)
-                return 0;
-
-        log_link_debug(link, "Requesting DHCP server.");
-        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
+        return 0;
 }
 
 static bool dhcp_server_is_ready_to_configure(Link *link) {
@@ -582,14 +568,40 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
 }
 
 int request_process_dhcp_server(Request *req) {
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
+        Link *link;
+        int r;
 
-        if (!dhcp_server_is_ready_to_configure(req->link))
+        assert(req);
+        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
+        assert_se(link = req->link);
+
+        if (!dhcp_server_is_ready_to_configure(link))
                 return 0;
 
-        return dhcp4_server_configure(req->link);
+        r = dhcp4_server_configure(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure DHCP server: %m");
+
+        return 1;
+}
+
+int link_request_dhcp_server(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (link->dhcp_server)
+                return 0;
+
+        log_link_debug(link, "Requesting DHCP server.");
+        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request configuration of DHCP server: %m");
+
+        return 0;
 }
 
 int config_parse_dhcp_server_relay_agent_suboption(
