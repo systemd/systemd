@@ -532,19 +532,6 @@ static int dhcp4_server_configure(Link *link) {
         return 1;
 }
 
-int link_request_dhcp_server(Link *link) {
-        assert(link);
-
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
-
-        if (link->dhcp_server)
-                return 0;
-
-        log_link_debug(link, "Requesting DHCP server.");
-        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
-}
-
 static bool dhcp_server_is_ready_to_configure(Link *link) {
         Link *uplink = NULL;
         Address *a;
@@ -590,6 +577,19 @@ int request_process_dhcp_server(Request *req) {
                 return 0;
 
         return dhcp4_server_configure(req->link);
+}
+
+int link_request_dhcp_server(Link *link) {
+        assert(link);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (link->dhcp_server)
+                return 0;
+
+        log_link_debug(link, "Requesting DHCP server.");
+        return link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
 }
 
 int config_parse_dhcp_server_relay_agent_suboption(

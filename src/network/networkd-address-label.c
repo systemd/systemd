@@ -132,6 +132,26 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         return 0;
 }
 
+int request_process_address_label(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->label);
+        assert(req->type == REQUEST_TYPE_ADDRESS_LABEL);
+
+        link = ASSERT_PTR(req->link);
+
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        r = address_label_configure(req->label, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure address label: %m");
+
+        return 1;
+}
+
 int link_request_static_address_labels(Link *link) {
         AddressLabel *label;
         int r;
@@ -157,26 +177,6 @@ int link_request_static_address_labels(Link *link) {
         }
 
         return 0;
-}
-
-int request_process_address_label(Request *req) {
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->label);
-        assert(req->type == REQUEST_TYPE_ADDRESS_LABEL);
-
-        link = ASSERT_PTR(req->link);
-
-        if (!link_is_ready_to_configure(link, false))
-                return 0;
-
-        r = address_label_configure(req->label, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure address label: %m");
-
-        return 1;
 }
 
 static int address_label_section_verify(AddressLabel *label) {

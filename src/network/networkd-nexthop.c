@@ -524,6 +524,72 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
+static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
+        struct nexthop_grp *nhg;
+
+        assert(link);
+        assert(nexthop);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (nexthop_owned_by_link(nexthop)) {
+                /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
+                 * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
+                 * kernel. */
+                if (link->set_flags_messages > 0)
+                        return false;
+                if (!FLAGS_SET(link->flags, IFF_UP))
+                        return false;
+        }
+
+        /* All group members must be configured first. */
+        HASHMAP_FOREACH(nhg, nexthop->group) {
+                NextHop *g;
+
+                if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
+                        return false;
+
+                if (!nexthop_exists(g))
+                        return false;
+        }
+
+        if (nexthop->id == 0) {
+                Request *req;
+
+                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                        if (req->type != REQUEST_TYPE_NEXTHOP)
+                                continue;
+                        if (req->nexthop->id != 0)
+                                return false; /* first configure nexthop with id. */
+                }
+        }
+
+        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
+}
+
+int request_process_nexthop(Request *req) {
+        NextHop *nexthop;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_NEXTHOP);
+
+        nexthop = ASSERT_PTR(req->nexthop);
+        link = ASSERT_PTR(req->link);
+
+        if (!nexthop_is_ready_to_configure(link, nexthop))
+                return 0;
+
+        r = nexthop_configure(nexthop, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure nexthop");
+
+        nexthop_enter_configuring(nexthop);
+        return 1;
+}
+
 static int link_request_nexthop(
                 Link *link,
                 NextHop *nexthop,
@@ -757,72 +823,6 @@ void link_foreignize_nexthops(Link *link) {
 
                 nexthop->source = NETWORK_CONFIG_SOURCE_FOREIGN;
         }
-}
-
-static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
-        struct nexthop_grp *nhg;
-
-        assert(link);
-        assert(nexthop);
-
-        if (!link_is_ready_to_configure(link, false))
-                return false;
-
-        if (nexthop_owned_by_link(nexthop)) {
-                /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
-                 * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
-                 * kernel. */
-                if (link->set_flags_messages > 0)
-                        return false;
-                if (!FLAGS_SET(link->flags, IFF_UP))
-                        return false;
-        }
-
-        /* All group members must be configured first. */
-        HASHMAP_FOREACH(nhg, nexthop->group) {
-                NextHop *g;
-
-                if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
-                        return false;
-
-                if (!nexthop_exists(g))
-                        return false;
-        }
-
-        if (nexthop->id == 0) {
-                Request *req;
-
-                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
-                        if (req->type != REQUEST_TYPE_NEXTHOP)
-                                continue;
-                        if (req->nexthop->id != 0)
-                                return false; /* first configure nexthop with id. */
-                }
-        }
-
-        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
-}
-
-int request_process_nexthop(Request *req) {
-        NextHop *nexthop;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->type == REQUEST_TYPE_NEXTHOP);
-
-        nexthop = ASSERT_PTR(req->nexthop);
-        link = ASSERT_PTR(req->link);
-
-        if (!nexthop_is_ready_to_configure(link, nexthop))
-                return 0;
-
-        r = nexthop_configure(nexthop, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure nexthop");
-
-        nexthop_enter_configuring(nexthop);
-        return 1;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {

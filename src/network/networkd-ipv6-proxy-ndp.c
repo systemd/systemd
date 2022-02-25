@@ -84,6 +84,25 @@ static int ipv6_proxy_ndp_address_configure(
         return 0;
 }
 
+int request_process_ipv6_proxy_ndp_address(Request *req) {
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->ipv6_proxy_ndp);
+        assert(req->type == REQUEST_TYPE_IPV6_PROXY_NDP);
+        assert_se(link = req->link);
+
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        r = ipv6_proxy_ndp_address_configure(req->ipv6_proxy_ndp, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure IPv6 proxy NDP address: %m");
+
+        return 1;
+}
+
 int link_request_static_ipv6_proxy_ndp_addresses(Link *link) {
         struct in6_addr *address;
         int r;
@@ -110,25 +129,6 @@ int link_request_static_ipv6_proxy_ndp_addresses(Link *link) {
         }
 
         return 0;
-}
-
-int request_process_ipv6_proxy_ndp_address(Request *req) {
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->ipv6_proxy_ndp);
-        assert(req->type == REQUEST_TYPE_IPV6_PROXY_NDP);
-        assert_se(link = req->link);
-
-        if (!link_is_ready_to_configure(link, false))
-                return 0;
-
-        r = ipv6_proxy_ndp_address_configure(req->ipv6_proxy_ndp, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure IPv6 proxy NDP address: %m");
-
-        return 1;
 }
 
 int config_parse_ipv6_proxy_ndp_address(
