@@ -1309,6 +1309,137 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
+static int route_is_ready_to_configure(const Route *route, Link *link) {
+        int r;
+
+        assert(route);
+        assert(link);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (set_size(link->routes) >= routes_max())
+                return false;
+
+        if (route->nexthop_id > 0) {
+                struct nexthop_grp *nhg;
+                NextHop *nh;
+
+                if (manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
+                        return false;
+
+                if (!nexthop_exists(nh))
+                        return false;
+
+                HASHMAP_FOREACH(nhg, nh->group) {
+                        NextHop *g;
+
+                        if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
+                                return false;
+
+                        if (!nexthop_exists(g))
+                                return false;
+                }
+        }
+
+        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
+                r = manager_has_address(link->manager, route->family, &route->prefsrc, route->family == AF_INET6);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (!gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw))
+                return false;
+
+        MultipathRoute *m;
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                union in_addr_union a = m->gateway.address;
+                Link *l = NULL;
+
+                r = multipath_route_get_link(link->manager, m, &l);
+                if (r < 0)
+                        return false;
+                if (r > 0) {
+                        if (!link_is_ready_to_configure(l, true))
+                                return false;
+
+                        m->ifindex = l->ifindex;
+                }
+
+                if (!gateway_is_ready(l ?: link, FLAGS_SET(route->flags, RTNH_F_ONLINK), m->gateway.family, &a))
+                        return false;
+        }
+
+        return true;
+}
+
+int request_process_route(Request *req) {
+        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
+        Route *route;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->link);
+        assert(req->route);
+        assert(req->type == REQUEST_TYPE_ROUTE);
+
+        link = req->link;
+        route = req->route;
+
+        r = route_is_ready_to_configure(route, link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to check if route is ready to configure: %m");
+        if (r == 0)
+                return 0;
+
+        if (route_needs_convert(route)) {
+                r = route_convert(link->manager, route, &converted);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to convert route: %m");
+
+                assert(r > 0);
+                assert(converted);
+
+                for (size_t i = 0; i < converted->n; i++) {
+                        Route *existing;
+
+                        if (route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) < 0) {
+                                _cleanup_(route_freep) Route *tmp = NULL;
+
+                                r = route_dup(converted->routes[i], &tmp);
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = route_add(link->manager, converted->links[i] ?: link, tmp);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Failed to add route: %m");
+
+                                TAKE_PTR(tmp);
+                        } else {
+                                existing->source = converted->routes[i]->source;
+                                existing->provider = converted->routes[i]->provider;
+                        }
+                }
+        }
+
+        r = route_configure(route, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure route: %m");
+
+        if (converted)
+                for (size_t i = 0; i < converted->n; i++) {
+                        Route *existing;
+
+                        assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
+                        route_enter_configuring(existing);
+                }
+        else
+                route_enter_configuring(route);
+
+        return 1;
+}
+
 int link_request_route(
                 Link *link,
                 Route *route,
@@ -1448,137 +1579,6 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         }
 
         return 0;
-}
-
-static int route_is_ready_to_configure(const Route *route, Link *link) {
-        int r;
-
-        assert(route);
-        assert(link);
-
-        if (!link_is_ready_to_configure(link, false))
-                return false;
-
-        if (set_size(link->routes) >= routes_max())
-                return false;
-
-        if (route->nexthop_id > 0) {
-                struct nexthop_grp *nhg;
-                NextHop *nh;
-
-                if (manager_get_nexthop_by_id(link->manager, route->nexthop_id, &nh) < 0)
-                        return false;
-
-                if (!nexthop_exists(nh))
-                        return false;
-
-                HASHMAP_FOREACH(nhg, nh->group) {
-                        NextHop *g;
-
-                        if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
-                                return false;
-
-                        if (!nexthop_exists(g))
-                                return false;
-                }
-        }
-
-        if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
-                r = manager_has_address(link->manager, route->family, &route->prefsrc, route->family == AF_INET6);
-                if (r <= 0)
-                        return r;
-        }
-
-        if (!gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw))
-                return false;
-
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                union in_addr_union a = m->gateway.address;
-                Link *l = NULL;
-
-                r = multipath_route_get_link(link->manager, m, &l);
-                if (r < 0)
-                        return false;
-                if (r > 0) {
-                        if (!link_is_ready_to_configure(l, true))
-                                return false;
-
-                        m->ifindex = l->ifindex;
-                }
-
-                if (!gateway_is_ready(l ?: link, FLAGS_SET(route->flags, RTNH_F_ONLINK), m->gateway.family, &a))
-                        return false;
-        }
-
-        return true;
-}
-
-int request_process_route(Request *req) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
-        Route *route;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->link);
-        assert(req->route);
-        assert(req->type == REQUEST_TYPE_ROUTE);
-
-        link = req->link;
-        route = req->route;
-
-        r = route_is_ready_to_configure(route, link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to check if route is ready to configure: %m");
-        if (r == 0)
-                return 0;
-
-        if (route_needs_convert(route)) {
-                r = route_convert(link->manager, route, &converted);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to convert route: %m");
-
-                assert(r > 0);
-                assert(converted);
-
-                for (size_t i = 0; i < converted->n; i++) {
-                        Route *existing;
-
-                        if (route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) < 0) {
-                                _cleanup_(route_freep) Route *tmp = NULL;
-
-                                r = route_dup(converted->routes[i], &tmp);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = route_add(link->manager, converted->links[i] ?: link, tmp);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Failed to add route: %m");
-
-                                TAKE_PTR(tmp);
-                        } else {
-                                existing->source = converted->routes[i]->source;
-                                existing->provider = converted->routes[i]->provider;
-                        }
-                }
-        }
-
-        r = route_configure(route, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure route: %m");
-
-        if (converted)
-                for (size_t i = 0; i < converted->n; i++) {
-                        Route *existing;
-
-                        assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
-                        route_enter_configuring(existing);
-                }
-        else
-                route_enter_configuring(route);
-
-        return 1;
 }
 
 static int process_route_one(
