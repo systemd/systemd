@@ -144,7 +144,7 @@ bool netdev_is_managed(NetDev *netdev) {
 static bool netdev_is_stacked_and_independent(NetDev *netdev) {
         assert(netdev);
 
-        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+        if (netdev_get_create_type(netdev) != NETDEV_CREATE_STACKED)
                 return false;
 
         switch (netdev->kind) {
@@ -180,7 +180,7 @@ static bool netdev_is_stacked_and_independent(NetDev *netdev) {
 static bool netdev_is_stacked(NetDev *netdev) {
         assert(netdev);
 
-        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_STACKED, NETDEV_CREATE_AFTER_CONFIGURED))
+        if (netdev_get_create_type(netdev) != NETDEV_CREATE_STACKED)
                 return false;
 
         if (netdev_is_stacked_and_independent(netdev))
@@ -614,10 +614,6 @@ static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
                 if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         return false;
 
-                if (netdev_get_create_type(netdev) == NETDEV_CREATE_AFTER_CONFIGURED &&
-                    link->state != LINK_STATE_CONFIGURED)
-                        return false;
-
                 if (link->set_link_messages > 0)
                         return false;
 
@@ -675,24 +671,6 @@ static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m
         return 0;
 }
 
-static int stacked_netdev_after_configured_process_request(Request *req, Link *link, void *userdata) {
-        NetDev *netdev = ASSERT_PTR(userdata);
-        int r;
-
-        assert(link);
-
-        r = netdev_is_ready_to_create(netdev, link);
-        if (r <= 0)
-                return r;
-
-        assert(NETDEV_VTABLE(netdev)->create_after_configured);
-        r = NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
-        if (r < 0)
-                return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
-
-        return 1;
-}
-
 int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         int r;
 
@@ -705,20 +683,13 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         if (!IN_SET(netdev->state, NETDEV_STATE_LOADING, NETDEV_STATE_FAILED) || netdev->ifindex > 0)
                 return 0; /* Already created. */
 
-        if (netdev_get_create_type(netdev) == NETDEV_CREATE_STACKED) {
-                link->stacked_netdevs_created = false;
-                r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
-                                            netdev_ref(netdev), (mfree_func_t) netdev_unref,
-                                            trivial_hash_func, trivial_compare_func,
-                                            stacked_netdev_process_request,
-                                            &link->create_stacked_netdev_messages,
-                                            create_stacked_netdev_handler, NULL);
-        } else
-                r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
-                                            netdev_ref(netdev), (mfree_func_t) netdev_unref,
-                                            trivial_hash_func, trivial_compare_func,
-                                            stacked_netdev_after_configured_process_request,
-                                            NULL, NULL, NULL);
+        link->stacked_netdevs_created = false;
+        r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
+                                    netdev_ref(netdev), (mfree_func_t) netdev_unref,
+                                    trivial_hash_func, trivial_compare_func,
+                                    stacked_netdev_process_request,
+                                    &link->create_stacked_netdev_messages,
+                                    create_stacked_netdev_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
