@@ -678,6 +678,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-pin=</option></term>
+
+        <listitem><para>Takes a boolean argument, defaults to <literal>false</literal>. Controls whether
+        TPM2 volume unlocking is bound to a PIN in addition to PCRs. Similarly, this option is only useful
+        when TPM2 enrollment metadata is not available.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>token-timeout=</option></term>
 
         <listitem><para>Specifies how long to wait at most for configured security devices (i.e. FIDO2,

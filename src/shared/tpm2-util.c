@@ -12,8 +12,10 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "hmac.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "time-util.h"
 
 static void *libtss2_esys_dl = NULL;
@@ -30,10 +32,12 @@ TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_
 TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
 TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
 TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues);
+TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
 TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
 TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
 
 const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
@@ -58,10 +62,12 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_PCR_Read),
+                        DLSYM_ARG(Esys_PolicyAuthValue),
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_Unseal));
         if (r < 0)
                 return r;
@@ -594,6 +600,7 @@ static int tpm2_make_pcr_session(
                 ESYS_CONTEXT *c,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
+                bool use_pin,
                 ESYS_TR *ret_session,
                 TPM2B_DIGEST **ret_policy_digest,
                 TPMI_ALG_HASH *ret_pcr_bank) {
@@ -669,6 +676,21 @@ static int tpm2_make_pcr_session(
                 goto finish;
         }
 
+        if (use_pin) {
+                rc = sym_Esys_PolicyAuthValue(
+                                c,
+                                session,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE);
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to add authValue policy to TPM: %s",
+                                            sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
+        }
+
         if (DEBUG_LOGGING || ret_policy_digest) {
                 log_debug("Acquiring policy digest.");
 
@@ -717,9 +739,26 @@ finish:
         return r;
 }
 
+static void *hash_pin(const char *pin, uint8_t ret_digest[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx hash;
+        size_t pin_len;
+
+        assert(pin);
+        pin_len = strlen(pin);
+
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(pin, pin_len, &hash);
+        sha256_finish_ctx(&hash, ret_digest);
+
+        explicit_bzero_safe(&hash, sizeof(hash));
+
+        return ret_digest;
+}
+
 int tpm2_seal(
                 const char *device,
                 uint32_t pcr_mask,
+                const char *pin,
                 void **ret_secret,
                 size_t *ret_secret_size,
                 void **ret_blob,
@@ -782,7 +821,8 @@ int tpm2_seal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, UINT16_MAX, NULL, &policy_digest, &pcr_bank);
+        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, UINT16_MAX, !!pin, NULL, &policy_digest,
+                                  &pcr_bank);
         if (r < 0)
                 goto finish;
 
@@ -813,6 +853,10 @@ int tpm2_seal(
                 .size = sizeof(hmac_sensitive.sensitive),
                 .sensitive.data.size = 32,
         };
+        if (pin) {
+                hash_pin(pin, hmac_sensitive.sensitive.userAuth.buffer);
+                hmac_sensitive.sensitive.userAuth.size = SHA256_DIGEST_SIZE;
+        }
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
         (void) tpm2_credit_random(c.esys_context);
@@ -923,6 +967,7 @@ int tpm2_unseal(
                 size_t blob_size,
                 const void *known_policy_hash,
                 size_t known_policy_hash_size,
+                const char *pin,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
@@ -978,7 +1023,7 @@ int tpm2_unseal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, pcr_bank, &session, &policy_digest, NULL);
+        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, pcr_bank, !!pin, &session, &policy_digest, NULL);
         if (r < 0)
                 goto finish;
 
@@ -1005,9 +1050,34 @@ int tpm2_unseal(
                         &public,
                         &hmac_key);
         if (rc != TSS2_RC_SUCCESS) {
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                    "Failed to load HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
+                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
+                 * need to translate for the caller. */
+                if (rc == TPM2_RC_LOCKOUT)
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOLCK),
+                                        "TPM2 device is in dictionary attack lockout mode.");
+                else
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to load HMAC key in TPM: %s",
+                                        sym_Tss2_RC_Decode(rc));
                 goto finish;
+        }
+
+        if (pin) {
+                TPM2B_AUTH auth = { .size = SHA256_DIGEST_SIZE };
+
+                hash_pin(pin, auth.buffer);
+
+                rc = sym_Esys_TR_SetAuth(c.esys_context, hmac_key, &auth);
+                explicit_bzero_safe(&auth, sizeof(auth));
+                if (rc != TSS2_RC_SUCCESS) {
+                        r = log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to load PIN in TPM: %s",
+                                        sym_Tss2_RC_Decode(rc));
+                        goto finish;
+                }
         }
 
         log_debug("Unsealing HMAC key.");
@@ -1223,6 +1293,7 @@ int tpm2_make_luks2_json(
                 size_t blob_size,
                 const void *policy_hash,
                 size_t policy_hash_size,
+                TPM2Flags flags,
                 JsonVariant **ret) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
@@ -1263,7 +1334,9 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(a)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
-                                       JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size))));
+                                       JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
+                                       JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)))
+                        );
         if (r < 0)
                 return r;
 
@@ -1305,4 +1378,25 @@ int tpm2_primary_alg_from_string(const char *alg) {
         if (streq_ptr(alg, "rsa"))
                 return TPM2_ALG_RSA;
         return -EINVAL;
+}
+
+TPM2Flags tpm2_flag_from_string(const char *flag) {
+        if (streq_ptr(flag, "pin"))
+                return TPM2_FLAGS_USE_PIN;
+        return -EINVAL;
+}
+
+const char *tpm2_flags_to_string(TPM2Flags flags) {
+        if (flags & TPM2_FLAGS_USE_PIN)
+                return "pin";
+        return NULL;
+}
+
+bool tpm2_valid_pin(const char *pin) {
+        assert(pin);
+
+        /* Enforce a PIN length of at least 4 characters: Fewer characters provide little protection, even
+         * with dictionary attack (DA) protection. In the unlock case, validation helps to avoid unnecessary
+         * unlock attempts that increment the DA counter. */
+        return strlen(pin) >= 4;
 }
