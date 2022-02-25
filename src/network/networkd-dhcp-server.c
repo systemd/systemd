@@ -567,13 +567,10 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_dhcp_server(Request *req) {
-        Link *link;
+static int dhcp_server_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
-        assert_se(link = req->link);
+        assert(link);
 
         if (!dhcp_server_is_ready_to_configure(link))
                 return 0;
@@ -597,7 +594,7 @@ int link_request_dhcp_server(Link *link) {
                 return 0;
 
         log_link_debug(link, "Requesting DHCP server.");
-        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuration of DHCP server: %m");
 
