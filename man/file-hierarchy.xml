@@ -420,6 +420,22 @@
         this directory.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><filename>/sys/fs/cgroup/</filename></term>
+        <listitem><para>A virtual kernel file system exposing process
+        control groups (cgroups). This file system is an API to
+        interface with the kernel and not a place where normal files may
+        be stored. In sandboxed/containerized setups, this directory may
+        either not exist or may include a subset of functionality. On
+        current systems, this directory will refer to the
+        <literal>cgroup2</literal> filesystem, which provides a unified
+        cgroup hierarchy for all resource controllers. On older systems,
+        this directory may refer to the <literal>cgroup</literal> (v1)
+        filesystem, and will contain a subdirectory
+        <filename>unified</filename> providing the
+        <literal>cgroup2</literal> unified hierarchy.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
