@@ -1123,6 +1123,45 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
+static bool address_is_ready_to_configure(Link *link, const Address *address) {
+        assert(link);
+        assert(address);
+
+        if (!link_is_ready_to_configure(link, false))
+                return false;
+
+        if (FLAGS_SET(address->state, NETWORK_CONFIG_STATE_PROBING))
+                return false;
+
+        /* Refuse adding more than the limit */
+        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return false;
+
+        return true;
+}
+
+int request_process_address(Request *req) {
+        Address *address;
+        Link *link;
+        int r;
+
+        assert(req);
+        assert(req->type == REQUEST_TYPE_ADDRESS);
+
+        address = ASSERT_PTR(req->address);
+        link = ASSERT_PTR(req->link);
+
+        if (!address_is_ready_to_configure(link, address))
+                return 0;
+
+        r = address_configure(address, link, req->netlink_handler);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure address: %m");
+
+        address_enter_configuring(address);
+        return 1;
+}
+
 int link_request_address(
                 Link *link,
                 Address *address,
@@ -1250,45 +1289,6 @@ int link_request_static_addresses(Link *link) {
         }
 
         return 0;
-}
-
-static bool address_is_ready_to_configure(Link *link, const Address *address) {
-        assert(link);
-        assert(address);
-
-        if (!link_is_ready_to_configure(link, false))
-                return false;
-
-        if (FLAGS_SET(address->state, NETWORK_CONFIG_STATE_PROBING))
-                return false;
-
-        /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
-                return false;
-
-        return true;
-}
-
-int request_process_address(Request *req) {
-        Address *address;
-        Link *link;
-        int r;
-
-        assert(req);
-        assert(req->type == REQUEST_TYPE_ADDRESS);
-
-        address = ASSERT_PTR(req->address);
-        link = ASSERT_PTR(req->link);
-
-        if (!address_is_ready_to_configure(link, address))
-                return 0;
-
-        r = address_configure(address, link, req->netlink_handler);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to configure address: %m");
-
-        address_enter_configuring(address);
-        return 1;
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
