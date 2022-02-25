@@ -21,7 +21,6 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
-#include "utf8.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -286,7 +285,7 @@ int sd_dhcp_server_set_next_server(sd_dhcp_server *server, const struct in_addr 
 int sd_dhcp_server_set_filename(sd_dhcp_server *server, const char *filename) {
         assert_return(server, -EINVAL);
 
-        if (filename && !ascii_is_valid(filename))
+        if (filename && !string_is_safe(filename))
                 return -EINVAL;
 
         return free_and_strdup(&server->filename, filename);
