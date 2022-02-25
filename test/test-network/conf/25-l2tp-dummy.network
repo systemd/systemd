@@ -5,4 +5,3 @@ Name=test1
 [Network]
 Address=192.168.30.100/24
 IPv6AcceptRA=false
-L2TP=l2tp99
