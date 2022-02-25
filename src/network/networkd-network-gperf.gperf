@@ -93,7 +93,7 @@ Network.VRF,                                 config_parse_ifname,               
 Network.IPoIB,                               config_parse_stacked_netdev,                              NETDEV_KIND_IPOIB,             offsetof(Network, stacked_netdev_names)
 Network.IPVLAN,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVLAN,            offsetof(Network, stacked_netdev_names)
 Network.IPVTAP,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVTAP,            offsetof(Network, stacked_netdev_names)
-Network.L2TP,                                config_parse_stacked_netdev,                              NETDEV_KIND_L2TP,              offsetof(Network, stacked_netdev_names)
+Network.L2TP,                                config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 Network.MACsec,                              config_parse_stacked_netdev,                              NETDEV_KIND_MACSEC,            offsetof(Network, stacked_netdev_names)
 Network.MACVLAN,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVLAN,           offsetof(Network, stacked_netdev_names)
 Network.MACVTAP,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVTAP,           offsetof(Network, stacked_netdev_names)
