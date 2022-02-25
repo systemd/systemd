@@ -51,8 +51,11 @@ int link_get_local_address(
                 assert_not_reached();
         }
 
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return -EBUSY;
+
         SET_FOREACH(a, link->addresses) {
-                if (!address_exists(a))
+                if (!address_is_ready(a))
                         continue;
 
                 if (a->family != family)
