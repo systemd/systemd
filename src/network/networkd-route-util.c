@@ -102,14 +102,21 @@ int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
         return 0;
 }
 
-static bool link_address_is_reachable(Link *link, int family, const union in_addr_union *address) {
+bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw) {
         Route *route;
         Address *a;
 
         assert(link);
         assert(link->manager);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(address);
+
+        if (onlink)
+                return true;
+
+        if (!gw || !in_addr_is_set(family, gw))
+                return true;
+
+        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
+                return true;
 
         SET_FOREACH(route, link->routes) {
                 if (!route_exists(route))
@@ -118,7 +125,7 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (!in_addr_is_set(route->family, &route->dst) && route->dst_prefixlen == 0)
                         continue;
-                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) > 0)
+                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, gw) > 0)
                         return true;
         }
 
@@ -136,27 +143,11 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (in_addr_is_set(a->family, &a->in_addr_peer))
                         continue;
-                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, address) > 0)
+                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, gw) > 0)
                         return true;
         }
 
         return false;
-}
-
-bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw) {
-        assert(link);
-        assert(gw);
-
-        if (onlink)
-                return true;
-
-        if (!in_addr_is_set(family, gw))
-                return true;
-
-        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
-                return true;
-
-        return link_address_is_reachable(link, family, gw);
 }
 
 static const char * const route_type_table[__RTN_MAX] = {
