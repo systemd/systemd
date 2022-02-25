@@ -881,12 +881,15 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>Specifies the IP address of the local interface. Takes an IP address, or the special values
-          <literal>auto</literal>, <literal>static</literal>, or <literal>dynamic</literal>. When an address
-          is set, then the local interface must have the address. If <literal>auto</literal>, then one of the
-          addresses on the local interface is used. Similarly, if <literal>static</literal> or
-          <literal>dynamic</literal> is set, then one of the static or dynamic addresses on the local
-          interface is used. Defaults to <literal>auto</literal>.</para>
+          <para>Specifies the IP address of a local interface. Takes an IP address, or the special
+          values <literal>auto</literal>, <literal>static</literal>, or <literal>dynamic</literal>.
+          Optionally a name of a local interface can be specified after <literal>@</literal>, e.g.
+          <literal>192.168.0.1@eth0</literal> or <literal>auto@eth0</literal>. When an address is
+          specified, then a local or specified interface must have the address, and the remote address
+          must be accessible through the local address. If <literal>auto</literal>, then one of the
+          addresses on a local or specified interface which is accessible to the remote address will be
+          used. Similarly, if <literal>static</literal> or <literal>dynamic</literal> is set, then one
+          of the static or dynamic addresses will be used. Defaults to <literal>auto</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
