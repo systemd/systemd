@@ -578,14 +578,14 @@ static int independent_netdev_create(NetDev *netdev) {
         return 0;
 }
 
-static int stacked_netdev_create(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
+static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
         assert(netdev->manager);
         assert(link);
-        assert(callback);
+        assert(req);
 
         r = sd_rtnl_message_new_link(netdev->manager->rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0)
@@ -595,7 +595,7 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, link_netlink_messag
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(netdev->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -639,7 +639,6 @@ int request_process_stacked_netdev(Request *req) {
 
         assert(req);
         assert(req->type == REQUEST_TYPE_NETDEV_STACKED);
-        assert(req->netlink_handler);
 
         netdev = ASSERT_PTR(req->netdev);
         link = ASSERT_PTR(req->link);
@@ -648,7 +647,7 @@ int request_process_stacked_netdev(Request *req) {
         if (r <= 0)
                 return r;
 
-        r = stacked_netdev_create(netdev, link, req->netlink_handler);
+        r = stacked_netdev_create(netdev, link, req);
         if (r < 0)
                 return log_netdev_warning_errno(netdev, r, "Failed to create netdev: %m");
 
