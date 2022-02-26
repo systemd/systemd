@@ -433,11 +433,12 @@ static int nexthop_configure(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nexthop);
+        assert(IN_SET(nexthop->family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(IN_SET(nexthop->family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(callback);
 
         log_nexthop_debug(nexthop, "Configuring", link);

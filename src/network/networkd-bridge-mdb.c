@@ -121,7 +121,6 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
 
         assert(mdb);
         assert(link);
-        assert(link->network);
         assert(link->manager);
         assert(callback);
 
