@@ -132,20 +132,17 @@ static int address_label_configure(AddressLabel *label, Link *link, Request *req
         return 0;
 }
 
-int request_process_address_label(Request *req) {
-        Link *link;
+int address_label_process_request(Request *req, Link *link, void *userdata) {
+        AddressLabel *label = ASSERT_PTR(userdata);
         int r;
 
         assert(req);
-        assert(req->label);
-        assert(req->type == REQUEST_TYPE_ADDRESS_LABEL);
-
-        link = ASSERT_PTR(req->link);
+        assert(link);
 
         if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = address_label_configure(req->label, link, req);
+        r = address_label_configure(label, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address label: %m");
 

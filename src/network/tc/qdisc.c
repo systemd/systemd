@@ -368,14 +368,12 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         return link_find_tclass(link, qdisc->parent, NULL) >= 0;
 }
 
-int request_process_qdisc(Request *req) {
-        QDisc *qdisc;
-        Link *link;
+int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
         int r;
 
         assert(req);
-        assert_se(link = req->link);
-        assert_se(qdisc = req->qdisc);
+        assert(link);
+        assert(qdisc);
 
         if (!qdisc_is_ready_to_configure(qdisc, link))
                 return 0;

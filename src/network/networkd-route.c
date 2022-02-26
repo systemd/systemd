@@ -1319,19 +1319,13 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         return true;
 }
 
-int request_process_route(Request *req) {
+int route_process_request(Request *req, Link *link, Route *route) {
         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
-        Route *route;
-        Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->route);
-        assert(req->type == REQUEST_TYPE_ROUTE);
-
-        link = req->link;
-        route = req->route;
+        assert(link);
+        assert(route);
 
         r = route_is_ready_to_configure(route, link);
         if (r < 0)

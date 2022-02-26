@@ -64,7 +64,7 @@ int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPo
 void network_drop_invalid_routing_policy_rules(Network *network);
 
 int link_request_static_routing_policy_rules(Link *link);
-int request_process_routing_policy_rule(Request *req);
+int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
