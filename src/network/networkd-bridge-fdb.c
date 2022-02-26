@@ -219,15 +219,12 @@ static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
         return true;
 }
 
-int request_process_bridge_fdb(Request *req) {
-        BridgeFDB *fdb;
-        Link *link;
+int bridge_fdb_process_request(Request *req, Link *link, void *userdata) {
+        BridgeFDB *fdb = ASSERT_PTR(userdata);
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_BRIDGE_FDB);
-        assert_se(link = req->link);
-        assert_se(fdb = req->fdb);
+        assert(link);
 
         if (!bridge_fdb_is_ready_to_configure(fdb, link))
                 return 0;

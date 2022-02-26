@@ -95,7 +95,7 @@ int link_request_route(
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_routes(Link *link, bool only_ipv4);
-int request_process_route(Request *req);
+int route_process_request(Request *req, Link *link, Route *route);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
