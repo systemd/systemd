@@ -16,7 +16,8 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
-#include "tc.h"
+#include "qdisc.h"
+#include "tclass.h"
 
 static void request_free_object(RequestType type, void *object) {
         switch (type) {
@@ -63,8 +64,11 @@ static void request_free_object(RequestType type, void *object) {
                 break;
         case REQUEST_TYPE_SET_LINK:
                 break;
-        case REQUEST_TYPE_TRAFFIC_CONTROL:
-                traffic_control_free(object);
+        case REQUEST_TYPE_TC_QDISC:
+                qdisc_free(object);
+                break;
+        case REQUEST_TYPE_TC_CLASS:
+                tclass_free(object);
                 break;
         case REQUEST_TYPE_UP_DOWN:
                 break;
@@ -154,8 +158,11 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_SET_LINK:
                 trivial_hash_func(req->set_link_operation_ptr, state);
                 break;
-        case REQUEST_TYPE_TRAFFIC_CONTROL:
-                traffic_control_hash_func(req->traffic_control, state);
+        case REQUEST_TYPE_TC_QDISC:
+                qdisc_hash_func(req->qdisc, state);
+                break;
+        case REQUEST_TYPE_TC_CLASS:
+                tclass_hash_func(req->tclass, state);
                 break;
         case REQUEST_TYPE_UP_DOWN:
                 break;
@@ -215,8 +222,10 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return routing_policy_rule_compare_func(a->rule, b->rule);
         case REQUEST_TYPE_SET_LINK:
                 return trivial_compare_func(a->set_link_operation_ptr, b->set_link_operation_ptr);
-        case REQUEST_TYPE_TRAFFIC_CONTROL:
-                return traffic_control_compare_func(a->traffic_control, b->traffic_control);
+        case REQUEST_TYPE_TC_QDISC:
+                return qdisc_compare_func(a->qdisc, b->qdisc);
+        case REQUEST_TYPE_TC_CLASS:
+                return tclass_compare_func(a->tclass, b->tclass);
         case REQUEST_TYPE_UP_DOWN:
                 return 0;
         default:
@@ -305,7 +314,8 @@ int link_queue_request(
                       REQUEST_TYPE_DHCP6_CLIENT,
                       REQUEST_TYPE_NDISC,
                       REQUEST_TYPE_RADV,
-                      REQUEST_TYPE_TRAFFIC_CONTROL) ||
+                      REQUEST_TYPE_TC_QDISC,
+                      REQUEST_TYPE_TC_CLASS) ||
                netlink_handler);
 
         req = new(Request, 1);
@@ -414,8 +424,11 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         case REQUEST_TYPE_SET_LINK:
                                 r = request_process_set_link(req);
                                 break;
-                        case REQUEST_TYPE_TRAFFIC_CONTROL:
-                                r = request_process_traffic_control(req);
+                        case REQUEST_TYPE_TC_QDISC:
+                                r = request_process_qdisc(req);
+                                break;
+                        case REQUEST_TYPE_TC_CLASS:
+                                r = request_process_tclass(req);
                                 break;
                         case REQUEST_TYPE_UP_DOWN:
                                 r = request_process_link_up_or_down(req);

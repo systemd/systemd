@@ -3,10 +3,12 @@
 #pragma once
 
 #include "conf-parser.h"
-#include "networkd-link.h"
-#include "networkd-network.h"
 #include "networkd-util.h"
-#include "tc.h"
+
+typedef struct Link Link;
+typedef struct Manager Manager;
+typedef struct Network Network;
+typedef struct Request Request;
 
 typedef enum TClassKind {
         TCLASS_KIND_DRR,
@@ -17,8 +19,6 @@ typedef enum TClassKind {
 } TClassKind;
 
 typedef struct TClass {
-        TrafficControl meta;
-
         Link *link;
         Network *network;
         ConfigSection *section;
@@ -54,29 +54,24 @@ extern const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX];
                 return (MixedCase*) t;                                    \
         }
 
-/* For casting the various tclass kinds into a tclass */
-#define TCLASS(t) (&(t)->meta)
-
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
-void tclass_hash_func(const TClass *tclass, struct siphash *state);
+void tclass_hash_func(const TClass *qdisc, struct siphash *state);
 int tclass_compare_func(const TClass *a, const TClass *b);
 
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
+int request_process_tclass(Request *req);
 int link_request_tclass(Link *link, TClass *tclass);
-int tclass_is_ready_to_configure(Link *link, TClass *tclass);
-int tclass_configure(Link *link, TClass *tclass);
-int tclass_section_verify(TClass *tclass);
+
+void network_drop_invalid_tclass(Network *network);
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_free);
-
-DEFINE_TC_CAST(TCLASS, TClass);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_classid);
