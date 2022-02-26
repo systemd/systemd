@@ -724,16 +724,12 @@ void link_foreignize_routing_policy_rules(Link *link) {
         }
 }
 
-int request_process_routing_policy_rule(Request *req) {
-        RoutingPolicyRule *rule;
-        Link *link;
+int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_ROUTING_POLICY_RULE);
-
-        link = ASSERT_PTR(req->link);
-        rule = ASSERT_PTR(req->rule);
+        assert(link);
+        assert(rule);
 
         if (!link_is_ready_to_configure(link, false))
                 return 0;

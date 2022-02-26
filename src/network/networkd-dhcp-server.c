@@ -571,13 +571,10 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_dhcp_server(Request *req) {
-        Link *link;
+int dhcp_server_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
-        assert_se(link = req->link);
+        assert(link);
 
         if (!dhcp_server_is_ready_to_configure(link))
                 return 0;

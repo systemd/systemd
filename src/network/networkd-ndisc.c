@@ -1122,14 +1122,10 @@ int ndisc_start(Link *link) {
         return 1;
 }
 
-int request_process_ndisc(Request *req) {
-        Link *link;
+int ndisc_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->type == REQUEST_TYPE_NDISC);
-
-        link = ASSERT_PTR(req->link);
+        assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
@@ -1148,7 +1144,6 @@ int request_process_ndisc(Request *req) {
 
         log_link_debug(link, "IPv6 Router Discovery is configured%s.",
                        r > 0 ? " and started" : "");
-
         return 1;
 }
 

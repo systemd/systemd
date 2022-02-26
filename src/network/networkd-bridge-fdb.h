@@ -47,7 +47,7 @@ void network_drop_invalid_bridge_fdb_entries(Network *network);
 
 int link_request_static_bridge_fdb(Link *link);
 
-int request_process_bridge_fdb(Request *req);
+int bridge_fdb_process_request(Request *req, Link *link, void *userdata);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);

@@ -632,16 +632,12 @@ static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         return true;
 }
 
-int request_process_stacked_netdev(Request *req) {
-        NetDev *netdev;
-        Link *link;
+int stacked_netdev_process_request(Request *req, Link *link, void *userdata) {
+        NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_NETDEV_STACKED);
-
-        netdev = ASSERT_PTR(req->netdev);
-        link = ASSERT_PTR(req->link);
+        assert(link);
 
         r = netdev_is_ready_to_create(netdev, link);
         if (r <= 0)
@@ -707,14 +703,11 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         return 0;
 }
 
-int request_process_independent_netdev(Request *req) {
-        NetDev *netdev;
+int independent_netdev_process_request(Request *req, Link *link, void *userdata) {
+        NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
-        assert(req);
-        assert(req->type == REQUEST_TYPE_NETDEV_INDEPENDENT);
-
-        netdev = ASSERT_PTR(req->netdev);
+        assert(!link);
 
         r = netdev_is_ready_to_create(netdev, NULL);
         if (r <= 0)

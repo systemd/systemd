@@ -48,7 +48,7 @@ int ndisc_start(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
 
-int request_process_ndisc(Request *req);
+int ndisc_process_request(Request *req, Link *link, void *userdata);
 int link_request_ndisc(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);

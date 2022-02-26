@@ -21,7 +21,7 @@ int dhcp6_update_mac(Link *link);
 int dhcp6_start(Link *link);
 int dhcp6_start_on_ra(Link *link, bool information_request);
 
-int request_process_dhcp6_client(Request *req);
+int dhcp6_process_request(Request *req, Link *link, void *userdata);
 int link_request_dhcp6_client(Link *link);
 
 int link_serialize_dhcp6_client(Link *link, FILE *f);

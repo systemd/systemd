@@ -1597,15 +1597,10 @@ static int dhcp4_configure_duid(Link *link) {
         return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
 }
 
-int request_process_dhcp4_client(Request *req) {
-        Link *link;
+int dhcp4_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP4_CLIENT);
-
-        link = req->link;
+        assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
@@ -1619,7 +1614,7 @@ int request_process_dhcp4_client(Request *req) {
         if (r <= 0)
                 return r;
 
-        r = dhcp4_configure(req->link);
+        r = dhcp4_configure(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure DHCPv4 client: %m");
 
@@ -1629,7 +1624,6 @@ int request_process_dhcp4_client(Request *req) {
 
         log_link_debug(link, "DHCPv4 client is configured%s.",
                        r > 0 ? ", acquiring DHCPv4 lease" : "");
-
         return 1;
 }
 

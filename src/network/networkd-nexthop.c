@@ -565,16 +565,12 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
 }
 
-int request_process_nexthop(Request *req) {
-        NextHop *nexthop;
-        Link *link;
+int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_NEXTHOP);
-
-        nexthop = ASSERT_PTR(req->nexthop);
-        link = ASSERT_PTR(req->link);
+        assert(link);
+        assert(nexthop);
 
         if (!nexthop_is_ready_to_configure(link, nexthop))
                 return 0;

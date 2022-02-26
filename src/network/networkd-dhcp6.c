@@ -715,15 +715,10 @@ int dhcp6_update_mac(Link *link) {
         return 0;
 }
 
-int request_process_dhcp6_client(Request *req) {
-        Link *link;
+int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP6_CLIENT);
-
-        link = req->link;
+        assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
@@ -751,7 +746,6 @@ int request_process_dhcp6_client(Request *req) {
 
         log_link_debug(link, "DHCPv6 client is configured%s.",
                        r > 0 ? ", acquiring DHCPv6 lease" : "");
-
         return 1;
 }
 

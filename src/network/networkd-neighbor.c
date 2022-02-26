@@ -225,16 +225,12 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         return 0;
 }
 
-int request_process_neighbor(Request *req) {
-        Neighbor *neighbor;
-        Link *link;
+int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_NEIGHBOR);
-
-        neighbor = ASSERT_PTR(req->neighbor);
-        link = ASSERT_PTR(req->link);
+        assert(link);
+        assert(neighbor);
 
         if (!link_is_ready_to_configure(link, false))
                 return 0;

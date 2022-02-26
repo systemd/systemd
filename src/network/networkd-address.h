@@ -101,7 +101,7 @@ int link_request_address(
                 Request **ret);
 int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
-int request_process_address(Request *req);
+int address_process_request(Request *req, Link *link, Address *address);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 

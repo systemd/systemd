@@ -49,7 +49,7 @@ int link_drop_foreign_nexthops(Link *link);
 void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
-int request_process_nexthop(Request *req);
+int nexthop_process_request(Request *req, Link *link, NextHop *nexthop);
 
 int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

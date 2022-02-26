@@ -64,7 +64,7 @@ int tclass_compare_func(const TClass *a, const TClass *b);
 
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
-int request_process_tclass(Request *req);
+int tclass_process_request(Request *req, Link *link, TClass *tclass);
 int link_request_tclass(Link *link, TClass *tclass);
 
 void network_drop_invalid_tclass(Network *network);

@@ -39,7 +39,7 @@ int link_drop_foreign_neighbors(Link *link);
 void link_foreignize_neighbors(Link *link);
 
 int link_request_static_neighbors(Link *link);
-int request_process_neighbor(Request *req);
+int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 

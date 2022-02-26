@@ -1112,16 +1112,12 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         return true;
 }
 
-int request_process_address(Request *req) {
-        Address *address;
-        Link *link;
+int address_process_request(Request *req, Link *link, Address *address) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_ADDRESS);
-
-        address = ASSERT_PTR(req->address);
-        link = ASSERT_PTR(req->link);
+        assert(link);
+        assert(address);
 
         if (!address_is_ready_to_configure(link, address))
                 return 0;

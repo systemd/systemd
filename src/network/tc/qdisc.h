@@ -82,7 +82,7 @@ int qdisc_compare_func(const QDisc *a, const QDisc *b);
 
 int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
 
-int request_process_qdisc(Request *req);
+int qdisc_process_request(Request *req, Link *link, QDisc *qdisc);
 int link_request_qdisc(Link *link, QDisc *qdisc);
 
 void network_drop_invalid_qdisc(Network *network);

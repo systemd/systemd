@@ -327,14 +327,12 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
 }
 
-int request_process_tclass(Request *req) {
-        TClass *tclass;
-        Link *link;
+int tclass_process_request(Request *req, Link *link, TClass *tclass) {
         int r;
 
         assert(req);
-        assert_se(link = req->link);
-        assert_se(tclass = req->tclass);
+        assert(link);
+        assert(tclass);
 
         if (!tclass_is_ready_to_configure(tclass, link))
                 return 0;
