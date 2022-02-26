@@ -29,7 +29,7 @@ const NetDevVTable vrf_vtable = {
         .object_size = sizeof(Vrf),
         .sections = NETDEV_COMMON_SECTIONS "VRF\0",
         .fill_message_create = netdev_vrf_fill_message_create,
-        .create_type = NETDEV_CREATE_MASTER,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };
