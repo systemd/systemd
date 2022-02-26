@@ -320,7 +320,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 }
 
 static int qdisc_configure(QDisc *qdisc, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(qdisc);
@@ -331,24 +331,24 @@ static int qdisc_configure(QDisc *qdisc, Link *link) {
 
         log_qdisc_debug(qdisc, link, "Configuring");
 
-        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWQDISC,
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &m, RTM_NEWQDISC,
                                                 link->ifindex, qdisc->handle, qdisc->parent);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not create RTM_NEWQDISC message: %m");
+                return r;
 
-        r = sd_netlink_message_append_string(req, TCA_KIND, qdisc_get_tca_kind(qdisc));
+        r = sd_netlink_message_append_string(m, TCA_KIND, qdisc_get_tca_kind(qdisc));
         if (r < 0)
                 return r;
 
         if (QDISC_VTABLE(qdisc) && QDISC_VTABLE(qdisc)->fill_message) {
-                r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
+                r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, m);
                 if (r < 0)
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, qdisc_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, qdisc_handler, link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
+                return r;
 
         link_ref(link);
         return 0;
