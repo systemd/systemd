@@ -102,14 +102,21 @@ int manager_find_uplink(Manager *m, int family, Link *exclude, Link **ret) {
         return 0;
 }
 
-static bool link_address_is_reachable(Link *link, int family, const union in_addr_union *address) {
+bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw) {
         Route *route;
         Address *a;
 
         assert(link);
         assert(link->manager);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(address);
+
+        if (onlink)
+                return true;
+
+        if (!gw || !in_addr_is_set(family, gw))
+                return true;
+
+        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
+                return true;
 
         SET_FOREACH(route, link->routes) {
                 if (!route_exists(route))
@@ -118,7 +125,7 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (!in_addr_is_set(route->family, &route->dst) && route->dst_prefixlen == 0)
                         continue;
-                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) > 0)
+                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, gw) > 0)
                         return true;
         }
 
@@ -136,27 +143,148 @@ static bool link_address_is_reachable(Link *link, int family, const union in_add
                         continue;
                 if (in_addr_is_set(a->family, &a->in_addr_peer))
                         continue;
-                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, address) > 0)
+                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, gw) > 0)
                         return true;
         }
 
         return false;
 }
 
-bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_union *gw) {
+static int link_address_is_reachable_internal(
+                Link *link,
+                int family,
+                const union in_addr_union *address,
+                const union in_addr_union *prefsrc, /* optional */
+                Route **ret) {
+
+        Route *route, *found = NULL;
+
         assert(link);
-        assert(gw);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
 
-        if (onlink)
-                return true;
+        SET_FOREACH(route, link->routes) {
+                if (!route_exists(route))
+                        continue;
 
-        if (!in_addr_is_set(family, gw))
-                return true;
+                if (route->type != RTN_UNICAST)
+                        continue;
 
-        if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
-                return true;
+                if (route->family != family)
+                        continue;
 
-        return link_address_is_reachable(link, family, gw);
+                if (in_addr_prefix_covers(family, &route->dst, route->dst_prefixlen, address) <= 0)
+                        continue;
+
+                if (prefsrc &&
+                    in_addr_is_set(family, prefsrc) &&
+                    in_addr_is_set(family, &route->prefsrc) &&
+                    !in_addr_equal(family, prefsrc, &route->prefsrc))
+                        continue;
+
+                if (found && found->priority <= route->priority)
+                        continue;
+
+                found = route;
+        }
+
+        if (!found)
+                return -ENOENT;
+
+        if (ret)
+                *ret = found;
+
+        return 0;
+}
+
+int link_address_is_reachable(
+                Link *link,
+                int family,
+                const union in_addr_union *address,
+                const union in_addr_union *prefsrc, /* optional */
+                Address **ret) {
+
+        Route *route;
+        Address *a;
+        int r;
+
+        assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        /* This checks if the address is reachable, and optionally return the Address object of the
+         * preferred source to access the address. */
+
+        r = link_address_is_reachable_internal(link, family, address, prefsrc, &route);
+        if (r < 0)
+                return r;
+
+        if (!in_addr_is_set(route->family, &route->prefsrc)) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        r = link_get_address(link, route->family, &route->prefsrc, 0, &a);
+        if (r < 0)
+                return r;
+
+        if (!address_is_ready(a))
+                return -EBUSY;
+
+        if (ret)
+                *ret = a;
+
+        return 0;
+}
+
+int manager_address_is_reachable(
+                Manager *manager,
+                int family,
+                const union in_addr_union *address,
+                const union in_addr_union *prefsrc, /* optional */
+                Address **ret) {
+
+        Route *route, *found = NULL;
+        Address *a;
+        Link *link;
+        int r;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        continue;
+
+                if (link_address_is_reachable_internal(link, family, address, prefsrc, &route) < 0)
+                        continue;
+
+                if (found && found->priority <= route->priority)
+                        continue;
+
+                found = route;
+        }
+
+        if (!found)
+                return -ENOENT;
+
+        if (!in_addr_is_set(found->family, &found->prefsrc)) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        r = link_get_address(found->link, found->family, &found->prefsrc, 0, &a);
+        if (r < 0)
+                return r;
+
+        if (!address_is_ready(a))
+                return -EBUSY;
+
+        if (ret)
+                *ret = a;
+
+        return 0;
 }
 
 static const char * const route_type_table[__RTN_MAX] = {

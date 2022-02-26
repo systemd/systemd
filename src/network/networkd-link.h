@@ -42,6 +42,7 @@ typedef enum LinkState {
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct NetDev NetDev;
+typedef struct Request Request;
 typedef struct DUID DUID;
 
 typedef struct Link {
@@ -113,7 +114,8 @@ typedef struct Link {
         Set *neighbors;
         Set *routes;
         Set *nexthops;
-        Set *traffic_control;
+        Set *qdiscs;
+        Set *tclasses;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
@@ -140,6 +142,7 @@ typedef struct Link {
         bool sr_iov_configured:1;
         bool activated:1;
         bool master_set:1;
+        bool netdev_configured:1;
         bool stacked_netdevs_created:1;
 
         sd_dhcp_server *dhcp_server;
