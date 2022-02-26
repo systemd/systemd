@@ -95,7 +95,7 @@ static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message 
         return 1;
 }
 
-static int address_label_configure(AddressLabel *label, Link *link, link_netlink_message_handler_t callback) {
+static int address_label_configure(AddressLabel *label, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -104,7 +104,7 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &m, RTM_NEWADDRLABEL,
                                           link->ifindex, AF_INET6);
@@ -123,7 +123,7 @@ static int address_label_configure(AddressLabel *label, Link *link, link_netlink
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -145,7 +145,7 @@ int request_process_address_label(Request *req) {
         if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = address_label_configure(req->label, link, req->netlink_handler);
+        r = address_label_configure(req->label, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address label: %m");
 
