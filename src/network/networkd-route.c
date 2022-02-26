@@ -1154,11 +1154,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         return 1;
 }
 
-static int route_configure(
-                const Route *route,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int route_configure(const Route *route, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -1168,7 +1164,7 @@ static int route_configure(
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(callback);
+        assert(req);
 
         log_route_debug(route, "Configuring", link, link->manager);
 
@@ -1250,7 +1246,7 @@ static int route_configure(
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -1373,7 +1369,7 @@ int request_process_route(Request *req) {
                 }
         }
 
-        r = route_configure(route, link, req->netlink_handler);
+        r = route_configure(route, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure route: %m");
 
