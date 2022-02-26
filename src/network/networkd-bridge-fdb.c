@@ -168,14 +168,14 @@ static int bridge_fdb_configure_message(const BridgeFDB *fdb, Link *link, sd_net
         return 0;
 }
 
-static int bridge_fdb_configure(BridgeFDB *fdb, Link *link, link_netlink_message_handler_t callback) {
+static int bridge_fdb_configure(BridgeFDB *fdb, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(fdb);
         assert(link);
         assert(link->manager);
-        assert(callback);
+        assert(req);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_NEWNEIGH, link->ifindex, AF_BRIDGE);
         if (r < 0)
@@ -185,7 +185,7 @@ static int bridge_fdb_configure(BridgeFDB *fdb, Link *link, link_netlink_message
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -232,7 +232,7 @@ int request_process_bridge_fdb(Request *req) {
         if (!bridge_fdb_is_ready_to_configure(fdb, link))
                 return 0;
 
-        r = bridge_fdb_configure(fdb, link, req->netlink_handler);
+        r = bridge_fdb_configure(fdb, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure bridge FDB: %m");
 

@@ -281,7 +281,7 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-static int tclass_configure(TClass *tclass, Link *link) {
+static int tclass_configure(TClass *tclass, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -290,6 +290,7 @@ static int tclass_configure(TClass *tclass, Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
+        assert(req);
 
         log_tclass_debug(tclass, link, "Configuring");
 
@@ -308,7 +309,7 @@ static int tclass_configure(TClass *tclass, Link *link) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, tclass_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
 
@@ -338,7 +339,7 @@ int request_process_tclass(Request *req) {
         if (!tclass_is_ready_to_configure(tclass, link))
                 return 0;
 
-        r = tclass_configure(tclass, link);
+        r = tclass_configure(tclass, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure TClass: %m");
 
@@ -370,7 +371,7 @@ int link_request_tclass(Link *link, TClass *tclass) {
 
         log_tclass_debug(existing, link, "Requesting");
         r = link_queue_request(link, REQUEST_TYPE_TC_CLASS, existing, false,
-                               &link->tc_messages, NULL, NULL);
+                               &link->tc_messages, tclass_handler, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request TClass: %m");
         if (r == 0)
