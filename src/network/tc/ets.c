@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "ets.h"
+#include "extract-word.h"
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"

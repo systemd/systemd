@@ -451,7 +451,7 @@ const NetDevVTable bond_vtable = {
         .done = bond_done,
         .sections = NETDEV_COMMON_SECTIONS "Bond\0",
         .fill_message_create = netdev_bond_fill_message_create,
-        .create_type = NETDEV_CREATE_MASTER,
+        .create_type = NETDEV_CREATE_INDEPENDENT,
         .iftype = ARPHRD_ETHER,
         .generate_mac = true,
 };

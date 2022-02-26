@@ -104,7 +104,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         return 0;
 }
 
-void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
+static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
         siphash24_compress(&nexthop->protocol, sizeof(nexthop->protocol), state);
@@ -124,7 +124,7 @@ void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         }
 }
 
-int nexthop_compare_func(const NextHop *a, const NextHop *b) {
+static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
 
         r = CMP(a->protocol, b->protocol);
@@ -425,20 +425,17 @@ static int nexthop_remove(NextHop *nexthop) {
         return 0;
 }
 
-static int nexthop_configure(
-                NextHop *nexthop,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
+        assert(nexthop);
+        assert(IN_SET(nexthop->family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(IN_SET(nexthop->family, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(callback);
+        assert(req);
 
         log_nexthop_debug(nexthop, "Configuring", link);
 
@@ -488,25 +485,17 @@ static int nexthop_configure(
                 }
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->static_nexthop_messages > 0);
+        assert(m);
+        assert(req);
 
-        link->static_nexthop_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -560,7 +549,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 ORDERED_SET_FOREACH(req, link->manager->request_queue) {
                         if (req->type != REQUEST_TYPE_NEXTHOP)
                                 continue;
-                        if (req->nexthop->id != 0)
+                        if (((NextHop*) req->userdata)->id != 0)
                                 return false; /* first configure nexthop with id. */
                 }
         }
@@ -568,21 +557,17 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
 }
 
-int request_process_nexthop(Request *req) {
-        NextHop *nexthop;
-        Link *link;
+static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_NEXTHOP);
-
-        nexthop = ASSERT_PTR(req->nexthop);
-        link = ASSERT_PTR(req->link);
+        assert(link);
+        assert(nexthop);
 
         if (!nexthop_is_ready_to_configure(link, nexthop))
                 return 0;
 
-        r = nexthop_configure(nexthop, link, req->netlink_handler);
+        r = nexthop_configure(nexthop, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure nexthop");
 
@@ -594,7 +579,7 @@ static int link_request_nexthop(
                 Link *link,
                 NextHop *nexthop,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         NextHop *existing;
@@ -624,8 +609,12 @@ static int link_request_nexthop(
                 existing->source = nexthop->source;
 
         log_nexthop_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_NEXTHOP, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_NEXTHOP,
+                                    existing, NULL,
+                                    nexthop_hash_func,
+                                    nexthop_compare_func,
+                                    nexthop_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r <= 0)
                 return r;
 
