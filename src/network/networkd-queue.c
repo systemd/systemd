@@ -372,16 +372,16 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 r = request_process_activation(req);
                                 break;
                         case REQUEST_TYPE_ADDRESS:
-                                r = request_process_address(req);
+                                r = address_process_request(req, req->link, req->address);
                                 break;
                         case REQUEST_TYPE_ADDRESS_LABEL:
-                                r = request_process_address_label(req);
+                                r = address_label_process_request(req, req->link, req->label);
                                 break;
                         case REQUEST_TYPE_BRIDGE_FDB:
-                                r = request_process_bridge_fdb(req);
+                                r = bridge_fdb_process_request(req, req->link, req->fdb);
                                 break;
                         case REQUEST_TYPE_BRIDGE_MDB:
-                                r = request_process_bridge_mdb(req);
+                                r = bridge_mdb_process_request(req, req->link, req->mdb);
                                 break;
                         case REQUEST_TYPE_DHCP_SERVER:
                                 r = request_process_dhcp_server(req);
@@ -393,13 +393,13 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 r = request_process_dhcp6_client(req);
                                 break;
                         case REQUEST_TYPE_IPV6_PROXY_NDP:
-                                r = request_process_ipv6_proxy_ndp_address(req);
+                                r = ipv6_proxy_ndp_address_process_request(req, req->link, req->ipv6_proxy_ndp);
                                 break;
                         case REQUEST_TYPE_NDISC:
                                 r = request_process_ndisc(req);
                                 break;
                         case REQUEST_TYPE_NEIGHBOR:
-                                r = request_process_neighbor(req);
+                                r = neighbor_process_request(req, req->link, req->neighbor);
                                 break;
                         case REQUEST_TYPE_NETDEV_INDEPENDENT:
                                 r = request_process_independent_netdev(req);
@@ -408,16 +408,16 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 r = request_process_stacked_netdev(req);
                                 break;
                         case REQUEST_TYPE_NEXTHOP:
-                                r = request_process_nexthop(req);
+                                r = nexthop_process_request(req, req->link, req->nexthop);
                                 break;
                         case REQUEST_TYPE_RADV:
                                 r = request_process_radv(req);
                                 break;
                         case REQUEST_TYPE_ROUTE:
-                                r = request_process_route(req);
+                                r = route_process_request(req, req->link, req->route);
                                 break;
                         case REQUEST_TYPE_ROUTING_POLICY_RULE:
-                                r = request_process_routing_policy_rule(req);
+                                r = routing_policy_rule_process_request(req, req->link, req->rule);
                                 break;
                         case REQUEST_TYPE_SET_LINK:
                                 r = request_process_set_link(req);
