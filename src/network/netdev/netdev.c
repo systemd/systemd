@@ -764,8 +764,7 @@ static int netdev_request_to_create(NetDev *netdev) {
 
         assert(netdev);
 
-        if (!IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT) &&
-            !netdev_is_stacked_and_independent(netdev))
+        if (netdev_is_stacked(netdev))
                 return 0;
 
         r = netdev_is_ready_to_create(netdev, NULL);
