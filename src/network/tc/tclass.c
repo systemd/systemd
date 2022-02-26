@@ -282,7 +282,7 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 }
 
 static int tclass_configure(TClass *tclass, Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(tclass);
@@ -293,24 +293,24 @@ static int tclass_configure(TClass *tclass, Link *link) {
 
         log_tclass_debug(tclass, link, "Configuring");
 
-        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_NEWTCLASS,
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &m, RTM_NEWTCLASS,
                                                 link->ifindex, tclass->classid, tclass->parent);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not create RTM_NEWTCLASS message: %m");
+                return r;
 
-        r = sd_netlink_message_append_string(req, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
+        r = sd_netlink_message_append_string(m, TCA_KIND, TCLASS_VTABLE(tclass)->tca_kind);
         if (r < 0)
                 return r;
 
         if (TCLASS_VTABLE(tclass)->fill_message) {
-                r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, req);
+                r = TCLASS_VTABLE(tclass)->fill_message(link, tclass, m);
                 if (r < 0)
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, tclass_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, tclass_handler, link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
+                return r;
 
         link_ref(link);
         return 0;
