@@ -13,7 +13,6 @@
 #include "networkd-ipv4acd.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
@@ -316,7 +315,7 @@ DEFINE_PRIVATE_HASH_OPS(
         address_kernel_hash_func,
         address_kernel_compare_func);
 
-void address_hash_func(const Address *a, struct siphash *state) {
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -1023,9 +1022,6 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, error_msg);
@@ -1036,7 +1032,7 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int address_configure(const Address *address, Link *link, Request *req) {
+static int address_configure(Address *address, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -1087,15 +1083,10 @@ static int address_configure(const Address *address, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static bool address_is_ready_to_configure(Link *link, const Address *address) {
+static bool address_is_ready_to_configure(Link *link, Address *address) {
         assert(link);
         assert(address);
 
@@ -1112,7 +1103,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         return true;
 }
 
-int address_process_request(Request *req, Link *link, Address *address) {
+static int address_process_request(Request *req, Link *link, Address *address) {
         int r;
 
         assert(req);
@@ -1135,7 +1126,7 @@ int link_request_address(
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Address *acquired, *existing;
@@ -1204,27 +1195,30 @@ int link_request_address(
                 return r;
 
         log_address_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
+                                    existing, NULL,
+                                    address_hash_func,
+                                    address_compare_func,
+                                    address_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address: %m");
         if (r == 0)
                 return 0;
 
         address_enter_requesting(existing);
-
         return 1;
 }
 
-static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_address_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->static_address_messages > 0);
+        assert(req);
 
-        link->static_address_messages--;
+        link = ASSERT_PTR(req->link);
 
-        r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
+        r = address_configure_handler_internal(nl, m, link, "Failed to set static address");
         if (r <= 0)
                 return r;
 
@@ -1292,10 +1286,12 @@ void address_cancel_request(Address *address) {
         req = (Request) {
                 .link = address->link,
                 .type = REQUEST_TYPE_ADDRESS,
-                .address = address,
+                .userdata = address,
+                .hash_func = (hash_func_t) address_hash_func,
+                .compare_func = (compare_func_t) address_compare_func,
         };
 
-        request_drop(ordered_set_get(address->link->manager->request_queue, &req));
+        request_detach(address->link->manager, &req);
         address_cancel_requesting(address);
 }
 

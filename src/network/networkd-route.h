@@ -9,11 +9,11 @@
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
+#include "networkd-queue.h"
 #include "networkd-util.h"
 
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef struct Route {
         Link *link;
@@ -68,8 +68,6 @@ typedef struct Route {
         sd_event_source *expire;
 } Route;
 
-void route_hash_func(const Route *route, struct siphash *state);
-int route_compare_func(const Route *a, const Route *b);
 extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
@@ -86,16 +84,15 @@ int link_drop_managed_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
 void link_foreignize_routes(Link *link);
 
-void route_cancel_request(Route *route, Link *link);
 int link_request_route(
                 Link *link,
                 Route *route,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_routes(Link *link, bool only_ipv4);
-int route_process_request(Request *req, Link *link, Route *route);
+void route_cancel_request(Route *route, Link *link);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
