@@ -37,6 +37,7 @@ TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySes
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
 TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
 TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
 
@@ -67,6 +68,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_Unseal));
         if (r < 0)
@@ -596,8 +598,65 @@ static int tpm2_get_best_pcr_bank(
         return 0;
 }
 
+static int tpm2_make_hmac_session(
+                ESYS_CONTEXT *c,
+                ESYS_TR tpmKey,
+                ESYS_TR *ret_session) {
+
+        static const TPMT_SYM_DEF symmetric = {
+                .algorithm = TPM2_ALG_AES,
+                .keyBits = {
+                        .aes = 128
+                },
+                .mode = {
+                        .aes = TPM2_ALG_CFB,
+                }
+        };
+        ESYS_TR session = ESYS_TR_NONE;
+        TSS2_RC rc;
+
+        assert(c);
+
+        log_debug("Starting HMAC session.");
+
+        rc = sym_Esys_StartAuthSession(
+                        c,
+                        tpmKey,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        TPM2_SE_HMAC,
+                        &symmetric,
+                        TPM2_ALG_SHA256,
+                        &session);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        TPMA_SESSION sessionAttributes =
+                        (TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT | TPMA_SESSION_CONTINUESESSION);
+        rc = sym_Esys_TRSess_SetAttributes(c, session, sessionAttributes, 0xff);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                "Failed to configure TPM session: %s",
+                                sym_Tss2_RC_Decode(rc));
+
+        if (ret_session) {
+                *ret_session = session;
+                session = ESYS_TR_NONE;
+        }
+
+        session = flush_context_verbose(c, session);
+        return 0;
+}
+
 static int tpm2_make_pcr_session(
                 ESYS_CONTEXT *c,
+                ESYS_TR tpmKey,
+                ESYS_TR parent_session,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 bool use_pin,
@@ -646,9 +705,9 @@ static int tpm2_make_pcr_session(
 
         rc = sym_Esys_StartAuthSession(
                         c,
+                        tpmKey,
                         ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
+                        parent_session,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
@@ -776,7 +835,7 @@ int tpm2_seal(
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
-        ESYS_TR primary = ESYS_TR_NONE;
+        ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
@@ -821,8 +880,12 @@ int tpm2_seal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, UINT16_MAX, !!pin, NULL, &policy_digest,
-                                  &pcr_bank);
+        r = tpm2_make_hmac_session(c.esys_context, primary, &session);
+        if (r < 0)
+                goto finish;
+
+        r = tpm2_make_pcr_session(c.esys_context, primary, session, pcr_mask, UINT16_MAX, !!pin, NULL,
+                                  &policy_digest, &pcr_bank);
         if (r < 0)
                 goto finish;
 
@@ -874,7 +937,7 @@ int tpm2_seal(
         rc = sym_Esys_Create(
                         c.esys_context,
                         primary,
-                        ESYS_TR_PASSWORD,
+                        session,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         &hmac_sensitive,
@@ -955,6 +1018,7 @@ int tpm2_seal(
 
 finish:
         primary = flush_context_verbose(c.esys_context, primary);
+        session = flush_context_verbose(c.esys_context, session);
         return r;
 }
 
@@ -972,7 +1036,8 @@ int tpm2_unseal(
                 size_t *ret_secret_size) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
-        ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_key = ESYS_TR_NONE;
+        ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_session = ESYS_TR_NONE,
+                hmac_key = ESYS_TR_NONE;
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(erase_and_freep) char *secret = NULL;
@@ -1023,7 +1088,16 @@ int tpm2_unseal(
         if (r < 0)
                 return r;
 
-        r = tpm2_make_pcr_session(c.esys_context, pcr_mask, pcr_bank, !!pin, &session, &policy_digest, NULL);
+        r = tpm2_make_primary(c.esys_context, &primary, primary_alg, NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_make_hmac_session(c.esys_context, primary, &hmac_session);
+        if (r < 0)
+                goto finish;
+
+        r = tpm2_make_pcr_session(c.esys_context, primary, hmac_session, pcr_mask, pcr_bank, !!pin, &session,
+                                  &policy_digest, NULL);
         if (r < 0)
                 goto finish;
 
@@ -1034,16 +1108,12 @@ int tpm2_unseal(
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Current policy digest does not match stored policy digest, cancelling TPM2 authentication attempt.");
 
-        r = tpm2_make_primary(c.esys_context, &primary, primary_alg, NULL);
-        if (r < 0)
-                return r;
-
         log_debug("Loading HMAC key into TPM.");
 
         rc = sym_Esys_Load(
                         c.esys_context,
                         primary,
-                        ESYS_TR_PASSWORD,
+                        hmac_session,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         &private,
@@ -1086,7 +1156,7 @@ int tpm2_unseal(
                         c.esys_context,
                         hmac_key,
                         session,
-                        ESYS_TR_NONE,
+                        hmac_session,
                         ESYS_TR_NONE,
                         &unsealed);
         if (rc != TSS2_RC_SUCCESS) {
