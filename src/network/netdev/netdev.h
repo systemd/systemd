@@ -102,7 +102,6 @@ typedef enum NetDevState {
 
 typedef enum NetDevCreateType {
         NETDEV_CREATE_INDEPENDENT,
-        NETDEV_CREATE_MASTER,
         NETDEV_CREATE_STACKED,
         NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
