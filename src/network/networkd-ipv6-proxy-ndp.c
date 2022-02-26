@@ -80,19 +80,17 @@ static int ipv6_proxy_ndp_address_configure(const struct in6_addr *address, Link
         return 0;
 }
 
-int request_process_ipv6_proxy_ndp_address(Request *req) {
-        Link *link;
+int ipv6_proxy_ndp_address_process_request(Request *req, Link *link, struct in6_addr *address) {
         int r;
 
         assert(req);
-        assert(req->ipv6_proxy_ndp);
-        assert(req->type == REQUEST_TYPE_IPV6_PROXY_NDP);
-        assert_se(link = req->link);
+        assert(link);
+        assert(address);
 
         if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = ipv6_proxy_ndp_address_configure(req->ipv6_proxy_ndp, link, req);
+        r = ipv6_proxy_ndp_address_configure(address, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure IPv6 proxy NDP address: %m");
 

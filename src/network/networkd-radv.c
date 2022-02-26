@@ -582,15 +582,10 @@ static int radv_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_radv(Request *req) {
-        Link *link;
+int radv_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_RADV);
-
-        link = req->link;
+        assert(link);
 
         r = radv_is_ready_to_configure(link);
         if (r <= 0)

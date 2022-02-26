@@ -205,19 +205,17 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_bridge_mdb(Request *req) {
-        Link *link;
+int bridge_mdb_process_request(Request *req, Link *link, void *userdata) {
+        BridgeMDB *mdb = ASSERT_PTR(userdata);
         int r;
 
         assert(req);
-        assert(req->mdb);
-        assert(req->type == REQUEST_TYPE_BRIDGE_MDB);
-        assert_se(link = req->link);
+        assert(link);
 
         if (!bridge_mdb_is_ready_to_configure(link))
                 return 0;
 
-        r = bridge_mdb_configure(req->mdb, link, req);
+        r = bridge_mdb_configure(mdb, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure bridge MDB: %m");
 

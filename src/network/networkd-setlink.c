@@ -1096,17 +1096,12 @@ static bool link_is_ready_to_activate(Link *link) {
         return true;
 }
 
-int request_process_activation(Request *req) {
-        Link *link;
-        bool up;
+int link_process_activation(Request *req, Link *link, void *userdata) {
+        bool up = PTR_TO_INT(userdata);
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_ACTIVATE_LINK);
-
-        link = req->link;
-        up = PTR_TO_INT(req->userdata);
+        assert(link);
 
         if (!link_is_ready_to_activate(link))
                 return 0;
@@ -1191,17 +1186,12 @@ static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
         return true;
 }
 
-int request_process_link_up_or_down(Request *req) {
-        Link *link;
-        bool up;
+int link_process_up_or_down(Request *req, Link *link, void *userdata) {
+        bool up = PTR_TO_INT(userdata);
         int r;
 
         assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_UP_DOWN);
-
-        link = req->link;
-        up = PTR_TO_INT(req->userdata);
+        assert(link);
 
         if (!link_is_ready_to_bring_up_or_down(link, up))
                 return 0;

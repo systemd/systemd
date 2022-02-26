@@ -25,7 +25,7 @@ int dhcp4_start(Link *link);
 int dhcp4_lease_lost(Link *link);
 int dhcp4_check_ready(Link *link);
 
-int request_process_dhcp4_client(Request *req);
+int dhcp4_process_request(Request *req, Link *link, void *userdata);
 int link_request_dhcp4_client(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
