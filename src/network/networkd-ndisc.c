@@ -203,13 +203,13 @@ static int ndisc_check_ready(Link *link) {
         return 0;
 }
 
-static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->ndisc_messages > 0);
+        assert(req);
 
-        link->ndisc_messages--;
+        link = ASSERT_PTR(req->link);
 
         r = route_configure_handler_internal(rtnl, m, link, "Could not set NDisc route");
         if (r <= 0)
@@ -254,13 +254,13 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                                   ndisc_route_handler, NULL);
 }
 
-static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->ndisc_messages > 0);
+        assert(req);
 
-        link->ndisc_messages--;
+        link = ASSERT_PTR(req->link);
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set NDisc address");
         if (r <= 0)
@@ -1122,7 +1122,7 @@ int ndisc_start(Link *link) {
         return 1;
 }
 
-int ndisc_process_request(Request *req, Link *link, void *userdata) {
+static int ndisc_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
         assert(link);
@@ -1158,7 +1158,7 @@ int link_request_ndisc(Link *link) {
         if (link->ndisc)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_NDISC, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_NDISC, ndisc_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Discovery: %m");
 

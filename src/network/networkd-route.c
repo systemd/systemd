@@ -12,7 +12,6 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
-#include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "parse-util.h"
@@ -110,7 +109,7 @@ Route *route_free(Route *route) {
         return mfree(route);
 }
 
-void route_hash_func(const Route *route, struct siphash *state) {
+static void route_hash_func(const Route *route, struct siphash *state) {
         assert(route);
 
         siphash24_compress(&route->family, sizeof(route->family), state);
@@ -152,7 +151,7 @@ void route_hash_func(const Route *route, struct siphash *state) {
         }
 }
 
-int route_compare_func(const Route *a, const Route *b) {
+static int route_compare_func(const Route *a, const Route *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -1141,9 +1140,6 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set route");
@@ -1246,13 +1242,7 @@ static int route_configure(const Route *route, Link *link, Request *req) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static int route_is_ready_to_configure(const Route *route, Link *link) {
@@ -1319,7 +1309,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         return true;
 }
 
-int route_process_request(Request *req, Link *link, Route *route) {
+static int route_process_request(Request *req, Link *link, Route *route) {
         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         int r;
 
@@ -1385,7 +1375,7 @@ int link_request_route(
                 Route *route,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Route *existing;
@@ -1432,8 +1422,12 @@ int link_request_route(
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
-        r = link_queue_request(link, REQUEST_TYPE_ROUTE, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
+                                    existing, NULL,
+                                    route_hash_func,
+                                    route_compare_func,
+                                    route_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r <= 0)
                 return r;
 
@@ -1441,13 +1435,13 @@ int link_request_route(
         return 1;
 }
 
-static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->static_route_messages > 0);
+        assert(req);
 
-        link->static_route_messages--;
+        link = ASSERT_PTR(req->link);
 
         r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
         if (r <= 0)
@@ -1472,8 +1466,10 @@ static int link_request_static_route(Link *link, Route *route) {
                                           static_route_handler, NULL);
 
         log_route_debug(route, "Requesting", link, link->manager);
-        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, false,
-                                  &link->static_route_messages, static_route_handler, NULL);
+        return link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
+                                       route, NULL, route_hash_func, route_compare_func,
+                                       route_process_request,
+                                       &link->static_route_messages, static_route_handler, NULL);
 }
 
 static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
@@ -1557,10 +1553,12 @@ void route_cancel_request(Route *route, Link *link) {
         req = (Request) {
                 .link = link,
                 .type = REQUEST_TYPE_ROUTE,
-                .route = route,
+                .userdata = route,
+                .hash_func = (hash_func_t) route_hash_func,
+                .compare_func = (compare_func_t) route_compare_func,
         };
 
-        request_drop(ordered_set_get(link->manager->request_queue, &req));
+        request_detach(link->manager, &req);
         route_cancel_requesting(route);
 }
 

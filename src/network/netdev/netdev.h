@@ -209,8 +209,6 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
-int independent_netdev_process_request(Request *req, Link *link, void *userdata);
-int stacked_netdev_process_request(Request *req, Link *link, void *userdata);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
