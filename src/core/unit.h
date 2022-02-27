@@ -599,7 +599,7 @@ typedef struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever an OOM kill event on this unit was seen */
-        void (*notify_cgroup_oom)(Unit *u);
+        void (*notify_cgroup_oom)(Unit *u, bool managed_oom);
 
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, const struct ucred *ucred, char * const *tags, FDSet *fds);
