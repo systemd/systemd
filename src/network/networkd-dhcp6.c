@@ -136,13 +136,13 @@ int dhcp6_check_ready(Link *link) {
         return 0;
 }
 
-static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
-        assert(link);
-        assert(link->dhcp6_messages > 0);
+        assert(req);
 
-        link->dhcp6_messages--;
+        link = ASSERT_PTR(req->link);
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 address");
         if (r <= 0)
@@ -715,15 +715,10 @@ int dhcp6_update_mac(Link *link) {
         return 0;
 }
 
-int request_process_dhcp6_client(Request *req) {
-        Link *link;
+static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->link);
-        assert(req->type == REQUEST_TYPE_DHCP6_CLIENT);
-
-        link = req->link;
+        assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
@@ -751,7 +746,6 @@ int request_process_dhcp6_client(Request *req) {
 
         log_link_debug(link, "DHCPv6 client is configured%s.",
                        r > 0 ? ", acquiring DHCPv6 lease" : "");
-
         return 1;
 }
 
@@ -766,7 +760,7 @@ int link_request_dhcp6_client(Link *link) {
         if (link->dhcp6_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv6 client: %m");
 
