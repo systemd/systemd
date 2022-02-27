@@ -92,7 +92,7 @@ static Request *request_free(Request *req) {
         return mfree(req);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
 
 void request_drop(Request *req) {
         if (!req)
@@ -101,7 +101,7 @@ void request_drop(Request *req) {
         if (req->message_counter)
                 (*req->message_counter)--;
 
-        request_free(req);
+        request_unref(req);
 }
 
 static void request_hash_func(const Request *req, struct siphash *state) {
@@ -238,13 +238,13 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 Request,
                 request_hash_func,
                 request_compare_func,
-                request_free);
+                request_unref);
 
 int netdev_queue_request(
                 NetDev *netdev,
                 Request **ret) {
 
-        _cleanup_(request_freep) Request *req = NULL;
+        _cleanup_(request_unrefp) Request *req = NULL;
         Request *existing;
         int r;
 
@@ -256,6 +256,7 @@ int netdev_queue_request(
                 return -ENOMEM;
 
         *req = (Request) {
+                .n_ref = 1,
                 .netdev = netdev_ref(netdev),
                 .type = REQUEST_TYPE_NETDEV_INDEPENDENT,
                 .consume_object = true,
@@ -291,7 +292,7 @@ int link_queue_request(
                 link_netlink_message_handler_t netlink_handler,
                 Request **ret) {
 
-        _cleanup_(request_freep) Request *req = NULL;
+        _cleanup_(request_unrefp) Request *req = NULL;
         Request *existing;
         int r;
 
@@ -324,6 +325,7 @@ int link_queue_request(
         }
 
         *req = (Request) {
+                .n_ref = 1,
                 .link = link_ref(link),
                 .type = type,
                 .object = object,
@@ -439,7 +441,7 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                         link_enter_failed(req->link);
                         } else if (r > 0) {
                                 ordered_set_remove(manager->request_queue, req);
-                                request_free(req);
+                                request_unref(req);
                                 processed = true;
                         }
                 }
