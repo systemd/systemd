@@ -151,7 +151,7 @@ static const char *qdisc_get_tca_kind(const QDisc *qdisc) {
                 QDISC_VTABLE(qdisc)->tca_kind : qdisc->tca_kind;
 }
 
-void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
+static void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
         assert(qdisc);
         assert(state);
 
@@ -160,7 +160,7 @@ void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
         siphash24_compress_string(qdisc_get_tca_kind(qdisc), state);
 }
 
-int qdisc_compare_func(const QDisc *a, const QDisc *b) {
+static int qdisc_compare_func(const QDisc *a, const QDisc *b) {
         int r;
 
         assert(a);
@@ -293,15 +293,11 @@ int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *ki
         return -ENOENT;
 }
 
-static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {
         int r;
 
+        assert(m);
         assert(link);
-        assert(link->tc_messages > 0);
-        link->tc_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -347,12 +343,7 @@ static int qdisc_configure(QDisc *qdisc, Link *link, Request *req) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
@@ -368,7 +359,7 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         return link_find_tclass(link, qdisc->parent, NULL) >= 0;
 }
 
-int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
+static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
         int r;
 
         assert(req);
@@ -409,8 +400,14 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
                 existing->source = qdisc->source;
 
         log_qdisc_debug(existing, link, "Requesting");
-        r = link_queue_request(link, REQUEST_TYPE_TC_QDISC, existing, false,
-                               &link->tc_messages, qdisc_handler, NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_TC_QDISC,
+                                    existing, NULL,
+                                    qdisc_hash_func,
+                                    qdisc_compare_func,
+                                    qdisc_process_request,
+                                    &link->tc_messages,
+                                    qdisc_handler,
+                                    NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request QDisc: %m");
         if (r == 0)
