@@ -3436,8 +3436,17 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         }
 }
 
-static void service_notify_cgroup_oom_event(Unit *u) {
+static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         Service *s = SERVICE(u);
+
+        if (managed_oom) {
+                log_unit_debug(u, "Process(es) of control group were killed by systemd-oomd.");
+
+                if (s->exit_type == SERVICE_EXIT_MAIN || cgroup_good(s) <= 0)
+                        s->result = SERVICE_FAILURE_OOMD_KILL;
+
+                return;
+        }
 
         log_unit_debug(u, "Process of control group was killed by the OOM killer.");
 
@@ -4721,6 +4730,7 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_WATCHDOG]        = "watchdog",
         [SERVICE_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [SERVICE_FAILURE_OOM_KILL]        = "oom-kill",
+        [SERVICE_FAILURE_OOMD_KILL]       = "oomd-kill",
         [SERVICE_SKIP_CONDITION]          = "exec-condition",
 };
 

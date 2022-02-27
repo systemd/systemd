@@ -3573,6 +3573,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
                   <entry><literal>TERM</literal>, <literal>KILL</literal></entry>
                 </row>
                 <row>
+                  <entry valign="top"><literal>oomd-kill</literal></entry>
+                  <entry valign="top"><literal>killed</literal></entry>
+                  <entry><literal>KILL</literal></entry>
+                </row>
+                <row>
                   <entry><literal>start-limit-hit</literal></entry>
                   <entry>not set</entry>
                   <entry>not set</entry>
