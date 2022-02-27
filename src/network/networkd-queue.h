@@ -46,7 +46,9 @@ typedef enum RequestType {
 typedef struct Request {
         unsigned n_ref;
 
-        Link *link;
+        Manager *manager; /* must be non-NULL */
+        Link *link; /* can be NULL */
+
         RequestType type;
         bool consume_object;
         union {
@@ -74,7 +76,7 @@ Request *request_ref(Request *req);
 Request *request_unref(Request *req);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_unref);
 
-void request_drop(Request *req);
+void request_detach(Manager *manager, Request *req);
 
 int netdev_queue_request(
                 NetDev *netdev,

@@ -1560,7 +1560,7 @@ void route_cancel_request(Route *route, Link *link) {
                 .route = route,
         };
 
-        request_drop(ordered_set_get(link->manager->request_queue, &req));
+        request_detach(link->manager, &req);
         route_cancel_requesting(route);
 }
 
