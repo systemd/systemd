@@ -44,6 +44,8 @@ typedef enum RequestType {
 } RequestType;
 
 typedef struct Request {
+        unsigned n_ref;
+
         Link *link;
         RequestType type;
         bool consume_object;
@@ -67,6 +69,10 @@ typedef struct Request {
         unsigned *message_counter;
         link_netlink_message_handler_t netlink_handler;
 } Request;
+
+Request *request_ref(Request *req);
+Request *request_unref(Request *req);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_unref);
 
 void request_drop(Request *req);
 
