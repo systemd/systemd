@@ -81,25 +81,38 @@ static Request *request_free(Request *req) {
         if (!req)
                 return NULL;
 
-        if (req->link && req->link->manager)
-                /* To prevent from triggering assertions in hash functions, remove this request before
-                 * freeing object below. */
-                ordered_set_remove(req->link->manager->request_queue, req);
+        /* To prevent from triggering assertions in the hash and compare functions, remove this request
+         * before freeing userdata below. */
+        if (req->manager)
+                ordered_set_remove(req->manager->request_queue, req);
+
         if (req->consume_object)
                 request_free_object(req->type, req->object);
-        link_unref(req->link);
+
+        link_unref(req->link); /* link may be NULL, but link_unref() can handle it gracefully. */
 
         return mfree(req);
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
 
-void request_drop(Request *req) {
+void request_detach(Manager *manager, Request *req) {
+        assert(manager);
+
         if (!req)
                 return;
 
-        if (req->message_counter)
+        req = ordered_set_remove(manager->request_queue, req);
+        if (!req)
+                return;
+
+        req->manager = NULL;
+
+        if (req->message_counter) {
+                assert(*req->message_counter > 0);
                 (*req->message_counter)--;
+                req->message_counter = NULL; /* To prevent double decrement. */
+        }
 
         request_unref(req);
 }
@@ -257,6 +270,7 @@ int netdev_queue_request(
 
         *req = (Request) {
                 .n_ref = 1,
+                .manager = netdev->manager,
                 .netdev = netdev_ref(netdev),
                 .type = REQUEST_TYPE_NETDEV_INDEPENDENT,
                 .consume_object = true,
@@ -264,9 +278,6 @@ int netdev_queue_request(
 
         existing = ordered_set_get(netdev->manager->request_queue, req);
         if (existing) {
-                /* To prevent from removing the existing request. */
-                req->netdev = netdev_unref(req->netdev);
-
                 if (ret)
                         *ret = existing;
                 return 0;
@@ -275,6 +286,8 @@ int netdev_queue_request(
         r = ordered_set_ensure_put(&netdev->manager->request_queue, &request_hash_ops, req);
         if (r < 0)
                 return r;
+
+        req->manager = netdev->manager;
 
         if (ret)
                 *ret = req;
@@ -336,9 +349,6 @@ int link_queue_request(
 
         existing = ordered_set_get(link->manager->request_queue, req);
         if (existing) {
-                /* To prevent from removing the existing request. */
-                req->link = link_unref(req->link);
-
                 if (ret)
                         *ret = existing;
                 return 0;
@@ -348,6 +358,7 @@ int link_queue_request(
         if (r < 0)
                 return r;
 
+        req->manager = link->manager;
         if (req->message_counter)
                 (*req->message_counter)++;
 
@@ -440,8 +451,8 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                                 if (req->link)
                                         link_enter_failed(req->link);
                         } else if (r > 0) {
-                                ordered_set_remove(manager->request_queue, req);
-                                request_unref(req);
+                                req->message_counter = NULL;
+                                request_detach(manager, req);
                                 processed = true;
                         }
                 }

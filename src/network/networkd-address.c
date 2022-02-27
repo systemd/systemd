@@ -1295,7 +1295,7 @@ void address_cancel_request(Address *address) {
                 .address = address,
         };
 
-        request_drop(ordered_set_get(address->link->manager->request_queue, &req));
+        request_detach(address->link->manager, &req);
         address_cancel_requesting(address);
 }
 

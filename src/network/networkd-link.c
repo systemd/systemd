@@ -906,7 +906,7 @@ static void link_drop_requests(Link *link) {
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue)
                 if (req->link == link)
-                        request_drop(req);
+                        request_detach(link->manager, req);
 }
 
 static Link *link_drop(Link *link) {
