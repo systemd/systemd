@@ -103,7 +103,6 @@ typedef enum NetDevState {
 typedef enum NetDevCreateType {
         NETDEV_CREATE_INDEPENDENT,
         NETDEV_CREATE_STACKED,
-        NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
@@ -160,9 +159,6 @@ typedef struct NetDevVTable {
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 
-        /* create netdev after link is fully configured */
-        int (*create_after_configured)(NetDev *netdev, Link *link);
-
         /* perform additional configuration after netdev has been createad */
         int (*post_create)(NetDev *netdev, Link *link);
 
@@ -213,9 +209,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
-int request_process_independent_netdev(Request *req);
-int request_process_stacked_netdev(Request *req);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
+int link_configure_netdev(Link *link);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
