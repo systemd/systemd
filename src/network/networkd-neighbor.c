@@ -87,7 +87,7 @@ static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
         return 0;
 }
 
-void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
+static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
@@ -106,7 +106,7 @@ void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         hw_addr_hash_func(&neighbor->ll_addr, state);
 }
 
-int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
+static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -215,17 +215,10 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
+static int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
         int r;
 
         assert(req);
@@ -243,17 +236,14 @@ int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
         return 1;
 }
 
-static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req) {
+        Link *link;
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->static_neighbor_messages > 0);
+        assert(req);
 
-        link->static_neighbor_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        link = ASSERT_PTR(req->link);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -275,7 +265,7 @@ static int link_request_neighbor(
                 Link *link,
                 const Neighbor *neighbor,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Neighbor *existing;
@@ -301,8 +291,12 @@ static int link_request_neighbor(
                 existing->source = neighbor->source;
 
         log_neighbor_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_NEIGHBOR, existing, false,
-                               message_counter, netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_NEIGHBOR,
+                                    existing, NULL,
+                                    neighbor_hash_func,
+                                    neighbor_compare_func,
+                                    neighbor_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r <= 0)
                 return r;
 
