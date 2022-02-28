@@ -420,7 +420,6 @@ static int link_configure(Link *link, Request *req) {
 
         assert(link);
         assert(link->manager);
-        assert(link->manager->rtnl);
         assert(req);
 
         log_link_debug(link, "Setting %s", request_type_to_string(req->type));
@@ -560,7 +559,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
         return true;
 }
 
-int link_process_set_link(Request *req, Link *link, void *userdata) {
+static int link_process_set_link(Request *req, Link *link, void *userdata) {
         int r;
 
         assert(req);
@@ -587,10 +586,12 @@ static int link_request_set_link(
         int r;
 
         assert(link);
-        assert(netlink_handler);
 
-        r = link_queue_request(link, type, NULL, false,
-                               &link->set_link_messages, netlink_handler, &req);
+        r = link_queue_request_full(link, type, NULL, NULL, NULL, NULL,
+                                    link_process_set_link,
+                                    &link->set_link_messages,
+                                    netlink_handler,
+                                    &req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request to set %s: %m",
                                               request_type_to_string(type));
@@ -1016,7 +1017,7 @@ static bool link_is_ready_to_activate(Link *link) {
         return true;
 }
 
-int link_process_activation(Request *req, Link *link, void *userdata) {
+static int link_process_activation(Request *req, Link *link, void *userdata) {
         bool up = PTR_TO_INT(userdata);
         int r;
 
@@ -1034,7 +1035,6 @@ int link_process_activation(Request *req, Link *link, void *userdata) {
 }
 
 int link_request_to_activate(Link *link) {
-        Request *req;
         bool up;
         int r;
 
@@ -1065,12 +1065,13 @@ int link_request_to_activate(Link *link) {
 
         link->activated = false;
 
-        r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, &link->set_flags_messages,
-                               link_up_or_down_handler, &req);
+        r = link_queue_request_full(link, REQUEST_TYPE_ACTIVATE_LINK,
+                                    INT_TO_PTR(up), NULL, NULL, NULL,
+                                    link_process_activation,
+                                    &link->set_flags_messages,
+                                    link_up_or_down_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to activate link: %m");
-
-        req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to activate link");
         return 0;
@@ -1106,7 +1107,7 @@ static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
         return true;
 }
 
-int link_process_up_or_down(Request *req, Link *link, void *userdata) {
+static int link_process_up_or_down(Request *req, Link *link, void *userdata) {
         bool up = PTR_TO_INT(userdata);
         int r;
 
@@ -1124,18 +1125,18 @@ int link_process_up_or_down(Request *req, Link *link, void *userdata) {
 }
 
 int link_request_to_bring_up_or_down(Link *link, bool up) {
-        Request *req;
         int r;
 
         assert(link);
 
-        r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, &link->set_flags_messages,
-                               link_up_or_down_handler, &req);
+        r = link_queue_request_full(link, REQUEST_TYPE_UP_DOWN,
+                                    INT_TO_PTR(up), NULL, NULL, NULL,
+                                    link_process_up_or_down,
+                                    &link->set_flags_messages,
+                                    link_up_or_down_handler, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request to bring link %s: %m",
                                               up_or_down(up));
-
-        req->userdata = INT_TO_PTR(up);
 
         log_link_debug(link, "Requested to bring link %s", up_or_down(up));
         return 0;

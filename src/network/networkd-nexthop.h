@@ -16,7 +16,6 @@
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef struct NextHop {
         Network *network;
@@ -39,9 +38,6 @@ typedef struct NextHop {
 
 NextHop *nexthop_free(NextHop *nexthop);
 
-void nexthop_hash_func(const NextHop *nexthop, struct siphash *state);
-int nexthop_compare_func(const NextHop *a, const NextHop *b);
-
 void network_drop_invalid_nexthops(Network *network);
 
 int link_drop_managed_nexthops(Link *link);
@@ -49,7 +45,6 @@ int link_drop_foreign_nexthops(Link *link);
 void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
-int nexthop_process_request(Request *req, Link *link, NextHop *nexthop);
 
 int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

@@ -208,7 +208,7 @@ static bool bridge_fdb_is_ready_to_configure(BridgeFDB *fdb, Link *link) {
         return true;
 }
 
-int bridge_fdb_process_request(Request *req, Link *link, void *userdata) {
+static int bridge_fdb_process_request(Request *req, Link *link, void *userdata) {
         BridgeFDB *fdb = ASSERT_PTR(userdata);
         int r;
 
@@ -235,8 +235,14 @@ int link_request_static_bridge_fdb(Link *link) {
         link->static_bridge_fdb_configured = false;
 
         HASHMAP_FOREACH(fdb, link->network->bridge_fdb_entries_by_section) {
-                r = link_queue_request(link, REQUEST_TYPE_BRIDGE_FDB, fdb, false,
-                                       &link->static_bridge_fdb_messages, bridge_fdb_configure_handler, NULL);
+                r = link_queue_request_full(link, REQUEST_TYPE_BRIDGE_FDB,
+                                            fdb, NULL,
+                                            trivial_hash_func,
+                                            trivial_compare_func,
+                                            bridge_fdb_process_request,
+                                            &link->static_bridge_fdb_messages,
+                                            bridge_fdb_configure_handler,
+                                            NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request static bridge FDB entry: %m");
         }

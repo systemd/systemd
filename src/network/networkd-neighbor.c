@@ -87,7 +87,7 @@ static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
         return 0;
 }
 
-void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
+static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
@@ -106,7 +106,7 @@ void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         hw_addr_hash_func(&neighbor->ll_addr, state);
 }
 
-int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
+static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -218,7 +218,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
+static int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
         int r;
 
         assert(req);
@@ -282,10 +282,14 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                 existing->source = neighbor->source;
 
         log_neighbor_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_NEIGHBOR, existing, false,
-                               &link->static_neighbor_messages,
-                               (request_netlink_handler_t) static_neighbor_configure_handler,
-                               NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_NEIGHBOR,
+                                    existing, NULL,
+                                    neighbor_hash_func,
+                                    neighbor_compare_func,
+                                    neighbor_process_request,
+                                    &link->static_neighbor_messages,
+                                    static_neighbor_configure_handler,
+                                    NULL);
         if (r <= 0)
                 return r;
 

@@ -110,7 +110,7 @@ Route *route_free(Route *route) {
         return mfree(route);
 }
 
-void route_hash_func(const Route *route, struct siphash *state) {
+static void route_hash_func(const Route *route, struct siphash *state) {
         assert(route);
 
         siphash24_compress(&route->family, sizeof(route->family), state);
@@ -152,7 +152,7 @@ void route_hash_func(const Route *route, struct siphash *state) {
         }
 }
 
-int route_compare_func(const Route *a, const Route *b) {
+static int route_compare_func(const Route *a, const Route *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -1310,7 +1310,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         return true;
 }
 
-int route_process_request(Request *req, Link *link, Route *route) {
+static int route_process_request(Request *req, Link *link, Route *route) {
         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         int r;
 
@@ -1423,8 +1423,12 @@ int link_request_route(
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
-        r = link_queue_request(link, REQUEST_TYPE_ROUTE, existing, false,
-                               message_counter, (request_netlink_handler_t) netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
+                                    existing, NULL,
+                                    route_hash_func,
+                                    route_compare_func,
+                                    route_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r <= 0)
                 return r;
 
@@ -1460,10 +1464,10 @@ static int link_request_static_route(Link *link, Route *route) {
                                           static_route_handler, NULL);
 
         log_route_debug(route, "Requesting", link, link->manager);
-        return link_queue_request(link, REQUEST_TYPE_ROUTE, route, false,
-                                  &link->static_route_messages,
-                                  (request_netlink_handler_t) static_route_handler,
-                                  NULL);
+        return link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
+                                       route, NULL, route_hash_func, route_compare_func,
+                                       route_process_request,
+                                       &link->static_route_messages, static_route_handler, NULL);
 }
 
 static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
@@ -1547,7 +1551,9 @@ void route_cancel_request(Route *route, Link *link) {
         req = (Request) {
                 .link = link,
                 .type = REQUEST_TYPE_ROUTE,
-                .route = route,
+                .userdata = route,
+                .hash_func = (hash_func_t) route_hash_func,
+                .compare_func = (compare_func_t) route_compare_func,
         };
 
         request_detach(link->manager, &req);
