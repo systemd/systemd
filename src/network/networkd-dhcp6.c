@@ -712,7 +712,7 @@ int dhcp6_update_mac(Link *link) {
         return 0;
 }
 
-int dhcp6_process_request(Request *req, Link *link, void *userdata) {
+static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
         assert(link);
@@ -757,7 +757,7 @@ int link_request_dhcp6_client(Link *link) {
         if (link->dhcp6_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv6 client: %m");
 

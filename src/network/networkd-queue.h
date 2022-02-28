@@ -4,21 +4,15 @@
 #include "sd-event.h"
 #include "sd-netlink.h"
 
-#include "networkd-link.h"
+#include "alloc-util.h"
+#include "hash-funcs.h"
 
-typedef struct Address Address;
-typedef struct AddressLabel AddressLabel;
-typedef struct BridgeFDB BridgeFDB;
-typedef struct BridgeMDB BridgeMDB;
-typedef struct Neighbor Neighbor;
+typedef struct Link Link;
 typedef struct NetDev NetDev;
-typedef struct NextHop NextHop;
-typedef struct Route Route;
-typedef struct RoutingPolicyRule RoutingPolicyRule;
-typedef struct QDisc QDisc;
-typedef struct TClass TClass;
+typedef struct Manager Manager;
 typedef struct Request Request;
 
+typedef int (*request_process_func_t)(Request *req, Link *link, void *userdata);
 typedef int (*request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, Request *req, Link *link, void *userdata);
 
 typedef enum RequestType {
@@ -64,24 +58,19 @@ struct Request {
         Link *link; /* can be NULL */
 
         RequestType type;
-        bool consume_object;
-        union {
-                Address *address;
-                AddressLabel *label;
-                BridgeFDB *fdb;
-                BridgeMDB *mdb;
-                struct in6_addr *ipv6_proxy_ndp;
-                Neighbor *neighbor;
-                NextHop *nexthop;
-                Route *route;
-                RoutingPolicyRule *rule;
-                void *set_link_operation_ptr;
-                NetDev *netdev;
-                QDisc *qdisc;
-                TClass *tclass;
-                void *object;
-        };
+
+        /* Target object, e.g. Address, Route, NetDev, and so on. */
         void *userdata;
+        /* freeing userdata when the request is completed or failed. */
+        mfree_func_t free_func;
+
+        /* hash and compare functions for userdata, used for dedup requests. */
+        hash_func_t hash_func;
+        compare_func_t compare_func;
+
+        /* Checks the request dependencies, and then processes this request, e.g. call address_configure().
+         * Return 1 when processed, 0 when its dependencies not resolved, and negative errno on failure. */
+        request_process_func_t process;
 
         /* incremented when requested, decremented when request is completed or failed. */
         unsigned *counter;
@@ -100,16 +89,48 @@ void request_detach(Manager *manager, Request *req);
 
 int netdev_queue_request(
                 NetDev *netdev,
+                request_process_func_t process,
                 Request **ret);
 
-int link_queue_request(
+int link_queue_request_full(
                 Link *link,
                 RequestType type,
-                void *object,
-                bool consume_object,
+                void *userdata,
+                mfree_func_t free_func,
+                hash_func_t hash_func,
+                compare_func_t compare_func,
+                request_process_func_t process,
                 unsigned *counter,
                 request_netlink_handler_t netlink_handler,
                 Request **ret);
+
+static inline int link_queue_request(
+                Link *link,
+                RequestType type,
+                request_process_func_t process,
+                Request **ret) {
+
+        return link_queue_request_full(link, type, NULL, NULL, NULL, NULL,
+                                       process, NULL, NULL, ret);
+}
+
+#define link_queue_request_safe(link, type, userdata, free_func, hash_func, compare_func, process, counter, netlink_handler, ret) \
+        ({                                                              \
+                typeof(userdata) (*_f)(typeof(userdata)) = (free_func); \
+                void (*_h)(const typeof(*userdata)*, struct siphash*) = (hash_func); \
+                int (*_c)(const typeof(*userdata)*, const typeof(*userdata)*) = (compare_func); \
+                int (*_p)(Request*, Link*, typeof(userdata)) = (process); \
+                int (*_n)(sd_netlink*, sd_netlink_message*, Request*, Link*, typeof(userdata)) = (netlink_handler); \
+                                                                        \
+                link_queue_request_full(link, type, userdata,           \
+                                        (mfree_func_t) _f,              \
+                                        (hash_func_t) _h,               \
+                                        (compare_func_t) _c,            \
+                                        (request_process_func_t) _p,    \
+                                        counter,                        \
+                                        (request_netlink_handler_t) _n, \
+                                        ret);                           \
+        })
 
 int manager_process_requests(sd_event_source *s, void *userdata);
 int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);
