@@ -502,9 +502,23 @@ VERSION_ID=32</programlisting>
 
     <example>
       <title>Reading <filename>os-release</filename> in
-      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry></title>
+      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (versions &gt;= 3.10)</title>
+
+      <programlisting><xi:include href="check-os-release-simple.py" parse="text" /></programlisting>
+
+      <para>See docs for <ulink url="https://docs.python.org/3/library/platform.html#platform.freedesktop_os_release">
+      <function>platform.freedesktop_os_release</function></ulink> for more details.
+      </para>
+    </example>
+
+    <example>
+      <title>Reading <filename>os-release</filename> in
+      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (any version)</title>
 
       <programlisting><xi:include href="check-os-release.py" parse="text" /></programlisting>
+
+      <para>Note that the above version that uses the built-in implementation is preferred
+      in most cases, and the open-coded version here is provided for reference.</para>
     </example>
 
   </refsect1>
