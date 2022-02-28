@@ -44,9 +44,8 @@ jobs:
             release: tumbleweed
           - distro: centos_epel
             release: 8-stream
-          # TODO: Enable once https://github.com/systemd/mkosi/pull/915#issuecomment-1049035316 is fixed.
-          # - distro: centos_epel
-          #   release: 9-stream
+          - distro: centos_epel
+            release: 9-stream
 
     steps:
     - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
