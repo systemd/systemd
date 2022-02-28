@@ -486,7 +486,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
 
         op = PTR_TO_INT(req->set_link_operation_ptr);
 
-        if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
         switch (op) {
