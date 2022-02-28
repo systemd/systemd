@@ -177,16 +177,11 @@ static int dhcp4_retry(Link *link) {
         return dhcp4_request_address_and_routes(link, false);
 }
 
-static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
+        assert(m);
         assert(link);
-        assert(link->dhcp4_messages > 0);
-
-        link->dhcp4_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r == -ENETUNREACH && !link->dhcp4_route_retrying) {
@@ -829,13 +824,10 @@ int dhcp4_lease_lost(Link *link) {
         return link_request_static_routes(link, true);
 }
 
-static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);
-        assert(link->dhcp4_messages > 0);
-
-        link->dhcp4_messages--;
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv4 address");
         if (r <= 0)

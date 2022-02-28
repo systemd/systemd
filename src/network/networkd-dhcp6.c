@@ -136,13 +136,10 @@ int dhcp6_check_ready(Link *link) {
         return 0;
 }
 
-static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);
-        assert(link->dhcp6_messages > 0);
-
-        link->dhcp6_messages--;
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCPv6 address");
         if (r <= 0)

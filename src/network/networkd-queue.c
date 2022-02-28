@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
@@ -89,12 +90,16 @@ static Request *request_free(Request *req) {
         if (req->consume_object)
                 request_free_object(req->type, req->object);
 
+        if (req->counter)
+                (*req->counter)--;
+
         link_unref(req->link); /* link may be NULL, but link_unref() can handle it gracefully. */
 
         return mfree(req);
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
+DEFINE_TRIVIAL_DESTRUCTOR(request_destroy_callback, Request, request_unref);
 
 void request_detach(Manager *manager, Request *req) {
         assert(manager);
@@ -107,13 +112,6 @@ void request_detach(Manager *manager, Request *req) {
                 return;
 
         req->manager = NULL;
-
-        if (req->message_counter) {
-                assert(*req->message_counter > 0);
-                (*req->message_counter)--;
-                req->message_counter = NULL; /* To prevent double decrement. */
-        }
-
         request_unref(req);
 }
 
@@ -301,8 +299,8 @@ int link_queue_request(
                 RequestType type,
                 void *object,
                 bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                unsigned *counter,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         _cleanup_(request_unrefp) Request *req = NULL;
@@ -343,7 +341,6 @@ int link_queue_request(
                 .type = type,
                 .object = object,
                 .consume_object = consume_object,
-                .message_counter = message_counter,
                 .netlink_handler = netlink_handler,
         };
 
@@ -359,8 +356,9 @@ int link_queue_request(
                 return r;
 
         req->manager = link->manager;
-        if (req->message_counter)
-                (*req->message_counter)++;
+        req->counter = counter;
+        if (req->counter)
+                (*req->counter)++;
 
         if (ret)
                 *ret = req;
@@ -447,19 +445,52 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         default:
                                 return -EINVAL;
                         }
-                        if (r < 0) {
-                                if (req->link)
-                                        link_enter_failed(req->link);
-                        } else if (r > 0) {
-                                req->message_counter = NULL;
-                                request_detach(manager, req);
-                                processed = true;
-                        }
+                        if (r == 0)
+                                continue;
+
+                        processed = true;
+                        request_detach(manager, req);
+
+                        if (r < 0 && req->link)
+                                link_enter_failed(req->link);
                 }
 
                 if (!processed)
                         break;
         }
 
+        return 0;
+}
+
+static int request_netlink_handler(sd_netlink *nl, sd_netlink_message *m, Request *req) {
+        assert(req);
+
+        if (req->counter) {
+                assert(*req->counter > 0);
+                (*req->counter)--;
+                req->counter = NULL; /* To prevent double decrement on free. */
+        }
+
+        if (req->link && IN_SET(req->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
+        if (req->netlink_handler)
+                return req->netlink_handler(nl, m, req, req->link, req->object);
+
+        return 0;
+}
+
+int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req) {
+        int r;
+
+        assert(nl);
+        assert(m);
+        assert(req);
+
+        r = netlink_call_async(nl, NULL, m, request_netlink_handler, request_destroy_callback, req);
+        if (r < 0)
+                return r;
+
+        request_ref(req);
         return 0;
 }
