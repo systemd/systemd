@@ -949,7 +949,7 @@ static int write_loop(int fd, void *message, size_t length) {
 int manager_write(Manager *m, int fd, DnsPacket *p) {
         int r;
 
-        log_debug("Sending %s%s packet with id %" PRIu16 " of size %zu.",
+        log_debug("Send %s%s packet with id %" PRIu16 " of size %zu.",
                   DNS_PACKET_TC(p) ? "truncated (!) " : "",
                   DNS_PACKET_QR(p) ? "response" : "query",
                   DNS_PACKET_ID(p),
