@@ -18,6 +18,12 @@ typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
+typedef int (*address_netlink_handler_t)(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                Address *address);
 
 struct Address {
         Link *link;
@@ -97,17 +103,15 @@ int link_request_address(
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                address_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
-int request_process_address(Request *req);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
 int network_drop_invalid_addresses(Network *network);
 
-void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
