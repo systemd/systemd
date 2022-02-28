@@ -475,17 +475,15 @@ static bool netdev_is_ready(NetDev *netdev) {
         return true;
 }
 
-static bool link_is_ready_to_call_set_link(Request *req) {
+static int link_is_ready_to_set_link(Link *link, Request *req) {
         SetLinkOperation op;
-        Link *link;
         int r;
 
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
         assert(req);
-        assert(req->link);
-        assert(req->link->manager);
-        assert(req->link->network);
 
-        link = req->link;
         op = PTR_TO_INT(req->set_link_operation_ptr);
 
         if (!IN_SET(link->state, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
@@ -511,10 +509,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
                         r = link_down_now(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return false;
-                        }
+                        if (r < 0)
+                                return r;
                 }
                 break;
         case SET_LINK_MAC:
@@ -523,10 +519,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
                          * The first attempt failed as the interface was up. */
                         r = link_down_now(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return false;
-                        }
+                        if (r < 0)
+                                return r;
                 }
                 break;
         case SET_LINK_MASTER: {
@@ -553,10 +547,8 @@ static bool link_is_ready_to_call_set_link(Request *req) {
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
                                 r = link_down_now(link);
-                                if (r < 0) {
-                                        link_enter_failed(link);
-                                        return false;
-                                }
+                                if (r < 0)
+                                        return r;
                         }
                 } else if (link->network->bridge) {
                         if (ordered_set_contains(link->manager->request_queue, &req_mac))
@@ -591,24 +583,26 @@ static bool link_is_ready_to_call_set_link(Request *req) {
 
 int request_process_set_link(Request *req) {
         SetLinkOperation op;
+        Link *link;
         int r;
 
         assert(req);
-        assert(req->link);
         assert(req->type == REQUEST_TYPE_SET_LINK);
         assert(req->netlink_handler);
+        assert_se(link = req->link);
 
         op = PTR_TO_INT(req->set_link_operation_ptr);
 
         assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
 
-        if (!link_is_ready_to_call_set_link(req))
-                return 0;
+        r = link_is_ready_to_set_link(link, req);
+        if (r <= 0)
+                return r;
 
-        r = link_configure(req->link, req);
+        r = link_configure(link, req);
         if (r < 0)
-                return log_link_error_errno(req->link, r, "Failed to set %s: %m",
-                                            set_link_operation_to_string(op));
+                return log_link_warning_errno(link, r, "Failed to set %s: %m",
+                                              set_link_operation_to_string(op));
 
         return 1;
 }
