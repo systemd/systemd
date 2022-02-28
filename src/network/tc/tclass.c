@@ -121,7 +121,7 @@ static const char *tclass_get_tca_kind(const TClass *tclass) {
                 TCLASS_VTABLE(tclass)->tca_kind : tclass->tca_kind;
 }
 
-void tclass_hash_func(const TClass *tclass, struct siphash *state) {
+static void tclass_hash_func(const TClass *tclass, struct siphash *state) {
         assert(tclass);
         assert(state);
 
@@ -130,7 +130,7 @@ void tclass_hash_func(const TClass *tclass, struct siphash *state) {
         siphash24_compress_string(tclass_get_tca_kind(tclass), state);
 }
 
-int tclass_compare_func(const TClass *a, const TClass *b) {
+static int tclass_compare_func(const TClass *a, const TClass *b) {
         int r;
 
         assert(a);
@@ -318,7 +318,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
 }
 
-int tclass_process_request(Request *req, Link *link, TClass *tclass) {
+static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
         int r;
 
         assert(req);
@@ -359,10 +359,14 @@ int link_request_tclass(Link *link, TClass *tclass) {
                 existing->source = tclass->source;
 
         log_tclass_debug(existing, link, "Requesting");
-        r = link_queue_request(link, REQUEST_TYPE_TC_CLASS, existing, false,
-                               &link->tc_messages,
-                               (request_netlink_handler_t) tclass_handler,
-                               NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_TC_CLASS,
+                                    existing, NULL,
+                                    tclass_hash_func,
+                                    tclass_compare_func,
+                                    tclass_process_request,
+                                    &link->tc_messages,
+                                    tclass_handler,
+                                    NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request TClass: %m");
         if (r == 0)

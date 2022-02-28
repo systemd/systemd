@@ -8,7 +8,6 @@
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef enum QDiscKind {
         QDISC_KIND_BFIFO,
@@ -77,12 +76,8 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(QDisc, qdisc);
 QDisc* qdisc_free(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
-void qdisc_hash_func(const QDisc *qdisc, struct siphash *state);
-int qdisc_compare_func(const QDisc *a, const QDisc *b);
-
 int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
 
-int qdisc_process_request(Request *req, Link *link, QDisc *qdisc);
 int link_request_qdisc(Link *link, QDisc *qdisc);
 
 void network_drop_invalid_qdisc(Network *network);

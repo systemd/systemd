@@ -104,7 +104,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         return 0;
 }
 
-void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
+static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
         siphash24_compress(&nexthop->protocol, sizeof(nexthop->protocol), state);
@@ -124,7 +124,7 @@ void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         }
 }
 
-int nexthop_compare_func(const NextHop *a, const NextHop *b) {
+static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
 
         r = CMP(a->protocol, b->protocol);
@@ -546,7 +546,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                 ORDERED_SET_FOREACH(req, link->manager->request_queue) {
                         if (req->type != REQUEST_TYPE_NEXTHOP)
                                 continue;
-                        if (req->nexthop->id != 0)
+                        if (((NextHop*) req->userdata)->id != 0)
                                 return false; /* first configure nexthop with id. */
                 }
         }
@@ -554,7 +554,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
 }
 
-int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
+static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
         int r;
 
         assert(req);
@@ -600,10 +600,14 @@ static int link_request_nexthop(Link *link, NextHop *nexthop) {
                 existing->source = nexthop->source;
 
         log_nexthop_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_NEXTHOP, existing, false,
-                               &link->static_nexthop_messages,
-                               (request_netlink_handler_t) static_nexthop_handler,
-                               NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_NEXTHOP,
+                                    existing, NULL,
+                                    nexthop_hash_func,
+                                    nexthop_compare_func,
+                                    nexthop_process_request,
+                                    &link->static_nexthop_messages,
+                                    static_nexthop_handler,
+                                    NULL);
         if (r <= 0)
                 return r;
 

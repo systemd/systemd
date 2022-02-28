@@ -153,7 +153,7 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
         return 0;
 }
 
-void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
+static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
         siphash24_compress(&rule->family, sizeof(rule->family), state);
@@ -194,7 +194,7 @@ void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash
         }
 }
 
-int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);
@@ -718,7 +718,7 @@ void link_foreignize_routing_policy_rules(Link *link) {
         }
 }
 
-int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
+static int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyRule *rule) {
         int r;
 
         assert(req);
@@ -793,10 +793,14 @@ static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule)
                 existing->source = rule->source;
 
         log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
-        r = link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, existing, false,
-                               &link->static_routing_policy_rule_messages,
-                               (request_netlink_handler_t) static_routing_policy_rule_configure_handler,
-                               NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ROUTING_POLICY_RULE,
+                                    existing, NULL,
+                                    routing_policy_rule_hash_func,
+                                    routing_policy_rule_compare_func,
+                                    routing_policy_rule_process_request,
+                                    &link->static_routing_policy_rule_messages,
+                                    static_routing_policy_rule_configure_handler,
+                                    NULL);
         if (r <= 0)
                 return r;
 

@@ -124,7 +124,7 @@ static int address_label_configure(AddressLabel *label, Link *link, Request *req
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int address_label_process_request(Request *req, Link *link, void *userdata) {
+static int address_label_process_request(Request *req, Link *link, void *userdata) {
         AddressLabel *label = ASSERT_PTR(userdata);
         int r;
 
@@ -151,8 +151,11 @@ int link_request_static_address_labels(Link *link) {
         link->static_address_labels_configured = false;
 
         HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
-                r = link_queue_request(link, REQUEST_TYPE_ADDRESS_LABEL, label, false,
-                                       &link->static_address_label_messages, address_label_configure_handler, NULL);
+                r = link_queue_request_full(link, REQUEST_TYPE_ADDRESS_LABEL,
+                                            label, NULL, trivial_hash_func, trivial_compare_func,
+                                            address_label_process_request,
+                                            &link->static_address_label_messages,
+                                            address_label_configure_handler, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to request address label: %m");
         }

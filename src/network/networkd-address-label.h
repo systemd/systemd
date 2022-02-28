@@ -9,7 +9,6 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef struct AddressLabel {
         Network *network;
@@ -26,7 +25,6 @@ AddressLabel *address_label_free(AddressLabel *label);
 void network_drop_invalid_address_labels(Network *network);
 
 int link_request_static_address_labels(Link *link);
-int address_label_process_request(Request *req, Link *link, void *userdata);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label_prefix);

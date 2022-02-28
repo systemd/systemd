@@ -629,7 +629,7 @@ static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         return true;
 }
 
-int stacked_netdev_process_request(Request *req, Link *link, void *userdata) {
+static int stacked_netdev_process_request(Request *req, Link *link, void *userdata) {
         NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
@@ -682,10 +682,12 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
                 return 0; /* Already created. */
 
         link->stacked_netdevs_created = false;
-        r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
-                               &link->create_stacked_netdev_messages,
-                               create_stacked_netdev_handler,
-                               NULL);
+        r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
+                                    netdev_ref(netdev), (mfree_func_t) netdev_unref,
+                                    trivial_hash_func, trivial_compare_func,
+                                    stacked_netdev_process_request,
+                                    &link->create_stacked_netdev_messages,
+                                    create_stacked_netdev_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
@@ -694,7 +696,7 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         return 0;
 }
 
-int independent_netdev_process_request(Request *req, Link *link, void *userdata) {
+static int independent_netdev_process_request(Request *req, Link *link, void *userdata) {
         NetDev *netdev = ASSERT_PTR(userdata);
         int r;
 
@@ -730,9 +732,9 @@ static int netdev_request_to_create(NetDev *netdev) {
 
         } else {
                 /* Otherwise, wait for the dependencies being resolved. */
-                r = netdev_queue_request(netdev, NULL);
+                r = netdev_queue_request(netdev, independent_netdev_process_request, NULL);
                 if (r < 0)
-                        return log_netdev_warning_errno(netdev, r, "Failed to request to create: %m");
+                        return log_netdev_warning_errno(netdev, r, "Failed to request to create netdev: %m");
         }
 
         return 0;

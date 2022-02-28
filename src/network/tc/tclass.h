@@ -8,7 +8,6 @@
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef enum TClassKind {
         TCLASS_KIND_DRR,
@@ -59,12 +58,8 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
-void tclass_hash_func(const TClass *qdisc, struct siphash *state);
-int tclass_compare_func(const TClass *a, const TClass *b);
-
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
-int tclass_process_request(Request *req, Link *link, TClass *tclass);
 int link_request_tclass(Link *link, TClass *tclass);
 
 void network_drop_invalid_tclass(Network *network);

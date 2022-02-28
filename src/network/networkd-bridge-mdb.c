@@ -194,7 +194,7 @@ static bool bridge_mdb_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int bridge_mdb_process_request(Request *req, Link *link, void *userdata) {
+static int bridge_mdb_process_request(Request *req, Link *link, void *userdata) {
         BridgeMDB *mdb = ASSERT_PTR(userdata);
         int r;
 
@@ -227,8 +227,14 @@ int link_request_static_bridge_mdb(Link *link) {
                 goto finish;
 
         HASHMAP_FOREACH(mdb, link->network->bridge_mdb_entries_by_section) {
-                r = link_queue_request(link, REQUEST_TYPE_BRIDGE_MDB, mdb, false,
-                                       &link->static_bridge_mdb_messages, bridge_mdb_configure_handler, NULL);
+                r = link_queue_request_full(link, REQUEST_TYPE_BRIDGE_MDB,
+                                            mdb, NULL,
+                                            trivial_hash_func,
+                                            trivial_compare_func,
+                                            bridge_mdb_process_request,
+                                            &link->static_bridge_mdb_messages,
+                                            bridge_mdb_configure_handler,
+                                            NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request MDB entry to multicast group database: %m");
         }

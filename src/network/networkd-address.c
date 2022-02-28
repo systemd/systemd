@@ -316,7 +316,7 @@ DEFINE_PRIVATE_HASH_OPS(
         address_kernel_hash_func,
         address_kernel_compare_func);
 
-void address_hash_func(const Address *a, struct siphash *state) {
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -1104,7 +1104,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         return true;
 }
 
-int address_process_request(Request *req, Link *link, Address *address) {
+static int address_process_request(Request *req, Link *link, Address *address) {
         int r;
 
         assert(req);
@@ -1196,8 +1196,12 @@ int link_request_address(
                 return r;
 
         log_address_debug(existing, "Requesting", link);
-        r = link_queue_request(link, REQUEST_TYPE_ADDRESS, existing, false,
-                               message_counter, (request_netlink_handler_t) netlink_handler, ret);
+        r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
+                                    existing, NULL,
+                                    address_hash_func,
+                                    address_compare_func,
+                                    address_process_request,
+                                    message_counter, netlink_handler, ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address: %m");
         if (r == 0)
@@ -1281,7 +1285,9 @@ void address_cancel_request(Address *address) {
         req = (Request) {
                 .link = address->link,
                 .type = REQUEST_TYPE_ADDRESS,
-                .address = address,
+                .userdata = address,
+                .hash_func = (hash_func_t) address_hash_func,
+                .compare_func = (compare_func_t) address_compare_func,
         };
 
         request_detach(address->link->manager, &req);

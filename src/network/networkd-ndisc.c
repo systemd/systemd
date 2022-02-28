@@ -1116,7 +1116,7 @@ int ndisc_start(Link *link) {
         return 1;
 }
 
-int ndisc_process_request(Request *req, Link *link, void *userdata) {
+static int ndisc_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
         assert(link);
@@ -1152,7 +1152,7 @@ int link_request_ndisc(Link *link) {
         if (link->ndisc)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_NDISC, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_NDISC, ndisc_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Discovery: %m");
 
