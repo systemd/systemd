@@ -21,7 +21,7 @@ typedef enum HandleAction {
 
 typedef struct ActionTableItem ActionTableItem;
 
-#define handle_action_valid(x) (x && (x < _HANDLE_ACTION_MAX))
+#define handle_action_valid(x) (x >= 0 && x < _HANDLE_ACTION_MAX)
 
 #include "logind-inhibit.h"
 #include "logind.h"
