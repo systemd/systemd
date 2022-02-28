@@ -78,7 +78,7 @@ static int ipv6_proxy_ndp_address_configure(const struct in6_addr *address, Link
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-int ipv6_proxy_ndp_address_process_request(Request *req, Link *link, struct in6_addr *address) {
+static int ipv6_proxy_ndp_address_process_request(Request *req, Link *link, struct in6_addr *address) {
         int r;
 
         assert(req);
@@ -105,10 +105,14 @@ int link_request_static_ipv6_proxy_ndp_addresses(Link *link) {
         link->static_ipv6_proxy_ndp_configured = false;
 
         SET_FOREACH(address, link->network->ipv6_proxy_ndp_addresses) {
-                r = link_queue_request(link, REQUEST_TYPE_IPV6_PROXY_NDP, address, false,
-                                       &link->static_ipv6_proxy_ndp_messages,
-                                       (request_netlink_handler_t) ipv6_proxy_ndp_address_configure_handler,
-                                       NULL);
+                r = link_queue_request_safe(link, REQUEST_TYPE_IPV6_PROXY_NDP,
+                                            address, NULL,
+                                            in6_addr_hash_func,
+                                            in6_addr_compare_func,
+                                            ipv6_proxy_ndp_address_process_request,
+                                            &link->static_ipv6_proxy_ndp_messages,
+                                            ipv6_proxy_ndp_address_configure_handler,
+                                            NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to request IPv6 proxy NDP address: %m");
         }

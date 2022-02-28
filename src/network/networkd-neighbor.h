@@ -13,7 +13,6 @@
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef struct Neighbor {
         Network *network;
@@ -29,9 +28,6 @@ typedef struct Neighbor {
 
 Neighbor *neighbor_free(Neighbor *neighbor);
 
-void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state);
-int neighbor_compare_func(const Neighbor *a, const Neighbor *b);
-
 void network_drop_invalid_neighbors(Network *network);
 
 int link_drop_managed_neighbors(Link *link);
@@ -39,7 +35,6 @@ int link_drop_foreign_neighbors(Link *link);
 void link_foreignize_neighbors(Link *link);
 
 int link_request_static_neighbors(Link *link);
-int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
