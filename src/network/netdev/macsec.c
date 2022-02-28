@@ -496,6 +496,10 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link) {
                         return r;
         }
 
+        // FIXME:
+        // Setting link->netdev_configured should be moved somewhere in the callback in the above.
+        // However, currently, configuring macsec triggers kernel panic, hence we cannot test.
+        link->netdev_configured = true;
         return 0;
 }
 
