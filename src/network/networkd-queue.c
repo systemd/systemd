@@ -418,6 +418,9 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                 Request *req;
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
+                        _unused_ _cleanup_(request_unrefp) Request *ref = request_ref(req);
+                        _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+
                         switch (req->type) {
                         case REQUEST_TYPE_ACTIVATE_LINK:
                                 r = link_process_activation(req, req->link, req->userdata);
@@ -501,10 +504,15 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         processed = true;
                         request_detach(manager, req);
 
-                        if (r < 0 && req->link)
-                                link_enter_failed(req->link);
+                        if (r < 0 && link) {
+                                link_enter_failed(link);
+                                /* link_enter_failed() may remove multiple requests,
+                                 * hence we need to exit from the loop. */
+                                break;
+                        }
                 }
 
+                /* When at least one request is processed, then another request may be ready now. */
                 if (!processed)
                         break;
         }
