@@ -18,6 +18,7 @@
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
 #include "qdisc.h"
+#include "string-table.h"
 #include "tclass.h"
 
 static void request_free_object(RequestType type, void *object) {
@@ -63,7 +64,17 @@ static void request_free_object(RequestType type, void *object) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_free(object);
                 break;
-        case REQUEST_TYPE_SET_LINK:
+        case REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE:
+        case REQUEST_TYPE_SET_LINK_BOND:
+        case REQUEST_TYPE_SET_LINK_BRIDGE:
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
+        case REQUEST_TYPE_SET_LINK_CAN:
+        case REQUEST_TYPE_SET_LINK_FLAGS:
+        case REQUEST_TYPE_SET_LINK_GROUP:
+        case REQUEST_TYPE_SET_LINK_IPOIB:
+        case REQUEST_TYPE_SET_LINK_MAC:
+        case REQUEST_TYPE_SET_LINK_MASTER:
+        case REQUEST_TYPE_SET_LINK_MTU:
                 break;
         case REQUEST_TYPE_TC_QDISC:
                 qdisc_free(object);
@@ -166,8 +177,17 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 routing_policy_rule_hash_func(req->rule, state);
                 break;
-        case REQUEST_TYPE_SET_LINK:
-                trivial_hash_func(req->set_link_operation_ptr, state);
+        case REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE:
+        case REQUEST_TYPE_SET_LINK_BOND:
+        case REQUEST_TYPE_SET_LINK_BRIDGE:
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
+        case REQUEST_TYPE_SET_LINK_CAN:
+        case REQUEST_TYPE_SET_LINK_FLAGS:
+        case REQUEST_TYPE_SET_LINK_GROUP:
+        case REQUEST_TYPE_SET_LINK_IPOIB:
+        case REQUEST_TYPE_SET_LINK_MAC:
+        case REQUEST_TYPE_SET_LINK_MASTER:
+        case REQUEST_TYPE_SET_LINK_MTU:
                 break;
         case REQUEST_TYPE_TC_QDISC:
                 qdisc_hash_func(req->qdisc, state);
@@ -231,8 +251,18 @@ static int request_compare_func(const struct Request *a, const struct Request *b
                 return 0;
         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                 return routing_policy_rule_compare_func(a->rule, b->rule);
-        case REQUEST_TYPE_SET_LINK:
-                return trivial_compare_func(a->set_link_operation_ptr, b->set_link_operation_ptr);
+        case REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE:
+        case REQUEST_TYPE_SET_LINK_BOND:
+        case REQUEST_TYPE_SET_LINK_BRIDGE:
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
+        case REQUEST_TYPE_SET_LINK_CAN:
+        case REQUEST_TYPE_SET_LINK_FLAGS:
+        case REQUEST_TYPE_SET_LINK_GROUP:
+        case REQUEST_TYPE_SET_LINK_IPOIB:
+        case REQUEST_TYPE_SET_LINK_MAC:
+        case REQUEST_TYPE_SET_LINK_MASTER:
+        case REQUEST_TYPE_SET_LINK_MTU:
+                return 0;
         case REQUEST_TYPE_TC_QDISC:
                 return qdisc_compare_func(a->qdisc, b->qdisc);
         case REQUEST_TYPE_TC_CLASS:
@@ -317,7 +347,17 @@ int link_queue_request(
                       REQUEST_TYPE_DHCP6_CLIENT,
                       REQUEST_TYPE_NDISC,
                       REQUEST_TYPE_RADV,
-                      REQUEST_TYPE_SET_LINK,
+                      REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE,
+                      REQUEST_TYPE_SET_LINK_BOND,
+                      REQUEST_TYPE_SET_LINK_BRIDGE,
+                      REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
+                      REQUEST_TYPE_SET_LINK_CAN,
+                      REQUEST_TYPE_SET_LINK_FLAGS,
+                      REQUEST_TYPE_SET_LINK_GROUP,
+                      REQUEST_TYPE_SET_LINK_IPOIB,
+                      REQUEST_TYPE_SET_LINK_MAC,
+                      REQUEST_TYPE_SET_LINK_MASTER,
+                      REQUEST_TYPE_SET_LINK_MTU,
                       REQUEST_TYPE_UP_DOWN) ||
                object);
         assert(IN_SET(type,
@@ -430,8 +470,18 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         case REQUEST_TYPE_ROUTING_POLICY_RULE:
                                 r = routing_policy_rule_process_request(req, req->link, req->rule);
                                 break;
-                        case REQUEST_TYPE_SET_LINK:
-                                r = request_process_set_link(req);
+                        case REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE:
+                        case REQUEST_TYPE_SET_LINK_BOND:
+                        case REQUEST_TYPE_SET_LINK_BRIDGE:
+                        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
+                        case REQUEST_TYPE_SET_LINK_CAN:
+                        case REQUEST_TYPE_SET_LINK_FLAGS:
+                        case REQUEST_TYPE_SET_LINK_GROUP:
+                        case REQUEST_TYPE_SET_LINK_IPOIB:
+                        case REQUEST_TYPE_SET_LINK_MAC:
+                        case REQUEST_TYPE_SET_LINK_MASTER:
+                        case REQUEST_TYPE_SET_LINK_MTU:
+                                r = link_process_set_link(req, req->link, NULL);
                                 break;
                         case REQUEST_TYPE_TC_QDISC:
                                 r = qdisc_process_request(req, req->link, NULL);
@@ -494,3 +544,39 @@ int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *r
         request_ref(req);
         return 0;
 }
+
+static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
+        [REQUEST_TYPE_ACTIVATE_LINK]                    = "activate link",
+        [REQUEST_TYPE_ADDRESS]                          = "address",
+        [REQUEST_TYPE_ADDRESS_LABEL]                    = "address label",
+        [REQUEST_TYPE_BRIDGE_FDB]                       = "bridge FDB",
+        [REQUEST_TYPE_BRIDGE_MDB]                       = "bridge MDB",
+        [REQUEST_TYPE_DHCP_SERVER]                      = "DHCP server",
+        [REQUEST_TYPE_DHCP4_CLIENT]                     = "DHCPv4 client",
+        [REQUEST_TYPE_DHCP6_CLIENT]                     = "DHCPv6 client",
+        [REQUEST_TYPE_IPV6_PROXY_NDP]                   = "IPv6 proxy NDP",
+        [REQUEST_TYPE_NDISC]                            = "NDisc",
+        [REQUEST_TYPE_NEIGHBOR]                         = "neighbor",
+        [REQUEST_TYPE_NETDEV_INDEPENDENT]               = "independent netdev",
+        [REQUEST_TYPE_NETDEV_STACKED]                   = "stacked netdev",
+        [REQUEST_TYPE_NEXTHOP]                          = "nexthop",
+        [REQUEST_TYPE_RADV]                             = "RADV",
+        [REQUEST_TYPE_ROUTE]                            = "route",
+        [REQUEST_TYPE_ROUTING_POLICY_RULE]              = "routing policy rule",
+        [REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
+        [REQUEST_TYPE_SET_LINK_BOND]                    = "bond configurations",
+        [REQUEST_TYPE_SET_LINK_BRIDGE]                  = "bridge configurations",
+        [REQUEST_TYPE_SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations",
+        [REQUEST_TYPE_SET_LINK_CAN]                     = "CAN interface configurations",
+        [REQUEST_TYPE_SET_LINK_FLAGS]                   = "link flags",
+        [REQUEST_TYPE_SET_LINK_GROUP]                   = "interface group",
+        [REQUEST_TYPE_SET_LINK_IPOIB]                   = "IPoIB configurations",
+        [REQUEST_TYPE_SET_LINK_MAC]                     = "MAC address",
+        [REQUEST_TYPE_SET_LINK_MASTER]                  = "master interface",
+        [REQUEST_TYPE_SET_LINK_MTU]                     = "MTU",
+        [REQUEST_TYPE_TC_QDISC]                         = "QDisc",
+        [REQUEST_TYPE_TC_CLASS]                         = "TClass",
+        [REQUEST_TYPE_UP_DOWN]                          = "bring link up or down",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(request_type, RequestType);
