@@ -595,12 +595,9 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
+        r = request_call_netlink_async(netdev->manager->rtnl, m, req);
         if (r < 0)
                 return r;
-
-        link_ref(link);
 
         netdev->state = NETDEV_STATE_CREATING;
         log_netdev_debug(netdev, "Creating");
@@ -650,17 +647,11 @@ int stacked_netdev_process_request(Request *req, Link *link, void *userdata) {
         return 1;
 }
 
-static int link_create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int create_stacked_netdev_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
         assert(m);
         assert(link);
-        assert(link->create_stacked_netdev_messages > 0);
-
-        link->create_stacked_netdev_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -693,7 +684,7 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         link->stacked_netdevs_created = false;
         r = link_queue_request(link, REQUEST_TYPE_NETDEV_STACKED, netdev_ref(netdev), true,
                                &link->create_stacked_netdev_messages,
-                               link_create_stacked_netdev_handler,
+                               create_stacked_netdev_handler,
                                NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",

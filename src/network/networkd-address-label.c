@@ -65,19 +65,17 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         return 0;
 }
 
-static int address_label_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int address_label_configure_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                void *userdata) {
+
         int r;
 
-        assert(rtnl);
         assert(m);
         assert(link);
-        assert(link->ifname);
-        assert(link->static_address_label_messages > 0);
-
-        link->static_address_label_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -123,13 +121,7 @@ static int address_label_configure(AddressLabel *label, Link *link, Request *req
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 int address_label_process_request(Request *req, Link *link, void *userdata) {

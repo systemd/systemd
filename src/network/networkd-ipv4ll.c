@@ -70,7 +70,7 @@ static int ipv4ll_address_lost(Link *link) {
         return address_remove(existing);
 }
 
-static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);

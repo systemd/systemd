@@ -14,8 +14,15 @@
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
+typedef struct Route Route;
+typedef int (*route_netlink_handler_t)(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                Route *route);
 
-typedef struct Route {
+struct Route {
         Link *link;
         Manager *manager;
         Network *network;
@@ -66,7 +73,7 @@ typedef struct Route {
         usec_t lifetime_usec;
         /* Used when kernel does not support RTA_EXPIRES attribute. */
         sd_event_source *expire;
-} Route;
+};
 
 void route_hash_func(const Route *route, struct siphash *state);
 int route_compare_func(const Route *a, const Route *b);
@@ -92,7 +99,7 @@ int link_request_route(
                 Route *route,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                route_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_routes(Link *link, bool only_ipv4);
 int route_process_request(Request *req, Link *link, Route *route);

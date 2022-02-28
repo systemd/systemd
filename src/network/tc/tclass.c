@@ -255,15 +255,11 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        strna(tclass_get_tca_kind(tclass)));
 }
 
-static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {
         int r;
 
+        assert(m);
         assert(link);
-        assert(link->tc_messages > 0);
-        link->tc_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -309,12 +305,7 @@ static int tclass_configure(TClass *tclass, Link *link, Request *req) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
@@ -369,7 +360,9 @@ int link_request_tclass(Link *link, TClass *tclass) {
 
         log_tclass_debug(existing, link, "Requesting");
         r = link_queue_request(link, REQUEST_TYPE_TC_CLASS, existing, false,
-                               &link->tc_messages, tclass_handler, NULL);
+                               &link->tc_messages,
+                               (request_netlink_handler_t) tclass_handler,
+                               NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request TClass: %m");
         if (r == 0)

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sd-event.h"
+#include "sd-netlink.h"
 
 #include "networkd-link.h"
 
@@ -16,6 +17,9 @@ typedef struct Route Route;
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 typedef struct QDisc QDisc;
 typedef struct TClass TClass;
+typedef struct Request Request;
+
+typedef int (*request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, Request *req, Link *link, void *userdata);
 
 typedef enum RequestType {
         REQUEST_TYPE_ACTIVATE_LINK,
@@ -43,7 +47,7 @@ typedef enum RequestType {
         _REQUEST_TYPE_INVALID = -EINVAL,
 } RequestType;
 
-typedef struct Request {
+struct Request {
         unsigned n_ref;
 
         Manager *manager; /* must be non-NULL */
@@ -68,9 +72,15 @@ typedef struct Request {
                 void *object;
         };
         void *userdata;
-        unsigned *message_counter;
-        link_netlink_message_handler_t netlink_handler;
-} Request;
+
+        /* incremented when requested, decremented when request is completed or failed. */
+        unsigned *counter;
+        /* called in netlink handler, the 'counter' is decremented before this is called.
+         * If this is specified, then the 'process' function must increment the reference of this
+         * request, and pass this request to the netlink_call_async(), and set the destroy function
+         * to the slot. */
+        request_netlink_handler_t netlink_handler;
+};
 
 Request *request_ref(Request *req);
 Request *request_unref(Request *req);
@@ -87,8 +97,9 @@ int link_queue_request(
                 RequestType type,
                 void *object,
                 bool consume_object,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                unsigned *counter,
+                request_netlink_handler_t netlink_handler,
                 Request **ret);
 
 int manager_process_requests(sd_event_source *s, void *userdata);
+int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);

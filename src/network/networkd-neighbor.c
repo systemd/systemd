@@ -215,14 +215,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
@@ -243,17 +236,11 @@ int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
         return 1;
 }
 
-static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Neighbor *neighbor) {
         int r;
 
         assert(m);
         assert(link);
-        assert(link->static_neighbor_messages > 0);
-
-        link->static_neighbor_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -271,13 +258,7 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
         return 1;
 }
 
-static int link_request_neighbor(
-                Link *link,
-                const Neighbor *neighbor,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-
+static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
         Neighbor *existing;
         int r;
 
@@ -302,7 +283,9 @@ static int link_request_neighbor(
 
         log_neighbor_debug(existing, "Requesting", link);
         r = link_queue_request(link, REQUEST_TYPE_NEIGHBOR, existing, false,
-                               message_counter, netlink_handler, ret);
+                               &link->static_neighbor_messages,
+                               (request_netlink_handler_t) static_neighbor_configure_handler,
+                               NULL);
         if (r <= 0)
                 return r;
 
@@ -321,8 +304,7 @@ int link_request_static_neighbors(Link *link) {
         link->static_neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = link_request_neighbor(link, neighbor, &link->static_neighbor_messages,
-                                          static_neighbor_configure_handler, NULL);
+                r = link_request_neighbor(link, neighbor);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request neighbor: %m");
         }

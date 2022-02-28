@@ -485,25 +485,14 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
                 }
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, NextHop *nexthop) {
         int r;
 
+        assert(m);
         assert(link);
-        assert(link->static_nexthop_messages > 0);
-
-        link->static_nexthop_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -583,13 +572,7 @@ int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
         return 1;
 }
 
-static int link_request_nexthop(
-                Link *link,
-                NextHop *nexthop,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-
+static int link_request_nexthop(Link *link, NextHop *nexthop) {
         NextHop *existing;
         int r;
 
@@ -618,7 +601,9 @@ static int link_request_nexthop(
 
         log_nexthop_debug(existing, "Requesting", link);
         r = link_queue_request(link, REQUEST_TYPE_NEXTHOP, existing, false,
-                               message_counter, netlink_handler, ret);
+                               &link->static_nexthop_messages,
+                               (request_netlink_handler_t) static_nexthop_handler,
+                               NULL);
         if (r <= 0)
                 return r;
 
@@ -639,8 +624,7 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
                 if (only_ipv4 && nh->family != AF_INET)
                         continue;
 
-                r = link_request_nexthop(link, nh, &link->static_nexthop_messages,
-                                         static_nexthop_handler, NULL);
+                r = link_request_nexthop(link, nh);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request nexthop: %m");
         }

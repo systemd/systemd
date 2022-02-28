@@ -1141,9 +1141,6 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set route");
@@ -1246,13 +1243,7 @@ static int route_configure(const Route *route, Link *link, Request *req) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static int route_is_ready_to_configure(const Route *route, Link *link) {
@@ -1385,7 +1376,7 @@ int link_request_route(
                 Route *route,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                route_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Route *existing;
@@ -1433,7 +1424,7 @@ int link_request_route(
 
         log_route_debug(existing, "Requesting", link, link->manager);
         r = link_queue_request(link, REQUEST_TYPE_ROUTE, existing, false,
-                               message_counter, netlink_handler, ret);
+                               message_counter, (request_netlink_handler_t) netlink_handler, ret);
         if (r <= 0)
                 return r;
 
@@ -1441,13 +1432,10 @@ int link_request_route(
         return 1;
 }
 
-static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
         assert(link);
-        assert(link->static_route_messages > 0);
-
-        link->static_route_messages--;
 
         r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
         if (r <= 0)
@@ -1473,7 +1461,9 @@ static int link_request_static_route(Link *link, Route *route) {
 
         log_route_debug(route, "Requesting", link, link->manager);
         return link_queue_request(link, REQUEST_TYPE_ROUTE, route, false,
-                                  &link->static_route_messages, static_route_handler, NULL);
+                                  &link->static_route_messages,
+                                  (request_netlink_handler_t) static_route_handler,
+                                  NULL);
 }
 
 static int link_request_wireguard_routes(Link *link, bool only_ipv4) {

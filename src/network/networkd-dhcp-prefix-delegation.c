@@ -288,13 +288,10 @@ static int dhcp_pd_check_ready(Link *link) {
         return 1;
 }
 
-static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
         assert(link);
-        assert(link->dhcp_pd_messages > 0);
-
-        link->dhcp_pd_messages--;
 
         r = route_configure_handler_internal(rtnl, m, link, "Failed to add prefix route for DHCP delegated subnet prefix");
         if (r <= 0)
@@ -344,13 +341,10 @@ static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec
         return 0;
 }
 
-static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);
-        assert(link->dhcp_pd_messages > 0);
-
-        link->dhcp_pd_messages--;
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set DHCP-PD address");
         if (r <= 0)
@@ -658,13 +652,10 @@ void dhcp4_pd_prefix_lost(Link *uplink) {
                 (void) link_remove(tunnel);
 }
 
-static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
         assert(link);
-        assert(link->dhcp4_messages > 0);
-
-        link->dhcp4_messages--;
 
         r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv4 delegated prefix");
         if (r <= 0)
@@ -677,13 +668,10 @@ static int dhcp4_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message 
         return 1;
 }
 
-static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int dhcp6_unreachable_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
         assert(link);
-        assert(link->dhcp6_messages > 0);
-
-        link->dhcp6_messages--;
 
         r = route_configure_handler_internal(rtnl, m, link, "Failed to set unreachable route for DHCPv6 delegated prefix");
         if (r <= 0)
@@ -704,7 +692,7 @@ static int dhcp_request_unreachable_route(
                 NetworkConfigSource source,
                 const union in_addr_union *server_address,
                 unsigned *counter,
-                link_netlink_message_handler_t callback) {
+                route_netlink_handler_t callback) {
 
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;

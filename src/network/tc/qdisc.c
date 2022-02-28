@@ -293,15 +293,11 @@ int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *ki
         return -ENOENT;
 }
 
-static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {
         int r;
 
+        assert(m);
         assert(link);
-        assert(link->tc_messages > 0);
-        link->tc_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -347,12 +343,7 @@ static int qdisc_configure(QDisc *qdisc, Link *link, Request *req) {
                         return r;
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
@@ -410,7 +401,9 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
 
         log_qdisc_debug(existing, link, "Requesting");
         r = link_queue_request(link, REQUEST_TYPE_TC_QDISC, existing, false,
-                               &link->tc_messages, qdisc_handler, NULL);
+                               &link->tc_messages,
+                               (request_netlink_handler_t) qdisc_handler,
+                               NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request QDisc: %m");
         if (r == 0)
