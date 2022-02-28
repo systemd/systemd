@@ -626,13 +626,7 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Re
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Link *except) {
@@ -742,19 +736,17 @@ int routing_policy_rule_process_request(Request *req, Link *link, RoutingPolicyR
         return 1;
 }
 
-static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_routing_policy_rule_configure_handler(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                RoutingPolicyRule *rule) {
+
         int r;
 
-        assert(rtnl);
         assert(m);
         assert(link);
-        assert(link->ifname);
-        assert(link->static_routing_policy_rule_messages > 0);
-
-        link->static_routing_policy_rule_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -772,13 +764,7 @@ static int static_routing_policy_rule_configure_handler(sd_netlink *rtnl, sd_net
         return 1;
 }
 
-static int link_request_routing_policy_rule(
-                Link *link,
-                RoutingPolicyRule *rule,
-                unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
-                Request **ret) {
-
+static int link_request_routing_policy_rule(Link *link, RoutingPolicyRule *rule) {
         RoutingPolicyRule *existing;
         int r;
 
@@ -808,7 +794,9 @@ static int link_request_routing_policy_rule(
 
         log_routing_policy_rule_debug(existing, "Requesting", link, link->manager);
         r = link_queue_request(link, REQUEST_TYPE_ROUTING_POLICY_RULE, existing, false,
-                               message_counter, netlink_handler, ret);
+                               &link->static_routing_policy_rule_messages,
+                               (request_netlink_handler_t) static_routing_policy_rule_configure_handler,
+                               NULL);
         if (r <= 0)
                 return r;
 
@@ -820,26 +808,17 @@ static int link_request_static_routing_policy_rule(Link *link, RoutingPolicyRule
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
-                return link_request_routing_policy_rule(link, rule,
-                                                        &link->static_routing_policy_rule_messages,
-                                                        static_routing_policy_rule_configure_handler,
-                                                        NULL);
+                return link_request_routing_policy_rule(link, rule);
 
         rule->family = AF_INET;
-        r = link_request_routing_policy_rule(link, rule,
-                                             &link->static_routing_policy_rule_messages,
-                                             static_routing_policy_rule_configure_handler,
-                                             NULL);
+        r = link_request_routing_policy_rule(link, rule);
         if (r < 0) {
                 rule->family = AF_UNSPEC;
                 return r;
         }
 
         rule->family = AF_INET6;
-        r = link_request_routing_policy_rule(link, rule,
-                                             &link->static_routing_policy_rule_messages,
-                                             static_routing_policy_rule_configure_handler,
-                                             NULL);
+        r = link_request_routing_policy_rule(link, rule);
         rule->family = AF_UNSPEC;
         return r;
 }
