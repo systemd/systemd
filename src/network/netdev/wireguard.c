@@ -443,6 +443,7 @@ static int netdev_wireguard_post_create(NetDev *netdev, Link *link) {
 
         (void) wireguard_set_interface(netdev);
         wireguard_resolve_endpoints(netdev);
+        link->netdev_configured = true;
         return 0;
 }
 

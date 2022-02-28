@@ -109,7 +109,6 @@ typedef enum NetDevCreateType {
 
 typedef struct Manager Manager;
 typedef struct Condition Condition;
-typedef struct Request Request;
 
 typedef struct NetDev {
         Manager *manager;
@@ -209,9 +208,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
-int request_process_independent_netdev(Request *req);
-int request_process_stacked_netdev(Request *req);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
+int link_configure_netdev(Link *link);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
