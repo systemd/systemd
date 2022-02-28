@@ -54,22 +54,19 @@ static int get_link_update_flag_handler(sd_netlink *rtnl, sd_netlink_message *m,
 static int set_link_handler_internal(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,
+                Request *req,
                 Link *link,
-                SetLinkOperation op,
                 bool ignore,
                 link_netlink_message_handler_t get_link_handler) {
 
+        SetLinkOperation op;
         int r;
 
         assert(m);
+        assert(req);
         assert(link);
-        assert(link->set_link_messages > 0);
-        assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
 
-        link->set_link_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                goto on_error;
+        op = PTR_TO_INT(req->set_link_operation_ptr);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
@@ -80,7 +77,7 @@ static int set_link_handler_internal(
 
                 if (!ignore)
                         link_enter_failed(link);
-                goto on_error;
+                return 0;
         }
 
         log_link_debug(link, "%s set.", set_link_operation_to_string(op));
@@ -89,7 +86,7 @@ static int set_link_handler_internal(
                 r = link_call_getlink(link, get_link_handler);
                 if (r < 0) {
                         link_enter_failed(link);
-                        goto on_error;
+                        return 0;
                 }
         }
 
@@ -97,27 +94,12 @@ static int set_link_handler_internal(
                 link_check_ready(link);
 
         return 1;
-
-on_error:
-        switch (op) {
-        case SET_LINK_FLAGS:
-                assert(link->set_flags_messages > 0);
-                link->set_flags_messages--;
-                break;
-        case SET_LINK_MASTER:
-                link->master_set = true;
-                break;
-        default:
-                break;
-        }
-
-        return 0;
 }
 
-static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_ADDRESS_GENERATION_MODE, /* ignore = */ true, NULL);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
         if (r <= 0)
                 return r;
 
@@ -130,49 +112,43 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
         return 0;
 }
 
-static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BOND, /* ignore = */ false, NULL);
+static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
 }
 
-static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE, /* ignore = */ true, NULL);
+static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
 }
 
-static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_BRIDGE_VLAN, /* ignore = */ false, NULL);
+static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
 }
 
-static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_CAN, /* ignore = */ false, NULL);
+static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
 }
 
-static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_FLAGS, /* ignore = */ false, get_link_update_flag_handler);
+static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, get_link_default_handler);
 }
 
-static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_GROUP, /* ignore = */ false, NULL);
+static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
 }
 
-static int link_set_ipoib_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_IPOIB, /* ignore = */ true, NULL);
+static int link_set_ipoib_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
 }
 
-static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MAC, /* ignore = */ true, get_link_default_handler);
+static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
 }
 
-static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
         assert(m);
         assert(link);
-        assert(link->set_link_messages > 0);
-
-        link->set_link_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
 
         r = sd_netlink_message_get_errno(m);
         if (r == -EBUSY) {
@@ -189,24 +165,22 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
                 return 0;
         }
 
-        /* set_link_mac_handler() also decrements set_link_messages, so increment the value once. */
-        link->set_link_messages++;
-        return link_set_mac_handler(rtnl, m, link);
+        return link_set_mac_handler(rtnl, m, req, link, userdata);
 }
 
-static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, /* ignore = */ false, get_link_master_handler);
+static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, get_link_master_handler);
 }
 
-static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         /* Some devices do not support setting master ifindex. Let's ignore error on unsetting master ifindex. */
-        return set_link_handler_internal(rtnl, m, link, SET_LINK_MASTER, /* ignore = */ true, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_master_handler);
 }
 
-static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, link, SET_LINK_MTU, /* ignore = */ true, get_link_default_handler);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
         if (r <= 0)
                 return r;
 
@@ -460,44 +434,34 @@ static int link_configure_fill_message(
         return 0;
 }
 
-static int link_configure(
-                Link *link,
-                SetLinkOperation op,
-                void *userdata,
-                link_netlink_message_handler_t callback) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+static int link_configure(Link *link, Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        SetLinkOperation op;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(link->network);
-        assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
-        assert(callback);
+        assert(req);
+
+        op = PTR_TO_INT(req->set_link_operation_ptr);
 
         log_link_debug(link, "Setting %s", set_link_operation_to_string(op));
 
         if (op == SET_LINK_BOND)
-                r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->master_ifindex);
+                r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->master_ifindex);
         else if (IN_SET(op, SET_LINK_CAN, SET_LINK_IPOIB))
-                r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_NEWLINK, link->ifindex);
+                r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
         else
-                r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+                r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not allocate netlink message: %m");
+                return r;
 
-        r = link_configure_fill_message(link, req, op, userdata);
+        r = link_configure_fill_message(link, m, op, req->userdata);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Could not create netlink message: %m");
+                return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Could not send netlink message: %m");
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool netdev_is_ready(NetDev *netdev) {
@@ -641,13 +605,10 @@ int request_process_set_link(Request *req) {
         if (!link_is_ready_to_call_set_link(req))
                 return 0;
 
-        r = link_configure(req->link, op, req->userdata, req->netlink_handler);
+        r = link_configure(req->link, req);
         if (r < 0)
                 return log_link_error_errno(req->link, r, "Failed to set %s: %m",
                                             set_link_operation_to_string(op));
-
-        if (op == SET_LINK_FLAGS)
-                req->link->set_flags_messages++;
 
         return 1;
 }
@@ -655,7 +616,7 @@ int request_process_set_link(Request *req) {
 static int link_request_set_link(
                 Link *link,
                 SetLinkOperation op,
-                link_netlink_message_handler_t netlink_handler,
+                request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Request *req;
@@ -991,14 +952,16 @@ static int link_up_dsa_slave(Link *link) {
         return 1;
 }
 
-static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, bool up, bool on_activate) {
+static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        bool on_activate, up;
         int r;
 
         assert(m);
+        assert(req);
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                goto on_error;
+        on_activate = req->type == REQUEST_TYPE_ACTIVATE_LINK;
+        up = PTR_TO_INT(req->userdata);
 
         r = sd_netlink_message_get_errno(m);
         if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
@@ -1012,43 +975,23 @@ static int link_up_or_down_handler_internal(sd_netlink *rtnl, sd_netlink_message
 
                 log_link_message_warning_errno(link, m, r, error_msg);
                 if (on_activate)
-                        goto on_error;
+                        return 0;
         }
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
                 link_enter_failed(link);
-                goto on_error;
+                return 0;
         }
+
+        link->set_flags_messages++;
 
         if (on_activate) {
                 link->activated = true;
                 link_check_ready(link);
         }
 
-        return 1;
-
-on_error:
-        assert(link->set_flags_messages > 0);
-        link->set_flags_messages--;
-
         return 0;
-}
-
-static int link_activate_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ true, /* on_activate = */ true);
-}
-
-static int link_activate_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ false, /* on_activate = */ true);
-}
-
-static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ true, /* on_activate = */ false);
-}
-
-static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_handler_internal(rtnl, m, link, /* up = */ false, /* on_activate = */ false);
 }
 
 static const char *up_or_down(bool up) {
@@ -1074,14 +1017,7 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool link_is_ready_to_activate(Link *link) {
@@ -1146,7 +1082,7 @@ int link_request_to_activate(Link *link) {
         link->activated = false;
 
         r = link_queue_request(link, REQUEST_TYPE_ACTIVATE_LINK, NULL, false, &link->set_flags_messages,
-                               up ? link_activate_up_handler : link_activate_down_handler, &req);
+                               link_up_or_down_handler, &req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request to activate link: %m");
 
@@ -1210,7 +1146,7 @@ int link_request_to_bring_up_or_down(Link *link, bool up) {
         assert(link);
 
         r = link_queue_request(link, REQUEST_TYPE_UP_DOWN, NULL, false, &link->set_flags_messages,
-                               up ? link_up_handler : link_down_handler, &req);
+                               link_up_or_down_handler, &req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request to bring link %s: %m",
                                               up_or_down(up));

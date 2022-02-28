@@ -1023,9 +1023,6 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         assert(link);
         assert(error_msg);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 0;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, error_msg);
@@ -1087,12 +1084,7 @@ static int address_configure(const Address *address, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
-        if (r < 0)
-                return r;
-
-        link_ref(link);
-        return 0;
+        return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
 static bool address_is_ready_to_configure(Link *link, const Address *address) {
@@ -1135,7 +1127,7 @@ int link_request_address(
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
         Address *acquired, *existing;
@@ -1205,7 +1197,7 @@ int link_request_address(
 
         log_address_debug(existing, "Requesting", link);
         r = link_queue_request(link, REQUEST_TYPE_ADDRESS, existing, false,
-                               message_counter, netlink_handler, ret);
+                               message_counter, (request_netlink_handler_t) netlink_handler, ret);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address: %m");
         if (r == 0)
@@ -1216,13 +1208,10 @@ int link_request_address(
         return 1;
 }
 
-static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);
-        assert(link->static_address_messages > 0);
-
-        link->static_address_messages--;
 
         r = address_configure_handler_internal(rtnl, m, link, "Failed to set static address");
         if (r <= 0)

@@ -18,6 +18,12 @@ typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 typedef int (*address_ready_callback_t)(Address *address);
+typedef int (*address_netlink_handler_t)(
+                sd_netlink *rtnl,
+                sd_netlink_message *m,
+                Request *req,
+                Link *link,
+                Address *address);
 
 struct Address {
         Link *link;
@@ -97,7 +103,7 @@ int link_request_address(
                 Address *address,
                 bool consume_object,
                 unsigned *message_counter,
-                link_netlink_message_handler_t netlink_handler,
+                address_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_address(Link *link, Address *address, bool consume);
 int link_request_static_addresses(Link *link);
