@@ -14,23 +14,6 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
-#include "string-table.h"
-
-static const char *const set_link_operation_table[_SET_LINK_OPERATION_MAX] = {
-        [SET_LINK_ADDRESS_GENERATION_MODE] = "IPv6LL address generation mode",
-        [SET_LINK_BOND]                    = "bond configurations",
-        [SET_LINK_BRIDGE]                  = "bridge configurations",
-        [SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations",
-        [SET_LINK_CAN]                     = "CAN interface configurations",
-        [SET_LINK_FLAGS]                   = "link flags",
-        [SET_LINK_GROUP]                   = "interface group",
-        [SET_LINK_IPOIB]                   = "IPoIB configurations",
-        [SET_LINK_MAC]                     = "MAC address",
-        [SET_LINK_MASTER]                  = "master interface",
-        [SET_LINK_MTU]                     = "MTU",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(set_link_operation, SetLinkOperation);
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");
@@ -59,20 +42,17 @@ static int set_link_handler_internal(
                 bool ignore,
                 link_netlink_message_handler_t get_link_handler) {
 
-        SetLinkOperation op;
         int r;
 
         assert(m);
         assert(req);
         assert(link);
 
-        op = PTR_TO_INT(req->set_link_operation_ptr);
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
                 const char *error_msg;
 
-                error_msg = strjoina("Failed to set ", set_link_operation_to_string(op), ignore ? ", ignoring" : "");
+                error_msg = strjoina("Failed to set ", request_type_to_string(req->type), ignore ? ", ignoring" : "");
                 log_link_message_warning_errno(link, m, r, error_msg);
 
                 if (!ignore)
@@ -80,7 +60,7 @@ static int set_link_handler_internal(
                 return 0;
         }
 
-        log_link_debug(link, "%s set.", set_link_operation_to_string(op));
+        log_link_debug(link, "%s set.", request_type_to_string(req->type));
 
         if (get_link_handler) {
                 r = link_call_getlink(link, get_link_handler);
@@ -196,17 +176,17 @@ static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
 static int link_configure_fill_message(
                 Link *link,
                 sd_netlink_message *req,
-                SetLinkOperation op,
+                RequestType type,
                 void *userdata) {
         int r;
 
-        switch (op) {
-        case SET_LINK_ADDRESS_GENERATION_MODE:
+        switch (type) {
+        case REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE:
                 r = ipv6ll_addrgen_mode_fill_message(req, PTR_TO_UINT8(userdata));
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_BOND:
+        case REQUEST_TYPE_SET_LINK_BOND:
                 r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK);
                 if (r < 0)
                         return r;
@@ -240,7 +220,7 @@ static int link_configure_fill_message(
                         return r;
 
                 break;
-        case SET_LINK_BRIDGE:
+        case REQUEST_TYPE_SET_LINK_BRIDGE:
                 r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
                 if (r < 0)
                         return r;
@@ -343,7 +323,7 @@ static int link_configure_fill_message(
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_BRIDGE_VLAN:
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
                 r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
                 if (r < 0)
                         return r;
@@ -368,12 +348,12 @@ static int link_configure_fill_message(
                         return r;
 
                 break;
-        case SET_LINK_CAN:
+        case REQUEST_TYPE_SET_LINK_CAN:
                 r = can_set_netlink_message(link, req);
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_FLAGS: {
+        case REQUEST_TYPE_SET_LINK_FLAGS: {
                 unsigned ifi_change = 0, ifi_flags = 0;
 
                 if (link->network->arp >= 0) {
@@ -402,27 +382,27 @@ static int link_configure_fill_message(
 
                 break;
         }
-        case SET_LINK_GROUP:
+        case REQUEST_TYPE_SET_LINK_GROUP:
                 r = sd_netlink_message_append_u32(req, IFLA_GROUP, (uint32_t) link->network->group);
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_MAC:
+        case REQUEST_TYPE_SET_LINK_MAC:
                 r = netlink_message_append_hw_addr(req, IFLA_ADDRESS, &link->requested_hw_addr);
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_IPOIB:
+        case REQUEST_TYPE_SET_LINK_IPOIB:
                 r = ipoib_set_netlink_message(link, req);
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_MASTER:
+        case REQUEST_TYPE_SET_LINK_MASTER:
                 r = sd_netlink_message_append_u32(req, IFLA_MASTER, PTR_TO_UINT32(userdata));
                 if (r < 0)
                         return r;
                 break;
-        case SET_LINK_MTU:
+        case REQUEST_TYPE_SET_LINK_MTU:
                 r = sd_netlink_message_append_u32(req, IFLA_MTU, PTR_TO_UINT32(userdata));
                 if (r < 0)
                         return r;
@@ -436,7 +416,6 @@ static int link_configure_fill_message(
 
 static int link_configure(Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        SetLinkOperation op;
         int r;
 
         assert(link);
@@ -444,20 +423,18 @@ static int link_configure(Link *link, Request *req) {
         assert(link->manager->rtnl);
         assert(req);
 
-        op = PTR_TO_INT(req->set_link_operation_ptr);
+        log_link_debug(link, "Setting %s", request_type_to_string(req->type));
 
-        log_link_debug(link, "Setting %s", set_link_operation_to_string(op));
-
-        if (op == SET_LINK_BOND)
+        if (req->type == REQUEST_TYPE_SET_LINK_BOND)
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->master_ifindex);
-        else if (IN_SET(op, SET_LINK_CAN, SET_LINK_IPOIB))
+        else if (IN_SET(req->type, REQUEST_TYPE_SET_LINK_CAN, REQUEST_TYPE_SET_LINK_IPOIB))
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
         else
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return r;
 
-        r = link_configure_fill_message(link, m, op, req->userdata);
+        r = link_configure_fill_message(link, m, req->type, req->userdata);
         if (r < 0)
                 return r;
 
@@ -476,7 +453,6 @@ static bool netdev_is_ready(NetDev *netdev) {
 }
 
 static int link_is_ready_to_set_link(Link *link, Request *req) {
-        SetLinkOperation op;
         int r;
 
         assert(link);
@@ -484,26 +460,29 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
         assert(link->network);
         assert(req);
 
-        op = PTR_TO_INT(req->set_link_operation_ptr);
-
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        switch (op) {
-        case SET_LINK_BOND:
-        case SET_LINK_BRIDGE:
+        switch (req->type) {
+        case REQUEST_TYPE_SET_LINK_BOND:
+        case REQUEST_TYPE_SET_LINK_BRIDGE:
                 if (!link->master_set)
                         return false;
+
                 if (link->network->keep_master && link->master_ifindex <= 0)
                         return false;
                 break;
-        case SET_LINK_BRIDGE_VLAN:
+
+        case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
                 if (!link->master_set)
                         return false;
+
                 if (link->network->keep_master && link->master_ifindex <= 0 && !streq_ptr(link->kind, "bridge"))
                         return false;
+
                 break;
-        case SET_LINK_CAN:
+
+        case REQUEST_TYPE_SET_LINK_CAN:
                 /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
                  * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
@@ -513,7 +492,8 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                                 return r;
                 }
                 break;
-        case SET_LINK_MAC:
+
+        case REQUEST_TYPE_SET_LINK_MAC:
                 if (req->netlink_handler == link_set_mac_handler) {
                         /* This is the second attempt to set hardware address. On the first attempt
                          * req->netlink_handler points to link_set_mac_allow_retry_handler().
@@ -523,12 +503,12 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                                 return r;
                 }
                 break;
-        case SET_LINK_MASTER: {
+
+        case REQUEST_TYPE_SET_LINK_MASTER: {
                 uint32_t m = 0;
                 Request req_mac = {
                         .link = link,
-                        .type = REQUEST_TYPE_SET_LINK,
-                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_MAC),
+                        .type = REQUEST_TYPE_SET_LINK_MAC,
                 };
 
                 if (link->network->batadv) {
@@ -565,11 +545,10 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                 req->userdata = UINT32_TO_PTR(m);
                 break;
         }
-        case SET_LINK_MTU: {
+        case REQUEST_TYPE_SET_LINK_MTU: {
                 Request req_ipoib = {
                         .link = link,
-                        .type = REQUEST_TYPE_SET_LINK,
-                        .set_link_operation_ptr = INT_TO_PTR(SET_LINK_IPOIB),
+                        .type = REQUEST_TYPE_SET_LINK_IPOIB,
                 };
 
                 return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
@@ -581,19 +560,11 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
         return true;
 }
 
-int request_process_set_link(Request *req) {
-        SetLinkOperation op;
-        Link *link;
+int link_process_set_link(Request *req, Link *link, void *userdata) {
         int r;
 
         assert(req);
-        assert(req->type == REQUEST_TYPE_SET_LINK);
-        assert(req->netlink_handler);
-        assert_se(link = req->link);
-
-        op = PTR_TO_INT(req->set_link_operation_ptr);
-
-        assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
+        assert(link);
 
         r = link_is_ready_to_set_link(link, req);
         if (r <= 0)
@@ -601,15 +572,14 @@ int request_process_set_link(Request *req) {
 
         r = link_configure(link, req);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set %s: %m",
-                                              set_link_operation_to_string(op));
+                return log_link_warning_errno(link, r, "Failed to set %s", request_type_to_string(req->type));
 
         return 1;
 }
 
 static int link_request_set_link(
                 Link *link,
-                SetLinkOperation op,
+                RequestType type,
                 request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
@@ -617,16 +587,15 @@ static int link_request_set_link(
         int r;
 
         assert(link);
-        assert(op >= 0 && op < _SET_LINK_OPERATION_MAX);
         assert(netlink_handler);
 
-        r = link_queue_request(link, REQUEST_TYPE_SET_LINK, INT_TO_PTR(op), false,
+        r = link_queue_request(link, type, NULL, false,
                                &link->set_link_messages, netlink_handler, &req);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to request to set %s: %m",
-                                            set_link_operation_to_string(op));
+                return log_link_warning_errno(link, r, "Failed to request to set %s: %m",
+                                              request_type_to_string(type));
 
-        log_link_debug(link, "Requested to set %s", set_link_operation_to_string(op));
+        log_link_debug(link, "Requested to set %s", request_type_to_string(type));
 
         if (ret)
                 *ret = req;
@@ -662,7 +631,9 @@ int link_request_to_set_addrgen_mode(Link *link) {
                 return 0;
         }
 
-        r = link_request_set_link(link, SET_LINK_ADDRESS_GENERATION_MODE, link_set_addrgen_mode_handler, &req);
+        r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE,
+                                  link_set_addrgen_mode_handler,
+                                  &req);
         if (r < 0)
                 return r;
 
@@ -687,7 +658,8 @@ int link_request_to_set_bond(Link *link) {
                         return 0;
         }
 
-        return link_request_set_link(link, SET_LINK_BOND, link_set_bond_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BOND,
+                                     link_set_bond_handler, NULL);
 }
 
 int link_request_to_set_bridge(Link *link) {
@@ -707,7 +679,9 @@ int link_request_to_set_bridge(Link *link) {
                         return 0;
         }
 
-        return link_request_set_link(link, SET_LINK_BRIDGE, link_set_bridge_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE,
+                                     link_set_bridge_handler,
+                                     NULL);
 }
 
 int link_request_to_set_bridge_vlan(Link *link) {
@@ -730,7 +704,9 @@ int link_request_to_set_bridge_vlan(Link *link) {
                         return 0;
         }
 
-        return link_request_set_link(link, SET_LINK_BRIDGE_VLAN, link_set_bridge_vlan_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
+                                     link_set_bridge_vlan_handler,
+                                     NULL);
 }
 
 int link_request_to_set_can(Link *link) {
@@ -743,7 +719,9 @@ int link_request_to_set_can(Link *link) {
         if (!streq_ptr(link->kind, "can"))
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_CAN, link_set_can_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_CAN,
+                                     link_set_can_handler,
+                                     NULL);
 }
 
 int link_request_to_set_flags(Link *link) {
@@ -756,7 +734,9 @@ int link_request_to_set_flags(Link *link) {
             link->network->promiscuous < 0)
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_FLAGS, link_set_flags_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_FLAGS,
+                                     link_set_flags_handler,
+                                     NULL);
 }
 
 int link_request_to_set_group(Link *link) {
@@ -766,7 +746,9 @@ int link_request_to_set_group(Link *link) {
         if (link->network->group < 0)
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_GROUP, link_set_group_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_GROUP,
+                                     link_set_group_handler,
+                                     NULL);
 }
 
 int link_request_to_set_mac(Link *link, bool allow_retry) {
@@ -787,7 +769,7 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
         if (hw_addr_equal(&link->hw_addr, &link->requested_hw_addr))
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_MAC,
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MAC,
                                      allow_retry ? link_set_mac_allow_retry_handler : link_set_mac_handler,
                                      NULL);
 }
@@ -803,7 +785,9 @@ int link_request_to_set_ipoib(Link *link) {
             link->network->ipoib_umcast < 0)
                 return 0;
 
-        return link_request_set_link(link, SET_LINK_IPOIB, link_set_ipoib_handler, NULL);
+        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_IPOIB,
+                                     link_set_ipoib_handler,
+                                     NULL);
 }
 
 int link_request_to_set_master(Link *link) {
@@ -818,15 +802,19 @@ int link_request_to_set_master(Link *link) {
         link->master_set = false;
 
         if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf)
-                return link_request_set_link(link, SET_LINK_MASTER, link_set_master_handler, NULL);
+                return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
+                                             link_set_master_handler,
+                                             NULL);
         else
-                return link_request_set_link(link, SET_LINK_MASTER, link_unset_master_handler, NULL);
+                return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
+                                             link_unset_master_handler,
+                                             NULL);
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
-        Request *req;
         const char *origin;
         uint32_t min_mtu;
+        Request *req;
         int r;
 
         assert(link);
@@ -862,7 +850,9 @@ int link_request_to_set_mtu(Link *link, uint32_t mtu) {
         if (link->mtu == mtu)
                 return 0;
 
-        r = link_request_set_link(link, SET_LINK_MTU, link_set_mtu_handler, &req);
+        r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_MTU,
+                                  link_set_mtu_handler,
+                                  &req);
         if (r < 0)
                 return r;
 

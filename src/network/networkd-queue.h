@@ -39,7 +39,17 @@ typedef enum RequestType {
         REQUEST_TYPE_RADV,
         REQUEST_TYPE_ROUTE,
         REQUEST_TYPE_ROUTING_POLICY_RULE,
-        REQUEST_TYPE_SET_LINK,
+        REQUEST_TYPE_SET_LINK_ADDRESS_GENERATION_MODE, /* Setting IPv6LL address generation mode. */
+        REQUEST_TYPE_SET_LINK_BOND,                    /* Setting bond configs. */
+        REQUEST_TYPE_SET_LINK_BRIDGE,                  /* Setting bridge configs. */
+        REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,             /* Setting bridge VLAN configs. */
+        REQUEST_TYPE_SET_LINK_CAN,                     /* Setting CAN interface configs. */
+        REQUEST_TYPE_SET_LINK_FLAGS,                   /* Setting IFF_NOARP or friends. */
+        REQUEST_TYPE_SET_LINK_GROUP,                   /* Setting interface group. */
+        REQUEST_TYPE_SET_LINK_IPOIB,                   /* Setting IPoIB configs. */
+        REQUEST_TYPE_SET_LINK_MAC,                     /* Setting MAC address. */
+        REQUEST_TYPE_SET_LINK_MASTER,                  /* Setting IFLA_MASTER. */
+        REQUEST_TYPE_SET_LINK_MTU,                     /* Setting MTU. */
         REQUEST_TYPE_TC_CLASS,
         REQUEST_TYPE_TC_QDISC,
         REQUEST_TYPE_UP_DOWN,
@@ -103,3 +113,5 @@ int link_queue_request(
 
 int manager_process_requests(sd_event_source *s, void *userdata);
 int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);
+
+const char* request_type_to_string(RequestType t) _const_;
