@@ -16,7 +16,6 @@
 
 typedef struct Link Link;
 typedef struct Network Network;
-typedef struct Request Request;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,
@@ -68,7 +67,6 @@ int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     usec_t lifetime_preferred_usec, usec_t lifetime_valid_usec);
 
-int radv_process_request(Request *req, Link *link, void *userdata);
 int link_request_radv(Link *link);
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;

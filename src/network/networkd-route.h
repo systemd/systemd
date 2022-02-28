@@ -75,8 +75,6 @@ struct Route {
         sd_event_source *expire;
 };
 
-void route_hash_func(const Route *route, struct siphash *state);
-int route_compare_func(const Route *a, const Route *b);
 extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
@@ -102,7 +100,6 @@ int link_request_route(
                 route_netlink_handler_t netlink_handler,
                 Request **ret);
 int link_request_static_routes(Link *link, bool only_ipv4);
-int route_process_request(Request *req, Link *link, Route *route);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 

@@ -151,7 +151,7 @@ static const char *qdisc_get_tca_kind(const QDisc *qdisc) {
                 QDISC_VTABLE(qdisc)->tca_kind : qdisc->tca_kind;
 }
 
-void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
+static void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
         assert(qdisc);
         assert(state);
 
@@ -160,7 +160,7 @@ void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
         siphash24_compress_string(qdisc_get_tca_kind(qdisc), state);
 }
 
-int qdisc_compare_func(const QDisc *a, const QDisc *b) {
+static int qdisc_compare_func(const QDisc *a, const QDisc *b) {
         int r;
 
         assert(a);
@@ -359,7 +359,7 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         return link_find_tclass(link, qdisc->parent, NULL) >= 0;
 }
 
-int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
+static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
         int r;
 
         assert(req);
@@ -400,10 +400,14 @@ int link_request_qdisc(Link *link, QDisc *qdisc) {
                 existing->source = qdisc->source;
 
         log_qdisc_debug(existing, link, "Requesting");
-        r = link_queue_request(link, REQUEST_TYPE_TC_QDISC, existing, false,
-                               &link->tc_messages,
-                               (request_netlink_handler_t) qdisc_handler,
-                               NULL);
+        r = link_queue_request_safe(link, REQUEST_TYPE_TC_QDISC,
+                                    existing, NULL,
+                                    qdisc_hash_func,
+                                    qdisc_compare_func,
+                                    qdisc_process_request,
+                                    &link->tc_messages,
+                                    qdisc_handler,
+                                    NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request QDisc: %m");
         if (r == 0)
