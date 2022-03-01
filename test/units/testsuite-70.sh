@@ -6,7 +6,7 @@ export SYSTEMD_LOG_LEVEL=debug
 
 
 # Prepare fresh disk image
-img="/tmp/test.img"
+img="/var/tmp/test.img"
 dd if=/dev/zero of=$img bs=1024k count=20 status=none
 echo -n passphrase >/tmp/passphrase
 cryptsetup luksFormat -q --use-urandom $img /tmp/passphrase
