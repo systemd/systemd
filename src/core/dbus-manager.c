@@ -2206,6 +2206,11 @@ static int install_error(
                                               "Unit file %s does not exist.", changes[i].path);
                         goto found;
 
+                case -ENOLINK:
+                        r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
+                                              "Unit file %s is a dangling symlink.", changes[i].path);
+                        goto found;
+
                 default:
                         assert(changes[i].type_or_errno < 0); /* other errors */
                         r = sd_bus_error_set_errnof(error, changes[i].type_or_errno, "File %s: %m", changes[i].path);
