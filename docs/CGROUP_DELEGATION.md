@@ -267,11 +267,12 @@ your service's cgroup. This is necessary because by turning on delegation we
 have to assume that the cgroup delegated to your service is now an *inner*
 cgroup, which means that it may not directly contain any processes. Hence, if
 your service has any of these four settings set, you must be prepared that a
-`.control/` subcgroup might appear, managed by the service manager. This also
-means that your service code should have moved itself further down the cgroup
-tree by the time it notifies the service manager about start-up readiness, so
-that the service's main cgroup is definitely an inner node by the time the
-service manager might start `ExecStartPost=`.)
+`.control/` subcgroup might appear, managed by the service manager (that
+includes provisioning of their resource consumption or transitional overcommit).
+This also means that your service code should have moved itself further down
+the cgroup tree by the time it notifies the service manager about start-up
+readiness, so that the service's main cgroup is definitely an inner node by the
+time the service manager might start `ExecStartPost=`.)
 
 ## Three Scenarios
 
