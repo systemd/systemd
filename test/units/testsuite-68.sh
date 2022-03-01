@@ -170,8 +170,13 @@ cat >/run/systemd/system/testservice-failure-exit-handler-68.service <<EOF
 Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in failure
 
 [Service]
+# repeat the check to make sure that values are set correctly on repeated invocations
+Type=oneshot
+ExecStartPre=/tmp/check_on_failure.sh
 ExecStartPre=/tmp/check_on_failure.sh
 ExecStart=/tmp/check_on_failure.sh
+ExecStart=/tmp/check_on_failure.sh
+ExecStartPost=test -z '$MONITOR_SERVICE_RESULT'
 EOF
 
 # Template version.
@@ -180,9 +185,13 @@ cat >/run/systemd/system/testservice-failure-exit-handler-68-template@.service <
 Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in failure (template)
 
 [Service]
+Type=oneshot
 ExecStartPre=echo "triggered by %i"
 ExecStartPre=/tmp/check_on_failure.sh
+ExecStartPre=/tmp/check_on_failure.sh
 ExecStart=/tmp/check_on_failure.sh
+ExecStart=/tmp/check_on_failure.sh
+ExecStartPost=test -z '$MONITOR_SERVICE_RESULT'
 EOF
 
 systemctl daemon-reload
