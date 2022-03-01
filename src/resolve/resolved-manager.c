@@ -1060,6 +1060,79 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
+static void parse_packet(DnsPacket* packet, Varlink* link)
+{
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_free_ char *normalized = NULL;
+        DnsResourceRecord *rr;
+        int ifindex, r;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        uint8_t* data = DNS_PACKET_DATA(packet);
+
+        log_debug("%d %d %d %d \n", DNS_PACKET_QDCOUNT(packet),
+                                 DNS_PACKET_ANCOUNT(packet),
+                                 DNS_PACKET_NSCOUNT(packet),
+                                 DNS_PACKET_ARCOUNT(packet));
+
+        r = dns_packet_extract(packet);
+        if (r < 0)
+        {
+                log_debug("error extracting\n");
+                return;
+        }
+        else
+        {
+                log_debug("success extracting!!!\n");
+        }
+
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, packet->answer) {
+                log_debug("parse_packet iteration type %d\n\n\n", rr->key->type);
+                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
+                int family;
+                const void *p;
+
+                if (rr->key->type == DNS_TYPE_A) {
+                        family = AF_INET;
+                        p = &rr->a.in_addr;
+                } else if (rr->key->type == DNS_TYPE_AAAA) {
+                        family = AF_INET6;
+                        p = &rr->aaaa.in6_addr;
+                }
+                else
+                {
+                        continue;
+                }
+
+                r = json_build(&entry,
+                               JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
+                                               JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
+
+                if (!canonical)
+                        canonical = dns_resource_record_ref(rr);
+
+                r = json_variant_append_array(&array, entry);
+        }
+
+        if (json_variant_is_blank_object(array))
+        {
+                log_debug("no data\n");
+                return;
+        }
+
+        assert(canonical);
+        r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+        if (r < 0)
+        {
+                log_debug("error getting name\n");
+                return;
+        }
+
+        varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
+                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
+}
+
 int manager_send(
                 Manager *m,
                 int fd,
@@ -1082,6 +1155,15 @@ int manager_send(
                   DNS_PACKET_ID(p),
                   ifindex, af_to_name(family),
                   p->size);
+
+        if (m->varlink_subscription)
+        {
+                int r;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_INTEGER("foo", 42)));
+                parse_packet(p, m->varlink_subscription);
+                //varlink_notify(m->varlink_subscription, v);
+        }
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
