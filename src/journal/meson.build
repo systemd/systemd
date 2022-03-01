@@ -49,8 +49,6 @@ systemd_cat_sources = files('cat.c')
 
 journalctl_sources = files('''
         journalctl.c
-        pcre2-dlopen.c
-        pcre2-dlopen.h
 '''.split())
 
 if install_sysconfdir_samples

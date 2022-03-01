@@ -80,7 +80,7 @@ unsigned int (*sym_elf_version)(unsigned int);
 GElf_Phdr *(*sym_gelf_getphdr)(Elf *, int, GElf_Phdr *);
 size_t (*sym_gelf_getnote)(Elf_Data *, size_t, GElf_Nhdr *, size_t *, size_t *);
 
-static int dlopen_dw(void) {
+int dlopen_dw(void) {
         int r;
 
         r = dlopen_many_sym_or_warn(
@@ -123,7 +123,7 @@ static int dlopen_dw(void) {
         return 1;
 }
 
-static int dlopen_elf(void) {
+int dlopen_elf(void) {
         int r;
 
         r = dlopen_many_sym_or_warn(

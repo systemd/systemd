@@ -5,10 +5,12 @@
 
 #include "bpf-dlopen.h"
 #include "cryptsetup-util.h"
+#include "elf-util.h"
 #include "idn-util.h"
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
+#include "pcre2-dlopen.h"
 #include "pwquality-util.h"
 #include "qrcode-util.h"
 #include "tests.h"
@@ -47,6 +49,15 @@ static int run(int argc, char **argv) {
 
 #if HAVE_LIBBPF
         assert_se(dlopen_bpf() >= 0);
+#endif
+
+#if HAVE_ELFUTILS
+        assert_se(dlopen_dw() >= 0);
+        assert_se(dlopen_elf() >= 0);
+#endif
+
+#if HAVE_PCRE2
+        assert_se(dlopen_pcre2() >= 0);
 #endif
 
         return 0;
