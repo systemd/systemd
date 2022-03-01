@@ -4641,7 +4641,7 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
 
 static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
-        [SERVICE_EXIT_MAIN] = "main",
+        [SERVICE_EXIT_MAIN]   = "main",
         [SERVICE_EXIT_CGROUP] = "cgroup",
 };
 
