@@ -99,6 +99,21 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
+static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
+        printf("vl_on_notification_disconnect invoked\n");
+        Manager *m = userdata;
+
+        assert(m);
+        assert(s);
+        assert(link);
+
+        if (link == m->varlink_subscription)
+        {
+                printf("vl_on_notification_disconnect reset subscription\n");
+                m->varlink_subscription = varlink_unref(link);
+        }
+}
+
 static bool validate_and_mangle_flags(
                 const char *name,
                 uint64_t *flags,
@@ -516,6 +531,36 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
+static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata)
+{
+        printf("vl_method_subscribe_dns_resolves\n");
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        Manager *m;
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        int r;
+
+        assert(link);
+        assert(m);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->varlink_subscription)
+        {
+                //return varlink_reply(link, v);
+                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+        }
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+        {
+                // empty response
+                return varlink_reply(link, NULL);
+        }
+
+        assert(!m->varlink_subscription);
+        m->varlink_subscription = varlink_ref(link);
+        return 1;
+}
+
 int manager_varlink_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -551,6 +596,32 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+
+        if (m->varlink_notification_server)
+                return 0;
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+        varlink_server_set_userdata(s, m);
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.ResolveNotifications.SubscribeDnsResolves",  vl_method_subscribe_dns_resolves);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_disconnect(s, vl_on_notification_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
+        r = varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.ResolveNotifications", 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_notification_server = TAKE_PTR(s);
         return 0;
 }
 

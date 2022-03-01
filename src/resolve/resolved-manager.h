@@ -147,6 +147,9 @@ struct Manager {
         Hashmap *polkit_registry;
 
         VarlinkServer *varlink_server;
+        VarlinkServer *varlink_notification_server;
+
+        Varlink* varlink_subscription;
 
         sd_event_source *clock_change_event_source;
 
