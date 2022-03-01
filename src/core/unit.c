@@ -2210,7 +2210,7 @@ void unit_start_on_failure(
                 UnitDependencyAtom atom,
                 JobMode job_mode) {
 
-        bool logged = false;
+        int n_jobs = -1;
         Unit *other;
         int r;
 
@@ -2223,9 +2223,9 @@ void unit_start_on_failure(
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                if (!logged) {
+                if (n_jobs < 0) {
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
-                        logged = true;
+                        n_jobs = 0;
                 }
 
                 r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
@@ -2233,10 +2233,12 @@ void unit_start_on_failure(
                         log_unit_warning_errno(
                                         u, r, "Failed to enqueue %s job, ignoring: %s",
                                         dependency_name, bus_error_message(&error, r));
+                n_jobs ++;
         }
 
-        if (logged)
-                log_unit_debug(u, "Triggering %s dependencies done.", dependency_name);
+        if (n_jobs >= 0)
+                log_unit_debug(u, "Triggering %s dependencies done (%u %s).",
+                               dependency_name, n_jobs, n_jobs == 1 ? "job" : "jobs");
 }
 
 void unit_trigger_notify(Unit *u) {
