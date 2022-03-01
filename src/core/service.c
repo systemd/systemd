@@ -1481,6 +1481,7 @@ static Service *service_get_triggering_service(Service *s) {
 }
 
 static int service_spawn(
+                const char *reason,
                 Service *s,
                 ExecCommand *c,
                 usec_t timeout,
@@ -1500,9 +1501,12 @@ static int service_spawn(
         pid_t pid;
         int r;
 
+        assert(reason);
         assert(s);
         assert(c);
         assert(ret_pid);
+
+        log_unit_debug(UNIT(s), "Will spawn child (%s): %s", reason, c->path);
 
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
@@ -1911,7 +1915,8 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP_POST;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_stop_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
@@ -2033,7 +2038,8 @@ static void service_enter_stop(Service *s, ServiceResult f) {
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_stop_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
@@ -2111,7 +2117,8 @@ static void service_enter_start_post(Service *s) {
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
@@ -2224,7 +2231,8 @@ static void service_enter_start(Service *s) {
         else
                 timeout = s->timeout_start_usec;
 
-        r = service_spawn(s,
+        r = service_spawn(__func__,
+                          s,
                           c,
                           timeout,
                           EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS|EXEC_SETENV_MONITOR_RESULT,
@@ -2282,7 +2290,8 @@ static void service_enter_start_pre(Service *s) {
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN|EXEC_SETENV_MONITOR_RESULT,
@@ -2317,7 +2326,8 @@ static void service_enter_condition(Service *s) {
 
                 s->control_command_id = SERVICE_EXEC_CONDITION;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
@@ -2410,7 +2420,8 @@ static void service_enter_reload(Service *s) {
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_RELOAD;
 
-                r = service_spawn(s,
+                r = service_spawn(__func__,
+                                  s,
                                   s->control_command,
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
@@ -2448,7 +2459,8 @@ static void service_run_next_control(Service *s) {
         else
                 timeout = s->timeout_stop_usec;
 
-        r = service_spawn(s,
+        r = service_spawn(__func__,
+                          s,
                           s->control_command,
                           timeout,
                           EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|
@@ -2487,7 +2499,8 @@ static void service_run_next_main(Service *s) {
         s->main_command = s->main_command->command_next;
         service_unwatch_main_pid(s);
 
-        r = service_spawn(s,
+        r = service_spawn(__func__,
+                          s,
                           s->main_command,
                           s->timeout_start_usec,
                           EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG,
