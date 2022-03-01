@@ -43,6 +43,8 @@
 #include "utf8.h"
 #include "util.h"
 
+#define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
+
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
         [SERVICE_CONDITION] = UNIT_ACTIVATING,
@@ -1480,7 +1482,8 @@ static Service *service_get_triggering_service(Service *s) {
         return SERVICE(candidate);
 }
 
-static int service_spawn(
+static int service_spawn_internal(
+                const char *caller,
                 Service *s,
                 ExecCommand *c,
                 usec_t timeout,
@@ -1500,9 +1503,12 @@ static int service_spawn(
         pid_t pid;
         int r;
 
+        assert(caller);
         assert(s);
         assert(c);
         assert(ret_pid);
+
+        log_unit_debug(UNIT(s), "Will spawn child (%s): %s", caller, c->path);
 
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
