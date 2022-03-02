@@ -51,7 +51,8 @@ static int determine_default(char **ret_name) {
         if (install_client_side()) {
                 r = unit_file_get_default(arg_scope, arg_root, ret_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get default target: %m");
+                        return log_error_errno(r, "Failed to get default target: %s",
+                                               r == -ERFKILL ? "Unit is masked" : strerror(-r));
                 return 0;
 
         } else {
@@ -66,7 +67,8 @@ static int determine_default(char **ret_name) {
 
                 r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get default target: %s",
+                                               r == -ERFKILL ? "Unit is masked" : bus_error_message(&error, r));
 
                 r = sd_bus_message_read(reply, "s", &name);
                 if (r < 0)
