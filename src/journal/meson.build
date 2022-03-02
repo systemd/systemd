@@ -1,29 +1,28 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-sources = files('''
-        journald-audit.c
-        journald-audit.h
-        journald-console.c
-        journald-console.h
-        journald-context.c
-        journald-context.h
-        journald-kmsg.c
-        journald-kmsg.h
-        journald-native.c
-        journald-native.h
-        journald-rate-limit.c
-        journald-rate-limit.h
-        journald-server.c
-        journald-server.h
-        journald-stream.c
-        journald-stream.h
-        journald-syslog.c
-        journald-syslog.h
-        journald-wall.c
-        journald-wall.h
-        managed-journal-file.c
-        managed-journal-file.h
-'''.split())
+sources = files(
+        'journald-audit.c',
+        'journald-audit.h',
+        'journald-console.c',
+        'journald-console.h',
+        'journald-context.c',
+        'journald-context.h',
+        'journald-kmsg.c',
+        'journald-kmsg.h',
+        'journald-native.c',
+        'journald-native.h',
+        'journald-rate-limit.c',
+        'journald-rate-limit.h',
+        'journald-server.c',
+        'journald-server.h',
+        'journald-stream.c',
+        'journald-stream.h',
+        'journald-syslog.c',
+        'journald-syslog.h',
+        'journald-wall.c',
+        'journald-wall.h',
+        'managed-journal-file.c',
+        'managed-journal-file.h')
 
 sources += custom_target(
         'journald-gperf.c',
@@ -40,16 +39,13 @@ libjournal_core = static_library(
 
 journal_includes = [includes, include_directories('.')]
 
-systemd_journald_sources = files('''
-        journald.c
-        journald-server.h
-'''.split())
+systemd_journald_sources = files(
+        'journald.c',
+        'journald-server.h')
 
 systemd_cat_sources = files('cat.c')
 
-journalctl_sources = files('''
-        journalctl.c
-'''.split())
+journalctl_sources = files('journalctl.c')
 
 if install_sysconfdir_samples
         install_data('journald.conf',
