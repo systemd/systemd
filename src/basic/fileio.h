@@ -110,6 +110,12 @@ typedef enum ReadLineFlags {
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
 
+static inline bool file_offset_beyond_memory_size(off_t x) {
+        if (x < 0) /* off_t is signed, filter that out */
+                return false;
+        return (uint64_t) x > (uint64_t) SIZE_MAX;
+}
+
 static inline int read_line(FILE *f, size_t limit, char **ret) {
         return read_line_full(f, limit, 0, ret);
 }
