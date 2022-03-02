@@ -149,6 +149,7 @@ struct Manager {
         VarlinkServer *varlink_server;
         VarlinkServer *varlink_notification_server;
 
+        /* Tracks the client subscribed for varlink notifications */
         Varlink* varlink_subscription;
 
         sd_event_source *clock_change_event_source;
