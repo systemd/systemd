@@ -615,6 +615,9 @@ static int remove_marked_symlinks_fd(
                         if (q == -ENOENT)
                                 continue;
                         if (q < 0) {
+                                log_debug_errno(q, "Failed to resolve symlink \"%s\": %m", p);
+                                unit_file_changes_add(changes, n_changes, q, p, NULL);
+
                                 if (r == 0)
                                         r = q;
                                 continue;
