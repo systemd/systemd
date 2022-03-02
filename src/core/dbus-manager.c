@@ -2200,6 +2200,8 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
                 return r;
 
         r = unit_file_get_default(m->unit_file_scope, NULL, &default_target);
+        if (r == -ERFKILL)
+                sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r < 0)
                 return r;
 
