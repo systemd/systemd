@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_localed_sources = files('''
-        localed.c
-        keymap-util.c
-        keymap-util.h
-'''.split())
+systemd_localed_sources = files(
+        'localed.c',
+        'keymap-util.c',
+        'keymap-util.h')
 
 localectl_sources = files('localectl.c')
 
