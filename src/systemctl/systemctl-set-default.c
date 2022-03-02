@@ -50,6 +50,8 @@ static int determine_default(char **ret_name) {
 
         if (install_client_side()) {
                 r = unit_file_get_default(arg_scope, arg_root, ret_name);
+                if (r == -ERFKILL)
+                        return log_error_errno(r, "Failed to get default target: Unit file is masked.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
                 return 0;
