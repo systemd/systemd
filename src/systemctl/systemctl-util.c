@@ -873,18 +873,15 @@ int mangle_names(const char *operation, char **original_names, char ***ret_mangl
 
                 /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
 
-                if (is_path(*name)) {
-                        *i = strdup(*name);
-                        if (!*i)
-                                return log_oom();
-                } else {
+                if (is_path(*name))
+                        r = path_make_absolute_cwd(*name, i);
+                else
                         r = unit_name_mangle_with_suffix(*name, operation,
                                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
                                                          ".service", i);
-                        if (r < 0) {
-                                *i = NULL;
-                                return log_error_errno(r, "Failed to mangle unit name: %m");
-                        }
+                if (r < 0) {
+                        *i = NULL;
+                        return log_error_errno(r, "Failed to mangle unit name or path '%s': %m", *name);
                 }
 
                 i++;
