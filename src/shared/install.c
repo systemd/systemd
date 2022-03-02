@@ -563,7 +563,7 @@ static int remove_marked_symlinks_fd(
 
         rewinddir(d);
 
-        FOREACH_DIRENT(de, d, return -errno) {
+        FOREACH_DIRENT(de, d, return -errno)
 
                 if (de->d_type == DT_DIR) {
                         _cleanup_free_ char *p = NULL;
@@ -646,7 +646,6 @@ static int remove_marked_symlinks_fd(
                         if (q > 0 && !dry_run)
                                 *restart = true;
                 }
-        }
 
         return r;
 }
