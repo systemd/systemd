@@ -1462,24 +1462,23 @@ static Service *service_get_triggering_service(Service *s) {
          * one to propagate the exit status. */
 
         UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_FAILURE_OF) {
-                if (candidate) {
-                        log_unit_debug(UNIT(s), "multiple trigger source candidates for exit status propagation, skipping.");
-                        return NULL;
-                }
-
+                if (candidate)
+                        goto have_other;
                 candidate = other;
         }
 
         UNIT_FOREACH_DEPENDENCY(other, UNIT(s), UNIT_ATOM_ON_SUCCESS_OF) {
-                if (candidate) {
-                        log_unit_debug(UNIT(s), "multiple trigger source candidates for exit status propagation, skipping.");
-                        return NULL;
-                }
-
+                if (candidate)
+                        goto have_other;
                 candidate = other;
         }
 
         return SERVICE(candidate);
+
+ have_other:
+        log_unit_warning(UNIT(s), "multiple trigger source candidates for exit status propagation (%s, %s), skipping.",
+                         candidate->id, other->id);
+        return NULL;
 }
 
 static int service_spawn_internal(
