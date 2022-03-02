@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "hwdb-internal.h"
 #include "nulstr-util.h"
@@ -312,6 +313,9 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         if (hwdb->st.st_size < (off_t) offsetof(struct trie_header_f, strings_len) + 8)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "File %s is too short: %m", hwdb_bin_path);
+        if (file_offset_beyond_memory_size(hwdb->st.st_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "File %s is too long: %m", hwdb_bin_path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
