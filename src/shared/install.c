@@ -2190,7 +2190,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, "/dev/null", path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
+                q = create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -2211,7 +2211,6 @@ int unit_file_unmask(
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
-        bool dry_run;
         char **i;
         int r, q;
 
@@ -2226,7 +2225,7 @@ int unit_file_unmask(
         if (!config_path)
                 return -ENXIO;
 
-        dry_run = !!(flags & UNIT_FILE_DRY_RUN);
+        bool dry_run = flags & UNIT_FILE_DRY_RUN;
 
         STRV_FOREACH(i, files) {
                 _cleanup_free_ char *path = NULL;
@@ -2366,7 +2365,7 @@ int unit_file_link(
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, *i, new_path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
+                q = create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -2700,7 +2699,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        return remove_marked_symlinks(remove_symlinks_to, config_path, &lp, !!(flags & UNIT_FILE_DRY_RUN), changes, n_changes);
+        return remove_marked_symlinks(remove_symlinks_to, config_path, &lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
 }
 
 int unit_file_reenable(
@@ -2762,7 +2761,7 @@ int unit_file_set_default(
                 return r;
 
         new_path = strjoina(lp.persistent_config, "/" SPECIAL_DEFAULT_TARGET);
-        return create_symlink(&lp, i->path, new_path, !!(flags & UNIT_FILE_FORCE), changes, n_changes);
+        return create_symlink(&lp, i->path, new_path, flags & UNIT_FILE_FORCE, changes, n_changes);
 }
 
 int unit_file_get_default(
