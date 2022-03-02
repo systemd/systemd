@@ -109,7 +109,8 @@ static int add_locales_from_archive(Set *locales) {
         if (!S_ISREG(st.st_mode))
                 return -EBADMSG;
 
-        if (st.st_size < (off_t) sizeof(struct locarhead))
+        if (st.st_size < (off_t) sizeof(struct locarhead) ||
+            (uintmax_t) st.st_size > SIZE_MAX)
                 return -EBADMSG;
 
         p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);

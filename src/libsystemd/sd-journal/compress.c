@@ -807,6 +807,9 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         if (fstat(in, &st) < 0)
                 return log_debug_errno(errno, "fstat() failed: %m");
 
+        if ((uintmax_t) st.st_size > SIZE_MAX)
+                return -ENOMEM;
+
         buf = malloc(LZ4_BUFSIZE);
         if (!buf)
                 return -ENOMEM;
