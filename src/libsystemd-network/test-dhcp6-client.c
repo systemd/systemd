@@ -25,6 +25,7 @@
 #include "tests.h"
 #include "time-util.h"
 #include "virt.h"
+#include "alloc-util.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
@@ -110,8 +111,8 @@ static int test_client_basic(sd_event *e) {
 
 static int test_parse_domain(sd_event *e) {
         uint8_t *data;
-        char *domain;
-        char **list;
+        char *domain = NULL;
+        char **list = NULL;
         int r;
 
         log_debug("/* %s */", __func__);
@@ -121,14 +122,14 @@ static int test_parse_domain(sd_event *e) {
         assert_se(r == 0);
         assert_se(domain);
         assert_se(streq(domain, "example.com"));
-        free(domain);
+        domain = mfree(domain);
 
         data = (uint8_t []) { 4, 't', 'e', 's', 't' };
         r = dhcp6_option_parse_domainname(data, 5, &domain);
         assert_se(r == 0);
         assert_se(domain);
         assert_se(streq(domain, "test"));
-        free(domain);
+        domain = mfree(domain);
 
         data = (uint8_t []) { 0 };
         r = dhcp6_option_parse_domainname(data, 1, &domain);
@@ -141,7 +142,7 @@ static int test_parse_domain(sd_event *e) {
         assert_se(list);
         assert_se(streq(list[0], "example.com"));
         assert_se(streq(list[1], "foobar"));
-        strv_free(list);
+        list = strv_free(list);
 
         data = (uint8_t []) { 1, 'a', 0, 20, 'b', 'c' };
         r = dhcp6_option_parse_domainname_list(data, 6, &list);
