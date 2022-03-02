@@ -259,6 +259,83 @@ static int directory_name_is_valid(const char *name) {
         return false;
 }
 
+static int unit_file_resolve_symlink(
+                const char *root_dir,
+                char **search_path,
+                const char *dir,
+                int dirfd,
+                const char *filename,
+                char **ret_destination) {
+
+        _cleanup_free_ char *target = NULL, *simplified = NULL, *dst = NULL;
+        int r;
+
+        assert(dir);
+        assert(dirfd >= 0);
+        assert(filename);
+        assert(ret_destination);
+
+        r = readlinkat_malloc(dirfd, filename, &target);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read symlink %s%s%s: %m",
+                                         dir, dir ? "/" : "", filename);
+
+        bool is_abs = path_is_absolute(target);
+        if (root_dir || !is_abs) {
+                char *target_abs = path_join(is_abs ? root_dir : dir, target);
+                if (!target_abs)
+                        return log_oom();
+
+                free_and_replace(target, target_abs);
+        }
+
+        /* Get rid of "." and ".." components in target path */
+        r = chase_symlinks(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
+                                         dir, filename, target);
+
+        /* Check if the symlink goes outside of our search path.
+         * If yes, it's a linked unit file or mask, and we don't care about the target name.
+         * Let's just store the link source directly.
+         * If not, let's verify that it's a good symlink. */
+        const char *tail = path_startswith_strv(simplified, search_path);
+        if (!tail) {
+                log_debug("Linked unit file: %s/%s → %s", dir, filename, simplified);
+
+                dst = path_join(dir, filename);
+                if (!dst)
+                        return log_oom();
+
+        } else {
+                r = path_extract_filename(simplified, &dst);
+                if (r < 0)
+                        return r;
+
+                bool self_alias = streq(dst, filename);
+
+                if (is_path(tail))
+                        log_full(self_alias ? LOG_DEBUG : LOG_WARNING,
+                                 "Suspicious symlink %s/%s→%s, treating as alias.",
+                                 dir, filename, simplified);
+
+                r = unit_validate_alias_symlink_and_warn(filename, simplified);
+                if (r < 0)
+                        return r;
+
+                if (self_alias)
+                        /* A self-alias that has no effect */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
+                                               "Unit file self-alias: %s/%s → %s, ignoring.",
+                                               dir, filename, dst);
+
+                log_debug("Unit file alias: %s/%s → %s", dir, filename, dst);
+        }
+
+        *ret_destination = TAKE_PTR(dst);
+        return 0;
+}
+
 int unit_file_build_name_map(
                 const LookupPaths *lp,
                 uint64_t *cache_timestamp_hash,
@@ -308,10 +385,9 @@ int unit_file_build_name_map(
 
                 FOREACH_DIRENT_ALL(de, d, log_warning_errno(errno, "Failed to read \"%s\", ignoring: %m", *dir)) {
                         _unused_ _cleanup_free_ char *_filename_free = NULL;
-                        _cleanup_free_ char *simplified = NULL;
-                        bool symlink_to_dir = false;
-                        const char *dst = NULL;
                         char *filename;
+                        _cleanup_free_ char *dst = NULL;
+                        bool symlink_to_dir = false;
 
                         /* We only care about valid units and dirs with certain suffixes, let's ignore the
                          * rest. */
@@ -395,77 +471,34 @@ int unit_file_build_name_map(
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
 
-                                _cleanup_free_ char *target = NULL;
-
-                                r = readlinkat_malloc(dirfd(d), de->d_name, &target);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to read symlink %s/%s, ignoring: %m",
-                                                          *dir, de->d_name);
+                                r = unit_file_resolve_symlink(lp->root_dir, lp->search_path,
+                                                              *dir, dirfd(d), de->d_name,
+                                                              &dst);
+                                if (r == -ENOMEM)
+                                        return r;
+                                if (r < 0)  /* we ignore other errors here */
                                         continue;
-                                }
-
-                                const bool is_abs = path_is_absolute(target);
-                                if (lp->root_dir || !is_abs) {
-                                        char *target_abs = path_join(is_abs ? lp->root_dir : *dir, target);
-                                        if (!target_abs)
-                                                return log_oom();
-
-                                        free_and_replace(target, target_abs);
-                                }
-
-                                /* Get rid of "." and ".." components in target path */
-                                r = chase_symlinks(target, lp->root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to resolve symlink %s pointing to %s, ignoring: %m",
-                                                          filename, target);
-                                        continue;
-                                }
-
-                                /* Check if the symlink goes outside of our search path.
-                                 * If yes, it's a linked unit file or mask, and we don't care about the target name.
-                                 * Let's just store the link source directly.
-                                 * If not, let's verify that it's a good symlink. */
-                                char *tail = path_startswith_strv(simplified, lp->search_path);
-                                if (!tail) {
-                                        log_debug("%s: linked unit file: %s → %s",
-                                                  __func__, filename, simplified);
-
-                                        dst = filename;
-                                } else {
-
-                                        bool self_alias;
-
-                                        dst = basename(simplified);
-                                        self_alias = streq(dst, de->d_name);
-
-                                        if (is_path(tail))
-                                                log_full(self_alias ? LOG_DEBUG : LOG_WARNING,
-                                                         "Suspicious symlink %s→%s, treating as alias.",
-                                                         filename, simplified);
-
-                                        r = unit_validate_alias_symlink_and_warn(filename, simplified);
-                                        if (r < 0)
-                                                continue;
-
-                                        if (self_alias) {
-                                                /* A self-alias that has no effect */
-                                                log_debug("%s: self-alias: %s/%s → %s, ignoring.",
-                                                          __func__, *dir, de->d_name, dst);
-                                                continue;
-                                        }
-
-                                        log_debug("%s: alias: %s/%s → %s", __func__, *dir, de->d_name, dst);
-                                }
 
                         } else {
-                                dst = filename;
+                                dst = TAKE_PTR(_filename_free); /* Grab the copy we made previously, if available. */
+                                if (!dst) {
+                                        dst = strdup(filename);
+                                        if (!dst)
+                                                return log_oom();
+                                }
+
                                 log_debug("%s: normal unit file: %s", __func__, dst);
                         }
 
-                        r = hashmap_put_strdup(&ids, de->d_name, dst);
+                        _cleanup_free_ char *key = strdup(de->d_name);
+                        if (!key)
+                                return log_oom();
+
+                        r = hashmap_ensure_put(&ids, &string_hash_ops_free_free, key, dst);
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
                                                          de->d_name, dst);
+                        key = dst = NULL;
                 }
         }
 
