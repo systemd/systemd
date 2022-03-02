@@ -15,7 +15,7 @@ udevadm_sources = files(
         'udevadm-util.h',
         'udevd.c')
 
-libudevd_core_sources = [
+libudevd_core_sources = files(
         'udev-ctrl.c',
         'udev-ctrl.h',
         'udev-event.c',
@@ -39,18 +39,18 @@ libudevd_core_sources = [
         'udev-netlink.c',
         'udev-netlink.h',
         'net/link-config.c',
-        'net/link-config.h']
+        'net/link-config.h')
 
 if conf.get('HAVE_KMOD') == 1
-        libudevd_core_sources += ['udev-builtin-kmod.c']
+        libudevd_core_sources += files('udev-builtin-kmod.c')
 endif
 
 if conf.get('HAVE_BLKID') == 1
-        libudevd_core_sources += ['udev-builtin-blkid.c']
+        libudevd_core_sources += files('udev-builtin-blkid.c')
 endif
 
 if conf.get('HAVE_ACL') == 1
-        libudevd_core_sources += ['udev-builtin-uaccess.c']
+        libudevd_core_sources += files('udev-builtin-uaccess.c')
 endif
 
 ############################################################
