@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_coredump_sources = files('''
-        coredump.c
-        coredump-vacuum.c
-        coredump-vacuum.h
-'''.split())
+systemd_coredump_sources = files(
+        'coredump.c',
+        'coredump-vacuum.c',
+        'coredump-vacuum.h')
 
 coredumpctl_sources = files('coredumpctl.c')
 

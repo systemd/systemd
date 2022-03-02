@@ -2,82 +2,79 @@
 
 resolve_includes = [includes, include_directories('.')]
 
-basic_dns_sources = files('''
-        resolved-dns-dnssec.c
-        resolved-dns-dnssec.h
-        resolved-dns-packet.c
-        resolved-dns-packet.h
-        resolved-dns-rr.c
-        resolved-dns-rr.h
-        resolved-dns-answer.c
-        resolved-dns-answer.h
-        resolved-dns-question.c
-        resolved-dns-question.h
-        resolved-util.c
-        resolved-util.h
-        dns-type.c
-        dns-type.h
-'''.split())
+basic_dns_sources = files(
+        'resolved-dns-dnssec.c',
+        'resolved-dns-dnssec.h',
+        'resolved-dns-packet.c',
+        'resolved-dns-packet.h',
+        'resolved-dns-rr.c',
+        'resolved-dns-rr.h',
+        'resolved-dns-answer.c',
+        'resolved-dns-answer.h',
+        'resolved-dns-question.c',
+        'resolved-dns-question.h',
+        'resolved-util.c',
+        'resolved-util.h',
+        'dns-type.c',
+        'dns-type.h')
 
-systemd_resolved_sources = files('''
-        resolved-bus.c
-        resolved-bus.h
-        resolved-conf.c
-        resolved-conf.h
-        resolved-def.h
-        resolved-dns-cache.c
-        resolved-dns-cache.h
-        resolved-dns-query.c
-        resolved-dns-query.h
-        resolved-dns-scope.c
-        resolved-dns-scope.h
-        resolved-dns-search-domain.c
-        resolved-dns-search-domain.h
-        resolved-dns-server.c
-        resolved-dns-server.h
-        resolved-dns-stream.c
-        resolved-dns-stream.h
-        resolved-dns-stub.c
-        resolved-dns-stub.h
-        resolved-dns-synthesize.c
-        resolved-dns-synthesize.h
-        resolved-dns-transaction.c
-        resolved-dns-transaction.h
-        resolved-dns-trust-anchor.c
-        resolved-dns-trust-anchor.h
-        resolved-dns-zone.c
-        resolved-dns-zone.h
-        resolved-dnssd-bus.c
-        resolved-dnssd-bus.h
-        resolved-dnssd.c
-        resolved-dnssd.h
-        resolved-dnstls.h
-        resolved-etc-hosts.c
-        resolved-etc-hosts.h
-        resolved-link-bus.c
-        resolved-link-bus.h
-        resolved-link.c
-        resolved-link.h
-        resolved-llmnr.c
-        resolved-llmnr.h
-        resolved-manager.c
-        resolved-manager.h
-        resolved-mdns.c
-        resolved-mdns.h
-        resolved-resolv-conf.c
-        resolved-resolv-conf.h
-        resolved-socket-graveyard.c
-        resolved-socket-graveyard.h
-        resolved-varlink.c
-        resolved-varlink.h
-'''.split())
+systemd_resolved_sources = files(
+        'resolved-bus.c',
+        'resolved-bus.h',
+        'resolved-conf.c',
+        'resolved-conf.h',
+        'resolved-def.h',
+        'resolved-dns-cache.c',
+        'resolved-dns-cache.h',
+        'resolved-dns-query.c',
+        'resolved-dns-query.h',
+        'resolved-dns-scope.c',
+        'resolved-dns-scope.h',
+        'resolved-dns-search-domain.c',
+        'resolved-dns-search-domain.h',
+        'resolved-dns-server.c',
+        'resolved-dns-server.h',
+        'resolved-dns-stream.c',
+        'resolved-dns-stream.h',
+        'resolved-dns-stub.c',
+        'resolved-dns-stub.h',
+        'resolved-dns-synthesize.c',
+        'resolved-dns-synthesize.h',
+        'resolved-dns-transaction.c',
+        'resolved-dns-transaction.h',
+        'resolved-dns-trust-anchor.c',
+        'resolved-dns-trust-anchor.h',
+        'resolved-dns-zone.c',
+        'resolved-dns-zone.h',
+        'resolved-dnssd-bus.c',
+        'resolved-dnssd-bus.h',
+        'resolved-dnssd.c',
+        'resolved-dnssd.h',
+        'resolved-dnstls.h',
+        'resolved-etc-hosts.c',
+        'resolved-etc-hosts.h',
+        'resolved-link-bus.c',
+        'resolved-link-bus.h',
+        'resolved-link.c',
+        'resolved-link.h',
+        'resolved-llmnr.c',
+        'resolved-llmnr.h',
+        'resolved-manager.c',
+        'resolved-manager.h',
+        'resolved-mdns.c',
+        'resolved-mdns.h',
+        'resolved-resolv-conf.c',
+        'resolved-resolv-conf.h',
+        'resolved-socket-graveyard.c',
+        'resolved-socket-graveyard.h',
+        'resolved-varlink.c',
+        'resolved-varlink.h')
 
-resolvectl_sources = files('''
-         resolvconf-compat.c
-         resolvconf-compat.h
-         resolvectl.c
-         resolvectl.h
-'''.split())
+resolvectl_sources = files(
+         'resolvconf-compat.c',
+         'resolvconf-compat.h',
+         'resolvectl.c',
+         'resolvectl.h')
 
 ############################################################
 

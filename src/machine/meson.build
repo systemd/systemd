@@ -1,24 +1,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_machined_sources = files('''
-        machined.c
-        machined.h
-'''.split())
+systemd_machined_sources = files(
+        'machined.c',
+        'machined.h')
 
-libmachine_core_sources = files('''
-        image-dbus.c
-        image-dbus.h
-        machine-dbus.c
-        machine-dbus.h
-        machine.c
-        machine.h
-        machined-core.c
-        machined-dbus.c
-        machined-varlink.c
-        machined-varlink.h
-        operation.c
-        operation.h
-'''.split())
+libmachine_core_sources = files(
+        'image-dbus.c',
+        'image-dbus.h',
+        'machine-dbus.c',
+        'machine-dbus.h',
+        'machine.c',
+        'machine.h',
+        'machined-core.c',
+        'machined-dbus.c',
+        'machined-varlink.c',
+        'machined-varlink.h',
+        'operation.c',
+        'operation.h')
 
 libmachine_core = static_library(
         'machine-core',

@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_logind_sources = files('''
-        logind.c
-        logind.h
-'''.split())
+systemd_logind_sources = files(
+        'logind.c',
+        'logind.h')
 
 logind_gperf_c = custom_target(
         'logind_gperf.c',
@@ -11,38 +10,37 @@ logind_gperf_c = custom_target(
         output : 'logind-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-liblogind_core_sources = files('''
-        logind-action.c
-        logind-action.h
-        logind-brightness.c
-        logind-brightness.h
-        logind-button.c
-        logind-button.h
-        logind-core.c
-        logind-dbus.c
-        logind-dbus.h
-        logind-device.c
-        logind-device.h
-        logind-inhibit.c
-        logind-inhibit.h
-        logind-polkit.c
-        logind-polkit.h
-        logind-seat-dbus.c
-        logind-seat-dbus.h
-        logind-seat.c
-        logind-seat.h
-        logind-session-dbus.c
-        logind-session-dbus.h
-        logind-session-device.c
-        logind-session-device.h
-        logind-session.c
-        logind-session.h
-        logind-user-dbus.c
-        logind-user-dbus.h
-        logind-user.c
-        logind-user.h
-        logind-utmp.c
-'''.split())
+liblogind_core_sources = files(
+        'logind-action.c',
+        'logind-action.h',
+        'logind-brightness.c',
+        'logind-brightness.h',
+        'logind-button.c',
+        'logind-button.h',
+        'logind-core.c',
+        'logind-dbus.c',
+        'logind-dbus.h',
+        'logind-device.c',
+        'logind-device.h',
+        'logind-inhibit.c',
+        'logind-inhibit.h',
+        'logind-polkit.c',
+        'logind-polkit.h',
+        'logind-seat-dbus.c',
+        'logind-seat-dbus.h',
+        'logind-seat.c',
+        'logind-seat.h',
+        'logind-session-dbus.c',
+        'logind-session-dbus.h',
+        'logind-session-device.c',
+        'logind-session-device.h',
+        'logind-session.c',
+        'logind-session.h',
+        'logind-user-dbus.c',
+        'logind-user-dbus.h',
+        'logind-user.c',
+        'logind-user.h',
+        'logind-utmp.c')
 
 liblogind_core_sources += [logind_gperf_c]
 
@@ -53,15 +51,12 @@ liblogind_core = static_library(
         dependencies : libacl,
         build_by_default : false)
 
-loginctl_sources = files('''
-        loginctl.c
-        sysfs-show.h
-        sysfs-show.c
-'''.split())
+loginctl_sources = files(
+        'loginctl.c',
+        'sysfs-show.h',
+        'sysfs-show.c')
 
-user_runtime_dir_sources = files('''
-        user-runtime-dir.c
-'''.split())
+user_runtime_dir_sources = files('user-runtime-dir.c')
 
 pam_systemd_sym = 'src/login/pam_systemd.sym'
 pam_systemd_c = files('pam_systemd.c')

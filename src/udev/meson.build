@@ -1,47 +1,45 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-udevadm_sources = files('''
-        udevadm.c
-        udevadm.h
-        udevadm-control.c
-        udevadm-hwdb.c
-        udevadm-info.c
-        udevadm-monitor.c
-        udevadm-settle.c
-        udevadm-test.c
-        udevadm-test-builtin.c
-        udevadm-trigger.c
-        udevadm-util.c
-        udevadm-util.h
-        udevd.c
-'''.split())
+udevadm_sources = files(
+        'udevadm.c',
+        'udevadm.h',
+        'udevadm-control.c',
+        'udevadm-hwdb.c',
+        'udevadm-info.c',
+        'udevadm-monitor.c',
+        'udevadm-settle.c',
+        'udevadm-test.c',
+        'udevadm-test-builtin.c',
+        'udevadm-trigger.c',
+        'udevadm-util.c',
+        'udevadm-util.h',
+        'udevd.c')
 
-libudevd_core_sources = '''
-        udev-ctrl.c
-        udev-ctrl.h
-        udev-event.c
-        udev-event.h
-        udev-node.c
-        udev-node.h
-        udev-rules.c
-        udev-rules.h
-        udev-watch.c
-        udev-watch.h
-        udev-builtin.c
-        udev-builtin.h
-        udev-builtin-btrfs.c
-        udev-builtin-hwdb.c
-        udev-builtin-input_id.c
-        udev-builtin-keyboard.c
-        udev-builtin-net_id.c
-        udev-builtin-net_setup_link.c
-        udev-builtin-path_id.c
-        udev-builtin-usb_id.c
-        udev-netlink.c
-        udev-netlink.h
-        net/link-config.c
-        net/link-config.h
-'''.split()
+libudevd_core_sources = [
+        'udev-ctrl.c',
+        'udev-ctrl.h',
+        'udev-event.c',
+        'udev-event.h',
+        'udev-node.c',
+        'udev-node.h',
+        'udev-rules.c',
+        'udev-rules.h',
+        'udev-watch.c',
+        'udev-watch.h',
+        'udev-builtin.c',
+        'udev-builtin.h',
+        'udev-builtin-btrfs.c',
+        'udev-builtin-hwdb.c',
+        'udev-builtin-input_id.c',
+        'udev-builtin-keyboard.c',
+        'udev-builtin-net_id.c',
+        'udev-builtin-net_setup_link.c',
+        'udev-builtin-path_id.c',
+        'udev-builtin-usb_id.c',
+        'udev-netlink.c',
+        'udev-netlink.h',
+        'net/link-config.c',
+        'net/link-config.h']
 
 if conf.get('HAVE_KMOD') == 1
         libudevd_core_sources += ['udev-builtin-kmod.c']
