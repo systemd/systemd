@@ -15,6 +15,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "locale-util.h"
 #include "path-util.h"
@@ -112,6 +113,9 @@ static int add_locales_from_archive(Set *locales) {
 
         if (st.st_size < (off_t) sizeof(struct locarhead))
                 return -EBADMSG;
+
+        if (file_offset_beyond_memory_size(st.st_size))
+                return -EFBIG;
 
         p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED)
