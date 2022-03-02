@@ -219,7 +219,7 @@ static int get_file_version(int fd, char **v) {
         if (r < 0)
                 return log_error_errno(r, "EFI binary is not a regular file: %m");
 
-        if (st.st_size < 27) {
+        if (st.st_size < 27 || (uintmax_t) st.st_size > SIZE_MAX) {
                 *v = NULL;
                 return 0;
         }

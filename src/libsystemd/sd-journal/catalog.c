@@ -521,10 +521,10 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (st.st_size < (off_t) sizeof(CatalogHeader))
+        if (st.st_size < (off_t) sizeof(CatalogHeader) || (uintmax_t) st.st_size > SIZE_MAX)
                 return -EINVAL;
 
-        p = mmap(NULL, PAGE_ALIGN(st.st_size), PROT_READ, MAP_SHARED, fd, 0);
+        p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED)
                 return -errno;
 
