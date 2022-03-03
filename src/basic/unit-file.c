@@ -261,7 +261,7 @@ static int directory_name_is_valid(const char *name) {
         return false;
 }
 
-static int unit_file_resolve_symlink(
+int unit_file_resolve_symlink(
                 const char *root_dir,
                 char **search_path,
                 const char *dir,
@@ -270,18 +270,31 @@ static int unit_file_resolve_symlink(
                 char **ret_simplified,
                 const char **ret_dst) {
 
-        _cleanup_free_ char *target = NULL, *simplified = NULL;
+        _cleanup_free_ char *target = NULL, *simplified = NULL, *_dir = NULL;
         const char *dst;
         int r;
 
-        assert(dir);
-        assert(dirfd >= 0);
+        /* This can be called with either dir+dirfd valid and filename just a name,
+         * or !dir && dirfd==AT_FDCWD, and filename being a full path. */
+
         assert(filename);
+        assert(dir || path_is_absolute(filename));
+        assert(dirfd >= 0 || dirfd == AT_FDCWD);
 
         r = readlinkat_malloc(dirfd, filename, &target);
         if (r < 0)
                 return log_warning_errno(r, "Failed to read symlink %s%s%s: %m",
                                          dir, dir ? "/" : "", filename);
+
+        if (!dir) {
+                assert(is_path(filename));
+                r = path_extract_directory(filename, &_dir);
+                if (r < 0)
+                        return r;
+
+                dir = _dir;
+                filename = basename(filename);
+        }
 
         const bool is_abs = path_is_absolute(target);
         if (root_dir || !is_abs) {
