@@ -28,7 +28,8 @@ libnspawn_core_sources = files(
         'nspawn-setuid.h',
         'nspawn-stub-pid1.c',
         'nspawn-stub-pid1.h',
-        'nspawn.h')
+        'nspawn.h',
+)
 
 nspawn_gperf_c = custom_target(
         'nspawn-gperf.c',

@@ -3,7 +3,8 @@
 systemd_localed_sources = files(
         'localed.c',
         'keymap-util.c',
-        'keymap-util.h')
+        'keymap-util.h',
+)
 
 localectl_sources = files('localectl.c')
 

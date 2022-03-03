@@ -7,7 +7,8 @@ systemd_oomd_sources = files(
         'oomd-manager.h',
         'oomd-util.c',
         'oomd-util.h',
-        'oomd.c')
+        'oomd.c',
+)
 
 oomctl_sources = files('oomctl.c')
 

@@ -13,7 +13,8 @@ udevadm_sources = files(
         'udevadm-trigger.c',
         'udevadm-util.c',
         'udevadm-util.h',
-        'udevd.c')
+        'udevd.c',
+)
 
 libudevd_core_sources = files(
         'udev-ctrl.c',
@@ -39,7 +40,8 @@ libudevd_core_sources = files(
         'udev-netlink.c',
         'udev-netlink.h',
         'net/link-config.c',
-        'net/link-config.h')
+        'net/link-config.h',
+)
 
 if conf.get('HAVE_KMOD') == 1
         libudevd_core_sources += files('udev-builtin-kmod.c')

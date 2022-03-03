@@ -2,7 +2,8 @@
 
 systemd_logind_sources = files(
         'logind.c',
-        'logind.h')
+        'logind.h',
+)
 
 logind_gperf_c = custom_target(
         'logind_gperf.c',
@@ -40,7 +41,8 @@ liblogind_core_sources = files(
         'logind-user-dbus.h',
         'logind-user.c',
         'logind-user.h',
-        'logind-utmp.c')
+        'logind-utmp.c',
+)
 
 liblogind_core_sources += [logind_gperf_c]
 
@@ -54,7 +56,8 @@ liblogind_core = static_library(
 loginctl_sources = files(
         'loginctl.c',
         'sysfs-show.h',
-        'sysfs-show.c')
+        'sysfs-show.c',
+)
 
 user_runtime_dir_sources = files('user-runtime-dir.c')
 

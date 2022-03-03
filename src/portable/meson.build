@@ -11,7 +11,8 @@ systemd_portabled_sources = files(
         'portabled-operation.c',
         'portabled-operation.h',
         'portabled.c',
-        'portabled.h')
+        'portabled.h',
+)
 
 if conf.get('ENABLE_PORTABLED') == 1
         install_data('org.freedesktop.portable1.conf',
