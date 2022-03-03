@@ -66,6 +66,12 @@ ENV{ID_REMOTE_CONTROL}=="1", TAG+="uaccess"
 # joysticks
 SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="uaccess"
 
+# keyboards
+SUBSYSTEM=="input", ENV{ID_INPUT_KEYBOARD}=="?*", TAG+="uaccess"
+
+# mice
+SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="?*", TAG+="uaccess"
+
 # color measurement devices
 ENV{COLOR_MEASUREMENT_DEVICE}=="?*", TAG+="uaccess"
 
