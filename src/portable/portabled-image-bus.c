@@ -109,7 +109,6 @@ int bus_image_common_get_metadata(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
         PortableFlags flags = 0;
-        size_t i;
         int r;
 
         assert(name_or_path || image);
@@ -217,7 +216,7 @@ int bus_image_common_get_metadata(
                 }
         }
 
-        for (i = 0; i < hashmap_size(unit_files); i++) {
+        for (size_t i = 0; i < hashmap_size(unit_files); i++) {
 
                 r = sd_bus_message_open_container(reply, 'e', "say");
                 if (r < 0)
