@@ -3,7 +3,8 @@
 systemd_shutdown_sources = files(
         'shutdown.c',
         'umount.c',
-        'umount.h')
+        'umount.h',
+)
 
 tests += [
         [['src/shutdown/test-umount.c',

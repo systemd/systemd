@@ -12,7 +12,8 @@ _systemd_headers = [
         'sd-journal.h',
         'sd-login.h',
         'sd-messages.h',
-        'sd-path.h']
+        'sd-path.h',
+]
 
 # https://github.com/mesonbuild/meson/issues/1633
 systemd_headers = files(_systemd_headers)
@@ -35,7 +36,8 @@ _not_installed_headers = [
         'sd-network.h',
         'sd-radv.h',
         'sd-resolve.h',
-        'sd-utf8.h']
+        'sd-utf8.h',
+]
 
 install_headers(
         systemd_headers,

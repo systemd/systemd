@@ -330,13 +330,15 @@ shared_sources = files(
         'wifi-util.c',
         'wifi-util.h',
         'xml.c',
-        'xml.h')
+        'xml.h',
+)
 
 if get_option('tests') != 'false'
         shared_sources += files(
                 'test-tables.h',
                 'tests.c',
-                'tests.h')
+                'tests.h',
+        )
 endif
 
 generate_syscall_list = find_program('generate-syscall-list.py')
@@ -352,7 +354,8 @@ syscall_list_h = custom_target(
 if conf.get('HAVE_ACL') == 1
         shared_sources += files(
                 'acl-util.c',
-                'devnode-acl.c')
+                'devnode-acl.c',
+        )
 endif
 
 if conf.get('ENABLE_UTMP') == 1
@@ -371,7 +374,8 @@ endif
 if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files(
                 'bpf-link.c',
-                'bpf-link.h')
+                'bpf-link.h',
+        )
 endif
 
 if conf.get('HAVE_KMOD') == 1
@@ -381,7 +385,8 @@ endif
 if conf.get('HAVE_PAM') == 1
         shared_sources += files(
                 'pam-util.c',
-                'pam-util.h')
+                'pam-util.h',
+        )
 endif
 
 if conf.get('ENABLE_NSCD') == 1

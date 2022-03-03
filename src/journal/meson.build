@@ -22,7 +22,8 @@ sources = files(
         'journald-syslog.c',
         'journald-syslog.h',
         'journald-wall.c',
-        'journald-wall.h')
+        'journald-wall.h',
+)
 
 sources += custom_target(
         'journald-gperf.c',
@@ -41,7 +42,8 @@ journal_includes = [includes, include_directories('.')]
 
 systemd_journald_sources = files(
         'journald.c',
-        'journald-server.h')
+        'journald-server.h',
+)
 
 systemd_cat_sources = files('cat.c')
 

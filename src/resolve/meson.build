@@ -16,7 +16,8 @@ basic_dns_sources = files(
         'resolved-util.c',
         'resolved-util.h',
         'dns-type.c',
-        'dns-type.h')
+        'dns-type.h',
+)
 
 systemd_resolved_sources = files(
         'resolved-bus.c',
@@ -69,13 +70,15 @@ systemd_resolved_sources = files(
         'resolved-socket-graveyard.h',
         'resolved-varlink.c',
         'resolved-varlink.h',
-        'resolved.c')
+        'resolved.c',
+)
 
 resolvectl_sources = files(
          'resolvconf-compat.c',
          'resolvconf-compat.h',
          'resolvectl.c',
-         'resolvectl.h')
+         'resolvectl.h',
+)
 
 ############################################################
 
@@ -137,12 +140,14 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
                 systemd_resolved_sources += files(
                         'resolved-dnstls-gnutls.c',
-                        'resolved-dnstls-gnutls.h')
+                        'resolved-dnstls-gnutls.h',
+                )
                 systemd_resolved_dependencies += libgnutls
         elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
                 systemd_resolved_sources += files(
                         'resolved-dnstls-openssl.c',
-                        'resolved-dnstls-openssl.h')
+                        'resolved-dnstls-openssl.h',
+                )
                 systemd_resolved_dependencies += libopenssl
         else
                 error('unknown dependency for supporting DNS-over-TLS')

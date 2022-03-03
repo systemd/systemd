@@ -43,7 +43,8 @@ sources = files(
         'sd-lldp-rx.c',
         'sd-lldp-tx.c',
         'sd-ndisc.c',
-        'sd-radv.c')
+        'sd-radv.c',
+)
 
 libsystemd_network = static_library(
         'systemd-network',

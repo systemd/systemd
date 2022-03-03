@@ -24,7 +24,8 @@ systemd_homework_sources = files(
         'homework.c',
         'homework.h',
         'user-record-util.c',
-        'user-record-util.h')
+        'user-record-util.h',
+)
 
 if conf.get('HAVE_P11KIT') == 1
         systemd_homework_sources += files('homework-pkcs11.c')
@@ -58,7 +59,8 @@ systemd_homed_sources = files(
         'user-record-sign.c',
         'user-record-sign.h',
         'user-record-util.c',
-        'user-record-util.h')
+        'user-record-util.h',
+)
 
 homed_gperf_c = custom_target(
         'homed_gperf.c',
@@ -81,7 +83,8 @@ homectl_sources = files(
         'user-record-pwquality.c',
         'user-record-pwquality.h',
         'user-record-util.c',
-        'user-record-util.h')
+        'user-record-util.h',
+)
 
 pam_systemd_home_sym = 'src/home/pam_systemd_home.sym'
 pam_systemd_home_c = files(
@@ -89,7 +92,8 @@ pam_systemd_home_c = files(
         'home-util.h',
         'pam_systemd_home.c',
         'user-record-util.c',
-        'user-record-util.h')
+        'user-record-util.h',
+)
 
 if conf.get('ENABLE_HOMED') == 1
         install_data('org.freedesktop.home1.conf',
