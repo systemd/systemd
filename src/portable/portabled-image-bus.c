@@ -108,7 +108,7 @@ int bus_image_common_get_metadata(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
-        PortableFlags flags = 0;
+        uint64_t flags = 0;
         int r;
 
         assert(name_or_path || image);
@@ -119,8 +119,11 @@ int bus_image_common_get_metadata(
                 m = image->userdata;
         }
 
-        if (sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "GetMetadataWithExtensions")) {
+        bool have_exti = sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions2") ||
+                         sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions") ||
+                         sd_bus_message_is_method_call(message, NULL, "GetMetadataWithExtensions");
+
+        if (have_exti) {
                 r = sd_bus_message_read_strv(message, &extension_images);
                 if (r < 0)
                         return r;
@@ -130,8 +133,7 @@ int bus_image_common_get_metadata(
         if (r < 0)
                 return r;
 
-        if (sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions") ||
-            sd_bus_message_is_method_call(message, NULL, "GetMetadataWithExtensions")) {
+        if (have_exti) {
                 uint64_t input_flags = 0;
 
                 r = sd_bus_message_read(message, "t", &input_flags);
@@ -186,15 +188,15 @@ int bus_image_common_get_metadata(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(reply, 'a', "{say}");
-        if (r < 0)
-                return r;
-
         /* If it was requested, also send back the extension path and the content
          * of each extension-release file. Behind a flag, as it's an incompatible
          * change. */
-        if (FLAGS_SET(flags, PORTABLE_INSPECT_EXTENSION_RELEASES)) {
+        if (sd_bus_message_is_method_call(message, NULL, "GetImageMetadataWithExtensions2")) {
                 PortableMetadata *extension_release;
+
+                r = sd_bus_message_open_container(reply, 'a', "{say}");
+                if (r < 0)
+                        return r;
 
                 ORDERED_HASHMAP_FOREACH(extension_release, extension_releases) {
 
@@ -214,7 +216,15 @@ int bus_image_common_get_metadata(
                         if (r < 0)
                                 return r;
                 }
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
         }
+
+        r = sd_bus_message_open_container(reply, 'a', "{say}");
+        if (r < 0)
+                return r;
 
         for (size_t i = 0; i < hashmap_size(unit_files); i++) {
 
