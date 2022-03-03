@@ -324,6 +324,7 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
+        EFI_FILE_IO_INTERFACE *volume;
 
         assert(loaded_image);
         assert(target_dir_prefix);
@@ -336,9 +337,24 @@ EFI_STATUS pack_cpio(
                 return EFI_SUCCESS;
         }
 
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
+        err = uefi_call_wrapper(BS->HandleProtocol, 3, loaded_image->DeviceHandle,
+                                &FileSystemProtocol, (VOID*)&volume);
+        /* It will be unsupported if not vfat. This can happen if the efi was
+         * loaded by a bootloader with support for non-vfat partitions, like
+         * grub. Do not stall in that case.
+         */
+        if (err == EFI_UNSUPPORTED)
+                return err;
+        if (EFI_ERROR(err)) {
+                return log_error_status_stall(
+                                err, L"Unable to load file system protocol: %r", err);
+        }
+
+        err = uefi_call_wrapper(volume->OpenVolume, 2, volume, &root);
+        if (EFI_ERROR(err)) {
+                return log_error_status_stall(
+                                err, L"Unable to open root directory: %r", err);
+        }
 
         if (!dropin_dir)
                 dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
