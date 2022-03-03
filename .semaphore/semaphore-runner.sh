@@ -42,7 +42,7 @@ apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 # The following four are needed as long as these deps are not covered by Debian's own packaging
-apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev
+apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
