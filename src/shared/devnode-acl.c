@@ -123,14 +123,13 @@ int devnode_acl(const char *path,
                 }
         }
 
-        if (!changed)
-                return 0;
+        if (changed) {
+                if (acl_calc_mask(&acl) < 0)
+                        return -errno;
 
-        if (acl_calc_mask(&acl) < 0)
-                return -errno;
-
-        if (acl_set_file(path, ACL_TYPE_ACCESS, acl) < 0)
-                return -errno;
+                if (acl_set_file(path, ACL_TYPE_ACCESS, acl) < 0)
+                        return -errno;
+        }
 
         return 0;
 }
