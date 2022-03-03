@@ -54,6 +54,7 @@ node /org/freedesktop/portable1 {
                                      in  t flags,
                                      out s image,
                                      out ay os_release,
+                                     out a{say} extensions,
                                      out a{say} units);
       GetImageState(in  s image,
                     out s state);
@@ -189,19 +190,12 @@ node /org/freedesktop/portable1 {
       and a list of portable units contained in the image, in the form of a string (unit name) and
       an array of bytes with the content.</para>
 
-      <para><function>GetImageMetadataWithExtensions()</function> retrieves metadata associated with an image.
-      This method is a superset of <function>GetImageMetadata()</function> with the addition of
-      a list of extensions as input parameter, which were overlaid on top of the main
-      image via <function>AttachImageWithExtensions()</function>.
-      The <varname>flag</varname> parameter can be used to request that, before the units, the path of
-      each extension and an array of bytes with the content of the respective extension-release file
-      are sent. One such structure will be sent for each extension named in the input arguments. The
-      flag value to enable this functionality is defined as follows:</para>
-
-      <programlisting>
-#define PORTABLE_INSPECT_EXTENSION_RELEASES  (UINT64_C(1) &lt;&lt; 1)
-      </programlisting>
-
+      <para><function>GetImageMetadataWithExtensions()</function> retrieves metadata associated with an
+      image. This method is a superset of <function>GetImageMetadata()</function> with the addition of a list
+      of extensions as input parameter, which were overlaid on top of the main image via
+      <function>AttachImageWithExtensions()</function>. The path of each extension and an array of bytes with
+      the content of the respective extension-release file are returned, one such structure for each
+      extension named in the input arguments.</para>
 
       <para><function>GetImageState()</function> retrieves the image state as one of the following
       strings:
@@ -352,6 +346,7 @@ node /org/freedesktop/portable1 {
                                 in  t flags,
                                 out s image,
                                 out ay os_release,
+                                out a{say} extensions,
                                 out a{say} units);
       GetState(out s state);
       GetStateWithExtensions(in  as extensions,

@@ -260,7 +260,7 @@ static int maybe_reload(sd_bus **bus) {
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        PortableFlags flags = PORTABLE_INSPECT_EXTENSION_RELEASES;
+        uint64_t flags = 0;
         const char *method;
         int r;
 
@@ -362,77 +362,88 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                        strna(pretty_os));
         }
 
-        r = sd_bus_message_enter_container(reply, 'a', "{say}");
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (!strv_isempty(arg_extension_images)) {
+                /* If we specified any extensions, we'll first get back exactly the paths (and
+                 * extension-release content) for each one of the arguments. */
 
-        /* If we specified any extensions, we'll first get back exactly the
-         * paths (and extension-release content) for each one of the arguments. */
-        for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
-                const char *name;
-
-                r = sd_bus_message_enter_container(reply, 'e', "say");
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0)
-                        break;
-
-                r = sd_bus_message_read(reply, "s", &name);
+                r = sd_bus_message_enter_container(reply, 'a', "{say}");
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_bus_message_read_array(reply, 'y', &data, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
+                        const char *name;
 
-                if (arg_cat) {
-                        if (nl)
-                                fputc('\n', stdout);
-
-                        printf("%s-- Extension Release: %s --%s\n", ansi_highlight(), name, ansi_normal());
-                        fwrite(data, sz, 1, stdout);
-                        fflush(stdout);
-                        nl = true;
-                } else {
-                        _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
-                                *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
-                        _cleanup_fclose_ FILE *f = NULL;
-
-                        f = fmemopen_unlocked((void*) data, sz, "re");
-                        if (!f)
-                                return log_error_errno(errno, "Failed to open extension-release buffer: %m");
-
-                        r = parse_env_file(f, name,
-                                           "ID", &id,
-                                           "VERSION_ID", &version_id,
-                                           "SYSEXT_SCOPE", &sysext_scope,
-                                           "SYSEXT_LEVEL", &sysext_level,
-                                           "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                           "PORTABLE_PREFIXES", &portable_prefixes,
-                                           "PRETTY_NAME", &pretty_os);
+                        r = sd_bus_message_enter_container(reply, 'e', "say");
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
+                                return bus_log_parse_error(r);
+                        if (r == 0)
+                                break;
 
-                        printf("Extension:\n\t%s\n"
-                                "\tExtension Scope:\n\t\t%s\n"
-                                "\tExtension Compatibility Level:\n\t\t%s\n"
-                                "\tPortable Service:\n\t\t%s\n"
-                                "\tPortable Prefixes:\n\t\t%s\n"
-                                "\tOperating System:\n\t\t%s (%s %s)\n",
-                                name,
-                                strna(sysext_scope),
-                                strna(sysext_level),
-                                strna(pretty_portable),
-                                strna(portable_prefixes),
-                                strna(pretty_os),
-                                strna(id),
-                                strna(version_id));
+                        r = sd_bus_message_read(reply, "s", &name);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(reply, 'y', &data, &sz);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (arg_cat) {
+                                if (nl)
+                                        fputc('\n', stdout);
+
+                                printf("%s-- Extension Release: %s --%s\n", ansi_highlight(), name, ansi_normal());
+                                fwrite(data, sz, 1, stdout);
+                                fflush(stdout);
+                                nl = true;
+                        } else {
+                                _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
+                                        *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
+                                _cleanup_fclose_ FILE *f = NULL;
+
+                                f = fmemopen_unlocked((void*) data, sz, "re");
+                                if (!f)
+                                        return log_error_errno(errno, "Failed to open extension-release buffer: %m");
+
+                                r = parse_env_file(f, name,
+                                                   "ID", &id,
+                                                   "VERSION_ID", &version_id,
+                                                   "SYSEXT_SCOPE", &sysext_scope,
+                                                   "SYSEXT_LEVEL", &sysext_level,
+                                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                                   "PORTABLE_PREFIXES", &portable_prefixes,
+                                                   "PRETTY_NAME", &pretty_os);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
+
+                                printf("Extension:\n\t%s\n"
+                                       "\tExtension Scope:\n\t\t%s\n"
+                                       "\tExtension Compatibility Level:\n\t\t%s\n"
+                                       "\tPortable Service:\n\t\t%s\n"
+                                       "\tPortable Prefixes:\n\t\t%s\n"
+                                       "\tOperating System:\n\t\t%s (%s %s)\n",
+                                       name,
+                                       strna(sysext_scope),
+                                       strna(sysext_level),
+                                       strna(pretty_portable),
+                                       strna(portable_prefixes),
+                                       strna(pretty_os),
+                                       strna(id),
+                                       strna(version_id));
+                        }
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
                 }
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
+
+        r = sd_bus_message_enter_container(reply, 'a', "{say}");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         for (;;) {
                 const char *name;
@@ -764,17 +775,16 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = sd_bus_message_enter_container(reply, 'a', "{say}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        /* If we specified any extensions, we'll first get back exactly the
-         * paths (and extension-release content) for each one of the arguments. */
-        for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
-                r = sd_bus_message_skip(reply, "{say}");
+        /* If we specified any extensions, we'll first an array of extension-release metadata. */
+        if (!strv_isempty(arg_extension_images)) {
+                r = sd_bus_message_skip(reply, "a{say}");
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
+
+        r = sd_bus_message_enter_container(reply, 'a', "{say}");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         for (;;) {
                 const char *name;

@@ -441,6 +441,7 @@ const sd_bus_vtable manager_vtable[] = {
                                             "t", flags),
                                 SD_BUS_RESULT("s", image,
                                               "ay", os_release,
+                                              "a{say}", extensions,
                                               "a{say}", units),
                                 method_get_image_metadata,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
