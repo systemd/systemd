@@ -19,6 +19,6 @@ ConditionPathIsReadWrite=/sys
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/udevadm trigger --type=devices -s block --action=add
-ExecStart=/bin/udevadm trigger --type=subsystems --action=add
-ExecStart=/bin/udevadm trigger --type=devices -S block --action=add
+ExecStart=-udevadm trigger --type=devices -s block --action=add
+ExecStart=-udevadm trigger --type=subsystems --action=add
+ExecStart=-udevadm trigger --type=devices -S block --action=add
