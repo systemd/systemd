@@ -52,8 +52,8 @@ int devnode_acl(const char *path,
                 bool del, uid_t old_uid,
                 bool add, uid_t new_uid) {
 
-        acl_t acl;
-        int r = 0;
+        _cleanup_(acl_freep) acl_t acl = NULL;
+        int r;
         bool changed = false;
 
         assert(path);
@@ -66,7 +66,7 @@ int devnode_acl(const char *path,
 
                 r = flush_acl(acl);
                 if (r < 0)
-                        goto finish;
+                        return r;
                 if (r > 0)
                         changed = true;
 
@@ -75,13 +75,11 @@ int devnode_acl(const char *path,
 
                 r = acl_find_uid(acl, old_uid, &entry);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 if (r > 0) {
-                        if (acl_delete_entry(acl, entry) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (acl_delete_entry(acl, entry) < 0)
+                                return -errno;
 
                         changed = true;
                 }
@@ -94,68 +92,47 @@ int devnode_acl(const char *path,
 
                 r = acl_find_uid(acl, new_uid, &entry);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 if (r == 0) {
-                        if (acl_create_entry(&acl, &entry) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (acl_create_entry(&acl, &entry) < 0)
+                                return -errno;
 
                         if (acl_set_tag_type(entry, ACL_USER) < 0 ||
-                            acl_set_qualifier(entry, &new_uid) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                            acl_set_qualifier(entry, &new_uid) < 0)
+                                return -errno;
                 }
 
-                if (acl_get_permset(entry, &permset) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (acl_get_permset(entry, &permset) < 0)
+                        return -errno;
 
                 rd = acl_get_perm(permset, ACL_READ);
-                if (rd < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (rd < 0)
+                        return -errno;
 
                 wt = acl_get_perm(permset, ACL_WRITE);
-                if (wt < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (wt < 0)
+                        return -errno;
 
                 if (!rd || !wt) {
 
-                        if (acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        if (acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0)
+                                return -errno;
 
                         changed = true;
                 }
         }
 
         if (!changed)
-                goto finish;
+                return 0;
 
-        if (acl_calc_mask(&acl) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (acl_calc_mask(&acl) < 0)
+                return -errno;
 
-        if (acl_set_file(path, ACL_TYPE_ACCESS, acl) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (acl_set_file(path, ACL_TYPE_ACCESS, acl) < 0)
+                return -errno;
 
-        r = 0;
-
-finish:
-        acl_free(acl);
-
-        return r;
+        return 0;
 }
 
 int devnode_acl_all(const char *seat,
