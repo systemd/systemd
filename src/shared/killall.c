@@ -81,15 +81,16 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 static void log_children_no_yet_killed(Set *pids) {
         _cleanup_free_ char *lst_child = NULL;
         void *p;
+        int r;
 
         SET_FOREACH(p, pids) {
                 _cleanup_free_ char *s = NULL;
-                char fallback[DECIMAL_STR_MAX(pid_t)];
 
-                if (get_process_comm(PTR_TO_PID(p), &s) < 0)
-                        xsprintf(fallback, PID_FMT, PTR_TO_PID(p));
-
-                if (!strextend(&lst_child, ", ", s ?: fallback))
+                if (get_process_comm(PTR_TO_PID(p), &s) >= 0)
+                        r = strextendf(&lst_child, ", " PID_FMT " (%s)", PTR_TO_PID(p), s);
+                else
+                        r = strextendf(&lst_child, ", " PID_FMT, PTR_TO_PID(p));
+                if (r < 0)
                         return (void) log_oom();
         }
 
