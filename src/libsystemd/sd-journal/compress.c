@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "macro.h"
@@ -806,6 +807,9 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
 
         if (fstat(in, &st) < 0)
                 return log_debug_errno(errno, "fstat() failed: %m");
+
+        if (file_offset_beyond_memory_size(st.st_size))
+                return -EFBIG;
 
         buf = malloc(LZ4_BUFSIZE);
         if (!buf)
