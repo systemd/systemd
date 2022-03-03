@@ -607,7 +607,7 @@ ExecStart=sleep 120
 EOF
         cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw" -noappend
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_0.raw" -noappend -quiet
         veritysetup format "$oldinitdir/usr/share/minimal_0.raw" "$oldinitdir/usr/share/minimal_0.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_0.roothash"
 
@@ -615,7 +615,7 @@ EOF
         rm "$initdir/usr/lib/systemd/system/minimal-app0-foo.service"
         cp "$initdir/usr/lib/systemd/system/minimal-app0.service" "$initdir/usr/lib/systemd/system/minimal-app0-bar.service"
 
-        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw" -noappend
+        mksquashfs "$initdir" "$oldinitdir/usr/share/minimal_1.raw" -noappend -quiet
         veritysetup format "$oldinitdir/usr/share/minimal_1.raw" "$oldinitdir/usr/share/minimal_1.verity" | \
             grep '^Root hash:' | cut -f2 | tr -d '\n' >"$oldinitdir/usr/share/minimal_1.roothash"
 
@@ -647,7 +647,7 @@ cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend -quiet
 
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
@@ -673,7 +673,7 @@ cat /usr/lib/extension-release.d/extension-release.app2
 EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
-        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw" -noappend
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app1.raw" -noappend -quiet
     )
 }
 
