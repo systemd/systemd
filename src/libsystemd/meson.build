@@ -21,14 +21,16 @@ sd_journal_sources = files(
         'sd-journal/lookup3.h',
         'sd-journal/mmap-cache.c',
         'sd-journal/mmap-cache.h',
-        'sd-journal/sd-journal.c')
+        'sd-journal/sd-journal.c',
+)
 
 if conf.get('HAVE_GCRYPT') == 1
         sd_journal_sources += files(
                 'sd-journal/fsprg.c',
                 'sd-journal/fsprg.h',
                 'sd-journal/journal-authenticate.c',
-                'sd-journal/journal-authenticate.h')
+                'sd-journal/journal-authenticate.h',
+        )
 endif
 
 audit_type_includes = [config_h,
@@ -59,7 +61,8 @@ sd_journal_sources += [audit_type_to_name]
 id128_sources = files(
         'sd-id128/id128-util.c',
         'sd-id128/id128-util.h',
-        'sd-id128/sd-id128.c')
+        'sd-id128/sd-id128.c',
+)
 
 ############################################################
 
@@ -71,7 +74,8 @@ sd_event_sources = files(
         'sd-event/event-source.h',
         'sd-event/event-util.c',
         'sd-event/event-util.h',
-        'sd-event/sd-event.c')
+        'sd-event/sd-event.c',
+)
 
 ############################################################
 

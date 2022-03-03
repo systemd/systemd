@@ -2,7 +2,8 @@
 
 systemd_machined_sources = files(
         'machined.c',
-        'machined.h')
+        'machined.h',
+)
 
 libmachine_core_sources = files(
         'image-dbus.c',
@@ -16,7 +17,8 @@ libmachine_core_sources = files(
         'machined-varlink.c',
         'machined-varlink.h',
         'operation.c',
-        'operation.h')
+        'operation.h',
+)
 
 libmachine_core = static_library(
         'machine-core',

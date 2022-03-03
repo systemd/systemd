@@ -190,7 +190,8 @@ sources = files(
         'tc/tclass.c',
         'tc/tclass.h',
         'tc/teql.c',
-        'tc/teql.h')
+        'tc/teql.h',
+)
 
 systemd_networkd_sources = files('networkd.c')
 
@@ -199,14 +200,16 @@ systemd_networkd_wait_online_sources = files(
         'wait-online/link.h',
         'wait-online/manager.c',
         'wait-online/manager.h',
-        'wait-online/wait-online.c')
+        'wait-online/wait-online.c',
+)
 
 networkctl_sources = files('networkctl.c')
 
 network_generator_sources = files(
         'generator/main.c',
         'generator/network-generator.c',
-        'generator/network-generator.h')
+        'generator/network-generator.h',
+)
 
 sources += custom_target(
         'networkd-gperf.c',
