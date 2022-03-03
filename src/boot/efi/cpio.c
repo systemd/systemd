@@ -324,6 +324,7 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
+        EFI_FILE_IO_INTERFACE *volume;
 
         assert(loaded_image);
         assert(target_dir_prefix);
@@ -336,9 +337,24 @@ EFI_STATUS pack_cpio(
                 return EFI_SUCCESS;
         }
 
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
+        err = BS->HandleProtocol(loaded_image->DeviceHandle,
+                                 &FileSystemProtocol, (void*)&volume);
+        /* Error will be unsupported if the bootloader doesn't implement the
+         * file system protocol on its file handles.
+         */
+        if (err == EFI_UNSUPPORTED) {
+                *ret_buffer = NULL;
+                *ret_buffer_size = 0;
+                return EFI_SUCCESS;
+        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(
+                                err, L"Unable to load file system protocol: %r", err);
+
+        err = volume->OpenVolume(volume, &root);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(
+                                err, L"Unable to open root directory: %r", err);
 
         if (!dropin_dir)
                 dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
