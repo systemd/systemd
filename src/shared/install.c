@@ -338,7 +338,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         break;
                 case UNIT_FILE_UNLINK:
                         if (!quiet)
-                                log_info("Removed %s.", changes[i].path);
+                                log_info("Removed \"%s\".", changes[i].path);
                         break;
                 case UNIT_FILE_IS_MASKED:
                         if (!quiet)
@@ -361,11 +361,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                 case -EEXIST:
                         if (changes[i].source)
                                 log_error_errno(changes[i].type_or_errno,
-                                                "Failed to %s unit, file %s already exists and is a symlink to %s.",
+                                                "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
                                                 verb, changes[i].path, changes[i].source);
                         else
                                 log_error_errno(changes[i].type_or_errno,
-                                                "Failed to %s unit, file %s already exists.",
+                                                "Failed to %s unit, file \"%s\" already exists.",
                                                 verb, changes[i].path);
                         logged = true;
                         break;
@@ -391,7 +391,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         logged = true;
                         break;
                 case -ELOOP:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s",
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
                                         verb, changes[i].path);
                         logged = true;
                         break;
@@ -403,7 +403,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
 
                 default:
                         assert(changes[i].type_or_errno < 0);
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file %s: %m.",
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file \"%s\": %m",
                                         verb, changes[i].path);
                         logged = true;
                 }
@@ -838,7 +838,7 @@ static int find_symlinks(
 
                 d = opendir(path);
                 if (!d) {
-                        log_error_errno(errno, "Failed to open directory '%s' while scanning for symlinks, ignoring: %m", path);
+                        log_error_errno(errno, "Failed to open directory \"%s\" while scanning for symlinks, ignoring: %m", path);
                         continue;
                 }
 
@@ -846,7 +846,7 @@ static int find_symlinks(
                 if (r > 0)
                         return 1;
                 else if (r < 0)
-                        log_debug_errno(r, "Failed to lookup for symlinks in '%s': %m", path);
+                        log_debug_errno(r, "Failed to look up symlinks in \"%s\": %m", path);
         }
 
         /* We didn't find any suitable symlinks in .wants or .requires directories, let's look for linked unit files in this directory. */
@@ -1318,7 +1318,7 @@ static int unit_file_load(
                          0, info,
                          NULL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse %s: %m", info->name);
+                return log_debug_errno(r, "Failed to parse \"%s\": %m", info->name);
 
         if ((flags & SEARCH_DROPIN) == 0)
                 info->type = UNIT_FILE_TYPE_REGULAR;
@@ -1477,7 +1477,7 @@ static int unit_file_search(
         STRV_FOREACH(p, files) {
                 r = unit_file_load_or_readlink(c, info, *p, lp, flags | SEARCH_DROPIN);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to load conf file %s: %m", *p);
+                        return log_debug_errno(r, "Failed to load conf file \"%s\": %m", *p);
         }
 
         return result;
@@ -1719,7 +1719,7 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                         return log_error_errno(r, "Failed to verify alias validity: %m");
                 if (r == 0)
                         return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
-                                                 "Invalid unit %s symlink %s.",
+                                                 "Invalid unit \"%s\" symlink \"%s\".",
                                                  i->name, dst);
 
         } else {
@@ -1730,7 +1730,7 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
 
                         UnitNameFlags type = unit_name_to_instance(i->name, &inst);
                         if (type < 0)
-                                return log_error_errno(type, "Failed to extract instance name from %s: %m", i->name);
+                                return log_error_errno(type, "Failed to extract instance name from \"%s\": %m", i->name);
 
                         if (type == UNIT_NAME_INSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_updated);
