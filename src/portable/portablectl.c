@@ -928,12 +928,13 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!strv_isempty(arg_extension_images)) {
+        if (strv_isempty(arg_extension_images))
+                r = sd_bus_message_append(m, "b", arg_runtime);
+        else {
                 uint64_t flags = arg_runtime ? PORTABLE_RUNTIME : 0;
 
                 r = sd_bus_message_append(m, "t", flags);
-        } else
-                r = sd_bus_message_append(m, "b", arg_runtime);
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
