@@ -280,9 +280,9 @@
           <term><option>-t</option></term>
           <term><option>--type=<replaceable>TYPE</replaceable></option></term>
           <listitem>
-            <para>Trigger a specific type of devices. Valid types are:
-            <command>devices</command>, <command>subsystems</command>.
-            The default value is <command>devices</command>.</para>
+            <para>Trigger a specific type of devices. Valid types are <literal>all</literal>,
+            <literal>devices</literal>, and <literal>subsystems</literal>. The default value is
+            <literal>devices</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -295,6 +295,13 @@
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>change</literal>.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--prioritized-subsystem=<replaceable>SUBSYSTEM</replaceable></option></term>
+          <listitem>
+            <para>When triggering events for devices, the devices from the specified subsystem and
+            their parents are triggered earlier. This option can be specified multiple times.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
