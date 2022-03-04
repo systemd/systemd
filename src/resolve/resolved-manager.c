@@ -1060,7 +1060,7 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-static int send_dns_notification(DnsPacket* packet, Varlink* link)
+int send_dns_notification(Manager* m, DnsAnswer* answer)
 {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_free_ char *normalized = NULL;
@@ -1068,11 +1068,7 @@ static int send_dns_notification(DnsPacket* packet, Varlink* link)
         int ifindex, r;
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
-        r = dns_packet_extract(packet);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract DNS packet info: %m");
-
-        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, packet->answer) {
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, answer) {
                 _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
                 int family;
                 const void *p;
@@ -1110,7 +1106,7 @@ static int send_dns_notification(DnsPacket* packet, Varlink* link)
         if (r < 0)
                 return log_error_errno(r, "Failed to get hostname: %m");
 
-        return varlink_notifyb(link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
+        return varlink_notifyb(m->varlink_subscription, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
                                 JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
 }
 
@@ -1137,14 +1133,16 @@ int manager_send(
                   ifindex, af_to_name(family),
                   p->size);
 
-        if (m->varlink_subscription)
-        {
-                int r = send_dns_notification(p, m->varlink_subscription);
+        if (m->varlink_subscription) {
+                int r = dns_packet_extract(p);
                 if (r < 0)
-                {
+                        return log_error_errno(r, "Failed to extract DNS packet info: %m");
+
+                r = send_dns_notification(m, p->answer);
+                if (r < 0)
                         log_error_errno(r, "Failed to send varlink notification: %m");
-                }
         }
+
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
