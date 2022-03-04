@@ -54,7 +54,8 @@ _udevadm() {
         [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -q --quiet -w --settle --wait-daemon --uuid'
         [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                        -a --attr-match -A --attr-nomatch -p --property-match
-                       -g --tag-match -y --sysname-match --name-match -b --parent-match'
+                       -g --tag-match -y --sysname-match --name-match -b --parent-match
+                       --prioritized-subsystem'
         [SETTLE]='-t --timeout -E --exit-if-exists'
         [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping'
         [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
