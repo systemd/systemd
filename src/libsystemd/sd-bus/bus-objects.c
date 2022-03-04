@@ -316,11 +316,9 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
                 return 0;
 
-        /* Check have the caller has the requested capability
-         * set. Note that the flags value contains the capability
-         * number plus one, which we need to subtract here. We do this
-         * so that we have 0 as special value for "default
-         * capability". */
+        /* Check that the caller has the requested capability set. Note that the flags value contains the
+         * capability number plus one, which we need to subtract here. We do this so that we have 0 as
+         * special value for the default. */
         cap = CAPABILITY_SHIFT(c->vtable->flags);
         if (cap == 0)
                 cap = CAPABILITY_SHIFT(c->parent->vtable[0].flags);
