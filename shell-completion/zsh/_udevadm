@@ -24,7 +24,7 @@ _udevadm_trigger(){
         '--verbose[Print the list of devices which will be triggered.]' \
         '--dry-run[Do not actually trigger the event.]' \
         '--quiet[Suppress error logging in triggering events.]' \
-        '--type=[Trigger a specific type of devices.]:types:(devices subsystems failed)' \
+        '--type=[Trigger a specific type of devices.]:types:(all devices subsystems failed)' \
         '--action=[Type of event to be triggered.]:actions:(add change remove move online offline bind unbind)' \
         '--subsystem-match=[Trigger events for devices which belong to a matching subsystem.]' \
         '--subsystem-nomatch=[Do not trigger events for devices which belong to a matching subsystem.]' \
