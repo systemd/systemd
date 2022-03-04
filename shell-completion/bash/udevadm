@@ -118,7 +118,7 @@ _udevadm() {
             if __contains_word "$prev" ${OPTS[TRIGGER_ARG]}; then
                 case $prev in
                     -t|--type)
-                        comps='devices subsystems'
+                        comps='all devices subsystems'
                         ;;
                     -c|--action)
                         comps=$( udevadm trigger --action help )
