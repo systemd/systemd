@@ -126,13 +126,11 @@
     <literal>@</literal> and the unit type suffix. In the unit file itself, the instance parameter may be
     referred to using <literal>%i</literal> and other specifiers, see below.</para>
 
-    <para>Unit files may contain additional options on top of those
-    listed here. If systemd encounters an unknown option, it will
-    write a warning log message but continue loading the unit. If an
-    option or section name is prefixed with <option>X-</option>, it is
-    ignored completely by systemd. Options within an ignored section
-    do not need the prefix. Applications may use this to include
-    additional information in the unit files.</para>
+    <para>Unit files may contain additional options on top of those listed here. If systemd encounters an
+    unknown option, it will write a warning log message but continue loading the unit. If an option or
+    section name is prefixed with <option>X-</option>, it is ignored completely by systemd. Options within an
+    ignored section do not need the prefix. Applications may use this to include additional information in
+    the unit files. To access those options, applications need to parse the unit files on their own.</para>
 
     <para>Units can be aliased (have an alternative name), by creating a symlink from the new name to the
     existing name in one of the unit search paths. For example, <filename>systemd-networkd.service</filename>
