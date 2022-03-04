@@ -85,10 +85,10 @@
       <option>--boot</option>, <option>--unit=</option>, etc., to
       further limit what entries will be shown (logical AND).</para>
 
-      <para>Output is interleaved from all accessible journal files,
-      whether they are rotated or currently being written, and
-      regardless of whether they belong to the system itself or are
-      accessible user journals.</para>
+      <para>Output is interleaved from all accessible journal files, whether they are rotated or currently
+      being written, and regardless of whether they belong to the system itself or are accessible user
+      journals. The <option>--header</option> option can be used to identify which files
+      <emphasis>are</emphasis> being shown.</para>
 
       <para>The set of journal files which will be used can be
       modified using the <option>--user</option>,
@@ -794,9 +794,11 @@
       <varlistentry>
         <term><option>--header</option></term>
 
-        <listitem><para>Instead of showing journal contents, show
-        internal header information of the journal fields
-        accessed.</para></listitem>
+        <listitem><para>Instead of showing journal contents, show internal header information of the journal
+        fields accessed.</para>
+
+        <para>This option is particularly useful when trying to identify out-of-order journal entries, as
+        happens for example when the machine is booted with the wrong system time.</para></listitem>
       </varlistentry>
 
       <varlistentry>
