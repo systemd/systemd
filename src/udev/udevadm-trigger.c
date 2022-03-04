@@ -229,7 +229,8 @@ static int help(void) {
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
-               "     --uuid                         Print synthetic uevent UUID\n",
+               "     --uuid                         Print synthetic uevent UUID\n"
+               "     --prioritized-subsystem        Trigger devices from a matching subsystem earlier\n",
                program_invocation_short_name);
 
         return 0;
@@ -240,28 +241,30 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 ARG_NAME = 0x100,
                 ARG_PING,
                 ARG_UUID,
+                ARG_PRIORITIZED_SUBSYSTEM,
         };
 
         static const struct option options[] = {
-                { "verbose",           no_argument,       NULL, 'v'      },
-                { "dry-run",           no_argument,       NULL, 'n'      },
-                { "quiet",             no_argument,       NULL, 'q'      },
-                { "type",              required_argument, NULL, 't'      },
-                { "action",            required_argument, NULL, 'c'      },
-                { "subsystem-match",   required_argument, NULL, 's'      },
-                { "subsystem-nomatch", required_argument, NULL, 'S'      },
-                { "attr-match",        required_argument, NULL, 'a'      },
-                { "attr-nomatch",      required_argument, NULL, 'A'      },
-                { "property-match",    required_argument, NULL, 'p'      },
-                { "tag-match",         required_argument, NULL, 'g'      },
-                { "sysname-match",     required_argument, NULL, 'y'      },
-                { "name-match",        required_argument, NULL, ARG_NAME },
-                { "parent-match",      required_argument, NULL, 'b'      },
-                { "settle",            no_argument,       NULL, 'w'      },
-                { "wait-daemon",       optional_argument, NULL, ARG_PING },
-                { "version",           no_argument,       NULL, 'V'      },
-                { "help",              no_argument,       NULL, 'h'      },
-                { "uuid",              no_argument,       NULL, ARG_UUID },
+                { "verbose",               no_argument,       NULL, 'v'                       },
+                { "dry-run",               no_argument,       NULL, 'n'                       },
+                { "quiet",                 no_argument,       NULL, 'q'                       },
+                { "type",                  required_argument, NULL, 't'                       },
+                { "action",                required_argument, NULL, 'c'                       },
+                { "subsystem-match",       required_argument, NULL, 's'                       },
+                { "subsystem-nomatch",     required_argument, NULL, 'S'                       },
+                { "attr-match",            required_argument, NULL, 'a'                       },
+                { "attr-nomatch",          required_argument, NULL, 'A'                       },
+                { "property-match",        required_argument, NULL, 'p'                       },
+                { "tag-match",             required_argument, NULL, 'g'                       },
+                { "sysname-match",         required_argument, NULL, 'y'                       },
+                { "name-match",            required_argument, NULL, ARG_NAME                  },
+                { "parent-match",          required_argument, NULL, 'b'                       },
+                { "settle",                no_argument,       NULL, 'w'                       },
+                { "wait-daemon",           optional_argument, NULL, ARG_PING                  },
+                { "version",               no_argument,       NULL, 'V'                       },
+                { "help",                  no_argument,       NULL, 'h'                       },
+                { "uuid",                  no_argument,       NULL, ARG_UUID                  },
+                { "prioritized-subsystem", required_argument, NULL, ARG_PRIORITIZED_SUBSYSTEM },
                 {}
         };
         enum {
@@ -406,6 +409,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
 
                 case ARG_UUID:
                         arg_uuid = true;
+                        break;
+
+                case ARG_PRIORITIZED_SUBSYSTEM:
+                        r = device_enumerator_add_prioritized_subsystem(e, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add prioritized subsystem '%s': %m", optarg);
                         break;
 
                 case 'V':
