@@ -236,6 +236,10 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         if (r < 0)
                 goto finish;
 
+        r = send_dns_notification(q->manager, q->answer);
+        if (r < 0)
+                log_error_errno(r, "Failed to send varlink notification: %m");
+
         r = varlink_replyb(q->varlink_request,
                            JSON_BUILD_OBJECT(
                                            JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
