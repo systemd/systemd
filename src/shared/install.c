@@ -1335,76 +1335,26 @@ static int unit_file_load_or_readlink(
                 const char *path,
                 const LookupPaths *lp,
                 SearchFlags flags) {
-
-        _cleanup_free_ char *resolved = NULL;
         int r;
 
         r = unit_file_load(c, info, path, lp->root_dir, flags);
         if (r != -ELOOP || (flags & SEARCH_DROPIN))
                 return r;
 
-        r = chase_symlinks(path, lp->root_dir, CHASE_WARN | CHASE_NONEXISTENT, &resolved, NULL);
-        if (r >= 0 &&
-            lp->root_dir &&
-            path_equal_ptr(path_startswith(resolved, lp->root_dir), "dev/null"))
-                /* When looking under root_dir, we can't expect /dev/ to be mounted,
-                 * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
+        /* This is a symlink, let's read and verify it. */
+        r = unit_file_resolve_symlink(lp->root_dir, lp->search_path,
+                                      NULL, AT_FDCWD, path,
+                                      true, &info->symlink_target);
+        if (r < 0)
+                return r;
+
+        r = null_or_empty_path_with_root(info->symlink_target, lp->root_dir);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Failed to stat %s: %m", info->symlink_target);
+        if (r > 0)
                 info->type = UNIT_FILE_TYPE_MASKED;
-
-        else if (r > 0 && null_or_empty_path(resolved) > 0)
-
-                info->type = UNIT_FILE_TYPE_MASKED;
-
-        else {
-                _cleanup_free_ char *target = NULL;
-                const char *bn;
-                UnitType a, b;
-
-                /* This is a symlink, let's read it. We read the link again, because last time
-                 * we followed the link until resolution, and here we need to do one step. */
-
-                r = readlink_malloc(path, &target);
-                if (r < 0)
-                        return r;
-
-                bn = basename(target);
-
-                if (unit_name_is_valid(info->name, UNIT_NAME_PLAIN)) {
-
-                        if (!unit_name_is_valid(bn, UNIT_NAME_PLAIN))
-                                return -EINVAL;
-
-                } else if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
-
-                        if (!unit_name_is_valid(bn, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
-                                return -EINVAL;
-
-                } else if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE)) {
-
-                        if (!unit_name_is_valid(bn, UNIT_NAME_TEMPLATE))
-                                return -EINVAL;
-                } else
-                        return -EINVAL;
-
-                /* Enforce that the symlink destination does not
-                 * change the unit file type. */
-
-                a = unit_name_to_type(info->name);
-                b = unit_name_to_type(bn);
-                if (a < 0 || b < 0 || a != b)
-                        return -EINVAL;
-
-                if (path_is_absolute(target))
-                        /* This is an absolute path, prefix the root so that we always deal with fully qualified paths */
-                        info->symlink_target = path_join(lp->root_dir, target);
-                else
-                        /* This is a relative path, take it relative to the dir the symlink is located in. */
-                        info->symlink_target = file_in_same_dir(path, target);
-                if (!info->symlink_target)
-                        return -ENOMEM;
-
+        else
                 info->type = UNIT_FILE_TYPE_SYMLINK;
-        }
 
         return 0;
 }

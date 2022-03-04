@@ -259,26 +259,49 @@ static int directory_name_is_valid(const char *name) {
         return false;
 }
 
-static int unit_file_resolve_symlink(
+int unit_file_resolve_symlink(
                 const char *root_dir,
                 char **search_path,
                 const char *dir,
                 int dirfd,
                 const char *filename,
+                bool resolve_destination_target,
                 char **ret_destination) {
 
-        _cleanup_free_ char *target = NULL, *simplified = NULL, *dst = NULL;
+        _cleanup_free_ char *target = NULL, *simplified = NULL, *dst = NULL, *_dir = NULL, *_filename = NULL;
         int r;
 
-        assert(dir);
-        assert(dirfd >= 0);
+        /* This can be called with either dir+dirfd valid and filename just a name,
+         * or !dir && dirfd==AT_FDCWD, and filename being a full path.
+         *
+         * If resolve_destination_target is true, an absolute path will be returned.
+         * If not, an absolute path is returned for linked unit files, and a relative
+         * path otherwise. */
+
         assert(filename);
         assert(ret_destination);
+        assert(dir || path_is_absolute(filename));
+        assert(dirfd >= 0 || dirfd == AT_FDCWD);
 
         r = readlinkat_malloc(dirfd, filename, &target);
         if (r < 0)
                 return log_warning_errno(r, "Failed to read symlink %s%s%s: %m",
                                          dir, dir ? "/" : "", filename);
+
+        if (!dir) {
+                r = path_extract_directory(filename, &_dir);
+                if (r < 0)
+                        return r;
+                dir = _dir;
+
+                r = path_extract_filename(filename, &_filename);
+                if (r < 0)
+                        return r;
+                if (r == O_DIRECTORY)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EISDIR),
+                                                 "Unexpected path to a directory \"%s\", refusing.", filename);
+                filename = _filename;
+        }
 
         bool is_abs = path_is_absolute(target);
         if (root_dir || !is_abs) {
@@ -295,24 +318,36 @@ static int unit_file_resolve_symlink(
                 return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
                                          dir, filename, target);
 
+        assert(path_is_absolute(simplified));
+
         /* Check if the symlink goes outside of our search path.
-         * If yes, it's a linked unit file or mask, and we don't care about the target name.
-         * Let's just store the link source directly.
-         * If not, let's verify that it's a good symlink. */
+         * If yes, it's a linked unit file or mask, and we don't care about the target name
+         * when loading units, and we return the link *source* (resolve_destination_target == false);
+         * When this is called for installation purposes, we want the final destination,
+         * so we return the *target*.
+         *
+         * Otherwise, let's verify that it's a good alias.
+         */
         const char *tail = path_startswith_strv(simplified, search_path);
         if (!tail) {
                 log_debug("Linked unit file: %s/%s → %s", dir, filename, simplified);
 
-                dst = path_join(dir, filename);
-                if (!dst)
-                        return log_oom();
+                if (resolve_destination_target)
+                        dst = TAKE_PTR(simplified);
+                else {
+                        dst = path_join(dir, filename);
+                        if (!dst)
+                                return log_oom();
+                }
 
         } else {
-                r = path_extract_filename(simplified, &dst);
+                _cleanup_free_ char *target_name = NULL;
+
+                r = path_extract_filename(simplified, &target_name);
                 if (r < 0)
                         return r;
 
-                bool self_alias = streq(dst, filename);
+                bool self_alias = streq(target_name, filename);
 
                 if (is_path(tail))
                         log_full(self_alias ? LOG_DEBUG : LOG_WARNING,
@@ -323,13 +358,15 @@ static int unit_file_resolve_symlink(
                 if (r < 0)
                         return r;
 
-                if (self_alias)
-                        /* A self-alias that has no effect */
+                if (self_alias && !resolve_destination_target)
+                        /* A self-alias that has no effect when loading, let's just ignore it. */
                         return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
                                                "Unit file self-alias: %s/%s → %s, ignoring.",
-                                               dir, filename, dst);
+                                               dir, filename, target_name);
 
-                log_debug("Unit file alias: %s/%s → %s", dir, filename, dst);
+                log_debug("Unit file alias: %s/%s → %s", dir, filename, target_name);
+
+                dst = resolve_destination_target ? TAKE_PTR(simplified) : TAKE_PTR(target_name);
         }
 
         *ret_destination = TAKE_PTR(dst);
@@ -473,6 +510,7 @@ int unit_file_build_name_map(
 
                                 r = unit_file_resolve_symlink(lp->root_dir, lp->search_path,
                                                               *dir, dirfd(d), de->d_name,
+                                                              /* resolve_destination_target= */ false,
                                                               &dst);
                                 if (r == -ENOMEM)
                                         return r;
