@@ -298,6 +298,19 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--prioritized-subsystem=<replaceable>SUBSYSTEM<optional>,<replaceable>SUBSYSTEM</replaceable>…</optional></replaceable></option></term>
+          <listitem>
+            <para>Takes a comma separated list of subsystems. When triggering events for devices, the
+            devices from the specified subsystems and their parents are triggered first. For example,
+            if <option>--prioritized-subsystem=block,net</option>, then firstly all block devices and
+            their parents are triggered, in the next all network devices and their parents are
+            triggered, and lastly the other devices are triggered. This option can be specified
+            multiple times, and in that case the lists of the subsystems will be merged. That is,
+            <option>--prioritized-subsystem=block --prioritized-subsystem=net</option> is equivalent to
+            <option>--prioritized-subsystem=block,net</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-s</option></term>
           <term><option>--subsystem-match=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
