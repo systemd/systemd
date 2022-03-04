@@ -226,7 +226,6 @@ int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator)
 static int device_compare(sd_device * const *_a, sd_device * const *_b) {
         sd_device *a = *(sd_device **)_a, *b = *(sd_device **)_b;
         const char *devpath_a, *devpath_b, *sound_a;
-        bool delay_a, delay_b;
         int r;
 
         assert_se(sd_device_get_devpath(a, &devpath_a) >= 0);
@@ -249,26 +248,22 @@ static int device_compare(sd_device * const *_a, sd_device * const *_b) {
 
                         prefix_len = sound_a - devpath_a;
 
-                        if (strncmp(devpath_a, devpath_b, prefix_len) == 0) {
+                        if (strneq(devpath_a, devpath_b, prefix_len)) {
                                 const char *sound_b;
 
                                 sound_b = devpath_b + prefix_len;
 
-                                if (startswith(sound_a, "/controlC") &&
-                                    !startswith(sound_b, "/contolC"))
-                                        return 1;
-
-                                if (!startswith(sound_a, "/controlC") &&
-                                    startswith(sound_b, "/controlC"))
-                                        return -1;
+                                r = CMP(!!startswith(sound_a, "/controlC"),
+                                        !!startswith(sound_b, "/controlC"));
+                                if (r != 0)
+                                        return r;
                         }
                 }
         }
 
         /* md and dm devices are enumerated after all other devices */
-        delay_a = strstr(devpath_a, "/block/md") || strstr(devpath_a, "/block/dm-");
-        delay_b = strstr(devpath_b, "/block/md") || strstr(devpath_b, "/block/dm-");
-        r = CMP(delay_a, delay_b);
+        r = CMP(strstr(devpath_a, "/block/md") || strstr(devpath_a, "/block/dm-"),
+                strstr(devpath_b, "/block/md") || strstr(devpath_b, "/block/dm-"));
         if (r != 0)
                 return r;
 
