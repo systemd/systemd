@@ -20,6 +20,7 @@
 typedef enum DeviceEnumerationType {
         DEVICE_ENUMERATION_TYPE_DEVICES,
         DEVICE_ENUMERATION_TYPE_SUBSYSTEMS,
+        DEVICE_ENUMERATION_TYPE_ALL,
         _DEVICE_ENUMERATION_TYPE_MAX,
         _DEVICE_ENUMERATION_TYPE_INVALID = -EINVAL,
 } DeviceEnumerationType;
@@ -978,6 +979,58 @@ _public_ sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator
                 return NULL;
 
         return enumerator->devices[++enumerator->current_device_index];
+}
+
+int device_enumerator_scan_devices_and_subsystems(sd_device_enumerator *enumerator) {
+        int r = 0, k;
+
+        assert(enumerator);
+
+        if (enumerator->scan_uptodate &&
+            enumerator->type == DEVICE_ENUMERATION_TYPE_ALL)
+                return 0;
+
+        device_enumerator_unref_devices(enumerator);
+
+        if (!set_isempty(enumerator->match_tag)) {
+                k = enumerator_scan_devices_tags(enumerator);
+                if (k < 0)
+                        r = k;
+        } else if (enumerator->match_parent) {
+                k = enumerator_scan_devices_children(enumerator);
+                if (k < 0)
+                        r = k;
+        } else {
+                k = enumerator_scan_dir(enumerator, "class", NULL, NULL);
+                if (k < 0)
+                        r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/class: %m");
+
+                k = enumerator_scan_dir(enumerator, "bus", "devices", NULL);
+                if (k < 0)
+                        r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/bus: %m");
+
+                if (match_subsystem(enumerator, "module")) {
+                        k = enumerator_scan_dir_and_add_devices(enumerator, "module", NULL, NULL);
+                        if (k < 0)
+                                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan modules: %m");
+                }
+                if (match_subsystem(enumerator, "subsystem")) {
+                        k = enumerator_scan_dir_and_add_devices(enumerator, "bus", NULL, NULL);
+                        if (k < 0)
+                                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan subsystems: %m");
+                }
+
+                if (match_subsystem(enumerator, "drivers")) {
+                        k = enumerator_scan_dir(enumerator, "bus", "drivers", "drivers");
+                        if (k < 0)
+                                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan drivers: %m");
+                }
+        }
+
+        enumerator->scan_uptodate = true;
+        enumerator->type = DEVICE_ENUMERATION_TYPE_ALL;
+
+        return r;
 }
 
 sd_device *device_enumerator_get_first(sd_device_enumerator *enumerator) {
