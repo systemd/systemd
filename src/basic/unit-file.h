@@ -44,6 +44,16 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
 
 bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new);
+
+int unit_file_resolve_symlink(
+                const char *root_dir,
+                char **search_path,
+                const char *dir,
+                int dirfd,
+                const char *filename,
+                bool resolve_destination_target,
+                char **ret_destination);
+
 int unit_file_build_name_map(
                 const LookupPaths *lp,
                 uint64_t *cache_timestamp_hash,
