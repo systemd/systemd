@@ -62,11 +62,24 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
         return 0;
 }
 
+static void device_unref_many(sd_device **devices, size_t n) {
+        assert(devices || n == 0);
+
+        for (size_t i = 0; i < n; i++)
+                sd_device_unref(devices[i]);
+}
+
+static void device_enumerator_unref_devices(sd_device_enumerator *enumerator) {
+        assert(enumerator);
+
+        device_unref_many(enumerator->devices, enumerator->n_devices);
+        enumerator->n_devices = 0;
+}
+
 static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumerator) {
         assert(enumerator);
 
-        for (size_t i = 0; i < enumerator->n_devices; i++)
-                sd_device_unref(enumerator->devices[i]);
+        device_enumerator_unref_devices(enumerator);
 
         free(enumerator->devices);
         set_free(enumerator->match_subsystem);
@@ -744,10 +757,7 @@ int device_enumerator_scan_devices(sd_device_enumerator *enumerator) {
             enumerator->type == DEVICE_ENUMERATION_TYPE_DEVICES)
                 return 0;
 
-        for (size_t i = 0; i < enumerator->n_devices; i++)
-                sd_device_unref(enumerator->devices[i]);
-
-        enumerator->n_devices = 0;
+        device_enumerator_unref_devices(enumerator);
 
         if (!set_isempty(enumerator->match_tag)) {
                 k = enumerator_scan_devices_tags(enumerator);
@@ -810,10 +820,7 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
             enumerator->type == DEVICE_ENUMERATION_TYPE_SUBSYSTEMS)
                 return 0;
 
-        for (size_t i = 0; i < enumerator->n_devices; i++)
-                sd_device_unref(enumerator->devices[i]);
-
-        enumerator->n_devices = 0;
+        device_enumerator_unref_devices(enumerator);
 
         /* modules */
         if (match_subsystem(enumerator, "module")) {
