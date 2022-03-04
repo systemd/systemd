@@ -267,6 +267,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         enum {
                 TYPE_DEVICES,
                 TYPE_SUBSYSTEMS,
+                TYPE_ALL,
         } device_type = TYPE_DEVICES;
         sd_device_action_t action = SD_DEVICE_CHANGE;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -309,6 +310,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 device_type = TYPE_DEVICES;
                         else if (streq(optarg, "subsystems"))
                                 device_type = TYPE_SUBSYSTEMS;
+                        else if (streq(optarg, "all"))
+                                device_type = TYPE_ALL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
@@ -476,6 +479,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 r = device_enumerator_scan_devices(e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to scan devices: %m");
+                break;
+        case TYPE_ALL:
+                r = device_enumerator_scan_devices_and_subsystems(e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to scan devices and subsystems: %m");
                 break;
         default:
                 assert_not_reached();
