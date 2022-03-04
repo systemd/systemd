@@ -30,23 +30,19 @@
 
     <para>The service manager exposes a number of objects on the bus: one
     <interfacename>Manager</interfacename> object as a central entry point for clients along with individual objects
-    for each unit and for each queued job. The unit objects each implement a generic
+    for each unit and for each queued job. The unit objects implement a generic
     <interfacename>Unit</interfacename> interface as well as a type-specific interface. For example, service units
     implement both <interfacename>org.freedesktop.systemd1.Unit</interfacename> and
     <interfacename>org.freedesktop.system1.Service</interfacename>. The manager object can list
-    unit and job objects or directly convert a unit name or job id into a bus path of the corresponding
+    unit and job objects or directly convert a unit name or job identifier to a bus path of the corresponding
     D-Bus object.</para>
 
-    <para>Properties exposing time values are usually encoded in microseconds (usec) on the bus, even if
+    <para>Properties exposing time values are usually encoded in microseconds (µs) on the bus, even if
     their corresponding settings in the unit files are in seconds.</para>
 
-    <para>In contrast to most of the other services of the systemd suite, PID 1 does not use
-    <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
-    for controlling access to privileged operations, but relies exclusively on the low-level D-Bus policy
-    language. (This is done in order to avoid a cyclic dependency between polkit and systemd/PID 1.) This
-    means that sensitive operations exposed by PID 1 on the bus are generally not available to unprivileged
-    processes directly. However, some operations (such as shutdown/reboot/suspend) are made available through the D-Bus
-    API of logind, see
+    <para>PID 1 uses <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink> to
+    allow access to privileged operations for unprivileged processes. Some operations (such as
+    shutdown/reboot/suspend) are also available through the D-Bus API of logind, see
     <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>
