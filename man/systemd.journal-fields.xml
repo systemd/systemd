@@ -145,7 +145,7 @@
         <listitem>
           <para>A documentation URL with further information about the topic of the log message. Tools such
           as <command>journalctl</command> will include a hyperlink to an URL specified this way in their
-          output. Should be a <literal>http://</literal>, <literal>https://</literal>,
+          output. Should be an <literal>http://</literal>, <literal>https://</literal>,
           <literal>file:/</literal>, <literal>man:</literal> or <literal>info:</literal> URL.</para>
         </listitem>
       </varlistentry>
@@ -154,6 +154,21 @@
         <term><varname>TID=</varname></term>
         <listitem>
           <para>The numeric thread ID (TID) the log message originates from.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UNIT=</varname></term>
+        <term><varname>USER_UNIT=</varname></term>
+        <listitem>
+          <para>The name of a unit. Used by the system and user managers when logging about specific
+          units.</para>
+
+          <para>When <option>--unit=<replaceable>name</replaceable></option> or
+          <option>--user-unit=<replaceable>name</replaceable></option> are used with
+          <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
+          match pattern that includes <literal>UNIT=<replaceable>name</replaceable>.service</literal> or
+          <literal>USER_UNIT=<replaceable>name</replaceable>.service</literal> will be generated.</para>
         </listitem>
       </varlistentry>
     </variablelist>
