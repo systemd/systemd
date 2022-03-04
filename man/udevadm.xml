@@ -298,6 +298,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--prioritized-subsystem=<replaceable>SUBSYSTEM</replaceable></option></term>
+          <listitem>
+            <para>When triggering events for devices, the devices from the specified subsystem and
+            their parents are triggered earlier. This option can be specified multiple times.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-s</option></term>
           <term><option>--subsystem-match=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
