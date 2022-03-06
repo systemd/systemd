@@ -1180,6 +1180,7 @@ static int find_matching_component(
 
 static int tm_within_bounds(struct tm *tm, bool utc) {
         struct tm t;
+        int cmp;
         assert(tm);
 
         /*
@@ -1194,13 +1195,25 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
         if (mktime_or_timegm(&t, utc) < 0)
                 return negative_errno();
 
-        /* Did any normalization take place? If so, it was out of bounds before */
-        int cmp = CMP(t.tm_year, tm->tm_year) ?:
-                  CMP(t.tm_mon, tm->tm_mon) ?:
-                  CMP(t.tm_mday, tm->tm_mday) ?:
-                  CMP(t.tm_hour, tm->tm_hour) ?:
-                  CMP(t.tm_min, tm->tm_min) ?:
-                  CMP(t.tm_sec, tm->tm_sec);
+        /*
+         * Did any normalization take place? If so, it was out of bounds before.
+         * Normalization could skip next elapse, e.g. result of normalizing 3-33
+         * is 4-2. This skips 4-1. So reset the sub time unit if upper unit was
+         * out of bounds. Normalization has occurred implies find_matching_component() > 0,
+         * other sub time units are already reset in find_next().
+         */
+        if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0)
+                t.tm_mon = 0;
+        else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
+                t.tm_mday = 1;
+        else if ((cmp = CMP(t.tm_mday, tm->tm_mday)) != 0)
+                t.tm_hour = 0;
+        else if ((cmp = CMP(t.tm_hour, tm->tm_hour)) != 0)
+                t.tm_min = 0;
+        else if ((cmp = CMP(t.tm_min, tm->tm_min)) != 0)
+                t.tm_sec = 0;
+        else
+                cmp = CMP(t.tm_sec, tm->tm_sec);
 
         if (cmp < 0)
                 return -EDEADLK; /* Refuse to go backward */
