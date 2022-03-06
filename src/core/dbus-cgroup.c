@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
+#include <linux/netfilter.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -13,8 +14,10 @@
 #include "dbus-cgroup.h"
 #include "dbus-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
@@ -449,6 +452,24 @@ static int property_get_restrict_network_interfaces(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_cgroup_nft_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        CGroupContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        return sd_bus_message_append(reply, "(iss)", c->nft_set_context.nfproto, c->nft_set_context.table, c->nft_set_context.set);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -506,6 +527,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
+        SD_BUS_PROPERTY("ControlGroupNFTSet", "(iss)", property_get_cgroup_nft_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -2089,6 +2111,54 @@ int bus_cgroup_set_property(
 
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
                 return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
+
+        if (streq(name, "ControlGroupNFTSet")) {
+                int nfproto;
+                _cleanup_free_ char *table = NULL, *set = NULL;
+                const char *nfproto_str;
+
+                r = sd_bus_message_read(message, "(iss)", &nfproto, &table, &set);
+                if (r < 0)
+                        return r;
+
+                if (nfproto > 0)
+                        nfproto_str = nfproto_to_string(nfproto);
+                if (nfproto < 0 || !nfproto_str)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT family not valid");
+
+                if (isempty(table) || !string_is_safe(table))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT table name not valid");
+
+                if (isempty(set) || !string_is_safe(set))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cgroup NFT set name not valid");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (nfproto == 0) {
+                                c->nft_set_context.nfproto = 0;
+                                c->nft_set_context.table = mfree(c->nft_set_context.table);
+                                c->nft_set_context.set = mfree(c->nft_set_context.set);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                _cleanup_free_ char *table_escaped = NULL, *set_escaped = NULL;
+
+                                table_escaped = cescape(table);
+                                if (!table_escaped)
+                                        return log_oom();
+
+                                set_escaped = cescape(set);
+                                if (!set_escaped)
+                                        return log_oom();
+
+                                c->nft_set_context.nfproto = nfproto;
+                                c->nft_set_context.table = TAKE_PTR(table_escaped);
+                                c->nft_set_context.set = TAKE_PTR(set_escaped);
+
+                                unit_write_settingf(u, flags, name, "%s=%s:%s:%s", name, nfproto_str, c->nft_set_context.table, c->nft_set_context.set);
+                        }
+                }
+
+                return 1;
+        }
 
         return 0;
 }
