@@ -4251,7 +4251,7 @@ static void service_notify_message(
         /* Process FD store messages. Either FDSTOREREMOVE=1 for removal, or FDSTORE=1 for addition. In both cases,
          * process FDNAME= for picking the file descriptor name to use. Note that FDNAME= is required when removing
          * fds, but optional when pushing in new fds, for compatibility reasons. */
-        if (strv_find(tags, "FDSTOREREMOVE=1")) {
+        if (strv_contains(tags, "FDSTOREREMOVE=1")) {
                 const char *name;
 
                 name = strv_find_startswith(tags, "FDNAME=");
@@ -4260,7 +4260,7 @@ static void service_notify_message(
                 else
                         service_remove_fd_store(s, name);
 
-        } else if (strv_find(tags, "FDSTORE=1")) {
+        } else if (strv_contains(tags, "FDSTORE=1")) {
                 const char *name;
 
                 name = strv_find_startswith(tags, "FDNAME=");

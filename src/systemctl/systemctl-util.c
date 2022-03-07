@@ -783,7 +783,7 @@ bool output_show_unit(const UnitInfo *u, char **patterns) {
         if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
-        if (arg_types && !strv_find(arg_types, unit_type_suffix(u->id)))
+        if (arg_types && !strv_contains(arg_types, unit_type_suffix(u->id)))
                 return false;
 
         if (arg_all)

@@ -355,7 +355,7 @@ int bus_message_print_all_properties(
                 if (!name_with_equal)
                         return log_oom();
 
-                if (!filter || strv_find(filter, name) ||
+                if (!filter || strv_contains(filter, name) ||
                     (expected_value = strv_find_startswith(filter, name_with_equal))) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)

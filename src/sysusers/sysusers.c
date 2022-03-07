@@ -319,7 +319,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
                         return -ENOMEM;
 
                 STRV_FOREACH(i, a) {
-                        if (strv_find(l, *i))
+                        if (strv_contains(l, *i))
                                 continue;
 
                         if (strv_extend(&l, *i) < 0)
@@ -364,7 +364,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
                         return -ENOMEM;
 
                 STRV_FOREACH(i, a) {
-                        if (strv_find(l, *i))
+                        if (strv_contains(l, *i))
                                 continue;
 
                         if (strv_extend(&l, *i) < 0)

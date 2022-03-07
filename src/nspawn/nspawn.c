@@ -4239,7 +4239,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (!tags)
                 return log_oom();
 
-        if (strv_find(tags, "READY=1")) {
+        if (strv_contains(tags, "READY=1")) {
                 r = sd_notify(false, "READY=1\n");
                 if (r < 0)
                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
