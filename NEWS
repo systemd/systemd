@@ -9,6 +9,14 @@ CHANGES WITH 251:
           can still be used by explicitly configuring RouteTable= setting in
           .netdev files.
 
+        * The org.freedesktop.portable1 methods GetMetadataWithExtensions and
+          GetImageMetadataWithExtensions have been fixed to provide an extra return
+          parameter, containing the actual extensions release metadata. The
+          current implementation was judged to be broken and unusable, and thus
+          the usual procedure of adding a new set of methods is skipped, opting
+          for breaking backward compatibility instead, as nobody should be
+          affected, given the state of the current interface.
+
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
 
