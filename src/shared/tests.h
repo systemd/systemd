@@ -30,6 +30,8 @@ void test_setup_logging(int level);
 int log_tests_skipped(const char *message);
 int log_tests_skipped_errno(int r, const char *message);
 
+int write_tmpfile(char *pattern, const char *contents);
+
 bool have_namespaces(void);
 
 /* We use the small but non-trivial limit here */

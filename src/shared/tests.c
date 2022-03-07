@@ -25,6 +25,7 @@
 #include "cgroup-util.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "namespace-util.h"
@@ -33,6 +34,7 @@
 #include "random-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 char* setup_fake_runtime_dir(void) {
         char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
@@ -130,6 +132,23 @@ int log_tests_skipped_errno(int r, const char *message) {
         log_notice_errno(r, "%s: %s, skipping tests: %m",
                          program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
+}
+
+int write_tmpfile(char *pattern, const char *contents) {
+        _cleanup_close_ int fd = -1;
+
+        assert(pattern);
+        assert(contents);
+
+        fd = mkostemp_safe(pattern);
+        if (fd < 0)
+                return fd;
+
+        ssize_t l = strlen(contents);
+        errno = 0;
+        if (write(fd, contents, l) != l)
+                return errno_or_else(EIO);
+        return 0;
 }
 
 bool have_namespaces(void) {
