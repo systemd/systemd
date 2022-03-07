@@ -25,6 +25,7 @@ static bool arg_verbose = false;
 static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_uuid = false;
+static int arg_database_match = -1;
 
 static int exec_list(
                 sd_device_enumerator *e,
@@ -46,6 +47,19 @@ static int exec_list(
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get syspath of enumerated devices, ignoring: %m");
                         continue;
+                }
+
+                if (arg_database_match >= 0) {
+                        r = sd_device_get_is_initialized(d);
+
+                        if (r > 0) {
+                                if (!arg_database_match)
+                                        continue;
+                        } else if (!r) {
+                                if (arg_database_match)
+                                        continue;
+                        } else
+                                log_warning_errno(r, "Failed to check presence of %s in udev db", syspath);
                 }
 
                 if (arg_verbose)
@@ -226,6 +240,8 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "  -d --database-match               Trigger devices having a udev db entry\n"
+               "  -x --database-nomatch             Trigger devices not having a udev db entry\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
@@ -257,6 +273,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",     required_argument, NULL, 'y'      },
                 { "name-match",        required_argument, NULL, ARG_NAME },
                 { "parent-match",      required_argument, NULL, 'b'      },
+                { "database-match",    no_argument,       NULL, 'd'      },
+                { "database-nomatch",  no_argument,       NULL, 'x'      },
                 { "settle",            no_argument,       NULL, 'w'      },
                 { "wait-daemon",       optional_argument, NULL, ARG_PING },
                 { "version",           no_argument,       NULL, 'V'      },
@@ -290,7 +308,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "vnqt:c:s:S:a:A:p:g:y:b:dxwVh", options, NULL)) >= 0) {
                 _cleanup_free_ char *buf = NULL;
                 const char *key, *val;
 
@@ -375,6 +393,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+                case 'd':
+                          arg_database_match = 1;
+                          break;
+                case 'x':
+                          arg_database_match = 0;
+                          break;
                 case 'w':
                         settle = true;
                         break;
