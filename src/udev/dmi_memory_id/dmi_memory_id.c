@@ -417,9 +417,10 @@ static void dmi_memory_device_size_detail(
                 dmi_print_memory_size("MEMORY_DEVICE", attr_suffix, slot_num, code, MEMORY_SIZE_UNIT_BYTES);
 }
 
+static unsigned next_slot_num = 0;
+
 static void dmi_decode(const struct dmi_header *h) {
         const uint8_t *data = h->data;
-        static unsigned next_slot_num = 0;
         unsigned slot_num;
 
         /*
@@ -441,7 +442,6 @@ static void dmi_decode(const struct dmi_header *h) {
                         dmi_print_memory_size("MEMORY_ARRAY", "MAX_CAPACITY", -1, DWORD(data + 0x07), MEMORY_SIZE_UNIT_KB);
                 else if (h->length >= 0x17)
                         dmi_print_memory_size("MEMORY_ARRAY", "MAX_CAPACITY", -1, QWORD(data + 0x0F), MEMORY_SIZE_UNIT_BYTES);
-                printf("MEMORY_ARRAY_NUM_DEVICES=%u\n", WORD(data + 0x0D));
 
                 break;
 
@@ -563,6 +563,7 @@ static void dmi_table_decode(const uint8_t *buf, size_t len, uint16_t num) {
 
                 data = next;
         }
+        printf("MEMORY_ARRAY_NUM_DEVICES=%u\n", next_slot_num);
 }
 
 static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devmem, bool no_file_offset) {
