@@ -228,17 +228,12 @@ TEST(passfd_read) {
 
         if (r == 0) {
                 /* Child */
-                char tmpfile[] = "/tmp/test-socket-util-passfd-read-XXXXXX";
-                _cleanup_close_ int tmpfd = -1;
-
                 pair[0] = safe_close(pair[0]);
 
-                tmpfd = mkostemp_safe(tmpfile);
-                assert_se(tmpfd >= 0);
-                assert_se(write(tmpfd, file_contents, strlen(file_contents)) == (ssize_t) strlen(file_contents));
-                tmpfd = safe_close(tmpfd);
+                char tmpfile[] = "/tmp/test-socket-util-passfd-read-XXXXXX";
+                assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
-                tmpfd = open(tmpfile, O_RDONLY);
+                _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
                 assert_se(tmpfd >= 0);
                 assert_se(unlink(tmpfile) == 0);
 
@@ -277,16 +272,12 @@ TEST(passfd_contents_read) {
                 /* Child */
                 struct iovec iov = IOVEC_INIT_STRING(wire_contents);
                 char tmpfile[] = "/tmp/test-socket-util-passfd-contents-read-XXXXXX";
-                _cleanup_close_ int tmpfd = -1;
 
                 pair[0] = safe_close(pair[0]);
 
-                tmpfd = mkostemp_safe(tmpfile);
-                assert_se(tmpfd >= 0);
-                assert_se(write(tmpfd, file_contents, strlen(file_contents)) == (ssize_t) strlen(file_contents));
-                tmpfd = safe_close(tmpfd);
+                assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
-                tmpfd = open(tmpfile, O_RDONLY);
+                _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
                 assert_se(tmpfd >= 0);
                 assert_se(unlink(tmpfile) == 0);
 
