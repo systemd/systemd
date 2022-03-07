@@ -2626,19 +2626,27 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NextServer=</varname></term>
+        <term><varname>BootServer=</varname></term>
 
         <listitem>
-          <para>Takes an IPv4 address. Configures the next server used by e.g. PXE boot systems.
+          <para>Takes an IPv4 address or server name. Configures the boot server used by e.g. PXE boot
+          systems. When an address is specified, then the address is set to the
+          <literal>siaddr</literal> field of the DHCP message header. When a server name is specified,
+          the name is set to option 66. See
+          <ulink url="https://www.rfc-editor.org/rfc/rfc2131.html">RFC 2131</ulink> and
+          <ulink url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details.
           Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Filename=</varname></term>
+        <term><varname>BootFilename=</varname></term>
 
         <listitem>
-          <para>Takes a path or url to a file loaded by e.g. a PXE boot loader. Defaults to unset.</para>
+          <para>Takes a path or url to a file loaded by e.g. a PXE boot loader. The specified path is
+          set to option 67. See
+          <ulink url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details.
+          Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
