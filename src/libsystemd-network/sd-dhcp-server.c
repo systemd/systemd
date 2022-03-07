@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "dhcp-internal.h"
 #include "dhcp-server-internal.h"
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
@@ -163,7 +164,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         sd_event_unref(server->event);
 
-        free(server->filename);
+        free(server->boot_server_name);
+        free(server->boot_filename);
         free(server->timezone);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
@@ -272,24 +274,40 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
         return server->event;
 }
 
-int sd_dhcp_server_set_next_server(sd_dhcp_server *server, const struct in_addr *next_server) {
+int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct in_addr *address) {
         assert_return(server, -EINVAL);
 
-        if (next_server)
-                server->next_server = *next_server;
+        if (address)
+                server->boot_server_address = *address;
         else
-                server->next_server = (struct in_addr) {};
+                server->boot_server_address = (struct in_addr) {};
 
         return 0;
 }
 
-int sd_dhcp_server_set_filename(sd_dhcp_server *server, const char *filename) {
+int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name) {
+        int r;
+
+        assert_return(server, -EINVAL);
+
+        if (name) {
+                r = dns_name_is_valid(name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
+
+        return free_and_strdup(&server->boot_server_name, name);
+}
+
+int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filename) {
         assert_return(server, -EINVAL);
 
         if (filename && (!string_is_safe(filename) || !ascii_is_valid(filename)))
                 return -EINVAL;
 
-        return free_and_strdup(&server->filename, filename);
+        return free_and_strdup(&server->boot_filename, filename);
 }
 
 int sd_dhcp_server_stop(sd_dhcp_server *server) {
@@ -561,7 +579,7 @@ static int server_send_offer_or_ack(
                 return r;
 
         packet->dhcp.yiaddr = address;
-        packet->dhcp.siaddr = server->next_server.s_addr;
+        packet->dhcp.siaddr = server->boot_server_address.s_addr;
 
         lease_time = htobe32(req->lifetime);
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
@@ -585,18 +603,18 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
-        if (server->filename) {
-                /* The pxelinux magic option is marked as deprecated, but let's append it for older
-                 * implementations. */
+        if (server->boot_server_name) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                                       SD_DHCP_OPTION_PXELINUX_MAGIC, 4,
-                                       (const uint8_t[]) { 0xf1, 0x00, 0x74, 0x7e });
+                                       SD_DHCP_OPTION_BOOT_SERVER_NAME,
+                                       strlen(server->boot_server_name), server->boot_server_name);
                 if (r < 0)
                         return r;
+        }
 
+        if (server->boot_filename) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                                       SD_DHCP_OPTION_CONFIGURATION_FILE,
-                                       strlen(server->filename), server->filename);
+                                       SD_DHCP_OPTION_BOOT_FILENAME,
+                                       strlen(server->boot_filename), server->boot_filename);
                 if (r < 0)
                         return r;
         }

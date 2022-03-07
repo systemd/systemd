@@ -416,13 +416,17 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        r = sd_dhcp_server_set_next_server(link->dhcp_server, &link->network->dhcp_server_next_server);
+        r = sd_dhcp_server_set_boot_server_address(link->dhcp_server, &link->network->dhcp_server_boot_server_address);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set next server for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
 
-        r = sd_dhcp_server_set_filename(link->dhcp_server, link->network->dhcp_server_filename);
+        r = sd_dhcp_server_set_boot_server_name(link->dhcp_server, link->network->dhcp_server_boot_server_name);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set filename for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server name for DHCPv4 server instance: %m");
+
+        r = sd_dhcp_server_set_boot_filename(link->dhcp_server, link->network->dhcp_server_boot_filename);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set boot filename for DHCPv4 server instance: %m");
 
         for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
@@ -712,7 +716,7 @@ int config_parse_dhcp_server_address(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         unsigned char prefixlen;
         int r;
