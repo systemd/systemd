@@ -610,7 +610,7 @@ bool strv_is_uniq(char * const *l) {
         char * const *i;
 
         STRV_FOREACH(i, l)
-                if (strv_find(i+1, *i))
+                if (strv_contains(i+1, *i))
                         return false;
 
         return true;
