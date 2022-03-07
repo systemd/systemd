@@ -144,33 +144,11 @@ acquired.
 ## Keeping `systemd'`s Demand on the Kernel Entropy Pool Minimal
 
 Since most of systemd's own use of random numbers do not require
-cryptographic-grade RNGs, it tries to avoid reading entropy from the kernel
-entropy pool if possible. If it succeeds this has the benefit that there's no
-need to delay the early boot process until entropy is available, and noisy
-kernel log messages about early reading from `/dev/urandom` are avoided
-too. Specifically:
-
-1. When generating [Type 4
-   UUIDs](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_\(random\)),
-   systemd tries to use Intel's and AMD's RDRAND CPU opcode directly, if
-   available. While some doubt the quality and trustworthiness of the entropy
-   provided by these opcodes, they should be good enough for generating UUIDs,
-   if not key material (though, as mentioned, today's big distributions opted
-   to trust it for that too, now, see above — but we are not going to make that
-   decision for you, and for anything key material related will only use the
-   kernel's entropy pool). If RDRAND is not available or doesn't work, it will
-   use synchronous `getrandom()` as fallback, and `/dev/urandom` on old kernels
-   where that system call doesn't exist yet. This means on non-Intel/AMD
-   systems UUID generation will block on kernel entropy initialization.
-
-2. For seeding hash tables, and all the other similar purposes systemd first
-   tries RDRAND, and if that's not available will try to use asynchronous
-   `getrandom()` (if the kernel doesn't support this system call,
-   `/dev/urandom` is used). This may fail too in case the pool is not
-   initialized yet, in which case it will fall back to glibc's internal rand()
-   calls, i.e. weak pseudo-random numbers. This should make sure we use good
-   random bytes if we can, but neither delay boot nor trigger noisy kernel log
-   messages during early boot for these use-cases.
+cryptographic-grade RNGs, it tries to avoid blocking reads to the kernel's RNG,
+opting instead for using `getrandom(GRND_INSECURE)`. After the pool is
+initialized, this is identical to `getrandom(0)`, returning cryptographically
+secure random numbers, but before it's initialized it has the nice effect of
+not blocking system boot.
 
 ## `systemd`'s Support for Filling the Kernel Entropy Pool
 
@@ -280,10 +258,8 @@ early-boot entropy in most cases. Specifically:
    hosting provider if they don't. For VMs used in testing environments,
    `systemd.random_seed=` may be used as an alternative to a virtualized RNG.
 
-3. On Intel/AMD systems systemd's own reliance on the kernel entropy pool is
-   minimal (as RDRAND is used on those for UUID generation). This only works if
-   the CPU has RDRAND of course, which most physical CPUs do (but I hear many
-   virtualized CPUs do not. Pity.)
+3. In general, systemd's own reliance on the kernel entropy pool is minimal
+   (due to the use of `GRND_INSECURE`).
 
 4. In all other cases, `systemd-random-seed.service` will help a bit, but — as
    mentioned — is too late to help with early boot.

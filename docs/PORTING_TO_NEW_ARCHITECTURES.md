@@ -53,9 +53,6 @@ architecture.
    support booting into OS trees that have an empty root directory with only
    `/usr/` mounted in.
 
-7. If your architecture has a CPU opcode similar to x86' RDRAND consider adding
-   native support for it to `src/basic/random-util.c`'s `rdrand()` function.
-
-8. If your architecture supports VM virtualization and provides CPU opcodes
+7. If your architecture supports VM virtualization and provides CPU opcodes
    similar to x86' CPUID consider adding native support for detecting VMs this
    way to `src/basic/virt.c`.

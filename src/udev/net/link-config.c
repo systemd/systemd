@@ -622,10 +622,9 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
 
         if (link->config->mac_address_policy == MAC_ADDRESS_POLICY_RANDOM)
                 /* We require genuine randomness here, since we want to make sure we won't collide with other
-                 * systems booting up at the very same time. We do allow RDRAND however, since this is not
-                 * cryptographic key material. */
+                 * systems booting up at the very same time. */
                 for (;;) {
-                        r = genuine_random_bytes(p, len, RANDOM_ALLOW_RDRAND);
+                        r = genuine_random_bytes(p, len, 0);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Failed to acquire random data to generate MAC address: %m");
 
