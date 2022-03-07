@@ -306,7 +306,7 @@ DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,     
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
 DHCPServer.BindToInterface,                  config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_bind_to_interface)
 DHCPServer.NextServer,                       config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_next_server)
-DHCPServer.Filename,                         config_parse_string,                                      0,                             offsetof(Network, dhcp_server_filename)
+DHCPServer.Filename,                         config_parse_string,                                      CONFIG_PARSE_STRING_SAFE_AND_ASCII, offsetof(Network, dhcp_server_filename)
 DHCPServerStaticLease.Address,               config_parse_dhcp_static_lease_address,                   0,                             0
 DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwaddr,                    0,                             0
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
