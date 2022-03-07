@@ -702,7 +702,8 @@ static Network *network_free(Network *network) {
 
         free(network->dhcp_server_relay_agent_circuit_id);
         free(network->dhcp_server_relay_agent_remote_id);
-        free(network->dhcp_server_filename);
+        free(network->dhcp_server_boot_server_name);
+        free(network->dhcp_server_boot_filename);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
