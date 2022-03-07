@@ -72,8 +72,8 @@ bool dhcp6_option_can_request(uint16_t option) {
                 return false;
         case SD_DHCP6_OPTION_CLIENT_FQDN:
         case SD_DHCP6_OPTION_PANA_AGENT:
-        case SD_DHCP6_OPTION_NEW_POSIX_TIMEZONE:
-        case SD_DHCP6_OPTION_NEW_TZDB_TIMEZONE:
+        case SD_DHCP6_OPTION_POSIX_TIMEZONE:
+        case SD_DHCP6_OPTION_TZDB_TIMEZONE:
                 return true;
         case SD_DHCP6_OPTION_ERO:
         case SD_DHCP6_OPTION_LQ_QUERY:
