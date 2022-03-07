@@ -61,6 +61,9 @@ fi
 
 [ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux $KERNEL_VERSION"
 
+SORT_KEY="$IMAGE_ID"
+[ -z "$SORT_KEY" ] && SORT_KEY="$ID"
+
 if [ -r /etc/kernel/cmdline ]; then
     BOOT_OPTIONS="$(tr -s "$IFS" ' ' </etc/kernel/cmdline)"
 elif [ -r /usr/lib/kernel/cmdline ]; then
@@ -117,6 +120,9 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
     echo "machine-id $MACHINE_ID"
+
+    [ -n "$SORT_KEY" ] && echo "sort-key   $SORT_KEY"
+
     echo "options    $BOOT_OPTIONS"
     echo "linux      $ENTRY_DIR/linux"
 

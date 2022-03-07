@@ -2,7 +2,7 @@
 
 #include "bootspec-fundamental.h"
 
-sd_bool bootspec_pick_name_version(
+sd_bool bootspec_pick_name_version_sort_key(
                 const sd_char *os_pretty_name,
                 const sd_char *os_image_id,
                 const sd_char *os_name,
@@ -12,12 +12,14 @@ sd_bool bootspec_pick_name_version(
                 const sd_char *os_version_id,
                 const sd_char *os_build_id,
                 const sd_char **ret_name,
-                const sd_char **ret_version) {
+                const sd_char **ret_version,
+                const sd_char **ret_sort_key) {
 
-        const sd_char *good_name, *good_version;
+        const sd_char *good_name, *good_version, *good_sort_key;
 
-        /* Find the best human readable title and version string for a boot entry (using the os-release(5)
-         * fields). Precise is preferred over vague, and human readable over machine readable. Thus:
+        /* Find the best human readable title, version string and sort key for a boot entry (using the
+         * os-release(5) fields). Precise is preferred over vague, and human readable over machine
+         * readable. Thus:
          *
          * 1. First priority gets the PRETTY_NAME field, which is the primary string intended for display,
          *    and should already contain both a nice description and a version indication (if that concept
@@ -37,11 +39,12 @@ sd_bool bootspec_pick_name_version(
          * which case the version is shown too.
          *
          * Note that name/version determined here are used only for display purposes. Boot entry preference
-         * sorting (i.e. algorithmic ordering of boot entries) is done based on the order of the entry "id"
-         * string (i.e. not on os-release(5) data). */
+         * sorting (i.e. algorithmic ordering of boot entries) is done based on the order of the sort key (if
+         * defined) or entry "id" string (i.e. entry file name) otherwise. */
 
         good_name = os_pretty_name ?: (os_image_id ?: (os_name ?: os_id));
         good_version = os_image_version ?: (os_version ?: (os_version_id ? : os_build_id));
+        good_sort_key = os_image_id ?: os_id;
 
         if (!good_name || !good_version)
                 return sd_false;
@@ -51,6 +54,9 @@ sd_bool bootspec_pick_name_version(
 
         if (ret_version)
                 *ret_version = good_version;
+
+        if (ret_sort_key)
+                *ret_sort_key = good_sort_key;
 
         return sd_true;
 }
