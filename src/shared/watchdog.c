@@ -230,7 +230,7 @@ static int update_pretimeout(void) {
         /* If we have a pretimeout governor, then pretimeout is supported. Without a governor
          * pretimeout does not work at all.
          * Note that this might require a kernel module that is not autoloaded, so we don't
-         * cache this, but we check everytime the configuration changes. */
+         * cache this, but we check every time the configuration changes. */
         watchdog_supports_pretimeout = true;
 
         /* Determine if the pretimeout is valid for the current watchdog timeout. */

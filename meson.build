@@ -361,7 +361,7 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 ]
 
-# Disable -Wmaybe-unitialized when compiling with -Os/-O1/-O3/etc. There are
+# Disable -Wmaybe-uninitialized when compiling with -Os/-O1/-O3/etc. There are
 # too many false positives with gcc >= 8. Effectively, we only test with -O0
 # and -O2; this should be enough to catch most important cases without too much
 # busywork. See https://github.com/systemd/systemd/pull/19226.
