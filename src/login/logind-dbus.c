@@ -2180,8 +2180,8 @@ static void reset_scheduled_shutdown(Manager *m) {
         m->scheduled_shutdown_type = NULL;
         m->scheduled_shutdown_timeout = USEC_INFINITY;
         m->scheduled_shutdown_uid = UID_INVALID;
-        freep(&m->scheduled_shutdown_tty);
-        freep(&m->wall_message);
+        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
+        m->wall_message = mfree(m->wall_message);
         m->shutdown_dry_run = false;
 
         if (m->unlink_nologin) {
