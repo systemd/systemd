@@ -204,6 +204,9 @@ typedef enum Disabled {
 
 typedef enum ConfigParseStringFlags {
         CONFIG_PARSE_STRING_SAFE  = 1 << 0,
+        CONFIG_PARSE_STRING_ASCII = 1 << 1,
+
+        CONFIG_PARSE_STRING_SAFE_AND_ASCII = CONFIG_PARSE_STRING_SAFE | CONFIG_PARSE_STRING_ASCII,
 } ConfigParseStringFlags;
 
 #define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
