@@ -709,7 +709,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse static routes, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_INTERFACE_MTU:
+        case SD_DHCP_OPTION_MTU_INTERFACE:
                 r = lease_parse_u16(option, len, &lease->mtu, 68);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
@@ -729,7 +729,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
                 break;
 
-        case SD_DHCP_OPTION_DOMAIN_SEARCH_LIST:
+        case SD_DHCP_OPTION_DOMAIN_SEARCH:
                 r = dhcp_lease_parse_search_domains(option, len, &lease->search_domains);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse Domain Search List, ignoring: %m");
@@ -750,13 +750,13 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse root path, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_RENEWAL_T1_TIME:
+        case SD_DHCP_OPTION_RENEWAL_TIME:
                 r = lease_parse_u32(option, len, &lease->t1, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 time, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_REBINDING_T2_TIME:
+        case SD_DHCP_OPTION_REBINDING_TIME:
                 r = lease_parse_u32(option, len, &lease->t2, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 time, ignoring: %m");
@@ -768,7 +768,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse classless routes, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_NEW_TZDB_TIMEZONE: {
+        case SD_DHCP_OPTION_TZDB_TIMEZONE: {
                 _cleanup_free_ char *tz = NULL;
 
                 r = lease_parse_string(option, len, &tz);
