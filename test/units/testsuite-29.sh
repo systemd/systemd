@@ -47,8 +47,8 @@ portablectl list | grep -q -F "No images."
 
 # portablectl also works with directory paths rather than images
 
-unsquashfs -q -dest /tmp/minimal_0 /usr/share/minimal_0.raw
-unsquashfs -q -dest /tmp/minimal_1 /usr/share/minimal_1.raw
+unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
+unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
