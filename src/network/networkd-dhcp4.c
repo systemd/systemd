@@ -1426,7 +1426,7 @@ static int dhcp4_configure(Link *link) {
 
         if (!link->network->dhcp_anonymize) {
                 if (link->network->dhcp_use_mtu) {
-                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_INTERFACE_MTU);
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_MTU_INTERFACE);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for MTU: %m");
                 }
@@ -1442,7 +1442,7 @@ static int dhcp4_configure(Link *link) {
                 }
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
-                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_DOMAIN_SEARCH_LIST);
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_DOMAIN_SEARCH);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for domain search list: %m");
                 }
@@ -1460,7 +1460,7 @@ static int dhcp4_configure(Link *link) {
                 }
 
                 if (link->network->dhcp_use_timezone) {
-                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_TZDB_TIMEZONE);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for timezone: %m");
                 }

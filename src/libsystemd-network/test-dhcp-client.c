@@ -109,7 +109,7 @@ static void test_request_anonymize(sd_event *e) {
         r = sd_dhcp_client_attach_event(client, e, 0);
         assert_se(r >= 0);
 
-        assert_se(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_NETBIOS_NAMESERVER) == 0);
+        assert_se(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_NETBIOS_NAME_SERVER) == 0);
         /* This PRL option is not set when using Anonymize */
         assert_se(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_HOST_NAME) == 1);
         assert_se(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_PARAMETER_REQUEST_LIST) == -EINVAL);
