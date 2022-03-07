@@ -628,7 +628,7 @@ static int server_send_offer_or_ack(
                 if (server->timezone) {
                         r = dhcp_option_append(
                                         &packet->dhcp, req->max_optlen, &offset, 0,
-                                        SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
+                                        SD_DHCP_OPTION_TZDB_TIMEZONE,
                                         strlen(server->timezone), server->timezone);
                         if (r < 0)
                                 return r;
