@@ -160,27 +160,59 @@ int rdrand(unsigned long *ret) {
 int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         static int have_syscall = -1;
         _cleanup_close_ int fd = -1;
-        bool got_some = false;
+
+        if (FLAGS_SET(flags, RANDOM_BLOCK | RANDOM_ALLOW_RDRAND))
+                return -EINVAL;
 
         /* Gathers some high-quality randomness from the kernel (or potentially mid-quality randomness from
          * the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't block, unless the RANDOM_BLOCK
-         * flag is set. If RANDOM_MAY_FAIL is set, an error is returned if the random pool is not
-         * initialized. Otherwise it will always return some data from the kernel, regardless of whether the
-         * random pool is fully initialized or not. If RANDOM_EXTEND_WITH_PSEUDO is set, and some but not
-         * enough better quality randomness could be acquired, the rest is filled up with low quality
-         * randomness.
-         *
-         * Of course, when creating cryptographic key material you really shouldn't use RANDOM_ALLOW_DRDRAND
-         * or even RANDOM_EXTEND_WITH_PSEUDO.
-         *
-         * When generating UUIDs it's fine to use RANDOM_ALLOW_RDRAND but not OK to use
-         * RANDOM_EXTEND_WITH_PSEUDO. In fact RANDOM_EXTEND_WITH_PSEUDO is only really fine when invoked via
-         * an "all bets are off" wrapper, such as random_bytes(), see below. */
+         * flag is set. If it doesn't block, it will still always return some data from the kernel, regardless
+         * of whether the random pool is fully initialized or not. When creating cryptographic key material you
+         * should always use RANDOM_BLOCK. */
 
         if (n == 0)
                 return 0;
 
-        if (FLAGS_SET(flags, RANDOM_ALLOW_RDRAND))
+        /* Use the getrandom() syscall unless we know we don't have it. */
+        if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
+                for (;;) {
+                        ssize_t l = getrandom(p, n, FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_INSECURE);
+
+                        if (l > 0) {
+                                have_syscall = true;
+
+                                if ((size_t) l == n)
+                                        return 0; /* Yay, success! */
+
+                                /* We didn't get enough data, so try again */
+                                assert((size_t) l < n);
+                                p = (uint8_t*) p + l;
+                                n -= l;
+                                continue;
+
+                        } else if (l == 0) {
+                                have_syscall = true;
+                                return -EIO;
+
+                        } else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                                /* We lack the syscall, continue with reading from /dev/urandom. */
+                                have_syscall = false;
+                                break;
+
+                        } else if (errno == EINVAL) {
+                                /* If we previously passed GRND_INSECURE, and this flag isn't known, then
+                                 * we're likely running an old kernel which has getrandom() but not
+                                 * GRND_INSECURE. In this case, fall back to /dev/urandom. */
+                                if (!FLAGS_SET(flags, RANDOM_BLOCK))
+                                        break;
+
+                                return -errno;
+                        } else
+                                return -errno;
+                }
+        }
+
+        if (FLAGS_SET(flags, RANDOM_ALLOW_RDRAND)) {
                 /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is
                  * not required, as we don't trust it (who does?). Note that we only do a single iteration of
                  * RDRAND here, even though the Intel docs suggest calling this in a tight loop of 10
@@ -193,13 +225,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                         size_t m;
 
                         if (rdrand(&u) < 0) {
-                                if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        /* Fill in the remaining bytes using pseudo-random values */
-                                        pseudo_random_bytes(p, n);
-                                        return 0;
-                                }
-
-                                /* OK, this didn't work, let's go to getrandom() + /dev/urandom instead */
+                                /* OK, this didn't work, let's go with /dev/urandom instead */
                                 break;
                         }
 
@@ -211,87 +237,6 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
 
                         if (n == 0)
                                 return 0; /* Yay, success! */
-
-                        got_some = true;
-                }
-
-        /* Use the getrandom() syscall unless we know we don't have it. */
-        if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
-
-                for (;;) {
-                        ssize_t l;
-                        l = getrandom(p, n,
-                                      (FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_NONBLOCK) |
-                                      (FLAGS_SET(flags, RANDOM_ALLOW_INSECURE) ? GRND_INSECURE : 0));
-                        if (l > 0) {
-                                have_syscall = true;
-
-                                if ((size_t) l == n)
-                                        return 0; /* Yay, success! */
-
-                                assert((size_t) l < n);
-                                p = (uint8_t*) p + l;
-                                n -= l;
-
-                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        /* Fill in the remaining bytes using pseudo-random values */
-                                        pseudo_random_bytes(p, n);
-                                        return 0;
-                                }
-
-                                got_some = true;
-
-                                /* Hmm, we didn't get enough good data but the caller insists on good data? Then try again */
-                                if (FLAGS_SET(flags, RANDOM_BLOCK))
-                                        continue;
-
-                                /* Fill in the rest with /dev/urandom */
-                                break;
-
-                        } else if (l == 0) {
-                                have_syscall = true;
-                                return -EIO;
-
-                        } else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                                /* We lack the syscall, continue with reading from /dev/urandom. */
-                                have_syscall = false;
-                                break;
-
-                        } else if (errno == EAGAIN) {
-                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall
-                                 * the next time again though.
-                                 *
-                                 * If RANDOM_MAY_FAIL is set, return an error so that random_bytes() can
-                                 * produce some pseudo-random bytes instead. Otherwise, fall back to
-                                 * /dev/urandom, which we know is empty, but the kernel will produce some
-                                 * bytes for us on a best-effort basis. */
-                                have_syscall = true;
-
-                                if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        /* Fill in the remaining bytes using pseudorandom values */
-                                        pseudo_random_bytes(p, n);
-                                        return 0;
-                                }
-
-                                if (FLAGS_SET(flags, RANDOM_MAY_FAIL))
-                                        return -ENODATA;
-
-                                /* Use /dev/urandom instead */
-                                break;
-
-                        } else if (errno == EINVAL) {
-
-                                /* Most likely: unknown flag. We know that GRND_INSECURE might cause this,
-                                 * hence try without. */
-
-                                if (FLAGS_SET(flags, RANDOM_ALLOW_INSECURE)) {
-                                        flags = flags &~ RANDOM_ALLOW_INSECURE;
-                                        continue;
-                                }
-
-                                return -errno;
-                        } else
-                                return -errno;
                 }
         }
 
@@ -421,7 +366,7 @@ void random_bytes(void *p, size_t n) {
          * This function is hence not useful for generating UUIDs or cryptographic key material.
          */
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_MAY_FAIL|RANDOM_ALLOW_RDRAND|RANDOM_ALLOW_INSECURE) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_ALLOW_RDRAND) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
