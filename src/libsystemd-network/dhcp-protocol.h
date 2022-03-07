@@ -73,15 +73,24 @@ enum {
 };
 
 enum {
-        DHCP_DISCOVER                           = 1,
-        DHCP_OFFER                              = 2,
-        DHCP_REQUEST                            = 3,
-        DHCP_DECLINE                            = 4,
-        DHCP_ACK                                = 5,
-        DHCP_NAK                                = 6,
-        DHCP_RELEASE                            = 7,
-        DHCP_INFORM                             = 8,
-        DHCP_FORCERENEW                         = 9,
+        DHCP_DISCOVER                           = 1,  /* [RFC2132] */
+        DHCP_OFFER                              = 2,  /* [RFC2132] */
+        DHCP_REQUEST                            = 3,  /* [RFC2132] */
+        DHCP_DECLINE                            = 4,  /* [RFC2132] */
+        DHCP_ACK                                = 5,  /* [RFC2132] */
+        DHCP_NAK                                = 6,  /* [RFC2132] */
+        DHCP_RELEASE                            = 7,  /* [RFC2132] */
+        DHCP_INFORM                             = 8,  /* [RFC2132] */
+        DHCP_FORCERENEW                         = 9,  /* [RFC3203] */
+        DHCPLEASEQUERY                          = 10, /* [RFC4388] */
+        DHCPLEASEUNASSIGNED                     = 11, /* [RFC4388] */
+        DHCPLEASEUNKNOWN                        = 12, /* [RFC4388] */
+        DHCPLEASEACTIVE                         = 13, /* [RFC4388] */
+        DHCPBULKLEASEQUERY                      = 14, /* [RFC6926] */
+        DHCPLEASEQUERYDONE                      = 15, /* [RFC6926] */
+        DHCPACTIVELEASEQUERY                    = 16, /* [RFC7724] */
+        DHCPLEASEQUERYSTATUS                    = 17, /* [RFC7724] */
+        DHCPTLS                                 = 18, /* [RFC7724] */
 };
 
 enum {
