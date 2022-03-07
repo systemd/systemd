@@ -24,11 +24,9 @@ static void test_genuine_random_bytes_one(RandomFlags flags) {
 }
 
 TEST(genuine_random_bytes) {
-        test_genuine_random_bytes_one(RANDOM_EXTEND_WITH_PSEUDO);
         test_genuine_random_bytes_one(0);
         test_genuine_random_bytes_one(RANDOM_BLOCK);
         test_genuine_random_bytes_one(RANDOM_ALLOW_RDRAND);
-        test_genuine_random_bytes_one(RANDOM_ALLOW_INSECURE);
 }
 
 TEST(pseudo_random_bytes) {
