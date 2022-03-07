@@ -1,0 +1,523 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -ex
+
+# Silence warning from running_in_chroot_or_offline()
+export SYSTEMD_IGNORE_CHROOT=1
+
+systemctl=${1:-systemctl}
+
+unset root
+cleanup() {
+    [ -n "$root" ] && rm -rf "$root"
+}
+trap cleanup exit
+root=$(mktemp -d --tmpdir systemctl-test.XXXXXX)
+
+islink() {
+    test -h "$1" || return 1
+    test "$(readlink "$1")" = "$2" || return 2
+}
+
+: ------enablement nonexistent--------------------------------
+"$systemctl" --root="$root" enable test1.service && { echo "Expected failure" >&2; exit 1; }
+
+: ------basic enablement--------------------------------------
+mkdir -p "$root/etc/systemd/system"
+cat >"$root/etc/systemd/system/test1.service" <<EOF
+[Install]
+WantedBy=default.target
+RequiredBy=special.target
+EOF
+
+"$systemctl" --root="$root" enable test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" reenable test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" disable test1.service
+test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+
+: ------suffix guessing---------------------------------------
+"$systemctl" --root="$root" enable test1
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" reenable test1
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" disable test1
+test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+
+: -------aliases----------------------------------------------
+"$systemctl" --root="$root" enable test1
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+cat >>"$root/etc/systemd/system/test1.service" <<EOF
+Alias=test1-goodalias.service
+Alias=test1@badalias.service
+Alias=test1-badalias.target
+Alias=test1-badalias.socket
+EOF
+
+: -------aliases in reeanble----------------------------------
+"$systemctl" --root="$root" reenable test1
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test -h "$root/etc/systemd/system/test1-goodalias.service"
+
+test ! -e "$root/etc/systemd/system/test1@badalias.service"
+test ! -e "$root/etc/systemd/system/test1-badalias.target"
+test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+
+"$systemctl" --root="$root" disable test1
+test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+
+: -------also units-------------------------------------------
+cat >"$root/etc/systemd/system/test2.socket" <<EOF
+[Install]
+WantedBy=sockets.target
+Also=test2.service
+EOF
+
+cat >"$root/etc/systemd/system/test2.service" <<EOF
+[Install]
+WantedBy=default.target
+Also=test2.socket
+EOF
+
+"$systemctl" --root="$root" reenable test2.service
+test -h "$root/etc/systemd/system/default.target.wants/test2.service"
+test -h "$root/etc/systemd/system/sockets.target.wants/test2.socket"
+
+"$systemctl" --root="$root" reenable test2.socket
+test -h "$root/etc/systemd/system/default.target.wants/test2.service"
+test -h "$root/etc/systemd/system/sockets.target.wants/test2.socket"
+
+"$systemctl" --root="$root" disable test2.socket
+test ! -e "$root/etc/systemd/system/default.target.wants/test2.service"
+test ! -e "$root/etc/systemd/system/sockets.target.wants/test2.socket"
+
+
+: -------link-------------------------------------------------
+# File doesn't exist yet
+test ! -e "$root/link1.path"
+"$systemctl" --root="$root" link '/link1.path' && { echo "Expected failure" >&2; exit 1; }
+test ! -e "$root/etc/systemd/system/link1.path"
+
+cat >"$root/link1.path" <<EOF
+[Install]
+WantedBy=paths.target
+EOF
+
+"$systemctl" --root="$root" link '/link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+
+: -------link already linked same path------------------------
+SYSTEMD_LOG_LEVEL=debug "$systemctl" --root="$root" link '/link1.path'  # this passes
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+
+: -------link already linked different path-------------------
+mkdir "$root/subdir"
+cp "$root/link1.path" "$root/subdir/"
+"$systemctl" --root="$root" link '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+
+: -------link bad suffix--------------------------------------
+cp "$root/link1.path" "$root/subdir/link1.suffix"
+"$systemctl" --root="$root" link '/subdir/link1.suffix' && { echo "Expected failure" >&2; exit 1; }
+test ! -e "$root/etc/systemd/system/link1.suffix"
+
+: -------unlink by unit name----------------------------------
+"$systemctl" --root="$root" disable 'link1.path'
+test ! -e "$root/etc/systemd/system/link1.path"
+
+: -------unlink by path---------------------------------------
+"$systemctl" --root="$root" link '/link1.path'
+test -h "$root/etc/systemd/system/link1.path"
+"$systemctl" --root="$root" disable '/link1.path'
+test ! -e "$root/etc/systemd/system/link1.path"
+
+: -------unlink by wrong path---------------------------------
+"$systemctl" --root="$root" link '/link1.path'
+test -h "$root/etc/systemd/system/link1.path"
+"$systemctl" --root="$root" disable '/subdir/link1.path'  # we only care about the name
+test ! -e "$root/etc/systemd/system/link1.path"
+
+
+: -------link and enable--------------------------------------
+"$systemctl" --root="$root" enable '/link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+
+: -------enable already linked same path----------------------
+"$systemctl" --root="$root" enable '/link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+
+: -------enable already linked different path-----------------
+# FIXME
+# "$systemctl" --root="$root" enable '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
+# test -h "$root/etc/systemd/system/link1.path"
+# readlink "$root/etc/systemd/system/link1.path"
+# test -h "$root/etc/systemd/system/paths.target.wants/link1.path"
+# readlink "$root/etc/systemd/system/paths.target.wants/link1.path"
+
+: -------enable bad suffix------------------------------------
+cp "$root/link1.path" "$root/subdir/link1.suffix"
+"$systemctl" --root="$root" enable '/subdir/link1.suffix' && { echo "Expected failure" >&2; exit 1; }
+test ! -e "$root/etc/systemd/system/link1.suffix"
+test ! -e "$root/etc/systemd/system/paths.target.wants/link1.suffix"
+
+: -------disable by unit name---------------------------------
+"$systemctl" --root="$root" disable 'link1.path'
+test ! -e "$root/etc/systemd/system/link1.path"
+test ! -e "$root/etc/systemd/system/paths.target.wants/link1.path"
+
+: -------disable by path--------------------------------------
+"$systemctl" --root="$root" enable '/link1.path'
+test -h "$root/etc/systemd/system/link1.path"
+test -h "$root/etc/systemd/system/paths.target.wants/link1.path"
+"$systemctl" --root="$root" disable '/link1.path'
+test ! -e "$root/etc/systemd/system/link1.path"
+test ! -e "$root/etc/systemd/system/paths.target.wants/link1.path"
+
+
+: -------link then enable-------------------------------------
+"$systemctl" --root="$root" link '/link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+test ! -h "$root/etc/systemd/system/paths.target.wants/link1.path"
+
+"$systemctl" --root="$root" enable 'link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+
+# FIXME
+# "$systemctl" --root="$root" reenable 'link1.path'
+# islink "$root/etc/systemd/system/link1.path" "/link1.path"
+# islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+
+
+: -------manual link------------------------------------------
+cat >"$root/link3.suffix" <<EOF
+[Install]
+WantedBy=services.target
+EOF
+
+ln -s "/link3.suffix" "$root/etc/systemd/system/link3.service"
+
+# SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_LOCATION=1 "$systemctl" --root="$root" enable 'link3.service'
+# islink "$root/etc/systemd/system/link3.service" "/link3.suffix"
+# islink "$root/etc/systemd/system/services.target.wants/link3.service" "../link3.service"
+# unit_file_load_or_readlink() needs to be fixed to not follow links
+
+: -------enable on masked-------------------------------------
+ln -s "/dev/null" "$root/etc/systemd/system/masked.service"
+"$systemctl" --root="$root" enable 'masked.service' && { echo "Expected failure" >&2; exit 1; }
+"$systemctl" --root="$root" enable '/etc/systemd/system/masked.service' && { echo "Expected failure" >&2; exit 1; }
+
+: -------enable on masked alias-------------------------------
+test -h "$root/etc/systemd/system/masked.service"
+ln -s "masked.service" "$root/etc/systemd/system/masked-alias.service"
+"$systemctl" --root="$root" enable 'masked-alias.service' && { echo "Expected failure" >&2; exit 1; }
+"$systemctl" --root="$root" enable '/etc/systemd/system/masked-alias.service' && { echo "Expected failure" >&2; exit 1; }
+
+: -------issue 22000: link in subdirectory--------------------
+mkdir -p "$root/etc/systemd/system/myown.d"
+cat >"$root/etc/systemd/system/link5-also.service" <<EOF
+[Install]
+WantedBy=services.target
+Also=link5.service
+EOF
+cat >"$root/etc/systemd/system/myown.d/link5.service" <<EOF
+[Install]
+WantedBy=services.target
+Also=link5-also.service
+EOF
+
+"$systemctl" --root="$root" enable 'link5.service' && { echo "Expected failure" >&2; exit 1; }
+test ! -h "$root/etc/systemd/system/services.target.wants/link5.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/link5-also.service"
+
+"$systemctl" --root="$root" enable 'link5-also.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/link5.service"
+islink "$root/etc/systemd/system/services.target.wants/link5-also.service" "/etc/systemd/system/link5-also.service"
+
+: -------template enablement----------------------------------
+cat >"$root/etc/systemd/system/templ1@.service" <<EOF
+[Install]
+WantedBy=services.target
+EOF
+
+# No instance here — this can't succeed.
+"$systemctl" --root="$root" enable 'templ1@.service' && { echo "Expected failure" >&2; exit 1; }
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+
+"$systemctl" --root="$root" enable 'templ1@one.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" enable 'templ1@two.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" disable 'templ1@one.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" disable 'templ1@two.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+
+: -------template enablement w/ default instance--------------
+cat >>"$root/etc/systemd/system/templ1@.service" <<EOF
+DefaultInstance=333
+EOF
+# FIXME: should we deduplicate the target? Right now we warn twice if WantedBy= is repeated.
+# WantedBy=services.target services.target
+
+"$systemctl" --root="$root" enable 'templ1@.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" enable 'templ1@one.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" enable 'templ1@two.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" disable 'templ1@one.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+# disable both remaining links here
+"$systemctl" --root="$root" disable 'templ1@.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@333.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+
+: -------aliases w/ and w/o instance--------------------------
+test ! -e "$root/etc/systemd/system/link4.service"
+cat >"$root/etc/systemd/system/link4.service" <<EOF
+[Install]
+# FIXME: self-alias should be ignored
+# Alias=link4.service
+Alias=link4@.service
+Alias=link4@inst.service
+Alias=link4alias.service
+Alias=link4alias2.service
+EOF
+
+"$systemctl" --root="$root" enable 'link4.service'
+test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
+test ! -h "$root/etc/systemd/system/link4@.service"
+test ! -h "$root/etc/systemd/system/link4@inst.service"
+islink "$root/etc/systemd/system/link4alias.service" "/etc/systemd/system/link4.service"
+islink "$root/etc/systemd/system/link4alias2.service" "/etc/systemd/system/link4.service"
+
+"$systemctl" --root="$root" disable 'link4.service'
+test ! -h "$root/etc/systemd/system/link4.service"
+test ! -h "$root/etc/systemd/system/link4@.service"
+test ! -h "$root/etc/systemd/system/link4@inst.service"
+test ! -h "$root/etc/systemd/system/link4alias.service"
+test ! -h "$root/etc/systemd/system/link4alias2.service"
+
+: -------systemctl enable on path to unit file----------------
+# Apparently this works. I'm not sure what to think.
+"$systemctl" --root="$root" enable '/etc/systemd/system/link4.service'
+test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
+test ! -h "$root/etc/systemd/system/link4@.service"
+test ! -h "$root/etc/systemd/system/link4@inst.service"
+islink "$root/etc/systemd/system/link4alias.service" "/etc/systemd/system/link4.service"
+islink "$root/etc/systemd/system/link4alias2.service" "/etc/systemd/system/link4.service"
+
+"$systemctl" --root="$root" disable '/etc/systemd/system/link4.service'
+test ! -h "$root/etc/systemd/system/link4.service"
+test ! -h "$root/etc/systemd/system/link4@.service"
+test ! -h "$root/etc/systemd/system/link4@inst.service"
+test ! -h "$root/etc/systemd/system/link4alias.service"
+test ! -h "$root/etc/systemd/system/link4alias2.service"
+
+: -------issue 661: link and enable on unit file--------------
+test ! -e "$root/etc/systemd/system/link5.service"
+cat >"$root/etc/systemd/system/link5.service" <<EOF
+[Install]
+# FIXME: self-alias should be ignored
+# Alias=link5.service
+Alias=link5@.service
+Alias=link5@inst.service
+Alias=link5alias.service
+Alias=link5alias2.service
+EOF
+
+"$systemctl" --root="$root" enable 'link5.service'
+test ! -h "$root/etc/systemd/system/link5.service"  # this is our file
+test ! -h "$root/etc/systemd/system/link5@.service"
+test ! -h "$root/etc/systemd/system/link5@inst.service"
+# FIXME/CLARIFYME: will systemd think that link5alias2, link5alias, link5 are all aliases?
+# https://github.com/systemd/systemd/issues/661#issuecomment-1057931149
+islink "$root/etc/systemd/system/link5alias.service" "/etc/systemd/system/link5.service"
+islink "$root/etc/systemd/system/link5alias2.service" "/etc/systemd/system/link5.service"
+
+"$systemctl" --root="$root" disable 'link5.service'
+test ! -h "$root/etc/systemd/system/link5.service"
+test ! -h "$root/etc/systemd/system/link5@.service"
+test ! -h "$root/etc/systemd/system/link5@inst.service"
+test ! -h "$root/etc/systemd/system/link5alias.service"
+test ! -h "$root/etc/systemd/system/link5alias2.service"
+
+: ----issue 19437: plain templates in .wants/ or .requires/---
+test ! -e "$root/etc/systemd/system/link5@.path"
+cat >"$root/etc/systemd/system/link5@.path" <<EOF
+[Install]
+WantedBy=target5@.target
+RequiredBy=target5@.target
+WantedBy=target5@inst.target
+RequiredBy=target5@inst.target
+EOF
+
+"$systemctl" --root="$root" enable 'link5@.path'
+test ! -h "$root/etc/systemd/system/link5@.path"  # this is our file
+islink "$root/etc/systemd/system/target5@.target.wants/link5@.path" "/etc/systemd/system/link5@.path"
+islink "$root/etc/systemd/system/target5@.target.requires/link5@.path" "/etc/systemd/system/link5@.path"
+islink "$root/etc/systemd/system/target5@inst.target.wants/link5@.path" "/etc/systemd/system/link5@.path"
+islink "$root/etc/systemd/system/target5@inst.target.requires/link5@.path" "/etc/systemd/system/link5@.path"
+
+"$systemctl" --root="$root" disable 'link5@.path'
+test ! -h "$root/etc/systemd/system/link5@.path"  # this is our file
+test ! -h "$root/etc/systemd/system/target5@.target.wants/link5@.path"
+test ! -h "$root/etc/systemd/system/target5@.target.requires/link5@.path"
+test ! -h "$root/etc/systemd/system/target5@inst.target.wants/link5@.path"
+test ! -h "$root/etc/systemd/system/target5@inst.target.requires/link5@.path"
+
+: -------removal of symlinks not listed in [Install]----------
+# c.f. 66a19d85a533b15ed32f4066ec880b5a8c06babd
+test ! -e "$root/etc/systemd/system/multilink.mount"
+cat >"$root/etc/systemd/system/multilink.mount" <<EOF
+[Install]
+WantedBy=multilink.target
+EOF
+
+mkdir -p "$root/etc/systemd/system/default.target.wants"
+ln -s ../multilink.mount "$root/etc/systemd/system/default.target.wants/"
+ln -s ../multilink.mount "$root/etc/systemd/system/multilink-alias.mount"
+ln -s ../multilink.mount "$root/etc/systemd/system/multilink-badalias.service"
+
+"$systemctl" --root="$root" disable 'multilink.mount'
+test -e "$root/etc/systemd/system/multilink.mount"  # this is our file
+test ! -h "$root/etc/systemd/system/default.target.wants/"
+test ! -h "$root/etc/systemd/system/multilink-alias.mount"
+test ! -h "$root/etc/systemd/system/multilink-badalias.service"
+
+: -------merge 20017: specifiers in the unit file-------------
+test ! -e "$root/etc/systemd/system/some-some-link6@.socket"
+# c.f. de61a04b188f81a85cdb5c64ddb4987dcd9d30d3
+
+check_alias() {
+    : ------------------ %$1 -------------------------------------
+    cat >"$root/etc/systemd/system/some-some-link6@.socket" <<EOF
+[Install]
+Alias=target@$1:%$1.socket
+EOF
+    SYSTEMD_LOG_LEVEL=debug "$systemctl" --root="$root" enable 'some-some-link6@.socket' || return 1
+    islink "$root/etc/systemd/system/target@$1:$2.socket" "/etc/systemd/system/some-some-link6@.socket" || return 2
+}
+
+check_alias a "$(uname -m | tr '_' '-')"
+
+# FIXME: when os-release is not found, we fail we a cryptic error
+# Alias=target@%A.socket
+
+check_alias b "$(systemd-id128 boot-id)"
+
+# Alias=target@%B.socket
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%C.socket
+# Alias=target@%E.socket
+# Alias=target@%f.socket
+
+# FIXME: we use the calling user instead of root :(
+check_alias g root || :
+check_alias G 0 || :
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%h.socket
+
+check_alias i ""
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%I.socket
+
+check_alias j 'link6'
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%J.socket
+
+check_alias l "$(uname -n | sed 's/\..*//')"
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%L.socket
+
+# FIXME: Failed to enable: No such file or directory.
+# Alias=target@%m.socket
+
+# FIXME: Failed to enable: No such file or directory.
+# Alias=target@%M.socket
+
+check_alias n 'some-some-link6@.socket'
+check_alias N 'some-some-link6@'
+
+# FIXME: Failed to enable: No such file or directory.
+# Alias=target@%o.socket
+
+check_alias p 'some-some-link6'
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%P.socket
+# Alias=target@%s.socket
+# Alias=target@%S.socket
+# Alias=target@%t.socket
+# Alias=target@%T.socket
+
+# FIXME: we use the calling user instead of root :(
+check_alias u root || :
+check_alias U 0 || :
+
+check_alias v "$(uname -r)"
+
+# FIXME: Failed to enable: Invalid slot.
+# Alias=target@%V.socket
+
+# Alias=target@%w.socket
+# Alias=target@%W.socket
+
+check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
+
+check_alias z 'z' && { echo "Expected failure because %z is not known" >&2; exit 1; }
+
+# FIXME: if there's an invalid Alias=, we shouldn't preach about empty [Install]
+
+exit 0  # yes, this is needed because the last test above fails
+
+# TODO: repeat the tests above for presets

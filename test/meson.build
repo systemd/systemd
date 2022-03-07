@@ -88,6 +88,7 @@ endif
 
 test_fstab_generator_sh = find_program('test-fstab-generator.sh')
 test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
+test_systemctl_enable_sh = find_program('test-systemctl-enable.sh')
 test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
 hwdb_test_sh = find_program('hwdb-test.sh')
 
