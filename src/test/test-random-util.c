@@ -27,8 +27,6 @@ TEST(genuine_random_bytes) {
         test_genuine_random_bytes_one(RANDOM_EXTEND_WITH_PSEUDO);
         test_genuine_random_bytes_one(0);
         test_genuine_random_bytes_one(RANDOM_BLOCK);
-        test_genuine_random_bytes_one(RANDOM_ALLOW_RDRAND);
-        test_genuine_random_bytes_one(RANDOM_ALLOW_INSECURE);
 }
 
 TEST(pseudo_random_bytes) {
@@ -40,22 +38,6 @@ TEST(pseudo_random_bytes) {
                         assert_se(buf[i] == 0);
 
                 hexdump(stdout, buf, i);
-        }
-}
-
-TEST(rdrand) {
-        int r;
-
-        for (unsigned i = 0; i < 10; i++) {
-                unsigned long x = 0;
-
-                r = rdrand(&x);
-                if (r < 0) {
-                        log_error_errno(r, "RDRAND failed: %m");
-                        return;
-                }
-
-                printf("%lx\n", x);
         }
 }
 
