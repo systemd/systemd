@@ -383,6 +383,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--database-match</option></term>
+          <listitem>
+            <para>Trigger devices with a corresponding udev database entry only. This can potentially save a
+            significant amount of time compared to re-triggering all devices in the system and e.g. can be used to
+            optimize boot time.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--database-nomatch</option></term>
+          <listitem>
+            <para>Trigger devices without a corresponding udev database entry only. This is the inverse operation of
+            --database-match.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-w</option></term>
           <term><option>--settle</option></term>
           <listitem>
