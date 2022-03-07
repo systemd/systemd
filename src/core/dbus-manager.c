@@ -2710,6 +2710,16 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         assert(m);
         assert(message);
 
+        r = mac_selinux_access_check(message, "reload", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_set_environment_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         r = sd_bus_message_read(message, "s", &t);
         if (r < 0)
                 return r;
@@ -3100,7 +3110,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(mode),
                                  NULL,,
                                  method_set_show_status,
-                                 SD_BUS_VTABLE_CAPABILITY(CAP_SYS_ADMIN)),
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListUnits",
                                  NULL,,
                                  "a(ssssssouso)",
