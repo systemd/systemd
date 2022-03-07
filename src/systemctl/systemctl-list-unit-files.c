@@ -38,12 +38,12 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
                 if (!dot)
                         return false;
 
-                if (!strv_find(arg_types, dot+1))
+                if (!strv_contains(arg_types, dot+1))
                         return false;
         }
 
         if (!strv_isempty(states) &&
-            !strv_find(states, unit_file_state_to_string(u->state)))
+            !strv_contains(states, unit_file_state_to_string(u->state)))
                 return false;
 
         return true;
