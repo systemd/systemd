@@ -518,6 +518,14 @@ check_alias z 'z' && { echo "Expected failure because %z is not known" >&2; exit
 
 # FIXME: if there's an invalid Alias=, we shouldn't preach about empty [Install]
 
-exit 0  # yes, this is needed because the last test above fails
-
 # TODO: repeat the tests above for presets
+
+: -------SYSTEMD_OS_RELEASE relative to root------------------
+# check that os-release overwriting works as expected with root
+test -e "$root/etc/os-release"
+
+cat >"$root/etc/os-release2" <<EOF
+ID='the-id2'
+EOF
+
+SYSTEMD_OS_RELEASE="$root/etc/os-release2" check_alias o 'the-id2'
