@@ -286,7 +286,7 @@ int sd_dhcp_server_set_next_server(sd_dhcp_server *server, const struct in_addr 
 int sd_dhcp_server_set_filename(sd_dhcp_server *server, const char *filename) {
         assert_return(server, -EINVAL);
 
-        if (filename && !ascii_is_valid(filename))
+        if (filename && (!string_is_safe(filename) || !ascii_is_valid(filename)))
                 return -EINVAL;
 
         return free_and_strdup(&server->filename, filename);
