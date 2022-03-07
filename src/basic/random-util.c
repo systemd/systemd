@@ -41,14 +41,8 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
 
         /* Gathers some high-quality randomness from the kernel. This call won't block, unless the RANDOM_BLOCK
          * flag is set. If it doesn't block, it will still always return some data from the kernel, regardless
-         * of whether the random pool is fully initialized or not. If RANDOM_EXTEND_WITH_PSEUDO is set, and
-         * some but not enough better quality randomness could be acquired, the rest is filled up with low
-         * quality randomness.
-         *
-         * Of course, when creating cryptographic key material you really shouldn't use
-         * RANDOM_EXTEND_WITH_PSEUDO, and you should always set RANDOM_BLOCK. In fact RANDOM_EXTEND_WITH_PSEUDO
-         * is only really fine when invoked via an "all bets are off" wrapper, such as random_bytes(), see
-         * below. */
+         * of whether the random pool is fully initialized or not. When creating cryptographic key material you
+         * should always set RANDOM_BLOCK. */
 
         if (n == 0)
                 return 0;
@@ -66,17 +60,10 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 if ((size_t) l == n)
                                         return 0; /* Yay, success! */
 
+                                /* We didn't get enough data, so try again */
                                 assert((size_t) l < n);
                                 p = (uint8_t*) p + l;
                                 n -= l;
-
-                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        /* Fill in the remaining bytes using pseudo-random values */
-                                        pseudo_random_bytes(p, n);
-                                        return 0;
-                                }
-
-                                /* We didn't get enough data, so try again */
                                 continue;
 
                         } else if (l == 0) {
@@ -92,12 +79,6 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 /* The kernel has no entropy whatsoever. Let's remember to use the syscall
                                  * the next time again though. */
                                 have_syscall = true;
-
-                                if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
-                                        /* Fill in the remaining bytes using pseudorandom values */
-                                        pseudo_random_bytes(p, n);
-                                        return 0;
-                                }
 
                                 /* We've arrived here if RANDOM_BLOCK was /not/ set, meaning that we intend
                                  * to fall back to insecure randomness. That in turn requires unsetting the
@@ -238,7 +219,7 @@ void random_bytes(void *p, size_t n) {
          * This function is hence not useful for generating UUIDs or cryptographic key material.
          */
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO) >= 0)
+        if (genuine_random_bytes(p, n, 0) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
