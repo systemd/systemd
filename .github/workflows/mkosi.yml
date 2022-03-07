@@ -26,7 +26,7 @@ jobs:
   ci:
     runs-on: ubuntu-20.04
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
