@@ -81,8 +81,8 @@ enum {
         SD_DHCP6_OPTION_SUBSCRIBER_ID              = 38,  /* RFC 4580 */
         SD_DHCP6_OPTION_CLIENT_FQDN                = 39,  /* RFC 4704 */
         SD_DHCP6_OPTION_PANA_AGENT                 = 40,  /* RFC 5192 */
-        SD_DHCP6_OPTION_NEW_POSIX_TIMEZONE         = 41,  /* RFC 4833 */
-        SD_DHCP6_OPTION_NEW_TZDB_TIMEZONE          = 42,  /* RFC 4833 */
+        SD_DHCP6_OPTION_POSIX_TIMEZONE             = 41,  /* RFC 4833 */
+        SD_DHCP6_OPTION_TZDB_TIMEZONE              = 42,  /* RFC 4833 */
         SD_DHCP6_OPTION_ERO                        = 43,  /* RFC 4994 */
         SD_DHCP6_OPTION_LQ_QUERY                   = 44,  /* RFC 5007 */
         SD_DHCP6_OPTION_CLIENT_DATA                = 45,  /* RFC 5007 */
