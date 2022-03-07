@@ -95,6 +95,20 @@ CHANGES WITH 251:
           handling, and improving compatibility with home directories intended
           to be portable like the ones managed by systemd-homed.
 
+        * All kernels supported by systemd mix RDRAND (or similar) into the
+          entropy pool at early boot. This means that on those systems, even
+          if /dev/urandom is not yet initialized, it still returns bytes that
+          that are at least as high quality as RDRAND. For that reason, we no
+          longer have reason to invoke RDRAND from systemd itself, which has
+          historically been a source of bugs. Furthermore, kernels ≥5.6 provide
+          the getrandom(GRND_INSECURE) interface for returning random bytes
+          before the entropy pool is initialized without warning into kmsg,
+          which is what we attempt to use if available. By removing systemd's
+          direct usage of RDRAND, x86 systems ≥Broadwell that are running an
+          older kernel may experience kmsg warnings that were not seen with
+          250. For newer kernels, non-x86 systems, or older x86 systems,
+          there should be no visible changes.
+
 CHANGES WITH 250:
 
         * Support for encrypted and authenticated credentials has been added.
