@@ -172,13 +172,19 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
         } else {
                 const char *p;
 
-                FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
-                        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT,
+                p = secure_getenv("SYSTEMD_OS_RELEASE");
+                if (p)
+                        r = chase_symlinks(p, root, 0,
                                            ret_path ? &q : NULL,
                                            ret_fd ? &fd : NULL);
-                        if (r != -ENOENT)
-                                break;
-                }
+                else
+                        FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
+                                r = chase_symlinks(p, root, CHASE_PREFIX_ROOT,
+                                                   ret_path ? &q : NULL,
+                                                   ret_fd ? &fd : NULL);
+                                if (r != -ENOENT)
+                                        break;
+                        }
         }
         if (r < 0)
                 return r;
