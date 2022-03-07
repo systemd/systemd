@@ -168,7 +168,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bool);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_string);
-CONFIG_PARSER_PROTOTYPE(config_parse_safe_string);
 CONFIG_PARSER_PROTOTYPE(config_parse_path);
 CONFIG_PARSER_PROTOTYPE(config_parse_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec);
@@ -202,6 +201,10 @@ typedef enum Disabled {
         DISABLED_LEGACY,
         DISABLED_EXPERIMENTAL,
 } Disabled;
+
+typedef enum ConfigParseStringFlags {
+        CONFIG_PARSE_STRING_SAFE  = 1 << 0,
+} ConfigParseStringFlags;
 
 #define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
         CONFIG_PARSER_PROTOTYPE(function) {                             \

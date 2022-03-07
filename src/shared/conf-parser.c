@@ -11,6 +11,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "escape.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -873,37 +874,23 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        return free_and_strdup_warn(s, empty_to_null(rvalue));
-}
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
 
-int config_parse_safe_string(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
 
-        char **s = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (!string_is_safe(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Specified string contains unsafe characters, ignoring: %s", rvalue);
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains unsafe characters, ignoring: %s", strna(escaped));
                 return 0;
         }
 
