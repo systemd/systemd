@@ -28,7 +28,6 @@ TEST(genuine_random_bytes) {
         test_genuine_random_bytes_one(0);
         test_genuine_random_bytes_one(RANDOM_BLOCK);
         test_genuine_random_bytes_one(RANDOM_ALLOW_RDRAND);
-        test_genuine_random_bytes_one(RANDOM_ALLOW_INSECURE);
 }
 
 TEST(pseudo_random_bytes) {
