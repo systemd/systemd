@@ -6,6 +6,7 @@
 
 #include "sd-dhcp-server.h"
 
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "networkd-address.h"
@@ -416,13 +417,17 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        r = sd_dhcp_server_set_next_server(link->dhcp_server, &link->network->dhcp_server_next_server);
+        r = sd_dhcp_server_set_boot_server(link->dhcp_server, &link->network->dhcp_server_boot_server);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set next server for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
 
-        r = sd_dhcp_server_set_filename(link->dhcp_server, link->network->dhcp_server_filename);
+        r = sd_dhcp_server_set_boot_server_name(link->dhcp_server, link->network->dhcp_server_boot_server_name);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set filename for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server name for DHCPv4 server instance: %m");
+
+        r = sd_dhcp_server_set_boot_filename(link->dhcp_server, link->network->dhcp_server_boot_filename);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set boot filename for DHCPv4 server instance: %m");
 
         for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
@@ -712,7 +717,7 @@ int config_parse_dhcp_server_address(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         unsigned char prefixlen;
         int r;
@@ -743,4 +748,46 @@ int config_parse_dhcp_server_address(
         network->dhcp_server_address = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
         return 0;
+}
+
+int config_parse_dhcp_server_boot_server(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+        union in_addr_union a;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_server_boot_server = (struct in_addr) {};
+                network->dhcp_server_boot_server_name = mfree(network->dhcp_server_boot_server_name);
+                return 0;
+        }
+
+        r = in_addr_from_string(AF_INET, rvalue, &a);
+        if (r >= 0) {
+                network->dhcp_server_boot_server = a.in;
+                return 0;
+        }
+
+        r = dns_name_is_valid(rvalue);
+        if (r <= 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Specified invalid boot server address or name, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(&network->dhcp_server_boot_server_name, rvalue);
 }
