@@ -1345,6 +1345,17 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
 
+##########################################
+# NEC
+##########################################
+
+# VersaPro VG-S
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNEC:pnPC-VK22TGSGS:pvr*
+ KEYBOARD_KEY_a8=f21                                    # Fn+Space touchpad toggle
+ KEYBOARD_KEY_67=brightnessdown                         # Fn+F7 brightness down
+ KEYBOARD_KEY_65=brightnessup                           # Fn+F8 brightness up
+ KEYBOARD_KEY_71=battery                                # Fn+F4 ECO
+
 ###########################################################
 # Olimex
 ###########################################################
