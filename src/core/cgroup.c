@@ -2958,6 +2958,10 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
                         log_debug_errno(r, "Failed to reenable cgroup empty event source, ignoring: %m");
         }
 
+        /* Update state based on OOM kills before we notify about cgroup empty event */
+        (void) unit_check_oom(u);
+        (void) unit_check_oomd_kill(u);
+
         unit_add_to_gc_queue(u);
 
         if (UNIT_VTABLE(u)->notify_cgroup_empty)
