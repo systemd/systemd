@@ -894,6 +894,15 @@ int config_parse_string(
                 return 0;
         }
 
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_ASCII) && !ascii_is_valid(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains invalid ASCII characters, ignoring: %s", strna(escaped));
+                return 0;
+        }
+
         return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
