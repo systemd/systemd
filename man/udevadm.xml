@@ -280,9 +280,9 @@
           <term><option>-t</option></term>
           <term><option>--type=<replaceable>TYPE</replaceable></option></term>
           <listitem>
-            <para>Trigger a specific type of devices. Valid types are:
-            <command>devices</command>, <command>subsystems</command>.
-            The default value is <command>devices</command>.</para>
+            <para>Trigger a specific type of devices. Valid types are <literal>all</literal>,
+            <literal>devices</literal>, and <literal>subsystems</literal>. The default value is
+            <literal>devices</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -295,6 +295,19 @@
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>change</literal>.
             </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--prioritized-subsystem=<replaceable>SUBSYSTEM<optional>,<replaceable>SUBSYSTEM</replaceable>…</optional></replaceable></option></term>
+          <listitem>
+            <para>Takes a comma separated list of subsystems. When triggering events for devices, the
+            devices from the specified subsystems and their parents are triggered first. For example,
+            if <option>--prioritized-subsystem=block,net</option>, then firstly all block devices and
+            their parents are triggered, in the next all network devices and their parents are
+            triggered, and lastly the other devices are triggered. This option can be specified
+            multiple times, and in that case the lists of the subsystems will be merged. That is,
+            <option>--prioritized-subsystem=block --prioritized-subsystem=net</option> is equivalent to
+            <option>--prioritized-subsystem=block,net</option>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -380,6 +393,16 @@
           <listitem>
             <para>Trigger events for all children of a given device. When this option is specified more than once,
             then each matching result is ORed, that is, all children of each specified device are triggered.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--initialized=<replaceable>BOOL</replaceable></option></term>
+          <listitem>
+            <para>When false, trigger events for devices that are not processed by
+            <command>systemd-udevd</command>, and skip already processed devices. This can potentially
+            save a significant amount of time compared to re-triggering all devices in the system and
+            e.g. can be used to optimize boot time. When true, trigger events for devices that are
+            already processed by <command>systemd-udevd</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
