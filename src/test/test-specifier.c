@@ -138,4 +138,18 @@ TEST(specifiers) {
         }
 }
 
+TEST(specifiers_missing_data_ok) {
+        _cleanup_free_ char *resolved = NULL;
+
+        assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) >= 0);
+        assert_se(streq(resolved, "-----"));
+
+        assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -ENOENT);
+        assert_se(streq(resolved, "-----"));
+
+        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
