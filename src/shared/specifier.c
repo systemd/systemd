@@ -67,6 +67,12 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         size_t k, j;
 
                                         r = i->lookup(i->specifier, i->data, root, userdata, &w);
+                                        if (r == -ENOENT)
+                                                /* Many specifiers refer to machine-id or os-release fields,
+                                                 * which will return -ENOENT if the file is not present.
+                                                 * Let's translate this to -ENODATA to make the error more
+                                                 * understandable in the lower layers of the call stack. */
+                                                return -ENODATA;
                                         if (r < 0)
                                                 return r;
                                         if (isempty(w))
@@ -270,7 +276,7 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
 
 /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
  * otherwise. We'll return an empty value or NULL in that case from the functions below. But if the
- * os-release file is missing, we'll return -ENOENT. This means that something is seriously wrong with the
+ * os-release file is missing, we'll return -ENODATA. This means that something is seriously wrong with the
  * installation. */
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
