@@ -365,7 +365,7 @@ _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev
 
         assert_return(udev_enumerate, -EINVAL);
 
-        r = device_enumerator_add_match_is_initialized(udev_enumerate->enumerator);
+        r = device_enumerator_add_match_is_initialized(udev_enumerate->enumerator, MATCH_INITIALIZED_COMPAT);
         if (r < 0)
                 return r;
 
