@@ -374,6 +374,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
+
                 case -EADDRNOTAVAIL:
                         log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
                                         verb, changes[i].path);
@@ -398,6 +399,12 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
 
                 case -ENOENT:
                         log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
+                        logged = true;
+                        break;
+
+                case -EUNATCH:
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
+                                        verb, changes[i].path);
                         logged = true;
                         break;
 
@@ -1151,7 +1158,8 @@ static int config_parse_also(
 
                 r = install_name_printf(info, word, info->root, &printed);
                 if (r < 0)
-                        return r;
+                        return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                          "Failed to resolve unit name in Also=\"%s\": %m", word);
 
                 r = install_info_add(c, printed, NULL, info->root, /* auxiliary= */ true, NULL);
                 if (r < 0)
@@ -1198,14 +1206,13 @@ static int config_parse_default_instance(
 
         r = install_name_printf(i, rvalue, i->root, &printed);
         if (r < 0)
-                return r;
+                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                  "Failed to resolve instance name in DefaultInstance=\"%s\": %m", rvalue);
 
-        if (isempty(printed)) {
-                i->default_instance = mfree(i->default_instance);
-                return 0;
-        }
+        if (isempty(printed))
+                printed = mfree(printed);
 
-        if (!unit_instance_is_valid(printed))
+        if (printed && !unit_instance_is_valid(printed))
                 return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Invalid DefaultInstance= value \"%s\".", printed);
 
@@ -1768,8 +1775,10 @@ static int install_info_symlink_alias(
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
                 q = install_name_printf(i, *s, i->root, &dst);
-                if (q < 0)
+                if (q < 0) {
+                        unit_file_changes_add(changes, n_changes, q, *s, NULL);
                         return q;
+                }
 
                 q = unit_file_verify_alias(i, dst, &dst_updated);
                 if (q < 0)
@@ -1852,8 +1861,10 @@ static int install_info_symlink_wants(
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
                 q = install_name_printf(i, *s, i->root, &dst);
-                if (q < 0)
+                if (q < 0) {
+                        unit_file_changes_add(changes, n_changes, q, *s, NULL);
                         return q;
+                }
 
                 if (!unit_name_is_valid(dst, valid_dst_type)) {
                         /* Generate a proper error here: EUCLEAN if the name is generally bad, EIDRM if the
@@ -3307,7 +3318,7 @@ int unit_file_preset_all(
 
                         r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
                         if (r < 0 &&
-                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT))
+                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
                                  * Coordinate with unit_file_dump_changes() above. */
                                 return r;

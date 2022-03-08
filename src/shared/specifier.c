@@ -162,7 +162,8 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
 
                 fd = chase_symlinks_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (fd < 0)
-                        return fd;
+                        /* Translate error for missing os-release file to EUNATCH. */
+                        return fd == -ENOENT ? -EUNATCH : fd;
 
                 r = id128_read_fd(fd, ID128_PLAIN, &id);
         } else
@@ -270,37 +271,41 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
 
 /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
  * otherwise. We'll return an empty value or NULL in that case from the functions below. But if the
- * os-release file is missing, we'll return -ENOENT. This means that something is seriously wrong with the
+ * os-release file is missing, we'll return -EUNATCH. This means that something is seriously wrong with the
  * installation. */
 
-int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+static int parse_os_release_specifier(const char *root, const char *id, char **ret) {
+        int r;
+
         assert(ret);
-        return parse_os_release(root, "ID", ret);
+
+        /* Translate error for missing os-release file to EUNATCH. */
+        r = parse_os_release(root, id, ret);
+        return r == -ENOENT ? -EUNATCH : r;
+}
+
+int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        return parse_os_release_specifier(root, "ID", ret);
 }
 
 int specifier_os_version_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        assert(ret);
-        return parse_os_release(root, "VERSION_ID", ret);
+        return parse_os_release_specifier(root, "VERSION_ID", ret);
 }
 
 int specifier_os_build_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        assert(ret);
-        return parse_os_release(root, "BUILD_ID", ret);
+        return parse_os_release_specifier(root, "BUILD_ID", ret);
 }
 
 int specifier_os_variant_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        assert(ret);
-        return parse_os_release(root, "VARIANT_ID", ret);
+        return parse_os_release_specifier(root, "VARIANT_ID", ret);
 }
 
 int specifier_os_image_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        assert(ret);
-        return parse_os_release(root, "IMAGE_ID", ret);
+        return parse_os_release_specifier(root, "IMAGE_ID", ret);
 }
 
 int specifier_os_image_version(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        assert(ret);
-        return parse_os_release(root, "IMAGE_VERSION", ret);
+        return parse_os_release_specifier(root, "IMAGE_VERSION", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
