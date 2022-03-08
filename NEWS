@@ -9,6 +9,10 @@ CHANGES WITH 251:
           can still be used by explicitly configuring RouteTable= setting in
           .netdev files.
 
+        * Jobs started via StartUnitWithFlags() will no longer return 'skipped'
+          when a Condition*= check does not succeed, restoring the JobRemoved
+          signal to the behaviour it had before v250.
+
         * The org.freedesktop.portable1 methods GetMetadataWithExtensions and
           GetImageMetadataWithExtensions have been fixed to provide an extra return
           parameter, containing the actual extensions release metadata. The
