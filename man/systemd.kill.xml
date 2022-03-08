@@ -84,9 +84,16 @@
         <para>Processes will first be terminated via <constant>SIGTERM</constant> (unless the signal to send
         is changed via <varname>KillSignal=</varname> or <varname>RestartKillSignal=</varname>). Optionally,
         this is immediately followed by a <constant>SIGHUP</constant> (if enabled with
-        <varname>SendSIGHUP=</varname>). If processes still remain after the main process of a unit has
-        exited or the delay configured via the <varname>TimeoutStopSec=</varname> has passed, the termination
-        request is repeated with the <constant>SIGKILL</constant> signal or the signal specified via
+        <varname>SendSIGHUP=</varname>). If processes still remain after:
+        <itemizedlist>
+          <listitem><para>the main process of a unit has exited (applies to <varname>KillMode=</varname>:
+              <option>mixed</option>)</para></listitem>
+          <listitem><para>the delay configured via the <varname>TimeoutStopSec=</varname> has passed
+              (applies to <varname>KillMode=</varname>: <option>control-group</option>, <option>mixed</option>,
+              <option>process</option>)</para></listitem>
+        </itemizedlist>
+
+        the termination request is repeated with the <constant>SIGKILL</constant> signal or the signal specified via
         <varname>FinalKillSignal=</varname> (unless this is disabled via the <varname>SendSIGKILL=</varname>
         option). See <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for more information.</para>
