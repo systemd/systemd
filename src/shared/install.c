@@ -1820,7 +1820,7 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
-                q = install_path_printf(i, *s, i->root, &dst);
+                q = install_name_printf(i, *s, i->root, &dst);
                 if (q < 0)
                         return q;
 
