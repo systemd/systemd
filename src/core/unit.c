@@ -375,6 +375,20 @@ int unit_set_description(Unit *u, const char *description) {
         return 0;
 }
 
+static bool unit_success_failure_handler_has_jobs(Unit *unit) {
+        Unit *other;
+
+        UNIT_FOREACH_DEPENDENCY(other, unit, UNIT_ATOM_ON_SUCCESS)
+                if (other->job || other->nop_job)
+                        return true;
+
+        UNIT_FOREACH_DEPENDENCY(other, unit, UNIT_ATOM_ON_FAILURE)
+                if (other->job || other->nop_job)
+                        return true;
+
+        return false;
+}
+
 bool unit_may_gc(Unit *u) {
         UnitActiveState state;
         int r;
@@ -389,10 +403,7 @@ bool unit_may_gc(Unit *u) {
          * in unit_gc_sweep(), but using markers to properly collect dependency loops.
          */
 
-        if (u->job)
-                return false;
-
-        if (u->nop_job)
+        if (u->job || u->nop_job)
                 return false;
 
         state = unit_active_state(u);
@@ -426,6 +437,10 @@ bool unit_may_gc(Unit *u) {
         default:
                 assert_not_reached();
         }
+
+        /* Check if any OnFailure= or on Success= jobs may be pending */
+        if (unit_success_failure_handler_has_jobs(u))
+                return false;
 
         if (u->cgroup_path) {
                 /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
@@ -2210,7 +2225,7 @@ void unit_start_on_failure(
                 UnitDependencyAtom atom,
                 JobMode job_mode) {
 
-        bool logged = false;
+        int n_jobs = -1;
         Unit *other;
         int r;
 
@@ -2222,28 +2237,23 @@ void unit_start_on_failure(
 
         UNIT_FOREACH_DEPENDENCY(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                Job *job = NULL;
 
-                if (!logged) {
+                if (n_jobs < 0) {
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
-                        logged = true;
+                        n_jobs = 0;
                 }
 
-                r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, &job);
+                r = manager_add_job(u->manager, JOB_START, other, job_mode, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(
                                         u, r, "Failed to enqueue %s job, ignoring: %s",
                                         dependency_name, bus_error_message(&error, r));
-                else if (job)
-                        /* u will be kept pinned since both UNIT_ON_FAILURE and UNIT_ON_SUCCESS includes
-                         * UNIT_ATOM_BACK_REFERENCE_IMPLIED. We save the triggering unit here since we
-                         * want to be able to reference it when we come to run the OnFailure= or OnSuccess=
-                         * dependency. */
-                        job_add_triggering_unit(job, u);
+                n_jobs ++;
         }
 
-        if (logged)
-                log_unit_debug(u, "Triggering %s dependencies done.", dependency_name);
+        if (n_jobs >= 0)
+                log_unit_debug(u, "Triggering %s dependencies done (%u %s).",
+                               dependency_name, n_jobs, n_jobs == 1 ? "job" : "jobs");
 }
 
 void unit_trigger_notify(Unit *u) {
@@ -3016,37 +3026,37 @@ int unit_add_dependency(
                 UnitDependencyMask mask) {
 
         static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
-                [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
-                [UNIT_WANTS] = UNIT_WANTED_BY,
-                [UNIT_BINDS_TO] = UNIT_BOUND_BY,
-                [UNIT_PART_OF] = UNIT_CONSISTS_OF,
-                [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
-                [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
-                [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
-                [UNIT_WANTED_BY] = UNIT_WANTS,
-                [UNIT_BOUND_BY] = UNIT_BINDS_TO,
-                [UNIT_CONSISTS_OF] = UNIT_PART_OF,
-                [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
-                [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
-                [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
-                [UNIT_BEFORE] = UNIT_AFTER,
-                [UNIT_AFTER] = UNIT_BEFORE,
-                [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
-                [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
-                [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
-                [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
-                [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
-                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
-                [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
+                [UNIT_REQUIRES]               = UNIT_REQUIRED_BY,
+                [UNIT_REQUISITE]              = UNIT_REQUISITE_OF,
+                [UNIT_WANTS]                  = UNIT_WANTED_BY,
+                [UNIT_BINDS_TO]               = UNIT_BOUND_BY,
+                [UNIT_PART_OF]                = UNIT_CONSISTS_OF,
+                [UNIT_UPHOLDS]                = UNIT_UPHELD_BY,
+                [UNIT_REQUIRED_BY]            = UNIT_REQUIRES,
+                [UNIT_REQUISITE_OF]           = UNIT_REQUISITE,
+                [UNIT_WANTED_BY]              = UNIT_WANTS,
+                [UNIT_BOUND_BY]               = UNIT_BINDS_TO,
+                [UNIT_CONSISTS_OF]            = UNIT_PART_OF,
+                [UNIT_UPHELD_BY]              = UNIT_UPHOLDS,
+                [UNIT_CONFLICTS]              = UNIT_CONFLICTED_BY,
+                [UNIT_CONFLICTED_BY]          = UNIT_CONFLICTS,
+                [UNIT_BEFORE]                 = UNIT_AFTER,
+                [UNIT_AFTER]                  = UNIT_BEFORE,
+                [UNIT_ON_SUCCESS]             = UNIT_ON_SUCCESS_OF,
+                [UNIT_ON_SUCCESS_OF]          = UNIT_ON_SUCCESS,
+                [UNIT_ON_FAILURE]             = UNIT_ON_FAILURE_OF,
+                [UNIT_ON_FAILURE_OF]          = UNIT_ON_FAILURE,
+                [UNIT_TRIGGERS]               = UNIT_TRIGGERED_BY,
+                [UNIT_TRIGGERED_BY]           = UNIT_TRIGGERS,
+                [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_RELOAD_PROPAGATED_FROM,
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
-                [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
-                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
-                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
-                [UNIT_IN_SLICE] = UNIT_SLICE_OF,
-                [UNIT_SLICE_OF] = UNIT_IN_SLICE,
+                [UNIT_PROPAGATES_STOP_TO]     = UNIT_STOP_PROPAGATED_FROM,
+                [UNIT_STOP_PROPAGATED_FROM]   = UNIT_PROPAGATES_STOP_TO,
+                [UNIT_JOINS_NAMESPACE_OF]     = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+                [UNIT_REFERENCES]             = UNIT_REFERENCED_BY,
+                [UNIT_REFERENCED_BY]          = UNIT_REFERENCES,
+                [UNIT_IN_SLICE]               = UNIT_SLICE_OF,
+                [UNIT_SLICE_OF]               = UNIT_IN_SLICE,
         };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
@@ -3115,20 +3125,6 @@ int unit_add_dependency(
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
                 r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
-                if (r < 0)
-                        return r;
-                if (r)
-                        noop = false;
-        }
-
-        if (FLAGS_SET(a, UNIT_ATOM_BACK_REFERENCE_IMPLIED)) {
-                r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCES, u, 0, mask);
-                if (r < 0)
-                        return r;
-                if (r)
-                        noop = false;
-
-                r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCED_BY, other, 0, mask);
                 if (r < 0)
                         return r;
                 if (r)
