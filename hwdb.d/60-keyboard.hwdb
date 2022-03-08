@@ -164,6 +164,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
  KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
  KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F9
 
+# Travelmate B311-31, B311R-31, B311RN-31
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311-31*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311R-31*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311RN-31*:pvr*
+ KEYBOARD_KEY_8a=f20                                    # Microphone mute
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
