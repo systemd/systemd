@@ -548,20 +548,8 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                         continue;
                 }
 
-                /*
-                 * All devices with a device node or network interfaces
-                 * possibly need udev to adjust the device node permission
-                 * or context, or rename the interface before it can be
-                 * reliably used from other processes.
-                 *
-                 * For now, we can only check these types of devices, we
-                 * might not store a database, and have no way to find out
-                 * for all other types of devices.
-                 */
                 if (!enumerator->match_allow_uninitialized &&
-                    !initialized &&
-                    (sd_device_get_devnum(device, NULL) >= 0 ||
-                     sd_device_get_ifindex(device, NULL) >= 0))
+                    !initialized)
                         continue;
 
                 if (!device_match_parent(device, enumerator->match_parent, NULL))
