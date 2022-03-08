@@ -67,8 +67,7 @@ TEST(load_os_release_pairs) {
 
         _cleanup_strv_free_ char **pairs = NULL;
         assert_se(load_os_release_pairs(NULL, &pairs) == 0);
-        assert_se(strv_equal(pairs, STRV_MAKE("ID", "ignored", // FIXME
-                                              "ID", "the-id",
+        assert_se(strv_equal(pairs, STRV_MAKE("ID", "the-id",
                                               "NAME", "the-name")));
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);

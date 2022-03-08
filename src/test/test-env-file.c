@@ -9,7 +9,12 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+/* In case of repeating keys, later entries win. */
+
 #define env_file_1                              \
+        "a=a\n"                                 \
+        "a=b\n"                                 \
+        "a=b\n"                                 \
         "a=a\n"                                 \
         "b=b\\\n"                               \
         "c\n"                                   \
