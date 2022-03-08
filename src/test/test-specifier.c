@@ -146,7 +146,7 @@ TEST(specifiers_missing_data_ok) {
         assert_se(streq(resolved, "-----"));
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
-        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -ENOENT);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
         assert_se(streq(resolved, "-----"));
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);

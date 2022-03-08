@@ -445,12 +445,45 @@ EOF
 
 check_alias a "$(uname -m | tr '_' '-')"
 
-# FIXME: when os-release is not found, we fail we a cryptic error
-# Alias=target@%A.socket
+test ! -e "$root/etc/os-release"
+test ! -e "$root/usr/lib/os-release"
+
+check_alias A '' && { echo "Expected failure" >&2; exit 1; }
+check_alias B '' && { echo "Expected failure" >&2; exit 1; }
+check_alias M '' && { echo "Expected failure" >&2; exit 1; }
+check_alias o '' && { echo "Expected failure" >&2; exit 1; }
+check_alias w '' && { echo "Expected failure" >&2; exit 1; }
+check_alias W '' && { echo "Expected failure" >&2; exit 1; }
+
+cat >"$root/etc/os-release" <<EOF
+# empty
+EOF
+
+check_alias A ''
+check_alias B ''
+check_alias M ''
+check_alias o ''
+check_alias w ''
+check_alias W ''
+
+cat >"$root/etc/os-release" <<EOF
+ID='the-id'
+VERSION_ID=39a
+BUILD_ID=build-id
+VARIANT_ID=wrong
+VARIANT_ID=right
+IMAGE_ID="foobar"
+IMAGE_VERSION='1-2-3'
+EOF
+
+check_alias A '1-2-3'
+check_alias B 'build-id'
+check_alias M 'foobar'
+check_alias o 'the-id'
+check_alias w '39a'
+check_alias W 'right'
 
 check_alias b "$(systemd-id128 boot-id)"
-
-# Alias=target@%B.socket
 
 # FIXME: Failed to enable: Invalid slot.
 # Alias=target@%C.socket
@@ -479,17 +512,14 @@ check_alias l "$(uname -n | sed 's/\..*//')"
 # FIXME: Failed to enable: Invalid slot.
 # Alias=target@%L.socket
 
-# FIXME: Failed to enable: No such file or directory.
-# Alias=target@%m.socket
+test ! -e "$root/etc/machine-id"
+check_alias m '' && { echo "Expected failure" >&2; exit 1; }
 
-# FIXME: Failed to enable: No such file or directory.
-# Alias=target@%M.socket
+systemd-id128 new >"$root/etc/machine-id"
+check_alias m "$(cat "$root/etc/machine-id")"
 
 check_alias n 'some-some-link6@.socket'
 check_alias N 'some-some-link6@'
-
-# FIXME: Failed to enable: No such file or directory.
-# Alias=target@%o.socket
 
 check_alias p 'some-some-link6'
 
@@ -508,9 +538,6 @@ check_alias v "$(uname -r)"
 
 # FIXME: Failed to enable: Invalid slot.
 # Alias=target@%V.socket
-
-# Alias=target@%w.socket
-# Alias=target@%W.socket
 
 check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
 
