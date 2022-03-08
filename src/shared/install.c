@@ -450,12 +450,11 @@ static int create_symlink(
         if (rp)
                 old_path = rp;
 
-        /* Actually create a symlink, and remember that we did. Is
-         * smart enough to check if there's already a valid symlink in
-         * place.
+        /* Actually create a symlink, and remember that we did. This function is
+         * smart enough to check if there's already a valid symlink in place.
          *
-         * Returns 1 if a symlink was created or already exists and points to
-         * the right place, or negative on error.
+         * Returns 1 if a symlink was created or already exists and points to the
+         * right place, or negative on error.
          */
 
         (void) mkdir_parents_label(new_path, 0755);
@@ -1551,8 +1550,7 @@ static int install_info_follow(
         if (!i->symlink_target)
                 return -EINVAL;
 
-        /* If the basename doesn't match, the caller should add a
-         * complete new entry for this. */
+        /* If the basename doesn't match, the caller should add a complete new entry for this. */
 
         if (!ignore_different_name && !streq(basename(i->symlink_target), i->name))
                 return -EXDEV;
@@ -1607,9 +1605,7 @@ static int install_info_traverse(
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
 
-                        /* Target has a different name, create a new
-                         * install info object for that, and continue
-                         * with that. */
+                        /* Target is an alias, create a new install info object and continue with that. */
 
                         bn = basename(i->symlink_target);
 
@@ -1628,8 +1624,8 @@ static int install_info_traverse(
 
                                 if (streq(buffer, i->name)) {
 
-                                        /* We filled in the instance, and the target stayed the same? If so, then let's
-                                         * honour the link as it is. */
+                                        /* We filled in the instance, and the target stayed the same? If so,
+                                         * then let's honour the link as it is. */
 
                                         r = install_info_follow(c, i, lp, flags, true);
                                         if (r < 0)
