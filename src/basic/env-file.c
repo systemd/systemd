@@ -414,30 +414,39 @@ static int load_env_file_push_pairs(
                 const char *key, char *value,
                 void *userdata,
                 int *n_pushed) {
-        char ***m = userdata;
+        char ***m = ASSERT_PTR(userdata);
+        bool added = false;
         int r;
 
         r = check_utf8ness_and_warn(filename, line, key, value);
         if (r < 0)
                 return r;
 
+        /* Check if the key is present */
+        for (char **t = *m; t && *t; t += 2)
+                if (streq(t[0], key)) {
+                        if (value)
+                                r = free_and_replace(t[1], value);
+                        else
+                                r = free_and_strdup(t+1, "");
+                        goto finish;
+                }
+
         r = strv_extend(m, key);
         if (r < 0)
                 return -ENOMEM;
 
-        if (!value) {
-                r = strv_extend(m, "");
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
+        if (value)
                 r = strv_push(m, value);
-                if (r < 0)
-                        return r;
-        }
+        else
+                r = strv_extend(m, "");
+        added = true;
+ finish:
+        if (r < 0)
+                return r;
 
-        if (n_pushed)
+        if (n_pushed && added)
                 (*n_pushed)++;
-
         return 0;
 }
 
