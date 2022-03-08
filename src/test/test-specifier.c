@@ -98,8 +98,8 @@ TEST(specifier_real_path) {
         int r;
 
         r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0 || r == -ENOENT);
-        assert_se(w || r == -ENOENT);
+        assert_se(r >= 0 || r == -EUNATCH);
+        assert_se(w || r == -EUNATCH);
         puts(strnull(w));
 
         /* /dev/initctl should normally be a symlink to /run/initctl */
@@ -146,7 +146,7 @@ TEST(specifiers_missing_data_ok) {
         assert_se(streq(resolved, "-----"));
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
-        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -ENOENT);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
         assert_se(streq(resolved, "-----"));
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
