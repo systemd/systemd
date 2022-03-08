@@ -75,6 +75,10 @@
     from earliest boot on, and hence must be located on the root file
     system.</para>
 
+    <para><filename>os-release</filename> must not contain repeating keys. Nevertheless, readers should pick
+    the entries later in the file in case of repeats, similarly to how a shell sourcing the file would. A
+    reader may warn about repeating entries.</para>
+
     <para>For a longer rationale for <filename>os-release</filename>
     please refer to the <ulink
     url="http://0pointer.de/blog/projects/os-release">Announcement of <filename>/etc/os-release</filename></ulink>.</para>
