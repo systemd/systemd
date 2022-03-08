@@ -31,7 +31,7 @@ int bus_unit_method_thaw(sd_bus_message *message, void *userdata, sd_bus_error *
 typedef enum BusUnitQueueFlags {
         BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE            = 1 << 0,
         BUS_UNIT_QUEUE_VERBOSE_REPLY                 = 1 << 1,
-        BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL = 1 << 2,
+        BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL = 1 << 2, // FIXME: currently not used, will be changed soon
 } BusUnitQueueFlags;
 
 int bus_unit_queue_job_one(

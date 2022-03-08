@@ -417,10 +417,6 @@ int bus_unit_method_start_generic(
                         return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
                                                           "Invalid 'flags' parameter '%" PRIu64 "'",
                                                           input_flags);
-
-                /* The new method unconditionally uses the new behaviour of returning 'skip' when
-                 * a job is skipped. */
-                job_flags |= BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL;
         }
 
         r = bus_verify_manage_units_async_full(
