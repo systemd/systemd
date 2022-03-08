@@ -269,7 +269,9 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
 }
 
 /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
- * otherwise. We'll return an empty value or NULL in that case from the functions below. */
+ * otherwise. We'll return an empty value or NULL in that case from the functions below. But if the
+ * os-release file is missing, we'll return -ENOENT. This means that something is seriously wrong with the
+ * installation. */
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         assert(ret);
