@@ -962,27 +962,6 @@ int device_tag_index(sd_device *device, sd_device *device_old, bool add) {
         return r;
 }
 
-static bool device_has_info(sd_device *device) {
-        assert(device);
-
-        if (!set_isempty(device->devlinks))
-                return true;
-
-        if (device->devlink_priority != 0)
-                return true;
-
-        if (!ordered_hashmap_isempty(device->properties_db))
-                return true;
-
-        if (!set_isempty(device->all_tags))
-                return true;
-
-        if (!set_isempty(device->current_tags))
-                return true;
-
-        return false;
-}
-
 void device_set_db_persist(sd_device *device) {
         assert(device);
 
@@ -990,31 +969,19 @@ void device_set_db_persist(sd_device *device) {
 }
 
 int device_update_db(sd_device *device) {
-        const char *id;
+        const char *id, *property, *value, *tag;
         char *path;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *path_tmp = NULL;
-        bool has_info;
         int r;
 
         assert(device);
-
-        has_info = device_has_info(device);
 
         r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
         path = strjoina("/run/udev/data/", id);
-
-        /* do not store anything for otherwise empty devices */
-        if (!has_info && major(device->devnum) == 0 && device->ifindex == 0) {
-                r = unlink(path);
-                if (r < 0 && errno != ENOENT)
-                        return -errno;
-
-                return 0;
-        }
 
         /* write a database file */
         r = mkdir_parents(path, 0755);
@@ -1029,62 +996,48 @@ int device_update_db(sd_device *device) {
          * set 'sticky' bit to indicate that we should not clean the
          * database when we transition from initramfs to the real root
          */
-        if (device->db_persist) {
-                r = fchmod(fileno(f), 01644);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-        } else {
-                r = fchmod(fileno(f), 0644);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        if (fchmod(fileno(f), device->db_persist ? 01644 : 0644) < 0) {
+                r = -errno;
+                goto fail;
         }
 
-        if (has_info) {
-                const char *property, *value, *tag;
 
-                if (major(device->devnum) > 0) {
-                        const char *devlink;
+        if (major(device->devnum) > 0) {
+                const char *devlink;
 
-                        FOREACH_DEVICE_DEVLINK(device, devlink)
-                                fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
+                FOREACH_DEVICE_DEVLINK(device, devlink)
+                        fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
 
-                        if (device->devlink_priority != 0)
-                                fprintf(f, "L:%i\n", device->devlink_priority);
-                }
-
-                if (device->usec_initialized > 0)
-                        fprintf(f, "I:"USEC_FMT"\n", device->usec_initialized);
-
-                ORDERED_HASHMAP_FOREACH_KEY(value, property, device->properties_db)
-                        fprintf(f, "E:%s=%s\n", property, value);
-
-                FOREACH_DEVICE_TAG(device, tag)
-                        fprintf(f, "G:%s\n", tag); /* Any tag */
-
-                SET_FOREACH(tag, device->current_tags)
-                        fprintf(f, "Q:%s\n", tag); /* Current tag */
-
-                /* Always write the latest database version here, instead of the value stored in
-                 * device->database_version, as which may be 0. */
-                fputs("V:" STRINGIFY(LATEST_UDEV_DATABASE_VERSION) "\n", f);
+                if (device->devlink_priority != 0)
+                        fprintf(f, "L:%i\n", device->devlink_priority);
         }
+
+        if (device->usec_initialized > 0)
+                fprintf(f, "I:"USEC_FMT"\n", device->usec_initialized);
+
+        ORDERED_HASHMAP_FOREACH_KEY(value, property, device->properties_db)
+                fprintf(f, "E:%s=%s\n", property, value);
+
+        FOREACH_DEVICE_TAG(device, tag)
+                fprintf(f, "G:%s\n", tag); /* Any tag */
+
+        SET_FOREACH(tag, device->current_tags)
+                fprintf(f, "Q:%s\n", tag); /* Current tag */
+
+        /* Always write the latest database version here, instead of the value stored in
+         * device->database_version, as which may be 0. */
+        fputs("V:" STRINGIFY(LATEST_UDEV_DATABASE_VERSION) "\n", f);
 
         r = fflush_and_check(f);
         if (r < 0)
                 goto fail;
 
-        r = rename(path_tmp, path);
-        if (r < 0) {
+        if (rename(path_tmp, path) < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
-                         path, device->devpath);
+        log_device_debug(device, "sd-device: Created db file '%s' for '%s'", path, device->devpath);
 
         return 0;
 
@@ -1092,7 +1045,7 @@ fail:
         (void) unlink(path);
         (void) unlink(path_tmp);
 
-        return log_device_debug_errno(device, r, "sd-device: Failed to create %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
+        return log_device_debug_errno(device, r, "sd-device: Failed to create db file '%s' for '%s'", path, device->devpath);
 }
 
 int device_delete_db(sd_device *device) {
