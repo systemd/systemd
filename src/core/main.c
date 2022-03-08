@@ -228,7 +228,7 @@ _noreturn_ static void freeze_or_exit_or_reboot(void) {
         freeze();
 }
 
-_noreturn_ static void crash(int sig) {
+_noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
         struct sigaction sa;
         pid_t pid;
 
@@ -271,7 +271,13 @@ _noreturn_ static void crash(int sig) {
                         _exit(EXIT_EXCEPTION);
                 } else {
                         siginfo_t status;
+                        _cleanup_free_ char *cmdline = NULL;
+                        pid_t sender_pid;
                         int r;
+
+                        sender_pid = siginfo->si_pid;
+                        (void) get_process_cmdline(sender_pid, SIZE_MAX, 0, &cmdline);
+                        log_emergency("Caught <%s> from PID %d (%s)", signal_to_string(sig), sender_pid, strna(cmdline));
 
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
@@ -330,8 +336,8 @@ _noreturn_ static void crash(int sig) {
 
 static void install_crash_handler(void) {
         static const struct sigaction sa = {
-                .sa_handler = crash,
-                .sa_flags = SA_NODEFER, /* So that we can raise the signal again from the signal handler */
+                .sa_sigaction = crash,
+                .sa_flags = SA_NODEFER | SA_SIGINFO, /* So that we can raise the signal again from the signal handler */
         };
         int r;
 
