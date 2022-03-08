@@ -25,6 +25,7 @@ static bool arg_verbose = false;
 static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_uuid = false;
+static int arg_database_match = -1;
 
 static int exec_list(
                 sd_device_enumerator *e,
@@ -46,6 +47,18 @@ static int exec_list(
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get syspath of enumerated devices, ignoring: %m");
                         continue;
+                }
+
+                if (arg_database_match >= 0) {
+                        r = sd_device_get_is_initialized(d);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to check presence of %s in udev database, ignoring device: %m",
+                                                  syspath);
+                                continue;
+                        }
+
+                        if (!!r != !!arg_database_match)
+                                continue;
                 }
 
                 if (arg_verbose)
@@ -226,6 +239,8 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
+               "     --database-match               Trigger devices with a udev db entry\n"
+               "     --database-nomatch             Trigger devices without a udev db entry\n"
                "  -w --settle                       Wait for the triggered events to complete\n"
                "     --wait-daemon[=SECONDS]        Wait for udevd daemon to be initialized\n"
                "                                    before triggering uevents\n"
@@ -240,6 +255,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 ARG_NAME = 0x100,
                 ARG_PING,
                 ARG_UUID,
+                ARG_DBM,
+                ARG_DBNM,
         };
 
         static const struct option options[] = {
@@ -257,6 +274,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 { "sysname-match",     required_argument, NULL, 'y'      },
                 { "name-match",        required_argument, NULL, ARG_NAME },
                 { "parent-match",      required_argument, NULL, 'b'      },
+                { "database-match",    no_argument,       NULL, ARG_DBM  },
+                { "database-nomatch",  no_argument,       NULL, ARG_DBNM },
                 { "settle",            no_argument,       NULL, 'w'      },
                 { "wait-daemon",       optional_argument, NULL, ARG_PING },
                 { "version",           no_argument,       NULL, 'V'      },
@@ -375,6 +394,12 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
                 }
+                case ARG_DBM:
+                          arg_database_match = 1;
+                          break;
+                case ARG_DBNM:
+                          arg_database_match = 0;
+                          break;
                 case 'w':
                         settle = true;
                         break;
