@@ -2384,9 +2384,9 @@ int setup_namespace(
         if (setup_propagate)
                 (void) mkdir_p(propagate_dir, 0600);
 
-        if (n_extension_images > 0)
-                /* ExtensionImages mountpoint directories will be created while parsing the mounts to create,
-                 * so have the parent ready */
+        if (n_extension_images > 0 || !strv_isempty(extension_directories))
+                /* ExtensionImages/Directories mountpoint directories will be created while parsing the
+                 * mounts to create, so have the parent ready */
                 (void) mkdir_p(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
