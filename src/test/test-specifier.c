@@ -8,6 +8,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "unit-file.h"
 
 static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
@@ -46,7 +47,7 @@ TEST(specifier_escape_strv) {
 static const Specifier specifier_table[] = {
         COMMON_SYSTEM_SPECIFIERS,
 
-        COMMON_CREDS_SPECIFIERS,
+        COMMON_CREDS_SPECIFIERS(UNIT_FILE_USER),
         { 'h', specifier_user_home,       NULL },
 
         COMMON_TMP_SPECIFIERS,
