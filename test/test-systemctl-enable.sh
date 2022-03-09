@@ -500,9 +500,10 @@ check_alias t '' && { echo "Expected failure" >&2; exit 1; }
 check_alias T '' && { echo "Expected failure" >&2; exit 1; }
 check_alias V '' && { echo "Expected failure" >&2; exit 1; }
 
-# FIXME: we use the calling user instead of root :(
-check_alias g root || :
-check_alias G 0 || :
+check_alias g root
+check_alias G 0
+check_alias u root
+check_alias U 0
 
 check_alias i ""
 
@@ -520,10 +521,6 @@ check_alias n 'some-some-link6@.socket'
 check_alias N 'some-some-link6@'
 
 check_alias p 'some-some-link6'
-
-# FIXME: we use the calling user instead of root :(
-check_alias u root || :
-check_alias U 0 || :
 
 check_alias v "$(uname -r)"
 
