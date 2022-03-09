@@ -98,13 +98,13 @@ def test_valid_specifiers(*, user):
         test_content('f {} - - - - %b', '{}'.format(id128.get_boot().hex), user=user)
     test_content('f {} - - - - %H', '{}'.format(socket.gethostname()), user=user)
     test_content('f {} - - - - %v', '{}'.format(os.uname().release), user=user)
-    test_content('f {} - - - - %U', '{}'.format(os.getuid()), user=user)
-    test_content('f {} - - - - %G', '{}'.format(os.getgid()), user=user)
+    test_content('f {} - - - - %U', '{}'.format(os.getuid() if user else 0), user=user)
+    test_content('f {} - - - - %G', '{}'.format(os.getgid() if user else 0), user=user)
 
-    puser = pwd.getpwuid(os.getuid())
+    puser = pwd.getpwuid(os.getuid() if user else 0)
     test_content('f {} - - - - %u', '{}'.format(puser.pw_name), user=user)
 
-    pgroup = grp.getgrgid(os.getgid())
+    pgroup = grp.getgrgid(os.getgid() if user else 0)
     test_content('f {} - - - - %g', '{}'.format(pgroup.gr_name), user=user)
 
     # Note that %h is the only specifier in which we look the environment,
