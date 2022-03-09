@@ -342,9 +342,6 @@ void random_bytes(void *p, size_t n) {
          *         • This function will preferably use the CPU's RDRAND operation, if it is available, in
          *           order to return "mid-quality" random values cheaply.
          *
-         *         • Use getrandom() with GRND_NONBLOCK, to return high-quality random values if they are
-         *           cheaply available.
-         *
          *         • This function will return pseudo-random data, generated via libc rand() if nothing
          *           better is available.
          *
