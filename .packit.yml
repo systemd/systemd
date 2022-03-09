@@ -13,6 +13,7 @@ downstream_package_name: systemd
 # `git describe` returns in systemd's case 'v245-xxx' which breaks RPM version
 # detection (that expects 245-xxxx'). Let's tweak the version string accordingly
 upstream_tag_template: "v{version}"
+srpm_build_deps: []
 
 actions:
   post-upstream-clone:
