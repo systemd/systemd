@@ -1128,9 +1128,15 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 r = path_is_mount_point(entry_path, NULL, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-                if (r == 0)
-                        /* /proc is not mounted. Propagate the original error code. */
-                        return -EPERM;
+                if (r == 0) {
+                        /* We lack permissions to mount a new instance of /proc, and it is not already
+                         * mounted. But we can access the host's, so as a final fallback bind-mount it to
+                         * the destination, as most likely we are inside a user manager in an unprivileged
+                         * user namespace. */
+                        r = mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return -EPERM;
+                }
         } else if (r < 0)
                 return r;
 
@@ -2446,6 +2452,17 @@ int setup_namespace(
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_move_root(root);
+        if (r == -EINVAL && root_directory) {
+                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
+                 * namespace) and the root_directory is already a mount point in the parent namespace,
+                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
+                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
+                 * mount point) and try again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        goto finish;
+                r = mount_move_root(root);
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
                 goto finish;
