@@ -15,6 +15,8 @@ runas() {
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
+runas testuser systemctl --user log-level debug
+
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateUsers=yes -p PrivateTmp=yes \
     -P touch /tmp/innerfile.txt
