@@ -2718,8 +2718,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
         on the filesystem, it is opened (created if it doesn't exist yet) for writing at the beginning of the file,
         but without truncating it.
-        If standard input and output are directed to the same file path, it is opened only once, for reading as well
-        as writing and duplicated. This is particularly useful when the specified path refers to an
+        If standard input and output are directed to the same file path, it is opened only once — for reading as well
+        as writing — and duplicated. This is particularly useful when the specified path refers to an
         <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
 
@@ -2745,16 +2745,17 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
 
-        <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard output to a specific,
-        named file descriptor provided by a socket unit.  A name may be specified as part of this option, following a
-        <literal>:</literal> character (e.g. <literal>fd:foobar</literal>).  If no name is specified, the name
+        <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard output to a
+        specific, named file descriptor provided by a socket unit.  A name may be specified as part of this
+        option, following a <literal>:</literal> character
+        (e.g. <literal>fd:<replaceable>foobar</replaceable></literal>). If no name is specified, the name
         <literal>stdout</literal> is implied (i.e. <literal>fd</literal> is equivalent to
-        <literal>fd:stdout</literal>).  At least one socket unit defining the specified name must be provided via the
-        <varname>Sockets=</varname> option, and the file descriptor name may differ from the name of its containing
-        socket unit.  If multiple matches are found, the first one will be used.  See
+        <literal>fd:stdout</literal>). At least one socket unit defining the specified name must be provided
+        via the <varname>Sockets=</varname> option, and the file descriptor name may differ from the name of
+        its containing socket unit. If multiple matches are found, the first one will be used. See
         <varname>FileDescriptorName=</varname> in
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
-        details about named descriptors and their ordering.</para>
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details about named descriptors and their ordering.</para>
 
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
