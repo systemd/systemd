@@ -143,9 +143,7 @@
           <title>Mounting logging sockets into root environment</title>
 
           <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
-        </example>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        </example></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,9 +274,7 @@
 
         <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate</filename>
         on the host will be used to set up new mounts, and <filename>/run/host/incoming/</filename> in the private namespace
-        will be used as an intermediate step to store them before being moved to the final mount point.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        will be used as an intermediate step to store them before being moved to the final mount point.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -364,9 +360,7 @@
         <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
         directories if <varname>ProtectHome=yes</varname> is
         specified. <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal> or
-        <varname>ProtectHome=tmpfs</varname> should be used instead.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <varname>ProtectHome=tmpfs</varname> should be used instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>
