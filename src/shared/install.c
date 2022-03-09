@@ -379,6 +379,11 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
+                case -EBADSLT:
+                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid specifier in \"%s\".",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
 
                 case -EADDRNOTAVAIL:
                         log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
@@ -3339,7 +3344,7 @@ int unit_file_preset_all(
 
                         r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
                         if (r < 0 &&
-                            !IN_SET(r, -EEXIST, -ERFKILL, -ENODATA, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT))
+                            !IN_SET(r, -EEXIST, -ERFKILL, -ENODATA, -EBADSLT, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
                                  * Coordinate with unit_file_dump_changes() above. */
                                 return r;
