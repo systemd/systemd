@@ -485,32 +485,30 @@ check_alias W 'right'
 
 check_alias b "$(systemd-id128 boot-id)"
 
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%C.socket
-# Alias=target@%E.socket
-# Alias=target@%f.socket
+# Specifiers not available for [Install]
+check_alias C '' && { echo "Expected failure" >&2; exit 1; }
+check_alias E '' && { echo "Expected failure" >&2; exit 1; }
+check_alias f '' && { echo "Expected failure" >&2; exit 1; }
+check_alias h '' && { echo "Expected failure" >&2; exit 1; }
+check_alias I '' && { echo "Expected failure" >&2; exit 1; }
+check_alias J '' && { echo "Expected failure" >&2; exit 1; }
+check_alias L '' && { echo "Expected failure" >&2; exit 1; }
+check_alias P '' && { echo "Expected failure" >&2; exit 1; }
+check_alias s '' && { echo "Expected failure" >&2; exit 1; }
+check_alias S '' && { echo "Expected failure" >&2; exit 1; }
+check_alias t '' && { echo "Expected failure" >&2; exit 1; }
+check_alias T '' && { echo "Expected failure" >&2; exit 1; }
+check_alias V '' && { echo "Expected failure" >&2; exit 1; }
 
 # FIXME: we use the calling user instead of root :(
 check_alias g root || :
 check_alias G 0 || :
 
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%h.socket
-
 check_alias i ""
-
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%I.socket
 
 check_alias j 'link6'
 
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%J.socket
-
 check_alias l "$(uname -n | sed 's/\..*//')"
-
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%L.socket
 
 test ! -e "$root/etc/machine-id"
 check_alias m '' && { echo "Expected failure" >&2; exit 1; }
@@ -523,21 +521,11 @@ check_alias N 'some-some-link6@'
 
 check_alias p 'some-some-link6'
 
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%P.socket
-# Alias=target@%s.socket
-# Alias=target@%S.socket
-# Alias=target@%t.socket
-# Alias=target@%T.socket
-
 # FIXME: we use the calling user instead of root :(
 check_alias u root || :
 check_alias U 0 || :
 
 check_alias v "$(uname -r)"
-
-# FIXME: Failed to enable: Invalid slot.
-# Alias=target@%V.socket
 
 check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
 
