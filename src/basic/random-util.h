@@ -28,7 +28,7 @@ static inline uint32_t random_u32(void) {
 }
 
 /* Some limits on the pool sizes when we deal with the kernel random pool */
-#define RANDOM_POOL_SIZE_MIN 512U
+#define RANDOM_POOL_SIZE_MIN 32U
 #define RANDOM_POOL_SIZE_MAX (10U*1024U*1024U)
 
 size_t random_pool_size(void);
