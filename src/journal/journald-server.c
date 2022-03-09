@@ -1123,10 +1123,9 @@ void server_dispatch_message(
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
         sd_journal *j = NULL;
-        const char *fn;
         unsigned n = 0;
         usec_t start;
-        int r, k;
+        int r;
 
         assert(s);
 
@@ -1219,11 +1218,6 @@ finish:
                                           FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
                                           n),
                               NULL);
-
-        fn = strjoina(s->runtime_directory, "/flushed");
-        k = touch(fn);
-        if (k < 0)
-                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
         return r;
@@ -1387,6 +1381,9 @@ int server_process_datagram(
 }
 
 static void server_full_flush(Server *s) {
+        const char *fn;
+        int r;
+
         assert(s);
 
         (void) server_flush_to_var(s, false);
@@ -1396,6 +1393,11 @@ static void server_full_flush(Server *s) {
         server_space_usage_message(s, NULL);
 
         server_refresh_idle_timer(s);
+
+        fn = strjoina(s->runtime_directory, "/flushed");
+        r = touch(fn);
+        if (r < 0)
+                log_warning_errno(r, "Failed to touch %s, ignoring: %m", fn);
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
