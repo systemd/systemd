@@ -510,59 +510,74 @@ TEST(install_printf, .sd_booted = true) {
         assert_se(user = uid_to_name(getuid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()) >= 0);
 
-#define expect(src, pattern, result)                                    \
+#define expect(scope, src, pattern, result)                             \
         do {                                                            \
-                _cleanup_free_ char *t = NULL;                          \
-                _cleanup_free_ char                                     \
-                        *d1 = strdup(i.name),                           \
-                        *d2 = strdup(i.path);                           \
-                assert_se(install_name_printf(&src, pattern, NULL, &t) >= 0 || !result); \
+                _cleanup_free_ char *t = NULL,                          \
+                        *d1 = ASSERT_PTR(strdup(i.name)),               \
+                        *d2 = ASSERT_PTR(strdup(i.path));               \
+                int r = install_name_printf(scope, &src, pattern, NULL, &t); \
+                assert_se(result ? r >= 0 : r < 0);                     \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
-                assert_se(d1 && d2);                                    \
                 if (result) {                                           \
                         printf("%s\n", t);                              \
                         assert_se(streq(t, result));                    \
-                } else assert_se(t == NULL);                            \
+                } else                                                  \
+                        assert_se(!t);                                  \
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
         } while (false)
 
-        expect(i, "%n", "name.service");
-        expect(i, "%N", "name");
-        expect(i, "%p", "name");
-        expect(i, "%i", "");
-        expect(i, "%j", "name");
-        expect(i, "%g", group);
-        expect(i, "%G", gid);
-        expect(i, "%u", user);
-        expect(i, "%U", uid);
+        expect(UNIT_FILE_SYSTEM, i, "%n", "name.service");
+        expect(UNIT_FILE_SYSTEM, i, "%N", "name");
+        expect(UNIT_FILE_SYSTEM, i, "%p", "name");
+        expect(UNIT_FILE_SYSTEM, i, "%i", "");
+        expect(UNIT_FILE_SYSTEM, i, "%j", "name");
+        expect(UNIT_FILE_SYSTEM, i, "%g", "root");
+        expect(UNIT_FILE_SYSTEM, i, "%G", "0");
+        expect(UNIT_FILE_SYSTEM, i, "%u", "root");
+        expect(UNIT_FILE_SYSTEM, i, "%U", "0");
 
-        expect(i, "%m", mid);
-        expect(i, "%b", bid);
-        expect(i, "%H", host);
+        expect(UNIT_FILE_SYSTEM, i, "%m", mid);
+        expect(UNIT_FILE_SYSTEM, i, "%b", bid);
+        expect(UNIT_FILE_SYSTEM, i, "%H", host);
 
-        expect(i2, "%g", group);
-        expect(i2, "%G", gid);
-        expect(i2, "%u", user);
-        expect(i2, "%U", uid);
+        expect(UNIT_FILE_SYSTEM, i2, "%g", "root");
+        expect(UNIT_FILE_SYSTEM, i2, "%G", "0");
+        expect(UNIT_FILE_SYSTEM, i2, "%u", "root");
+        expect(UNIT_FILE_SYSTEM, i2, "%U", "0");
 
-        expect(i3, "%n", "name@inst.service");
-        expect(i3, "%N", "name@inst");
-        expect(i3, "%p", "name");
-        expect(i3, "%g", group);
-        expect(i3, "%G", gid);
-        expect(i3, "%u", user);
-        expect(i3, "%U", uid);
+        expect(UNIT_FILE_USER, i2, "%g", group);
+        expect(UNIT_FILE_USER, i2, "%G", gid);
+        expect(UNIT_FILE_USER, i2, "%u", user);
+        expect(UNIT_FILE_USER, i2, "%U", uid);
 
-        expect(i3, "%m", mid);
-        expect(i3, "%b", bid);
-        expect(i3, "%H", host);
+        /* gcc-12.0.1-0.9.fc36.x86_64 insist that streq(…, NULL) is called,
+         * even though the call is inside of a conditional where the pointer is checked. :( */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull"
+        expect(UNIT_FILE_GLOBAL, i2, "%g", NULL);
+        expect(UNIT_FILE_GLOBAL, i2, "%G", NULL);
+        expect(UNIT_FILE_GLOBAL, i2, "%u", NULL);
+        expect(UNIT_FILE_GLOBAL, i2, "%U", NULL);
+#pragma GCC diagnostic pop
 
-        expect(i4, "%g", group);
-        expect(i4, "%G", gid);
-        expect(i4, "%u", user);
-        expect(i4, "%U", uid);
+        expect(UNIT_FILE_SYSTEM, i3, "%n", "name@inst.service");
+        expect(UNIT_FILE_SYSTEM, i3, "%N", "name@inst");
+        expect(UNIT_FILE_SYSTEM, i3, "%p", "name");
+        expect(UNIT_FILE_USER, i3, "%g", group);
+        expect(UNIT_FILE_USER, i3, "%G", gid);
+        expect(UNIT_FILE_USER, i3, "%u", user);
+        expect(UNIT_FILE_USER, i3, "%U", uid);
+
+        expect(UNIT_FILE_SYSTEM, i3, "%m", mid);
+        expect(UNIT_FILE_SYSTEM, i3, "%b", bid);
+        expect(UNIT_FILE_SYSTEM, i3, "%H", host);
+
+        expect(UNIT_FILE_USER, i4, "%g", group);
+        expect(UNIT_FILE_USER, i4, "%G", gid);
+        expect(UNIT_FILE_USER, i4, "%u", user);
+        expect(UNIT_FILE_USER, i4, "%U", uid);
 }
 
 static uint64_t make_cap(int cap) {
