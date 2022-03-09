@@ -81,6 +81,9 @@ Features:
 * doc: prep a document explaining resolved's internal objects, i.e. Query
   vs. Question vs. Transaction vs. Stream and so on.
 
+* doc: prep a document explaining PID 1's internal logic, i.e. transactions,
+  jobs, units
+
 * userbdctl: show user types via colors, also display UID range info in some way
 
 * bootspec: remove tries counter from boot entry ids
