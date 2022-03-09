@@ -4,4 +4,9 @@
 #include "install.h"
 #include "unit-name.h"
 
-int install_name_printf(const UnitFileInstallInfo *i, const char *format, const char *root, char **ret);
+int install_name_printf(
+                UnitFileScope scope,
+                const UnitFileInstallInfo *i,
+                const char *format,
+                const char *root,
+                char **ret);
