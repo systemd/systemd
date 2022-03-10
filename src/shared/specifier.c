@@ -40,6 +40,7 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
         char *t;
         int r;
 
+        assert(ret);
         assert(text);
         assert(table);
 
@@ -112,6 +113,8 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
 int specifier_string(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n = NULL;
 
+        assert(ret);
+
         if (!isempty(data)) {
                 n = strdup(data);
                 if (!n)
@@ -125,6 +128,8 @@ int specifier_string(char specifier, const void *data, const char *root, const v
 int specifier_real_path(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const char *path = data;
 
+        assert(ret);
+
         if (!path)
                 return -ENOENT;
 
@@ -134,6 +139,8 @@ int specifier_real_path(char specifier, const void *data, const char *root, cons
 int specifier_real_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         _cleanup_free_ char *path = NULL;
         int r;
+
+        assert(ret);
 
         r = specifier_real_path(specifier, data, root, userdata, &path);
         if (r < 0)
@@ -147,6 +154,8 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
         sd_id128_t id;
         char *n;
         int r;
+
+        assert(ret);
 
         if (root) {
                 _cleanup_close_ int fd = -1;
@@ -174,6 +183,8 @@ int specifier_boot_id(char specifier, const void *data, const char *root, const 
         char *n;
         int r;
 
+        assert(ret);
+
         r = sd_id128_get_boot(&id);
         if (r < 0)
                 return r;
@@ -189,6 +200,8 @@ int specifier_boot_id(char specifier, const void *data, const char *root, const 
 int specifier_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n;
 
+        assert(ret);
+
         n = gethostname_malloc();
         if (!n)
                 return -ENOMEM;
@@ -199,6 +212,8 @@ int specifier_host_name(char specifier, const void *data, const char *root, cons
 
 int specifier_short_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n;
+
+        assert(ret);
 
         n = gethostname_short_malloc();
         if (!n)
@@ -211,6 +226,8 @@ int specifier_short_host_name(char specifier, const void *data, const char *root
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
+
+        assert(ret);
 
         if (uname(&uts) < 0)
                 return -errno;
@@ -226,6 +243,8 @@ int specifier_kernel_release(char specifier, const void *data, const char *root,
 int specifier_architecture(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *t;
 
+        assert(ret);
+
         t = strdup(architecture_to_string(uname_architecture()));
         if (!t)
                 return -ENOMEM;
@@ -238,31 +257,39 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
  * otherwise. We'll return an empty value or NULL in that case from the functions below. */
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "ID", ret);
 }
 
 int specifier_os_version_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "VERSION_ID", ret);
 }
 
 int specifier_os_build_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "BUILD_ID", ret);
 }
 
 int specifier_os_variant_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "VARIANT_ID", ret);
 }
 
 int specifier_os_image_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "IMAGE_ID", ret);
 }
 
 int specifier_os_image_version(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
         return parse_os_release(root, "IMAGE_VERSION", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *t;
+
+        assert(ret);
 
         t = gid_to_name(getgid());
         if (!t)
@@ -273,6 +300,8 @@ int specifier_group_name(char specifier, const void *data, const char *root, con
 }
 
 int specifier_group_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
+
         if (asprintf(ret, UID_FMT, getgid()) < 0)
                 return -ENOMEM;
 
@@ -281,6 +310,8 @@ int specifier_group_id(char specifier, const void *data, const char *root, const
 
 int specifier_user_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *t;
+
+        assert(ret);
 
         /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
          * to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
@@ -298,6 +329,8 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
 }
 
 int specifier_user_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
+
         if (asprintf(ret, UID_FMT, getuid()) < 0)
                 return -ENOMEM;
 
@@ -305,6 +338,7 @@ int specifier_user_id(char specifier, const void *data, const char *root, const 
 }
 
 int specifier_user_home(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
 
         /* On PID 1 (which runs as root) this will not result in NSS,
          * which is good. See above */
@@ -313,6 +347,7 @@ int specifier_user_home(char specifier, const void *data, const char *root, cons
 }
 
 int specifier_user_shell(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        assert(ret);
 
         /* On PID 1 (which runs as root) this will not result in NSS,
          * which is good. See above */
@@ -324,6 +359,8 @@ int specifier_tmp_dir(char specifier, const void *data, const char *root, const 
         const char *p;
         char *copy;
         int r;
+
+        assert(ret);
 
         if (root) /* If root dir is set, don't honour $TMP or similar */
                 p = "/tmp";
@@ -344,6 +381,8 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         const char *p;
         char *copy;
         int r;
+
+        assert(ret);
 
         if (root)
                 p = "/var/tmp";
