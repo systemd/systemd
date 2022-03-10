@@ -84,6 +84,18 @@ mount --bind /tmp/img /tmp/img_bind
 runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
     -p PrivateUsers=yes -p RootDirectory=/tmp/img_bind \
     grep MARKER=1 /etc/os-release
+
+# Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
+mkdir -p /tmp/a /tmp/b /tmp/c
+if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then
+    unsquashfs -no-xattrs -d /tmp/app2 /usr/share/app1.raw
+    runas testuser systemd-run --wait --user --unit=test-extension-dir \
+        -p PrivateUsers=yes -p ExtensionDirectories=/tmp/app2 \
+        -p TemporaryFileSystem=/run -p RootDirectory=/tmp/img \
+        -p MountAPIVFS=yes \
+        grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
+fi
+
 umount /tmp/img_bind
 
 systemd-analyze log-level info
