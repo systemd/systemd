@@ -1695,6 +1695,11 @@ int unit_file_verify_alias(
          * ret_dst is set in cases where "instance propagation" happens, i.e. when the instance part is
          * inserted into dst. It is not normally set, even on success, so that the caller can easily
          * distinguish the case where instance propagation occurred.
+         *
+         * Returns:
+         * -EXDEV when the alias doesn't match the unit,
+         * -EUCLEAN when the name is invalid,
+         * -ELOOP when the alias it to the unit itself.
          */
 
         const char *path_alias = strrchr(dst, '/');
@@ -1760,6 +1765,8 @@ int unit_file_verify_alias(
                 }
 
                 r = unit_validate_alias_symlink_or_warn(LOG_DEBUG, dst_updated ?: dst, info->name);
+                if (r == -ELOOP)  /* -ELOOP means self-alias, which we (quietly) ignore */
+                        return r;
                 if (r < 0) {
                         unit_file_changes_add(changes, n_changes,
                                               r == -EINVAL ? -EXDEV : r,
@@ -1799,6 +1806,8 @@ static int install_info_symlink_alias(
                 }
 
                 q = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
+                if (q == -ELOOP)
+                        continue;
                 if (q < 0) {
                         r = r < 0 ? r : q;
                         continue;
