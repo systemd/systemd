@@ -144,7 +144,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         char **name;
                         _cleanup_(lookup_paths_free) LookupPaths lp = {};
 
-                        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
+                        r = lookup_paths_init_or_warn(&lp, arg_scope, 0, arg_root);
                         if (r < 0)
                                 return r;
 
