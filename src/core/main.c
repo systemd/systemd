@@ -274,11 +274,12 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         int r;
 
                         if (siginfo) {
-                                _cleanup_free_ char *cmdline = NULL;
-                                pid_t sender_pid = siginfo->si_pid;
-
-                                (void) get_process_cmdline(sender_pid, SIZE_MAX, 0, &cmdline);
-                                log_emergency("Caught <%s> from PID "PID_FMT" (%s)", signal_to_string(sig), sender_pid, strna(cmdline));
+                                if (siginfo->si_pid == 0)
+                                        log_emergency("Caught <%s> from unknown sender process.", signal_to_string(sig));
+                                else if (siginfo->si_pid == 1)
+                                        log_emergency("Caught <%s> from our own process.", signal_to_string(sig));
+                                else
+                                        log_emergency("Caught <%s> from PID "PID_FMT".", signal_to_string(sig), siginfo->si_pid);
                         }
 
                         /* Order things nicely. */
