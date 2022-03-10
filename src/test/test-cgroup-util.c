@@ -17,6 +17,7 @@
 #include "user-util.h"
 #include "util.h"
 #include "version.h"
+#include "alloc-util.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
@@ -393,17 +394,17 @@ TEST(cg_get_keyed_attribute) {
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == 1);
         assert_se(vals3[0] && !vals3[1]);
-        free(vals3[0]);
+        vals3[0] = mfree(vals3[0]);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == 1);
-        assert_se(vals3[0] && !vals3[1]);
-        free(vals3[0]);
+        assert(vals3[0] && !vals3[1]);
+        vals3[0] = mfree(vals3[0]);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
         for (i = 0; i < 3; i++)
-                free(vals3[i]);
+                vals3[i] = mfree(vals3[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 3);
@@ -413,7 +414,7 @@ TEST(cg_get_keyed_attribute) {
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (i = 0; i < 3; i++)
-                free(vals3a[i]);
+                vals3[i] = mfree(vals3[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 3);
@@ -421,8 +422,8 @@ TEST(cg_get_keyed_attribute) {
                  vals3a[0], vals3a[1], vals3a[2]);
 
         for (i = 0; i < 3; i++) {
-                free(vals3[i]);
-                free(vals3a[i]);
+                vals3[i] = mfree(vals3[i]);
+                vals3a[i] = mfree(vals3a[i]);
         }
 }
 
