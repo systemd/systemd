@@ -2310,6 +2310,13 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
                 return;
         }
 
+        if (arg_system)  {
+                /* Raise the default limit to 8M also on old kernels and in containers (8M is the kernel
+                 * default for this since kernel 5.16) */
+                rl->rlim_max = MAX(rl->rlim_max, (rlim_t) DEFAULT_RLIMIT_MEMLOCK);
+                rl->rlim_cur = MAX(rl->rlim_cur, (rlim_t) DEFAULT_RLIMIT_MEMLOCK);
+        }
+
         arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
 }
 
