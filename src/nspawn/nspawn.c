@@ -5294,25 +5294,25 @@ static int run_container(
 }
 
 static int initialize_rlimits(void) {
-        /* The default resource limits the kernel passes to PID 1, as per kernel 4.16. Let's pass our container payload
+        /* The default resource limits the kernel passes to PID 1, as per kernel 5.16. Let's pass our container payload
          * the same values as the kernel originally passed to PID 1, in order to minimize differences between host and
          * container execution environments. */
 
         static const struct rlimit kernel_defaults[_RLIMIT_MAX] = {
-                [RLIMIT_AS]       = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_CORE]     = { 0,             RLIM_INFINITY },
-                [RLIMIT_CPU]      = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_DATA]     = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_FSIZE]    = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_LOCKS]    = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_MEMLOCK]  = { 65536,         65536         },
-                [RLIMIT_MSGQUEUE] = { 819200,        819200        },
-                [RLIMIT_NICE]     = { 0,             0             },
-                [RLIMIT_NOFILE]   = { 1024,          4096          },
-                [RLIMIT_RSS]      = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_RTPRIO]   = { 0,             0             },
-                [RLIMIT_RTTIME]   = { RLIM_INFINITY, RLIM_INFINITY },
-                [RLIMIT_STACK]    = { 8388608,       RLIM_INFINITY },
+                [RLIMIT_AS]       = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_CORE]     = { 0,                      RLIM_INFINITY          },
+                [RLIMIT_CPU]      = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_DATA]     = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_FSIZE]    = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_LOCKS]    = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_MEMLOCK]  = { DEFAULT_RLIMIT_MEMLOCK, DEFAULT_RLIMIT_MEMLOCK },
+                [RLIMIT_MSGQUEUE] = { 819200,                 819200                 },
+                [RLIMIT_NICE]     = { 0,                      0                      },
+                [RLIMIT_NOFILE]   = { 1024,                   4096                   },
+                [RLIMIT_RSS]      = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_RTPRIO]   = { 0,                      0                      },
+                [RLIMIT_RTTIME]   = { RLIM_INFINITY,          RLIM_INFINITY          },
+                [RLIMIT_STACK]    = { 8388608,                RLIM_INFINITY          },
 
                 /* The kernel scales the default for RLIMIT_NPROC and RLIMIT_SIGPENDING based on the system's amount of
                  * RAM. To provide best compatibility we'll read these limits off PID 1 instead of hardcoding them
