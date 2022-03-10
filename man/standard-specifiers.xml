@@ -34,6 +34,11 @@
     <entry>Short host name</entry>
     <entry>The hostname of the running system, truncated at the first dot to remove any domain component.</entry>
   </row>
+  <row id='R'>
+    <entry><literal>%R</literal></entry>
+    <entry>Pretty host name</entry>
+    <entry>The pretty hostname of the running system. If not set, resolves to the short hostname.</entry>
+  </row>
   <row id='m'>
     <entry><literal>%m</literal></entry>
     <entry>Machine ID</entry>
