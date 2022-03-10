@@ -73,7 +73,7 @@ TEST(specifier_printf) {
         assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
 
         free(w);
-        r = specifier_printf("machine=%m, boot=%b, host=%H, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf("machine=%m, boot=%b, host=%H, pretty=%R, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
         puts(w);
