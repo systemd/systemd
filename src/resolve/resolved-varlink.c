@@ -99,6 +99,12 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
+static void varlink_connection_destroy(VarlinkConnection* conn) {
+        assert(conn);
+        conn->link = varlink_unref(conn->link);
+        mfree(conn);
+}
+
 static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         Manager *m = userdata;
 
@@ -106,11 +112,28 @@ static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void 
         assert(s);
         assert(link);
 
-        // Only 1 client is supported, stored subscription must match the current
-        assert(link == m->varlink_subscription);
+        assert(m->varlink_subscription);
 
+        VarlinkConnection* tmp = m->varlink_subscription;
+        if (m->varlink_subscription->link == link)
+        {
+                m->varlink_subscription = m->varlink_subscription->next;
+                varlink_connection_destroy(tmp);
+                return;
+        }
+
+        VarlinkConnection* prev = NULL;
+        while (tmp != NULL && tmp->link != link)
+        {
+                prev = tmp;
+                tmp = tmp->next;
+        }
+
+        assert(tmp);
+
+        prev->next = tmp->next;
+        varlink_connection_destroy(tmp);
         log_debug("Client for notifications vanished, disabling notifications.");
-        m->varlink_subscription = varlink_unref(link);
 }
 
 static bool validate_and_mangle_flags(
@@ -548,19 +571,18 @@ static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *paramete
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
-        if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->varlink_subscription)
-        {
-                // only 1 client connection is supported
-                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
-        }
         if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
         {
                 // the client didn't set the more flag, so return an empty response and close the connection
                 return varlink_reply(link, NULL);
         }
 
-        assert(!m->varlink_subscription);
-        m->varlink_subscription = varlink_ref(link);
+        VarlinkConnection* s = new(VarlinkConnection, 1);
+        if (!s)
+                return log_oom();
+        s->link = varlink_ref(link);
+        s->next = m->varlink_subscription;
+        m->varlink_subscription = s;
 
         log_debug("Client attached for varlink notifications");
         return 1;
@@ -630,6 +652,8 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_notification_server = TAKE_PTR(s);
+        m->varlink_subscription = NULL;
+
         return 0;
 }
 

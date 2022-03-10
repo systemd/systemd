@@ -1067,6 +1067,7 @@ int send_dns_notification(Manager* m, DnsAnswer* answer)
         DnsResourceRecord *rr;
         int ifindex, r;
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        VarlinkConnection* connection = NULL;
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, answer) {
                 _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
@@ -1106,8 +1107,15 @@ int send_dns_notification(Manager* m, DnsAnswer* answer)
         if (r < 0)
                 return log_error_errno(r, "Failed to get hostname: %m");
 
-        return varlink_notifyb(m->varlink_subscription, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
+        connection = m->varlink_subscription;
+        while (connection) {
+                r = varlink_notifyb(connection->link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
                                 JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
+                if (r < 0)
+                        log_error_errno(r, "Failed to send notification: %m");
+                connection = connection->next;
+        }
+        return 0;
 }
 
 int manager_send(

@@ -32,6 +32,13 @@ typedef struct EtcHosts {
         Set *no_address;
 } EtcHosts;
 
+/* A single node in a linked list of connections */
+typedef struct VarlinkConnection VarlinkConnection;
+struct VarlinkConnection {
+        Varlink* link;
+        VarlinkConnection* next;
+};
+
 struct Manager {
         sd_event *event;
 
@@ -149,8 +156,8 @@ struct Manager {
         VarlinkServer *varlink_server;
         VarlinkServer *varlink_notification_server;
 
-        /* Tracks the client subscribed for varlink notifications */
-        Varlink* varlink_subscription;
+        /* A linked list of clients subscribed for varlink notifications */
+        VarlinkConnection* varlink_subscription;
 
         sd_event_source *clock_change_event_source;
 
