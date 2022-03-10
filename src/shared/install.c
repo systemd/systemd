@@ -320,7 +320,7 @@ void unit_file_changes_free(UnitFileChange *changes, size_t n_changes) {
 }
 
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet) {
-        bool logged = false;
+        int err = 0;
 
         assert(changes || n_changes == 0);
         /* If verb is not specified, errors are not allowed! */
@@ -361,64 +361,55 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         break;
                 case -EEXIST:
                         if (changes[i].source)
-                                log_error_errno(changes[i].type_or_errno,
-                                                "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
-                                                verb, changes[i].path, changes[i].source);
+                                err = log_error_errno(changes[i].type_or_errno,
+                                                      "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
+                                                      verb, changes[i].path, changes[i].source);
                         else
-                                log_error_errno(changes[i].type_or_errno,
-                                                "Failed to %s unit, file \"%s\" already exists.",
-                                                verb, changes[i].path);
-                        logged = true;
+                                err = log_error_errno(changes[i].type_or_errno,
+                                                      "Failed to %s unit, file \"%s\" already exists.",
+                                                      verb, changes[i].path);
                         break;
                 case -ERFKILL:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is masked.",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is masked.",
+                                              verb, changes[i].path);
                         break;
                 case -EADDRNOTAVAIL:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s is transient or generated.",
+                                              verb, changes[i].path);
                         break;
                 case -EBADSLT:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid specifier in \"%s\".",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid specifier in \"%s\".",
+                                              verb, changes[i].path);
                         break;
                 case -EIDRM:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s %s, destination unit %s is a non-template unit.",
-                                        verb, changes[i].source, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s %s, destination unit %s is a non-template unit.",
+                                              verb, changes[i].source, changes[i].path);
                         break;
                 case -EUCLEAN:
-                        log_error_errno(changes[i].type_or_errno,
-                                        "Failed to %s unit, \"%s\" is not a valid unit name.",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno,
+                                              "Failed to %s unit, \"%s\" is not a valid unit name.",
+                                              verb, changes[i].path);
                         break;
                 case -ELOOP:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
+                                              verb, changes[i].path);
                         break;
                 case -ENOENT:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.",
+                                              verb, changes[i].path);
                         break;
                 case -EUNATCH:
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
+                                              verb, changes[i].path);
                         break;
                 default:
                         assert(changes[i].type_or_errno < 0);
-                        log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file \"%s\": %m",
-                                        verb, changes[i].path);
-                        logged = true;
+                        err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file \"%s\": %m",
+                                              verb, changes[i].path);
                 }
         }
 
-        if (r < 0 && !logged)
+        if (r < 0 && err >= 0)
                 log_error_errno(r, "Failed to %s: %m.", verb);
 }
 
