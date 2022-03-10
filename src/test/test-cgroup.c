@@ -9,6 +9,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "alloc-util.h"
 
 TEST(cg_split_spec) {
         char *c, *p;
@@ -57,7 +58,7 @@ TEST(cg_create) {
                    *test_b = prefix_roota(here, "/test-b"),
                    *test_c = prefix_roota(here, "/test-b/test-c"),
                    *test_d = prefix_roota(here, "/test-b/test-d");
-        char *path;
+        _cleanup_free_ char *path;
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
@@ -81,13 +82,13 @@ TEST(cg_create) {
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
         assert_se(path_equal(path, test_a));
-        free(path);
+        path = mfree(path);
 
         assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_d, 0) == 1);
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
         assert_se(path_equal(path, test_d));
-        free(path);
+        path = mfree(path);
 
         assert_se(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path) == 0);
         log_debug("test_d: %s", path);
