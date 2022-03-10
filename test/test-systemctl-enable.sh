@@ -324,6 +324,31 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@333.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 
+: -------template enablement for another template-------------
+cat >"$root/etc/systemd/system/templ2@.service" <<EOF
+[Install]
+RequiredBy=another-template@.target
+EOF
+
+"$systemctl" --root="$root" enable 'templ2@.service'
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+
+"$systemctl" --root="$root" enable 'templ2@two.service'
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "/etc/systemd/system/templ2@.service"
+
+"$systemctl" --root="$root" disable 'templ2@other.service'
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "/etc/systemd/system/templ2@.service"
+
+"$systemctl" --root="$root" disable 'templ2@two.service'
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service"
+
+"$systemctl" --root="$root" disable 'templ2@.service'
+test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@.service"
+test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service"
+
 : -------aliases w/ and w/o instance--------------------------
 test ! -e "$root/etc/systemd/system/link4.service"
 cat >"$root/etc/systemd/system/link4.service" <<EOF
@@ -528,6 +553,30 @@ check_alias v "$(uname -r)"
 check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
 
 check_alias z 'z' && { echo "Expected failure because %z is not known" >&2; exit 1; }
+
+: -------specifiers in WantedBy-------------------------------
+# We don't need to repeat all the tests. Let's do a basic check that specifier
+# expansion is performed.
+
+cat >"$root/etc/systemd/system/some-some-link7.socket" <<EOF
+[Install]
+WantedBy=target@%p.target
+WantedBy=another-target@.target
+RequiredBy=target2@%p.target
+RequiredBy=another-target2@.target
+EOF
+
+"$systemctl" --root="$root" enable 'some-some-link7.socket'
+islink "$root/etc/systemd/system/target@some-some-link7.target.wants/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
+islink "$root/etc/systemd/system/another-target@.target.wants/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
+islink "$root/etc/systemd/system/target2@some-some-link7.target.requires/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
+islink "$root/etc/systemd/system/another-target2@.target.requires/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
+
+"$systemctl" --root="$root" disable 'some-some-link7.socket'
+test ! -h "$root/etc/systemd/system/target@some-some-link7.target.wants/some-some-link7.socket"
+test ! -h "$root/etc/systemd/system/another-target@.target.wants/some-some-link7.socket"
+test ! -h "$root/etc/systemd/system/target2@some-some-link7.target.requires/some-some-link7.socket"
+test ! -h "$root/etc/systemd/system/another-target2@.target.requires/some-some-link7.socket"
 
 # TODO: repeat the tests above for presets
 
