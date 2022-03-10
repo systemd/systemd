@@ -122,9 +122,6 @@ static inline int strv_from_nulstr(char ***a, const char *nulstr) {
 
 bool strv_overlap(char * const *a, char * const *b) _pure_;
 
-#define STRV_FOREACH(s, l)                      \
-        for ((s) = (l); (s) && *(s); (s)++)
-
 #define STRV_FOREACH_BACKWARDS(s, l)                                \
         for (s = ({                                                 \
                         typeof(l) _l = l;                           \
