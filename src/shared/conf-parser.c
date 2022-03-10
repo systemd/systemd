@@ -11,12 +11,14 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "dns-domain.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
@@ -904,6 +906,78 @@ int config_parse_string(
         }
 
         return free_and_strdup_warn(s, empty_to_null(rvalue));
+}
+
+int config_parse_dns_name(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **hostname = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *hostname = mfree(*hostname);
+                return 0;
+        }
+
+        r = dns_name_is_valid(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to check validity of DNS domain name '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified invalid DNS domain name, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(hostname, rvalue);
+}
+
+int config_parse_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **hostname = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *hostname = mfree(*hostname);
+                return 0;
+        }
+
+        if (!hostname_is_valid(rvalue, 0)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified invalid hostname, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return config_parse_dns_name(unit, filename, line, section, section_line,
+                                     lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_path(

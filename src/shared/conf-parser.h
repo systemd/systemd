@@ -168,6 +168,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bool);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
 CONFIG_PARSER_PROTOTYPE(config_parse_string);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_path);
 CONFIG_PARSER_PROTOTYPE(config_parse_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec);
