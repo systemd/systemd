@@ -69,7 +69,7 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
         return 0;
 }
 
-int unit_validate_alias_symlink_and_warn(const char *filename, const char *target) {
+int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target) {
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
         UnitType src_unit_type, dst_unit_type;
@@ -92,51 +92,51 @@ int unit_validate_alias_symlink_and_warn(const char *filename, const char *targe
 
         src_name_type = unit_name_to_instance(src, &src_instance);
         if (src_name_type < 0)
-                return log_notice_errno(src_name_type,
-                                        "%s: not a valid unit name \"%s\": %m", filename, src);
+                return log_full_errno(log_level, src_name_type,
+                                      "%s: not a valid unit name \"%s\": %m", filename, src);
 
         src_unit_type = unit_name_to_type(src);
         assert(src_unit_type >= 0); /* unit_name_to_instance() checked the suffix already */
 
         if (!unit_type_may_alias(src_unit_type))
-                return log_notice_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "%s: symlinks are not allowed for units of this type, rejecting.",
-                                        filename);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EINVAL),
+                                      "%s: symlinks are not allowed for units of this type, rejecting.",
+                                      filename);
 
         if (src_name_type != UNIT_NAME_PLAIN &&
             !unit_type_may_template(src_unit_type))
-                return log_notice_errno(SYNTHETIC_ERRNO(EINVAL),
-                                        "%s: templates not allowed for %s units, rejecting.",
-                                        filename, unit_type_to_string(src_unit_type));
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EINVAL),
+                                      "%s: templates not allowed for %s units, rejecting.",
+                                      filename, unit_type_to_string(src_unit_type));
 
         /* dst checks */
 
         dst_name_type = unit_name_to_instance(dst, &dst_instance);
         if (dst_name_type < 0)
-                return log_notice_errno(dst_name_type == -EINVAL ? SYNTHETIC_ERRNO(EXDEV) : dst_name_type,
-                                        "%s points to \"%s\" which is not a valid unit name: %m",
-                                        filename, dst);
+                return log_full_errno(log_level, dst_name_type == -EINVAL ? SYNTHETIC_ERRNO(EXDEV) : dst_name_type,
+                                      "%s points to \"%s\" which is not a valid unit name: %m",
+                                      filename, dst);
 
         if (!(dst_name_type == src_name_type ||
               (src_name_type == UNIT_NAME_INSTANCE && dst_name_type == UNIT_NAME_TEMPLATE)))
-                return log_notice_errno(SYNTHETIC_ERRNO(EXDEV),
-                                        "%s: symlink target name type \"%s\" does not match source, rejecting.",
-                                        filename, dst);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
+                                      "%s: symlink target name type \"%s\" does not match source, rejecting.",
+                                      filename, dst);
 
         if (dst_name_type == UNIT_NAME_INSTANCE) {
                 assert(src_instance);
                 assert(dst_instance);
                 if (!streq(src_instance, dst_instance))
-                        return log_notice_errno(SYNTHETIC_ERRNO(EXDEV),
-                                                "%s: unit symlink target \"%s\" instance name doesn't match, rejecting.",
-                                                filename, dst);
+                        return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
+                                              "%s: unit symlink target \"%s\" instance name doesn't match, rejecting.",
+                                              filename, dst);
         }
 
         dst_unit_type = unit_name_to_type(dst);
         if (dst_unit_type != src_unit_type)
-                return log_notice_errno(SYNTHETIC_ERRNO(EXDEV),
-                                        "%s: symlink target \"%s\" has incompatible suffix, rejecting.",
-                                        filename, dst);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
+                                      "%s: symlink target \"%s\" has incompatible suffix, rejecting.",
+                                      filename, dst);
 
         return 0;
 }
@@ -354,7 +354,7 @@ int unit_file_resolve_symlink(
                                  "Suspicious symlink %s/%s→%s, treating as alias.",
                                  dir, filename, simplified);
 
-                r = unit_validate_alias_symlink_and_warn(filename, simplified);
+                r = unit_validate_alias_symlink_or_warn(LOG_NOTICE, filename, simplified);
                 if (r < 0)
                         return r;
 
