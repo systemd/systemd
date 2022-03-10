@@ -157,7 +157,6 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 int vconsole_read_data(Context *c, sd_bus_message *m) {
         struct stat st;
         usec_t t;
-        int r;
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -185,13 +184,9 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf",
-                           "KEYMAP",        &c->vc_keymap,
-                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return parse_env_file(NULL, "/etc/vconsole.conf",
+                              "KEYMAP",        &c->vc_keymap,
+                              "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {

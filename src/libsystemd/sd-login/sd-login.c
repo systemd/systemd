@@ -269,13 +269,11 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
                 return r;
 
         r = parse_env_file(NULL, p, "STATE", &s);
-        if (r == -ENOENT) {
+        if (r == -ENOENT)
                 r = free_and_strdup(&s, "offline");
-                if (r < 0)
-                        return r;
-        } else if (r < 0)
+        if (r < 0)
                 return r;
-        else if (isempty(s))
+        if (isempty(s))
                 return -EIO;
 
         *state = TAKE_PTR(s);
