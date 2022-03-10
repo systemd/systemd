@@ -328,8 +328,7 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 test ! -e "$root/etc/systemd/system/link4.service"
 cat >"$root/etc/systemd/system/link4.service" <<EOF
 [Install]
-# FIXME: self-alias should be ignored
-# Alias=link4.service
+Alias=link4.service
 Alias=link4@.service
 Alias=link4@inst.service
 Alias=link4alias.service
@@ -372,8 +371,7 @@ test ! -h "$root/etc/systemd/system/link4alias2.service"
 test ! -e "$root/etc/systemd/system/link5.service"
 cat >"$root/etc/systemd/system/link5.service" <<EOF
 [Install]
-# FIXME: self-alias should be ignored
-# Alias=link5.service
+Alias=link5.service
 Alias=link5alias.service
 Alias=link5alias2.service
 EOF
