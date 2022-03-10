@@ -208,7 +208,11 @@ static int run(int argc, char *argv[]) {
 
                         if (arg_show_unit != SHOW_UNIT_NONE) {
                                 /* Command line arguments are unit names */
-                                _cleanup_free_ char *cgroup = NULL;
+                                _cleanup_free_ char *cgroup = NULL, *unit_name = NULL;
+
+                                r = unit_name_mangle(*name, UNIT_NAME_MANGLE_WARN, &unit_name);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to mangle unit name: %m");
 
                                 if (!bus) {
                                         /* Connect to the bus only if necessary */
@@ -219,16 +223,16 @@ static int run(int argc, char *argv[]) {
                                                 return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
                                 }
 
-                                q = show_cgroup_get_unit_path_and_warn(bus, *name, &cgroup);
+                                q = show_cgroup_get_unit_path_and_warn(bus, unit_name, &cgroup);
                                 if (q < 0)
                                         goto failed;
 
                                 if (isempty(cgroup)) {
-                                        q = log_warning_errno(SYNTHETIC_ERRNO(ENOENT), "Unit %s not found.", *name);
+                                        q = log_warning_errno(SYNTHETIC_ERRNO(ENOENT), "Unit %s not found.", unit_name);
                                         goto failed;
                                 }
 
-                                printf("Unit %s (%s):\n", *name, cgroup);
+                                printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
                                 q = show_cgroup_by_path(cgroup, NULL, 0, arg_output_flags);
