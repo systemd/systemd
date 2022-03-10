@@ -409,8 +409,9 @@ RelayAgentCircuitId=
 RelayAgentRemoteId=
 ServerAddress=
 UplinkInterface=
-NextServer=
-Filename=
+BootServerAddress=
+BootServerName=
+BootFilename=
 [DHCPServerStaticLease]
 MACAddress=
 Address=
