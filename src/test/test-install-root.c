@@ -1091,7 +1091,7 @@ static void verify_one(
         if (i != last_info)
                 log_info("-- %s --", (last_info = i)->name);
 
-        r = unit_file_verify_alias(i, alias, &alias2);
+        r = unit_file_verify_alias(i, alias, &alias2, NULL, NULL);
         log_info_errno(r, "alias %s ← %s: %d/%m (expected %d)%s%s%s",
                        i->name, alias, r, expected,
                        alias2 ? " [" : "", strempty(alias2),
