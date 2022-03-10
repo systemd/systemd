@@ -21,6 +21,7 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
 int specifier_boot_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_short_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret);
+int specifier_pretty_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_architecture(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);
@@ -75,6 +76,7 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         { 'B', specifier_os_build_id,     NULL }, \
         { 'H', specifier_host_name,       NULL }, \
         { 'l', specifier_short_host_name, NULL }, \
+        { 'R', specifier_pretty_host_name,NULL }, \
         { 'm', specifier_machine_id,      NULL }, \
         { 'M', specifier_os_image_id,     NULL }, \
         { 'o', specifier_os_id,           NULL }, \
