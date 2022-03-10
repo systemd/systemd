@@ -1794,20 +1794,22 @@ static int install_info_symlink_alias(
                 q = install_name_printf(scope, info, *s, info->root, &dst);
                 if (q < 0) {
                         unit_file_changes_add(changes, n_changes, q, *s, NULL);
-                        return q;
+                        r = r < 0 ? r : q;
+                        continue;
                 }
 
                 q = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
-                if (q < 0)
+                if (q < 0) {
+                        r = r < 0 ? r : q;
                         continue;
+                }
 
                 alias_path = path_make_absolute(dst_updated ?: dst, config_path);
                 if (!alias_path)
                         return -ENOMEM;
 
                 q = create_symlink(lp, info->path, alias_path, force, changes, n_changes);
-                if (r == 0)
-                        r = q;
+                r = r < 0 ? r : q;
         }
 
         return r;

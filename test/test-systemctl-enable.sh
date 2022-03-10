@@ -56,19 +56,27 @@ test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
 
 : -------aliases----------------------------------------------
-"$systemctl" --root="$root" enable test1
-test -h "$root/etc/systemd/system/default.target.wants/test1.service"
-test -h "$root/etc/systemd/system/special.target.requires/test1.service"
-
 cat >>"$root/etc/systemd/system/test1.service" <<EOF
 Alias=test1-goodalias.service
 Alias=test1@badalias.service
 Alias=test1-badalias.target
 Alias=test1-badalias.socket
+# we have a series of good, bad, and then good again
+Alias=test1-goodalias2.service
 EOF
 
+"$systemctl" --root="$root" enable test1 && { echo "Expected failure" >&2; exit 1; }
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test -h "$root/etc/systemd/system/test1-goodalias.service"
+test ! -e "$root/etc/systemd/system/test1@badalias.service"
+test ! -e "$root/etc/systemd/system/test1-badalias.target"
+test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+test -h "$root/etc/systemd/system/test1-goodalias2.service"
+
 : -------aliases in reeanble----------------------------------
-"$systemctl" --root="$root" reenable test1
+"$systemctl" --root="$root" reenable test1 && { echo "Expected failure" >&2; exit 1; }
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/test1-goodalias.service"
 test -h "$root/etc/systemd/system/test1-goodalias.service"
@@ -328,7 +336,7 @@ Alias=link4alias.service
 Alias=link4alias2.service
 EOF
 
-"$systemctl" --root="$root" enable 'link4.service'
+"$systemctl" --root="$root" enable 'link4.service' && { echo "Expected failure" >&2; exit 1; }
 test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
 test ! -h "$root/etc/systemd/system/link4@.service"
 test ! -h "$root/etc/systemd/system/link4@inst.service"
@@ -343,18 +351,20 @@ test ! -h "$root/etc/systemd/system/link4alias.service"
 test ! -h "$root/etc/systemd/system/link4alias2.service"
 
 : -------systemctl enable on path to unit file----------------
+cat >"$root/etc/systemd/system/link4.service" <<EOF
+[Install]
+Alias=link4alias.service
+Alias=link4alias2.service
+EOF
+
 # Apparently this works. I'm not sure what to think.
 "$systemctl" --root="$root" enable '/etc/systemd/system/link4.service'
 test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
-test ! -h "$root/etc/systemd/system/link4@.service"
-test ! -h "$root/etc/systemd/system/link4@inst.service"
 islink "$root/etc/systemd/system/link4alias.service" "/etc/systemd/system/link4.service"
 islink "$root/etc/systemd/system/link4alias2.service" "/etc/systemd/system/link4.service"
 
 "$systemctl" --root="$root" disable '/etc/systemd/system/link4.service'
 test ! -h "$root/etc/systemd/system/link4.service"
-test ! -h "$root/etc/systemd/system/link4@.service"
-test ! -h "$root/etc/systemd/system/link4@inst.service"
 test ! -h "$root/etc/systemd/system/link4alias.service"
 test ! -h "$root/etc/systemd/system/link4alias2.service"
 
@@ -364,25 +374,18 @@ cat >"$root/etc/systemd/system/link5.service" <<EOF
 [Install]
 # FIXME: self-alias should be ignored
 # Alias=link5.service
-Alias=link5@.service
-Alias=link5@inst.service
 Alias=link5alias.service
 Alias=link5alias2.service
 EOF
 
 "$systemctl" --root="$root" enable 'link5.service'
 test ! -h "$root/etc/systemd/system/link5.service"  # this is our file
-test ! -h "$root/etc/systemd/system/link5@.service"
-test ! -h "$root/etc/systemd/system/link5@inst.service"
 # FIXME/CLARIFYME: will systemd think that link5alias2, link5alias, link5 are all aliases?
 # https://github.com/systemd/systemd/issues/661#issuecomment-1057931149
 islink "$root/etc/systemd/system/link5alias.service" "/etc/systemd/system/link5.service"
 islink "$root/etc/systemd/system/link5alias2.service" "/etc/systemd/system/link5.service"
 
 "$systemctl" --root="$root" disable 'link5.service'
-test ! -h "$root/etc/systemd/system/link5.service"
-test ! -h "$root/etc/systemd/system/link5@.service"
-test ! -h "$root/etc/systemd/system/link5@inst.service"
 test ! -h "$root/etc/systemd/system/link5alias.service"
 test ! -h "$root/etc/systemd/system/link5alias2.service"
 
@@ -527,8 +530,6 @@ check_alias v "$(uname -r)"
 check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
 
 check_alias z 'z' && { echo "Expected failure because %z is not known" >&2; exit 1; }
-
-# FIXME: if there's an invalid Alias=, we shouldn't preach about empty [Install]
 
 # TODO: repeat the tests above for presets
 
