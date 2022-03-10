@@ -223,49 +223,63 @@ int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator)
         return 1;
 }
 
-static int device_compare(sd_device * const *_a, sd_device * const *_b) {
-        sd_device *a = *(sd_device **)_a, *b = *(sd_device **)_b;
-        const char *devpath_a, *devpath_b, *sound_a;
-        bool delay_a, delay_b;
-        int r;
+static int sound_device_compare(const char *devpath_a, const char *devpath_b) {
+        const char *sound_a, *sound_b;
+        size_t prefix_len;
 
-        assert_se(sd_device_get_devpath(a, &devpath_a) >= 0);
-        assert_se(sd_device_get_devpath(b, &devpath_b) >= 0);
+        assert(devpath_a);
+        assert(devpath_b);
+
+        /* For sound cards the control device must be enumerated last to make sure it's the final
+         * device node that gets ACLs applied. Applications rely on this fact and use ACL changes on
+         * the control node as an indicator that the ACL change of the entire sound card completed. The
+         * kernel makes this guarantee when creating those devices, and hence we should too when
+         * enumerating them. */
 
         sound_a = strstr(devpath_a, "/sound/card");
-        if (sound_a) {
-                /* For sound cards the control device must be enumerated last to
-                 * make sure it's the final device node that gets ACLs applied.
-                 * Applications rely on this fact and use ACL changes on the
-                 * control node as an indicator that the ACL change of the
-                 * entire sound card completed. The kernel makes this guarantee
-                 * when creating those devices, and hence we should too when
-                 * enumerating them. */
-                sound_a += STRLEN("/sound/card");
-                sound_a = strchr(sound_a, '/');
+        if (!sound_a)
+                return 0;
 
-                if (sound_a) {
-                        unsigned prefix_len;
+        sound_a += STRLEN("/sound/card");
+        sound_a = strchr(devpath_a, '/');
+        if (!sound_a)
+                return 0;
 
-                        prefix_len = sound_a - devpath_a;
+        prefix_len = sound_a - devpath_a;
 
-                        if (strneq(devpath_a, devpath_b, prefix_len)) {
-                                const char *sound_b;
+        if (!strneq(devpath_a, devpath_b, prefix_len))
+                return 0;
 
-                                sound_b = devpath_b + prefix_len;
+        sound_b = devpath_b + prefix_len;
 
-                                r = CMP(!!startswith(sound_a, "/controlC"),
-                                        !!startswith(sound_b, "/controlC"));
-                                if (r != 0)
-                                        return r;
-                        }
-                }
-        }
+        return CMP(!!startswith(sound_a, "/controlC"),
+                   !!startswith(sound_b, "/controlC"));
+}
+
+static bool devpath_is_late_block(const char *devpath) {
+        assert(devpath);
+
+        return strstr(devpath, "/block/md") || strstr(devpath, "/block/dm-");
+}
+
+static int device_compare(sd_device * const *a, sd_device * const *b) {
+        const char *devpath_a, *devpath_b;
+        int r;
+
+        assert(a);
+        assert(b);
+        assert(*a);
+        assert(*b);
+
+        assert_se(sd_device_get_devpath(*(sd_device**) a, &devpath_a) >= 0);
+        assert_se(sd_device_get_devpath(*(sd_device**) b, &devpath_b) >= 0);
+
+        r = sound_device_compare(devpath_a, devpath_b);
+        if (r != 0)
+                return r;
 
         /* md and dm devices are enumerated after all other devices */
-        delay_a = strstr(devpath_a, "/block/md") || strstr(devpath_a, "/block/dm-");
-        delay_b = strstr(devpath_b, "/block/md") || strstr(devpath_b, "/block/dm-");
-        r = CMP(delay_a, delay_b);
+        r = CMP(devpath_is_late_block(devpath_a), devpath_is_late_block(devpath_b));
         if (r != 0)
                 return r;
 
