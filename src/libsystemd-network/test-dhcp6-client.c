@@ -13,6 +13,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-event.h"
 
+#include "alloc-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
