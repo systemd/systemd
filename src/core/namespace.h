@@ -145,6 +145,7 @@ int setup_namespace(
                 char **extension_directories,
                 const char *propagate_dir,
                 const char *incoming_dir,
+                const char *extension_dir,
                 const char *notify_socket,
                 char **error_path);
 
