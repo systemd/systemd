@@ -1904,34 +1904,31 @@
         <term><varname>WantedBy=</varname></term>
         <term><varname>RequiredBy=</varname></term>
 
-        <listitem><para>This option may be used more than once, or a
-        space-separated list of unit names may be given. A symbolic
-        link is created in the <filename>.wants/</filename> or
-        <filename>.requires/</filename> directory of each of the
-        listed units when this unit is installed by <command>systemctl
-        enable</command>. This has the effect that a dependency of
-        type <varname>Wants=</varname> or <varname>Requires=</varname>
-        is added from the listed unit to the current unit. The primary
-        result is that the current unit will be started when the
-        listed unit is started. See the description of
-        <varname>Wants=</varname> and <varname>Requires=</varname> in
-        the [Unit] section for details.</para>
+        <listitem><para>This option may be used more than once, or a space-separated list of unit names may
+        be given. A symbolic link is created in the <filename>.wants/</filename> or
+        <filename>.requires/</filename> directory of each of the listed units when this unit is installed by
+        <command>systemctl enable</command>. This has the effect of a dependency of type
+        <varname>Wants=</varname> or <varname>Requires=</varname> being added from the listed unit to the
+        current unit. The primary result is that the current unit will be started when the listed unit is
+        started, see the description of <varname>Wants=</varname> and <varname>Requires=</varname> in the
+        [Unit] section for details.</para>
 
-        <para><command>WantedBy=foo.service</command> in a service
-        <filename>bar.service</filename> is mostly equivalent to
-        <command>Alias=foo.service.wants/bar.service</command> in the
-        same file. In case of template units listing non template units,
-        <command>systemctl enable</command> must be called with an
-        instance name, and this instance will be added to the
-        <filename>.wants/</filename> or
-        <filename>.requires/</filename> list of the listed unit. E.g.
-        <command>WantedBy=getty.target</command> in a service
-        <filename>getty@.service</filename> will result in
-        <command>systemctl enable getty@tty2.service</command>
-        creating a
-        <filename>getty.target.wants/getty@tty2.service</filename>
-        link to <filename>getty@.service</filename>.
-        </para></listitem>
+        <para>In case of template units listing non template units, the listing unit must have
+        <varname>DefaultInstance=</varname> set, or <command>systemctl enable</command> must be called with
+        an instance name. The instance (default or specified) will be added to the
+        <filename>.wants/</filename> or <filename>.requires/</filename> list of the listed unit. For example,
+        <command>WantedBy=getty.target</command> in a service <filename>getty@.service</filename> will result
+        in <command>systemctl enable getty@tty2.service</command> creating a
+        <filename>getty.target.wants/getty@tty2.service</filename> link to
+        <filename>getty@.service</filename>. This also applies to listing specific instances of templated
+        units: this specific instance will gain the dependency. A template unit may also list a template
+        unit, in which case a generic dependency will be added where each instance of the listing unit will
+        have a dependency on an instance of the listed template with the same instance value. For example,
+        <command>WantedBy=container@.target</command> in a service <filename>monitor@.service</filename> will
+        result in <command>systemctl enable monitor@.service</command> creating a
+        <filename>container@.target.wants/monitor@.service</filename> link to
+        <filename>monitor@.service</filename>, which applies to all instances of
+        <filename>container@.target</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
