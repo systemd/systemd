@@ -249,18 +249,15 @@ static int device_compare(sd_device * const *_a, sd_device * const *_b) {
 
                         prefix_len = sound_a - devpath_a;
 
-                        if (strncmp(devpath_a, devpath_b, prefix_len) == 0) {
+                        if (strneq(devpath_a, devpath_b, prefix_len)) {
                                 const char *sound_b;
 
                                 sound_b = devpath_b + prefix_len;
 
-                                if (startswith(sound_a, "/controlC") &&
-                                    !startswith(sound_b, "/contolC"))
-                                        return 1;
-
-                                if (!startswith(sound_a, "/controlC") &&
-                                    startswith(sound_b, "/controlC"))
-                                        return -1;
+                                r = CMP(!!startswith(sound_a, "/controlC"),
+                                        !!startswith(sound_b, "/controlC"));
+                                if (r != 0)
+                                        return r;
                         }
                 }
         }
