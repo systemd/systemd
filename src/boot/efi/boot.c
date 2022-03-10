@@ -2312,7 +2312,6 @@ static void config_load_xbootldr(
 }
 
 static EFI_STATUS image_start(
-                EFI_FILE *root_dir,
                 EFI_HANDLE parent_image,
                 const ConfigEntry *entry) {
 
@@ -2327,6 +2326,10 @@ static EFI_STATUS image_start(
         if (entry->call)
                 (void) entry->call();
 
+        _cleanup_(file_closep) EFI_FILE *image_root = LibOpenRoot(entry->device);
+        if (!image_root)
+                return log_error_status_stall(EFI_DEVICE_ERROR, L"Error opening root path.");
+
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
@@ -2336,7 +2339,7 @@ static EFI_STATUS image_start(
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
         if (entry->devicetree) {
-                err = devicetree_install(&dtstate, root_dir, entry->devicetree);
+                err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
@@ -2604,7 +2607,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
 
-                err = image_start(root_dir, image, entry);
+                err = image_start(image, entry);
                 if (err != EFI_SUCCESS)
                         /* Not using EFI_ERROR here because positive values are also errors like with any
                          * other (userspace) program. */
