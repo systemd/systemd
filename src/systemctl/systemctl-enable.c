@@ -117,9 +117,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
                         r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "preset")) {
+                else if (streq(verb, "preset"))
                         r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
-                } else if (streq(verb, "mask"))
+                else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
