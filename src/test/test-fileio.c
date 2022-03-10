@@ -109,8 +109,7 @@ TEST(parse_env_file) {
                        "eleven", &eleven,
                        "twelve", &twelve,
                        "thirteen", &thirteen);
-
-        assert_se(r >= 0);
+        assert_se(r == 0);
 
         log_info("one=[%s]", strna(one));
         log_info("two=[%s]", strna(two));
