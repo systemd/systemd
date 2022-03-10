@@ -16,9 +16,8 @@ static int parse_env_file_internal(
                 FILE *f,
                 const char *fname,
                 int (*push) (const char *filename, unsigned line,
-                             const char *key, char *value, void *userdata, int *n_pushed),
-                void *userdata,
-                int *n_pushed) {
+                             const char *key, char *value, void *userdata),
+                void *userdata) {
 
         size_t n_key = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
         _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
@@ -99,7 +98,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != SIZE_MAX)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(fname, line, key, value, userdata, n_pushed);
+                                r = push(fname, line, key, value, userdata);
                                 if (r < 0)
                                         return r;
 
@@ -142,7 +141,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != SIZE_MAX)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(fname, line, key, value, userdata, n_pushed);
+                                r = push(fname, line, key, value, userdata);
                                 if (r < 0)
                                         return r;
 
@@ -261,7 +260,7 @@ static int parse_env_file_internal(
                 if (last_key_whitespace != SIZE_MAX)
                         key[last_key_whitespace] = 0;
 
-                r = push(fname, line, key, value, userdata, n_pushed);
+                r = push(fname, line, key, value, userdata);
                 if (r < 0)
                         return r;
 
@@ -299,8 +298,7 @@ static int check_utf8ness_and_warn(
 static int parse_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+                void *userdata) {
 
         const char *k;
         va_list aq, *ap = userdata;
@@ -322,9 +320,6 @@ static int parse_env_file_push(
                         free(*v);
                         *v = value;
 
-                        if (n_pushed)
-                                (*n_pushed)++;
-
                         return 1;
                 }
         }
@@ -340,16 +335,13 @@ int parse_env_filev(
                 const char *fname,
                 va_list ap) {
 
-        int r, n_pushed = 0;
+        int r;
         va_list aq;
 
         va_copy(aq, ap);
-        r = parse_env_file_internal(f, fname, parse_env_file_push, &aq, &n_pushed);
+        r = parse_env_file_internal(f, fname, parse_env_file_push, &aq);
         va_end(aq);
-        if (r < 0)
-                return r;
-
-        return n_pushed;
+        return r;
 }
 
 int parse_env_file_sentinel(
@@ -370,8 +362,7 @@ int parse_env_file_sentinel(
 static int load_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+                void *userdata) {
         char ***m = userdata;
         char *p;
         int r;
@@ -388,34 +379,28 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
-        if (n_pushed)
-                (*n_pushed)++;
-
         free(value);
         return 0;
 }
 
 int load_env_file(FILE *f, const char *fname, char ***rl) {
-        char **m = NULL;
+        _cleanup_strv_free_ char **m = NULL;
         int r;
 
-        r = parse_env_file_internal(f, fname, load_env_file_push, &m, NULL);
-        if (r < 0) {
-                strv_free(m);
+        r = parse_env_file_internal(f, fname, load_env_file_push, &m);
+        if (r < 0)
                 return r;
-        }
 
-        *rl = m;
+        *rl = TAKE_PTR(m);
         return 0;
 }
 
 static int load_env_file_push_pairs(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+                void *userdata) {
+
         char ***m = ASSERT_PTR(userdata);
-        bool added = false;
         int r;
 
         r = check_utf8ness_and_warn(filename, line, key, value);
@@ -426,49 +411,37 @@ static int load_env_file_push_pairs(
         for (char **t = *m; t && *t; t += 2)
                 if (streq(t[0], key)) {
                         if (value)
-                                r = free_and_replace(t[1], value);
+                                return free_and_replace(t[1], value);
                         else
-                                r = free_and_strdup(t+1, "");
-                        goto finish;
+                                return free_and_strdup(t+1, "");
                 }
 
         r = strv_extend(m, key);
         if (r < 0)
-                return -ENOMEM;
-
-        if (value)
-                r = strv_push(m, value);
-        else
-                r = strv_extend(m, "");
-        added = true;
- finish:
-        if (r < 0)
                 return r;
 
-        if (n_pushed && added)
-                (*n_pushed)++;
-        return 0;
+        if (value)
+                return strv_push(m, value);
+        else
+                return strv_extend(m, "");
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***rl) {
-        char **m = NULL;
+        _cleanup_strv_free_ char **m = NULL;
         int r;
 
-        r = parse_env_file_internal(f, fname, load_env_file_push_pairs, &m, NULL);
-        if (r < 0) {
-                strv_free(m);
+        r = parse_env_file_internal(f, fname, load_env_file_push_pairs, &m);
+        if (r < 0)
                 return r;
-        }
 
-        *rl = m;
+        *rl = TAKE_PTR(m);
         return 0;
 }
 
 static int merge_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+                void *userdata) {
 
         char ***env = userdata;
         char *expanded_value;
@@ -497,7 +470,7 @@ static int merge_env_file_push(
 
         log_debug("%s:%u: setting %s=%s", filename, line, key, value);
 
-        return load_env_file_push(filename, line, key, value, env, n_pushed);
+        return load_env_file_push(filename, line, key, value, env);
 }
 
 int merge_env_file(
@@ -509,7 +482,7 @@ int merge_env_file(
          * plus "extended" substitutions, unlike other exported parsing functions.
          */
 
-        return parse_env_file_internal(f, fname, merge_env_file_push, env, NULL);
+        return parse_env_file_internal(f, fname, merge_env_file_push, env);
 }
 
 static void write_env_var(FILE *f, const char *v) {
