@@ -109,6 +109,7 @@ int main(int argc, char *argv[]) {
                             NULL,
                             NULL,
                             NULL,
+                            NULL,
                             NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up namespace: %m");

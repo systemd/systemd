@@ -479,7 +479,8 @@
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
+        which was first introduced in kernel v5.11.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
