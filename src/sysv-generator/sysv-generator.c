@@ -891,9 +891,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest_late);
 
-        r = lookup_paths_init(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
+        r = lookup_paths_init_or_warn(&lp, UNIT_FILE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to find lookup paths: %m");
+                return r;
 
         all_services = hashmap_new(&string_hash_ops);
         if (!all_services)

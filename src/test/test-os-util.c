@@ -18,7 +18,7 @@ TEST(path_is_os_tree) {
 TEST(parse_os_release) {
         /* Let's assume that we're running in a valid system, so os-release is available */
         _cleanup_free_ char *id = NULL, *id2 = NULL, *name = NULL, *foobar = NULL;
-        assert_se(parse_os_release(NULL, "ID", &id) == 1);
+        assert_se(parse_os_release(NULL, "ID", &id) == 0);
         log_info("ID: %s", id);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
@@ -31,7 +31,7 @@ TEST(parse_os_release) {
                                 "NAME=the-name") == 0);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1) == 0);
-        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 2);
+        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 0);
         log_info("ID: %s NAME: %s", id, name);
         assert_se(streq(id, "the-id"));
         assert_se(streq(name, "the-name"));
@@ -43,8 +43,7 @@ TEST(parse_os_release) {
                                 "NAME='the-name'") == 0);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", tmpfile2, 1) == 0);
-        // FIXME: we return 3, which means that the return value is useless in face of repeats
-        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 3);
+        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 0);
         log_info("ID: %s NAME: %s", id, name);
         assert_se(streq(id, "the-id"));
         assert_se(streq(name, "the-name"));

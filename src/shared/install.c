@@ -2597,7 +2597,7 @@ int unit_file_enable(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        r = lookup_paths_init(&lp, scope, 0, root_dir);
+        r = lookup_paths_init_or_warn(&lp, scope, 0, root_dir);
         if (r < 0)
                 return r;
 

@@ -508,7 +508,7 @@ static int get_paths_from_environ(const char *var, char ***paths, bool *append) 
 }
 
 int lookup_paths_init(
-                LookupPaths *p,
+                LookupPaths *lp,
                 UnitFileScope scope,
                 LookupPathsFlags flags,
                 const char *root_dir) {
@@ -526,7 +526,7 @@ int lookup_paths_init(
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
-        assert(p);
+        assert(lp);
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
@@ -716,7 +716,7 @@ int lookup_paths_init(
         if (r < 0)
                 return -ENOMEM;
 
-        *p = (LookupPaths) {
+        *lp = (LookupPaths) {
                 .search_path = strv_uniq(TAKE_PTR(paths)),
 
                 .persistent_config = TAKE_PTR(persistent_config),
@@ -741,41 +741,51 @@ int lookup_paths_init(
         return 0;
 }
 
-void lookup_paths_free(LookupPaths *p) {
-        if (!p)
-                return;
+int lookup_paths_init_or_warn(LookupPaths *lp, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir) {
+        int r;
 
-        p->search_path = strv_free(p->search_path);
-
-        p->persistent_config = mfree(p->persistent_config);
-        p->runtime_config = mfree(p->runtime_config);
-
-        p->persistent_attached = mfree(p->persistent_attached);
-        p->runtime_attached = mfree(p->runtime_attached);
-
-        p->generator = mfree(p->generator);
-        p->generator_early = mfree(p->generator_early);
-        p->generator_late = mfree(p->generator_late);
-
-        p->transient = mfree(p->transient);
-
-        p->persistent_control = mfree(p->persistent_control);
-        p->runtime_control = mfree(p->runtime_control);
-
-        p->root_dir = mfree(p->root_dir);
-        p->temporary_dir = mfree(p->temporary_dir);
+        r = lookup_paths_init(lp, scope, flags, root_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize unit search paths%s%s: %m",
+                                       isempty(root_dir) ? "" : " for root directory ", strempty(root_dir));
+        return r;
 }
 
-void lookup_paths_log(LookupPaths *p) {
-        assert(p);
+void lookup_paths_free(LookupPaths *lp) {
+        if (!lp)
+                return;
 
-        if (strv_isempty(p->search_path)) {
+        lp->search_path = strv_free(lp->search_path);
+
+        lp->persistent_config = mfree(lp->persistent_config);
+        lp->runtime_config = mfree(lp->runtime_config);
+
+        lp->persistent_attached = mfree(lp->persistent_attached);
+        lp->runtime_attached = mfree(lp->runtime_attached);
+
+        lp->generator = mfree(lp->generator);
+        lp->generator_early = mfree(lp->generator_early);
+        lp->generator_late = mfree(lp->generator_late);
+
+        lp->transient = mfree(lp->transient);
+
+        lp->persistent_control = mfree(lp->persistent_control);
+        lp->runtime_control = mfree(lp->runtime_control);
+
+        lp->root_dir = mfree(lp->root_dir);
+        lp->temporary_dir = mfree(lp->temporary_dir);
+}
+
+void lookup_paths_log(LookupPaths *lp) {
+        assert(lp);
+
+        if (strv_isempty(lp->search_path)) {
                 log_debug("Ignoring unit files.");
-                p->search_path = strv_free(p->search_path);
+                lp->search_path = strv_free(lp->search_path);
         } else {
                 _cleanup_free_ char *t = NULL;
 
-                t = strv_join(p->search_path, "\n\t");
+                t = strv_join(lp->search_path, "\n\t");
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", strna(t));
         }
 }
