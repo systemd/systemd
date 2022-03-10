@@ -23,7 +23,6 @@ static int parse_env_file_internal(
         size_t n_key = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
         _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
         unsigned line = 1;
-        char *p;
         int r;
 
         enum {
@@ -46,7 +45,7 @@ static int parse_env_file_internal(
         if (r < 0)
                 return r;
 
-        for (p = contents; *p; p++) {
+        for (char *p = contents; *p; p++) {
                 char c = *p;
 
                 switch (state) {
