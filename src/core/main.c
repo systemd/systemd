@@ -1218,7 +1218,7 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 }
 
-static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
+static int bump_rlimit_nofile(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         int r, nr;
 
@@ -1247,7 +1247,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
+static int bump_rlimit_memlock(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         uint64_t mm;
         int r;
