@@ -1363,7 +1363,7 @@ static void bump_file_max_and_nr_open(void) {
 #endif
 }
 
-static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
+static int bump_rlimit_nofile(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         int r, nr;
 
@@ -1392,7 +1392,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
+static int bump_rlimit_memlock(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
         uint64_t mm;
         int r;
@@ -2453,6 +2453,13 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
         if (!rl) {
                 log_oom();
                 return;
+        }
+
+        if (arg_system)  {
+                /* Raise the default limit to 8M also on old kernels and in containers (8M is the kernel
+                 * default for this since kernel 5.16) */
+                rl->rlim_max = MAX(rl->rlim_max, (rlim_t) DEFAULT_RLIMIT_MEMLOCK);
+                rl->rlim_cur = MAX(rl->rlim_cur, (rlim_t) DEFAULT_RLIMIT_MEMLOCK);
         }
 
         arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
