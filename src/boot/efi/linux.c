@@ -87,11 +87,6 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
         return EFI_SUCCESS;
 }
 
-static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
-        (void) initrd_unregister(*initrd_handle);
-        *initrd_handle = NULL;
-}
-
 static inline void cleanup_loaded_image(EFI_HANDLE *loaded_image_handle) {
         (void) loaded_image_unregister(*loaded_image_handle);
         *loaded_image_handle = NULL;
