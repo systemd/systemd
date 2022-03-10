@@ -4459,12 +4459,9 @@ static int exec_child(
                 return log_oom();
         }
 
-        /* The PATH variable is set to the default path in params->environment.
-         * However, this is overridden if user specified fields have PATH set.
-         * The intention is to also override PATH if the user does
-         * not specify PATH and the user has specified ExecSearchPath
-         */
-
+        /* The $PATH variable is set to the default path in params->environment. However, this is overridden
+         * if user-specified fields have $PATH set. The intention is to also override $PATH if the unit does
+         * not specify PATH but the unit has ExecSearchPath. */
         if (!strv_isempty(context->exec_search_path)) {
                 _cleanup_free_ char *joined = NULL;
 
@@ -4501,22 +4498,26 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to set up kernel keyring: %m");
         }
 
-        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted from it */
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
+         * from it. */
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
-        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked for it, and the kernel doesn't actually support ambient caps */
+        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked
+         * for it, and the kernel doesn't actually support ambient caps. */
         needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
 
-        /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not desired */
+        /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
+         * excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not
+         * desired. */
         if (needs_ambient_hack)
                 needs_setuid = false;
         else
                 needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
         if (needs_sandboxing) {
-                /* MAC enablement checks need to be done before a new mount ns is created, as they rely on /sys being
-                 * present. The actual MAC context application will happen later, as late as possible, to avoid
-                 * impacting our own code paths. */
+                /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
+                 * /sys being present. The actual MAC context application will happen later, as late as
+                 * possible, to avoid impacting our own code paths. */
 
 #if HAVE_SELINUX
                 use_selinux = mac_selinux_use();
