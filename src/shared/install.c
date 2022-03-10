@@ -394,6 +394,14 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                         err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, refusing to operate on linked unit file %s.",
                                               verb, changes[i].path);
                         break;
+                case -EXDEV:
+                        if (changes[i].source)
+                                err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, cannot alias %s as %s.",
+                                                      verb, changes[i].source, changes[i].path);
+                        else
+                                err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, invalid unit reference \"%s\".",
+                                                      verb, changes[i].path);
+                        break;
                 case -ENOENT:
                         err = log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.",
                                               verb, changes[i].path);
@@ -1671,7 +1679,13 @@ static int install_info_discover_and_check(
         return install_info_may_process(ret ? *ret : NULL, lp, changes, n_changes);
 }
 
-int unit_file_verify_alias(const UnitFileInstallInfo *info, const char *dst, char **ret_dst) {
+int unit_file_verify_alias(
+                const UnitFileInstallInfo *info,
+                const char *dst,
+                char **ret_dst,
+                UnitFileChange **changes,
+                size_t *n_changes) {
+
         _cleanup_free_ char *dst_updated = NULL;
         int r;
 
@@ -1698,15 +1712,19 @@ int unit_file_verify_alias(const UnitFileInstallInfo *info, const char *dst, cha
                 p = endswith(dir, ".wants");
                 if (!p)
                         p = endswith(dir, ".requires");
-                if (!p)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
-                                                 "Invalid path \"%s\" in alias.", dir);
+                if (!p) {
+                        unit_file_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EXDEV), "Invalid path \"%s\" in alias.", dir);
+                }
+
                 *p = '\0'; /* dir should now be a unit name */
 
                 UnitNameFlags type = unit_name_classify(dir);
-                if (type < 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
-                                                 "Invalid unit name component \"%s\" in alias.", dir);
+                if (type < 0) {
+                        unit_file_changes_add(changes, n_changes, -EXDEV, dst, NULL);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
+                                               "Invalid unit name component \"%s\" in alias.", dir);
+                }
 
                 const bool instance_propagation = type == UNIT_NAME_TEMPLATE;
 
@@ -1714,10 +1732,12 @@ int unit_file_verify_alias(const UnitFileInstallInfo *info, const char *dst, cha
                 r = unit_symlink_name_compatible(path_alias, info->name, instance_propagation);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify alias validity: %m");
-                if (r == 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
-                                                 "Invalid unit \"%s\" symlink \"%s\".",
-                                                 info->name, dst);
+                if (r == 0) {
+                        unit_file_changes_add(changes, n_changes, -EXDEV, dst, info->name);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EXDEV),
+                                               "Invalid unit \"%s\" symlink \"%s\".",
+                                               info->name, dst);
+                }
 
         } else {
                 /* If the symlink target has an instance set and the symlink source doesn't, we "propagate
@@ -1726,8 +1746,10 @@ int unit_file_verify_alias(const UnitFileInstallInfo *info, const char *dst, cha
                         _cleanup_free_ char *inst = NULL;
 
                         UnitNameFlags type = unit_name_to_instance(info->name, &inst);
-                        if (type < 0)
-                                return log_error_errno(type, "Failed to extract instance name from \"%s\": %m", info->name);
+                        if (type < 0) {
+                                unit_file_changes_add(changes, n_changes, -EUCLEAN, info->name, NULL);
+                                return log_debug_errno(type, "Failed to extract instance name from \"%s\": %m", info->name);
+                        }
 
                         if (type == UNIT_NAME_INSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_updated);
@@ -1737,9 +1759,14 @@ int unit_file_verify_alias(const UnitFileInstallInfo *info, const char *dst, cha
                         }
                 }
 
-                r = unit_validate_alias_symlink_and_warn(dst_updated ?: dst, info->name);
-                if (r < 0)
+                r = unit_validate_alias_symlink_or_warn(LOG_DEBUG, dst_updated ?: dst, info->name);
+                if (r < 0) {
+                        unit_file_changes_add(changes, n_changes,
+                                              r == -EINVAL ? -EXDEV : r,
+                                              dst_updated ?: dst,
+                                              info->name);
                         return r;
+                }
         }
 
         *ret_dst = TAKE_PTR(dst_updated);
@@ -1770,7 +1797,7 @@ static int install_info_symlink_alias(
                         return q;
                 }
 
-                q = unit_file_verify_alias(info, dst, &dst_updated);
+                q = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
                 if (q < 0)
                         continue;
 
@@ -3307,7 +3334,7 @@ int unit_file_preset_all(
 
                         r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
                         if (r < 0 &&
-                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EBADSLT, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH))
+                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EBADSLT, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH, -EXDEV))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
                                  * Coordinate with unit_file_dump_changes() above. */
                                 return r;
