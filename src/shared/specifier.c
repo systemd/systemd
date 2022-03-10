@@ -208,6 +208,23 @@ int specifier_short_host_name(char specifier, const void *data, const char *root
         return 0;
 }
 
+int specifier_pretty_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        char *n = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_pretty_hostname(&n);
+        if (r < 0) {
+                n = strdup("(none)");
+                if (!n)
+                        return -ENOMEM;
+        }
+
+        *ret = n;
+        return 0;
+}
+
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
