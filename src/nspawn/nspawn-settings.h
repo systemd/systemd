@@ -264,7 +264,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_boot);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid2);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
-CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);

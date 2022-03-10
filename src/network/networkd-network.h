@@ -374,7 +374,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);
-CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
