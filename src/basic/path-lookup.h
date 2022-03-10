@@ -54,7 +54,8 @@ struct LookupPaths {
         char *temporary_dir;
 };
 
-int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
+int lookup_paths_init(LookupPaths *lp, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
+int lookup_paths_init_or_warn(LookupPaths *lp, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);
 
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 int xdg_user_runtime_dir(char **ret, const char *suffix);
