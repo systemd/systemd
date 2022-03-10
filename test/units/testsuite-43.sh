@@ -15,6 +15,8 @@ runas() {
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
+runas testuser systemctl --user log-level debug
+
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateUsers=yes -p PrivateTmp=yes \
     -P touch /tmp/innerfile.txt
@@ -65,6 +67,24 @@ runas testuser systemd-run --wait --user --unit=test-group-fail \
     -p PrivateUsers=yes -p Group=daemon \
     -P true \
     && { echo 'unexpected success'; exit 1; }
+
+# Check that with a new user namespace we can bind mount
+# files and use a different root directory
+runas testuser systemd-run --wait --user --unit=test-bind-mount \
+    -p PrivateUsers=yes -p BindPaths=/dev/null:/etc/os-release \
+    test ! -s /etc/os-release
+
+unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+runas testuser systemd-run --wait --user --unit=test-root-dir \
+    -p PrivateUsers=yes -p RootDirectory=/tmp/img \
+    grep MARKER=1 /etc/os-release
+
+mkdir /tmp/img_bind
+mount --bind /tmp/img /tmp/img_bind
+runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
+    -p PrivateUsers=yes -p RootDirectory=/tmp/img_bind \
+    grep MARKER=1 /etc/os-release
+umount /tmp/img_bind
 
 systemd-analyze log-level info
 
