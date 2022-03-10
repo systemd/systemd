@@ -82,7 +82,8 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
          *
          * -EINVAL is returned if the something is wrong with the source filename or the source unit type is
          *         not allowed to symlink,
-         * -EXDEV if the target filename is not a valid unit name or doesn't match the source.
+         * -EXDEV if the target filename is not a valid unit name or doesn't match the source,
+         * -ELOOP for an alias to self.
          */
 
         src = basename(filename);
@@ -110,6 +111,11 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
                                       filename, unit_type_to_string(src_unit_type));
 
         /* dst checks */
+
+        if (streq(src, dst))
+                return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
+                                       "%s: unit self-alias: %s → %s, ignoring.",
+                                       filename, src, dst);
 
         dst_name_type = unit_name_to_instance(dst, &dst_instance);
         if (dst_name_type < 0)
@@ -347,24 +353,12 @@ int unit_file_resolve_symlink(
                 if (r < 0)
                         return r;
 
-                bool self_alias = streq(target_name, filename);
-
-                if (is_path(tail))
-                        log_full(self_alias ? LOG_DEBUG : LOG_WARNING,
-                                 "Suspicious symlink %s/%s→%s, treating as alias.",
-                                 dir, filename, simplified);
-
                 r = unit_validate_alias_symlink_or_warn(LOG_NOTICE, filename, simplified);
                 if (r < 0)
                         return r;
-
-                if (self_alias && !resolve_destination_target)
-                        /* A self-alias that has no effect when loading, let's just ignore it. */
-                        return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
-                                               "Unit file self-alias: %s/%s → %s, ignoring.",
-                                               dir, filename, target_name);
-
-                log_debug("Unit file alias: %s/%s → %s", dir, filename, target_name);
+                if (is_path(tail))
+                        log_warning("Suspicious symlink %s/%s→%s, treating as alias.",
+                                    dir, filename, simplified);
 
                 dst = resolve_destination_target ? TAKE_PTR(simplified) : TAKE_PTR(target_name);
         }
