@@ -3438,7 +3438,8 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
+        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
+                        *extension_dir = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3537,7 +3538,17 @@ static int apply_mount_namespace(
                         r = -ENOMEM;
                         goto finalize;
                 }
-        }
+
+                extension_dir = strdup("/run/systemd/unit-extensions");
+                if (!extension_dir) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+        } else
+                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
@@ -3566,6 +3577,7 @@ static int apply_mount_namespace(
                             context->extension_directories,
                             propagate_dir,
                             incoming_dir,
+                            extension_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
                             error_path);
 

@@ -1999,6 +1999,7 @@ int setup_namespace(
                 char **extension_directories,
                 const char *propagate_dir,
                 const char *incoming_dir,
+                const char *extension_dir,
                 const char *notify_socket,
                 char **error_path) {
 
@@ -2009,7 +2010,7 @@ int setup_namespace(
         _cleanup_strv_free_ char **hierarchies = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
-        const char *root, *extension_dir = "/run/systemd/unit-extensions";
+        const char *root;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
                 DISSECT_IMAGE_REQUIRE_ROOT |
