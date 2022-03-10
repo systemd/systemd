@@ -25,6 +25,8 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "virt.h"
+#include "alloc-util.h"
 
 #define DHCP6_CLIENT_EVENT_TEST_ADVERTISED 77
 #define IA_ID_BYTES                                                     \
@@ -148,6 +150,9 @@ static void test_parse_domain(void) {
         _cleanup_free_ char *domain = NULL;
         _cleanup_strv_free_ char **list = NULL;
         uint8_t *data;
+        char *domain = NULL;
+        char **list = NULL;
+        int r;
 
         log_debug("/* %s */", __func__);
 
