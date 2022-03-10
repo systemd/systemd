@@ -97,9 +97,6 @@ All tools:
   systems built with libxcrypt and is ignored on systems using glibc's
   original, internal `crypt()` implementation.)
 
-* `$SYSTEMD_RDRAND=0` — if set, the RDRAND instruction will never be used,
-  even if the CPU supports it.
-
 * `$SYSTEMD_SECCOMP=0` — if set, seccomp filters will not be enforced, even if
   support for it is compiled in and available in the kernel.
 
