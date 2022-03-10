@@ -265,12 +265,10 @@ int machine_load(Machine *m) {
                            "REALTIME",  &realtime,
                            "MONOTONIC", &monotonic,
                            "NETIF",     &netif);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
-        }
 
         if (id)
                 sd_id128_from_string(id, &m->id);
