@@ -2302,20 +2302,33 @@ static void config_load_xbootldr(
 static EFI_STATUS initrd_prepare(
                 EFI_FILE *root,
                 const ConfigEntry *entry,
-                CHAR16 **ret_options) {
+                CHAR16 **ret_options,
+                void **ret_initrd,
+                UINTN *ret_initrd_size) {
 
         assert(root);
         assert(entry);
         assert(ret_options);
+        assert(ret_initrd);
+        assert(ret_initrd_size);
 
         if (entry->type != LOADER_LINUX || !entry->initrd) {
                 ret_options = NULL;
+                ret_initrd = NULL;
+                ret_initrd_size = 0;
                 return EFI_SUCCESS;
         }
+
+        /* Note that order of initrds matters. The kernel will only look for microcode updates in the very
+         * first one it sees. */
 
         /* Add initrd= to options for older kernels that do not support LINUX_INITRD_MEDIA. Should be dropped
          * if linux_x86.c is dropped. */
         _cleanup_freepool_ CHAR16 *options = NULL;
+
+        EFI_STATUS err;
+        UINTN size = 0;
+        _cleanup_freepool_ UINT8 *initrd = NULL;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_freepool_ CHAR16 *o = options;
@@ -2323,6 +2336,29 @@ static EFI_STATUS initrd_prepare(
                         options = xpool_print(L"%s initrd=%s", o, *i);
                 else
                         options = xpool_print(L"initrd=%s", *i);
+
+                _cleanup_(file_closep) EFI_FILE *handle = NULL;
+                err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
+                if (EFI_ERROR(err))
+                        return err;
+
+                _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+                err = get_file_info_harder(handle, &info, NULL);
+                if (EFI_ERROR(err))
+                        return err;
+
+                UINTN new_size, read_size = info->FileSize;
+                if (__builtin_add_overflow(size, read_size, &new_size))
+                        return EFI_OUT_OF_RESOURCES;
+                initrd = xreallocate_pool(initrd, size, new_size);
+
+                err = handle->Read(handle, &read_size, initrd + size);
+                if (EFI_ERROR(err))
+                        return err;
+
+                /* Make sure the actual read size is what we expected. */
+                assert(size + read_size == new_size);
+                size = new_size;
         }
 
         if (entry->options) {
@@ -2331,6 +2367,8 @@ static EFI_STATUS initrd_prepare(
         }
 
         *ret_options = TAKE_PTR(options);
+        *ret_initrd = TAKE_PTR(initrd);
+        *ret_initrd_size = size;
         return EFI_SUCCESS;
 }
 
@@ -2357,8 +2395,10 @@ static EFI_STATUS image_start(
         if (!path)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
 
+        UINTN initrd_size = 0;
+        _cleanup_freepool_ void *initrd = NULL;
         _cleanup_freepool_ CHAR16 *options_initrd = NULL;
-        err = initrd_prepare(image_root, entry, &options_initrd);
+        err = initrd_prepare(image_root, entry, &options_initrd, &initrd, &initrd_size);
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
 
@@ -2371,6 +2411,11 @@ static EFI_STATUS image_start(
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
         }
+
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        err = initrd_register(initrd, initrd_size, &initrd_handle);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
         CHAR16 *options = options_initrd ?: entry->options;
         if (options) {
