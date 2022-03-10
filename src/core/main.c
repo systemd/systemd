@@ -232,6 +232,12 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
         struct sigaction sa;
         pid_t pid;
 
+        /* NB: 💣 💣 💣 This is a signal handler, most likely executed in a situation where we have corrupted
+         * memory. Thus: please avoid any libc memory allocation here, or any functions that internally use
+         * memory allocation, as we cannot rely on memory allocation still working at this point! (Note that
+         * memory allocation is not async-signal-safe anyway — see signal-safety(7) for details —, and thus
+         * is not permissible in signal handlers.) */
+
         if (getpid_cached() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
                 (void) raise(sig);
