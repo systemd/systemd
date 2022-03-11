@@ -173,12 +173,9 @@ islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
 : -------enable already linked different path-----------------
-# FIXME
-# "$systemctl" --root="$root" enable '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
-# test -h "$root/etc/systemd/system/link1.path"
-# readlink "$root/etc/systemd/system/link1.path"
-# test -h "$root/etc/systemd/system/paths.target.wants/link1.path"
-# readlink "$root/etc/systemd/system/paths.target.wants/link1.path"
+"$systemctl" --root="$root" enable '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
 : -------enable bad suffix------------------------------------
 cp "$root/link1.path" "$root/subdir/link1.suffix"
