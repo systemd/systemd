@@ -8,6 +8,8 @@
 
 #include "types-fundamental.h"
 
+#define SHA256_DIGEST_SIZE 32
+
 struct sha256_ctx {
         uint32_t H[8];
 
