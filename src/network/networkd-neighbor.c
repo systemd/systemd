@@ -193,11 +193,7 @@ static int neighbor_configure_message(Neighbor *neighbor, Link *link, sd_netlink
         return 0;
 }
 
-static int neighbor_configure(
-                Neighbor *neighbor,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -206,7 +202,7 @@ static int neighbor_configure(
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         log_neighbor_debug(neighbor, "Configuring", link);
 
@@ -219,7 +215,7 @@ static int neighbor_configure(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -243,7 +239,7 @@ int request_process_neighbor(Request *req) {
         if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = neighbor_configure(neighbor, link, req->netlink_handler);
+        r = neighbor_configure(neighbor, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure neighbor: %m");
 

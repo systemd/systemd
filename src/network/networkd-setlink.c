@@ -1055,26 +1055,26 @@ static const char *up_or_down(bool up) {
         return up ? "up" : "down";
 }
 
-static int link_up_or_down(Link *link, bool up, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+static int link_up_or_down(Link *link, bool up, Request *req) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         log_link_debug(link, "Bringing link %s", up_or_down(up));
 
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
+        r = sd_rtnl_message_link_set_flags(m, up ? IFF_UP : 0, IFF_UP);
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -1104,7 +1104,6 @@ int request_process_activation(Request *req) {
         assert(req);
         assert(req->link);
         assert(req->type == REQUEST_TYPE_ACTIVATE_LINK);
-        assert(req->netlink_handler);
 
         link = req->link;
         up = PTR_TO_INT(req->userdata);
@@ -1112,7 +1111,7 @@ int request_process_activation(Request *req) {
         if (!link_is_ready_to_activate(link))
                 return 0;
 
-        r = link_up_or_down(link, up, req->netlink_handler);
+        r = link_up_or_down(link, up, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to activate link: %m");
 
@@ -1207,7 +1206,7 @@ int request_process_link_up_or_down(Request *req) {
         if (!link_is_ready_to_bring_up_or_down(link, up))
                 return 0;
 
-        r = link_up_or_down(link, up, req->netlink_handler);
+        r = link_up_or_down(link, up, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to bring link %s: %m", up_or_down(up));
 

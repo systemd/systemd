@@ -114,7 +114,7 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 /* send a request to the kernel to add an MDB entry */
-static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message_handler_t callback) {
+static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct br_mdb_entry entry;
         int r;
@@ -122,7 +122,7 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
         assert(mdb);
         assert(link);
         assert(link->manager);
-        assert(callback);
+        assert(req);
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *a = NULL;
@@ -164,7 +164,7 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, link_netlink_message
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -217,7 +217,7 @@ int request_process_bridge_mdb(Request *req) {
         if (!bridge_mdb_is_ready_to_configure(link))
                 return 0;
 
-        r = bridge_mdb_configure(req->mdb, link, req->netlink_handler);
+        r = bridge_mdb_configure(req->mdb, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure bridge MDB: %m");
 

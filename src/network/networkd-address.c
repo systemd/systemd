@@ -1036,11 +1036,7 @@ int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int address_configure(
-                const Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int address_configure(const Address *address, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -1050,7 +1046,7 @@ static int address_configure(
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         log_address_debug(address, "Configuring", link);
 
@@ -1091,7 +1087,7 @@ static int address_configure(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
 
@@ -1130,7 +1126,7 @@ int request_process_address(Request *req) {
         if (!address_is_ready_to_configure(link, address))
                 return 0;
 
-        r = address_configure(address, link, req->netlink_handler);
+        r = address_configure(address, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure address: %m");
 

@@ -604,11 +604,7 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule) {
         return 0;
 }
 
-static int routing_policy_rule_configure(
-                RoutingPolicyRule *rule,
-                Link *link,
-                link_netlink_message_handler_t callback) {
-
+static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -618,7 +614,7 @@ static int routing_policy_rule_configure(
         assert(link->ifindex > 0);
         assert(link->manager);
         assert(link->manager->rtnl);
-        assert(callback);
+        assert(req);
 
         log_routing_policy_rule_debug(rule, "Configuring", link, link->manager);
 
@@ -630,7 +626,7 @@ static int routing_policy_rule_configure(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, callback,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, req->netlink_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return r;
@@ -742,7 +738,7 @@ int request_process_routing_policy_rule(Request *req) {
         if (!link_is_ready_to_configure(link, false))
                 return 0;
 
-        r = routing_policy_rule_configure(rule, link, req->netlink_handler);
+        r = routing_policy_rule_configure(rule, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure routing policy rule: %m");
 
