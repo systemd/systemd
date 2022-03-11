@@ -11,11 +11,14 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "dns-domain.h"
+#include "escape.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
@@ -873,17 +876,39 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains unsafe characters, ignoring: %s", strna(escaped));
+                return 0;
+        }
+
+        if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_ASCII) && !ascii_is_valid(rvalue)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified string contains invalid ASCII characters, ignoring: %s", strna(escaped));
+                return 0;
+        }
 
         return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
 
-int config_parse_safe_string(
+int config_parse_dns_name(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -895,19 +920,64 @@ int config_parse_safe_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **hostname = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        if (!string_is_safe(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Specified string contains unsafe characters, ignoring: %s", rvalue);
+        if (isempty(rvalue)) {
+                *hostname = mfree(*hostname);
                 return 0;
         }
 
-        return free_and_strdup_warn(s, empty_to_null(rvalue));
+        r = dns_name_is_valid(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to check validity of DNS domain name '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified invalid DNS domain name, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_strdup_warn(hostname, rvalue);
+}
+
+int config_parse_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **hostname = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *hostname = mfree(*hostname);
+                return 0;
+        }
+
+        if (!hostname_is_valid(rvalue, 0)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified invalid hostname, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return config_parse_dns_name(unit, filename, line, section, section_line,
+                                     lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_path(
