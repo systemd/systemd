@@ -1980,6 +1980,13 @@ static int install_info_apply(
 
         bool force = file_flags & UNIT_FILE_FORCE;
 
+        r = install_info_symlink_link(info, lp, config_path, force, changes, n_changes);
+        /* Do not count links to the unit file towards the "carries_install_info" count */
+        if (r < 0)
+                /* If linking of the file failed, do not try to create other symlinks,
+                 * because they might would pointing to a non-existent or wrong unit. */
+                return r;
+
         r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
@@ -1988,11 +1995,6 @@ static int install_info_apply(
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->required_by, ".requires/", changes, n_changes);
         if (r == 0)
-                r = q;
-
-        q = install_info_symlink_link(info, lp, config_path, force, changes, n_changes);
-        /* Do not count links to the unit file towards the "carries_install_info" count */
-        if (r == 0 && q < 0)
                 r = q;
 
         return r;
