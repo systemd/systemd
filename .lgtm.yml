@@ -4,6 +4,8 @@
 
 # Explicitly enable certain checks which are hidden by default
 queries:
+  # See: https://github.com/github/codeql/issues/8409
+  - exclude: cpp/missing-return
   - include: cpp/bad-strncpy-size
   - include: cpp/declaration-hides-variable
   - include: cpp/inconsistent-null-check
