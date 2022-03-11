@@ -28,6 +28,7 @@
 #include "glyph-util.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -56,13 +57,22 @@ static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
-static int arg_make_machine_id_directory = 0;
+static int arg_make_entry_directory = false; /* tri-state: < 0 for automatic logic */
 static sd_id128_t arg_machine_id = SD_ID128_NULL;
 static char *arg_install_layout = NULL;
+static enum {
+        ARG_ENTRY_TOKEN_MACHINE_ID,
+        ARG_ENTRY_TOKEN_OS_IMAGE_ID,
+        ARG_ENTRY_TOKEN_OS_ID,
+        ARG_ENTRY_TOKEN_LITERAL,
+        ARG_ENTRY_TOKEN_AUTO,
+} arg_entry_token_type = ARG_ENTRY_TOKEN_AUTO;
+static char *arg_entry_token = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_install_layout, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 
 static const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
@@ -170,32 +180,133 @@ static int load_install_machine_id_and_layout(void) {
         return 0;
 }
 
-static int settle_install_machine_id(void) {
+static int settle_entry_token(void) {
+        int r;
+
+        switch (arg_entry_token_type) {
+
+        case ARG_ENTRY_TOKEN_AUTO: {
+                _cleanup_free_ char *buf = NULL;
+                r = read_one_line_file("/etc/kernel/entry-token", &buf);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read /etc/kernel/entry-token: %m");
+
+                if (!isempty(buf)) {
+                        free_and_replace(arg_entry_token, buf);
+                        arg_entry_token_type = ARG_ENTRY_TOKEN_LITERAL;
+                } else if (sd_id128_is_null(arg_machine_id)) {
+                        _cleanup_free_ char *id = NULL, *image_id = NULL;
+
+                        r = parse_os_release(NULL,
+                                             "IMAGE_ID", &image_id,
+                                             "ID", &id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load /etc/os-release: %m");
+
+                        if (!isempty(image_id)) {
+                                free_and_replace(arg_entry_token, image_id);
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_IMAGE_ID;
+                        } else if (!isempty(id)) {
+                                free_and_replace(arg_entry_token, id);
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_ID;
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set, and /etc/os-release carries no ID=/IMAGE_ID= fields.");
+                } else {
+                        r = free_and_strdup_warn(&arg_entry_token, SD_ID128_TO_STRING(arg_machine_id));
+                        if (r < 0)
+                                return r;
+
+                        arg_entry_token_type = ARG_ENTRY_TOKEN_MACHINE_ID;
+                }
+
+                break;
+        }
+
+        case ARG_ENTRY_TOKEN_MACHINE_ID:
+                if (sd_id128_is_null(arg_machine_id))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set.");
+
+                r = free_and_strdup_warn(&arg_entry_token, SD_ID128_TO_STRING(arg_machine_id));
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case ARG_ENTRY_TOKEN_OS_IMAGE_ID: {
+                _cleanup_free_ char *buf = NULL;
+
+                r = parse_os_release(NULL, "IMAGE_ID", &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load /etc/os-release: %m");
+
+                if (isempty(buf))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IMAGE_ID= field not set in /etc/os-release.");
+
+                free_and_replace(arg_entry_token, buf);
+                break;
+        }
+
+        case ARG_ENTRY_TOKEN_OS_ID: {
+                _cleanup_free_ char *buf = NULL;
+
+                r = parse_os_release(NULL, "ID", &buf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load /etc/os-release: %m");
+
+                if (isempty(buf))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ID= field not set in /etc/os-release.");
+
+                free_and_replace(arg_entry_token, buf);
+                break;
+        }
+
+        case ARG_ENTRY_TOKEN_LITERAL:
+                assert(!isempty(arg_entry_token)); /* already filled in by command line parser */
+                break;
+        }
+
+        if (isempty(arg_entry_token) || !string_is_safe(arg_entry_token))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected entry token not valid: %s", arg_entry_token);
+
+        log_debug("Using entry token: %s", arg_entry_token);
+        return 0;
+}
+
+static bool use_boot_loader_spec_type1(void) {
+        /* If the layout is not specified, or if it is set explicitly to "bls" we assume Boot Loader
+         * Specification Type #1 is the chosen format for our boot loader entries */
+        return !arg_install_layout || streq(arg_install_layout, "bls");
+}
+
+static int settle_make_entry_directory(void) {
         int r;
 
         r = load_install_machine_id_and_layout();
         if (r < 0)
                 return r;
 
-        bool layout_non_bls = arg_install_layout && !streq(arg_install_layout, "bls");
-        if (arg_make_machine_id_directory < 0) {
-                if (layout_non_bls || sd_id128_is_null(arg_machine_id))
-                        arg_make_machine_id_directory = 0;
-                else {
-                        r = path_is_temporary_fs("/etc/machine-id");
-                        if (r < 0)
-                                return log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system: %m");
-                        arg_make_machine_id_directory = r == 0;
-                }
+        r = settle_entry_token();
+        if (r < 0)
+                return r;
+
+        bool layout_type1 = use_boot_loader_spec_type1();
+        if (arg_make_entry_directory < 0) { /* Automatic mode */
+                if (layout_type1) {
+                        if (arg_entry_token == ARG_ENTRY_TOKEN_MACHINE_ID) {
+                                r = path_is_temporary_fs("/etc/machine-id");
+                                if (r < 0)
+                                        return log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system: %m");
+
+                                arg_make_entry_directory = r == 0;
+                        } else
+                                arg_make_entry_directory = true;
+                } else
+                        arg_make_entry_directory = false;
         }
 
-        if (arg_make_machine_id_directory > 0 && sd_id128_is_null(arg_machine_id))
+        if (arg_make_entry_directory > 0 && !layout_type1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Machine ID not found, but bls directory creation was requested.");
-
-        if (arg_make_machine_id_directory > 0 && layout_non_bls)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "KERNEL_INSTALL_LAYOUT=%s is configured, but bls directory creation was requested.",
+                                       "KERNEL_INSTALL_LAYOUT=%s is configured, but Boot Loader Specification Type #1 entry directory creation was requested.",
                                        arg_install_layout);
 
         return 0;
@@ -1039,14 +1150,14 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
         return r < 0 ? r : q;
 }
 
-static int remove_machine_id_directory(const char *root) {
+static int remove_entry_directory(const char *root) {
         assert(root);
-        assert(arg_make_machine_id_directory >= 0);
+        assert(arg_make_entry_directory >= 0);
 
-        if (!arg_make_machine_id_directory || sd_id128_is_null(arg_machine_id))
+        if (!arg_make_entry_directory || !arg_entry_token)
                 return 0;
 
-        return rmdir_one(root, SD_ID128_TO_STRING(arg_machine_id));
+        return rmdir_one(root, arg_entry_token);
 }
 
 static int remove_binaries(const char *esp_path) {
@@ -1138,7 +1249,7 @@ static int install_loader_config(const char *esp_path) {
         const char *p;
         int r;
 
-        assert(arg_make_machine_id_directory >= 0);
+        assert(arg_make_entry_directory >= 0);
 
         p = prefix_roota(esp_path, "/loader/loader.conf");
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
@@ -1155,9 +1266,9 @@ static int install_loader_config(const char *esp_path) {
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n");
 
-        if (arg_make_machine_id_directory) {
-                assert(!sd_id128_is_null(arg_machine_id));
-                fprintf(f, "default %s-*\n", SD_ID128_TO_STRING(arg_machine_id));
+        if (arg_make_entry_directory) {
+                assert(arg_entry_token);
+                fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
         r = fflush_sync_and_check(f);
@@ -1174,100 +1285,33 @@ static int install_loader_config(const char *esp_path) {
         return 1;
 }
 
-static int install_machine_id_directory(const char *root) {
+static int install_entry_directory(const char *root) {
         assert(root);
-        assert(arg_make_machine_id_directory >= 0);
+        assert(arg_make_entry_directory >= 0);
 
-        if (!arg_make_machine_id_directory)
+        if (!arg_make_entry_directory)
                 return 0;
 
-        assert(!sd_id128_is_null(arg_machine_id));
-        return mkdir_one(root, SD_ID128_TO_STRING(arg_machine_id));
+        assert(arg_entry_token);
+        return mkdir_one(root, arg_entry_token);
 }
 
-static int install_machine_info_config(void) {
-        _cleanup_free_ char *contents = NULL;
-        size_t length;
-        bool need_install_layout = true, need_machine_id;
+static int install_entry_token(void) {
         int r;
 
-        assert(arg_make_machine_id_directory >= 0);
+        assert(arg_make_entry_directory >= 0);
+        assert(arg_entry_token);
 
-        /* We only want to save the machine-id if we created any directories using it. */
-        need_machine_id = arg_make_machine_id_directory;
+        /* Let's save the used entry token in /etc/kernel/entry-token if we used it to create the entry
+         * directory, or if anything else but the machine ID */
 
-        _cleanup_fclose_ FILE *orig = fopen("/etc/machine-info", "re");
-        if (!orig && errno != ENOENT)
-                return log_error_errno(errno, "Failed to open /etc/machine-info: %m");
+        if (!arg_make_entry_directory && arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID)
+                return 0;
 
-        if (orig) {
-                _cleanup_free_ char *install_layout = NULL, *machine_id = NULL;
-
-                r = parse_env_file(orig, "/etc/machine-info",
-                                   "KERNEL_INSTALL_LAYOUT", &install_layout,
-                                   "KERNEL_INSTALL_MACHINE_ID", &machine_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse /etc/machine-info: %m");
-
-                rewind(orig);
-
-                if (!isempty(install_layout))
-                        need_install_layout = false;
-
-                if (!isempty(machine_id))
-                        need_machine_id = false;
-
-                if (!need_install_layout && !need_machine_id) {
-                        log_debug("/etc/machine-info already has KERNEL_INSTALL_MACHINE_ID=%s and KERNEL_INSTALL_LAYOUT=%s.",
-                                  machine_id, install_layout);
-                        return 0;
-                }
-
-                r = read_full_stream(orig, &contents, &length);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read /etc/machine-info: %m");
-        }
-
-        _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
-        _cleanup_fclose_ FILE *dst = NULL;
-        r = fopen_temporary_label("/etc/machine-info",   /* The path for which to the look up the label */
-                                  "/etc/machine-info",   /* Where we want the file actually to end up */
-                                  &dst,                  /* The temporary file we write to */
-                                  &dst_tmp);
+        r = write_string_file("/etc/kernel/entry-token", arg_entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open temporary copy of /etc/machine-info: %m");
+                return log_error_errno(r, "Failed to write entry token '%s' to /etc/kernel/entry-token", arg_entry_token);
 
-        if (contents)
-                fwrite_unlocked(contents, 1, length, dst);
-
-        bool no_newline = !contents || contents[length - 1] == '\n';
-
-        if (need_install_layout) {
-                const char *line = "\nKERNEL_INSTALL_LAYOUT=bls\n" + no_newline;
-                fwrite_unlocked(line, 1, strlen(line), dst);
-                no_newline = false;
-        }
-
-        const char *mid_string = SD_ID128_TO_STRING(arg_machine_id);
-        if (need_machine_id)
-                fprintf(dst, "%sKERNEL_INSTALL_MACHINE_ID=%s\n",
-                        no_newline ? "" : "\n",
-                        mid_string);
-
-        r = fflush_and_check(dst);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write temporary copy of /etc/machine-info: %m");
-        if (fchmod(fileno(dst), 0644) < 0)
-                return log_debug_errno(errno, "Failed to fchmod %s: %m", dst_tmp);
-
-        if (rename(dst_tmp, "/etc/machine-info") < 0)
-                return log_error_errno(errno, "Failed to replace /etc/machine-info: %m");
-
-        log_info("%s /etc/machine-info with%s%s%s",
-                 orig ? "Updated" : "Created",
-                 need_install_layout ? " KERNEL_INSTALL_LAYOUT=bls" : "",
-                 need_machine_id ? " KERNEL_INSTALL_MACHINE_ID=" : "",
-                 need_machine_id ? mid_string : "");
         return 0;
 }
 
@@ -1311,8 +1355,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
-               "     --make-machine-id-directory=yes|no|auto\n"
-               "                       Create $BOOT/$MACHINE_ID\n"
+               "     --make-entry-directory=yes|no|auto\n"
+               "                       Create $BOOT/ENTRY-TOKEN/ directory\n"
+               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
+               "                       Entry token to use for this installation\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1332,7 +1378,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
-                ARG_MAKE_MACHINE_ID_DIRECTORY,
+                ARG_MAKE_ENTRY_DIRECTORY,
+                ARG_ENTRY_TOKEN,
         };
 
         static const struct option options[] = {
@@ -1347,7 +1394,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-variables",              no_argument,       NULL, ARG_NO_VARIABLES              },
                 { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER                  },
                 { "graceful",                  no_argument,       NULL, ARG_GRACEFUL                  },
-                { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_MACHINE_ID_DIRECTORY },
+                { "make-entry-directory",      required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      },
+                { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      }, /* Compatibility alias */
+                { "entry-token",               required_argument, NULL, ARG_ENTRY_TOKEN               },
                 {}
         };
 
@@ -1405,14 +1454,40 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_graceful = true;
                         break;
 
-                case ARG_MAKE_MACHINE_ID_DIRECTORY:
-                        if (streq(optarg, "auto"))  /* retained for backwards compatibility */
-                                arg_make_machine_id_directory = -1; /* yes if machine-id is permanent */
-                        else {
-                                r = parse_boolean_argument("--make-machine-id-directory=", optarg, &b);
+                case ARG_ENTRY_TOKEN: {
+                        const char *e;
+
+                        if (streq(optarg, "machine-id")) {
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_MACHINE_ID;
+                                arg_entry_token = mfree(arg_entry_token);
+                        } else if (streq(optarg, "os-image-id")) {
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_IMAGE_ID;
+                                arg_entry_token = mfree(arg_entry_token);
+                        } else if (streq(optarg, "os-id")) {
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_ID;
+                                arg_entry_token = mfree(arg_entry_token);
+                        } else if ((e = startswith(optarg, "literal:"))) {
+                                arg_entry_token_type = ARG_ENTRY_TOKEN_LITERAL;
+
+                                r = free_and_strdup_warn(&arg_entry_token, e);
                                 if (r < 0)
                                         return r;
-                                arg_make_machine_id_directory = b;
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected parameter for --entry-token=: %s", optarg);
+
+                        break;
+                }
+
+                case ARG_MAKE_ENTRY_DIRECTORY:
+                        if (streq(optarg, "auto"))  /* retained for backwards compatibility */
+                                arg_make_entry_directory = -1; /* yes if machine-id is permanent */
+                        else {
+                                r = parse_boolean_argument("--make-entry-directory=", optarg, &b);
+                                if (r < 0)
+                                        return r;
+
+                                arg_make_entry_directory = b;
                         }
                         break;
 
@@ -1881,7 +1956,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = settle_install_machine_id();
+        r = settle_make_entry_directory();
         if (r < 0)
                 return r;
 
@@ -1908,11 +1983,11 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        r = install_machine_id_directory(arg_dollar_boot_path());
+                        r = install_entry_directory(arg_dollar_boot_path());
                         if (r < 0)
                                 return r;
 
-                        r = install_machine_info_config();
+                        r = install_entry_token();
                         if (r < 0)
                                 return r;
 
@@ -1945,7 +2020,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = settle_install_machine_id();
+        r = settle_make_entry_directory();
         if (r < 0)
                 return r;
 
@@ -1967,7 +2042,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = remove_machine_id_directory(arg_esp_path);
+        q = remove_entry_directory(arg_esp_path);
         if (q < 0 && r >= 0)
                 r = 1;
 
@@ -1977,7 +2052,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
                 if (q < 0 && r >= 0)
                         r = q;
 
-                q = remove_machine_id_directory(arg_xbootldr_path);
+                q = remove_entry_directory(arg_xbootldr_path);
                 if (q < 0 && r >= 0)
                         r = q;
         }
