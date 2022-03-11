@@ -313,9 +313,7 @@ int link_queue_request(
                       REQUEST_TYPE_DHCP4_CLIENT,
                       REQUEST_TYPE_DHCP6_CLIENT,
                       REQUEST_TYPE_NDISC,
-                      REQUEST_TYPE_RADV,
-                      REQUEST_TYPE_TC_QDISC,
-                      REQUEST_TYPE_TC_CLASS) ||
+                      REQUEST_TYPE_RADV) ||
                netlink_handler);
 
         req = new(Request, 1);
