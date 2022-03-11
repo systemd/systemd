@@ -11,6 +11,9 @@
 #include "terminal-util.h"
 
 #define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
+#define UNICODE_FULL_BLOCK       u8"█"
+#define UNICODE_LOWER_HALF_BLOCK u8"▄"
+#define UNICODE_UPPER_HALF_BLOCK u8"▀"
 
 static void *qrcode_dl = NULL;
 
@@ -30,7 +33,7 @@ static void print_border(FILE *output, unsigned width) {
                 fputs(ANSI_WHITE_ON_BLACK, output);
 
                 for (unsigned x = 0; x < 4 + width + 4; x++)
-                        fputs("\342\226\210", output);
+                        fputs(UNICODE_FULL_BLOCK, output);
 
                 fputs(ANSI_NORMAL "\n", output);
         }
@@ -50,7 +53,7 @@ static void write_qrcode(FILE *output, QRcode *qr) {
 
                 fputs(ANSI_WHITE_ON_BLACK, output);
                 for (unsigned x = 0; x < 4; x++)
-                        fputs("\342\226\210", output);
+                        fputs(UNICODE_FULL_BLOCK, output);
 
                 for (unsigned x = 0; x < (unsigned) qr->width; x++) {
                         bool a, b;
@@ -61,15 +64,15 @@ static void write_qrcode(FILE *output, QRcode *qr) {
                         if (a && b)
                                 fputc(' ', output);
                         else if (a)
-                                fputs("\342\226\204", output);
+                                fputs(UNICODE_LOWER_HALF_BLOCK, output);
                         else if (b)
-                                fputs("\342\226\200", output);
+                                fputs(UNICODE_UPPER_HALF_BLOCK, output);
                         else
-                                fputs("\342\226\210", output);
+                                fputs(UNICODE_FULL_BLOCK, output);
                 }
 
                 for (unsigned x = 0; x < 4; x++)
-                        fputs("\342\226\210", output);
+                        fputs(UNICODE_FULL_BLOCK, output);
                 fputs(ANSI_NORMAL "\n", output);
         }
 

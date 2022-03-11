@@ -74,56 +74,56 @@ const char *special_glyph(SpecialGlyph code) {
                 /* UTF-8 */
                 [true] = {
                         /* The following are multiple glyphs in both ASCII and in UNICODE */
-                        [SPECIAL_GLYPH_TREE_VERTICAL]           = "\342\224\202 ",            /* │  */
-                        [SPECIAL_GLYPH_TREE_BRANCH]             = "\342\224\234\342\224\200", /* ├─ */
-                        [SPECIAL_GLYPH_TREE_RIGHT]              = "\342\224\224\342\224\200", /* └─ */
-                        [SPECIAL_GLYPH_TREE_SPACE]              = "  ",                       /*    */
-                        [SPECIAL_GLYPH_TREE_TOP]                = "\u250C\342\224\200",       /* ┌─ */
+                        [SPECIAL_GLYPH_TREE_VERTICAL]           = u8"│ ",
+                        [SPECIAL_GLYPH_TREE_BRANCH]             = u8"├─",
+                        [SPECIAL_GLYPH_TREE_RIGHT]              = u8"└─",
+                        [SPECIAL_GLYPH_TREE_SPACE]              = u8"  ",
+                        [SPECIAL_GLYPH_TREE_TOP]                = u8"┌─",
 
                         /* Single glyphs in both cases */
-                        [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
-                        [SPECIAL_GLYPH_BLACK_CIRCLE]            = "\342\227\217",             /* ● */
-                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = "\u25CB",                   /* ○ */
-                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = "\u00D7",                   /* × */
-                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = "\u21BB",                   /* ↻ */
-                        [SPECIAL_GLYPH_BULLET]                  = "\342\200\242",             /* • */
-                        [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ (actually called: GREEK SMALL LETTER MU) */
-                        [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
-                        [SPECIAL_GLYPH_CROSS_MARK]              = "\342\234\227",             /* ✗ (actually called: BALLOT X) */
-                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "\342\226\221",             /* ░ */
-                        [SPECIAL_GLYPH_DARK_SHADE]              = "\342\226\223",             /* ▒ */
-                        [SPECIAL_GLYPH_SIGMA]                   = "\316\243",                 /* Σ */
-                        [SPECIAL_GLYPH_ARROW_UP]                = "\u2191",                   /* ↑ (actually called: UPWARDS ARROW) */
-                        [SPECIAL_GLYPH_ARROW_DOWN]              = "\u2193",                   /* ↓ (actually called: DOWNWARDS ARROW) */
+                        [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = u8"‣",
+                        [SPECIAL_GLYPH_BLACK_CIRCLE]            = u8"●",
+                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = u8"○",
+                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = u8"×",
+                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = u8"↻",
+                        [SPECIAL_GLYPH_BULLET]                  = u8"•",
+                        [SPECIAL_GLYPH_MU]                      = u8"μ",       /* actually called: GREEK SMALL LETTER MU */
+                        [SPECIAL_GLYPH_CHECK_MARK]              = u8"✓",
+                        [SPECIAL_GLYPH_CROSS_MARK]              = u8"✗",        /* actually called: BALLOT X */
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = u8"░",
+                        [SPECIAL_GLYPH_DARK_SHADE]              = u8"▒",
+                        [SPECIAL_GLYPH_SIGMA]                   = u8"Σ",
+                        [SPECIAL_GLYPH_ARROW_UP]                = u8"↑",       /* actually called: UPWARDS ARROW */
+                        [SPECIAL_GLYPH_ARROW_DOWN]              = u8"↓",       /* actually called: DOWNWARDS ARROW */
 
                         /* Single glyph in Unicode, two in ASCII */
-                        [SPECIAL_GLYPH_ARROW_RIGHT]             = "\342\206\222",             /* → (actually called: RIGHTWARDS ARROW) */
+                        [SPECIAL_GLYPH_ARROW_RIGHT]             = u8"→",       /* actually called: RIGHTWARDS ARROW */
 
                         /* Single glyph in Unicode, three in ASCII */
-                        [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … (actually called: HORIZONTAL ELLIPSIS) */
+                        [SPECIAL_GLYPH_ELLIPSIS]                = u8"…",       /* actually called: HORIZONTAL ELLIPSIS */
 
                         /* Three glyphs in Unicode, five in ASCII */
-                        [SPECIAL_GLYPH_EXTERNAL_LINK]           = "[\360\237\241\225]",       /* 🡕 (actually called: NORTH EAST SANS-SERIF ARROW, enclosed in []) */
+                        [SPECIAL_GLYPH_EXTERNAL_LINK]           = u8"[🡕]",      /* actually called: NORTH EAST SANS-SERIF ARROW, enclosed in [] */
 
                         /* These smileys are a single glyph in Unicode, and three in ASCII */
-                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 (actually called: SMILING FACE WITH HALO) */
-                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = "\360\237\230\200",         /* 😀 (actually called: GRINNING FACE) */
-                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = "\360\237\231\202",         /* 🙂 (actually called: SLIGHTLY SMILING FACE) */
-                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = "\360\237\230\220",         /* 😐 (actually called: NEUTRAL FACE) */
-                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 (actually called: SLIGHTLY FROWNING FACE) */
-                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨 (actually called: FEARFUL FACE) */
-                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 (actually called: NAUSEATED FACE) */
+                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = u8"😇",       /* actually called: SMILING FACE WITH HALO */
+                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = u8"😀",       /* actually called: GRINNING FACE */
+                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = u8"🙂",       /* actually called: SLIGHTLY SMILING FACE */
+                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = u8"😐",       /* actually called: NEUTRAL FACE */
+                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = u8"🙁",       /* actually called: SLIGHTLY FROWNING FACE */
+                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = u8"😨",       /* actually called: FEARFUL FACE */
+                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = u8"🤢",       /* actually called: NAUSEATED FACE */
 
                         /* This emoji is a single character cell glyph in Unicode, and three in ASCII */
-                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = "\360\237\224\220",         /* 🔐 (actually called: CLOSED LOCK WITH KEY) */
+                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = u8"🔐",       /* actually called: CLOSED LOCK WITH KEY */
 
                         /* This emoji is a single character cell glyph in Unicode, and two in ASCII */
-                        [SPECIAL_GLYPH_TOUCH]                   = "\360\237\221\206",         /* 👆 (actually called: BACKHAND INDEX POINTING UP) */
+                        [SPECIAL_GLYPH_TOUCH]                   = u8"👆",       /* actually called: BACKHAND INDEX POINTING UP */
 
                         /* These three emojis are single character cell glyphs in Unicode and also in ASCII. */
-                        [SPECIAL_GLYPH_RECYCLING]               = "\u267B\uFE0F ",            /* ♻️  (actually called: UNIVERSAL RECYCLNG SYMBOL) */
-                        [SPECIAL_GLYPH_DOWNLOAD]                = "\u2935\uFE0F ",            /* ⤵️  (actually called: RIGHT ARROW CURVING DOWN) */
-                        [SPECIAL_GLYPH_SPARKLES]                = "\u2728",                   /* ✨ */
+                        [SPECIAL_GLYPH_RECYCLING]               = u8"♻️",        /* actually called: UNIVERSAL RECYCLNG SYMBOL */
+                        [SPECIAL_GLYPH_DOWNLOAD]                = u8"⤵️",        /* actually called: RIGHT ARROW CURVING DOWN */
+                        [SPECIAL_GLYPH_SPARKLES]                = u8"✨",
                 },
         };
 
