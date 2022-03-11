@@ -200,8 +200,9 @@ struct Network {
         uint32_t dhcp_server_pool_size;
         OrderedHashmap *dhcp_server_send_options;
         OrderedHashmap *dhcp_server_send_vendor_options;
-        struct in_addr dhcp_server_next_server;
-        char *dhcp_server_filename;
+        struct in_addr dhcp_server_boot_server_address;
+        char *dhcp_server_boot_server_name;
+        char *dhcp_server_boot_filename;
 
         /* link local addressing support */
         AddressFamily link_local;
@@ -374,7 +375,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);
-CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);

@@ -177,13 +177,13 @@ static int process_one_password_file(const char *filename) {
         pid_t pid = 0;
 
         const ConfigTableItem items[] = {
-                { "Ask", "Socket",       config_parse_safe_string, 0, &socket_name   },
-                { "Ask", "NotAfter",     config_parse_uint64,      0, &not_after     },
-                { "Ask", "Message",      config_parse_string,      0, &message       },
-                { "Ask", "PID",          config_parse_pid,         0, &pid           },
-                { "Ask", "AcceptCached", config_parse_bool,        0, &accept_cached },
-                { "Ask", "Echo",         config_parse_bool,        0, &echo          },
-                { "Ask", "Silent",       config_parse_bool,        0, &silent        },
+                { "Ask", "Socket",       config_parse_string, CONFIG_PARSE_STRING_SAFE, &socket_name   },
+                { "Ask", "NotAfter",     config_parse_uint64, 0,                        &not_after     },
+                { "Ask", "Message",      config_parse_string, 0,                        &message       },
+                { "Ask", "PID",          config_parse_pid,    0,                        &pid           },
+                { "Ask", "AcceptCached", config_parse_bool,   0,                        &accept_cached },
+                { "Ask", "Echo",         config_parse_bool,   0,                        &echo          },
+                { "Ask", "Silent",       config_parse_bool,   0,                        &silent        },
                 {}
         };
 
