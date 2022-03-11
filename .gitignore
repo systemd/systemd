@@ -31,6 +31,7 @@ __pycache__/
 /mkosi.builddir/
 /mkosi.output/
 /mkosi.default
+/mkosi.installdir/
 # Ignore any mkosi config files with "local" in the name
 /mkosi.default.d/**/*local*.conf
 /tags
