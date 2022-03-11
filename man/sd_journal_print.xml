@@ -68,10 +68,10 @@
 
       <funcprototype>
         <funcdef>int <function>sd_journal_print_with_location</function></funcdef>
+        <paramdef>int <parameter>priority</parameter></paramdef>
         <paramdef>const char *<parameter>file</parameter></paramdef>
         <paramdef>const char *<parameter>line</parameter></paramdef>
         <paramdef>const char *<parameter>func</parameter></paramdef>
-        <paramdef>int <parameter>priority</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
         <paramdef>…</paramdef>
       </funcprototype>
