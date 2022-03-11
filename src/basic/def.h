@@ -57,7 +57,12 @@
 #define CONF_PATHS_STRV(n)                      \
         STRV_MAKE(CONF_PATHS(n))
 
+/* The limit for PID 1 itself (which is not inherited to children) */
 #define HIGH_RLIMIT_MEMLOCK (1024ULL*1024ULL*64ULL)
+
+/* Since kernel 5.16 the kernel default limit was raised to 8M. Let's adjust things on old kernels too, and
+ * in containers so that our children inherit that. */
+#define DEFAULT_RLIMIT_MEMLOCK (1024ULL*1024ULL*8ULL)
 
 #define PLYMOUTH_SOCKET {                                       \
                 .un.sun_family = AF_UNIX,                       \
