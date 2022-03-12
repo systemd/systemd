@@ -4008,6 +4008,31 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         return 1;
 }
 
+void exec_delete_nft_set(ExecContext *c, DynamicUser *d) {
+        int r;
+
+        assert(c);
+
+        if (c->nft_set_context.nfproto > 0) {
+                uid_t uid;
+
+                r = dynamic_user_current(d, &uid);
+                if (r < 0) {
+                        log_warning_errno(r, "Can't get current dynamic user, ignoring: %m");
+                        return;
+                }
+
+                r = nft_set_element_del_uint32(&c->nft_set_context,
+                                               uid);
+                if (r < 0)
+                        log_warning_errno(r, "Deleting NFT family %s table %s set %s UID " UID_FMT " failed, ignoring: %m",
+                                          nfproto_to_string(c->nft_set_context.nfproto),
+                                          c->nft_set_context.table,
+                                          c->nft_set_context.set,
+                                          uid);
+        }
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -4208,6 +4233,17 @@ static int exec_child(
 
                 if (dcreds->user)
                         username = dcreds->user->name;
+
+                if (context->nft_set_context.nfproto > 0) {
+                        r = nft_set_element_add_uint32(&context->nft_set_context,
+                                                       uid);
+                        if (r < 0)
+                                log_warning_errno(r, "Adding NFT family %s table %s set %s UID " UID_FMT " failed, ignoring: %m",
+                                                  nfproto_to_string(context->nft_set_context.nfproto),
+                                                  context->nft_set_context.table,
+                                                  context->nft_set_context.set,
+                                                  uid);
+                }
 
         } else {
                 r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
@@ -5271,6 +5307,10 @@ void exec_context_done(ExecContext *c) {
         c->user = mfree(c->user);
         c->group = mfree(c->group);
 
+        c->nft_set_context.nfproto = 0;
+        c->nft_set_context.table = mfree(c->nft_set_context.table);
+        c->nft_set_context.set = mfree(c->nft_set_context.set);
+
         c->supplementary_groups = strv_free(c->supplementary_groups);
 
         c->pam_name = mfree(c->pam_name);
@@ -5955,6 +5995,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sGroup: %s\n", prefix, c->group);
 
         fprintf(f, "%sDynamicUser: %s\n", prefix, yes_no(c->dynamic_user));
+        if (c->nft_set_context.nfproto > 0)
+                fprintf(f, "%sDynamicUserNFTSet: %s:%s:%s\n", prefix,
+                        nfproto_to_string(c->nft_set_context.nfproto),
+                        c->nft_set_context.table, c->nft_set_context.set);
 
         strv_dump(f, prefix, "SupplementaryGroups", c->supplementary_groups);
 
