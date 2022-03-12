@@ -798,6 +798,16 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                         goto from_tm;
         }
 
+        /* Support OUTPUT_SHORT and OUTPUT_SHORT_PRECISE formats */
+        tm = copy;
+        k = strptime(t, "%b %d %H:%M:%S", &tm);
+        if (k) {
+                if (*k == '.')
+                        goto parse_usec;
+                else if (*k == 0)
+                        goto from_tm;
+        }
+
         tm = copy;
         k = strptime(t, "%y-%m-%d %H:%M", &tm);
         if (k && *k == 0) {
