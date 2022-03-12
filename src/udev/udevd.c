@@ -915,6 +915,24 @@ no_blocker:
         return false;
 }
 
+static void event_enter_failed(Event *event) {
+        int r;
+
+        assert(event);
+        assert(event->manager);
+        assert(event->dev_kernel);
+
+        /* forward kernel event without amending anything */
+        if (event->manager->monitor) {
+                r = device_monitor_send_device(event->manager->monitor, NULL, event->dev_kernel);
+                if (r < 0)
+                        log_device_warning_errno(event->dev_kernel, r,
+                                                 "Failed to broadcast failed event to libudev listners, ignoring: %m");
+        }
+
+        event_free(event);
+}
+
 static int event_queue_start(Manager *manager) {
         Event *event, *event_next;
         usec_t usec;
@@ -1451,12 +1469,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        if (manager->monitor) {
-                                /* forward kernel event without amending it */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                                if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
-                        }
+                        event_enter_failed(TAKE_PTR(worker->event));
                 }
 
                 worker_free(worker);
