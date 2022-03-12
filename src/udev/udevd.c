@@ -983,7 +983,7 @@ static int event_queue_start(Manager *manager) {
                                                  event->seqnum,
                                                  strna(device_action_to_string(a)));
 
-                        event_free(event);
+                        event_enter_failed(event);
                         return r;
                 }
                 if (r > 0)
