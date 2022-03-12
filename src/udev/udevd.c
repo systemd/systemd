@@ -1448,10 +1448,11 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_tag_index(worker->event->dev, NULL, false);
 
                         if (manager->monitor) {
-                                /* forward kernel event without amending it */
+                                /* Forward kernel event unchanged */
                                 r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
                                 if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                                        log_device_warning_errno(worker->event->dev_kernel, r,
+                                                                 "Failed to broadcast failed event to libudev listeners, ignoring: %m");
                         }
                 }
 
