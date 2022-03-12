@@ -399,8 +399,10 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 
         fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0) {
-                log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
-                return 0;
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+
+                log_device_debug_errno(dev, errno, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         if (flock(fd, LOCK_SH|LOCK_NB) < 0)
