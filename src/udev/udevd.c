@@ -951,24 +951,21 @@ static int event_queue_start(Manager *manager) {
 
                 /* do not start event if parent or child event is still running or queued */
                 r = event_is_blocked(event);
+                if (r > 0)
+                        continue;
                 if (r < 0) {
                         sd_device_action_t a = _SD_DEVICE_ACTION_INVALID;
 
                         (void) sd_device_get_action(event->dev, &a);
                         log_device_warning_errno(event->dev, r,
-                                                 "Failed to check event dependency, "
-                                                 "skipping event (SEQNUM=%"PRIu64", ACTION=%s)",
+                                                 "Failed to check dependencies for event (SEQNUM=%"PRIu64", ACTION=%s), "
+                                                 "assuming there is no blocking event, ignoring: %m",
                                                  event->seqnum,
                                                  strna(device_action_to_string(a)));
-
-                        event_free(event);
-                        return r;
                 }
-                if (r > 0)
-                        continue;
 
                 r = event_run(event);
-                if (r <= 0)
+                if (r <= 0) /* 0 means there are no idle workers. Let's escape from the loop. */
                         return r;
         }
 
