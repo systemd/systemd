@@ -4,6 +4,8 @@
 
 # Explicitly enable certain checks which are hidden by default
 queries:
+  - exclude: cpp/missing-return
+    # LGTM does not handle assert_not_reached() gracefully...
   - include: cpp/bad-strncpy-size
   - include: cpp/declaration-hides-variable
   - include: cpp/inconsistent-null-check
