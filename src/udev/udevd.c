@@ -727,7 +727,6 @@ static int worker_spawn(Manager *manager, Event *event) {
 }
 
 static int event_run(Event *event) {
-        static bool log_children_max_reached = true;
         Manager *manager;
         Worker *worker;
         int r;
@@ -754,18 +753,8 @@ static int event_run(Event *event) {
                 return 1; /* event is now processing. */
         }
 
-        if (hashmap_size(manager->workers) >= arg_children_max) {
-                /* Avoid spamming the debug logs if the limit is already reached and
-                 * many events still need to be processed */
-                if (log_children_max_reached && arg_children_max > 1) {
-                        log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
-                        log_children_max_reached = false;
-                }
+        if (hashmap_size(manager->workers) >= arg_children_max)
                 return 0; /* no free worker */
-        }
-
-        /* Re-enable the debug message for the next batch of events */
-        log_children_max_reached = true;
 
         /* start new worker and pass initial device */
         r = worker_spawn(manager, event);
@@ -773,6 +762,35 @@ static int event_run(Event *event) {
                 return r;
 
         return 1; /* event is now processing. */
+}
+
+static bool manager_has_idle_worker(Manager *manager) {
+        static bool log_children_max_reached = true;
+        Worker *worker;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(worker, manager->workers) {
+                if (worker->state != WORKER_IDLE)
+                        continue;
+
+                return true;
+        }
+
+        if (hashmap_size(manager->workers) >= arg_children_max) {
+                /* Avoid spamming the debug logs if the limit is already reached and
+                 * many events still need to be processed */
+                if (log_children_max_reached && arg_children_max > 1) {
+                        log_debug("Maximum number (%u) of children reached.", arg_children_max);
+                        log_children_max_reached = false;
+                }
+                return false;
+        }
+
+        /* Re-enable the debug message for the next batch of events */
+        log_children_max_reached = true;
+
+        return true;
 }
 
 static int event_is_blocked(Event *event) {
@@ -967,6 +985,9 @@ static int event_queue_start(Manager *manager) {
          * and, until the next SELinux policy changes, we safe further reloads in future children */
         mac_selinux_maybe_reload();
 
+        if (!manager_has_idle_worker(manager))
+                return 0;
+
         LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
@@ -992,6 +1013,9 @@ static int event_queue_start(Manager *manager) {
                 r = event_run(event);
                 if (r <= 0)
                         return r;
+
+                if (!manager_has_idle_worker(manager))
+                        return 0;
         }
 
         return 0;
