@@ -323,6 +323,8 @@ static inline int __coverity_check_and_return__(int condition) {
         ({                                              \
                 typeof(x) _x_ = (x);                    \
                 size_t ans = 1;                         \
+                if (IS_SIGNED_INTEGER_TYPE(_x_))        \
+                        ans++;                          \
                 while ((_x_ /= 10) != 0)                \
                         ans++;                          \
                 ans;                                    \
