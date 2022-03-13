@@ -527,6 +527,13 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         return r;
 }
 
+ssize_t device_monitor_has_queued_message(sd_device_monitor *m) {
+        assert(m);
+        assert(m->sock >= 0);
+
+        return next_datagram_size_fd(m->sock);
+}
+
 static uint32_t string_hash32(const char *str) {
         return MurmurHash2(str, strlen(str), 0);
 }
