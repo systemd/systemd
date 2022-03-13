@@ -3041,7 +3041,7 @@ int unit_check_oomd_kill(Unit *u) {
         else if (r == 0)
                 return 0;
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_kill", &value);
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_ooms", &value);
         if (r < 0 && r != -ENODATA)
                 return r;
 
@@ -3057,11 +3057,25 @@ int unit_check_oomd_kill(Unit *u) {
         if (!increased)
                 return 0;
 
+        n = 0;
+        value = mfree(value);
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_kill", &value);
+        if (r >= 0 && !isempty(value))
+                (void) safe_atou64(value, &n);
+
         if (n > 0)
                 log_unit_struct(u, LOG_NOTICE,
                                 "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
                                 LOG_UNIT_INVOCATION_ID(u),
-                                LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
+                                LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n),
+                                "N_PROCESSES=%" PRIu64, n);
+        else
+                log_unit_struct(u, LOG_NOTICE,
+                                "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                                LOG_UNIT_INVOCATION_ID(u),
+                                LOG_UNIT_MESSAGE(u, "systemd-oomd killed some process(es) in this unit."));
+
+        unit_notify_cgroup_oom(u, /* ManagedOOM= */ true);
 
         return 1;
 }
@@ -3097,8 +3111,7 @@ int unit_check_oom(Unit *u) {
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 
-        if (UNIT_VTABLE(u)->notify_cgroup_oom)
-                UNIT_VTABLE(u)->notify_cgroup_oom(u);
+        unit_notify_cgroup_oom(u, /* ManagedOOM= */ false);
 
         return 1;
 }

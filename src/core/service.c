@@ -3404,10 +3404,13 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         }
 }
 
-static void service_notify_cgroup_oom_event(Unit *u) {
+static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         Service *s = SERVICE(u);
 
-        log_unit_debug(u, "Process of control group was killed by the OOM killer.");
+        if (managed_oom)
+                log_unit_debug(u, "Process(es) of control group were killed by systemd-oomd.");
+        else
+                log_unit_debug(u, "Process of control group was killed by the OOM killer.");
 
         if (s->oom_policy == OOM_CONTINUE)
                 return;

@@ -285,7 +285,7 @@ typedef struct Unit {
         nsec_t cpu_usage_base;
         nsec_t cpu_usage_last; /* the most recently read value */
 
-        /* The current counter of processes sent SIGKILL by systemd-oomd */
+        /* The current counter of OOM kills initiated by systemd-oomd */
         uint64_t managed_oom_kill_last;
 
         /* The current counter of the oom_kill field in the memory.events cgroup attribute */
@@ -596,7 +596,7 @@ typedef struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever an OOM kill event on this unit was seen */
-        void (*notify_cgroup_oom)(Unit *u);
+        void (*notify_cgroup_oom)(Unit *u, bool managed_oom);
 
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, const struct ucred *ucred, char * const *tags, FDSet *fds);
@@ -810,6 +810,8 @@ int unit_reload(Unit *u);
 
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
 int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
+
+void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,

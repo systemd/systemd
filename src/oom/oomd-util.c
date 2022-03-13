@@ -192,6 +192,10 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         if (!pids_killed)
                 return -ENOMEM;
 
+        r = increment_oomd_xattr(path, "user.oomd_ooms", 1);
+        if (r < 0)
+                log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
+
         if (recurse)
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
         else

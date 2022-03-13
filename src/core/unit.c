@@ -3801,6 +3801,13 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
         return UNIT_VTABLE(u)->kill(u, w, signo, error);
 }
 
+void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->notify_cgroup_oom)
+                UNIT_VTABLE(u)->notify_cgroup_oom(u, managed_oom);
+}
+
 static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         _cleanup_set_free_ Set *pid_set = NULL;
         int r;
