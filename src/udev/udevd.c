@@ -129,6 +129,8 @@ typedef struct Event {
         uint64_t seqnum;
         uint64_t blocker_seqnum;
 
+        int lock_fd;
+
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
 
@@ -171,11 +173,9 @@ static Event *event_free(Event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        /* only clean up the queue from the process that created it */
-        if (LIST_IS_EMPTY(event->manager->events) &&
-            event->manager->pid == getpid_cached())
-                if (unlink("/run/udev/queue") < 0 && errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
+        if (event->manager->pid == getpid_cached())
+                /* The block device is unlocked by the main process. */
+                safe_close(event->lock_fd);
 
         return mfree(event);
 }
@@ -359,18 +359,22 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
-static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
+static int event_lock_block_device(Event *event) {
         _cleanup_close_ int fd = -1;
         const char *val;
+        sd_device *dev;
         int r;
 
-        assert(dev);
-        assert(ret_fd);
+        assert(event);
+        dev = ASSERT_PTR(event->dev);
 
         /* Take a shared lock on the device node; this establishes a concept of device "ownership" to
          * serialize device access. External processes holding an exclusive lock will cause udev to skip the
          * event handling; in the case udev acquired the lock, the external process can block until udev has
          * finished its event handling. */
+
+        if (event->lock_fd >= 0)
+                return 0;
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
@@ -406,15 +410,17 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 
         fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0) {
-                log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
-                return 0;
+                bool ignore = errno == ENOENT;
+
+                log_device_debug_errno(dev, errno, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         if (flock(fd, LOCK_SH|LOCK_NB) < 0)
                 return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
 
-        *ret_fd = TAKE_FD(fd);
-        return 1;
+        event->lock_fd = TAKE_FD(fd);
+        return 0;
 }
 
 static int worker_mark_block_device_read_only(sd_device *dev) {
@@ -469,7 +475,6 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
-        _cleanup_close_ int fd_lock = -1;
         int r;
 
         assert(manager);
@@ -480,47 +485,6 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl, manager->log_level);
         if (!udev_event)
                 return -ENOMEM;
-
-        r = worker_lock_block_device(dev, &fd_lock);
-        if (r == -EAGAIN) {
-                /* So this is a block device and the device is locked currently via the BSD advisory locks —
-                 * someone else is exclusively using it. This means we don't run our udev rules now, to not
-                 * interfere. However we want to know when the device is unlocked again, and retrigger the
-                 * device again then, so that the rules are run eventually. For that we use IN_CLOSE_WRITE
-                 * inotify watches (which isn't exactly the same as waiting for the BSD locks to release, but
-                 * not totally off, as long as unlock+close() is done together, as it usually is).
-                 *
-                 * (The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING)
-                 *
-                 * There's a bit of a chicken and egg problem here for this however: inotify watching is
-                 * supposed to be enabled via an option set via udev rules (OPTIONS+="watch"). If we skip the
-                 * udev rules here however (as we just said we do), we would thus never see that specific
-                 * udev rule, and thus never turn on inotify watching. But in order to catch up eventually
-                 * and run them we we need the inotify watching: hence a classic chicken and egg problem.
-                 *
-                 * Our way out here: if we see the block device locked, unconditionally watch the device via
-                 * inotify, regardless of any explicit request via OPTIONS+="watch". Thus, a device that is
-                 * currently locked via the BSD file locks will be treated as if we ran a single udev rule
-                 * only for it: the one that turns on inotify watching for it. If we eventually see the
-                 * inotify IN_CLOSE_WRITE event, and then run the rules after all and we then realize that
-                 * this wasn't actually requested (i.e. no OPTIONS+="watch" set) we'll simply turn off the
-                 * watching again (see below). Effectively this means: inotify watching is now enabled either
-                 * a) when the udev rules say so, or b) while the device is locked.
-                 *
-                 * Worst case scenario hence: in the (unlikely) case someone locked the device and we clash
-                 * with that we might do inotify watching for a brief moment for a device where we actually
-                 * weren't supposed to. But that shouldn't be too bad, in particular as BSD locks being taken
-                 * on a block device is kinda an indication that the inotify logic is desired too, to some
-                 * degree — they go hand-in-hand after all. */
-
-                log_device_debug(dev, "Block device is currently locked, installing watch to wait until the lock is released.");
-                (void) udev_watch_begin(manager->inotify_fd, dev);
-
-                /* Now the watch is installed, let's lock the device again, maybe in the meantime things changed */
-                r = worker_lock_block_device(dev, &fd_lock);
-        }
-        if (r < 0)
-                return r;
 
         (void) worker_mark_block_device_read_only(dev);
 
@@ -557,18 +521,13 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         assert(manager);
 
         r = worker_process_device(manager, dev);
-        if (r == -EAGAIN)
-                /* if we couldn't acquire the flock(), then proceed quietly */
-                log_device_debug_errno(dev, r, "Device currently locked, not processing.");
-        else {
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
-                /* send processed event back to libudev listeners */
-                r = device_monitor_send_device(monitor, NULL, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
-        }
+        /* send processed event back to libudev listeners */
+        r = device_monitor_send_device(monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
 
         /* send udevd the result of the event execution */
         r = worker_send_message(manager->worker_watch[WRITE_END]);
@@ -725,7 +684,6 @@ static int worker_spawn(Manager *manager, Event *event) {
 }
 
 static int event_run(Event *event) {
-        static bool log_children_max_reached = true;
         Manager *manager;
         Worker *worker;
         int r;
@@ -752,22 +710,8 @@ static int event_run(Event *event) {
                 return 1; /* event is now processing. */
         }
 
-        if (hashmap_size(manager->workers) >= arg_children_max) {
-                /* Avoid spamming the debug logs if the limit is already reached and
-                 * many events still need to be processed */
-                if (log_children_max_reached && arg_children_max > 1) {
-                        log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
-                        log_children_max_reached = false;
-                }
+        if (hashmap_size(manager->workers) >= arg_children_max)
                 return 0; /* no free worker */
-        }
-
-        /* Re-enable the debug message for the next batch of events */
-        log_children_max_reached = true;
-
-        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-         * and, until the next SELinux policy changes, we safe further reloads in future children */
-        mac_selinux_maybe_reload();
 
         /* start new worker and pass initial device */
         r = worker_spawn(manager, event);
@@ -775,6 +719,35 @@ static int event_run(Event *event) {
                 return r;
 
         return 1; /* event is now processing. */
+}
+
+static bool manager_has_idle_worker(Manager *manager) {
+        static bool log_children_max_reached = true;
+        Worker *worker;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(worker, manager->workers) {
+                if (worker->state != WORKER_IDLE)
+                        continue;
+
+                return true;
+        }
+
+        if (hashmap_size(manager->workers) >= arg_children_max) {
+                /* Avoid spamming the debug logs if the limit is already reached and
+                 * many events still need to be processed */
+                if (log_children_max_reached && arg_children_max > 1) {
+                        log_debug("Maximum number (%u) of children reached.", arg_children_max);
+                        log_children_max_reached = false;
+                }
+                return false;
+        }
+
+        /* Re-enable the debug message for the next batch of events */
+        log_children_max_reached = true;
+
+        return true;
 }
 
 static int event_is_blocked(Event *event) {
@@ -913,6 +886,24 @@ no_blocker:
         return false;
 }
 
+static void event_enter_failed(Event *event) {
+        int r;
+
+        assert(event);
+        assert(event->manager);
+        assert(event->dev_kernel);
+
+        /* forward kernel event without amending anything */
+        if (event->manager->monitor) {
+                r = device_monitor_send_device(event->manager->monitor, NULL, event->dev_kernel);
+                if (r < 0)
+                        log_device_warning_errno(event->dev_kernel, r,
+                                                 "Failed to broadcast failed event to libudev listners, ignoring: %m");
+        }
+
+        event_free(event);
+}
+
 static int event_queue_start(Manager *manager) {
         Event *event, *event_next;
         usec_t usec;
@@ -947,6 +938,13 @@ static int event_queue_start(Manager *manager) {
                         return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
+        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
+         * and, until the next SELinux policy changes, we safe further reloads in future children */
+        mac_selinux_maybe_reload();
+
+        if (!manager_has_idle_worker(manager))
+                return 0;
+
         LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
@@ -963,15 +961,48 @@ static int event_queue_start(Manager *manager) {
                                                  event->seqnum,
                                                  strna(device_action_to_string(a)));
 
-                        event_free(event);
+                        event_enter_failed(event);
                         return r;
                 }
                 if (r > 0)
                         continue;
 
+                r = event_lock_block_device(event);
+                if (r < 0) {
+                        sd_device_action_t a = _SD_DEVICE_ACTION_INVALID;
+
+                        (void) sd_device_get_action(event->dev, &a);
+                        if (r == -EAGAIN) {
+                                /* So this is a block device and the device is locked currently via the
+                                 * BSD advisory locks — someone else is exclusively using it. This
+                                 * means we don't run our udev rules now, to not interfere.
+                                 *
+                                 * (The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING) */
+
+                                log_device_debug(event->dev,
+                                                 "Block device is currently locked, "
+                                                 "event (SEQNUM=%"PRIu64", ACTION=%s) will be processed later.",
+                                                 event->seqnum,
+                                                 strna(device_action_to_string(a)));
+                                continue;
+                        }
+
+                        log_device_warning_errno(event->dev, r,
+                                                 "Failed to lock block device, "
+                                                 "skipping event (SEQNUM=%"PRIu64", ACTION=%s)",
+                                                 event->seqnum,
+                                                 strna(device_action_to_string(a)));
+
+                        event_enter_failed(event);
+                        return r;
+                }
+
                 r = event_run(event);
                 if (r <= 0)
                         return r;
+
+                if (!manager_has_idle_worker(manager))
+                        return 0;
         }
 
         return 0;
@@ -1013,6 +1044,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .dev_kernel = TAKE_PTR(clone),
                 .seqnum = seqnum,
                 .state = EVENT_QUEUED,
+                .lock_fd = -1,
         };
 
         if (LIST_IS_EMPTY(manager->events)) {
@@ -1449,12 +1481,7 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        if (manager->monitor) {
-                                /* forward kernel event without amending it */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                                if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
-                        }
+                        event_enter_failed(TAKE_PTR(worker->event));
                 }
 
                 worker_free(worker);
@@ -1478,10 +1505,24 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (!LIST_IS_EMPTY(manager->events))
+        if (!LIST_IS_EMPTY(manager->events)) {
+                /* Try to process pending events if there exist free workers. Why is this necessary?
+                 * When a worker finished a event and became free, even if there was a pending event,
+                 * the corresponding device might be locked and the worker could not start to process
+                 * the event. Now, the device may be unlocked. Let's try again! */
+                event_queue_start(manager);
                 return 1;
+        }
 
-        /* There are no pending events. Let's cleanup idle process. */
+        /* There are no queued events. Let's remove /run/udev/queue and cleanup idle process. */
+
+        if (device_monitor_has_queued_message(manager->monitor) <= 0) {
+                if (unlink("/run/udev/queue") < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
+                } else
+                        log_debug("No event is queued, /run/udev/queue is removed.");
+        }
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
