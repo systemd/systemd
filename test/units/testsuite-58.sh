@@ -174,7 +174,7 @@ rm -r /tmp/testsuite-58.3-defs/
 mkdir -p /tmp/testsuite-58-issue-21817-defs/
 truncate -s 100m /var/tmp/testsuite-58-issue-21817.img
 LOOP=$(losetup -P --show -f /var/tmp/testsuite-58-issue-21817.img)
-printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt /var/tmp/testsuite-58-issue-21817.img
+printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt "$LOOP"
 cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
 [Partition]
 Type=root
