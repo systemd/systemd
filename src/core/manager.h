@@ -60,9 +60,9 @@ typedef enum StatusType {
 } StatusType;
 
 typedef enum OOMPolicy {
-        OOM_CONTINUE,          /* The kernel kills the process it wants to kill, and that's it */
-        OOM_STOP,              /* The kernel kills the process it wants to kill, and we stop the unit */
-        OOM_KILL,              /* The kernel kills the process it wants to kill, and all others in the unit, and we stop the unit */
+        OOM_CONTINUE,          /* The kernel or systemd-oomd kills the process it wants to kill, and that's it */
+        OOM_STOP,              /* The kernel or systemd-oomd kills the process it wants to kill, and we stop the unit */
+        OOM_KILL,              /* The kernel or systemd-oomd kills the process it wants to kill, and all others in the unit, and we stop the unit */
         _OOM_POLICY_MAX,
         _OOM_POLICY_INVALID = -EINVAL,
 } OOMPolicy;

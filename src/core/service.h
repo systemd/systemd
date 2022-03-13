@@ -75,7 +75,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
         SERVICE_FAILURE_START_LIMIT_HIT,
-        SERVICE_FAILURE_OOM_KILL,
+        SERVICE_FAILURE_OOM_KILL, /* OOM Kill by the Kernel or systemd-oomd */
         SERVICE_SKIP_CONDITION,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -EINVAL,
