@@ -25,7 +25,7 @@ taking a BSD file lock on the block device node. Specifically, whenever
 lock using [`flock(2)`](http://man7.org/linux/man-pages/man2/flock.2.html) on
 the main block device (i.e. never on any partition block device, but on the
 device the partition belongs to). If this lock cannot be taken (i.e. `flock()`
-returns `EBUSY`), it refrains from processing the device. If it manages to take
+returns `EAGAIN`), it refrains from processing the device. If it manages to take
 the lock it is kept for the entire time the device is processed.
 
 Note that `systemd-udevd` also watches all block device nodes it manages for
