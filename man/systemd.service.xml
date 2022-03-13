@@ -1140,7 +1140,11 @@
         shall be considered preferred or less preferred candidates for process termination by the Linux OOM
         killer logic. See
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <para>This setting also applies to <command>systemd-oomd</command>, similar to kernel OOM kills
+        this setting determines the state of the service after <command>systemd-oomd</command> kills a cgroup associated
+        with the service.</para></listitem>
       </varlistentry>
 
     </variablelist>
