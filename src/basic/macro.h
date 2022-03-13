@@ -349,7 +349,7 @@ static inline int __coverity_check_and_return__(int condition) {
 #define DECIMAL_STR_WIDTH(x)                            \
         ({                                              \
                 typeof(x) _x_ = (x);                    \
-                unsigned ans = 1;                       \
+                unsigned ans = 2;                       \
                 while ((_x_ /= 10) != 0)                \
                         ans++;                          \
                 ans;                                    \
