@@ -173,15 +173,9 @@ static Event *event_free(Event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        if (event->manager->pid == getpid_cached()) {
-                /* only clean up the queue from the process that created it */
-                if (LIST_IS_EMPTY(event->manager->events) &&
-                    unlink("/run/udev/queue") < 0 && errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
-
+        if (event->manager->pid == getpid_cached())
                 /* The block device is unlocked by the main process. */
                 safe_close(event->lock_fd);
-        }
 
         return mfree(event);
 }
@@ -1520,7 +1514,15 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return 1;
         }
 
-        /* There are no pending events. Let's cleanup idle process. */
+        /* There are no queued events. Let's remove /run/udev/queue and cleanup idle process. */
+
+        if (device_monitor_has_queued_message(manager->monitor) <= 0) {
+                if (unlink("/run/udev/queue") < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
+                } else
+                        log_debug("No event is queued, /run/udev/queue is removed.");
+        }
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
