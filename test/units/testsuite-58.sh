@@ -172,9 +172,9 @@ rm -r /tmp/testsuite-58.3-defs/
 
 # testcase for #21817
 mkdir -p /tmp/testsuite-58-issue-21817-defs/
-truncate -s 100m /tmp/testsuite-58-issue-21817.img
-LOOP=$(losetup -P --show -f /tmp/testsuite-58-issue-21817.img)
-printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt /tmp/testsuite-58-issue-21817.img
+truncate -s 100m /var/tmp/testsuite-58-issue-21817.img
+LOOP=$(losetup -P --show -f /var/tmp/testsuite-58-issue-21817.img)
+printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt /var/tmp/testsuite-58-issue-21817.img
 cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
 [Partition]
 Type=root
@@ -187,7 +187,7 @@ grep -qiF "p1 : start=        2048, size=      102400, type=${root_guid}," /tmp/
 # Accept both unpadded (pre-v2.38 util-linux) and padded (v2.38+ util-linux) sizes
 grep -qE "p2 : start=      104448, size=      (100319| 98304)," /tmp/testsuite-58-issue-21817.dump
 
-rm /tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
+rm /var/tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
 rm -r /tmp/testsuite-58-issue-21817-defs/
 
 testsector()
