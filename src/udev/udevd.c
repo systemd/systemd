@@ -171,12 +171,6 @@ static Event *event_free(Event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        /* only clean up the queue from the process that created it */
-        if (LIST_IS_EMPTY(event->manager->events) &&
-            event->manager->pid == getpid_cached())
-                if (unlink("/run/udev/queue") < 0 && errno != ENOENT)
-                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
-
         return mfree(event);
 }
 
@@ -1480,7 +1474,13 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (!LIST_IS_EMPTY(manager->events))
                 return 1;
 
-        /* There are no pending events. Let's cleanup idle process. */
+        /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
+
+        if (unlink("/run/udev/queue") < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Failed to unlink /run/udev/queue, ignoring: %m");
+        } else
+                log_debug("No events are queued, removing /run/udev/queue.");
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
