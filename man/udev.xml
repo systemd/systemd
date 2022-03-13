@@ -669,7 +669,7 @@
                     log level is applied when the line including this rule is processed. So, for
                     debugging, it is recommended that this is specified at earlier place, e.g., the
                     first line of <filename>00-debug.rules</filename>.</para>
-                    <para>Example for debugging uevent processing for network interfaces.
+                    <para>Example for debugging uevent processing for network interfaces:
                     <programlisting># /etc/udev/rules.d/00-debug-net.rules
 SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
                   </listitem>
