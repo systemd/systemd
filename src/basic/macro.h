@@ -319,13 +319,13 @@ static inline int __coverity_check_and_return__(int condition) {
              sizeof(type) <= 4 ? 10U :                                  \
              sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
 
-#define DECIMAL_STR_WIDTH(x)                            \
-        ({                                              \
-                typeof(x) _x_ = (x);                    \
-                size_t ans = 1;                         \
-                while ((_x_ /= 10) != 0)                \
-                        ans++;                          \
-                ans;                                    \
+#define DECIMAL_STR_WIDTH(x)                                      \
+        ({                                                        \
+                typeof(x) _x_ = (x);                              \
+                size_t ans = IS_SIGNED_INTEGER_TYPE(_x_) ? 2 : 1; \
+                while ((_x_ /= 10) != 0)                          \
+                        ans++;                                    \
+                ans;                                              \
         })
 
 #define SWAP_TWO(x, y) do {                        \
