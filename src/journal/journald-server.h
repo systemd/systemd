@@ -136,6 +136,7 @@ struct Server {
 
         Storage storage;
         SplitMode split_mode;
+        SplitMode volatile_split_mode;
 
         MMapCache *mmap;
 
