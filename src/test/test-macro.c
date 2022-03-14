@@ -387,4 +387,27 @@ TEST(flags) {
         assert_se(f == F2);
 }
 
+TEST(DECIMAL_STR_WIDTH) {
+        assert_se(DECIMAL_STR_WIDTH(0) == 1);
+        assert_se(DECIMAL_STR_WIDTH(1) == 1);
+        assert_se(DECIMAL_STR_WIDTH(2) == 1);
+        assert_se(DECIMAL_STR_WIDTH(9) == 1);
+        assert_se(DECIMAL_STR_WIDTH(10) == 2);
+        assert_se(DECIMAL_STR_WIDTH(11) == 2);
+        assert_se(DECIMAL_STR_WIDTH(99) == 2);
+        assert_se(DECIMAL_STR_WIDTH(100) == 3);
+        assert_se(DECIMAL_STR_WIDTH(101) == 3);
+        assert_se(DECIMAL_STR_WIDTH(-1) == 2);
+        assert_se(DECIMAL_STR_WIDTH(-2) == 2);
+        assert_se(DECIMAL_STR_WIDTH(-9) == 2);
+        assert_se(DECIMAL_STR_WIDTH(-10) == 3);
+        assert_se(DECIMAL_STR_WIDTH(-11) == 3);
+        assert_se(DECIMAL_STR_WIDTH(-99) == 3);
+        assert_se(DECIMAL_STR_WIDTH(-100) == 4);
+        assert_se(DECIMAL_STR_WIDTH(-101) == 4);
+        assert_se(DECIMAL_STR_WIDTH(UINT64_MAX) == STRLEN("18446744073709551615"));
+        assert_se(DECIMAL_STR_WIDTH(INT64_MAX) == STRLEN("9223372036854775807"));
+        assert_se(DECIMAL_STR_WIDTH(INT64_MIN) == STRLEN("-9223372036854775808"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
