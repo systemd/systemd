@@ -2269,6 +2269,10 @@ int home_create_luks(
                 if (setup->image_fd < 0)
                         return log_error_errno(errno, "Failed to create home image %s: %m", t);
 
+                r = lock_image_fd(setup->image_fd, t);
+                if (r < 0)
+                        return r;
+
                 setup->temporary_image_path = TAKE_PTR(t);
 
                 r = chattr_full(t, setup->image_fd, FS_NOCOW_FL|FS_NOCOMP_FL, FS_NOCOW_FL|FS_NOCOMP_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
@@ -2311,9 +2315,11 @@ int home_create_luks(
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", setup->temporary_image_path);
         }
 
-        r = loop_device_flock(setup->loop, LOCK_EX); /* make sure udev won't read before we are done */
-        if (r < 0)
-                return log_error_errno(r, "Failed to take lock on loop device: %m");
+        if (path_startswith(ip, "/dev/")) {
+                r = loop_device_flock(setup->loop, LOCK_EX); /* make sure udev won't read before we are done */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to take lock on loop device: %m");
+        }
 
         log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
 
