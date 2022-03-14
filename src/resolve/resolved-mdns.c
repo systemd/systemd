@@ -203,7 +203,6 @@ static bool mdns_should_reply_using_unicast(DnsPacket *p) {
 }
 
 static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
-        LinkAddress *a;
         int r;
 
         /* Check whether the sender is on a local subnet. */
@@ -359,7 +358,6 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
-                DnsTransaction *t;
 
                 log_debug("Got mDNS reply packet");
 
