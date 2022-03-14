@@ -81,6 +81,19 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Code Organization and Semantics
 
+- For our codebase we intend to use ISO C11 *with* GNU extensions (aka
+  "gnu11"). Public APIs (i.e. those we expose via `libsystemd.so`
+  i.e. `systemd/sd-*.h`) should only use ISO C89 however (with a very limited
+  set of conservative and common extensions, such as fixed size integer types
+  from `<inttypes.h>`), so that we don't force consuming programs into C11
+  mode. (This discrepancy in particular means one thing: internally we use C99
+  `bool` booleans, externally C89-compatible `int` booleans which generally
+  have different size in memory and slightly different semantics, also see
+  below.)  Both for internal and external code it's OK to use even newer
+  features and GCC extension than "gnu11", as long as there's reasonable
+  fallback #ifdeffery in place to ensure compatibility is retained with older
+  compilers.
+
 - Please name structures in `PascalCase` (with exceptions, such as public API
   structs), variables and functions in `snake_case`.
 
@@ -491,7 +504,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Use the bool type for booleans, not integers. One exception: in public
   headers (i.e those in `src/systemd/sd-*.h`) use integers after all, as `bool`
-  is C99 and in our public APIs we try to stick to C89 (with a few extensions).
+  is C99 and in our public APIs we try to stick to C89 (with a few extensions;
+  also see above).
 
 ## Deadlocks
 
