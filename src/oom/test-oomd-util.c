@@ -77,12 +77,16 @@ static void test_oomd_cgroup_kill(void) {
                         abort();
                 }
 
+                assert_se(cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_ooms", &v) >= 0);
+                assert_se(streq(v, i == 0 ? "1" : "2"));
+                v = mfree(v);
+
                 /* Wait a bit since processes may take some time to be cleaned up. */
                 sleep(2);
                 assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, cgroup) == true);
 
                 assert_se(cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_kill", &v) >= 0);
-                assert_se(memcmp(v, i == 0 ? "2" : "4", 2) == 0);
+                assert_se(streq(v, i == 0 ? "2" : "4"));
         }
 }
 
