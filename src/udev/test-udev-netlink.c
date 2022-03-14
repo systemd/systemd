@@ -132,11 +132,9 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         }
 }
 
-static void test_link_info_get(void) {
+TEST(link_info_get) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-
-        log_debug("/* %s */", __func__);
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
 
@@ -156,10 +154,4 @@ static void test_link_info_get(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_link_info_get();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
