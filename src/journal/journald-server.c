@@ -181,6 +181,12 @@ static JournalStorage* server_current_storage(Server *s) {
         return s->system_journal ? &s->system_storage : &s->runtime_storage;
 }
 
+static bool server_should_seal(Server *s) {
+        assert(s);
+
+        return s->seal && server_current_storage(s) == &s->system_storage;
+}
+
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;
@@ -371,7 +377,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         /* OK, we really need the runtime journal, so create it if necessary. */
 
                         (void) mkdir_parents(s->runtime_storage.path, 0755);
-                        (void) mkdir(s->runtime_storage.path, 0750);
+                        (void) mkdir(s->runtime_storage.path, 0755);
 
                         r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0)
@@ -390,42 +396,33 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
 static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
+        JournalStorage *storage;
         ManagedJournalFile *f;
         int r;
 
         assert(s);
 
-        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as NULL.  Unless
-         * we revisit opening, even after space is made available we'll continue to return NULL indefinitely.
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as
+         * NULL.  Unless we revisit opening, even after space is made available we'll continue to
+         * return NULL indefinitely.
          *
-         * system_journal_open() is a noop if the journals are already open, so we can just call it here to
-         * recover from failed rotates (or anything else that's left the journals as NULL).
+         * system_journal_open() is a noop if the journals are already open, so we can just call it
+         * here to recover from failed rotates (or anything else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
         (void) system_journal_open(s, false, false);
 
-        /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
-         * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
-         * runtime file. */
-
-        if (s->runtime_journal)
-                return s->runtime_journal;
-
-        /* If we are not in persistent mode, then we need return NULL immediately rather than opening a
-         * persistent journal of any sort.
-         *
-         * Fixes https://github.com/systemd/systemd/issues/20390 */
-        if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
-                return NULL;
 
         if (uid_for_system_journal(uid))
-                return s->system_journal;
+                return s->system_journal ? : s->runtime_journal;
 
         f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
         if (f)
                 return f;
 
-        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0) {
+        storage = server_current_storage(s);
+
+        if (asprintf(&p, "%s/user-" UID_FMT ".journal", storage->path, uid) < 0) {
                 log_oom();
                 return s->system_journal;
         }
@@ -436,14 +433,14 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
                 (void) managed_journal_file_close(f);
         }
 
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, server_should_seal(s), &storage->metrics, &f);
         if (r < 0)
-                return s->system_journal;
+                return s->system_journal ? : s->runtime_journal;
 
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
                 (void) managed_journal_file_close(f);
-                return s->system_journal;
+                return s->system_journal ? : s->runtime_journal;
         }
 
         server_add_acls(f, uid);
@@ -604,7 +601,7 @@ void server_rotate(Server *s) {
 
         log_debug("Rotating...");
 
-        /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
+        /* First, rotate the system journal (either in its runtime flavour or in its persistent flavour) */
         (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
         (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
@@ -1107,12 +1104,63 @@ void server_dispatch_message(
         dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
 }
 
-int server_flush_to_var(Server *s, bool require_flag_file) {
-        sd_journal *j = NULL;
-        const char *fn;
+static int do_flush(Server *s, sd_journal *j) {
+        usec_t before_flush;
         unsigned n = 0;
-        usec_t start;
-        int r, k;
+        int r;
+
+        assert(s);
+        assert(j);
+
+        before_flush = now(CLOCK_MONOTONIC);
+
+        SD_JOURNAL_FOREACH(j) {
+                Object *o = NULL;
+                JournalFile *t, *f = j->current_file;
+
+                assert(f && f->current_offset > 0);
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+                if (r < 0)
+                        return log_error_errno(r, "Can't read entry: %m");
+
+                t = find_journal(s, f->uid)->file;
+                assert(t);
+
+                r = journal_file_copy_entry(f, t, o, f->current_offset);
+                if (r < 0) {
+                        if (!shall_try_append_again(t, r))
+                                return log_error_errno(r, "Can't write entry: %m");
+
+                        log_info("Rotating persistent journals");
+
+                        server_rotate(s);
+                        server_vacuum(s, false);
+
+                        log_debug("Retrying write.");
+                        r = journal_file_copy_entry(f, t, o, f->current_offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Can't write entry: %m");
+                }
+
+                n++;
+        }
+
+        server_driver_message(s, 0, NULL,
+                              LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
+                                          s->system_storage.path,
+                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), before_flush), 0),
+                                          n),
+                              NULL);
+
+        return 0;
+}
+
+int server_flush_to_var(Server *s, bool require_flag_file) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        OrderedHashmap *old_user_journals = NULL;
+        const char *fn;
+        int r;
 
         assert(s);
 
@@ -1128,91 +1176,55 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (require_flag_file && !flushed_flag_is_set(s))
                 return 0;
 
-        (void) system_journal_open(s, true, false);
-
-        if (!s->system_journal)
-                return 0;
-
-        log_debug("Flushing to %s...", s->system_storage.path);
-
-        start = now(CLOCK_MONOTONIC);
-
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0)
                 return log_error_errno(r, "Failed to read runtime journal: %m");
 
         sd_journal_set_data_threshold(j, 0);
 
-        SD_JOURNAL_FOREACH(j) {
-                Object *o = NULL;
-                JournalFile *f;
+        /* runtime and persistent journals should never be both opened at the same time
+         * except below when we're flushing. */
+        assert(!s->system_journal);
 
-                f = j->current_file;
-                assert(f && f->current_offset > 0);
+        /* Try switching the system journal from volatile to persistent */
+        (void) system_journal_open(s, true, false);
 
-                n++;
+        if (!s->system_journal)
+                return 0;       /* persistent mode disabled */
 
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0) {
-                        log_error_errno(r, "Can't read entry: %m");
-                        goto finish;
-                }
+        /* And switch user journals to persistent mode too */
+        old_user_journals = TAKE_PTR(s->user_journals);
+        s->user_journals = ordered_hashmap_new(NULL);
+        if (!s->user_journals)
+                return log_oom();
 
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
-                if (r >= 0)
-                        continue;
+        log_debug("Flushing to %s...", s->system_storage.path);
 
-                if (!shall_try_append_again(s->system_journal->file, r)) {
-                        log_error_errno(r, "Can't write entry: %m");
-                        goto finish;
-                }
+        r = do_flush(s, j);
+        if (r < 0) {
+                /* Something went wrong, let's switch back to volatile mode. */
+                ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
+                s->user_journals = TAKE_PTR(old_user_journals);
+                s->system_journal = managed_journal_file_close(s->system_journal);
 
-                log_info("Rotating system journal.");
-
-                server_rotate(s);
-                server_vacuum(s, false);
-
-                if (!s->system_journal) {
-                        log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
-                if (r < 0) {
-                        log_error_errno(r, "Can't write entry: %m");
-                        goto finish;
-                }
+                return log_error_errno(r, "Flushing to %s failed: %m", s->system_storage.path);
         }
 
-        r = 0;
-
-finish:
-        if (s->system_journal)
-                journal_file_post_change(s->system_journal->file);
+        assert(s->system_journal);
+        journal_file_post_change(s->system_journal->file);
 
         s->runtime_journal = managed_journal_file_close(s->runtime_journal);
+        ordered_hashmap_clear_with_destructor(old_user_journals, managed_journal_file_close);
 
-        if (r >= 0)
-                (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
-
-        sd_journal_close(j);
-
-        server_driver_message(s, 0, NULL,
-                              LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
-                                          s->system_storage.path,
-                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
-                                          n),
-                              NULL);
+        (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
 
         fn = strjoina(s->runtime_directory, "/flushed");
-        k = touch(fn);
-        if (k < 0)
-                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
+        r = touch(fn);
+        if (r < 0)
+                log_warning_errno(r, "Failed to touch %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
-        return r;
+        return 0;
 }
 
 static int server_relinquish_var(Server *s) {
