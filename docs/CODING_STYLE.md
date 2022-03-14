@@ -79,6 +79,46 @@ SPDX-License-Identifier: LGPL-2.1-or-later
           dont_find_waldo();
   ```
 
+- Please define flags types like this:
+
+  ```c
+  typedef enum FoobarFlags {
+          FOOBAR_QUUX  = 1 << 0,
+          FOOBAR_WALDO = 1 << 1,
+          FOOBAR_XOXO  = 1 << 2,
+          …
+  } FoobarFlags;
+  ```
+
+  i.e. use an enum for it, if possible. Indicate bit values via `1 <<`
+  expressions, and align them vertically. Define both an enum and a type for
+  it.
+
+- If you define (non-flags) enums, follow this template:
+
+  ```c
+  typedef enum FoobarMode {
+          FOOBAR_AAA,
+          FOOBAR_BBB,
+          FOOBAR_CCC,
+          …
+          _FOOBAR_MAX,
+          _FOOBAR_INVALID = -EINVAL,
+  } FoobarMode;
+  ```
+
+  i.e. define a `_MAX` enum for the largest defined enum value, plus one. Since
+  this is not a regular enum value, prefix it with `_`. Also, define a special
+  "invalid" enum value, and set it to `-EINVAL`. That way the enum type can
+  safely be used to propagate conversion errors.
+
+- If you define an enum in a public API, be extra careful, as the size of the
+  enum might change when new values are added, which would break ABI
+  compatibility. Since we typically want to allow adding new enum values to an
+  existing enum type with later API versions, please use the
+  `_SD_ENUM_FORCE_S64()` macro in the enum definition, which forces the size of
+  the enum to be signed 64bit wide.
+
 ## Code Organization and Semantics
 
 - For our codebase we intend to use ISO C11 *with* GNU extensions (aka
