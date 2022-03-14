@@ -319,12 +319,22 @@ static inline int __coverity_check_and_return__(int condition) {
              sizeof(type) <= 4 ? 10U :                                  \
              sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
 
+/* Returns the number of chars needed to format the specified integer value. It's hence more specific than
+ * DECIMAL_STR_MAX() which answers the same question for all possible values of the specified type. Does
+ * *not* include space for a trailing NUL. (If you wonder why we special case _x_ == 0 here: it's to trick
+ * out gcc's -Wtype-limits, which would complain on comparing an unsigned type with < 0, otherwise. By
+ * special-casing == 0 here first, we can use <= 0 instead of < 0 to trick out gcc.) */
 #define DECIMAL_STR_WIDTH(x)                                      \
         ({                                                        \
                 typeof(x) _x_ = (x);                              \
-                size_t ans = IS_SIGNED_INTEGER_TYPE(_x_) ? 2 : 1; \
-                while ((_x_ /= 10) != 0)                          \
-                        ans++;                                    \
+                size_t ans;                                       \
+                if (_x_ == 0)                                     \
+                        ans = 1;                                  \
+                else {                                            \
+                        ans = _x_ <= 0 ? 2 : 1;                   \
+                        while ((_x_ /= 10) != 0)                  \
+                                ans++;                            \
+                }                                                 \
                 ans;                                              \
         })
 
