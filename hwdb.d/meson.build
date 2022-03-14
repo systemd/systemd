@@ -16,7 +16,8 @@ hwdb_files_notest = files(
         '20-acpi-vendor.hwdb',
         '20-OUI.hwdb',
         '20-net-ifname.hwdb',
-        '20-vmbus-class.hwdb')
+        '20-vmbus-class.hwdb',
+        '70-multimedia.hwdb')
 
 hwdb_files_test = files(
         '60-autosuspend.hwdb',
