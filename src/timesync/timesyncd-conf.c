@@ -24,7 +24,6 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 bool found = false;
-                ServerName *n;
 
                 r = extract_first_word(&string, &word, NULL, 0);
                 if (r < 0)

@@ -185,10 +185,10 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
 }
 
 int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
-        uint64_t h;
-        JournalRateLimitGroup *g;
+        JournalRateLimitGroup *g, *found = NULL;
         JournalRateLimitPool *p;
         unsigned burst;
+        uint64_t h;
         usec_t ts;
 
         assert(id);
@@ -208,23 +208,25 @@ int journal_ratelimit_test(JournalRateLimit *r, const char *id, usec_t rl_interv
         h = siphash24_string(id, r->hash_key);
         g = r->buckets[h % BUCKETS_MAX];
 
-        LIST_FOREACH(bucket, g, g)
-                if (streq(g->id, id))
+        LIST_FOREACH(bucket, i, g)
+                if (streq(i->id, id)) {
+                        found = i;
                         break;
+                }
 
-        if (!g) {
-                g = journal_ratelimit_group_new(r, id, rl_interval, ts);
-                if (!g)
+        if (!found) {
+                found = journal_ratelimit_group_new(r, id, rl_interval, ts);
+                if (!found)
                         return -ENOMEM;
         } else
-                g->interval = rl_interval;
+                found->interval = rl_interval;
 
         if (rl_interval == 0 || rl_burst == 0)
                 return 1;
 
         burst = burst_modulate(rl_burst, available);
 
-        p = &g->pools[priority_map[priority]];
+        p = &found->pools[priority_map[priority]];
 
         if (p->begin <= 0) {
                 p->suppressed = 0;
