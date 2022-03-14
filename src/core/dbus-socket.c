@@ -32,7 +32,6 @@ static int property_get_listen(
                 sd_bus_error *error) {
 
         Socket *s = SOCKET(userdata);
-        SocketPort *p;
         int r;
 
         assert(bus);
