@@ -2,7 +2,8 @@
 #
 # Database for AV production controllers that should be accessible to the seat owner.
 #
-# This covers DJ tables, and music-oriented key pads
+# This covers DJ tables, music-oriented key pads, and streaming-oriented key pads
+# such as Elgato Stream Deck
 #
 # To add local entries, copy this file to
 #   /etc/udev/hwdb.d/
@@ -22,6 +23,29 @@ usb:v2982p1967*
 ################
 # Otus
 usb:v1157p0300*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+################
+# Elgato
+################
+# Stream Deck Original (gen 1)
+usb:v0FD9p0060*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck Mini
+usb:v0FD9p0063*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck XL
+usb:v0FD9p006C*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck Original (gen 2)
+usb:v0FD9p006D*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# Stream Deck MK.2
+usb:v0FD9p0080*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 #############################
