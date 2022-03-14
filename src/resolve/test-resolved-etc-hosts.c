@@ -14,10 +14,8 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_parse_etc_hosts_system(void) {
+TEST(parse_etc_hosts_system) {
         _cleanup_fclose_ FILE *f = NULL;
-
-        log_info("/* %s */", __func__);
 
         f = fopen("/etc/hosts", "re");
         if (!f) {
@@ -37,11 +35,9 @@ static void test_parse_etc_hosts_system(void) {
         ((_addr)->family == AF_INET6 &&                                 \
          !memcmp(&(_addr)->address.in6, &(struct in6_addr) { .s6_addr = __VA_ARGS__}, 16) )
 
-static void test_parse_etc_hosts(void) {
+TEST(parse_etc_hosts) {
         _cleanup_(unlink_tempfilep) char
                 t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";
-
-        log_info("/* %s */", __func__);
 
         int fd;
         _cleanup_fclose_ FILE *f;
@@ -128,7 +124,7 @@ static void test_parse_etc_hosts(void) {
         assert_se(!set_contains(hosts.no_address, "foobar.foo.foo"));
 }
 
-static void test_parse_file(const char *fname) {
+static void test_parse_file_one(const char *fname) {
         _cleanup_(etc_hosts_free) EtcHosts hosts = {};
         _cleanup_fclose_ FILE *f;
 
@@ -138,14 +134,9 @@ static void test_parse_file(const char *fname) {
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        if (argc == 1) {
-                test_parse_etc_hosts_system();
-                test_parse_etc_hosts();
-        } else
-                test_parse_file(argv[1]);
-
-        return 0;
+TEST(parse_file) {
+        for (int i = 1; i < saved_argc; i++)
+                test_parse_file_one(saved_argv[i]);
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

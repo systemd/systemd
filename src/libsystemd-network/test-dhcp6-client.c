@@ -78,11 +78,9 @@ static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
 
-static void test_client_basic(void) {
+TEST(client_basic) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         int v;
-
-        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(client);
@@ -144,12 +142,10 @@ static void test_client_basic(void) {
         assert_se(sd_dhcp6_client_detach_event(client) >= 0);
 }
 
-static void test_parse_domain(void) {
+TEST(parse_domain) {
         _cleanup_free_ char *domain = NULL;
         _cleanup_strv_free_ char **list = NULL;
         uint8_t *data;
-
-        log_debug("/* %s */", __func__);
 
         data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };
         assert_se(dhcp6_option_parse_domainname(data, 13, &domain) >= 0);
@@ -182,7 +178,7 @@ static void test_parse_domain(void) {
         assert_se(dhcp6_option_parse_domainname_list(data, 2, &list) < 0);
 }
 
-static void test_option(void) {
+TEST(option) {
         uint8_t packet[] = {
                 'F', 'O', 'O', 'H', 'O', 'G', 'E',
                 0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x07,
@@ -203,8 +199,6 @@ static void test_option(void) {
         const uint8_t *optval;
         uint16_t optcode;
         uint8_t *out;
-
-        log_debug("/* %s */", __func__);
 
         assert_se(sizeof(packet) == sizeof(result));
 
@@ -258,7 +252,7 @@ static void test_option(void) {
         assert_se(memcmp(packet, result, sizeof(packet)) == 0);
 }
 
-static void test_option_status(void) {
+TEST(option_status) {
         uint8_t option1[] = {
                 /* IA NA */
                 0x00, 0x03, 0x00, 0x12, 0x1a, 0x1d, 0x1a, 0x1d,
@@ -330,8 +324,6 @@ static void test_option_status(void) {
         be32_t iaid;
         int r;
 
-        log_debug("/* %s */", __func__);
-
         memcpy(&iaid, option1 + 4, sizeof(iaid));
 
         option = (DHCP6Option*) option1;
@@ -384,7 +376,7 @@ static void test_option_status(void) {
         ia = dhcp6_ia_free(ia);
 }
 
-static void test_client_parse_message_issue_22099(void) {
+TEST(client_parse_message_issue_22099) {
         static const uint8_t msg[] = {
                 /* Message type */
                 DHCP6_MESSAGE_REPLY,
@@ -443,8 +435,6 @@ static void test_client_parse_message_issue_22099(void) {
         };
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
-
-        log_debug("/* %s */", __func__);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, 0xcc59117b) >= 0);
@@ -970,11 +960,9 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *a) {
         return TAKE_FD(test_fd[0]);
 }
 
-static void test_dhcp6_client(void) {
+TEST(dhcp6_client) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-
-        log_debug("/* %s */", __func__);
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
@@ -1006,15 +994,4 @@ static void test_dhcp6_client(void) {
         test_fd[1] = safe_close(test_fd[1]);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_client_basic();
-        test_parse_domain();
-        test_option();
-        test_option_status();
-        test_client_parse_message_issue_22099();
-        test_dhcp6_client();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

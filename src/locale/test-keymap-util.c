@@ -6,10 +6,8 @@
 #include "string-util.h"
 #include "tests.h"
 
-static void test_find_language_fallback(void) {
+TEST(find_language_fallback) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
-
-        log_info("/*** %s ***/", __func__);
 
         assert_se(find_language_fallback("foobar", &ans) == 0);
         assert_se(ans == NULL);
@@ -24,11 +22,9 @@ static void test_find_language_fallback(void) {
         assert_se(streq(ans2, "szl:pl"));
 }
 
-static void test_find_converted_keymap(void) {
+TEST(find_converted_keymap) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
         int r;
-
-        log_info("/*** %s ***/", __func__);
 
         assert_se(find_converted_keymap("pl", "foobar", &ans) == 0);
         assert_se(ans == NULL);
@@ -46,11 +42,9 @@ static void test_find_converted_keymap(void) {
         assert_se(streq(ans2, "pl-dvorak"));
 }
 
-static void test_find_legacy_keymap(void) {
+TEST(find_legacy_keymap) {
         Context c = {};
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
-
-        log_info("/*** %s ***/", __func__);
 
         c.x11_layout = (char*) "foobar";
         assert_se(find_legacy_keymap(&c, &ans) == 0);
@@ -65,10 +59,8 @@ static void test_find_legacy_keymap(void) {
         assert_se(streq(ans, "pl2"));
 }
 
-static void test_vconsole_convert_to_x11(void) {
+TEST(vconsole_convert_to_x11) {
         _cleanup_(context_clear) Context c = {};
-
-        log_info("/*** %s ***/", __func__);
 
         log_info("/* test emptying first (:) */");
         assert_se(free_and_strdup(&c.x11_layout, "foo") >= 0);
@@ -119,11 +111,9 @@ static void test_vconsole_convert_to_x11(void) {
         assert_se(c.x11_variant == NULL);
 }
 
-static void test_x11_convert_to_vconsole(void) {
+TEST(x11_convert_to_vconsole) {
         _cleanup_(context_clear) Context c = {};
         int r;
-
-        log_info("/*** %s ***/", __func__);
 
         log_info("/* test emptying first (:) */");
         assert_se(free_and_strdup(&c.vc_keymap, "foobar") >= 0);
@@ -189,20 +179,13 @@ static void test_x11_convert_to_vconsole(void) {
         assert_se(streq(c.vc_keymap, "ru"));
 }
 
-int main(int argc, char **argv) {
+static int intro(void) {
         _cleanup_free_ char *map = NULL;
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_find_language_fallback();
-        test_find_converted_keymap();
 
         assert_se(get_testdata_dir("test-keymap-util/kbd-model-map", &map) >= 0);
         assert_se(setenv("SYSTEMD_KBD_MODEL_MAP", map, 1) == 0);
 
-        test_find_legacy_keymap();
-        test_vconsole_convert_to_x11();
-        test_x11_convert_to_vconsole();
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

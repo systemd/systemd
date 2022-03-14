@@ -9,7 +9,7 @@
 #include "tmpfile-util.h"
 #include "xdg-autostart-service.h"
 
-static void test_translate_name(void) {
+TEST(translate_name) {
         _cleanup_free_ char *t;
 
         assert_se(t = xdg_autostart_service_translate_name("a-b.blub.desktop"));
@@ -24,7 +24,7 @@ static void test_xdg_format_exec_start_one(const char *exec, const char *expecte
         assert_se(streq(out, expected));
 }
 
-static void test_xdg_format_exec_start(void) {
+TEST(xdg_format_exec_start) {
         test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep \"100\"");
 
         /* All standardised % identifiers are stripped. */
@@ -50,7 +50,7 @@ static const char* const xdg_desktop_file[] = {
          "Hidden=\t true\n"),
 };
 
-static void test_xdg_desktop_parse(unsigned i, const char *s) {
+static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-xdg-autostart-parser.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
@@ -80,14 +80,9 @@ static void test_xdg_desktop_parse(unsigned i, const char *s) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_translate_name();
-        test_xdg_format_exec_start();
-
+TEST(xdg_desktop_parse) {
         for (size_t i = 0; i < ELEMENTSOF(xdg_desktop_file); i++)
-                test_xdg_desktop_parse(i, xdg_desktop_file[i]);
-
-        return 0;
+                test_xdg_desktop_parse_one(i, xdg_desktop_file[i]);
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

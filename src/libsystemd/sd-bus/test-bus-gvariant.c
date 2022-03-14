@@ -15,9 +15,7 @@
 #include "tests.h"
 #include "util.h"
 
-static void test_bus_gvariant_is_fixed_size(void) {
-        log_info("/* %s */", __func__);
-
+TEST(bus_gvariant_is_fixed_size) {
         assert_se(bus_gvariant_is_fixed_size("") > 0);
         assert_se(bus_gvariant_is_fixed_size("()") == -EINVAL);
         assert_se(bus_gvariant_is_fixed_size("y") > 0);
@@ -42,9 +40,7 @@ static void test_bus_gvariant_is_fixed_size(void) {
         assert_se(bus_gvariant_is_fixed_size("((u)yyy(b(iiivi)))") == 0);
 }
 
-static void test_bus_gvariant_get_size(void) {
-        log_info("/* %s */", __func__);
-
+TEST(bus_gvariant_get_size) {
         assert_se(bus_gvariant_get_size("") == 0);
         assert_se(bus_gvariant_get_size("()") == -EINVAL);
         assert_se(bus_gvariant_get_size("y") == 1);
@@ -76,9 +72,7 @@ static void test_bus_gvariant_get_size(void) {
         assert_se(bus_gvariant_get_size("((t)(t))") == 16);
 }
 
-static void test_bus_gvariant_get_alignment(void) {
-        log_info("/* %s */", __func__);
-
+TEST(bus_gvariant_get_alignment) {
         assert_se(bus_gvariant_get_alignment("") == 1);
         assert_se(bus_gvariant_get_alignment("()") == -EINVAL);
         assert_se(bus_gvariant_get_alignment("y") == 1);
@@ -119,7 +113,7 @@ static void test_bus_gvariant_get_alignment(void) {
         assert_se(bus_gvariant_get_alignment("((t)(t))") == 8);
 }
 
-static int test_marshal(void) {
+TEST_RET(marshal) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *n = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ void *blob = NULL;
@@ -209,12 +203,4 @@ static int test_marshal(void) {
         return EXIT_SUCCESS;
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_bus_gvariant_is_fixed_size();
-        test_bus_gvariant_get_size();
-        test_bus_gvariant_get_alignment();
-
-        return test_marshal();
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

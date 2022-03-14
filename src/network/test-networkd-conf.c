@@ -9,6 +9,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "strv.h"
+#include "tests.h"
 
 static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
         DUID actual = {};
@@ -22,7 +23,7 @@ static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDTyp
                 assert_se(expected_time == actual.llt_time);
 }
 
-static void test_config_parse_duid_type(void) {
+TEST(config_parse_duid_type) {
         test_config_parse_duid_type_one("", 0, 0, 0);
         test_config_parse_duid_type_one("link-layer-time", 0, DUID_TYPE_LLT, 0);
         test_config_parse_duid_type_one("link-layer-time:2000-01-01 00:00:00 UTC", 0, DUID_TYPE_LLT, (usec_t) 946684800000000);
@@ -86,7 +87,7 @@ static void test_config_parse_ether_addrs_one(const char *rvalue, const struct e
 
 #define BYTES_1_128 {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,0x2c,0x2d,0x2e,0x2f,0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x3b,0x3c,0x3d,0x3e,0x3f,0x40,0x41,0x42,0x43,0x44,0x45,0x46,0x47,0x48,0x49,0x4a,0x4b,0x4c,0x4d,0x4e,0x4f,0x50,0x51,0x52,0x53,0x54,0x55,0x56,0x57,0x58,0x59,0x5a,0x5b,0x5c,0x5d,0x5e,0x5f,0x60,0x61,0x62,0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x6c,0x6d,0x6e,0x6f,0x70,0x71,0x72,0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7a,0x7b,0x7c,0x7d,0x7e,0x7f,0x80}
 
-static void test_config_parse_duid_rawdata(void) {
+TEST(config_parse_duid_rawdata) {
         test_config_parse_duid_rawdata_one("", 0, &(DUID){});
         test_config_parse_duid_rawdata_one("00:11:22:33:44:55:66:77", 0,
                                            &(DUID){0, 8, {0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77}});
@@ -102,7 +103,7 @@ static void test_config_parse_duid_rawdata(void) {
         test_config_parse_duid_rawdata_one(&BYTES_0_128[2], 0, &(DUID){0, 128, BYTES_1_128});
 }
 
-static void test_config_parse_ether_addr(void) {
+TEST(config_parse_ether_addr) {
         const struct ether_addr t[] = {
                 { .ether_addr_octet = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } },
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
@@ -192,7 +193,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         }
 }
 
-static void test_config_parse_address(void) {
+TEST(config_parse_address) {
         test_config_parse_address_one("", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/8", AF_INET, 0, NULL, 0);
@@ -219,7 +220,7 @@ static void test_config_parse_address(void) {
         test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
 }
 
-static void test_config_parse_match_ifnames(void) {
+TEST(config_parse_match_ifnames) {
         _cleanup_strv_free_ char **names = NULL;
 
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
@@ -229,7 +230,7 @@ static void test_config_parse_match_ifnames(void) {
         assert_se(strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc")));
 }
 
-static void test_config_parse_match_strv(void) {
+TEST(config_parse_match_strv) {
         _cleanup_strv_free_ char **names = NULL;
 
         assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
@@ -247,16 +248,4 @@ static void test_config_parse_match_strv(void) {
                                        "KEY3=val with \\quotation\\")));
 }
 
-int main(int argc, char **argv) {
-        log_parse_environment();
-        log_open();
-
-        test_config_parse_duid_type();
-        test_config_parse_duid_rawdata();
-        test_config_parse_ether_addr();
-        test_config_parse_address();
-        test_config_parse_match_ifnames();
-        test_config_parse_match_strv();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

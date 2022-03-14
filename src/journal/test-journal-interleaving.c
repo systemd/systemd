@@ -70,7 +70,7 @@ static void append_number(ManagedJournalFile *f, int n, uint64_t *seqnum) {
         free(p);
 }
 
-static void test_check_number (sd_journal *j, int n) {
+static void test_check_number(sd_journal *j, int n) {
         const void *d;
         _cleanup_free_ char *k;
         size_t l;
@@ -84,7 +84,7 @@ static void test_check_number (sd_journal *j, int n) {
         assert_se(n == x);
 }
 
-static void test_check_numbers_down (sd_journal *j, int count) {
+static void test_check_numbers_down(sd_journal *j, int count) {
         int i;
 
         for (i = 1; i <= count; i++) {
@@ -99,7 +99,7 @@ static void test_check_numbers_down (sd_journal *j, int count) {
 
 }
 
-static void test_check_numbers_up (sd_journal *j, int count) {
+static void test_check_numbers_up(sd_journal *j, int count) {
         for (int i = count; i >= 1; i--) {
                 int r;
                 test_check_number(j, i);
@@ -145,7 +145,7 @@ static void mkdtemp_chdir_chattr(char *path) {
         (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 }
 
-static void test_skip(void (*setup)(void)) {
+static void test_skip_one(void (*setup)(void)) {
         char t[] = "/var/tmp/journal-skip-XXXXXX";
         sd_journal *j;
         int r;
@@ -201,8 +201,12 @@ static void test_skip(void (*setup)(void)) {
         puts("------------------------------------------------------------");
 }
 
-static void test_sequence_numbers(void) {
+TEST(skip) {
+        test_skip_one(setup_sequential);
+        test_skip_one(setup_interleaved);
+}
 
+TEST(sequence_numbers) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-seq-XXXXXX";
         ManagedJournalFile *one, *two;
@@ -287,19 +291,14 @@ static void test_sequence_numbers(void) {
         }
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
+static int intro(void) {
         /* managed_journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
-        arg_keep = argc > 1;
+        arg_keep = saved_argc > 1;
 
-        test_skip(setup_sequential);
-        test_skip(setup_interleaved);
-
-        test_sequence_numbers();
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

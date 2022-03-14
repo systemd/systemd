@@ -8,8 +8,9 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "string-util.h"
+#include "tests.h"
 
-static void test_error(void) {
+TEST(error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
         const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
         const sd_bus_error temporarily_const_error = {
@@ -126,7 +127,7 @@ static void test_error(void) {
 extern const sd_bus_error_map __start_SYSTEMD_BUS_ERROR_MAP[];
 extern const sd_bus_error_map __stop_SYSTEMD_BUS_ERROR_MAP[];
 
-static void dump_mapping_table(void) {
+static int dump_mapping_table(void) {
         const sd_bus_error_map *m;
 
         printf("----- errno mappings ------\n");
@@ -142,9 +143,11 @@ static void dump_mapping_table(void) {
                 m++;
         }
         printf("---------------------------\n");
+
+        return EXIT_SUCCESS;
 }
 
-static void test_errno_mapping_standard(void) {
+TEST(errno_mapping_standard) {
         assert_se(sd_bus_error_set(NULL, "System.Error.EUCLEAN", NULL) == -EUCLEAN);
         assert_se(sd_bus_error_set(NULL, "System.Error.EBUSY", NULL) == -EBUSY);
         assert_se(sd_bus_error_set(NULL, "System.Error.EINVAL", NULL) == -EINVAL);
@@ -186,7 +189,7 @@ static const sd_bus_error_map test_errors_bad2[] = {
         SD_BUS_ERROR_MAP_END
 };
 
-static void test_errno_mapping_custom(void) {
+TEST(errno_mapping_custom) {
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", NULL) == -5);
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-2", NULL) == -52);
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error-x", NULL) == -EIO);
@@ -214,7 +217,7 @@ static void test_errno_mapping_custom(void) {
         assert_se(sd_bus_error_add_map(test_errors_bad2) == -EINVAL);
 }
 
-static void test_sd_bus_error_set_errnof(void) {
+TEST(sd_bus_error_set_errnof) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *str = NULL;
 
@@ -288,13 +291,4 @@ static void test_sd_bus_error_set_errnof(void) {
         assert_se(error._need_free == 1);
 }
 
-int main(int argc, char *argv[]) {
-        dump_mapping_table();
-
-        test_error();
-        test_errno_mapping_standard();
-        test_errno_mapping_custom();
-        test_sd_bus_error_set_errnof();
-
-        return 0;
-}
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, dump_mapping_table);

@@ -11,6 +11,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -35,7 +36,7 @@ static const char *e(int r) {
         return r == 0 ? "OK" : errno_to_name(r);
 }
 
-static void test_login(void) {
+TEST(login) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_free_ char *pp = NULL, *qq = NULL,
                 *display_session = NULL, *cgroup = NULL,
@@ -259,9 +260,12 @@ static void test_login(void) {
         }
 }
 
-static void test_monitor(void) {
+TEST(monitor) {
         sd_login_monitor *m = NULL;
         int r;
+
+        if (!streq_ptr(saved_argv[1], "-m"))
+                return;
 
         assert_se(sd_login_monitor_new("session", &m) == 0);
 
@@ -290,16 +294,9 @@ static void test_monitor(void) {
         sd_login_monitor_unref(m);
 }
 
-int main(int argc, char* argv[]) {
-        log_parse_environment();
-        log_open();
-
+static int intro(void) {
         log_info("/* Information printed is from the live system */");
-
-        test_login();
-
-        if (streq_ptr(argv[1], "-m"))
-                test_monitor();
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

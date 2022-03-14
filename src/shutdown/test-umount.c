@@ -9,7 +9,7 @@
 #include "umount.h"
 #include "util.h"
 
-static void test_mount_points_list(const char *fname) {
+static void test_mount_points_list_one(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         _cleanup_free_ char *testdata_fname = NULL;
         MountPoint *m;
@@ -33,7 +33,14 @@ static void test_mount_points_list(const char *fname) {
                           major(m->devnum), minor(m->devnum));
 }
 
-static void test_swap_list(const char *fname) {
+TEST(mount_points_list) {
+        test_mount_points_list_one(NULL);
+        test_mount_points_list_one("/test-umount/empty.mountinfo");
+        test_mount_points_list_one("/test-umount/garbled.mountinfo");
+        test_mount_points_list_one("/test-umount/rhbug-1554943.mountinfo");
+}
+
+static void test_swap_list_one(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         _cleanup_free_ char *testdata_fname = NULL;
         MountPoint *m;
@@ -61,14 +68,9 @@ static void test_swap_list(const char *fname) {
                           major(m->devnum), minor(m->devnum));
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_mount_points_list(NULL);
-        test_mount_points_list("/test-umount/empty.mountinfo");
-        test_mount_points_list("/test-umount/garbled.mountinfo");
-        test_mount_points_list("/test-umount/rhbug-1554943.mountinfo");
-
-        test_swap_list(NULL);
-        test_swap_list("/test-umount/example.swaps");
+TEST(swap_list) {
+        test_swap_list_one(NULL);
+        test_swap_list_one("/test-umount/example.swaps");
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

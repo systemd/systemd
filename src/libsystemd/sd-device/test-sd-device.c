@@ -60,11 +60,9 @@ static void test_sd_device_one(sd_device *d) {
         log_info("syspath:%s subsystem:%s initialized:%s", syspath, strna(subsystem), yes_no(i));
 }
 
-static void test_sd_device_enumerator_devices(void) {
+TEST(sd_device_enumerator_devices) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
@@ -72,11 +70,9 @@ static void test_sd_device_enumerator_devices(void) {
                 test_sd_device_one(d);
 }
 
-static void test_sd_device_enumerator_subsystems(void) {
+TEST(sd_device_enumerator_subsystems) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
@@ -113,15 +109,13 @@ static unsigned test_sd_device_enumerator_filter_subsystem_one(const char *subsy
         return n_new_dev;
 }
 
-static void test_sd_device_enumerator_filter_subsystem(void) {
+TEST(sd_device_enumerator_filter_subsystem) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *subsystems;
         unsigned n_new_dev = 0;
         sd_device *d;
         Hashmap *h;
         char *s;
-
-        log_info("/* %s */", __func__);
 
         assert_se(subsystems = hashmap_new(&string_hash_ops));
         assert_se(sd_device_enumerator_new(&e) >= 0);
@@ -164,7 +158,7 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
         assert_se(n_new_dev <= 10);
 }
 
-static void test_sd_device_new_from_nulstr(void) {
+TEST(sd_device_new_from_nulstr) {
         const char *devlinks =
                 "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
                 "/dev/disk/by-path/pci-0000:00:0f.0-scsi-0:0:0:0-part3\0"
@@ -178,8 +172,6 @@ static void test_sd_device_new_from_nulstr(void) {
         const char *devlink;
         const uint8_t *nulstr;
         size_t len;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_device_new_from_syspath(&device, "/sys/class/net/lo") >= 0);
 
@@ -205,14 +197,4 @@ static void test_sd_device_new_from_nulstr(void) {
         }
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_sd_device_enumerator_devices();
-        test_sd_device_enumerator_subsystems();
-        test_sd_device_enumerator_filter_subsystem();
-
-        test_sd_device_new_from_nulstr();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

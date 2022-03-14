@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "journald-server.h"
+#include "tests.h"
 
 #define _COMPRESS_PARSE_CHECK(str, enab, thresh, varname)               \
         do {                                                            \
@@ -17,7 +18,7 @@
 #define COMPRESS_PARSE_CHECK(str, enabled, threshold)                   \
         _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
 
-static void test_config_compress(void) {
+TEST(config_compress) {
         COMPRESS_PARSE_CHECK("yes", true, 111);
         COMPRESS_PARSE_CHECK("no", false, 111);
         COMPRESS_PARSE_CHECK("y", true, 111);
@@ -46,8 +47,4 @@ static void test_config_compress(void) {
         COMPRESS_PARSE_CHECK("", true, UINT64_MAX);
 }
 
-int main(int argc, char *argv[]) {
-        test_config_compress();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

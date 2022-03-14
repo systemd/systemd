@@ -3,7 +3,7 @@
 #include "analyze-verify-util.h"
 #include "tests.h"
 
-static void test_verify_nonexistent(void) {
+TEST(verify_nonexistent) {
         /* Negative cases */
         assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/non/existent"}, NULL) == 0);
         assert_se(verify_executable(NULL, &(ExecCommand) {.path = (char*) "/non/existent"}, NULL) < 0);
@@ -13,8 +13,4 @@ static void test_verify_nonexistent(void) {
         assert_se(verify_executable(NULL, &(ExecCommand) {.flags = EXEC_COMMAND_IGNORE_FAILURE, .path = (char*) "/bin/echo"}, NULL) == 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_verify_nonexistent();
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
