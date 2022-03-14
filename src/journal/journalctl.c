@@ -581,6 +581,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (OUTPUT_MODE_IS_JSON(arg_output))
                                 arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+                        else
+                                arg_json_format_flags = JSON_FORMAT_OFF;
+
                         break;
 
                 case 'l':
@@ -1457,12 +1460,26 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        table = table_new(OUTPUT_MODE_IS_JSON(arg_output) ? "index" : "idx", "boot id", "first entry", "last entry");
+        table = table_new("idx", "boot id", "first entry", "last entry");
         if (!table)
                 return log_oom();
 
         if (arg_full)
                 table_set_width(table, 0);
+
+        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                r = table_set_json_field_name(table, 0, "index");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
+        }
+
+        r = table_set_sort(table, (size_t) 0);
+        if (r < 0)
+                return r;
+
+        r = table_set_reverse(table, 0, arg_reverse);
+        if (r < 0)
+                return r;
 
         i = 0;
         LIST_FOREACH(boot_list, id, all_ids) {
