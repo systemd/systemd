@@ -340,7 +340,7 @@ TEST(flags) {
         assert_se(!FLAGS_SET(F1 | F2, F1 | F3));
         assert_se(!FLAGS_SET(F1 | F2 | F3, ~F_ALL));
 
-        // Check for no double eval.
+        /* Check for no double eval. */
         n = F2;
         f = F1;
         assert_se(!FLAGS_SET(--n, ++f));
@@ -379,7 +379,7 @@ TEST(flags) {
         assert_se(UPDATE_FLAG(F1, F_ALL, false) == 0);
         assert_se(UPDATE_FLAG(F_ALL, F_ALL, false) == 0);
 
-        // Check for no double eval.
+        /* Check for no double eval. */
         n = F2;
         f = F1;
         assert_se(UPDATE_FLAG(--n, ++f, true) == (F1 | F2));
