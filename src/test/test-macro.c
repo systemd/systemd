@@ -410,4 +410,27 @@ TEST(DECIMAL_STR_WIDTH) {
         assert_se(DECIMAL_STR_WIDTH(INT64_MIN) == STRLEN("-9223372036854775808"));
 }
 
+TEST(DECIMAL_STR_MAX) {
+        int8_t s8_longest = INT8_MIN;
+        int16_t s16_longest = INT16_MIN;
+        int32_t s32_longest = INT32_MIN;
+        int64_t s64_longest = INT64_MIN;
+        uint8_t u8_longest = UINT8_MAX;
+        uint16_t u16_longest = UINT16_MAX;
+        uint32_t u32_longest = UINT32_MAX;
+        uint64_t u64_longest = UINT64_MAX;
+
+        /* NB: Always add +1, because DECIMAL_STR_MAX() includes space for trailing NUL byte, but
+         * DECIMAL_STR_WIDTH() does not! */
+        assert_se(DECIMAL_STR_MAX(int8_t) == DECIMAL_STR_WIDTH(s8_longest)+1);
+        assert_se(DECIMAL_STR_MAX(int16_t) == DECIMAL_STR_WIDTH(s16_longest)+1);
+        assert_se(DECIMAL_STR_MAX(int32_t) == DECIMAL_STR_WIDTH(s32_longest)+1);
+        assert_se(DECIMAL_STR_MAX(int64_t) == DECIMAL_STR_WIDTH(s64_longest)+1);
+
+        assert_se(DECIMAL_STR_MAX(uint8_t) == DECIMAL_STR_WIDTH(u8_longest)+1);
+        assert_se(DECIMAL_STR_MAX(uint16_t) == DECIMAL_STR_WIDTH(u16_longest)+1);
+        assert_se(DECIMAL_STR_MAX(uint32_t) == DECIMAL_STR_WIDTH(u32_longest)+1);
+        assert_se(DECIMAL_STR_MAX(uint64_t) == DECIMAL_STR_WIDTH(u64_longest)+1);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
