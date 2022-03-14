@@ -1471,6 +1471,9 @@ static int list_boots(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
 
+        (void) table_set_sort(table, (size_t) 0);
+        (void) table_set_reverse(table, 0, arg_reverse);
+
         i = 0;
         LIST_FOREACH(boot_list, id, all_ids) {
                 r = table_add_many(table,
