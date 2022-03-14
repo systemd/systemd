@@ -9,6 +9,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "acl-util.h"
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -1220,6 +1221,7 @@ int copy_file_fd_full(
         if (S_ISREG(st.st_mode)) {
                 (void) copy_times(fdf, fdt, copy_flags);
                 (void) copy_xattr(fdf, fdt, copy_flags);
+                (void) copy_acls(fdf, fdt, copy_flags);
         }
 
         if (copy_flags & COPY_FSYNC_FULL) {
@@ -1292,6 +1294,7 @@ int copy_file_full(
 
         (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, fdt, copy_flags);
+        (void) copy_acls(fdf, fdt, copy_flags);
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
@@ -1502,4 +1505,20 @@ int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
         }
 
         return ret;
+}
+
+int copy_acls(int fdf, int fdt, CopyFlags copyflags) {
+
+        if (FLAGS_SET(copyflags, COPY_ALL_ACLS)) {
+                _cleanup_(acl_freep) acl_t acl = NULL;
+
+                acl = acl_get_fd(fdf);
+                if (!acl)
+                        return -errno;
+
+                if (acl_set_fd(fdt, acl) < 0)
+                        return -errno;
+        }
+
+        return 0;
 }
