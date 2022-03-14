@@ -2591,33 +2591,21 @@ int unit_file_add_dependency(
                                      SEARCH_FOLLOW_CONFIG_SYMLINKS, changes, n_changes);
 }
 
-int unit_file_enable(
+static int do_unit_file_enable(
+                const LookupPaths *lp,
                 UnitFileScope scope,
-                UnitFileFlags file_flags,
-                const char *root_dir,
+                UnitFileFlags flags,
+                const char *config_path,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        const char *config_path;
         UnitFileInstallInfo *info;
         int r;
 
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-
-        r = lookup_paths_init_or_warn(&lp, scope, 0, root_dir);
-        if (r < 0)
-                return r;
-
-        config_path = config_path_from_flags(&lp, file_flags);
-        if (!config_path)
-                return -ENXIO;
-
         STRV_FOREACH(f, files) {
-                r = install_info_discover_and_check(&ctx, &lp, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                r = install_info_discover_and_check(&ctx, lp, *f, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                     &info, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -2630,9 +2618,64 @@ int unit_file_enable(
            is useful to determine whether the passed files had any
            installation data at all. */
 
-        return install_context_apply(&ctx, &lp, file_flags, config_path,
+        return install_context_apply(&ctx, lp, flags, config_path,
                                      SEARCH_LOAD, changes, n_changes);
 }
+
+int unit_file_enable(
+                UnitFileScope scope,
+                UnitFileFlags flags,
+                const char *root_dir,
+                char **files,
+                UnitFileChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        r = lookup_paths_init(&lp, scope, 0, root_dir);
+        if (r < 0)
+                return r;
+
+        const char *config_path = config_path_from_flags(&lp, flags);
+        if (!config_path)
+                return -ENXIO;
+
+        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes);
+}
+
+static int do_unit_file_disable(
+                const LookupPaths *lp,
+                UnitFileScope scope,
+                UnitFileFlags flags,
+                const char *config_path,
+                char **files,
+                UnitFileChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        int r;
+
+        STRV_FOREACH(i, files) {
+                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
+                        return -EINVAL;
+
+                r = install_info_add(&ctx, *i, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+}
+
 
 int unit_file_disable(
                 UnitFileScope scope,
@@ -2643,9 +2686,6 @@ int unit_file_disable(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        const char *config_path;
         int r;
 
         assert(scope >= 0);
@@ -2655,24 +2695,11 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        config_path = config_path_from_flags(&lp, flags);
+        const char *config_path = config_path_from_flags(&lp, flags);
         if (!config_path)
                 return -ENXIO;
 
-        STRV_FOREACH(i, files) {
-                if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
-                        return -EINVAL;
-
-                r = install_info_add(&ctx, *i, NULL, lp.root_dir, /* auxiliary= */ false, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        r = install_context_mark_for_removal(&ctx, &lp, &remove_symlinks_to, config_path, changes, n_changes);
-        if (r < 0)
-                return r;
-
-        return remove_marked_symlinks(remove_symlinks_to, config_path, &lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+        return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
 }
 
 int unit_file_reenable(
@@ -2683,23 +2710,35 @@ int unit_file_reenable(
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
-        char **n;
-        int r;
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         size_t l, i;
+        char **names;
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        r = lookup_paths_init(&lp, scope, 0, root_dir);
+        if (r < 0)
+                return r;
+
+        const char *config_path = config_path_from_flags(&lp, flags);
+        if (!config_path)
+                return -ENXIO;
 
         /* First, we invoke the disable command with only the basename... */
         l = strv_length(files);
-        n = newa(char*, l+1);
+        names = newa(char*, l+1);
         for (i = 0; i < l; i++)
-                n[i] = basename(files[i]);
-        n[i] = NULL;
+                names[i] = basename(files[i]);
+        names[i] = NULL;
 
-        r = unit_file_disable(scope, flags, root_dir, n, changes, n_changes);
+        r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes);
         if (r < 0)
                 return r;
 
         /* But the enable command with the full name */
-        return unit_file_enable(scope, flags, root_dir, files, changes, n_changes);
+        return do_unit_file_enable(&lp, scope, flags, config_path, files, changes, n_changes);
 }
 
 int unit_file_set_default(
