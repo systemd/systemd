@@ -39,8 +39,7 @@ static void test_get_bcd_title_one(
 }
 
 TEST(get_bcd_title) {
-        const char16_t win10[] = { 'W', 'i', 'n', 'd', 'o', 'w', 's', ' ', '1', '0', '\0' };
-        test_get_bcd_title_one("test-bcd/win10.bcd.zst", win10, sizeof(win10));
+        test_get_bcd_title_one("test-bcd/win10.bcd.zst", u"Windows 10", sizeof(u"Windows 10"));
 
         test_get_bcd_title_one("test-bcd/description-bad-type.bcd.zst", NULL, 0);
         test_get_bcd_title_one("test-bcd/description-empty.bcd.zst", NULL, 0);
