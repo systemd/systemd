@@ -2959,6 +2959,10 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
                         log_debug_errno(r, "Failed to reenable cgroup empty event source, ignoring: %m");
         }
 
+        /* Update state based on OOM kills before we notify about cgroup empty event */
+        (void) unit_check_oom(u);
+        (void) unit_check_oomd_kill(u);
+
         unit_add_to_gc_queue(u);
 
         if (UNIT_VTABLE(u)->notify_cgroup_empty)
@@ -3038,7 +3042,7 @@ int unit_check_oomd_kill(Unit *u) {
         else if (r == 0)
                 return 0;
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_kill", &value);
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_ooms", &value);
         if (r < 0 && r != -ENODATA)
                 return r;
 
@@ -3054,11 +3058,12 @@ int unit_check_oomd_kill(Unit *u) {
         if (!increased)
                 return 0;
 
-        if (n > 0)
-                log_unit_struct(u, LOG_NOTICE,
-                                "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
-                                LOG_UNIT_INVOCATION_ID(u),
-                                LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
+        log_unit_struct(u, LOG_NOTICE,
+                        "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                        LOG_UNIT_INVOCATION_ID(u),
+                        LOG_UNIT_MESSAGE(u, "systemd-oomd killed some process(es) in this unit."));
+
+        unit_notify_cgroup_oom(u, /* ManagedOOM= */ true);
 
         return 1;
 }
@@ -3094,8 +3099,7 @@ int unit_check_oom(Unit *u) {
                         LOG_UNIT_INVOCATION_ID(u),
                         LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
 
-        if (UNIT_VTABLE(u)->notify_cgroup_oom)
-                UNIT_VTABLE(u)->notify_cgroup_oom(u);
+        unit_notify_cgroup_oom(u, /* ManagedOOM= */ false);
 
         return 1;
 }
