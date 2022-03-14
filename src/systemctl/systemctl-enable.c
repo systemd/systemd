@@ -39,7 +39,7 @@ static int normalize_filenames(char **names) {
         return 0;
 }
 
-static int normalize_names(char **names, bool warn_if_path) {
+static int normalize_names(char **names) {
         char **u;
         bool was_path = false;
 
@@ -56,7 +56,7 @@ static int normalize_names(char **names, bool warn_if_path) {
                 was_path = true;
         }
 
-        if (warn_if_path && was_path)
+        if (was_path)
                 log_warning("Warning: Can't execute disable on the unit file path. Proceeding with the unit name.");
 
         return 0;
@@ -92,7 +92,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
         if (streq(verb, "disable")) {
-                r = normalize_names(names, true);
+                r = normalize_names(names);
                 if (r < 0)
                         return r;
         }
