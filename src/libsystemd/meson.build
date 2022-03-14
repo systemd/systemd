@@ -189,6 +189,8 @@ libsystemd_pc = custom_target(
 ############################################################
 
 tests += [
+        [files('sd-journal/test-journal-file.c')],
+
         [files('sd-journal/test-journal-send.c')],
 
         [files('sd-journal/test-journal-match.c')],
