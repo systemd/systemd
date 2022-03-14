@@ -581,6 +581,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (OUTPUT_MODE_IS_JSON(arg_output))
                                 arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+                        else
+                                arg_json_format_flags = JSON_FORMAT_OFF;
+
                         break;
 
                 case 'l':
