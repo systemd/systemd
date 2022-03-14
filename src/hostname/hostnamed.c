@@ -285,18 +285,20 @@ static const char* fallback_chassis(void) {
         /* We only list the really obvious cases here. The DMI data is unreliable enough, so let's not do any
          * additional guesswork on top of that.
          *
-         * See the SMBIOS Specification 3.0 section 7.4.1 for details about the values listed here:
+         * See the SMBIOS Specification 3.5.0 section 7.4.1 for details about the values listed here:
          *
-         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.0.0.pdf
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.5.0.pdf
          */
 
         switch (t) {
 
-        case 0x3: /* Desktop */
-        case 0x4: /* Low Profile Desktop */
-        case 0x6: /* Mini Tower */
-        case 0x7: /* Tower */
-        case 0xD: /* All in one (i.e. PC built into monitor) */
+        case 0x03: /* Desktop */
+        case 0x04: /* Low Profile Desktop */
+        case 0x06: /* Mini Tower */
+        case 0x07: /* Tower */
+        case 0x0D: /* All in one (i.e. PC built into monitor) */
+        case 0x23: /* Mini PC */
+        case 0x24: /* Stick PC */
                 return "desktop";
 
         case 0x8: /* Portable */
@@ -319,6 +321,10 @@ static const char* fallback_chassis(void) {
         case 0x1F: /* Convertible */
         case 0x20: /* Detachable */
                 return "convertible";
+
+        case 0x21: /* IoT Gateway */
+        case 0x22: /* Embedded PC */
+                return "embedded";
 
         default:
                 log_debug("Unhandled DMI chassis type 0x%02x, ignoring.", t);
