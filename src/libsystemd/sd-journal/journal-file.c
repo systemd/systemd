@@ -3559,6 +3559,11 @@ int journal_file_open(
                         goto fail;
         }
 
+        uid_t uid;
+        r = journal_file_parse_uid(fname, &uid, false);
+        if (r > 0)
+                f->uid = uid;
+
         /* The file is opened now successfully, thus we take possession of any passed in fd. */
         f->close_fd = true;
 
