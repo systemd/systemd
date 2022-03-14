@@ -524,7 +524,6 @@ static int vacuum_offline_user_journals(Server *s) {
         for (;;) {
                 _cleanup_free_ char *u = NULL, *full = NULL;
                 _cleanup_close_ int fd = -1;
-                const char *a, *b;
                 struct dirent *de;
                 ManagedJournalFile *f;
                 uid_t uid;
@@ -538,22 +537,9 @@ static int vacuum_offline_user_journals(Server *s) {
                         break;
                 }
 
-                a = startswith(de->d_name, "user-");
-                if (!a)
+                r = journal_file_parse_uid(de->d_name, &uid, true);
+                if (r <= 0)
                         continue;
-                b = endswith(de->d_name, ".journal");
-                if (!b)
-                        continue;
-
-                u = strndup(a, b-a);
-                if (!u)
-                        return log_oom();
-
-                r = parse_uid(u, &uid);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
-                        continue;
-                }
 
                 /* Already rotated in the above loop? i.e. is it an open user journal? */
                 if (ordered_hashmap_contains(s->user_journals, UID_TO_PTR(uid)))
