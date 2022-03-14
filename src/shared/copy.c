@@ -1488,7 +1488,7 @@ int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
         NULSTR_FOREACH(p, names) {
                 _cleanup_free_ char *value = NULL;
 
-                if (!(copy_flags & COPY_ALL_XATTRS) && !startswith(p, "user."))
+                if (!FLAGS_SET(copy_flags, COPY_ALL_XATTRS) && !startswith(p, "user."))
                         continue;
 
                 r = fgetxattr_malloc(fdf, p, &value);
