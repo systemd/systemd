@@ -1214,7 +1214,10 @@ int copy_file_fd_full(
         if (r < 0)
                 return r;
 
-        if (S_ISREG(fdt)) {
+        /* Make sure to copy file attributes only over if target is a regular
+         * file (so that copying a file to /dev/null won't alter the access
+         * mode/ownership of that device node...) */
+        if (S_ISREG(st.st_mode)) {
                 (void) copy_times(fdf, fdt, copy_flags);
                 (void) copy_xattr(fdf, fdt, copy_flags);
         }
