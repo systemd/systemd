@@ -112,7 +112,6 @@ static int property_get_io_device_weight(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupIODeviceWeight *w;
         int r;
 
         assert(bus);
@@ -142,7 +141,6 @@ static int property_get_io_device_limits(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupIODeviceLimit *l;
         int r;
 
         assert(bus);
@@ -178,7 +176,6 @@ static int property_get_io_device_latency(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupIODeviceLatency *l;
         int r;
 
         assert(bus);
@@ -208,7 +205,6 @@ static int property_get_blockio_device_weight(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupBlockIODeviceWeight *w;
         int r;
 
         assert(bus);
@@ -238,7 +234,6 @@ static int property_get_blockio_device_bandwidths(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupBlockIODeviceBandwidth *b;
         int r;
 
         assert(bus);
@@ -278,7 +273,6 @@ static int property_get_device_allow(
                 sd_bus_error *error) {
 
         CGroupContext *c = userdata;
-        CGroupDeviceAllow *a;
         int r;
 
         assert(bus);
@@ -364,7 +358,6 @@ static int property_get_bpf_foreign_program(
                 void *userdata,
                 sd_bus_error *error) {
         CGroupContext *c = userdata;
-        CGroupBPFForeignProgram *p;
         int r;
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
@@ -390,7 +383,8 @@ static int property_get_socket_bind(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        CGroupSocketBindItem **items = userdata, *i;
+
+        CGroupSocketBindItem **items = userdata;
         int r;
 
         assert(items);
@@ -720,7 +714,6 @@ static int bus_cgroup_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupBPFForeignProgram *fp;
                         size_t size = 0;
 
                         if (n == 0)
@@ -1228,14 +1221,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupIODeviceLimit *a = NULL, *b;
+                                CGroupIODeviceLimit *a = NULL;
 
-                                LIST_FOREACH(device_limits, b, c->io_device_limits) {
+                                LIST_FOREACH(device_limits, b, c->io_device_limits)
                                         if (path_equal(path, b->path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         CGroupIOLimitType type;
@@ -1269,15 +1261,13 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        CGroupIODeviceLimit *a;
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 LIST_FOREACH(device_limits, a, c->io_device_limits)
                                         a->limits[iol_type] = cgroup_io_limit_defaults[iol_type];
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
@@ -1287,8 +1277,8 @@ int bus_cgroup_set_property(
 
                         fprintf(f, "%s=\n", name);
                         LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
-                                                fprintf(f, "%s=%s %" PRIu64 "\n", name, a->path, a->limits[iol_type]);
+                                if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
+                                        fprintf(f, "%s=%s %" PRIu64 "\n", name, a->path, a->limits[iol_type]);
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -1316,14 +1306,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupIODeviceWeight *a = NULL, *b;
+                                CGroupIODeviceWeight *a = NULL;
 
-                                LIST_FOREACH(device_weights, b, c->io_device_weights) {
+                                LIST_FOREACH(device_weights, b, c->io_device_weights)
                                         if (path_equal(b->path, path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         a = new0(CGroupIODeviceWeight, 1);
@@ -1351,13 +1340,11 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupIODeviceWeight *a;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 while (c->io_device_weights)
                                         cgroup_context_free_io_device_weight(c, c->io_device_weights);
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
@@ -1392,14 +1379,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupIODeviceLatency *a = NULL, *b;
+                                CGroupIODeviceLatency *a = NULL;
 
-                                LIST_FOREACH(device_latencies, b, c->io_device_latencies) {
+                                LIST_FOREACH(device_latencies, b, c->io_device_latencies)
                                         if (path_equal(b->path, path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         a = new0(CGroupIODeviceLatency, 1);
@@ -1427,13 +1413,11 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupIODeviceLatency *a;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 while (c->io_device_latencies)
                                         cgroup_context_free_io_device_latency(c, c->io_device_latencies);
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
 
@@ -1473,14 +1457,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupBlockIODeviceBandwidth *a = NULL, *b;
+                                CGroupBlockIODeviceBandwidth *a = NULL;
 
-                                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
+                                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
                                         if (path_equal(path, b->path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         a = new0(CGroupBlockIODeviceBandwidth, 1);
@@ -1514,19 +1497,17 @@ int bus_cgroup_set_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        CGroupBlockIODeviceBandwidth *a;
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths) {
                                         if (read)
                                                 a->rbps = CGROUP_LIMIT_MAX;
                                         else
                                                 a->wbps = CGROUP_LIMIT_MAX;
                                 }
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
@@ -1573,14 +1554,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupBlockIODeviceWeight *a = NULL, *b;
+                                CGroupBlockIODeviceWeight *a = NULL;
 
-                                LIST_FOREACH(device_weights, b, c->blockio_device_weights) {
+                                LIST_FOREACH(device_weights, b, c->blockio_device_weights)
                                         if (path_equal(b->path, path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         a = new0(CGroupBlockIODeviceWeight, 1);
@@ -1608,13 +1588,11 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupBlockIODeviceWeight *a;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 while (c->blockio_device_weights)
                                         cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_BLKIO);
 
@@ -1674,14 +1652,13 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupDeviceAllow *a = NULL, *b;
+                                CGroupDeviceAllow *a = NULL;
 
-                                LIST_FOREACH(device_allow, b, c->device_allow) {
+                                LIST_FOREACH(device_allow, b, c->device_allow)
                                         if (path_equal(b->path, path)) {
                                                 a = b;
                                                 break;
                                         }
-                                }
 
                                 if (!a) {
                                         a = new0(CGroupDeviceAllow, 1);
@@ -1714,13 +1691,11 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupDeviceAllow *a;
                         size_t size = 0;
 
-                        if (n == 0) {
+                        if (n == 0)
                                 while (c->device_allow)
                                         cgroup_context_free_device_allow(c, c->device_allow);
-                        }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
 
@@ -1995,7 +1970,6 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;
-                        CGroupSocketBindItem *item;
                         size_t size = 0;
 
                         if (n == 0)

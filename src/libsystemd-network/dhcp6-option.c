@@ -328,7 +328,6 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct i
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         struct ia_header header;
-        const DHCP6Address *addr;
         size_t ia_buflen;
         uint8_t *ia_hdr;
         uint16_t len;
@@ -374,7 +373,8 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         *buf = mempcpy(*buf, &header, len);
         *buflen -= len;
 
-        LIST_FOREACH(addresses, addr, ia->addresses) {
+        // FIXME: drop the cast.
+        LIST_FOREACH(addresses, addr, (DHCP6Address*) ia->addresses) {
                 if (ia->type == SD_DHCP6_OPTION_IA_PD)
                         r = option_append_pd_prefix(buf, buflen, &addr->iapdprefix);
                 else

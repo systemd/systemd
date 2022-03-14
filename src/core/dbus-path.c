@@ -22,7 +22,6 @@ static int property_get_paths(
                 sd_bus_error *error) {
 
         Path *p = userdata;
-        PathSpec *k;
         int r;
 
         assert(bus);
