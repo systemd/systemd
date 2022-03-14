@@ -941,15 +941,13 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                         r = dns_packet_append_raw_string(p, NULL, 0, NULL);
                         if (r < 0)
                                 goto fail;
-                } else {
-                        DnsTxtItem *i;
-
-                        LIST_FOREACH(items, i, rr->txt.items) {
+                } else
+                        // FIXME: drop the cast
+                        LIST_FOREACH(items, i, (DnsTxtItem*) rr->txt.items) {
                                 r = dns_packet_append_raw_string(p, i->data, i->length, NULL);
                                 if (r < 0)
                                         goto fail;
                         }
-                }
 
                 r = 0;
                 break;

@@ -2562,7 +2562,6 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        MountOptions *i;
         MountImage *c;
 
         assert(m);
@@ -2579,7 +2578,8 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
                         return -ENOMEM;
         }
 
-        LIST_FOREACH(mount_options, i, item->mount_options) {
+        // FIXME: drop the cast.
+        LIST_FOREACH(mount_options, i, (MountOptions*) item->mount_options) {
                 _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
 
                 o = new(MountOptions, 1);

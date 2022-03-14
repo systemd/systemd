@@ -106,7 +106,6 @@ static int property_get_sessions(
                 sd_bus_error *error) {
 
         User *u = userdata;
-        Session *session;
         int r;
 
         assert(bus);
