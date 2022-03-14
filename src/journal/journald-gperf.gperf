@@ -50,4 +50,5 @@ Journal.MaxLevelKMsg,       config_parse_log_level,  0, offsetof(Server, max_lev
 Journal.MaxLevelConsole,    config_parse_log_level,  0, offsetof(Server, max_level_console)
 Journal.MaxLevelWall,       config_parse_log_level,  0, offsetof(Server, max_level_wall)
 Journal.SplitMode,          config_parse_split_mode, 0, offsetof(Server, split_mode)
+Journal.SplitVolatileMode,  config_parse_split_mode, 0, offsetof(Server, split_volatile_mode)
 Journal.LineMax,            config_parse_line_max,   0, offsetof(Server, line_max)
