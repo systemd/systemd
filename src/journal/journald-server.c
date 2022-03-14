@@ -548,9 +548,8 @@ static int server_archive_offline_user_journals(Server *s) {
         }
 
         for (;;) {
-                _cleanup_free_ char *u = NULL, *full = NULL;
+                _cleanup_free_ char *full = NULL;
                 _cleanup_close_ int fd = -1;
-                const char *a, *b;
                 struct dirent *de;
                 ManagedJournalFile *f;
                 uid_t uid;
@@ -560,24 +559,13 @@ static int server_archive_offline_user_journals(Server *s) {
                 if (!de) {
                         if (errno != 0)
                                 log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", s->system_storage.path);
-
                         break;
                 }
 
-                a = startswith(de->d_name, "user-");
-                if (!a)
-                        continue;
-                b = endswith(de->d_name, ".journal");
-                if (!b)
-                        continue;
-
-                u = strndup(a, b-a);
-                if (!u)
-                        return log_oom();
-
-                r = parse_uid(u, &uid);
+                r = journal_file_parse_uid(de->d_name, &uid, false);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                        if (r != -EREMOTE)
+                                log_warning_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
                         continue;
                 }
 
