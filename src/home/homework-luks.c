@@ -2200,12 +2200,10 @@ int home_create_luks(
 
                 /* Let's place the home directory on a real device, i.e. an USB stick or such */
 
-                setup->image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                setup->image_fd = open_image_file(h, ip, &st);
                 if (setup->image_fd < 0)
-                        return log_error_errno(errno, "Failed to open device %s: %m", ip);
+                        return setup->image_fd;
 
-                if (fstat(setup->image_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat device %s: %m", ip);
                 if (!S_ISBLK(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
 
