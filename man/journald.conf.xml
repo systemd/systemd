@@ -121,17 +121,18 @@
         <term><varname>SplitMode=</varname></term>
 
         <listitem><para>Controls whether to split up journal files per user, either <literal>uid</literal> or
-        <literal>none</literal>. Split journal files are primarily useful for access control: on UNIX/Linux access
-        control is managed per file, and the journal daemon will assign users read access to their journal files. If
-        <literal>uid</literal>, all regular users (with UID outside the range of system users, dynamic service users,
-        and the nobody user) will each get their own journal files, and system users will log to the system journal.
-        See <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
-        for more details about UID ranges.
-        If <literal>none</literal>, journal files are not split up by user and all messages are
-        instead stored in the single system journal. In this mode unprivileged users generally do not have access to
-        their own log data. Note that splitting up journal files by user is only available for journals stored
-        persistently. If journals are stored on volatile storage (see <varname>Storage=</varname> above), only a single
-        journal file is used. Defaults to <literal>uid</literal>.</para></listitem>
+        <literal>uid-everywhere</literal> or <literal>none</literal>. Split journal files are primarily
+        useful for access control: on UNIX/Linux access control is managed per file, and the journal daemon
+        will assign users read access to their journal files. If <literal>uid</literal>, all regular users
+        (with UID outside the range of system users, dynamic service users, and the nobody user) will each
+        get their own journal files, and system users will log to the system journal.  See <ulink
+        url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink> for more
+        details about UID ranges.  The value <literal>uid</literal> takes only effect on journal files stored
+        on disk. Use <literal>uid-everywhere</literal> if splitting up journal files per user should also be
+        enabled for journal files stored in the volatile storage location. If <literal>none</literal>,
+        journal files are not split up by user and all messages are instead stored in the single system
+        journal. In this mode unprivileged users generally do not have access to their own log data. Defaults
+        to <literal>uid</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
