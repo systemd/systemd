@@ -408,10 +408,44 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
         return r;
 }
 
-static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
+static int find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
+        _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
         _cleanup_free_ char *p = NULL;
-        ManagedJournalFile *f;
         int r;
+
+        assert(!uid_for_system_journal(uid));
+
+        f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
+        if (f)
+                goto found;
+
+        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0)
+                return log_oom();
+
+        /* Too many open? Then let's close one (or more) */
+        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
+                ManagedJournalFile *first;
+
+                assert_se(first = ordered_hashmap_steal_first(s->user_journals));
+                (void) managed_journal_file_close(first);
+        }
+
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
+        if (r < 0)
+                return r;
+
+        server_add_acls(f, uid);
+
+found:
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
 
         assert(s);
 
@@ -438,36 +472,18 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
         if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return NULL;
 
-        if (uid_for_system_journal(uid))
-                return s->system_journal;
+        if (!uid_for_system_journal(uid)) {
+                ManagedJournalFile *f;
+                int r;
 
-        f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
-        if (f)
-                return f;
+                r = find_user_journal(s, uid, &f);
+                if (r >= 0)
+                        return f;
 
-        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0) {
-                log_oom();
-                return s->system_journal;
+                log_warning_errno(r, "Failed at opening user journal file, falling back to system journal: %m");
         }
 
-        /* Too many open? Then let's close one (or more) */
-        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
-                assert_se(f = ordered_hashmap_steal_first(s->user_journals));
-                (void) managed_journal_file_close(f);
-        }
-
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
-        if (r < 0)
-                return s->system_journal;
-
-        r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
-        if (r < 0) {
-                (void) managed_journal_file_close(f);
-                return s->system_journal;
-        }
-
-        server_add_acls(f, uid);
-        return f;
+        return s->system_journal;
 }
 
 static int do_rotate(
