@@ -529,7 +529,6 @@ static DnsScopeMatch match_subnet_reverse_lookups(
                 bool exclude_own) {
 
         union in_addr_union ia;
-        LinkAddress *a;
         int f, r;
 
         assert(s);
@@ -587,7 +586,6 @@ DnsScopeMatch dns_scope_good_domain(
                 DnsQuery *q) {
 
         DnsQuestion *question;
-        DnsSearchDomain *d;
         const char *domain;
         uint64_t flags;
         int ifindex;
@@ -1082,7 +1080,7 @@ DnsTransaction *dns_scope_find_transaction(
                 DnsResourceKey *key,
                 uint64_t query_flags) {
 
-        DnsTransaction *first, *t;
+        DnsTransaction *first;
 
         assert(scope);
         assert(key);
@@ -1398,8 +1396,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         _cleanup_set_free_ Set *types = NULL;
-        DnsTransaction *t;
-        DnsZoneItem *z, *i;
+        DnsZoneItem *z;
         unsigned size = 0;
         char *service_type;
         int r;
@@ -1527,7 +1524,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
 int dns_scope_add_dnssd_services(DnsScope *scope) {
         DnssdService *service;
-        DnssdTxtData *txt_data;
         int r;
 
         assert(scope);
@@ -1561,7 +1557,6 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
 int dns_scope_remove_dnssd_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         DnssdService *service;
-        DnssdTxtData *txt_data;
         int r;
 
         assert(scope);
@@ -1586,7 +1581,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
 }
 
 static bool dns_scope_has_route_only_domains(DnsScope *scope) {
-        DnsSearchDomain *domain, *first;
+        DnsSearchDomain *first;
         bool route_only = false;
 
         assert(scope);
