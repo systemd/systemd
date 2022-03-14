@@ -61,6 +61,7 @@ typedef struct JournalFile {
         MMapFileDescriptor *cache_fd;
 
         mode_t mode;
+        uid_t uid;
 
         int flags;
         bool writable:1;
