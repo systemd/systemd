@@ -22,6 +22,29 @@ usb:v2982p1967*
 usb:v1157p300*
  ID_MULTIMEDIA_CONTROLLER=1
 
+################
+# Elgato
+################
+# Stream Deck Original (gen 1)
+usb:v0FD9p0060*
+ ID_MULTIMEDIA_CONTROLLER=1
+
+# Stream Deck Mini
+usb:v0FD9p0063*
+ ID_MULTIMEDIA_CONTROLLER=1
+
+# Stream Deck XL
+usb:v0FD9p006C*
+ ID_MULTIMEDIA_CONTROLLER=1
+
+# Stream Deck Original (gen 2)
+usb:v0FD9p006D*
+ ID_MULTIMEDIA_CONTROLLER=1
+
+# Stream Deck MK.2
+usb:v0FD9p0080*
+ ID_MULTIMEDIA_CONTROLLER=1
+
 #############################
 # Hercules (Guillemot Corp)
 #############################
