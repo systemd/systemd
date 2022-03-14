@@ -784,7 +784,6 @@ static char *format_types(Bitmap *types) {
 }
 
 static char *format_txt(DnsTxtItem *first) {
-        DnsTxtItem *i;
         size_t c = 1;
         char *p, *s;
 
@@ -1358,8 +1357,6 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
 
         case DNS_TYPE_TXT:
         case DNS_TYPE_SPF: {
-                DnsTxtItem *j;
-
                 LIST_FOREACH(items, j, rr->txt.items) {
                         siphash24_compress_safe(j->data, j->length, state);
 
@@ -1813,7 +1810,7 @@ bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
 }
 
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
-        DnsTxtItem *i, *copy = NULL, *end = NULL;
+        DnsTxtItem *copy = NULL, *end = NULL;
 
         LIST_FOREACH(items, i, first) {
                 DnsTxtItem *j;

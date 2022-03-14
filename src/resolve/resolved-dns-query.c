@@ -345,8 +345,6 @@ fail:
 }
 
 static void dns_query_stop(DnsQuery *q) {
-        DnsQueryCandidate *c;
-
         assert(q);
 
         event_source_disable(q->timeout_event_source);
@@ -718,8 +716,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
 int dns_query_go(DnsQuery *q) {
         DnsScopeMatch found = DNS_SCOPE_NO;
-        DnsScope *s, *first = NULL;
-        DnsQueryCandidate *c;
+        DnsScope *first = NULL;
         int r;
 
         assert(q);
@@ -938,8 +935,7 @@ fail:
 }
 
 void dns_query_ready(DnsQuery *q) {
-
-        DnsQueryCandidate *bad = NULL, *c;
+        DnsQueryCandidate *bad = NULL;
         bool pending = false;
 
         assert(q);
