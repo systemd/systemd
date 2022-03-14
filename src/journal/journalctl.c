@@ -1460,12 +1460,16 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        table = table_new(OUTPUT_MODE_IS_JSON(arg_output) ? "index" : "idx", "boot id", "first entry", "last entry");
+        table = table_new("idx", "boot id", "first entry", "last entry");
         if (!table)
                 return log_oom();
 
         if (arg_full)
                 table_set_width(table, 0);
+
+        r = table_set_json_field_name(table, 0, "index");
+        if (r < 0)
+                return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
 
         i = 0;
         LIST_FOREACH(boot_list, id, all_ids) {
