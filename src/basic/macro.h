@@ -309,15 +309,14 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
 
-/* Returns the number of chars needed to format variables of the
- * specified type as a decimal string. Adds in extra space for a
- * negative '-' prefix (hence works correctly on signed
- * types). Includes space for the trailing NUL. */
+/* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
+ * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
-        (2U+(sizeof(type) <= 1 ? 3U :                                   \
+        ((size_t) IS_SIGNED_INTEGER_TYPE(type) + 1U +                   \
+            (sizeof(type) <= 1 ? 3U :                                   \
              sizeof(type) <= 2 ? 5U :                                   \
              sizeof(type) <= 4 ? 10U :                                  \
-             sizeof(type) <= 8 ? 20U : sizeof(int[-2*(sizeof(type) > 8)])))
+             sizeof(type) <= 8 ? (IS_SIGNED_INTEGER_TYPE(type) ? 19U : 20U) : sizeof(int[-2*(sizeof(type) > 8)])))
 
 /* Returns the number of chars needed to format the specified integer value. It's hence more specific than
  * DECIMAL_STR_MAX() which answers the same question for all possible values of the specified type. Does
