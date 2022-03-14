@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Target that triggers factory reset. Does nothing by default.
+Description=Factory Reset
 Documentation=man:systemd.special(7)
