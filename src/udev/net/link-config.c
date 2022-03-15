@@ -72,7 +72,7 @@ static void link_configs_free(LinkConfigContext *ctx) {
         if (!ctx)
                 return;
 
-        LIST_FOREACH_SAFE(configs, config, config_next, ctx->configs)
+        LIST_FOREACH(configs, config, ctx->configs)
                 link_config_free(config);
 }
 
