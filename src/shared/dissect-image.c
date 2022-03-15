@@ -3333,8 +3333,6 @@ MountOptions* mount_options_free_all(MountOptions *options) {
 }
 
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator) {
-        const MountOptions *m;
-
         LIST_FOREACH(mount_options, m, options)
                 if (designator == m->partition_designator && !isempty(m->options))
                         return m->options;
