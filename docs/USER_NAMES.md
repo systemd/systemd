@@ -114,7 +114,7 @@ warning is shown if the specified user name does not qualify by the strict
 rules above.
 
 * No embedded NUL bytes (rationale: handling in C must be possible and
-  straight-forward)
+  straightforward)
 
 * No names consisting fully of digits (rationale: avoid confusion with numeric
   UID/GID specifications)
