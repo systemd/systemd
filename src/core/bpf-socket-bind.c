@@ -78,8 +78,7 @@ static int prepare_socket_bind_bpf(
 
         obj = socket_bind_bpf__open();
         if (!obj)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, SYNTHETIC_ERRNO(ENOMEM),
-                                           "Failed to open BPF object");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "Failed to open BPF object: %m");
 
         if (sym_bpf_map__resize(obj->maps.sd_bind_allow, MAX(allow_count, 1u)) != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,

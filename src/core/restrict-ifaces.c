@@ -34,8 +34,7 @@ static int prepare_restrict_ifaces_bpf(
 
         obj = restrict_ifaces_bpf__open();
         if (!obj)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG,
-                                           SYNTHETIC_ERRNO(ENOMEM), "Failed to open BPF object");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "Failed to open BPF object: %m");
 
         r = sym_bpf_map__resize(obj->maps.sd_restrictif, MAX(set_size(restrict_network_interfaces), 1u));
         if (r != 0)
