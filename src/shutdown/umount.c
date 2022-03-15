@@ -639,7 +639,7 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
         assert(head);
         assert(changed);
 
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+        LIST_FOREACH(mount_point, m, *head) {
                 log_info("Deactivating swap %s.", m->path);
                 if (swapoff(m->path) < 0) {
                         log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
@@ -663,7 +663,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+        LIST_FOREACH(mount_point, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed++;
                         continue;
@@ -694,7 +694,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+        LIST_FOREACH(mount_point, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;
@@ -724,7 +724,7 @@ static int md_points_list_detach(MountPoint **head, bool *changed, int umount_lo
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+        LIST_FOREACH(mount_point, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;

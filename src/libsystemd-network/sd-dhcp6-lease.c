@@ -108,7 +108,7 @@ int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *re
 void dhcp6_ia_clear_addresses(DHCP6IA *ia) {
         assert(ia);
 
-        LIST_FOREACH_SAFE(addresses, a, n, ia->addresses)
+        LIST_FOREACH(addresses, a, ia->addresses)
                 free(a);
 
         ia->addresses = NULL;
