@@ -152,8 +152,13 @@ typedef struct Worker {
 } Worker;
 
 /* passed from worker to main process */
-typedef struct WorkerMessage {
-} WorkerMessage;
+typedef enum EventResult {
+        EVENT_RESULT_SUCCESS,
+        EVENT_RESULT_FAILED,
+        EVENT_RESULT_TRY_AGAIN, /* when the block device is locked by another process. */
+        _EVENT_RESULT_MAX,
+        _EVENT_RESULT_INVALID = -EINVAL,
+} EventResult;
 
 static Event *event_free(Event *event) {
         if (!event)
@@ -353,10 +358,11 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
-static int worker_send_message(int fd) {
-        WorkerMessage message = {};
+static int worker_send_result(Manager *manager, EventResult result) {
+        assert(manager);
+        assert(manager->worker_watch[WRITE_END] >= 0);
 
-        return loop_write(fd, &message, sizeof(message), false);
+        return loop_write(manager->worker_watch[WRITE_END], &result, sizeof(result), false);
 }
 
 static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
@@ -553,19 +559,24 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = userdata;
+        EventResult result;
         int r;
 
         assert(dev);
         assert(manager);
 
         r = worker_process_device(manager, dev);
-        if (r == -EAGAIN)
-                /* if we couldn't acquire the flock(), then proceed quietly */
-                log_device_debug_errno(dev, r, "Device currently locked, not processing.");
-        else {
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        if (r == -EAGAIN) {
+                /* if we couldn't acquire the flock(), then requeue the event */
+                result = EVENT_RESULT_TRY_AGAIN;
+                log_device_debug_errno(dev, r, "Device currently locked, requeueing the event.");
+        } else if (r < 0) {
+                result = EVENT_RESULT_FAILED;
+                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        } else
+                result = EVENT_RESULT_SUCCESS;
 
+        if (result != EVENT_RESULT_TRY_AGAIN) {
                 /* send processed event back to libudev listeners */
                 r = device_monitor_send_device(monitor, NULL, dev);
                 if (r < 0)
@@ -573,7 +584,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         }
 
         /* send udevd the result of the event execution */
-        r = worker_send_message(manager->worker_watch[WRITE_END]);
+        r = worker_send_result(manager, result);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
 
@@ -1055,11 +1066,8 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(manager);
 
         for (;;) {
-                WorkerMessage msg;
-                struct iovec iovec = {
-                        .iov_base = &msg,
-                        .iov_len = sizeof(msg),
-                };
+                EventResult result;
+                struct iovec iovec = IOVEC_MAKE(&result, sizeof(result));
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
@@ -1082,7 +1090,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 cmsg_close_all(&msghdr);
 
-                if (size != sizeof(WorkerMessage)) {
+                if (size != sizeof(EventResult)) {
                         log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
@@ -1107,7 +1115,12 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         worker->state = WORKER_IDLE;
 
                 /* worker returned */
-                event_free(worker->event);
+                if (result == EVENT_RESULT_TRY_AGAIN) {
+                        /* requeue the event */
+                        worker->event->state = EVENT_QUEUED;
+                        worker->event = NULL;
+                } else
+                        event_free(worker->event);
         }
 
         /* we have free workers, try to schedule events */
