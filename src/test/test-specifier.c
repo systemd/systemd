@@ -125,6 +125,36 @@ TEST(specifier_real_path_missing_file) {
         assert_se(r == -ENOENT);
 }
 
+TEST(specifier_creds) {
+        _cleanup_free_ char *w = NULL;
+        int r;
+
+        /* Unset $CREDENTIALS_DIRECTORY */
+        assert(unsetenv("CREDENTIALS_DIRECTORY") == 0);
+        r = specifier_printf("c=%c", SIZE_MAX, specifier_table, NULL, NULL, &w);
+        assert_se(r >= 0);
+        puts(w);
+        assert_se(streq(w, "c="));
+        w = mfree(w);
+
+        /* Empty $CREDENTIALS_DIRECTORY */
+        assert(setenv("CREDENTIALS_DIRECTORY", "", 1) == 0);
+        r = specifier_printf("c=%c", SIZE_MAX, specifier_table, NULL, NULL, &w);
+        assert_se(r == -EINVAL);
+
+        /* Relative $CREDENTIALS_DIRECTORY */
+        assert(setenv("CREDENTIALS_DIRECTORY", "hello/world", 1) == 0);
+        r = specifier_printf("c=%c", SIZE_MAX, specifier_table, NULL, NULL, &w);
+        assert_se(r == -EINVAL);
+
+        /* Valid $CREDENTIALS_DIRECTORY */
+        assert(setenv("CREDENTIALS_DIRECTORY", "/hello/world", 1) == 0);
+        r = specifier_printf("c=%c", SIZE_MAX, specifier_table, NULL, NULL, &w);
+        assert_se(r >= 0);
+        puts(w);
+        assert_se(streq(w, "c=/hello/world"));
+}
+
 TEST(specifiers) {
         for (const Specifier *s = specifier_table; s->specifier; s++) {
                 char spec[3];
