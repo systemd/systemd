@@ -106,6 +106,7 @@ TEST(unit_name_replace_instance) {
 
 static void test_unit_name_from_path_one(const char *path, const char *suffix, const char *expected, int ret) {
         _cleanup_free_ char *t = NULL;
+        int r;
 
         assert_se(unit_name_from_path(path, suffix, &t) == ret);
         puts(strna(t));
@@ -113,7 +114,13 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
 
         if (t) {
                 _cleanup_free_ char *k = NULL;
-                assert_se(unit_name_to_path(t, &k) == 0);
+
+                /* Unit names that contain "..." in the prefix are created from paths that would otherwise produce unit names that are too long. */
+                r = unit_name_to_path(t, &k);
+                assert_se(r == 0 || r == -ENAMETOOLONG);
+                if (r == -ENAMETOOLONG)
+                        return;
+
                 puts(strna(k));
                 assert_se(path_equal(k, empty_to_root(path)));
         }
@@ -128,7 +135,8 @@ TEST(unit_name_from_path) {
         test_unit_name_from_path_one("///", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("/foo/../bar", ".mount", NULL, -EINVAL);
         test_unit_name_from_path_one("/foo/./bar", ".mount", "foo-bar.mount", 0);
-        test_unit_name_from_path_one("/waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ".mount", NULL, -ENAMETOOLONG);
+        test_unit_name_from_path_one("/waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ".mount",
+                                     "waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...d47540bebad290ff.mount", 0);
 }
 
 static void test_unit_name_from_path_instance_one(const char *pattern, const char *path, const char *suffix, const char *expected, int ret) {
