@@ -69,12 +69,10 @@ static LinkConfig* link_config_free(LinkConfig *config) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfig*, link_config_free);
 
 static void link_configs_free(LinkConfigContext *ctx) {
-        LinkConfig *config, *config_next;
-
         if (!ctx)
                 return;
 
-        LIST_FOREACH_SAFE(configs, config, config_next, ctx->configs)
+        LIST_FOREACH(configs, config, ctx->configs)
                 link_config_free(config);
 }
 
@@ -423,7 +421,6 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
 }
 
 int link_get_config(LinkConfigContext *ctx, Link *link) {
-        LinkConfig *config;
         int r;
 
         assert(ctx);

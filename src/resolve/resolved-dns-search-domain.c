@@ -178,7 +178,6 @@ void dns_search_domain_mark_all(DnsSearchDomain *first) {
 }
 
 int dns_search_domain_find(DnsSearchDomain *first, const char *name, DnsSearchDomain **ret) {
-        DnsSearchDomain *d;
         int r;
 
         assert(name);
