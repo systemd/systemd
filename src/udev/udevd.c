@@ -128,6 +128,7 @@ typedef struct Event {
 
         uint64_t seqnum;
         uint64_t blocker_seqnum;
+        usec_t wait_until;
 
         sd_event_source *timeout_warning_event;
         sd_event_source *timeout_event;
@@ -489,44 +490,12 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         if (!udev_event)
                 return -ENOMEM;
 
+        /* If this is a block device and the device is locked currently via the BSD advisory locks —
+         * someone else is exclusively using it. This means we don't run our udev rules now, to not
+         * interfere. In this case, we skip to process and requeue the event, and try to process the
+         * event again after a tiny delay.
+         * (The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING) */
         r = worker_lock_block_device(dev, &fd_lock);
-        if (r == -EAGAIN) {
-                /* So this is a block device and the device is locked currently via the BSD advisory locks —
-                 * someone else is exclusively using it. This means we don't run our udev rules now, to not
-                 * interfere. However we want to know when the device is unlocked again, and retrigger the
-                 * device again then, so that the rules are run eventually. For that we use IN_CLOSE_WRITE
-                 * inotify watches (which isn't exactly the same as waiting for the BSD locks to release, but
-                 * not totally off, as long as unlock+close() is done together, as it usually is).
-                 *
-                 * (The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING)
-                 *
-                 * There's a bit of a chicken and egg problem here for this however: inotify watching is
-                 * supposed to be enabled via an option set via udev rules (OPTIONS+="watch"). If we skip the
-                 * udev rules here however (as we just said we do), we would thus never see that specific
-                 * udev rule, and thus never turn on inotify watching. But in order to catch up eventually
-                 * and run them we we need the inotify watching: hence a classic chicken and egg problem.
-                 *
-                 * Our way out here: if we see the block device locked, unconditionally watch the device via
-                 * inotify, regardless of any explicit request via OPTIONS+="watch". Thus, a device that is
-                 * currently locked via the BSD file locks will be treated as if we ran a single udev rule
-                 * only for it: the one that turns on inotify watching for it. If we eventually see the
-                 * inotify IN_CLOSE_WRITE event, and then run the rules after all and we then realize that
-                 * this wasn't actually requested (i.e. no OPTIONS+="watch" set) we'll simply turn off the
-                 * watching again (see below). Effectively this means: inotify watching is now enabled either
-                 * a) when the udev rules say so, or b) while the device is locked.
-                 *
-                 * Worst case scenario hence: in the (unlikely) case someone locked the device and we clash
-                 * with that we might do inotify watching for a brief moment for a device where we actually
-                 * weren't supposed to. But that shouldn't be too bad, in particular as BSD locks being taken
-                 * on a block device is kinda an indication that the inotify logic is desired too, to some
-                 * degree — they go hand-in-hand after all. */
-
-                log_device_debug(dev, "Block device is currently locked, installing watch to wait until the lock is released.");
-                (void) udev_watch_begin(manager->inotify_fd, dev);
-
-                /* Now the watch is installed, let's lock the device again, maybe in the meantime things changed */
-                r = worker_lock_block_device(dev, &fd_lock);
-        }
         if (r < 0)
                 return r;
 
@@ -569,7 +538,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         if (r == -EAGAIN) {
                 /* if we couldn't acquire the flock(), then requeue the event */
                 result = EVENT_RESULT_TRY_AGAIN;
-                log_device_debug_errno(dev, r, "Device currently locked, requeueing the event.");
+                log_device_debug_errno(dev, r, "Block device is currently locked, requeueing the event.");
         } else if (r < 0) {
                 result = EVENT_RESULT_FAILED;
                 log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
@@ -800,6 +769,17 @@ static int event_is_blocked(Event *event) {
         assert(event->manager);
         assert(event->blocker_seqnum <= event->seqnum);
 
+        if (event->wait_until > 0) {
+                usec_t now;
+
+                r = sd_event_now(event->manager->event, clock_boottime_or_monotonic(), &now);
+                if (r < 0)
+                        return r;
+
+                if (event->wait_until <= now)
+                        return true;
+        }
+
         if (event->blocker_seqnum == event->seqnum)
                 /* we have checked previously and no blocker found */
                 return false;
@@ -987,6 +967,32 @@ static int event_queue_start(Manager *manager) {
         return 0;
 }
 
+static int event_requeue(Event *event) {
+        usec_t now;
+        int r;
+
+        assert(event);
+        assert(event->manager);
+        assert(event->manager->event);
+
+        sd_event_source_disable_unref(event->timeout_warning_event);
+        sd_event_source_disable_unref(event->timeout_event);
+
+        event->state = EVENT_QUEUED;
+        if (event->worker) {
+                event->worker->event = NULL;
+                event->worker = NULL;
+        }
+
+        /* add a short delay to suppress busy loop */
+        r = sd_event_now(event->manager->event, clock_boottime_or_monotonic(), &now);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get current time, requeueing event without delay: %m");
+
+        event->wait_until = usec_add(now, 200 * USEC_PER_MSEC);
+        return 0;
+}
+
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         Event *event;
@@ -1115,11 +1121,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         worker->state = WORKER_IDLE;
 
                 /* worker returned */
-                if (result == EVENT_RESULT_TRY_AGAIN) {
-                        /* requeue the event */
-                        worker->event->state = EVENT_QUEUED;
-                        worker->event = NULL;
-                } else
+                if (result == EVENT_RESULT_TRY_AGAIN)
+                        (void) event_requeue(worker->event);
+                else
                         event_free(worker->event);
         }
 
@@ -1491,8 +1495,15 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (!LIST_IS_EMPTY(manager->events))
+        if (!LIST_IS_EMPTY(manager->events)) {
+                /* Try to process pending events if there exist free workers. Why is this necessary?
+                 * When a worker finished a event and became idle, even if there was a pending event,
+                 * the corresponding device might be locked and delayed for a while, and the worker
+                 * might not be possible to start to process the event. Now, the device may be
+                 * unlocked. Let's try again! */
+                event_queue_start(manager);
                 return 1;
+        }
 
         /* There are no pending events. Let's cleanup idle process. */
 
