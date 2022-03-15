@@ -181,7 +181,7 @@ static Event *event_free(Event *event) {
 }
 
 static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
+        LIST_FOREACH(event, event, manager->events) {
                 if (match_state != EVENT_UNDEF && match_state != event->state)
                         continue;
 
@@ -949,7 +949,7 @@ static int event_queue_start(Manager *manager) {
                         return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
-        LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
+        LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 

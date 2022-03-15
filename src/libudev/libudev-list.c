@@ -117,7 +117,7 @@ void udev_list_cleanup(struct udev_list *list) {
                 list->uptodate = false;
                 hashmap_clear_with_destructor(list->unique_entries, udev_list_entry_free);
         } else
-                LIST_FOREACH_SAFE(entries, i, n, list->entries)
+                LIST_FOREACH(entries, i, list->entries)
                         udev_list_entry_free(i);
 }
 

@@ -635,7 +635,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         }
 
         if (error != 0)
-                LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
+                LIST_FOREACH(transactions_by_stream, t, s->transactions)
                         on_transaction_stream_error(t, error);
 
         return 0;

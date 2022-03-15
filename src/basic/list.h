@@ -139,14 +139,17 @@
 /* The type of the iterator 'i' is automatically determined by the type of 'head', and declared in the
  * loop. Hence, do not declare the same variable in the outer scope. Sometimes, we set 'head' through
  * hashmap_get(). In that case, you need to explicitly cast the result. */
+#define LIST_FOREACH_WITH_NEXT(name,i,n,head)                           \
+        for (typeof(*(head)) *n, *i = (head); i && (n = i->name##_next, true); i = n)
+
 #define LIST_FOREACH(name,i,head)                                       \
-        for (typeof(*(head)) *i = (head); i; i = i->name##_next)
+        LIST_FOREACH_WITH_NEXT(name, i, UNIQ_T(n, UNIQ), head)
 
-#define LIST_FOREACH_SAFE(name,i,n,head)                                \
-        for (typeof(*(head)) *n, *i = (head); i && ((n = i->name##_next), 1); i = n)
+#define _LIST_FOREACH_WITH_PREV(name,i,p,start)                         \
+        for (typeof(*(start)) *p, *i = (start); i && (p = i->name##_prev, true); i = p)
 
-#define LIST_FOREACH_BACKWARDS(name,i,p)                                \
-        for (typeof(*(p)) *i = (p); i; i = i->name##_prev)
+#define LIST_FOREACH_BACKWARDS(name,i,start)                            \
+        _LIST_FOREACH_WITH_PREV(name, i, UNIQ_T(p, UNIQ), start)
 
 /* Iterate through all the members of the list p is included in, but skip over p */
 #define LIST_FOREACH_OTHERS(name,i,p)                                   \

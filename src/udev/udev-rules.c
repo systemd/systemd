@@ -270,7 +270,7 @@ static void udev_rule_token_free(UdevRuleToken *token) {
 static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
         assert(rule_line);
 
-        LIST_FOREACH_SAFE(tokens, i, next, rule_line->tokens)
+        LIST_FOREACH(tokens, i, rule_line->tokens)
                 udev_rule_token_free(i);
 
         rule_line->tokens = NULL;
@@ -299,7 +299,7 @@ static void udev_rule_file_free(UdevRuleFile *rule_file) {
         if (!rule_file)
                 return;
 
-        LIST_FOREACH_SAFE(rule_lines, i, next, rule_file->rule_lines)
+        LIST_FOREACH(rule_lines, i, rule_file->rule_lines)
                 udev_rule_line_free(i);
 
         free(rule_file->filename);
@@ -310,7 +310,7 @@ UdevRules *udev_rules_free(UdevRules *rules) {
         if (!rules)
                 return NULL;
 
-        LIST_FOREACH_SAFE(rule_files, i, next, rules->rule_files)
+        LIST_FOREACH(rule_files, i, rules->rule_files)
                 udev_rule_file_free(i);
 
         hashmap_free_free_key(rules->known_users);
@@ -1143,7 +1143,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
         assert(rule_file);
 
         /* link GOTOs to LABEL rules in this file to be able to fast-forward */
-        LIST_FOREACH_SAFE(rule_lines, line, line_next, rule_file->rule_lines) {
+        LIST_FOREACH(rule_lines, line, rule_file->rule_lines) {
                 if (!FLAGS_SET(line->type, LINE_HAS_GOTO))
                         continue;
 
@@ -2486,7 +2486,7 @@ static int udev_rule_apply_line_to_event(
 
         DEVICE_TRACE_POINT(rules_apply_line, event->dev, line->rule_file->filename, line->line_number);
 
-        LIST_FOREACH_SAFE(tokens, token, next_token, line->tokens) {
+        LIST_FOREACH(tokens, token, line->tokens) {
                 line->current_token = token;
 
                 if (token_is_for_parents(token)) {
@@ -2526,7 +2526,7 @@ int udev_rules_apply_to_event(
 
         LIST_FOREACH(rule_files, file, rules->rule_files) {
                 rules->current_file = file;
-                LIST_FOREACH_SAFE(rule_lines, line, next_line, file->rule_lines) {
+                LIST_FOREACH_WITH_NEXT(rule_lines, line, next_line, file->rule_lines) {
                         file->current_line = line;
                         r = udev_rule_apply_line_to_event(rules, event, timeout_usec, timeout_signal, properties_list, &next_line);
                         if (r < 0)

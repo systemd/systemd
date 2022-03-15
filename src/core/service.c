@@ -507,7 +507,7 @@ static void service_remove_fd_store(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-        LIST_FOREACH_SAFE(fd_store, fs, n, s->fd_store) {
+        LIST_FOREACH(fd_store, fs, s->fd_store) {
                 if (!streq(fs->fdname, name))
                         continue;
 

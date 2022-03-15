@@ -1146,7 +1146,7 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                                               "%s: Missing PrivateKey= or PrivateKeyFile=, "
                                               "Ignoring network device.", filename);
 
-        LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers) {
+        LIST_FOREACH(peers, peer, w->peers) {
                 if (wireguard_peer_verify(peer) < 0) {
                         wireguard_peer_free(peer);
                         continue;

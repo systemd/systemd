@@ -1902,7 +1902,7 @@ add_initial_free_area:
 static void context_unload_partition_table(Context *context) {
         assert(context);
 
-        LIST_FOREACH_SAFE(partitions, p, next, context->partitions) {
+        LIST_FOREACH(partitions, p, context->partitions) {
 
                 /* Entirely remove partitions that have no configuration */
                 if (PARTITION_IS_FOREIGN(p)) {

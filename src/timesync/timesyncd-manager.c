@@ -1001,7 +1001,7 @@ static int manager_network_read_link_servers(Manager *m) {
                 }
         }
 
-        LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
+        LIST_FOREACH(names, n, m->link_servers)
                 if (n->marked) {
                         server_name_free(n);
                         changed = true;

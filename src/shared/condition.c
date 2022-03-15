@@ -89,7 +89,7 @@ Condition* condition_free(Condition *c) {
 }
 
 Condition* condition_free_list_type(Condition *head, ConditionType type) {
-        LIST_FOREACH_SAFE(conditions, c, n, head)
+        LIST_FOREACH(conditions, c, head)
                 if (type < 0 || c->type == type) {
                         LIST_REMOVE(conditions, head, c);
                         condition_free(c);
