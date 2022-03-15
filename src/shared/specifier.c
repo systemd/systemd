@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "chase-symlinks.h"
+#include "creds-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -299,6 +300,27 @@ int specifier_os_image_id(char specifier, const void *data, const char *root, co
 int specifier_os_image_version(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         assert(ret);
         return parse_os_release(root, "IMAGE_VERSION", ret);
+}
+
+int specifier_credentials_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const char *d;
+        char *copy;
+        int r;
+
+        assert(ret);
+
+        r = get_credentials_dir(&d);
+        if (r >= 0) {
+                copy = strdup(d);
+                if (!copy)
+                        return -ENOMEM;
+        } else if (r == -ENXIO)
+                copy = strdup("");
+        else
+                return r;
+
+        *ret = copy;
+        return 0;
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
