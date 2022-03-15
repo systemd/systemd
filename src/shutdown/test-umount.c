@@ -12,7 +12,6 @@
 static void test_mount_points_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         _cleanup_free_ char *testdata_fname = NULL;
-        MountPoint *m;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
 
@@ -36,7 +35,6 @@ static void test_mount_points_list(const char *fname) {
 static void test_swap_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         _cleanup_free_ char *testdata_fname = NULL;
-        MountPoint *m;
         int r;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
