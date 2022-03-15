@@ -34,6 +34,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -3558,6 +3559,11 @@ int journal_file_open(
                         goto fail;
         }
 
+        uid_t uid;
+        r = journal_file_parse_uid(fname, &uid, false);
+        if (r > 0)
+                f->uid = uid;
+
         /* The file is opened now successfully, thus we take possession of any passed in fd. */
         f->close_fd = true;
 
@@ -3571,6 +3577,40 @@ fail:
         (void) journal_file_close(f);
 
         return r;
+}
+
+int journal_file_parse_uid(const char *path, uid_t *uid, bool ignore_archive) {
+        const char *a, *b, *p, *at;
+        char *buf;
+        int r;
+
+        assert(path);
+        assert(uid);
+
+        p = last_path_component(path);
+
+        a = startswith(p, "user-");
+        if (!a)
+                return 0;
+        b = endswith(p, ".journal");
+        if (!b)
+                return 0;
+
+        at = strchr(a, '@');
+        if (at) {
+                if (ignore_archive)
+                        return 0;
+                b = at;
+        }
+
+        buf = strndupa_safe(a, b-a);
+        r = parse_uid(buf, uid);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", p);
+                return r;
+        }
+
+        return 1;
 }
 
 int journal_file_archive(JournalFile *f, char **ret_previous_path) {
