@@ -138,7 +138,7 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
 
 static int specifier_special_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        char *n = NULL;
+        char *n;
 
         n = strdup(u->manager->prefix[PTR_TO_UINT(data)]);
         if (!n)
