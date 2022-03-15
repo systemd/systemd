@@ -148,8 +148,6 @@ static be32_t usec_to_be32_sec(usec_t usec) {
 }
 
 static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
-        sd_radv_route_prefix *rt;
-        sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
                 .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
@@ -578,7 +576,7 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_prefix *cur, *found = NULL;
+        sd_radv_prefix *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -661,8 +659,6 @@ void sd_radv_remove_prefix(
                 const struct in6_addr *prefix,
                 unsigned char prefixlen) {
 
-        sd_radv_prefix *cur;
-
         if (!ra)
                 return;
 
@@ -685,7 +681,7 @@ void sd_radv_remove_prefix(
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_route_prefix *cur, *found = NULL;
+        sd_radv_route_prefix *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);

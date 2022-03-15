@@ -514,9 +514,7 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Manager *m = userdata;
-        DnsServer *server;
         size_t size = 0;
-        DnsScope *scope;
         Link *l;
 
         assert(s);
@@ -1316,8 +1314,6 @@ DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
 }
 
 void manager_verify_all(Manager *m) {
-        DnsScope *s;
-
         assert(m);
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
@@ -1349,7 +1345,6 @@ int manager_is_own_hostname(Manager *m, const char *name) {
 }
 
 int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
-        DnsServer *s;
         Link *l;
         int r;
 
@@ -1400,7 +1395,6 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
  *   > 0 or true: return only domains which are for routing only
  */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
-        DnsSearchDomain *d;
         Link *l;
         int r;
 
@@ -1512,8 +1506,6 @@ bool manager_routable(Manager *m) {
 }
 
 void manager_flush_caches(Manager *m, int log_level) {
-        DnsScope *scope;
-
         assert(m);
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)

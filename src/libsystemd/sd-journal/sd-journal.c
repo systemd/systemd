@@ -233,7 +233,7 @@ static Match *match_free_if_empty(Match *m) {
 }
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
-        Match *l3, *l4, *add_here = NULL, *m = NULL;
+        Match *add_here = NULL, *m = NULL;
         uint64_t hash;
 
         assert_return(j, -EINVAL);
@@ -372,7 +372,6 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
 
 static char *match_make_string(Match *m) {
         char *p = NULL, *r;
-        Match *i;
         bool enclose = false;
 
         if (!m)
@@ -518,7 +517,6 @@ static int next_for_match(
                 return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, offset);
 
         } else if (m->type == MATCH_OR_TERM) {
-                Match *i;
 
                 /* Find the earliest match beyond after_offset */
 
@@ -538,7 +536,7 @@ static int next_for_match(
                         return 0;
 
         } else if (m->type == MATCH_AND_TERM) {
-                Match *i, *last_moved;
+                Match *last_moved;
 
                 /* Always jump to the next matching entry and repeat
                  * this until we find an offset that matches for all
@@ -636,7 +634,6 @@ static int find_location_for_match(
         } else if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
                 Object *n;
-                Match *i;
 
                 /* Find the earliest match */
 
@@ -667,7 +664,6 @@ static int find_location_for_match(
                 return 1;
 
         } else {
-                Match *i;
                 uint64_t np = 0;
 
                 assert(m->type == MATCH_AND_TERM);

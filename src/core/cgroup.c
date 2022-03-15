@@ -414,15 +414,7 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
-        CGroupIODeviceLimit *il;
-        CGroupIODeviceWeight *iw;
-        CGroupIODeviceLatency *l;
-        CGroupBlockIODeviceBandwidth *b;
-        CGroupBlockIODeviceWeight *w;
-        CGroupBPFForeignProgram *p;
-        CGroupDeviceAllow *a;
         CGroupContext *c;
-        CGroupSocketBindItem *bi;
         struct in_addr_prefix *iaai;
         char **path;
 
@@ -1219,7 +1211,6 @@ static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         const char *path;
         CGroupContext *c;
-        CGroupDeviceAllow *a;
         CGroupDevicePolicy policy;
         int r;
 
@@ -1440,10 +1431,6 @@ static void cgroup_context_apply(
                 set_io_weight(u, weight);
 
                 if (has_io) {
-                        CGroupIODeviceLatency *latency;
-                        CGroupIODeviceLimit *limit;
-                        CGroupIODeviceWeight *w;
-
                         LIST_FOREACH(device_weights, w, c->io_device_weights)
                                 cgroup_apply_io_device_weight(u, w->path, w->weight);
 
@@ -1454,9 +1441,6 @@ static void cgroup_context_apply(
                                 cgroup_apply_io_device_latency(u, latency->path, latency->target_usec);
 
                 } else if (has_blockio) {
-                        CGroupBlockIODeviceWeight *w;
-                        CGroupBlockIODeviceBandwidth *b;
-
                         LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
                                 weight = cgroup_weight_blkio_to_io(w->weight);
 
@@ -1509,9 +1493,7 @@ static void cgroup_context_apply(
 
                         set_blkio_weight(u, weight);
 
-                        if (has_io) {
-                                CGroupIODeviceWeight *w;
-
+                        if (has_io)
                                 LIST_FOREACH(device_weights, w, c->io_device_weights) {
                                         weight = cgroup_weight_io_to_blkio(w->weight);
 
@@ -1520,32 +1502,24 @@ static void cgroup_context_apply(
 
                                         cgroup_apply_blkio_device_weight(u, w->path, weight);
                                 }
-                        } else if (has_blockio) {
-                                CGroupBlockIODeviceWeight *w;
-
+                        else if (has_blockio)
                                 LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                                         cgroup_apply_blkio_device_weight(u, w->path, w->weight);
-                        }
                 }
 
                 /* The bandwidth limits are something that make sense to be applied to the host's root but not container
                  * roots, as there we want the container manager to handle it */
                 if (is_host_root || !is_local_root) {
-                        if (has_io) {
-                                CGroupIODeviceLimit *l;
-
+                        if (has_io)
                                 LIST_FOREACH(device_limits, l, c->io_device_limits) {
                                         log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth=%" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax= for %s",
                                                           l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
 
                                         cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
                                 }
-                        } else if (has_blockio) {
-                                CGroupBlockIODeviceBandwidth *b;
-
+                        else if (has_blockio)
                                 LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
                                         cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps);
-                        }
                 }
         }
 

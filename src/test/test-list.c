@@ -11,7 +11,6 @@ int main(int argc, const char *argv[]) {
         LIST_HEAD(list_item, head);
         LIST_HEAD(list_item, head2);
         list_item items[4];
-        list_item *cursor;
 
         LIST_HEAD_INIT(head);
         LIST_HEAD_INIT(head2);
@@ -57,6 +56,7 @@ int main(int argc, const char *argv[]) {
         assert_se(items[2].item_prev == &items[3]);
         assert_se(items[3].item_prev == NULL);
 
+        list_item *cursor;
         LIST_FIND_HEAD(item, &items[0], cursor);
         assert_se(cursor == &items[3]);
 
