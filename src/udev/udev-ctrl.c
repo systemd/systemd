@@ -12,10 +12,10 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
@@ -45,6 +45,7 @@ struct UdevCtrl {
         sd_event_source *event_source_connect;
         udev_ctrl_handler_t callback;
         void *userdata;
+        Set *sender_pids;
 };
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
@@ -106,13 +107,6 @@ static void udev_ctrl_disconnect(UdevCtrl *uctrl) {
         uctrl->sock_connect = safe_close(uctrl->sock_connect);
 }
 
-int udev_ctrl_is_connected(UdevCtrl *uctrl) {
-        if (!uctrl)
-                return false;
-
-        return event_source_is_enabled(uctrl->event_source_connect);
-}
-
 static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
         assert(uctrl);
 
@@ -122,6 +116,7 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
         safe_close(uctrl->sock);
 
         sd_event_unref(uctrl->event);
+        set_free(uctrl->sender_pids);
         return mfree(uctrl);
 }
 
@@ -151,6 +146,8 @@ sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl) {
 }
 
 static void udev_ctrl_disconnect_and_listen_again(UdevCtrl *uctrl) {
+        assert(uctrl);
+
         udev_ctrl_disconnect(uctrl);
         udev_ctrl_unref(uctrl);
         (void) sd_event_source_set_enabled(uctrl->event_source, SD_EVENT_ON);
@@ -158,6 +155,18 @@ static void udev_ctrl_disconnect_and_listen_again(UdevCtrl *uctrl) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UdevCtrl*, udev_ctrl_disconnect_and_listen_again, NULL);
+
+Set *udev_ctrl_get_sender_pids(UdevCtrl *uctrl) {
+        void *p;
+
+        assert(uctrl);
+
+        SET_FOREACH(p, uctrl->sender_pids)
+                if (!pid_is_alive(PTR_TO_PID(p)))
+                        set_remove(uctrl->sender_pids, p);
+
+        return uctrl->sender_pids;
+}
 
 static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) UdevCtrl *uctrl = NULL;
@@ -170,9 +179,9 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
         struct ucred *cred;
         ssize_t size;
+        int r;
 
         assert(userdata);
 
@@ -194,19 +203,23 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 
         cmsg_close_all(&smsg);
 
-        cmsg = CMSG_FIRSTHDR(&smsg);
-
-        if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                log_error("No sender credentials received, ignoring message");
+        cred = CMSG_FIND_DATA(&smsg, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+        if (!cred) {
+                log_warning("Ignoring ctrl message without credentials.");
                 return 0;
         }
-
-        cred = (struct ucred *) CMSG_DATA(cmsg);
-
         if (cred->uid != 0) {
-                log_error("Invalid sender uid "UID_FMT", ignoring message", cred->uid);
+                log_warning("Invalid sender UID "UID_FMT", ignoring message.", cred->uid);
                 return 0;
         }
+        if (cred->pid <= 0) {
+                log_warning("Invalid sender PID, ignoring message.");
+                return 0;
+        }
+
+        r = set_ensure_put(&uctrl->sender_pids, NULL, PID_TO_PTR(cred->pid));
+        if (r < 0)
+                log_warning_errno(r, "Failed to store sender PID "PID_FMT", ignoring: %m", cred->pid);
 
         if (msg_wire.magic != UDEV_CTRL_MAGIC) {
                 log_error("Message magic 0x%08x doesn't match, ignoring message", msg_wire.magic);
@@ -314,8 +327,6 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
                 strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), data);
         } else if (IN_SET(type, UDEV_CTRL_SET_LOG_LEVEL, UDEV_CTRL_SET_CHILDREN_MAX))
                 ctrl_msg_wire.value.intval = PTR_TO_INT(data);
-        else if (type == UDEV_CTRL_SENDER_PID)
-                ctrl_msg_wire.value.pid = PTR_TO_PID(data);
 
         if (!uctrl->connected) {
                 if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
