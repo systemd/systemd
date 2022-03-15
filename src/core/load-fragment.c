@@ -4328,7 +4328,7 @@ int config_parse_io_limit(
                 void *userdata) {
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
-        CGroupIODeviceLimit *l = NULL, *t;
+        CGroupIODeviceLimit *l = NULL;
         CGroupContext *c = data;
         CGroupIOLimitType type;
         const char *p = rvalue;
@@ -4343,8 +4343,8 @@ int config_parse_io_limit(
         assert(type >= 0);
 
         if (isempty(rvalue)) {
-                LIST_FOREACH(device_limits, l, c->io_device_limits)
-                        l->limits[type] = cgroup_io_limit_defaults[type];
+                LIST_FOREACH(device_limits, t, c->io_device_limits)
+                        t->limits[type] = cgroup_io_limit_defaults[type];
                 return 0;
         }
 
@@ -4378,12 +4378,11 @@ int config_parse_io_limit(
                 }
         }
 
-        LIST_FOREACH(device_limits, t, c->io_device_limits) {
+        LIST_FOREACH(device_limits, t, c->io_device_limits)
                 if (path_equal(resolved, t->path)) {
                         l = t;
                         break;
                 }
-        }
 
         if (!l) {
                 CGroupIOLimitType ttype;
@@ -4486,7 +4485,7 @@ int config_parse_blockio_bandwidth(
                 void *userdata) {
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
-        CGroupBlockIODeviceBandwidth *b = NULL, *t;
+        CGroupBlockIODeviceBandwidth *b = NULL;
         CGroupContext *c = data;
         const char *p = rvalue;
         uint64_t bytes;
@@ -4500,9 +4499,9 @@ int config_parse_blockio_bandwidth(
         read = streq("BlockIOReadBandwidth", lvalue);
 
         if (isempty(rvalue)) {
-                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
-                        b->rbps = CGROUP_LIMIT_MAX;
-                        b->wbps = CGROUP_LIMIT_MAX;
+                LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths) {
+                        t->rbps = CGROUP_LIMIT_MAX;
+                        t->wbps = CGROUP_LIMIT_MAX;
                 }
                 return 0;
         }
@@ -4533,14 +4532,13 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths) {
+        LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths)
                 if (path_equal(resolved, t->path)) {
                         b = t;
                         break;
                 }
-        }
 
-        if (!t) {
+        if (!b) {
                 b = new0(CGroupBlockIODeviceBandwidth, 1);
                 if (!b)
                         return log_oom();

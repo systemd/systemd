@@ -51,7 +51,6 @@ static int property_get_dns_internal(
                 bool extended) {
 
         Link *l = userdata;
-        DnsServer *s;
         int r;
 
         assert(reply);
@@ -144,7 +143,6 @@ static int property_get_domains(
                 sd_bus_error *error) {
 
         Link *l = userdata;
-        DnsSearchDomain *d;
         int r;
 
         assert(reply);
