@@ -12,7 +12,6 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
-#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -104,13 +103,6 @@ static void udev_ctrl_disconnect(UdevCtrl *uctrl) {
 
         uctrl->event_source_connect = sd_event_source_unref(uctrl->event_source_connect);
         uctrl->sock_connect = safe_close(uctrl->sock_connect);
-}
-
-int udev_ctrl_is_connected(UdevCtrl *uctrl) {
-        if (!uctrl)
-                return false;
-
-        return event_source_is_enabled(uctrl->event_source_connect);
 }
 
 static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
@@ -314,8 +306,6 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
                 strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), data);
         } else if (IN_SET(type, UDEV_CTRL_SET_LOG_LEVEL, UDEV_CTRL_SET_CHILDREN_MAX))
                 ctrl_msg_wire.value.intval = PTR_TO_INT(data);
-        else if (type == UDEV_CTRL_SENDER_PID)
-                ctrl_msg_wire.value.pid = PTR_TO_PID(data);
 
         if (!uctrl->connected) {
                 if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
