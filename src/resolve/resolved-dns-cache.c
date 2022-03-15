@@ -144,7 +144,7 @@ static bool dns_cache_remove_by_key(DnsCache *c, DnsResourceKey *key) {
         if (!first)
                 return false;
 
-        LIST_FOREACH_SAFE(by_key, i, n, first) {
+        LIST_FOREACH(by_key, i, first) {
                 prioq_remove(c->by_expiry, i, &i->prioq_idx);
                 dns_cache_item_free(i);
         }
