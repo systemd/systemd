@@ -102,14 +102,17 @@ static void unit_status_info_clear(UnitStatusInfo *p) {
         p->active_state = mfree(p->active_state);
 }
 
-static void unit_status_info_free(UnitStatusInfo *p) {
-        assert(p);
+static UnitStatusInfo *unit_status_info_free(UnitStatusInfo *p) {
+        if (!p)
+                return NULL;
 
         unit_status_info_clear(p);
         free(p->name);
         free(p->path);
-        free(p);
+        return mfree(p);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitStatusInfo*, unit_status_info_free);
 
 static void context_clear(Context *c) {
         UnitStatusInfo *p;
@@ -129,7 +132,12 @@ static void context_clear(Context *c) {
 }
 
 static int context_add_ntp_service(Context *c, const char *s, const char *source) {
+        _cleanup_(unit_status_info_freep) UnitStatusInfo *unit = NULL;
         UnitStatusInfo *u;
+
+        assert(c);
+        assert(s);
+        assert(source);
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                 return -EINVAL;
@@ -139,18 +147,17 @@ static int context_add_ntp_service(Context *c, const char *s, const char *source
                 if (streq(u->name, s))
                         return 0;
 
-        u = new0(UnitStatusInfo, 1);
-        if (!u)
+        unit = new0(UnitStatusInfo, 1);
+        if (!unit)
                 return -ENOMEM;
 
-        u->name = strdup(s);
-        if (!u->name) {
-                free(u);
+        unit->name = strdup(s);
+        if (!unit->name)
                 return -ENOMEM;
-        }
 
-        LIST_APPEND(units, c->units, u);
-        log_unit_debug(u, "added from %s.", source);
+        LIST_APPEND(units, c->units, unit);
+        log_unit_debug(unit, "added from %s.", source);
+        TAKE_PTR(unit);
 
         return 0;
 }
