@@ -123,7 +123,6 @@ static int bpf_foreign_prepare(
 
 int bpf_foreign_install(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
-        CGroupBPFForeignProgram *p;
         CGroupContext *cc;
         int r;
 

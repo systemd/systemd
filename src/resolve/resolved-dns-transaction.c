@@ -634,12 +634,9 @@ static int on_stream_complete(DnsStream *s, int error) {
                 }
         }
 
-        if (error != 0) {
-                DnsTransaction *t, *n;
-
+        if (error != 0)
                 LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
                         on_transaction_stream_error(t, error);
-        }
 
         return 0;
 }
@@ -1762,7 +1759,6 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         bool add_known_answers = false;
-        DnsTransaction *other;
         DnsResourceKey *tkey;
         _cleanup_set_free_ Set *keys = NULL;
         unsigned qdcount;

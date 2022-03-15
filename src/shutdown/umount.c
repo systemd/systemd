@@ -589,7 +589,6 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
 /* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, int umount_log_level) {
-        MountPoint *m;
         int n_failed = 0;
 
         assert(head);
@@ -635,7 +634,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
 }
 
 static int swap_points_list_off(MountPoint **head, bool *changed) {
-        MountPoint *m, *n;
         int n_failed = 0;
 
         assert(head);
@@ -657,7 +655,6 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 }
 
 static int loopback_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
-        MountPoint *m, *n;
         int n_failed = 0, r;
         dev_t rootdev = 0;
 
@@ -689,7 +686,6 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
 }
 
 static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
-        MountPoint *m, *n;
         int n_failed = 0, r;
         dev_t rootdev = 0;
 
@@ -720,7 +716,6 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
 }
 
 static int md_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
-        MountPoint *m, *n;
         int n_failed = 0, r;
         dev_t rootdev = 0;
 

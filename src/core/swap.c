@@ -537,7 +537,6 @@ static void swap_process_new(Manager *m, const char *device, int prio, bool set_
 
 static void swap_set_state(Swap *s, SwapState state) {
         SwapState old_state;
-        Swap *other;
 
         assert(s);
 
@@ -745,8 +744,6 @@ static void swap_enter_dead_or_active(Swap *s, SwapResult f) {
         assert(s);
 
         if (s->from_proc_swaps) {
-                Swap *other;
-
                 swap_enter_active(s, f);
 
                 LIST_FOREACH_OTHERS(same_devnode, other, s)
@@ -902,7 +899,7 @@ static void swap_cycle_clear(Swap *s) {
 }
 
 static int swap_start(Unit *u) {
-        Swap *s = SWAP(u), *other;
+        Swap *s = SWAP(u);
         int r;
 
         assert(s);
@@ -1207,7 +1204,6 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 }
 
 static int swap_process_proc_swaps(Manager *m) {
-        Unit *u;
         int r;
 
         assert(m);
@@ -1300,7 +1296,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 
 static Unit *swap_following(Unit *u) {
         Swap *s = SWAP(u);
-        Swap *other, *first = NULL;
+        Swap *first = NULL;
 
         assert(s);
 
@@ -1336,7 +1332,7 @@ static Unit *swap_following(Unit *u) {
 }
 
 static int swap_following_set(Unit *u, Set **_set) {
-        Swap *s = SWAP(u), *other;
+        Swap *s = SWAP(u);
         _cleanup_set_free_ Set *set = NULL;
         int r;
 

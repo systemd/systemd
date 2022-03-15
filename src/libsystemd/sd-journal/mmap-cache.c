@@ -86,7 +86,6 @@ MMapCache* mmap_cache_new(void) {
 }
 
 static void window_unlink(Window *w) {
-        Context *c;
 
         assert(w);
 
@@ -306,7 +305,7 @@ static int find_mmap(
                 size_t size,
                 void **ret) {
 
-        Window *w;
+        Window *found = NULL;
 
         assert(f);
         assert(f->cache);
@@ -318,16 +317,18 @@ static int find_mmap(
                 return -EIO;
 
         LIST_FOREACH(by_fd, w, f->windows)
-                if (window_matches(w, offset, size))
+                if (window_matches(w, offset, size)) {
+                        found = w;
                         break;
+                }
 
-        if (!w)
+        if (!found)
                 return 0;
 
-        context_attach_window(f->cache, c, w);
-        w->keep_always = w->keep_always || keep_always;
+        context_attach_window(f->cache, c, found);
+        found->keep_always = found->keep_always || keep_always;
 
-        *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        *ret = (uint8_t*) found->ptr + (offset - found->offset);
         f->cache->n_window_list_hit++;
 
         return 1;
@@ -494,8 +495,6 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
 
                 ours = false;
                 HASHMAP_FOREACH(f, m->fds) {
-                        Window *w;
-
                         LIST_FOREACH(by_fd, w, f->windows) {
                                 if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
                                     (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
@@ -523,8 +522,6 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                 return;
 
         HASHMAP_FOREACH(f, m->fds) {
-                Window *w;
-
                 if (!f->sigbus)
                         continue;
 

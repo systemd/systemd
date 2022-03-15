@@ -199,7 +199,7 @@ static int dump_processes(
         }
 
         if (cg->children) {
-                struct CGroupInfo **children, *child;
+                struct CGroupInfo **children;
                 size_t n = 0, i;
 
                 /* Order subcgroups by their name */
@@ -217,9 +217,7 @@ static int dump_processes(
                         const char *name, *special;
                         bool more;
 
-                        child = children[i];
-
-                        name = strrchr(child->cgroup_path, '/');
+                        name = strrchr(children[i]->cgroup_path, '/');
                         if (!name)
                                 return -EINVAL;
                         name++;
@@ -238,7 +236,7 @@ static int dump_processes(
                         if (!pp)
                                 return -ENOMEM;
 
-                        r = dump_processes(cgroups, child->cgroup_path, pp, n_columns, flags);
+                        r = dump_processes(cgroups, children[i]->cgroup_path, pp, n_columns, flags);
                         if (r < 0)
                                 return r;
                 }

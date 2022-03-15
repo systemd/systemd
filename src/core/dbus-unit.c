@@ -273,7 +273,7 @@ static int property_get_conditions(
                 sd_bus_error *error) {
 
         const char *(*to_string)(ConditionType type) = NULL;
-        Condition **list = userdata, *c;
+        Condition **list = userdata;
         int r;
 
         assert(bus);

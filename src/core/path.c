@@ -292,7 +292,6 @@ static void path_done(Unit *u) {
 }
 
 static int path_add_mount_dependencies(Path *p) {
-        PathSpec *s;
         int r;
 
         assert(p);
@@ -401,7 +400,6 @@ static int path_load(Unit *u) {
 static void path_dump(Unit *u, FILE *f, const char *prefix) {
         Path *p = PATH(u);
         Unit *trigger;
-        PathSpec *s;
 
         assert(p);
         assert(f);
@@ -429,8 +427,6 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static void path_unwatch(Path *p) {
-        PathSpec *s;
-
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
@@ -439,7 +435,6 @@ static void path_unwatch(Path *p) {
 
 static int path_watch(Path *p) {
         int r;
-        PathSpec *s;
 
         assert(p);
 
@@ -539,8 +534,6 @@ fail:
 }
 
 static bool path_check_good(Path *p, bool initial, bool from_trigger_notify) {
-        PathSpec *s;
-
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
@@ -591,8 +584,6 @@ fail:
 }
 
 static void path_mkdir(Path *p) {
-        PathSpec *s;
-
         assert(p);
 
         if (!p->make_directory)
@@ -637,7 +628,6 @@ static int path_stop(Unit *u) {
 
 static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         Path *p = PATH(u);
-        PathSpec *s;
 
         assert(u);
         assert(f);
@@ -700,7 +690,6 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                         _cleanup_free_ char *unescaped = NULL;
                         ssize_t l;
                         PathType type;
-                        PathSpec *s;
 
                         type = path_type_from_string(type_str);
                         if (type < 0) {
@@ -742,7 +731,7 @@ _pure_ static const char *path_sub_state_to_string(Unit *u) {
 }
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        PathSpec *s = userdata;
+        PathSpec *s = userdata, *found = NULL;
         Path *p;
         int changed;
 
@@ -755,18 +744,18 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         if (!IN_SET(p->state, PATH_WAITING, PATH_RUNNING))
                 return 0;
 
-        /* log_debug("inotify wakeup on %s.", UNIT(p)->id); */
-
-        LIST_FOREACH(spec, s, p->specs)
-                if (path_spec_owns_inotify_fd(s, fd))
+        LIST_FOREACH(spec, i, p->specs)
+                if (path_spec_owns_inotify_fd(i, fd)) {
+                        found = i;
                         break;
+                }
 
-        if (!s) {
+        if (!found) {
                 log_error("Got event on unknown fd.");
                 goto fail;
         }
 
-        changed = path_spec_fd_event(s, revents);
+        changed = path_spec_fd_event(found, revents);
         if (changed < 0)
                 goto fail;
 

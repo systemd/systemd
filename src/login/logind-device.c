@@ -67,7 +67,6 @@ void device_free(Device *d) {
 }
 
 void device_attach(Device *d, Seat *s) {
-        Device *i;
         bool had_master;
 
         assert(d);

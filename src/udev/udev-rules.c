@@ -268,8 +268,6 @@ static void udev_rule_token_free(UdevRuleToken *token) {
 }
 
 static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
-        UdevRuleToken *i, *next;
-
         assert(rule_line);
 
         LIST_FOREACH_SAFE(tokens, i, next, rule_line->tokens)
@@ -298,8 +296,6 @@ static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleLine*, udev_rule_line_free);
 
 static void udev_rule_file_free(UdevRuleFile *rule_file) {
-        UdevRuleLine *i, *next;
-
         if (!rule_file)
                 return;
 
@@ -311,8 +307,6 @@ static void udev_rule_file_free(UdevRuleFile *rule_file) {
 }
 
 UdevRules *udev_rules_free(UdevRules *rules) {
-        UdevRuleFile *i, *next;
-
         if (!rules)
                 return NULL;
 
@@ -1070,7 +1064,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
         rule_line->current_token = NULL;
 
         while (!LIST_IS_EMPTY(head_old)) {
-                UdevRuleToken *t, *min_token = NULL;
+                UdevRuleToken *min_token = NULL;
 
                 LIST_FOREACH(tokens, t, head_old)
                         if (!min_token || min_token->type > t->type)
@@ -1146,8 +1140,6 @@ static int rule_add_line(UdevRules *rules, const char *line_str, unsigned line_n
 }
 
 static void rule_resolve_goto(UdevRuleFile *rule_file) {
-        UdevRuleLine *line, *line_next, *i;
-
         assert(rule_file);
 
         /* link GOTOs to LABEL rules in this file to be able to fast-forward */
@@ -2438,9 +2430,12 @@ static int udev_rule_apply_parent_token_to_event(
         head = rules->current_file->current_line->current_token;
         event->dev_parent = event->dev;
         for (;;) {
-                LIST_FOREACH(tokens, line->current_token, head) {
-                        if (!token_is_for_parents(line->current_token))
+                line->current_token = NULL;
+                LIST_FOREACH(tokens, token, head) {
+                        if (!token_is_for_parents(token))
                                 return true; /* All parent tokens match. */
+
+                        line->current_token = token;
                         r = udev_rule_apply_token_to_event(rules, event->dev_parent, event, 0, timeout_signal, NULL);
                         if (r < 0)
                                 return r;
@@ -2468,7 +2463,6 @@ static int udev_rule_apply_line_to_event(
 
         UdevRuleLine *line = rules->current_file->current_line;
         UdevRuleLineType mask = LINE_HAS_GOTO | LINE_UPDATE_SOMETHING;
-        UdevRuleToken *token, *next_token;
         bool parents_done = false;
         sd_device_action_t action;
         int r;
@@ -2525,8 +2519,6 @@ int udev_rules_apply_to_event(
                 int timeout_signal,
                 Hashmap *properties_list) {
 
-        UdevRuleFile *file;
-        UdevRuleLine *next_line;
         int r;
 
         assert(rules);
@@ -2534,7 +2526,8 @@ int udev_rules_apply_to_event(
 
         LIST_FOREACH(rule_files, file, rules->rule_files) {
                 rules->current_file = file;
-                LIST_FOREACH_SAFE(rule_lines, file->current_line, next_line, file->rule_lines) {
+                LIST_FOREACH_SAFE(rule_lines, line, next_line, file->rule_lines) {
+                        file->current_line = line;
                         r = udev_rule_apply_line_to_event(rules, event, timeout_usec, timeout_signal, properties_list, &next_line);
                         if (r < 0)
                                 return r;
@@ -2612,7 +2605,6 @@ static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mod
 }
 
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
-        UdevRuleToken *token;
         _cleanup_strv_free_ char **tags = NULL;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
@@ -2645,8 +2637,6 @@ static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
 }
 
 int udev_rules_apply_static_dev_perms(UdevRules *rules) {
-        UdevRuleFile *file;
-        UdevRuleLine *line;
         int r;
 
         assert(rules);

@@ -188,17 +188,14 @@ static int load_state(Context *c, const struct rfkill_event *event) {
 }
 
 static void save_state_queue_remove(Context *c, int idx, const char *state_file) {
-        struct write_queue_item *item, *tmp;
-
         assert(c);
 
-        LIST_FOREACH_SAFE(queue, item, tmp, c->write_queue) {
+        LIST_FOREACH_SAFE(queue, item, tmp, c->write_queue)
                 if ((state_file && streq(item->file, state_file)) || idx == item->rfkill_idx) {
                         log_debug("Canceled previous save state of '%s' to %s.", one_zero(item->state), item->file);
                         LIST_REMOVE(queue, c->write_queue, item);
                         write_queue_item_free(item);
                 }
-        }
 }
 
 static int save_state_queue(Context *c, const struct rfkill_event *event) {

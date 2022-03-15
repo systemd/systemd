@@ -20,7 +20,6 @@ static int property_get_monotonic_timers(
                 sd_bus_error *error) {
 
         Timer *t = userdata;
-        TimerValue *v;
         int r;
 
         assert(bus);
@@ -69,7 +68,6 @@ static int property_get_calendar_timers(
                 sd_bus_error *error) {
 
         Timer *t = userdata;
-        TimerValue *v;
         int r;
 
         assert(bus);

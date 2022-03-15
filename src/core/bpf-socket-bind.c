@@ -27,7 +27,6 @@ static int update_rules_map(
                 int map_fd,
                 CGroupSocketBindItem *head) {
 
-        CGroupSocketBindItem *item;
         uint32_t i = 0;
 
         assert(map_fd >= 0);
@@ -58,7 +57,6 @@ static int prepare_socket_bind_bpf(
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         size_t allow_count = 0, deny_count = 0;
         int allow_map_fd, deny_map_fd, r;
-        CGroupSocketBindItem *item;
 
         assert(ret_obj);
 

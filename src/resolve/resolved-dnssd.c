@@ -211,7 +211,6 @@ int dnssd_update_rrs(DnssdService *s) {
         _cleanup_free_ char *n = NULL;
         _cleanup_free_ char *service_name = NULL;
         _cleanup_free_ char *full_name = NULL;
-        DnssdTxtData *txt_data;
         int r;
 
         assert(s);

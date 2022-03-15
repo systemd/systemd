@@ -110,8 +110,6 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
 }
 
 void udev_list_cleanup(struct udev_list *list) {
-        struct udev_list_entry *i, *n;
-
         if (!list)
                 return;
 

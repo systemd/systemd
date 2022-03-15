@@ -685,7 +685,7 @@ static int manager_connect_bus(Manager *m) {
 
 static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo *si, void *data) {
         Manager *m = data;
-        Session *active, *iter;
+        Session *active;
 
         /*
          * We got a VT-switch signal and we have to acknowledge it immediately.
@@ -732,16 +732,14 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
                 return 0;
         }
 
-        if (active->vtfd >= 0) {
+        if (active->vtfd >= 0)
                 session_leave_vt(active);
-        } else {
-                LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions) {
+        else
+                LIST_FOREACH(sessions_by_seat, iter, m->seat0->sessions)
                         if (iter->vtnr == active->vtnr && iter->vtfd >= 0) {
                                 session_leave_vt(iter);
                                 break;
                         }
-                }
-        }
 
         return 0;
 }

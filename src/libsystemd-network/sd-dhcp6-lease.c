@@ -41,7 +41,6 @@ static usec_t sec2usec(uint32_t sec) {
 
 static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
         uint32_t t1 = UINT32_MAX, t2 = UINT32_MAX, min_valid_lt = UINT32_MAX;
-        DHCP6Address *a;
 
         assert(lease);
         assert(lease->ia_na || lease->ia_pd);
@@ -107,8 +106,6 @@ int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *re
 }
 
 void dhcp6_ia_clear_addresses(DHCP6IA *ia) {
-        DHCP6Address *a, *n;
-
         assert(ia);
 
         LIST_FOREACH_SAFE(addresses, a, n, ia->addresses)

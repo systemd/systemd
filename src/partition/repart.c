@@ -373,7 +373,6 @@ static int context_add_free_area(
 
 static bool context_drop_one_priority(Context *context) {
         int32_t priority = 0;
-        Partition *p;
         bool exists = false;
 
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -561,8 +560,6 @@ static uint64_t charge_weight(uint64_t total, uint64_t amount) {
 }
 
 static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_free_area) {
-        Partition *p;
-
         assert(context);
 
         /* Sort free areas by size, putting smallest first */
@@ -613,7 +610,6 @@ static bool context_allocate_partitions(Context *context, uint64_t *ret_largest_
 
 static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
         uint64_t weight_sum = 0;
-        Partition *p;
 
         assert(context);
         assert(a);
@@ -677,7 +673,6 @@ static int context_grow_partitions_phase(
                 uint64_t *span,
                 uint64_t *weight_sum) {
 
-        Partition *p;
         int r;
 
         assert(context);
@@ -832,9 +827,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
 
         /* What? Even still some space left (maybe because there was no preceding partition, or it had a
          * size limit), then let's donate it to whoever wants it. */
-        if (span > 0) {
-                Partition *p;
-
+        if (span > 0)
                 LIST_FOREACH(partitions, p, context->partitions) {
                         uint64_t m, xsz;
 
@@ -857,7 +850,6 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                         if (span == 0)
                                 break;
                 }
-        }
 
         /* Yuck, still no one? Then make it padding */
         if (span > 0 && a->after) {
@@ -869,7 +861,6 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
 }
 
 static int context_grow_partitions(Context *context) {
-        Partition *p;
         int r;
 
         assert(context);
@@ -903,7 +894,6 @@ static int context_grow_partitions(Context *context) {
 
 static void context_place_partitions(Context *context) {
         uint64_t partno = 0;
-        Partition *p;
 
         assert(context);
 
@@ -1729,7 +1719,7 @@ static int context_load_partition_table(
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 _cleanup_free_ char *label_copy = NULL;
-                Partition *pp, *last = NULL;
+                Partition *last = NULL;
                 struct fdisk_partition *p;
                 struct fdisk_parttype *pt;
                 const char *pts, *ids, *label;
@@ -1910,8 +1900,6 @@ add_initial_free_area:
 }
 
 static void context_unload_partition_table(Context *context) {
-        Partition *p, *next;
-
         assert(context);
 
         LIST_FOREACH_SAFE(partitions, p, next, context->partitions) {
@@ -1999,7 +1987,6 @@ static const char *partition_label(const Partition *p) {
 static int context_dump_partitions(Context *context, const char *node) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
-        Partition *p;
         int r;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
@@ -2189,7 +2176,7 @@ done:
 static int context_dump_partition_bar(Context *context, const char *node) {
         _cleanup_free_ Partition **bar = NULL;
         _cleanup_free_ size_t *start_array = NULL;
-        Partition *p, *last = NULL;
+        Partition *last = NULL;
         bool z = false;
         size_t c, j = 0;
 
@@ -2300,7 +2287,7 @@ static int context_dump_partition_bar(Context *context, const char *node) {
 }
 
 static bool context_changed(const Context *context) {
-        Partition *p;
+        assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
@@ -2470,7 +2457,6 @@ static int context_discard_partition(Context *context, Partition *p) {
 
 static int context_discard_gap_after(Context *context, Partition *p) {
         uint64_t gap, next = UINT64_MAX;
-        Partition *q;
         int r;
 
         assert(context);
@@ -2528,7 +2514,6 @@ static int context_discard_gap_after(Context *context, Partition *p) {
 }
 
 static int context_wipe_and_discard(Context *context, bool from_scratch) {
-        Partition *p;
         int r;
 
         assert(context);
@@ -2746,7 +2731,6 @@ static int deactivate_luks(struct crypt_device *cd, const char *node) {
 }
 
 static int context_copy_blocks(Context *context) {
-        Partition *p;
         int whole_fd = -1, r;
 
         assert(context);
@@ -2996,7 +2980,6 @@ static int partition_populate(Partition *p, const char *node) {
 }
 
 static int context_mkfs(Context *context) {
-        Partition *p;
         int fd = -1, r;
 
         assert(context);
@@ -3114,7 +3097,6 @@ static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *re
         } result;
 
         uint64_t k = 0;
-        Partition *q;
         int r;
 
         assert(context);
@@ -3198,7 +3180,6 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
         for (;;) {
                 const char *ll = label ?: prefix;
                 bool retry = false;
-                Partition *q;
 
                 LIST_FOREACH(partitions, q, context->partitions) {
                         if (p == q)
@@ -3230,7 +3211,6 @@ static int partition_acquire_label(Context *context, Partition *p, char **ret) {
 }
 
 static int context_acquire_partition_uuids_and_labels(Context *context) {
-        Partition *p;
         int r;
 
         assert(context);
@@ -3337,7 +3317,6 @@ static uint64_t partition_merge_flags(Partition *p) {
 }
 
 static int context_mangle_partitions(Context *context) {
-        Partition *p;
         int r;
 
         assert(context);
@@ -3604,7 +3583,6 @@ static int context_read_seed(Context *context, const char *root) {
 }
 
 static int context_factory_reset(Context *context, bool from_scratch) {
-        Partition *p;
         size_t n = 0;
         int r;
 
@@ -3653,8 +3631,6 @@ static int context_factory_reset(Context *context, bool from_scratch) {
 }
 
 static int context_can_factory_reset(Context *context) {
-        Partition *p;
-
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions)
@@ -3969,7 +3945,6 @@ static int context_open_copy_block_paths(
                 const char *root,
                 dev_t restrict_devno) {
 
-        Partition *p;
         int r;
 
         assert(context);
@@ -4797,7 +4772,6 @@ done:
 
 static int determine_auto_size(Context *c) {
         uint64_t sum;
-        Partition *p;
 
         assert(c);
 

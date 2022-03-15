@@ -424,7 +424,6 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
 }
 
 static int process_match(sd_netlink *nl, sd_netlink_message *m) {
-        struct match_callback *c;
         uint16_t type;
         uint8_t cmd;
         int r;

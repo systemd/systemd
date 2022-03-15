@@ -815,8 +815,6 @@ void dns_server_mark_all(DnsServer *server) {
 }
 
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
-        DnsServer *s;
-
         LIST_FOREACH(servers, s, first)
                 if (s->family == family &&
                     in_addr_equal(family, &s->address, in_addr) > 0 &&
@@ -992,8 +990,6 @@ void dns_server_reset_features(DnsServer *s) {
 }
 
 void dns_server_reset_features_all(DnsServer *s) {
-        DnsServer *i;
-
         LIST_FOREACH(servers, i, s)
                 dns_server_reset_features(i);
 }

@@ -1334,7 +1334,7 @@ static int get_boots(
 
         bool skip_once;
         int r, count = 0;
-        BootId *head = NULL, *tail = NULL, *id;
+        BootId *head = NULL, *tail = NULL;
         const bool advance_older = boot_id && offset <= 0;
         sd_id128_t previous_boot_id;
 
@@ -1449,7 +1449,7 @@ finish:
 
 static int list_boots(sd_journal *j) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        BootId *id, *all_ids;
+        BootId *all_ids;
         int count, i, r;
 
         assert(j);

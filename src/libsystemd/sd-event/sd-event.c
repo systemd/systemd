@@ -1920,7 +1920,6 @@ static int event_make_inode_data(
 static uint32_t inode_data_determine_mask(struct inode_data *d) {
         bool excl_unlink = true;
         uint32_t combined = 0;
-        sd_event_source *s;
 
         assert(d);
 
@@ -3458,9 +3457,7 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                         /* The queue overran, let's pass this event to all event sources connected to this inotify
                          * object */
 
-                        HASHMAP_FOREACH(inode_data, d->inodes) {
-                                sd_event_source *s;
-
+                        HASHMAP_FOREACH(inode_data, d->inodes)
                                 LIST_FOREACH(inotify.by_inode_data, s, inode_data->event_sources) {
 
                                         if (event_source_is_offline(s))
@@ -3470,10 +3467,8 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                                         if (r < 0)
                                                 return r;
                                 }
-                        }
                 } else {
                         struct inode_data *inode_data;
-                        sd_event_source *s;
 
                         /* Find the inode object for this watch descriptor. If IN_IGNORED is set we also remove it from
                          * our watch descriptor table. */
@@ -3521,7 +3516,6 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
 }
 
 static int process_inotify(sd_event *e) {
-        struct inotify_data *d;
         int r, done = 0;
 
         assert(e);

@@ -2783,7 +2783,6 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
 
 static int process_filter(sd_bus *bus, sd_bus_message *m) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        struct filter_callback *l;
         int r;
 
         assert(bus);

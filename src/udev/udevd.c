@@ -181,8 +181,6 @@ static Event *event_free(Event *event) {
 }
 
 static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        Event *event, *tmp;
-
         LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
                 if (match_state != EVENT_UNDEF && match_state != event->state)
                         continue;
@@ -781,7 +779,7 @@ static int event_run(Event *event) {
 static int event_is_blocked(Event *event) {
         const char *subsystem, *devpath, *devpath_old = NULL;
         dev_t devnum = makedev(0, 0);
-        Event *loop_event;
+        Event *loop_event = NULL;
         size_t devpath_len;
         int r, ifindex = 0;
         bool is_block;
@@ -796,7 +794,9 @@ static int event_is_blocked(Event *event) {
                 /* we have checked previously and no blocker found */
                 return false;
 
-        LIST_FOREACH(event, loop_event, event->manager->events) {
+        LIST_FOREACH(event, e, event->manager->events) {
+                loop_event = e;
+
                 /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->blocker_seqnum)
                         continue;
@@ -842,9 +842,11 @@ static int event_is_blocked(Event *event) {
                 return r;
 
         /* check if queue contains events we depend on */
-        LIST_FOREACH(event, loop_event, loop_event) {
+        LIST_FOREACH(event, e, loop_event) {
                 size_t loop_devpath_len, common;
                 const char *loop_devpath;
+
+                loop_event = e;
 
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
@@ -915,7 +917,6 @@ no_blocker:
 }
 
 static int event_queue_start(Manager *manager) {
-        Event *event, *event_next;
         usec_t usec;
         int r;
 

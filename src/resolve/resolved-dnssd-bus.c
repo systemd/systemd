@@ -12,7 +12,6 @@
 
 int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         DnssdService *s = userdata;
-        DnssdTxtData *txt_data;
         Manager *m;
         Link *l;
         int r;

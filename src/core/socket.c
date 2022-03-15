@@ -208,8 +208,6 @@ static int socket_arm_timer(Socket *s, usec_t usec) {
 }
 
 static bool have_non_accept_socket(Socket *s) {
-        SocketPort *p;
-
         assert(s);
 
         if (!s->accept)
@@ -228,7 +226,6 @@ static bool have_non_accept_socket(Socket *s) {
 }
 
 static int socket_add_mount_dependencies(Socket *s) {
-        SocketPort *p;
         int r;
 
         assert(s);
@@ -368,7 +365,6 @@ static int socket_add_extras(Socket *s) {
 
 static const char *socket_find_symlink_target(Socket *s) {
         const char *found = NULL;
-        SocketPort *p;
 
         LIST_FOREACH(port, p, s->ports) {
                 const char *f = NULL;
@@ -565,7 +561,6 @@ _const_ static const char* listen_lookup(int family, int type) {
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         Socket *s = SOCKET(u);
-        SocketPort *p;
         const char *prefix2, *str;
 
         assert(s);
@@ -923,7 +918,6 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 }
 
 static void socket_close_fds(Socket *s) {
-        SocketPort *p;
         char **i;
 
         assert(s);
@@ -1624,7 +1618,6 @@ static int socket_open_fds(Socket *orig_s) {
         _cleanup_(socket_close_fdsp) Socket *s = orig_s;
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
-        SocketPort *p;
         int r;
 
         assert(s);
@@ -1734,7 +1727,6 @@ static int socket_open_fds(Socket *orig_s) {
 }
 
 static void socket_unwatch_fds(Socket *s) {
-        SocketPort *p;
         int r;
 
         assert(s);
@@ -1753,7 +1745,6 @@ static void socket_unwatch_fds(Socket *s) {
 }
 
 static int socket_watch_fds(Socket *s) {
-        SocketPort *p;
         int r;
 
         assert(s);
@@ -1791,7 +1782,6 @@ enum {
 
 static int socket_check_open(Socket *s) {
         bool have_open = false, have_closed = false;
-        SocketPort *p;
 
         assert(s);
 
@@ -1995,7 +1985,6 @@ static int socket_chown(Socket *s, pid_t *_pid) {
         if (r == 0) {
                 uid_t uid = UID_INVALID;
                 gid_t gid = GID_INVALID;
-                SocketPort *p;
 
                 /* Child */
 
@@ -2294,7 +2283,7 @@ fail:
 }
 
 static void flush_ports(Socket *s) {
-        SocketPort *p;
+        assert(s);
 
         /* Flush all incoming traffic, regardless if actual bytes or new connections, so that this socket isn't busy
          * anymore */
@@ -2563,7 +2552,6 @@ static int socket_stop(Unit *u) {
 
 static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         Socket *s = SOCKET(u);
-        SocketPort *p;
         int r;
 
         assert(u);
@@ -2674,7 +2662,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 }
         } else if (streq(key, "fifo")) {
                 int fd, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse fifo value: %s", value);
@@ -2695,7 +2682,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
         } else if (streq(key, "special")) {
                 int fd, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse special value: %s", value);
@@ -2716,7 +2702,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
         } else if (streq(key, "mqueue")) {
                 int fd, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse mqueue value: %s", value);
@@ -2737,7 +2722,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
         } else if (streq(key, "socket")) {
                 int fd, type, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
@@ -2758,7 +2742,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
         } else if (streq(key, "netlink")) {
                 int fd, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
@@ -2778,7 +2761,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
         } else if (streq(key, "ffs")) {
                 int fd, skip = 0;
-                SocketPort *p;
 
                 if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse ffs value: %s", value);
@@ -2805,7 +2787,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 
 static void socket_distribute_fds(Unit *u, FDSet *fds) {
         Socket *s = SOCKET(u);
-        SocketPort *p;
 
         assert(u);
 
@@ -3227,7 +3208,6 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
 
 int socket_collect_fds(Socket *s, int **fds) {
         size_t k = 0, n = 0;
-        SocketPort *p;
         int *rfds;
 
         assert(s);

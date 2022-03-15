@@ -83,7 +83,6 @@ static int timer_verify(Timer *t) {
 
 static int timer_add_default_dependencies(Timer *t) {
         int r;
-        TimerValue *v;
 
         assert(t);
 
@@ -236,7 +235,6 @@ static int timer_load(Unit *u) {
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
         Timer *t = TIMER(u);
         Unit *trigger;
-        TimerValue *v;
 
         trigger = UNIT_TRIGGER(u);
 
@@ -375,7 +373,6 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         bool found_monotonic = false, found_realtime = false;
         bool leave_around = false;
         triple_timestamp ts;
-        TimerValue *v;
         Unit *trigger;
         int r;
 
@@ -617,7 +614,6 @@ fail:
 
 static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
-        TimerValue *v;
         int r;
 
         assert(t);
@@ -756,7 +752,6 @@ static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata) {
 
 static void timer_trigger_notify(Unit *u, Unit *other) {
         Timer *t = TIMER(u);
-        TimerValue *v;
 
         assert(u);
         assert(other);

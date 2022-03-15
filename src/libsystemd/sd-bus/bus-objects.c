@@ -101,7 +101,6 @@ static int add_enumerated_to_set(
                 OrderedSet *s,
                 sd_bus_error *error) {
 
-        struct node_enumerator *c;
         int r;
 
         assert(bus);
@@ -173,7 +172,6 @@ static int add_subtree_to_set(
                 OrderedSet *s,
                 sd_bus_error *error) {
 
-        struct node *i;
         int r;
 
         assert(bus);
@@ -251,7 +249,6 @@ static int node_callbacks_run(
                 bool require_fallback,
                 bool *found_object) {
 
-        struct node_callback *c;
         int r;
 
         assert(bus);
@@ -807,7 +804,6 @@ static int property_get_all_callbacks_run(
                 bool *found_object) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        struct node_vtable *c;
         bool found_interface;
         int r;
 
@@ -887,8 +883,6 @@ static int bus_node_exists(
                 const char *path,
                 bool require_fallback) {
 
-        struct node_vtable *c;
-        struct node_callback *k;
         int r;
 
         assert(bus);
@@ -936,7 +930,6 @@ int introspect_path(
 
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_(introspect_free) struct introspect intro = {};
-        struct node_vtable *c;
         bool empty;
         int r;
 
@@ -1057,7 +1050,6 @@ static int object_manager_serialize_path(
 
         const char *previous_interface = NULL;
         bool found_something = false;
-        struct node_vtable *i;
         struct node *n;
         int r;
 
@@ -1787,7 +1779,7 @@ static int add_object_vtable_internal(
                 void *userdata) {
 
         sd_bus_slot *s = NULL;
-        struct node_vtable *i, *existing = NULL;
+        struct node_vtable *existing = NULL;
         const sd_bus_vtable *v;
         struct node *n;
         int r;
@@ -2068,7 +2060,6 @@ static int emit_properties_changed_on_interface(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         bool has_invalidating = false, has_changing = false;
         struct vtable_member key = {};
-        struct node_vtable *c;
         struct node *n;
         char **property;
         void *u = NULL;
@@ -2355,7 +2346,6 @@ static int object_added_append_all_prefix(
                 bool require_fallback) {
 
         const char *previous_interface = NULL;
-        struct node_vtable *c;
         struct node *n;
         int r;
 
@@ -2575,7 +2565,6 @@ static int object_removed_append_all_prefix(
                 bool require_fallback) {
 
         const char *previous_interface = NULL;
-        struct node_vtable *c;
         struct node *n;
         int r;
 
@@ -2753,7 +2742,6 @@ static int interfaces_added_append_one_prefix(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool found_interface = false;
-        struct node_vtable *c;
         struct node *n;
         void *u = NULL;
         int r;

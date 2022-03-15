@@ -34,7 +34,6 @@ static int test_socket_bind(
                 char **deny_rules) {
         _cleanup_free_ char *exec_start = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
-        CGroupSocketBindItem *bi;
         CGroupContext *cc = NULL;
         char **rule;
         int cld_code, r;

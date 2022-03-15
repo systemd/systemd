@@ -157,9 +157,7 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < ELEMENTSOF(supported_unit_types); i++) {
-                Unit *u;
-
+        for (size_t i = 0; i < ELEMENTSOF(supported_unit_types); i++)
                 LIST_FOREACH(units_by_type, u, m->units_by_type[supported_unit_types[i]]) {
                         CGroupContext *c;
 
@@ -188,7 +186,6 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
                                         return r;
                         }
                 }
-        }
 
         r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("cgroups", JSON_BUILD_VARIANT(arr))));
         if (r < 0)
