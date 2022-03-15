@@ -719,7 +719,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
                 return;
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l)
+        LIST_FOREACH(same_sysfs, d, l)
                 device_update_found_one(d, found, mask);
 }
 
@@ -905,7 +905,7 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
         assert(sysfs);
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
+        LIST_FOREACH(same_sysfs, d, l) {
                 if (d->state == DEVICE_DEAD)
                         continue;
 
