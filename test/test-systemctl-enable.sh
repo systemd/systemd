@@ -401,7 +401,7 @@ test ! -h "$root/etc/systemd/system/link4.service"
 test ! -h "$root/etc/systemd/system/link4alias.service"
 test ! -h "$root/etc/systemd/system/link4alias2.service"
 
-: -------issue 661: link and enable on unit file--------------
+: -------issue 661: enable on unit file--------------
 test ! -e "$root/etc/systemd/system/link5.service"
 cat >"$root/etc/systemd/system/link5.service" <<EOF
 [Install]
@@ -412,12 +412,45 @@ EOF
 
 "$systemctl" --root="$root" enable 'link5.service'
 test ! -h "$root/etc/systemd/system/link5.service"  # this is our file
-# FIXME/CLARIFYME: will systemd think that link5alias2, link5alias, link5 are all aliases?
-# https://github.com/systemd/systemd/issues/661#issuecomment-1057931149
 islink "$root/etc/systemd/system/link5alias.service" "/etc/systemd/system/link5.service"
 islink "$root/etc/systemd/system/link5alias2.service" "/etc/systemd/system/link5.service"
 
 "$systemctl" --root="$root" disable 'link5.service'
+test ! -h "$root/etc/systemd/system/link5alias.service"
+test ! -h "$root/etc/systemd/system/link5alias2.service"
+
+: -------issue 661: link and enable on unit file--------------
+test ! -e "$root/etc/systemd/system/link5copy.service"
+cat >"$root/link5copy.service" <<EOF
+[Install]
+Alias=link5copy.service
+Alias=link5alias.service
+Alias=link5alias2.service
+EOF
+
+test ! -e "$root/etc/systemd/system/link5copy.service"
+
+"$systemctl" --root="$root" link '/link5copy.service'
+islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
+test ! -h "$root/etc/systemd/system/link5alias.service"
+test ! -h "$root/etc/systemd/system/link5alias2.service"
+
+# FIXME: we must create link5alias2 and link5alias as relative links to link5.service
+# When they are independent links to /link5.service, systemd doesn't know that
+# they are aliases, because we do not follow symlinks outside of the search paths.
+
+"$systemctl" --root="$root" disable 'link5copy.service'
+test ! -h "$root/etc/systemd/system/link5copy.service"
+test ! -h "$root/etc/systemd/system/link5alias.service"
+test ! -h "$root/etc/systemd/system/link5alias2.service"
+
+"$systemctl" --root="$root" enable '/link5copy.service'
+islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
+islink "$root/etc/systemd/system/link5alias.service" '/link5copy.service'
+islink "$root/etc/systemd/system/link5alias2.service" '/link5copy.service'
+
+"$systemctl" --root="$root" disable 'link5copy.service'
+test ! -h "$root/etc/systemd/system/link5copy.service"
 test ! -h "$root/etc/systemd/system/link5alias.service"
 test ! -h "$root/etc/systemd/system/link5alias2.service"
 
