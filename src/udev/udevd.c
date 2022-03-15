@@ -165,8 +165,8 @@ static Event *event_free(Event *event) {
         sd_device_unref(event->dev);
         sd_device_unref(event->dev_kernel);
 
-        sd_event_source_unref(event->timeout_warning_event);
-        sd_event_source_unref(event->timeout_event);
+        sd_event_source_disable_unref(event->timeout_warning_event);
+        sd_event_source_disable_unref(event->timeout_event);
 
         if (event->worker)
                 event->worker->event = NULL;
@@ -208,8 +208,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash
 static void manager_clear_for_worker(Manager *manager) {
         assert(manager);
 
-        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
+        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
+        manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
 
         manager->event = sd_event_unref(manager->event);
 
@@ -306,7 +306,7 @@ static void manager_exit(Manager *manager) {
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
 
-        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
