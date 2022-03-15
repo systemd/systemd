@@ -695,9 +695,9 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
 
 static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *sigchld_source = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stdout_source = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stderr_source = NULL;
         int r;
 
         assert(spawn);

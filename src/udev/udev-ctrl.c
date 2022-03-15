@@ -101,7 +101,7 @@ static void udev_ctrl_disconnect(UdevCtrl *uctrl) {
         if (!uctrl)
                 return;
 
-        uctrl->event_source_connect = sd_event_source_unref(uctrl->event_source_connect);
+        uctrl->event_source_connect = sd_event_source_disable_unref(uctrl->event_source_connect);
         uctrl->sock_connect = safe_close(uctrl->sock_connect);
 }
 
@@ -110,7 +110,7 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
 
         udev_ctrl_disconnect(uctrl);
 
-        sd_event_source_unref(uctrl->event_source);
+        sd_event_source_disable_unref(uctrl->event_source);
         safe_close(uctrl->sock);
 
         sd_event_unref(uctrl->event);
@@ -323,7 +323,7 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
 }
 
 int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *source_io = NULL, *source_timeout = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *source_io = NULL, *source_timeout = NULL;
         int r;
 
         assert(uctrl);
