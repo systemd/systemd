@@ -100,6 +100,8 @@ option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
 option('repart', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'install the systemd-repart tool')
+option('sysupdate', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'install the systemd-sysupdate tool')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('pstore', type : 'boolean',
