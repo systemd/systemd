@@ -138,7 +138,7 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
 
 static int specifier_special_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        char *n = NULL;
+        char *n;
 
         n = strdup(u->manager->prefix[PTR_TO_UINT(data)]);
         if (!n)
@@ -155,9 +155,9 @@ static int specifier_credentials_dir(char specifier, const void *data, const cha
 
         assert(ret);
 
-        ec = ASSERT_PTR(unit_get_exec_context(u));
-
-        if ((!hashmap_isempty(ec->load_credentials) || !hashmap_isempty(ec->set_credentials)) &&
+        ec = unit_get_exec_context(u);
+        if (ec &&
+            (!hashmap_isempty(ec->load_credentials) || !hashmap_isempty(ec->set_credentials)) &&
             u->manager->prefix[EXEC_DIRECTORY_RUNTIME])
                 d = strjoin(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
         else
