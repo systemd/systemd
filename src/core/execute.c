@@ -5423,12 +5423,9 @@ void exec_command_reset_status_array(ExecCommand *c, size_t n) {
 }
 
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
-        for (size_t i = 0; i < n; i++) {
-                ExecCommand *z;
-
+        for (size_t i = 0; i < n; i++)
                 LIST_FOREACH(command, z, c[i])
                         exec_status_reset(&z->exec_status);
-        }
 }
 
 typedef struct InvalidEnvInfo {
@@ -5713,8 +5710,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         if (c->root_image_options) {
-                MountOptions *o;
-
                 fprintf(f, "%sRootImageOptions:", prefix);
                 LIST_FOREACH(mount_options, o, c->root_image_options)
                         if (!isempty(o->options))
@@ -6113,8 +6108,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sMountImages: %s%s:%s", prefix,
                         c->mount_images[i].ignore_enoent ? "-": "",
                         c->mount_images[i].source,
@@ -6127,8 +6120,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_extension_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         c->extension_images[i].ignore_enoent ? "-": "",
                         c->extension_images[i].source);
@@ -6395,8 +6386,8 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
 
         prefix = strempty(prefix);
 
-        LIST_FOREACH(command, c, c)
-                exec_command_dump(c, f, prefix);
+        LIST_FOREACH(command, i, c)
+                exec_command_dump(i, f, prefix);
 }
 
 void exec_command_append_list(ExecCommand **l, ExecCommand *e) {

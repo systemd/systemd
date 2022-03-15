@@ -305,7 +305,6 @@ static void print_status_info(
 
         const char *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
-        ExecStatusInfo *p;
         usec_t timestamp;
         const char *path;
         char **t, **t2;
@@ -488,7 +487,6 @@ static void print_status_info(
         }
 
         if (!i->condition_result && i->condition_timestamp > 0) {
-                UnitCondition *c;
                 int n = 0;
 
                 printf("  Condition: start %scondition failed%s at %s; %s\n",

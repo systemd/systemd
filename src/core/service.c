@@ -434,8 +434,8 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
                                  * Use this errno rather than E[NM]FILE to distinguish from
                                  * the case where systemd itself hits the file limit. */
 
-        LIST_FOREACH(fd_store, fs, s->fd_store) {
-                r = same_fd(fs->fd, fd);
+        LIST_FOREACH(fd_store, i, s->fd_store) {
+                r = same_fd(i->fd, fd);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -504,8 +504,6 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
 }
 
 static void service_remove_fd_store(Service *s, const char *name) {
-        ServiceFDStore *fs, *n;
-
         assert(s);
         assert(name);
 
@@ -567,9 +565,7 @@ static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
 
-        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
-                ExecCommand *command;
-
+        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++)
                 LIST_FOREACH(command, command, s->exec_command[c]) {
                         if (!path_is_absolute(command->path) && !filename_is_valid(command->path))
                                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC),
@@ -581,7 +577,6 @@ static int service_verify(Service *s) {
                                                             "Service has an empty argv in %s=. Refusing.",
                                                             service_exec_command_to_string(c));
                 }
-        }
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
             UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
@@ -1334,7 +1329,6 @@ static int service_collect_fds(
         }
 
         if (s->n_fd_store > 0) {
-                ServiceFDStore *fs;
                 size_t n_fds;
                 char **nl;
                 int *t;
@@ -2712,7 +2706,6 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
 
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         Service *s = SERVICE(u);
-        ServiceFDStore *fs;
         int r;
 
         assert(u);
