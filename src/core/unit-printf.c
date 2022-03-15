@@ -148,6 +148,29 @@ static int specifier_special_directory(char specifier, const void *data, const c
         return 0;
 }
 
+static int specifier_credentials_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const Unit *u = ASSERT_PTR(userdata);
+        const ExecContext *ec = NULL;
+        char *d = NULL;
+
+        assert(ret);
+
+        ec = unit_get_exec_context(u);
+        assert(ec);
+
+        if ((!hashmap_isempty(ec->load_credentials) || !hashmap_isempty(ec->set_credentials)) &&
+            u->manager->prefix[EXEC_DIRECTORY_RUNTIME]) {
+                d = strjoin(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
+        } else
+                d = strdup("");
+
+        if (!d)
+                return -ENOMEM;
+
+        *ret = d;
+        return 0;
+}
+
 int unit_name_printf(const Unit *u, const char* format, char **ret) {
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
@@ -226,6 +249,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 { 'r', specifier_cgroup_slice,             NULL },
                 { 'R', specifier_cgroup_root,              NULL },
 
+                { 'd', specifier_credentials_dir,          NULL },
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
