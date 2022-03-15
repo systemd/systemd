@@ -89,8 +89,6 @@ Condition* condition_free(Condition *c) {
 }
 
 Condition* condition_free_list_type(Condition *head, ConditionType type) {
-        Condition *c, *n;
-
         LIST_FOREACH_SAFE(conditions, c, n, head)
                 if (type < 0 || c->type == type) {
                         LIST_REMOVE(conditions, head, c);
@@ -1171,7 +1169,6 @@ bool condition_test_list(
                 condition_test_logger_t logger,
                 void *userdata) {
 
-        Condition *c;
         int triggered = -1;
 
         assert(!!logger == !!to_string);
@@ -1234,8 +1231,6 @@ void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_stri
 }
 
 void condition_dump_list(Condition *first, FILE *f, const char *prefix, condition_to_string_t to_string) {
-        Condition *c;
-
         LIST_FOREACH(conditions, c, first)
                 condition_dump(c, f, prefix, to_string);
 }
