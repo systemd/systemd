@@ -27,7 +27,7 @@ Please also have a look at our list of [code quality tools](CODE_QUALITY.md) we
 have setup for systemd, to ensure our codebase stays in good shape.
 
 Please always test your work before submitting a PR. For many of the components
-of systemd testing is straight-forward as you can simply compile systemd and
+of systemd testing is straightforward as you can simply compile systemd and
 run the relevant tool from the build directory.
 
 For some components (most importantly, systemd/PID1 itself) this is not
