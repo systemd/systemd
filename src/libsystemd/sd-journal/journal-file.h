@@ -61,6 +61,7 @@ typedef struct JournalFile {
         MMapFileDescriptor *cache_fd;
 
         mode_t mode;
+        uid_t uid;
 
         int flags;
         bool writable:1;
@@ -233,6 +234,7 @@ void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
 int journal_file_archive(JournalFile *f, char **ret_previous_path);
+int journal_file_parse_uid(const char *path, uid_t *uid, bool ignore_archive);
 JournalFile* journal_initiate_close(JournalFile *f, Set *deferred_closes);
 
 int journal_file_dispose(int dir_fd, const char *fname);
