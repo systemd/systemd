@@ -91,7 +91,7 @@ static int open_source(const char *path, const char *local, int *ret_open_fd) {
         if (path) {
                 open_fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (open_fd < 0)
-                        return log_error_errno(errno, "Failed to open raw image to import: %m");
+                        return log_error_errno(errno, "Failed to open source file '%s': %m", path);
 
                 retval = open_fd;
 
