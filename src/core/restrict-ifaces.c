@@ -34,11 +34,12 @@ static int prepare_restrict_ifaces_bpf(
 
         obj = restrict_ifaces_bpf__open();
         if (!obj)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOMEM), "Failed to open BPF object");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG,
+                                           SYNTHETIC_ERRNO(ENOMEM), "Failed to open BPF object");
 
         r = sym_bpf_map__resize(obj->maps.sd_restrictif, MAX(set_size(restrict_network_interfaces), 1u));
         if (r != 0)
-                return log_unit_error_errno(u, r,
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
                                 "Failed to resize BPF map '%s': %m",
                                 sym_bpf_map__name(obj->maps.sd_restrictif));
 
@@ -46,7 +47,7 @@ static int prepare_restrict_ifaces_bpf(
 
         r = restrict_ifaces_bpf__load(obj);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to load BPF object: %m");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, r, "Failed to load BPF object: %m");
 
         map_fd = sym_bpf_map__fd(obj->maps.sd_restrictif);
 
@@ -61,7 +62,9 @@ static int prepare_restrict_ifaces_bpf(
                 }
 
                 if (sym_bpf_map_update_elem(map_fd, &ifindex, &dummy, BPF_ANY))
-                        return log_unit_error_errno(u, errno, "Failed to update BPF map '%s' fd: %m", sym_bpf_map__name(obj->maps.sd_restrictif));
+                        return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
+                                                   "Failed to update BPF map '%s' fd: %m",
+                                                   sym_bpf_map__name(obj->maps.sd_restrictif));
         }
 
         *ret_object = TAKE_PTR(obj);
