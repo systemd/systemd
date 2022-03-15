@@ -533,7 +533,7 @@ static void server_vacuum_deferred_closes(Server *s) {
         }
 }
 
-static int vacuum_offline_user_journals(Server *s) {
+static int server_archive_offline_user_journals(Server *s) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
@@ -662,7 +662,7 @@ void server_rotate(Server *s) {
         /* Finally, also rotate all user journals we currently do not have open. (But do so only if we
          * actually have access to /var, i.e. are not in the log-to-runtime-journal mode). */
         if (!s->runtime_journal)
-                (void) vacuum_offline_user_journals(s);
+                (void) server_archive_offline_user_journals(s);
 
         server_process_deferred_closes(s);
 }
