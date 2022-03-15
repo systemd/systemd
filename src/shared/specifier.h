@@ -31,6 +31,7 @@ int specifier_os_variant_id(char specifier, const void *data, const char *root, 
 int specifier_os_image_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_os_image_version(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 
+int specifier_credentials_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_group_id(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 int specifier_user_name(char specifier, const void *data, const char *root, const void *userdata, char **ret);
@@ -59,6 +60,7 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
  * %W: the OS variant ID, according to /etc/os-release
  *
  * COMMON_CREDS_SPECIFIERS:
+ * %c: the credentials directory ($CREDENTIALS_DIRECTORY)
  * %g: the groupname of the running user
  * %G: the GID of the running user
  * %u: the username of the running user
@@ -85,6 +87,7 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         { 'W', specifier_os_variant_id,   NULL }
 
 #define COMMON_CREDS_SPECIFIERS                   \
+        { 'c', specifier_credentials_dir, NULL }, \
         { 'g', specifier_group_name,      NULL }, \
         { 'G', specifier_group_id,        NULL }, \
         { 'u', specifier_user_name,       NULL }, \
