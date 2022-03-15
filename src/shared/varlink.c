@@ -2326,7 +2326,6 @@ int varlink_server_shutdown(VarlinkServer *s) {
 }
 
 int varlink_server_attach_event(VarlinkServer *s, sd_event *e, int64_t priority) {
-        VarlinkServerSocket *ss;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2361,8 +2360,6 @@ fail:
 }
 
 int varlink_server_detach_event(VarlinkServer *s) {
-        VarlinkServerSocket *ss;
-
         assert_return(s, -EINVAL);
 
         LIST_FOREACH(sockets, ss, s->sockets)

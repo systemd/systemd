@@ -960,7 +960,6 @@ static int property_get_root_image_options(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
-        MountOptions *m;
         int r;
 
         assert(bus);
@@ -1005,8 +1004,6 @@ static int property_get_mount_images(
                 return r;
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
-                MountOptions *m;
-
                 r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "ssba(ss)");
                 if (r < 0)
                         return r;
@@ -1060,8 +1057,6 @@ static int property_get_extension_images(
                 return r;
 
         for (size_t i = 0; i < c->n_extension_images; i++) {
-                MountOptions *m;
-
                 r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "sba(ss)");
                 if (r < 0)
                         return r;
@@ -1449,7 +1444,7 @@ int bus_property_get_exec_command_list(
                 void *userdata,
                 sd_bus_error *ret_error) {
 
-        ExecCommand *c = *(ExecCommand**) userdata;
+        ExecCommand *exec_command = *(ExecCommand**) userdata;
         int r;
 
         assert(bus);
@@ -1459,7 +1454,7 @@ int bus_property_get_exec_command_list(
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(command, c, c) {
+        LIST_FOREACH(command, c, exec_command) {
                 r = append_exec_command(reply, c);
                 if (r < 0)
                         return r;
@@ -1477,7 +1472,7 @@ int bus_property_get_exec_ex_command_list(
                 void *userdata,
                 sd_bus_error *ret_error) {
 
-        ExecCommand *c, *exec_command = *(ExecCommand**) userdata;
+        ExecCommand *exec_command = *(ExecCommand**) userdata;
         int r;
 
         assert(bus);
@@ -1587,7 +1582,6 @@ int bus_set_transient_exec_command(
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 _cleanup_free_ char *buf = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                ExecCommand *c;
                 size_t size = 0;
 
                 if (n == 0)
