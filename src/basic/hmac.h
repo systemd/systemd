@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define SHA256_DIGEST_SIZE 32
+#include "sha256.h"
 
 /* Unoptimized implementation based on FIPS 198. 'res' has to be allocated by
  * the caller. Prefer external OpenSSL functions, and use this only when
