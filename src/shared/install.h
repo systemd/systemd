@@ -111,7 +111,7 @@ int unit_file_reenable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset(

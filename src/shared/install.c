@@ -2702,17 +2702,74 @@ int unit_file_disable(
         return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
 }
 
+static int normalize_linked_files(
+                UnitFileScope scope,
+                const LookupPaths *lp,
+                char **names_or_paths,
+                char ***ret_names,
+                char ***ret_files) {
+
+        /* This is similar to normalize_filenames()/normalize_names() in src/systemctl/,
+         * but operates on real unit names. For each argument we we look up the actual path
+         * where the unit is found. This way linked units can be reenabled successfully. */
+
+        _cleanup_free_ char **files = NULL, **names = NULL;
+        int r;
+
+        STRV_FOREACH(a, names_or_paths) {
+                _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+                UnitFileInstallInfo *i = NULL;
+                _cleanup_free_ char *n = NULL;
+
+                r = path_extract_filename(*a, &n);
+                if (r < 0)
+                        return r;
+                if (r == O_DIRECTORY)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EISDIR),
+                                               "Unexpected path to a directory \"%s\", refusing.", *a);
+
+                if (!is_path(*a)) {
+                        r = install_info_discover(&ctx, lp, n, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, NULL, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to discover unit \"%s\", operating on name: %m", n);
+                }
+
+                r = strv_consume(&names, TAKE_PTR(n));
+                if (r < 0)
+                        return r;
+
+                const char *p = NULL;
+                if (i && i->path)
+                        /* Use startswith here, because we know that paths are normalized, and
+                         * path_startswith() would give us a relative path, but we need an absolute path
+                         * relative to i->root.
+                         *
+                         * In other words: /var/tmp/instroot.1234/etc/systemd/system/frobnicator.service
+                         * is replaced by /etc/systemd/system/frobnicator.service, which is "absolute"
+                         * in a sense, but only makes sense "relative" to /var/tmp/instroot.1234/.
+                         */
+                        p = startswith(i->path, i->root);
+
+                r = strv_extend(&files, p ?: *a);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_names = TAKE_PTR(names);
+        *ret_files = TAKE_PTR(files);
+        return 0;
+}
+
 int unit_file_reenable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        size_t l, i;
-        char **names;
+        _cleanup_strv_free_ char **names = NULL, **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -2726,13 +2783,11 @@ int unit_file_reenable(
         if (!config_path)
                 return -ENXIO;
 
-        /* First, we invoke the disable command with only the basename... */
-        l = strv_length(files);
-        names = newa(char*, l+1);
-        for (i = 0; i < l; i++)
-                names[i] = basename(files[i]);
-        names[i] = NULL;
+        r = normalize_linked_files(scope, &lp, names_or_paths, &names, &files);
+        if (r < 0)
+                return r;
 
+        /* First, we invoke the disable command with only the basename... */
         r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes);
         if (r < 0)
                 return r;

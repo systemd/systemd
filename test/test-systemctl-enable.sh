@@ -206,11 +206,9 @@ test ! -h "$root/etc/systemd/system/paths.target.wants/link1.path"
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
-# FIXME
-# "$systemctl" --root="$root" reenable 'link1.path'
-# islink "$root/etc/systemd/system/link1.path" "/link1.path"
-# islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
-
+"$systemctl" --root="$root" reenable 'link1.path'
+islink "$root/etc/systemd/system/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
 : -------manual link------------------------------------------
 cat >"$root/link3.suffix" <<EOF
