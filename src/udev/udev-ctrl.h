@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "macro.h"
+#include "set.h"
 #include "time-util.h"
 
 typedef struct UdevCtrl UdevCtrl;
@@ -37,6 +38,7 @@ int udev_ctrl_enable_receiving(UdevCtrl *uctrl);
 UdevCtrl *udev_ctrl_ref(UdevCtrl *uctrl);
 UdevCtrl *udev_ctrl_unref(UdevCtrl *uctrl);
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event);
+Set *udev_ctrl_get_sender_pids(UdevCtrl *uctrl);
 int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdata);
 sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl);
 
