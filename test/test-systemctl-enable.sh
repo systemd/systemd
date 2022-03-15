@@ -285,39 +285,53 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 
 : -------template enablement w/ default instance--------------
-cat >>"$root/etc/systemd/system/templ1@.service" <<EOF
+cat >"$root/etc/systemd/system/templ1@.service" <<EOF
+[Install]
+# check enablement with
+WantedBy=services.target services.target
+RequiredBy=other@templ1.target other@%p.target
 DefaultInstance=333
 EOF
-# FIXME: should we deduplicate the target? Right now we warn twice if WantedBy= is repeated.
-# WantedBy=services.target services.target
 
 "$systemctl" --root="$root" enable 'templ1@.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "/etc/systemd/system/templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@two.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "/etc/systemd/system/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "/etc/systemd/system/templ1@.service"
 
 "$systemctl" --root="$root" disable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "/etc/systemd/system/templ1@.service"
 
-# disable both remaining links here
+# disable remaining links here
 "$systemctl" --root="$root" disable 'templ1@.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@333.service"
+test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service"
 
 : -------template enablement for another template-------------
 cat >"$root/etc/systemd/system/templ2@.service" <<EOF
