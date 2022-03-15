@@ -611,7 +611,7 @@ static int remove_marked_symlinks_fd(
                                 return -ENOMEM;
                         path_simplify(p);
 
-                        q = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &dest, NULL);
+                        q = chase_symlinks(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
                         if (q == -ENOENT)
                                 continue;
                         if (q < 0) {
