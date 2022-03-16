@@ -21,11 +21,10 @@ static void test_syslog_parse_identifier_one(const char *str,
         assert_se(streq(buf, rest));
 }
 
-static void test_syslog_parse_priority_one(const char *str, int priority, int ret) {
-        const char *buf = str;
+static void test_syslog_parse_priority_one(const char *str, bool with_facility, int priority, int ret) {
         int priority2 = 0, ret2;
 
-        ret2 = syslog_parse_priority(&buf, &priority2, false);
+        ret2 = syslog_parse_priority(&str, &priority2, with_facility);
 
         assert_se(ret == ret2);
         if (ret2 == 1)
@@ -50,14 +49,22 @@ TEST(syslog_parse_identifier) {
 }
 
 TEST(syslog_parse_priority) {
-        test_syslog_parse_priority_one("<>", 0, 0);
-        test_syslog_parse_priority_one("<>aaa", 0, 0);
-        test_syslog_parse_priority_one("<aaaa>", 0, 0);
-        test_syslog_parse_priority_one("<aaaa>aaa", 0, 0);
-        test_syslog_parse_priority_one(" <aaaa>", 0, 0);
-        test_syslog_parse_priority_one(" <aaaa>aaa", 0, 0);
-        test_syslog_parse_priority_one(" <aaaa>aaa", 0, 0);
-        /* TODO: add test cases of valid priorities */
+        test_syslog_parse_priority_one("", false, 0, 0);
+        test_syslog_parse_priority_one("<>", false, 0, 0);
+        test_syslog_parse_priority_one("<>aaa", false, 0, 0);
+        test_syslog_parse_priority_one("<aaaa>", false, 0, 0);
+        test_syslog_parse_priority_one("<aaaa>aaa", false, 0, 0);
+        test_syslog_parse_priority_one(" <aaaa>", false, 0, 0);
+        test_syslog_parse_priority_one(" <aaaa>aaa", false, 0, 0);
+        test_syslog_parse_priority_one(" <aaaa>aaa", false, 0, 0);
+        test_syslog_parse_priority_one(" <1>", false, 0, 0);
+        test_syslog_parse_priority_one("<1>", false, 1, 1);
+        test_syslog_parse_priority_one("<7>", false, 7, 1);
+        test_syslog_parse_priority_one("<8>", false, 0, 0);
+        test_syslog_parse_priority_one("<9>", true, 9, 1);
+        test_syslog_parse_priority_one("<22>", true, 22, 1);
+        test_syslog_parse_priority_one("<111>", false, 0, 0);
+        test_syslog_parse_priority_one("<111>", true, 111, 1);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
