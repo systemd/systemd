@@ -736,9 +736,44 @@ int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
+static void unit_set_xattr_graceful(Unit *u, const char *cgroup_path, const char *name, const void *data, size_t size) {
+        int r;
+
+        assert(u);
+        assert(name);
+
+        if (!cgroup_path) {
+                if (!u->cgroup_path)
+                        return;
+
+                cgroup_path = u->cgroup_path;
+        }
+
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name, data, size, 0);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+}
+
+static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const char *name) {
+        int r;
+
+        assert(u);
+        assert(name);
+
+        if (!cgroup_path) {
+                if (!u->cgroup_path)
+                        return;
+
+                cgroup_path = u->cgroup_path;
+        }
+
+        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name);
+        if (r < 0 && r != -ENODATA)
+                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+}
+
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
         CGroupContext *c;
-        int r;
 
         assert(u);
 
@@ -746,48 +781,34 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
         if (!c)
                 return;
 
-        if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT) {
-                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_omit", "1", 1, 0);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to set oomd_omit flag on control group %s, ignoring: %m", empty_to_root(cgroup_path));
-        }
+        if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT)
+                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_omit", "1", 1);
 
-        if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID) {
-                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_avoid", "1", 1, 0);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to set oomd_avoid flag on control group %s, ignoring: %m", empty_to_root(cgroup_path));
-        }
+        if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID)
+                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_avoid", "1", 1);
 
-        if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID) {
-                r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_avoid");
-                if (r < 0 && r != -ENODATA)
-                        log_unit_debug_errno(u, r, "Failed to remove oomd_avoid flag on control group %s, ignoring: %m", empty_to_root(cgroup_path));
-        }
+        if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID)
+                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_avoid");
 
-        if (c->moom_preference != MANAGED_OOM_PREFERENCE_OMIT) {
-                r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.oomd_omit");
-                if (r < 0 && r != -ENODATA)
-                        log_unit_debug_errno(u, r, "Failed to remove oomd_omit flag on control group %s, ignoring: %m", empty_to_root(cgroup_path));
-        }
+        if (c->moom_preference != MANAGED_OOM_PREFERENCE_OMIT)
+                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
 }
 
 static void cgroup_xattr_apply(Unit *u) {
         const char *xn;
         bool b;
-        int r;
 
         assert(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
-        if (!sd_id128_is_null(u->invocation_id)) {
-                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                 "trusted.invocation_id",
-                                 SD_ID128_TO_STRING(u->invocation_id), 32,
-                                 0);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
+        b = !sd_id128_is_null(u->invocation_id);
+        FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
+                if (b)
+                        unit_set_xattr_graceful(u, NULL, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
+                else
+                        unit_remove_xattr_graceful(u, NULL, xn);
         }
 
         /* Indicate on the cgroup whether delegation is on, via an xattr. This is best-effort, as old kernels
@@ -800,15 +821,10 @@ static void cgroup_xattr_apply(Unit *u) {
          * it. */
         b = unit_cgroup_delegate(u);
         FOREACH_STRING(xn, "trusted.delegate", "user.delegate") {
-                if (b) {
-                        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, xn, "1", 1, 0);
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", xn, empty_to_root(u->cgroup_path));
-                } else {
-                        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, xn);
-                        if (r < 0 && r != -ENODATA)
-                                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", xn, empty_to_root(u->cgroup_path));
-                }
+                if (b)
+                        unit_set_xattr_graceful(u, NULL, xn, "1", 1);
+                else
+                        unit_remove_xattr_graceful(u, NULL, xn);
         }
 
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
