@@ -149,6 +149,7 @@ typedef struct Worker {
         sd_device_monitor *monitor;
         WorkerState state;
         Event *event;
+        sd_event_source *sigchld_event_source;
 } Worker;
 
 /* passed from worker to main process */
@@ -197,6 +198,7 @@ static Worker *worker_free(Worker *worker) {
 
         assert(worker->manager);
 
+        sd_event_source_disable_unref(worker->sigchld_event_source);
         hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
         sd_device_monitor_unref(worker->monitor);
         event_free(worker->event);
@@ -245,7 +247,10 @@ static Manager* manager_free(Manager *manager) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
+static int on_worker_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata);
+
 static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
         _cleanup_(worker_freep) Worker *worker = NULL;
         int r;
 
@@ -253,6 +258,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         assert(manager);
         assert(worker_monitor);
         assert(pid > 1);
+
+        r = sd_event_add_child(manager->event, &s, pid, WEXITED, on_worker_sigchld, manager);
+        if (r < 0)
+                return r;
 
         /* close monitor, but keep address around */
         device_monitor_disconnect(worker_monitor);
@@ -265,6 +274,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
                 .manager = manager,
                 .monitor = sd_device_monitor_ref(worker_monitor),
                 .pid = pid,
+                .sigchld_event_source = TAKE_PTR(s),
         };
 
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
@@ -1405,60 +1415,77 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
         return 1;
 }
 
-static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *manager = userdata;
+static int on_worker_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        bool failed = false;
+        Worker *worker;
+        pid_t pid;
         int r;
 
-        assert(manager);
+        assert(s);
+        assert(si);
 
-        for (;;) {
-                pid_t pid;
-                int status;
-                Worker *worker;
-
-                pid = waitpid(-1, &status, WNOHANG);
-                if (pid <= 0)
-                        break;
-
-                worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
-                if (!worker) {
-                        log_warning("Worker ["PID_FMT"] is unknown, ignoring", pid);
-                        continue;
-                }
-
-                if (WIFEXITED(status)) {
-                        if (WEXITSTATUS(status) == 0)
-                                log_debug("Worker ["PID_FMT"] exited", pid);
-                        else
-                                log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
-                } else if (WIFSIGNALED(status))
-                        log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
-                else if (WIFSTOPPED(status)) {
-                        log_info("Worker ["PID_FMT"] stopped", pid);
-                        continue;
-                } else if (WIFCONTINUED(status)) {
-                        log_info("Worker ["PID_FMT"] continued", pid);
-                        continue;
-                } else
-                        log_warning("Worker ["PID_FMT"] exit with status 0x%04x", pid, status);
-
-                if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
-                        log_device_error(worker->event->dev, "Worker ["PID_FMT"] failed", pid);
-
-                        /* delete state from disk */
-                        device_delete_db(worker->event->dev);
-                        device_tag_index(worker->event->dev, NULL, false);
-
-                        if (manager->monitor) {
-                                /* forward kernel event without amending it */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
-                                if (r < 0)
-                                        log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
-                        }
-                }
-
-                worker_free(worker);
+        r = sd_event_source_get_child_pid(s, &pid);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get worker PID from event source, ignoring: %m");
+                return 0;
         }
+
+        worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
+        if (!worker) {
+                log_warning("Worker ["PID_FMT"] is unknown, ignoring.", pid);
+                return 0;
+        }
+
+        switch (si->si_code) {
+        case CLD_EXITED:
+                if (si->si_status == 0)
+                        log_debug("Worker ["PID_FMT"] exited.", pid);
+                else {
+                        log_warning("Worker ["PID_FMT"] exited with return code %i.", pid, si->si_status);
+                        failed = true;
+                }
+                break;
+
+        case CLD_KILLED:
+        case CLD_DUMPED:
+                log_warning("Worker ["PID_FMT"] terminated by signal %i (%s).", pid, si->si_status, signal_to_string(si->si_status));
+                failed = true;
+                break;
+
+        case CLD_STOPPED:
+                log_info("Worker ["PID_FMT"] stopped.", pid);
+                return 0;
+
+        case CLD_CONTINUED:
+                log_info("Worker ["PID_FMT"] continued.", pid);
+                return 0;
+
+        case CLD_TRAPPED:
+                log_info("Worker ["PID_FMT"] trapped.", pid);
+                return 0;
+
+        default:
+                log_warning("Worker ["PID_FMT"] failed due to unknown reason.", pid);
+                failed = true;
+        }
+
+        if (failed) {
+                log_device_error(worker->event->dev, "Worker ["PID_FMT"] failed", pid);
+
+                /* delete state from disk */
+                device_delete_db(worker->event->dev);
+                device_tag_index(worker->event->dev, NULL, false);
+
+                if (manager->monitor) {
+                        /* forward kernel event without amending it */
+                        r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
+                        if (r < 0)
+                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                }
+        }
+
+        worker_free(worker);
 
         /* we can start new workers, try to schedule events */
         event_queue_start(manager);
@@ -1842,10 +1869,6 @@ static int main_loop(Manager *manager) {
         r = sd_event_add_signal(manager->event, NULL, SIGHUP, on_sighup, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGCHLD, on_sigchld, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGCHLD event source: %m");
 
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
