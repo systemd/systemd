@@ -1778,11 +1778,11 @@ static int context_load_partition_table(
                 }
 
                 sz = fdisk_partition_get_size(p);
-                assert_se(sz <= UINT64_MAX/secsz);
+                assert(sz <= UINT64_MAX/secsz);
                 sz *= secsz;
 
                 start = fdisk_partition_get_start(p);
-                assert_se(start <= UINT64_MAX/secsz);
+                assert(start <= UINT64_MAX/secsz);
                 start *= secsz;
 
                 partno = fdisk_partition_get_partno(p);
@@ -4799,7 +4799,7 @@ static int determine_auto_size(Context *c) {
         uint64_t sum;
         Partition *p;
 
-        assert_se(c);
+        assert(c);
 
         sum = round_up_size(GPT_METADATA_SIZE, 4096);
 
@@ -4981,7 +4981,7 @@ static int run(int argc, char *argv[]) {
                 /* Flush out everything again, and let's grow the file first, then start fresh */
                 context_unload_partition_table(context);
 
-                assert_se(arg_size != UINT64_MAX);
+                assert(arg_size != UINT64_MAX);
                 r = resize_backing_fd(
                                 node,
                                 &backing_fd,
