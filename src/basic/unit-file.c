@@ -304,7 +304,7 @@ int unit_file_build_name_map(
 
                 d = opendir(*dir);
                 if (!d) {
-                        if (errno != ENOENT)
+                        if (!IN_SET(errno, ENOENT, ENOTDIR))
                                 log_warning_errno(errno, "Failed to open \"%s\", ignoring: %m", *dir);
                         continue;
                 }
