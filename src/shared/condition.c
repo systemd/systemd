@@ -827,7 +827,6 @@ static int condition_test_first_boot(Condition *c, char **env) {
 
 static int condition_test_environment(Condition *c, char **env) {
         bool equal;
-        char **i;
 
         assert(c);
         assert(c->parameter);

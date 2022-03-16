@@ -32,7 +32,6 @@ TEST(sd_path_lookup) {
 TEST(sd_path_lookup_strv) {
         for (uint64_t i = 0; i < _SD_PATH_MAX; i++) {
                 _cleanup_strv_free_ char **t = NULL, **s = NULL;
-                char **item;
                 int r;
 
                 r = sd_path_lookup_strv(i, NULL, &t);

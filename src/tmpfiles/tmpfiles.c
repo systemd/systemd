@@ -1044,8 +1044,6 @@ static int parse_xattrs_from_arg(Item *i) {
 }
 
 static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *st) {
-        char **name, **value;
-
         assert(i);
         assert(fd >= 0);
         assert(path);
@@ -1964,7 +1962,6 @@ static int glob_item(Item *i, action_t action) {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
         int r = 0, k;
-        char **fn;
 
         k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
         if (k < 0 && k != -ENOENT)
@@ -1984,7 +1981,6 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
         int r = 0, k;
-        char **fn;
 
         k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
         if (k < 0 && k != -ENOENT)
@@ -2720,8 +2716,6 @@ static bool item_compatible(Item *a, Item *b) {
 }
 
 static bool should_include_path(const char *path) {
-        char **prefix;
-
         STRV_FOREACH(prefix, arg_exclude_prefixes)
                 if (path_startswith(path, *prefix)) {
                         log_debug("Entry \"%s\" matches exclude prefix \"%s\", skipping.",
@@ -2771,8 +2765,7 @@ static int specifier_expansion_from_arg(Item *i) {
                 return free_and_replace(i->argument, resolved);
         }
         case SET_XATTR:
-        case RECURSIVE_SET_XATTR: {
-                char **xattr;
+        case RECURSIVE_SET_XATTR:
                 STRV_FOREACH(xattr, i->xattrs) {
                         _cleanup_free_ char *resolved = NULL;
 
@@ -2783,7 +2776,7 @@ static int specifier_expansion_from_arg(Item *i) {
                         free_and_replace(*xattr, resolved);
                 }
                 return 0;
-        }
+
         default:
                 return 0;
         }
@@ -3612,7 +3605,6 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
 }
 
 static int parse_arguments(char **config_dirs, char **args, bool *invalid_config) {
-        char **arg;
         int r;
 
         STRV_FOREACH(arg, args) {
@@ -3627,7 +3619,6 @@ static int parse_arguments(char **config_dirs, char **args, bool *invalid_config
 static int read_config_files(char **config_dirs, char **args, bool *invalid_config) {
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_free_ char *p = NULL;
-        char **f;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, &p);
@@ -3734,7 +3725,6 @@ static int run(int argc, char *argv[]) {
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
-                char **i;
 
                 STRV_FOREACH(i, config_dirs) {
                         _cleanup_free_ char *j = NULL;

@@ -610,7 +610,6 @@ static int find_libraries(const char *exec, char ***ret) {
         _cleanup_strv_free_ char **v = NULL;
         assert_se(strv_split_newlines_full(&v, result, 0) >= 0);
 
-        char **q;
         STRV_FOREACH(q, v) {
                 _cleanup_free_ char *word = NULL;
                 const char *p = *q;
@@ -678,7 +677,6 @@ static void test_exec_mount_apivfs(Manager *m) {
         assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_touch, "\n"));
         assert_se(strextend(&data, "BindReadOnlyPaths=", fullpath_test, "\n"));
 
-        char **p;
         STRV_FOREACH(p, libraries)
                 assert_se(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
 

@@ -7,7 +7,6 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **maps = NULL;
-        char **m;
         int r;
 
         log_show_color(true);

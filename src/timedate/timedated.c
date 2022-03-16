@@ -196,7 +196,6 @@ static int context_parse_ntp_services_from_environment(Context *c) {
 
 static int context_parse_ntp_services_from_disk(Context *c) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         r = conf_files_list_strv(&files, ".list", NULL, CONF_FILES_FILTER_MASKED, UNIT_LIST_DIRS);

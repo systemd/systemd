@@ -1292,7 +1292,6 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -1806,7 +1805,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_PROGRAM: {
                 _cleanup_strv_free_ char **lines = NULL;
-                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE], **line;
+                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
@@ -2541,7 +2540,6 @@ static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mod
         char device_node[UDEV_PATH_SIZE], tags_dir[UDEV_PATH_SIZE], tag_symlink[UDEV_PATH_SIZE];
         _cleanup_free_ char *unescaped_filename = NULL;
         struct stat stats;
-        char **t;
         int r;
 
         assert(devnode);

@@ -307,13 +307,9 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(d->sysfs),
                 prefix, strna(s));
 
-        if (!strv_isempty(d->wants_property)) {
-                char **i;
-
-                STRV_FOREACH(i, d->wants_property)
-                        fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
-                                prefix, *i);
-        }
+        STRV_FOREACH(i, d->wants_property)
+                fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
+                        prefix, *i);
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
@@ -419,9 +415,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 k = NULL;
         }
 
-        if (d->state != DEVICE_DEAD) {
-                char **i;
-
+        if (d->state != DEVICE_DEAD)
                 /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
                  * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
                  * changes while the device unit is already up, let's manually trigger any new units listed in it not
@@ -431,7 +425,6 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                  *
                  * We do this only if the device has been up already when we parse this, as otherwise the usual
                  * dependency logic that is run from the dead → plugged transition will trigger these deps. */
-
                 STRV_FOREACH(i, added) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -442,7 +435,6 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
                 }
-        }
 
         return strv_free_and_replace(d->wants_property, added);
 }

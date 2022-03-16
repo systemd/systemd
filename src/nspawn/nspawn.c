@@ -3149,7 +3149,6 @@ static int patch_sysctl(void) {
         };
 
         unsigned long flags;
-        char **k, **v;
         int r;
 
         flags = effective_clone_ns_flags();

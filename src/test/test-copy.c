@@ -83,7 +83,6 @@ TEST(copy_tree) {
         char **hardlinks = STRV_MAKE("hlink", "file",
                                      "hlink2", "dir1/file");
         const char *unixsockp;
-        char **p, **ll;
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */

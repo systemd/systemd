@@ -213,7 +213,6 @@ static int run(int argc, char *argv[]) {
                 }
         else {
                 _cleanup_strv_free_ char **files = NULL;
-                char **f;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("binfmt.d"));
                 if (r < 0)

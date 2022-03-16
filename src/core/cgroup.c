@@ -416,7 +416,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
         CGroupContext *c;
         struct in_addr_prefix *iaai;
-        char **path;
 
         char cda[FORMAT_CGROUP_DIFF_MAX];
         char cdb[FORMAT_CGROUP_DIFF_MAX];

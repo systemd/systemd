@@ -6,8 +6,6 @@
 #include "strv.h"
 
 static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int flags) {
-        char **s;
-
         STRV_FOREACH(s, strv)
                 if (strv_fnmatch_or_empty(patterns, *s, flags))
                         return true;

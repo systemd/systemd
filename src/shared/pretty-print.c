@@ -168,7 +168,6 @@ static int cat_file(const char *filename, bool newline) {
 }
 
 int cat_files(const char *file, char **dropins, CatFlags flags) {
-        char **path;
         int r;
 
         if (file) {
@@ -284,10 +283,9 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        char **prefix, **prefixes = NULL; /* explicit initialization to appease gcc */
+        char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;
-        char **t;
         int r;
 
         r = guess_type(&name, &prefixes, &is_collection, &extension);
