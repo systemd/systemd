@@ -6080,9 +6080,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
 #if HAVE_LIBBPF
-        if (exec_context_restrict_filesystems_set(c))
-                SET_FOREACH(e, c->restrict_filesystems)
-                        fprintf(f, "%sRestrictFileSystems: %s\n", prefix, *e);
+        if (exec_context_restrict_filesystems_set(c)) {
+                char *fs;
+                SET_FOREACH(fs, c->restrict_filesystems)
+                        fprintf(f, "%sRestrictFileSystems: %s\n", prefix, fs);
+        }
 #endif
 
         if (c->network_namespace_path)
