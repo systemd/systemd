@@ -598,8 +598,7 @@ static int remove_marked_symlinks_fd(
                                 r = q;
 
                 } else if (de->d_type == DT_LNK) {
-                        _cleanup_free_ char *p = NULL, *dest = NULL;
-                        const char *rp;
+                        _cleanup_free_ char *p = NULL;
                         bool found;
                         int q;
 
@@ -611,24 +610,32 @@ static int remove_marked_symlinks_fd(
                                 return -ENOMEM;
                         path_simplify(p);
 
-                        q = chase_symlinks(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
-                        if (q == -ENOENT)
-                                continue;
-                        if (q < 0) {
-                                log_debug_errno(q, "Failed to resolve symlink \"%s\": %m", p);
-                                unit_file_changes_add(changes, n_changes, q, p, NULL);
+                        /* We remove all links pointing to a file or path that is marked, as well as all
+                         * files sharing the same name as a file that is marked. Do path chasing only if
+                         * we don't already know that we want to remove the symlink. */
+                        found = set_contains(remove_symlinks_to, de->d_name);
 
-                                if (r == 0)
-                                        r = q;
-                                continue;
+                        if (!found) {
+                                _cleanup_free_ char *dest = NULL;
+
+
+                                q = chase_symlinks(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
+                                if (q == -ENOENT)
+                                        continue;
+                                if (q < 0) {
+                                        log_debug_errno(q, "Failed to resolve symlink \"%s\": %m", p);
+                                        unit_file_changes_add(changes, n_changes, q, p, NULL);
+
+                                        if (r == 0)
+                                                r = q;
+                                        continue;
+                                }
+
+                                found = set_contains(remove_symlinks_to, dest) ||
+                                        set_contains(remove_symlinks_to, basename(dest));
+
                         }
 
-                        /* We remove all links pointing to a file or path that is marked, as well as all files sharing
-                         * the same name as a file that is marked. */
-
-                        found = set_contains(remove_symlinks_to, dest) ||
-                                set_contains(remove_symlinks_to, basename(dest)) ||
-                                set_contains(remove_symlinks_to, de->d_name);
 
                         if (!found)
                                 continue;
@@ -649,7 +656,7 @@ static int remove_marked_symlinks_fd(
                         /* Now, remember the full path (but with the root prefix removed) of
                          * the symlink we just removed, and remove any symlinks to it, too. */
 
-                        rp = skip_root(lp->root_dir, p);
+                        const char *rp = skip_root(lp->root_dir, p);
                         q = mark_symlink_for_removal(&remove_symlinks_to, rp ?: p);
                         if (q < 0)
                                 return q;
