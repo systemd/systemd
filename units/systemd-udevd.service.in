@@ -16,6 +16,7 @@ Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
 [Service]
+Delegate=pids
 DeviceAllow=block-* rwm
 DeviceAllow=char-* rwm
 Type=notify
