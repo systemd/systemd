@@ -3,10 +3,8 @@
 #include "device-util.h"
 #include "tests.h"
 
-static void test_log_device_full(void) {
+TEST(log_device_full) {
         int r;
-
-        log_info("/* %s */", __func__);
 
         for (int level = LOG_ERR; level <= LOG_DEBUG; level++) {
                 log_device_full(NULL, level, "test level=%d: %m", level);
@@ -22,9 +20,4 @@ static void test_log_device_full(void) {
         }
 }
 
-int main(int argc, char **argv) {
-        test_setup_logging(LOG_INFO);
-
-        test_log_device_full();
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

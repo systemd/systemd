@@ -11,10 +11,8 @@ static void test_FORMAT_LIFETIME_one(usec_t lifetime, const char *expected) {
         assert_se(streq(t, expected));
 }
 
-static void test_FORMAT_LIFETIME(void) {
+TEST(FORMAT_LIFETIME) {
         usec_t now_usec;
-
-        log_info("/* %s */", __func__);
 
         now_usec = now(clock_boottime_or_monotonic());
 
@@ -24,10 +22,4 @@ static void test_FORMAT_LIFETIME(void) {
         test_FORMAT_LIFETIME_one(USEC_INFINITY, "forever");
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_FORMAT_LIFETIME();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);
