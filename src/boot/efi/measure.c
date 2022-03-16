@@ -139,7 +139,7 @@ BOOLEAN tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 
-EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
+EFI_STATUS tpm_log_event(UINT32 pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
 
