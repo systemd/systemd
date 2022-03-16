@@ -89,23 +89,23 @@ char** strv_free_erase(char **l) {
 }
 
 char** strv_copy(char * const *l) {
-        char **r, **k;
+        _cleanup_strv_free_ char **result = NULL;
+        char **k, * const *i;
 
-        k = r = new(char*, strv_length(l) + 1);
-        if (!r)
+        result = new(char*, strv_length(l) + 1);
+        if (!result)
                 return NULL;
 
-        if (l)
-                for (; *l; k++, l++) {
-                        *k = strdup(*l);
-                        if (!*k) {
-                                strv_free(r);
-                                return NULL;
-                        }
-                }
+        k = result;
+        STRV_FOREACH(i, l) {
+                *k = strdup(*i);
+                if (!*k)
+                        return NULL;
+                k++;
+        }
 
         *k = NULL;
-        return r;
+        return TAKE_PTR(result);
 }
 
 size_t strv_length(char * const *l) {
