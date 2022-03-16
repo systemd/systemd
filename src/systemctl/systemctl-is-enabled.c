@@ -59,7 +59,6 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 int verb_is_enabled(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
-        char **name;
         int r;
 
         r = mangle_names("to check", strv_skip(argv, 1), &names);

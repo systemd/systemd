@@ -288,7 +288,6 @@ int setup_veth_extra(
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         uint64_t idx = 0;
-        char **a, **b;
         int r;
 
         assert(machine_name);
@@ -495,7 +494,6 @@ int test_network_interface_initialized(const char *name) {
 
 int move_network_interfaces(int netns_fd, char **ifaces) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        char **i;
         int r;
 
         if (strv_isempty(ifaces))
@@ -532,7 +530,6 @@ int move_network_interfaces(int netns_fd, char **ifaces) {
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
-        char **i;
         int r;
 
         if (strv_isempty(ifaces))
@@ -619,7 +616,6 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        char **i;
         int r;
 
         if (strv_isempty(ifaces))
@@ -728,7 +724,6 @@ int veth_extra_parse(char ***l, const char *p) {
 
 int remove_veth_links(const char *primary, char **pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        char **a, **b;
         int r;
 
         /* In some cases the kernel might pin the veth links between host and container even after the namespace

@@ -58,7 +58,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
         case SD_DHCP_OPTION_USER_CLASS: {
                 size_t total = 0;
-                char **s;
 
                 if (strv_isempty((char **) optval))
                         return -EINVAL;

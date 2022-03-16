@@ -413,8 +413,6 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         r = sd_bus_creds_get_cmdline(c, &cmdline);
         if (r >= 0) {
-                char **i;
-
                 fprintf(f, "%sCommandLine=%s", prefix, color);
                 STRV_FOREACH(i, cmdline) {
                         if (i != cmdline)
@@ -479,8 +477,6 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%sUniqueName=%s%s%s", prefix, color, c->unique_name, suffix);
 
         if (sd_bus_creds_get_well_known_names(c, &well_known) >= 0) {
-                char **i;
-
                 fprintf(f, "%sWellKnownNames=%s", prefix, color);
                 STRV_FOREACH(i, well_known) {
                         if (i != well_known)

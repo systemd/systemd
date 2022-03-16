@@ -112,7 +112,6 @@ int logind_check_inhibitors(enum action a) {
         uint32_t uid, pid;
         sd_bus *bus;
         unsigned c = 0;
-        char **s;
         int r;
 
         if (arg_check_inhibitors == 0 || arg_force > 0)
@@ -399,7 +398,6 @@ int help_boot_loader_entry(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **l = NULL;
         sd_bus *bus;
-        char **i;
         int r;
 
         r = acquire_bus(BUS_FULL, &bus);

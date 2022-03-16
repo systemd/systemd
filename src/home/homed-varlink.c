@@ -282,7 +282,6 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
 
         if (p.user_name) {
                 const char *last = NULL;
-                char **i;
 
                 h = hashmap_get(m->homes_by_name, p.user_name);
                 if (!h)
@@ -335,9 +334,7 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
         } else {
                 const char *last_user_name = NULL, *last_group_name = NULL;
 
-                HASHMAP_FOREACH(h, m->homes_by_name) {
-                        char **j;
-
+                HASHMAP_FOREACH(h, m->homes_by_name)
                         STRV_FOREACH(j, h->record->member_of) {
 
                                 if (last_user_name) {
@@ -353,7 +350,6 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                                 last_user_name = h->user_name;
                                 last_group_name = *j;
                         }
-                }
 
                 if (last_user_name) {
                         assert(last_group_name);

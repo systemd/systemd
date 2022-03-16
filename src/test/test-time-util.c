@@ -258,7 +258,6 @@ TEST(timezone_is_valid) {
 TEST(get_timezones) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
-        char **zone;
 
         r = get_timezones(&zones);
         assert_se(r == 0);

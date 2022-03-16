@@ -790,7 +790,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint32_t lifetime_sec;
         bool updated = false;
-        char **j;
         int r;
 
         assert(link);

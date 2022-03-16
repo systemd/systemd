@@ -124,7 +124,6 @@ static int test_calendar_one(usec_t n, const char *p) {
 
 int verb_calendar(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
-        char **p;
         usec_t n;
 
         if (arg_base_time != USEC_INFINITY)

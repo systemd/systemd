@@ -1364,7 +1364,6 @@ static char* format_strv_width(char **strv, size_t column_width) {
                 return NULL;
 
         size_t position = 0;
-        char **p;
         STRV_FOREACH(p, strv) {
                 size_t our_len = utf8_console_width(*p); /* This returns -1 on invalid utf-8 (which shouldn't happen).
                                                           * If that happens, we'll just print one item per line. */

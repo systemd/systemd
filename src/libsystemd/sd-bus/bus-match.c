@@ -139,8 +139,6 @@ static bool value_node_test(
                         return true;
 
                 if (m->creds.mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
-                        char **i;
-
                         /* on kdbus we have the well known names list
                          * in the credentials, let's make use of that
                          * for an accurate match */
@@ -174,8 +172,6 @@ static bool value_node_test(
                 return false;
 
         case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST: {
-                char **i;
-
                 STRV_FOREACH(i, value_strv)
                         if (streq_ptr(node->value.str, *i))
                                 return true;
@@ -386,8 +382,6 @@ int bus_match_run(
                 if (test_str)
                         found = hashmap_get(node->compare.children, test_str);
                 else if (test_strv) {
-                        char **i;
-
                         STRV_FOREACH(i, test_strv) {
                                 found = hashmap_get(node->compare.children, *i);
                                 if (found) {

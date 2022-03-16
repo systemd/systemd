@@ -133,8 +133,6 @@ static int bpf_foreign_test_to_string(enum bpf_attach_type attach_type, const ch
 }
 
 static char **unlink_paths_and_free(char **paths) {
-        char **i;
-
         STRV_FOREACH(i, paths)
                 (void) unlink(*i);
 

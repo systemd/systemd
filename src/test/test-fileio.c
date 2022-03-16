@@ -35,7 +35,6 @@ TEST(parse_env_file) {
                         *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL,
                         *eleven = NULL, *twelve = NULL, *thirteen = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
-        char **i;
         unsigned k;
         int r;
 
@@ -172,7 +171,6 @@ TEST(parse_multiline_env_file) {
                 p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
-        char **i;
         int r;
 
         assert_se(fmkostemp_safe(t, "w", &f) == 0);
@@ -222,7 +220,6 @@ TEST(merge_env_file) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **a = NULL;
-        char **i;
         int r;
 
         assert_se(fmkostemp_safe(t, "w", &f) == 0);
@@ -286,7 +283,6 @@ TEST(merge_env_file_invalid) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **a = NULL;
-        char **i;
         int r;
 
         assert_se(fmkostemp_safe(t, "w", &f) == 0);
@@ -487,7 +483,6 @@ TEST(load_env_file_pairs) {
         int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        char **k, **v;
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);

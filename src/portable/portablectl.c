@@ -90,7 +90,6 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
 }
 
 static int attach_extensions_to_message(sd_bus_message *m, char **extensions) {
-        char **p;
         int r;
 
         assert(m);
@@ -1174,7 +1173,6 @@ static int dump_profiles(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        char **i;
         int r;
 
         r = acquire_bus(&bus);

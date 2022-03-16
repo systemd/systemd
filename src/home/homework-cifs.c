@@ -20,7 +20,6 @@ int home_setup_cifs(
                 HomeSetup *setup) {
 
         _cleanup_free_ char *chost = NULL, *cservice = NULL, *cdir = NULL, *chost_and_service = NULL, *j = NULL;
-        char **pw;
         int r;
 
         assert(h);

@@ -98,8 +98,6 @@ static void print_status_info(StatusInfo *i) {
         if (strv_isempty(i->locale))
                 puts("   System Locale: n/a");
         else {
-                char **j;
-
                 printf("   System Locale: %s\n", i->locale[0]);
                 STRV_FOREACH(j, i->locale + 1)
                         printf("                  %s\n", *j);

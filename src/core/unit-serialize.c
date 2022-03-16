@@ -623,7 +623,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 }
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
-        char *t, **j;
+        char *t;
         const char *prefix2;
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;

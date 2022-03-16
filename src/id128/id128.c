@@ -102,7 +102,6 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
 static int verb_show(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        char **p;
         int r;
 
         argv = strv_skip(argv, 1);

@@ -3625,7 +3625,6 @@ void manager_check_finished(Manager *m) {
 }
 
 static bool generator_path_any(const char* const* paths) {
-        char **path;
         bool found = false;
 
         /* Optimize by skipping the whole process by not creating output directories

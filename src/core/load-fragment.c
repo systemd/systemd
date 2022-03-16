@@ -1634,7 +1634,6 @@ int config_parse_root_image_options(
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         _cleanup_strv_free_ char **l = NULL;
-        char **first = NULL, **second = NULL;
         ExecContext *c = data;
         const Unit *u = userdata;
         int r;

@@ -36,7 +36,6 @@ static int bus_message_append_strv_key_value(
                 sd_bus_message *m,
                 const char **l) {
 
-        const char **k, **v;
         int r;
 
         assert(m);

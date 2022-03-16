@@ -3957,7 +3957,6 @@ int manager_start_scope(
                 char **job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        char **i;
         int r;
 
         assert(manager);

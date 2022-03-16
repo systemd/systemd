@@ -533,7 +533,6 @@ static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
 }
 
 static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool debug) {
-        char **i;
         int r;
 
         assert(handle);

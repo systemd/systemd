@@ -257,9 +257,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
                         uid_t uid;
@@ -289,7 +287,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 draw_separator = true;
                         }
                 }
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = userdb_all(arg_userdb_flags, &iterator);
@@ -496,9 +494,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
                         gid_t gid;
@@ -528,8 +524,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 draw_separator = true;
                         }
                 }
-
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = groupdb_all(arg_userdb_flags, &iterator);
@@ -654,9 +649,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 (void) table_set_sort(table, (size_t) 0, (size_t) 1);
         }
 
-        if (argc > 1) {
-                char **i;
-
+        if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
                         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
@@ -687,7 +680,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                         return r;
                         }
                 }
-        } else {
+        else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_all(arg_userdb_flags, &iterator);
@@ -849,12 +842,9 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         else {
                 if (strv_isempty(ur->ssh_authorized_keys))
                         log_debug("User record for %s has no public SSH keys.", argv[1]);
-                else {
-                        char **i;
-
+                else
                         STRV_FOREACH(i, ur->ssh_authorized_keys)
                                 printf("%s\n", *i);
-                }
 
                 if (ur->incomplete) {
                         fflush(stdout);

@@ -195,7 +195,6 @@ static int enumerate_dir_d(
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **list = NULL;
-        char **file;
         char *c;
         int r;
 
@@ -292,7 +291,6 @@ static int enumerate_dir(
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
         size_t n_files = 0, n_dirs = 0;
-        char **t;
         int r;
 
         assert(top);

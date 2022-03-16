@@ -1864,7 +1864,6 @@ int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p
 
 int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
-        char **i;
 
         assert(s);
 

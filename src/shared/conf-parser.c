@@ -486,7 +486,6 @@ static int config_parse_many_files(
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
         struct stat st;
-        char **fn;
         int r;
 
         if (ret_stats_by_path) {

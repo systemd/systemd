@@ -117,7 +117,6 @@ int serialize_dual_timestamp(FILE *f, const char *name, const dual_timestamp *t)
 
 int serialize_strv(FILE *f, const char *key, char **l) {
         int ret = 0, r;
-        char **i;
 
         /* Returns the first error, or positive if anything was serialized, 0 otherwise. */
 

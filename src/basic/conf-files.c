@@ -145,7 +145,7 @@ static int conf_files_list_strv_internal(
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_free_ Set *masked = NULL;
-        char **files, **p;
+        char **files;
         int r;
 
         assert(ret);
@@ -202,11 +202,8 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                 int c;
 
                 c = base_cmp((char* const*) *strv + i, (char* const*) &path);
-                if (c == 0) {
-                        char **dir;
-
+                if (c == 0)
                         /* Oh, there already is an entry with a matching name (the last component). */
-
                         STRV_FOREACH(dir, dirs) {
                                 _cleanup_free_ char *rdir = NULL;
                                 char *p1, *p2;
@@ -233,7 +230,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                                 }
                         }
 
-                } else if (c > 0)
+                else if (c > 0)
                         /* Following files have lower priority, let's go insert our
                          * new entry. */
                         break;

@@ -692,7 +692,6 @@ TEST(rename_noreplace) {
 
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
         const char *j = NULL;
-        char **a, **b;
 
         if (arg_test_dir)
                 j = strjoina(arg_test_dir, "/testXXXXXX");

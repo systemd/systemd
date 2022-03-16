@@ -197,7 +197,6 @@ int test_password_one(const char *hashed_password, const char *password) {
 }
 
 int test_password_many(char **hashed_password, const char *password) {
-        char **hpw;
         int r;
 
         STRV_FOREACH(hpw, hashed_password) {

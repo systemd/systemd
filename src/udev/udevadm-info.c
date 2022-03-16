@@ -584,7 +584,6 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "-x/--export or -P/--export-prefix cannot be used with --value");
 
-        char **p;
         STRV_FOREACH(p, devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 

@@ -860,7 +860,6 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
 int netdev_load(Manager *manager, bool reload) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(manager);

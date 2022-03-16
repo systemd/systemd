@@ -1675,7 +1675,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "RootImageOptions")) {
                 _cleanup_strv_free_ char **l = NULL;
-                char **first = NULL, **second = NULL;
                 const char *p = eq;
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -2024,7 +2023,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        char **source, **destination;
                         STRV_FOREACH_PAIR(source, destination, symlinks) {
                                 r = sd_bus_message_append(m, "(sst)", *source, *destination, 0);
                                 if (r < 0)
@@ -2648,7 +2646,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
 }
 
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l) {
-        char **i;
         int r;
 
         assert(m);

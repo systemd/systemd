@@ -151,18 +151,17 @@ static int log_enable_gnutls_category(const char *cat) {
 }
 
 int setup_gnutls_logger(char **categories) {
-        char **cat;
         int r;
 
         gnutls_global_set_log_function(log_func_gnutls);
 
-        if (categories) {
+        if (categories)
                 STRV_FOREACH(cat, categories) {
                         r = log_enable_gnutls_category(*cat);
                         if (r < 0)
                                 return r;
                 }
-        } else
+        else
                 log_reset_gnutls_level();
 
         return 0;

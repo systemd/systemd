@@ -699,7 +699,6 @@ static int server_build_json_one_string(const char *str, NetworkConfigSource s, 
 static int ntp_build_json(Link *link, JsonVariant **ret) {
         JsonVariant **elements = NULL;
         size_t n = 0;
-        char **p;
         int r;
 
         assert(link);
@@ -878,7 +877,7 @@ static int domains_build_json(Link *link, bool is_route, JsonVariant **ret) {
         JsonVariant **elements = NULL;
         DHCPUseDomains use_domains;
         union in_addr_union s;
-        char **p, **domains;
+        char **domains;
         const char *domain;
         size_t n = 0;
         int r;

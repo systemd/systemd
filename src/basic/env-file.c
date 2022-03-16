@@ -537,7 +537,6 @@ static void write_env_var(FILE *f, const char *v) {
 int write_env_file(const char *fname, char **l) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
-        char **i;
         int r;
 
         assert(fname);

@@ -145,7 +145,6 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
 
                 if (!set_isempty(known)) {
                         _cleanup_free_ char **l = NULL;
-                        char **filesystem;
 
                         printf("\n"
                                "# %sUngrouped filesystems%s (known but not included in any of the groups except @known):\n",
@@ -188,7 +187,6 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
                         log_notice_errno(k, "# Not showing unlisted filesystems, couldn't retrieve kernel filesystem list: %m");
                 } else if (!set_isempty(kernel)) {
                         _cleanup_free_ char **l = NULL;
-                        char **filesystem;
 
                         printf("\n"
                                "# %sUnlisted filesystems%s (available to the local kernel, but not included in any of the groups listed above):\n",
@@ -203,9 +201,7 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
                         STRV_FOREACH(filesystem, l)
                                 printf("#   %s\n", *filesystem);
                 }
-        } else {
-                char **name;
-
+        } else
                 STRV_FOREACH(name, strv_skip(argv, 1)) {
                         const FilesystemSet *set;
 
@@ -224,7 +220,6 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
                         dump_filesystem_set(set);
                         first = false;
                 }
-        }
 
         return 0;
 }

@@ -434,7 +434,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
 
 static int insert_data(struct trie *trie, char **match_list, char *line, const char *filename,
                        uint16_t file_priority, uint32_t line_number, bool compat) {
-        char *value, **entry;
+        char *value;
 
         assert(line[0] == ' ');
 
@@ -583,7 +583,6 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         uint16_t file_priority = 1;
         int r = 0, err;
 

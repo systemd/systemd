@@ -9,7 +9,6 @@
 
 static int process_aliases(char *argv[], char *tempdir, char ***ret) {
         _cleanup_strv_free_ char **filenames = NULL;
-        char **filename;
         int r;
 
         assert(argv);

@@ -324,7 +324,7 @@ _pure_ static bool unit_matters_to_anchor(Unit *u, Job *job) {
 }
 
 static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
-        char **unit_id, **job_type, *ans = NULL;
+        char *ans = NULL;
         size_t size = 0, next;
 
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
@@ -361,7 +361,6 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         if (j->generation == generation) {
                 Job *k, *delete = NULL;
                 _cleanup_free_ char **array = NULL, *unit_ids = NULL;
-                char **unit_id, **job_type;
 
                 /* If the marker is NULL we have been here already and decided the job was loop-free from
                  * here. Hence shortcut things and return right-away. */

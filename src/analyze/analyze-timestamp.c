@@ -80,7 +80,6 @@ static int test_timestamp_one(const char *p) {
 
 int verb_timestamp(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
-        char **p;
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
                 r = test_timestamp_one(*p);

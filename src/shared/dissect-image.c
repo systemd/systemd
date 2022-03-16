@@ -2208,7 +2208,6 @@ static int validate_signature_userspace(const VeritySettings *verity) {
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
                                                * of declaration in place, please */
         const unsigned char *d;
-        char **i;
         int r;
 
         assert(verity);

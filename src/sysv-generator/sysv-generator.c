@@ -103,7 +103,6 @@ static int generate_unit_file(SysvStub *s) {
         _cleanup_free_ char *path_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *unit;
-        char **p;
         int r;
 
         assert(s);
@@ -707,7 +706,6 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
 
 static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
         _cleanup_strv_free_ char **sysvinit_path = NULL;
-        char **path;
         int r;
 
         assert(lp);
@@ -791,7 +789,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
         _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
-        char **p;
         int r;
 
         assert(lp);

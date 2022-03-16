@@ -953,7 +953,6 @@ Manager* manager_free(Manager *m) {
 
 static int manager_network_read_link_servers(Manager *m) {
         _cleanup_strv_free_ char **ntp = NULL;
-        char **i;
         bool changed = false;
         int r;
 

@@ -55,7 +55,6 @@ static int parse(const char *key, const char *value, void *data) {
 static int generate(void) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
-        char **c;
         int r;
 
         if (strv_isempty(arg_commands) && !arg_success_action)

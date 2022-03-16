@@ -16,7 +16,6 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         _cleanup_free_ char *exec_start = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
         ExecContext *ec = NULL;
-        char **allow_filesystem;
         int cld_code, r;
 
         assert_se(u = unit_new(m, sizeof(Service)));

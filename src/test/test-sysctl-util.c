@@ -27,7 +27,6 @@ static const char* const cases[] = {
 };
 
 TEST(sysctl_normalize) {
-        const char **s, **expected;
         STRV_FOREACH_PAIR(s, expected, (const char**) cases) {
                 _cleanup_free_ char *t;
 

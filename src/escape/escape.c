@@ -155,7 +155,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        char **i;
         int r;
 
         log_setup();

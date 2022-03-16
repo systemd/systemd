@@ -776,8 +776,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sSocketProtocol: %s\n", prefix, str);
 
         if (!strv_isempty(s->symlinks)) {
-                char **q;
-
                 fprintf(f, "%sSymlinks:", prefix);
                 STRV_FOREACH(q, s->symlinks)
                         fprintf(f, " %s", *q);
@@ -918,8 +916,6 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 }
 
 static void socket_close_fds(Socket *s) {
-        char **i;
-
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
@@ -1265,7 +1261,6 @@ static int mq_address_create(
 
 static int socket_symlink(Socket *s) {
         const char *p;
-        char **i;
         int r;
 
         assert(s);

@@ -583,8 +583,6 @@ static void unit_clear_dependencies(Unit *u) {
 }
 
 static void unit_remove_transient(Unit *u) {
-        char **i;
-
         assert(u);
 
         if (!u->transient)
@@ -3620,7 +3618,6 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
 
 int unit_coldplug(Unit *u) {
         int r = 0, q;
-        char **i;
 
         assert(u);
 
@@ -3693,7 +3690,6 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
 
 bool unit_need_daemon_reload(Unit *u) {
         _cleanup_strv_free_ char **t = NULL;
-        char **path;
 
         assert(u);
 
@@ -4278,7 +4274,6 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
         _cleanup_free_ char *result = NULL;
         size_t n = 0;
-        char **i;
 
         /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command lines in a
          * way suitable for ExecStart= stanzas */
@@ -5079,7 +5074,6 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
                 return r;
         if (r == 0) {
                 int ret = EXIT_SUCCESS;
-                char **i;
 
                 STRV_FOREACH(i, paths) {
                         r = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);

@@ -412,7 +412,6 @@ TEST(getenv_steal_erase) {
         r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
                 _cleanup_strv_free_ char **l = NULL;
-                char **e;
 
                 /* child */
 

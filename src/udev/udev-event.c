@@ -611,7 +611,6 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         /* Log output only if we watch stderr. */
         if (l > 0 && spawn->fd_stderr >= 0) {
                 _cleanup_strv_free_ char **v = NULL;
-                char **q;
 
                 r = strv_split_newlines_full(&v, p, EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)

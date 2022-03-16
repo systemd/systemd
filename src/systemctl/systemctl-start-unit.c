@@ -199,16 +199,13 @@ static int enqueue_marked_jobs(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (w) {
-                char **path;
-
+        if (w)
                 STRV_FOREACH(path, paths) {
                         log_debug("Adding %s to the set", *path);
                         r = bus_wait_for_jobs_add(w, *path);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to watch job %s: %m", *path);
                 }
-        }
 
         return 0;
 }
@@ -269,7 +266,6 @@ int verb_start(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
-        char **name;
 
         if (arg_wait && !STR_IN_SET(argv[0], "start", "restart"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

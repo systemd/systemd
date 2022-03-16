@@ -12,7 +12,6 @@ int find_key_file(
                 void **ret_key,
                 size_t *ret_key_size) {
 
-        char **i;
         int r;
 
         assert(key_file);

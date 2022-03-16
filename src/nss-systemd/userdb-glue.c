@@ -217,7 +217,7 @@ int nss_pack_group_record(
                 char *buffer,
                 size_t buflen) {
 
-        char **array = NULL, *p, **m;
+        char **array = NULL, *p;
         size_t required, n = 0, i = 0;
 
         assert(g);

@@ -13,7 +13,6 @@
 
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
         _cleanup_strv_free_ char **paths = NULL;
-        char **p;
         int r;
 
         r = unit_file_find_dropin_paths(NULL,
@@ -85,7 +84,6 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
 int unit_load_dropin(Unit *u) {
         _cleanup_strv_free_ char **l = NULL;
-        char **f;
         int r;
 
         assert(u);

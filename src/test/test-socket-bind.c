@@ -13,7 +13,7 @@
 #include "virt.h"
 
 static int find_netcat_executable(char **ret_path) {
-        char **candidates = STRV_MAKE("ncat", "nc", "netcat"), **c;
+        char **candidates = STRV_MAKE("ncat", "nc", "netcat");
         int r = 0;
 
         STRV_FOREACH(c, candidates) {
@@ -35,7 +35,6 @@ static int test_socket_bind(
         _cleanup_free_ char *exec_start = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
         CGroupContext *cc = NULL;
-        char **rule;
         int cld_code, r;
 
         assert_se(u = unit_new(m, sizeof(Service)));

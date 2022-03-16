@@ -463,7 +463,6 @@ static int patch_root_prefix(char **p, const char *root_dir) {
 }
 
 static int patch_root_prefix_strv(char **l, const char *root_dir) {
-        char **i;
         int r;
 
         if (!root_dir)

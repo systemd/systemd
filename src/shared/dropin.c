@@ -232,7 +232,6 @@ int unit_file_find_dropin_paths(
 
         _cleanup_strv_free_ char **dirs = NULL;
         const char *n;
-        char **p;
         int r;
 
         assert(ret);

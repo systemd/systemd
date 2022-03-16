@@ -55,7 +55,6 @@ TEST(unit_file_build_name_map) {
         if (r == 0)
                 log_debug("Cache rebuild skipped based on mtime.");
 
-        char **id;
         STRV_FOREACH(id, ids) {
                  const char *fragment, *name;
                  _cleanup_set_free_free_ Set *names = NULL;

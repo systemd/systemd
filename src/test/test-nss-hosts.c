@@ -67,8 +67,6 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
 }
 
 static void print_struct_hostent(struct hostent *host, const char *canon) {
-        char **s;
-
         log_info("        \"%s\"", host->h_name);
         STRV_FOREACH(s, host->h_aliases)
                 log_info("        alias \"%s\"", *s);
@@ -376,7 +374,6 @@ static int test_one_module(const char *dir,
         if (!handle)
                 return -EINVAL;
 
-        char **name;
         STRV_FOREACH(name, names)
                 test_byname(handle, module, *name);
 
@@ -424,7 +421,6 @@ static int parse_argv(int argc, char **argv,
         assert_se(modules);
 
         if (argc > 2) {
-                char **name;
                 int family;
                 union in_addr_union address;
 
@@ -463,7 +459,6 @@ static int run(int argc, char **argv) {
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses = 0;
-        char **module;
         int r;
 
         test_setup_logging(LOG_INFO);

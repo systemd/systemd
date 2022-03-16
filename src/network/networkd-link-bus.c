@@ -81,7 +81,6 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         _cleanup_strv_free_ char **ntp = NULL;
         Link *l = userdata;
         int r;
-        char **i;
 
         assert(message);
         assert(l);
@@ -484,7 +483,6 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         _cleanup_strv_free_ char **ntas = NULL;
         Link *l = userdata;
         int r;
-        char **i;
 
         assert(message);
         assert(l);

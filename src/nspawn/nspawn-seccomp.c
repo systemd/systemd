@@ -140,7 +140,6 @@ static int add_syscall_filters(
         };
 
         _cleanup_strv_free_ char **added = NULL;
-        char **p;
         int r;
 
         for (size_t i = 0; i < ELEMENTSOF(allow_list); i++) {

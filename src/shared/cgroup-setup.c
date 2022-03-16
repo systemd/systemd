@@ -22,7 +22,6 @@
 static int cg_any_controller_used_for_v1(void) {
         _cleanup_free_ char *buf = NULL;
         _cleanup_strv_free_ char **lines = NULL;
-        char **line;
         int r;
 
         r = read_full_virtual_file("/proc/cgroups", &buf, NULL);

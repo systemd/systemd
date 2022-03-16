@@ -192,7 +192,6 @@ static void strip_localhost(EtcHosts *hosts) {
 
         for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
                 bool all_localhost, in_order;
-                char **i;
 
                 item = hashmap_get(hosts->by_address, local_in_addrs + j);
                 if (!item)
@@ -392,8 +391,6 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 }
 
                 if (found_ptr) {
-                        char **n;
-
                         r = dns_answer_reserve(answer, strv_length(item->names));
                         if (r < 0)
                                 return r;

@@ -8,7 +8,6 @@
 int verb_unit_paths(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         int r;
-        char **p;
 
         r = lookup_paths_init(&paths, arg_scope, 0, NULL);
         if (r < 0)

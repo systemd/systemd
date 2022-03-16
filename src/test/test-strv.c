@@ -204,7 +204,6 @@ static void test_strv_unquote_one(const char *quoted, char **list) {
         _cleanup_strv_free_ char **s;
         _cleanup_free_ char *j;
         unsigned i = 0;
-        char **t;
         int r;
 
         log_info("/* %s */", __func__);
@@ -446,7 +445,6 @@ TEST(strv_split_colon_pairs) {
 
 TEST(strv_split_newlines) {
         unsigned i = 0;
-        char **s;
         _cleanup_strv_free_ char **l = NULL;
         const char str[] = "one\ntwo\nthree";
 
@@ -619,7 +617,6 @@ TEST(strv_extendf) {
 TEST(strv_foreach) {
         _cleanup_strv_free_ char **a;
         unsigned i = 0;
-        char **check;
 
         a = strv_new("one", "two", "three");
         assert_se(a);
@@ -631,7 +628,6 @@ TEST(strv_foreach) {
 TEST(strv_foreach_backwards) {
         _cleanup_strv_free_ char **a;
         unsigned i = 2;
-        char **check;
 
         a = strv_new("one", "two", "three");
 
@@ -649,7 +645,6 @@ TEST(strv_foreach_backwards) {
 
 TEST(strv_foreach_pair) {
         _cleanup_strv_free_ char **a = NULL;
-        char **x, **y;
 
         a = strv_new("pair_one",   "pair_one",
                      "pair_two",   "pair_two",

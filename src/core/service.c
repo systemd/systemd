@@ -2650,7 +2650,6 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
         ServiceExecCommand id;
         size_t length = 0;
         unsigned idx;
-        char **arg;
 
         assert(s);
         assert(f);
@@ -4085,7 +4084,6 @@ static void service_notify_message(
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
-        char * const *i;
         int r;
 
         assert(u);

@@ -247,8 +247,6 @@ static const char *join_with(const char *controller) {
                 NULL
         };
 
-        const char *const *x, *const *y;
-
         assert(controller);
 
         /* This will lookup which controller to mount another controller with. Input is a controller name, and output
@@ -436,7 +434,6 @@ static int relabel_cgroup_filesystems(void) {
 
 static int relabel_extra(void) {
         _cleanup_strv_free_ char **files = NULL;
-        char **file;
         int r, c = 0;
 
         /* Support for relabelling additional files or directories after loading the policy. For this, code in the

@@ -283,7 +283,6 @@ static int link_update_dns_server_one(Link *l, const char *str) {
 
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
-        char **nameserver;
         int r;
 
         assert(l);
@@ -518,7 +517,6 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
 
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
-        char **i;
         int r, q;
 
         assert(l);

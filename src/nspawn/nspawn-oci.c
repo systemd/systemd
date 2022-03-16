@@ -1892,7 +1892,6 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                 struct syscall_rule rule = {
                         .action = UINT32_MAX,
                 };
-                char **i;
 
                 r = json_dispatch(e, table, oci_unexpected, flags, &rule);
                 if (r < 0)

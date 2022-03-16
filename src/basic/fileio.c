@@ -1042,8 +1042,6 @@ static int search_and_fopen_internal(
                 FILE **ret,
                 char **ret_path) {
 
-        char **i;
-
         assert(path);
         assert(mode);
         assert(ret);

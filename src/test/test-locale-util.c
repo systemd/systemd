@@ -10,7 +10,6 @@
 
 TEST(get_locales) {
         _cleanup_strv_free_ char **locales = NULL;
-        char **p;
         int r;
 
         r = get_locales(&locales);
@@ -58,7 +57,6 @@ TEST(locale_is_installed) {
 
 TEST(keymaps) {
         _cleanup_strv_free_ char **kmaps = NULL;
-        char **p;
         int r;
 
         assert_se(!keymap_is_valid(""));

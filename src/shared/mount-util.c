@@ -274,7 +274,6 @@ int bind_remount_recursive_with_mountinfo(
                          * we shall operate on. */
                         if (!path_equal(path, prefix)) {
                                 bool deny_listed = false;
-                                char **i;
 
                                 STRV_FOREACH(i, deny_list) {
                                         if (path_equal(*i, prefix))

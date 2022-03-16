@@ -49,7 +49,6 @@ static int add_epoll(int epoll_fd, int fd) {
 }
 
 static int open_sockets(int *epoll_fd, bool accept) {
-        char **address;
         int n, fd, r, count = 0;
 
         n = sd_listen_fds(true);
@@ -125,7 +124,6 @@ static int open_sockets(int *epoll_fd, bool accept) {
 static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
         const char *var;
-        char **s;
         int r;
 
         if (arg_inetd && n_fds != 1)
@@ -390,7 +388,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FDNAME: {
                         _cleanup_strv_free_ char **names = NULL;
-                        char **s;
 
                         names = strv_split(optarg, ":");
                         if (!names)

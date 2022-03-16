@@ -259,7 +259,6 @@ int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type,
 
 int sd_netlink_message_append_strv(sd_netlink_message *m, unsigned short type, char * const *data) {
         size_t length, size;
-        char * const *p;
         int r;
 
         assert_return(m, -EINVAL);

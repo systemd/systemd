@@ -12,7 +12,6 @@
 #include "strv.h"
 
 static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
-        char **filename;
         int r;
 
         STRV_FOREACH(filename, filenames) {
