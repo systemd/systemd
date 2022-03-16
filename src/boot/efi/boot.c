@@ -1549,7 +1549,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
-                .reboot_for_bitlocker = TRUE,
+                .reboot_for_bitlocker = FALSE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1982,6 +1982,9 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
         UINTN n_handles;
         EFI_STATUS err;
+
+        // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
+        // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
 
         /* BitLocker key cannot be sealed without a TPM present. */
         if (!tpm_present())
