@@ -52,6 +52,17 @@ CHANGES WITH 251:
           or ID field of /etc/os-release or another suitable identifier before
           deploying the image.
 
+        * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
+          loader.conf that implements booting Microsoft Windows from the
+          sd-boot in a way that first reboots the system, to reset the TPM
+          PCRs. This improves compatibility with BitLocker's TPM use, as the
+          PCRs will only record the Windows boot process, and not sd-boot
+          itself, thus retaining the PCR measurements not involving
+          sd-boot. Note that this feature is experimental for now, and is
+          likely going to be generalized, renamed and removed in its current
+          form in a future release, without retaining compatibility with its
+          current implementation.
+
         * The --make-machine-id-directory= switch to bootctl has been replaced
           by --make-entry-directory=, given that the entry directory is not
           necessarily named after the machine ID, but after some other suitable
