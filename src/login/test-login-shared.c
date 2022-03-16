@@ -2,8 +2,9 @@
 
 #include "login-util.h"
 #include "macro.h"
+#include "tests.h"
 
-static void test_session_id_valid(void) {
+TEST(session_id_valid) {
         assert_se(session_id_valid("c1"));
         assert_se(session_id_valid("1234"));
 
@@ -12,11 +13,4 @@ static void test_session_id_valid(void) {
         assert_se(!session_id_valid("\tid"));
 }
 
-int main(int argc, char* argv[]) {
-        log_parse_environment();
-        log_open();
-
-        test_session_id_valid();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_INFO);

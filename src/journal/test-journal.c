@@ -23,7 +23,7 @@ static void mkdtemp_chdir_chattr(char *path) {
         (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 }
 
-static void test_non_empty(void) {
+TEST(non_empty) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         dual_timestamp ts;
         ManagedJournalFile *f;
@@ -33,8 +33,6 @@ static void test_non_empty(void) {
         uint64_t p;
         sd_id128_t fake_boot_id;
         char t[] = "/var/tmp/journal-XXXXXX";
-
-        test_setup_logging(LOG_DEBUG);
 
         m = mmap_cache_new();
         assert_se(m != NULL);
@@ -120,12 +118,10 @@ static void test_non_empty(void) {
         puts("------------------------------------------------------------");
 }
 
-static void test_empty(void) {
+TEST(empty) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         ManagedJournalFile *f1, *f2, *f3, *f4;
         char t[] = "/var/tmp/journal-XXXXXX";
-
-        test_setup_logging(LOG_DEBUG);
 
         m = mmap_cache_new();
         assert_se(m != NULL);
@@ -177,8 +173,6 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         assert_se(data_size <= sizeof(data));
 
-        test_setup_logging(LOG_DEBUG);
-
         m = mmap_cache_new();
         assert_se(m != NULL);
 
@@ -228,7 +222,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         return is_compressed;
 }
 
-static void test_min_compress_size(void) {
+TEST(min_compress_size) {
         /* Note that XZ will actually fail to compress anything under 80 bytes, so you have to choose the limits
          * carefully */
 
@@ -249,20 +243,14 @@ static void test_min_compress_size(void) {
 }
 #endif
 
-int main(int argc, char *argv[]) {
-        arg_keep = argc > 1;
-
-        test_setup_logging(LOG_INFO);
+static int intro(void) {
+        arg_keep = saved_argc > 1;
 
         /* managed_journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
-        test_non_empty();
-        test_empty();
-#if HAVE_COMPRESSION
-        test_min_compress_size();
-#endif
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

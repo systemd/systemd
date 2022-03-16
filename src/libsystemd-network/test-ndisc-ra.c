@@ -100,10 +100,8 @@ static const struct in6_addr test_rdnss = { { { 0x20, 0x01, 0x0d, 0xb8,
 static const char *test_dnssl[] = { "lab.intra",
                                     NULL };
 
-static void test_radv_prefix(void) {
+TEST(radv_prefix) {
         sd_radv_prefix *p;
-
-        printf("* %s\n", __func__);
 
         assert_se(sd_radv_prefix_new(&p) >= 0);
 
@@ -142,10 +140,8 @@ static void test_radv_prefix(void) {
         assert_se(!p);
 }
 
-static void test_radv(void) {
+TEST(radv) {
         sd_radv *ra;
-
-        printf("* %s\n", __func__);
 
         assert_se(sd_radv_new(&ra) >= 0);
         assert_se(ra);
@@ -284,12 +280,10 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 0;
 }
 
-static void test_ra(void) {
+TEST(ra) {
         sd_event *e;
         sd_radv *ra;
         unsigned i;
-
-        printf("* %s\n", __func__);
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
@@ -349,14 +343,4 @@ static void test_ra(void) {
         sd_event_unref(e);
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_radv_prefix();
-        test_radv();
-        test_ra();
-
-        printf("* done\n");
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

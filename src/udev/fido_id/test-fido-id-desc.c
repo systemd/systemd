@@ -5,8 +5,9 @@
 
 #include "fido_id_desc.h"
 #include "macro.h"
+#include "tests.h"
 
-static void test_is_fido_security_token_desc__fido(void) {
+TEST(is_fido_security_token_desc__fido) {
         static const uint8_t FIDO_HID_DESC_1[] = {
                 0x06, 0xd0, 0xf1, 0x09, 0x01, 0xa1, 0x01, 0x09, 0x20, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75,
                 0x08, 0x95, 0x40, 0x81, 0x02, 0x09, 0x21, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75, 0x08, 0x95,
@@ -27,7 +28,7 @@ static void test_is_fido_security_token_desc__fido(void) {
         assert_se(is_fido_security_token_desc(FIDO_HID_DESC_2, sizeof(FIDO_HID_DESC_2)) > 0);
 }
 
-static void test_is_fido_security_token_desc__non_fido(void) {
+TEST(is_fido_security_token_desc__non_fido) {
         /* Wrong usage page */
         static const uint8_t NON_FIDO_HID_DESC_1[] = {
                 0x06, 0xd0, 0xf0, 0x09, 0x01, 0xa1, 0x01, 0x09, 0x20, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75,
@@ -54,7 +55,7 @@ static void test_is_fido_security_token_desc__non_fido(void) {
         assert_se(is_fido_security_token_desc(NON_FIDO_HID_DESC_3, sizeof(NON_FIDO_HID_DESC_3)) == 0);
 }
 
-static void test_is_fido_security_token_desc__invalid(void) {
+TEST(is_fido_security_token_desc__invalid) {
         /* Size coded on 1 byte, but no byte given */
         static const uint8_t INVALID_HID_DESC_1[] = { 0x01 };
         assert_se(is_fido_security_token_desc(INVALID_HID_DESC_1, sizeof(INVALID_HID_DESC_1)) < 0);
@@ -76,10 +77,4 @@ static void test_is_fido_security_token_desc__invalid(void) {
         assert_se(is_fido_security_token_desc(INVALID_HID_DESC_5, sizeof(INVALID_HID_DESC_5)) < 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_is_fido_security_token_desc__fido();
-        test_is_fido_security_token_desc__non_fido();
-        test_is_fido_security_token_desc__invalid();
-
-        return EXIT_SUCCESS;
-}
+DEFINE_TEST_MAIN(LOG_INFO);
