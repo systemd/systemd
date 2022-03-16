@@ -3616,10 +3616,11 @@ static int outer_child(
         ssize_t l;
         int r;
 
-        /* This is the "outer" child process, i.e the one forked off by the container manager itself. It already has
-         * its own CLONE_NEWNS namespace (which was created by the clone()). It still lives in the host's CLONE_NEWPID,
-         * CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER and CLONE_NEWNET namespaces. After it completed a number of
-         * initializations a second child (the "inner" one) is forked off it, and it exits. */
+        /* This is the "outer" child process, i.e the one forked off by the container manager itself. It
+         * already has its own CLONE_NEWNS namespace (which was created by the clone()). It still lives in
+         * the host's CLONE_NEWPID, CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER and CLONE_NEWNET
+         * namespaces. After it completed a number of initializations a second child (the "inner" one) is
+         * forked off it, and it exits. */
 
         assert(barrier);
         assert(directory);
@@ -3649,10 +3650,10 @@ static int outer_child(
                 return r;
 
         if (dissected_image) {
-                /* If we are operating on a disk image, then mount its root directory now, but leave out the rest. We
-                 * can read the UID shift from it if we need to. Further down we'll mount the rest, but then with the
-                 * uid shift known. That way we can mount VFAT file systems shifted to the right place right away. This
-                 * makes sure ESP partitions and userns are compatible. */
+                /* If we are operating on a disk image, then mount its root directory now, but leave out the
+                 * rest. We can read the UID shift from it if we need to. Further down we'll mount the rest,
+                 * but then with the uid shift known. That way we can mount VFAT file systems shifted to the
+                 * right place right away. This makes sure ESP partitions and userns are compatible. */
 
                 r = dissected_image_mount_and_warn(
                                 dissected_image,
@@ -3682,9 +3683,9 @@ static int outer_child(
                                                "Short write while sending UID shift.");
 
                 if (arg_userns_mode == USER_NAMESPACE_PICK) {
-                        /* When we are supposed to pick the UID shift, the parent will check now whether the UID shift
-                         * we just read from the image is available. If yes, it will send the UID shift back to us, if
-                         * not it will pick a different one, and send it back to us. */
+                        /* When we are supposed to pick the UID shift, the parent will check now whether the
+                         * UID shift we just read from the image is available. If yes, it will send the UID
+                         * shift back to us, if not it will pick a different one, and send it back to us. */
 
                         l = recv(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
                         if (l < 0)
@@ -3740,7 +3741,8 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO && bind_user_context) {
-                /* Send the user maps we determined to the parent, so that it installs it in our user namespace UID map table */
+                /* Send the user maps we determined to the parent, so that it installs it in our user
+                 * namespace UID map table */
 
                 for (size_t i = 0; i < bind_user_context->n_data; i++)  {
                         uid_t map[] = {
@@ -3833,15 +3835,13 @@ static int outer_child(
                 unified_cgroup_hierarchy_socket = safe_close(unified_cgroup_hierarchy_socket);
         }
 
-        /* Mark everything as shared so our mounts get propagated down. This is
-         * required to make new bind mounts available in systemd services
-         * inside the container that create a new mount namespace.
-         * See https://github.com/systemd/systemd/issues/3860
-         * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode.
+        /* Mark everything as shared so our mounts get propagated down. This is required to make new bind
+         * mounts available in systemd services inside the container that create a new mount namespace.  See
+         * https://github.com/systemd/systemd/issues/3860 Further submounts (such as /dev) done after this
+         * will inherit the shared propagation mode.
          *
-         * IMPORTANT: Do not overmount the root directory anymore from now on to
-         * enable moving the root directory mount to root later on.
+         * IMPORTANT: Do not overmount the root directory anymore from now on to enable moving the root
+         * directory mount to root later on.
          * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
          */
         r = mount_nofollow_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
