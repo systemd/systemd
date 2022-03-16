@@ -333,6 +333,26 @@ test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.serv
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service"
 
+: -------removal of relative enablement symlinks--------------
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+ln -s '../templ1@one.service' "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+ln -s 'templ1@two.service' "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+ln -s '../templ1@.service' "$root/etc/systemd/system/services.target.wants/templ1@three.service"
+ln -s 'templ1@.service' "$root/etc/systemd/system/services.target.wants/templ1@four.service"
+ln -s '/usr/lib/systemd/system/templ1@.service' "$root/etc/systemd/system/services.target.wants/templ1@five.service"
+ln -s '/etc/systemd/system/templ1@.service' "$root/etc/systemd/system/services.target.wants/templ1@six.service"
+ln -s '/run/system/templ1@.service' "$root/etc/systemd/system/services.target.wants/templ1@seven.service"
+
+# this should remove all links
+"$systemctl" --root="$root" disable 'templ1@.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@three.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@four.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@five.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@six.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@seven.service"
+
 : -------template enablement for another template-------------
 cat >"$root/etc/systemd/system/templ2@.service" <<EOF
 [Install]

@@ -611,13 +611,23 @@ static int remove_marked_symlinks_fd(
                         path_simplify(p);
 
                         /* We remove all links pointing to a file or path that is marked, as well as all
-                         * files sharing the same name as a file that is marked. Do path chasing only if
-                         * we don't already know that we want to remove the symlink. */
+                         * files sharing the same name as a file that is marked, and files sharing the same
+                         * name after the instance has been removed. Do path chasing only if we don't already
+                         * know that we want to remove the symlink. */
                         found = set_contains(remove_symlinks_to, de->d_name);
 
                         if (!found) {
-                                _cleanup_free_ char *dest = NULL;
+                                _cleanup_free_ char *template = NULL;
 
+                                q = unit_name_template(de->d_name, &template);
+                                if (q < 0 && q != -EINVAL)
+                                        return q;
+                                if (q >= 0)
+                                        found = set_contains(remove_symlinks_to, template);
+                        }
+
+                        if (!found) {
+                                _cleanup_free_ char *dest = NULL;
 
                                 q = chase_symlinks(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
                                 if (q == -ENOENT)
