@@ -145,6 +145,10 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buf
 
         assert(description);
 
+        /* PCR disabled */
+        if (pcrindex == UINT32_MAX)
+                return EFI_SUCCESS;
+
         tpm2 = tcg2_interface_check();
         if (tpm2)
                 return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
@@ -162,11 +166,15 @@ EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
 
         /* Measures a load options string into the TPM2, i.e. the kernel command line */
 
-        err = tpm_log_event(TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                            POINTER_TO_PHYSICAL_ADDRESS(load_options),
-                            StrSize(load_options), load_options);
-        if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement: %r", err);
+        for (UINTN i = 0; i < 2; i++) {
+                UINT32 pcr = i == 0 ? TPM_PCR_INDEX_KERNEL_PARAMETERS : TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT;
+
+                err = tpm_log_event(pcr,
+                                    POINTER_TO_PHYSICAL_ADDRESS(load_options),
+                                    StrSize(load_options), load_options);
+                if (EFI_ERROR(err))
+                        return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r", pcr, err);
+        }
 
         return EFI_SUCCESS;
 }

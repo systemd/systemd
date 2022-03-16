@@ -426,6 +426,8 @@ option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
+option('efi-tpm-pcr-compat', type : 'boolean', value : 'false',
+       description : 'Measure kernel command line also into TPM PCR 8 (in addition to 12)')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
