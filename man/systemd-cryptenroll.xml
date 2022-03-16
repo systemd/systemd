@@ -214,6 +214,8 @@
           <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
           <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
           <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
+          <!-- See: https://github.com/tianocore-docs/edk2-TrustedBootChain/blob/main/4_Other_Trusted_Boot_Chains.md -->
+          <!-- See: https://wiki.archlinux.org/title/Trusted_Platform_Module#Accessing_PCR_registers -->
 
           <tgroup cols='2' align='left' colsep='1' rowsep='1'>
             <colspec colname="pcr" />
@@ -267,13 +269,13 @@
                 <entry>Secure boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes. The shim project will measure most of its (non-MOK) certificates and SBAT data into this PCR.</entry>
               </row>
 
-              <row>
-                <entry>8</entry>
-                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
-                <!-- Grub measures all its commands and the kernel command line into PCR 8 too… -->
-              </row>
-
+              <!-- Grub measures all its commands and the kernel command line into PCR 8… -->
               <!-- Grub measures all files it reads (including kernel image, initrd, …) into PCR 9… -->
+
+              <row>
+                <entry>12</entry>
+                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
+              </row>
 
               <row>
                 <entry>10</entry>

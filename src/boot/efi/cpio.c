@@ -311,7 +311,8 @@ EFI_STATUS pack_cpio(
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
                 UINT32 access_mode,
-                UINTN tpm_pcr,
+                UINT32 tpm_pcr,
+                UINT32 tpm_pcr2,
                 const CHAR16 *tpm_description,
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
@@ -449,13 +450,17 @@ EFI_STATUS pack_cpio(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-        err = tpm_log_event(
-                        tpm_pcr,
-                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
-                        buffer_size,
-                        tpm_description);
-        if (EFI_ERROR(err))
-                log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr, tpm_description, err);
+        for (UINTN i = 0; i < 2; i++) {
+                UINT32 p = i == 0 ? tpm_pcr : tpm_pcr2;
+
+                err = tpm_log_event(
+                                p,
+                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                                buffer_size,
+                                tpm_description);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", p, tpm_description, err);
+        }
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;

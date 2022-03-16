@@ -235,6 +235,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
                          /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         /* tpm_pcr2= */ TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT,
                          L"Credentials initrd",
                          &credential_initrd,
                          &credential_initrd_size);
@@ -246,6 +247,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
                          /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                         /* tpm_pcr2= */ TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT,
                          L"Global credentials initrd",
                          &global_credential_initrd,
                          &global_credential_initrd_size);
@@ -257,6 +259,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          /* dir_mode= */ 0555,
                          /* access_mode= */ 0444,
                          /* tpm_pcr= */ TPM_PCR_INDEX_INITRD,
+                         /* tpm_pcr2= */ (UINT32) -1,
                          L"System extension initrd",
                          &sysext_initrd,
                          &sysext_initrd_size);
