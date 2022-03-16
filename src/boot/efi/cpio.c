@@ -311,7 +311,8 @@ EFI_STATUS pack_cpio(
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
                 UINT32 access_mode,
-                UINT32 tpm_pcr,
+                const UINT32 tpm_pcr[],
+                UINTN n_tpm_pcr,
                 const CHAR16 *tpm_description,
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
@@ -328,6 +329,7 @@ EFI_STATUS pack_cpio(
 
         assert(loaded_image);
         assert(target_dir_prefix);
+        assert(tpm_pcr || n_tpm_pcr == 0);
         assert(ret_buffer);
         assert(ret_buffer_size);
 
@@ -449,13 +451,15 @@ EFI_STATUS pack_cpio(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-        err = tpm_log_event(
-                        tpm_pcr,
-                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
-                        buffer_size,
-                        tpm_description);
-        if (EFI_ERROR(err))
-                log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr, tpm_description, err);
+        for (UINTN i = 0; i < n_tpm_pcr; i++) {
+                err = tpm_log_event(
+                                tpm_pcr[i],
+                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                                buffer_size,
+                                tpm_description);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
+        }
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
