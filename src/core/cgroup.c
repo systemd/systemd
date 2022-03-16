@@ -772,6 +772,8 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
 }
 
 static void cgroup_xattr_apply(Unit *u) {
+        const char *xn;
+        bool b;
         int r;
 
         assert(u);
@@ -788,17 +790,25 @@ static void cgroup_xattr_apply(Unit *u) {
                         log_unit_debug_errno(u, r, "Failed to set invocation ID on control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
         }
 
-        if (unit_cgroup_delegate(u)) {
-                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                 "trusted.delegate",
-                                 "1", 1,
-                                 0);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to set delegate flag on control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
-        } else {
-                r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "trusted.delegate");
-                if (r < 0 && r != -ENODATA)
-                        log_unit_debug_errno(u, r, "Failed to remove delegate flag on control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
+        /* Indicate on the cgroup whether delegation is on, via an xattr. This is best-effort, as old kernels
+         * didn't support xattrs on cgroups at all. Later they got support for setting 'trusted.*' xattrs,
+         * and even later 'user.*' xattrs. We started setting this field when 'trusted.*' was added, and
+         * given this is now pretty much API, let's continue to support that. But also set 'user.*' as well,
+         * since it is readable by any user, not just CAP_SYS_ADMIN. This hence comes with slightly weaker
+         * security (as users who got delegated cgroups could turn it off if they like), but this shouldn't
+         * be a big problem given this communicates delegation state to clients, but the manager never reads
+         * it. */
+        b = unit_cgroup_delegate(u);
+        FOREACH_STRING(xn, "trusted.delegate", "user.delegate") {
+                if (b) {
+                        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, xn, "1", 1, 0);
+                        if (r < 0)
+                                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", xn, empty_to_root(u->cgroup_path));
+                } else {
+                        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, xn);
+                        if (r < 0 && r != -ENODATA)
+                                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", xn, empty_to_root(u->cgroup_path));
+                }
         }
 
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
