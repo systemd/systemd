@@ -135,16 +135,20 @@ static int is_delegated(int cgfd, const char *path) {
         assert(cgfd >= 0 || path);
 
         r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "trusted.delegate", &b);
-        if (r < 0) {
+        if (r == -ENODATA) {
+                /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the
+                 * assumption that whoever is trusted enough to own the cgroup, is also trusted enough to
+                 * decide if it is delegated or not this should be safe. */
+                r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "user.delegate", &b);
                 if (r == -ENODATA)
                         return false;
-
-                return log_debug_errno(r, "Failed to read trusted.delegate extended attribute, ignoring: %m");
         }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read delegate xattr, ignoring: %m");
 
         r = parse_boolean(b);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value, ignoring: %m");
+                return log_debug_errno(r, "Failed to parse delegate xattr boolean value, ignoring: %m");
 
         return r;
 }
