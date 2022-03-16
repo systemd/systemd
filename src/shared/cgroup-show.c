@@ -128,6 +128,31 @@ static int show_cgroup_one_by_path(
         return 0;
 }
 
+static int is_delegated(int cgfd, const char *path) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(cgfd >= 0 || path);
+
+        r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "trusted.delegate", &b);
+        if (r == -ENODATA) {
+                /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the
+                 * assumption that whoever is trusted enough to own the cgroup, is also trusted enough to
+                 * decide if it is delegated or not this should be safe. */
+                r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "user.delegate", &b);
+                if (r == -ENODATA)
+                        return false;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read delegate xattr, ignoring: %m");
+
+        r = parse_boolean(b);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse delegate xattr boolean value, ignoring: %m");
+
+        return r;
+}
+
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
@@ -137,7 +162,7 @@ static int show_cgroup_name(
         uint64_t cgroupid = UINT64_MAX;
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
-        bool delegate = false;
+        bool delegate;
         int r;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) || FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
@@ -146,19 +171,7 @@ static int show_cgroup_name(
                         log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
         }
 
-        r = getxattr_malloc(fd < 0 ? path : FORMAT_PROC_FD_PATH(fd), "trusted.delegate", &b);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        log_debug_errno(r, "Failed to read trusted.delegate extended attribute, ignoring: %m");
-        } else {
-                r = parse_boolean(b);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse trusted.delegate extended attribute boolean value, ignoring: %m");
-                else
-                        delegate = r > 0;
-
-                b = mfree(b);
-        }
+        delegate = is_delegated(fd, path) > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
                 cg_file_handle fh = CG_FILE_HANDLE_INIT;
