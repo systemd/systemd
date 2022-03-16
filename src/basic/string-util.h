@@ -28,10 +28,6 @@ static inline char* strstr_ptr(const char *haystack, const char *needle) {
         return strstr(haystack, needle);
 }
 
-static inline const char* strempty(const char *s) {
-        return s ?: "";
-}
-
 static inline const char* strnull(const char *s) {
         return s ?: "(null)";
 }

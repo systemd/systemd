@@ -61,6 +61,10 @@ static inline sd_bool isempty(const sd_char *a) {
         return !a || a[0] == '\0';
 }
 
+static inline const sd_char *strempty(const sd_char *s) {
+        return s ?: STR_C("");
+}
+
 static inline const sd_char *yes_no(sd_bool b) {
         return b ? STR_C("yes") : STR_C("no");
 }
@@ -82,3 +86,6 @@ static inline void *memory_startswith(const void *p, size_t sz, const sd_char *t
 
         return (uint8_t*) p + n;
 }
+
+#define STRV_FOREACH(s, l)                      \
+        for ((s) = (l); (s) && *(s); (s)++)
