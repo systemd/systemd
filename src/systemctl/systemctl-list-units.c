@@ -49,7 +49,6 @@ static int get_unit_list_recursive(
 
         if (arg_recursive) {
                 _cleanup_strv_free_ char **machines = NULL;
-                char **i;
 
                 r = sd_get_machine_names(&machines);
                 if (r < 0)

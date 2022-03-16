@@ -1837,7 +1837,6 @@ int seccomp_restrict_archs(Set *archs) {
 
 int parse_syscall_archs(char **l, Set **ret_archs) {
         _cleanup_set_free_ Set *archs = NULL;
-        char **s;
         int r;
 
         assert(l);

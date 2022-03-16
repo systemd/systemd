@@ -1129,7 +1129,6 @@ static int route_dump(Route *route, FILE *f) {
 
 void network_dump(Network *network, FILE *f) {
         const char *dhcp;
-        char **dns;
 
         assert(network);
         assert(f);

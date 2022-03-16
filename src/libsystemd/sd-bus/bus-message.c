@@ -2815,7 +2815,6 @@ _public_ int sd_bus_message_append_string_memfd(
 }
 
 _public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
-        char **i;
         int r;
 
         assert_return(m, -EINVAL);

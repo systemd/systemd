@@ -705,7 +705,6 @@ invalid:
 
 static int verb_query(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        char **p;
         int q, r = 0;
 
         if (arg_type != 0)
@@ -975,7 +974,6 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        char **p;
         int q, r = 0;
 
         STRV_FOREACH(p, argv + 1) {
@@ -1025,7 +1023,7 @@ static bool service_family_is_valid(const char *s) {
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        char **p, **args = argv + 1;
+        char **args = argv + 1;
         const char *family = "tcp";
         int q, r = 0;
 
@@ -1389,7 +1387,6 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
                 printf("%s%nGlobal%n%s:", ansi_highlight(), &pos1, &pos2, ansi_normal());
 
         size_t cols = columns(), position = pos2 - pos1 + 2;
-        char **i;
 
         STRV_FOREACH(i, p) {
                 size_t our_len = utf8_console_width(*i); /* This returns -1 on invalid utf-8 (which shouldn't happen).
@@ -2025,7 +2022,6 @@ static int verb_status(int argc, char **argv, void *userdata) {
         int r = 0;
 
         if (argc > 1) {
-                char **ifname;
                 bool empty_line = false;
 
                 STRV_FOREACH(ifname, argv + 1) {
@@ -2049,7 +2045,6 @@ static int verb_status(int argc, char **argv, void *userdata) {
 
 static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
-        char **p;
         int r;
 
         r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
@@ -2157,7 +2152,6 @@ static int verb_dns(int argc, char **argv, void *userdata) {
 
 static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
-        char **p;
         int r;
 
         r = bus_message_new_method_call(bus, &req, locator, "SetLinkDomains");
@@ -2454,7 +2448,6 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
 static int verb_nta(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        char **p;
         int r;
         bool clear;
 

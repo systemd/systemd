@@ -166,8 +166,6 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                 }
 
                 if (m->type == CUSTOM_MOUNT_OVERLAY) {
-                        char **j;
-
                         STRV_FOREACH(j, m->lower) {
                                 char *s;
 
@@ -319,8 +317,6 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!destination)
                         return -ENOMEM;
         } else {
-                char **i;
-
                 /* If more than two parameters are specified, the last one is the destination, the second to last one
                  * the "upper", and all before that the "lower" directories. */
 

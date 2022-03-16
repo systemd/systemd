@@ -549,7 +549,6 @@ char* quote_command_line(char **argv, ShellEscapeFlags flags) {
 
         assert(argv);
 
-        char **a;
         STRV_FOREACH(a, argv) {
                 _cleanup_free_ char *t = NULL;
 
