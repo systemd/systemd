@@ -710,7 +710,7 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
 }
 
 static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
-        Device *d, *l, *n;
+        Device *l;
 
         assert(m);
         assert(sysfs);
@@ -719,7 +719,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
                 return;
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l)
+        LIST_FOREACH(same_sysfs, d, l)
                 device_update_found_one(d, found, mask);
 }
 
@@ -765,7 +765,7 @@ static bool device_is_ready(sd_device *dev) {
 
 static Unit *device_following(Unit *u) {
         Device *d = DEVICE(u);
-        Device *other, *first = NULL;
+        Device *first = NULL;
 
         assert(d);
 
@@ -788,7 +788,7 @@ static Unit *device_following(Unit *u) {
 }
 
 static int device_following_set(Unit *u, Set **_set) {
-        Device *d = DEVICE(u), *other;
+        Device *d = DEVICE(u);
         _cleanup_set_free_ Set *set = NULL;
         int r;
 
@@ -898,14 +898,14 @@ fail:
 }
 
 static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
-        Device *d, *l, *n;
+        Device *l;
         int r;
 
         assert(m);
         assert(sysfs);
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
+        LIST_FOREACH(same_sysfs, d, l) {
                 if (d->state == DEVICE_DEAD)
                         continue;
 

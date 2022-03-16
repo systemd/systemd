@@ -46,7 +46,7 @@ void transaction_abort(Transaction *tr) {
 }
 
 static void transaction_find_jobs_that_matter_to_anchor(Job *j, unsigned generation) {
-        JobDependency *l;
+        assert(j);
 
         /* A recursive sweep through the graph that marks all units
          * that matter to the anchor job, i.e. are directly or
@@ -71,7 +71,7 @@ static void transaction_find_jobs_that_matter_to_anchor(Job *j, unsigned generat
 }
 
 static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other, JobType t) {
-        JobDependency *l, *last;
+        JobDependency *last;
 
         assert(j);
         assert(other);
@@ -124,8 +124,6 @@ static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other
 }
 
 _pure_ static bool job_is_conflicted_by(Job *j) {
-        JobDependency *l;
-
         assert(j);
 
         /* Returns true if this job is pulled in by a least one
@@ -138,10 +136,8 @@ _pure_ static bool job_is_conflicted_by(Job *j) {
         return false;
 }
 
-static int delete_one_unmergeable_job(Transaction *tr, Job *j) {
-        Job *k;
-
-        assert(j);
+static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
+        assert(job);
 
         /* Tries to delete one item in the linked list
          * j->transaction_next->transaction_next->... that conflicts
@@ -150,7 +146,7 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *j) {
 
         /* We rely here on the fact that if a merged with b does not
          * merge with c, either a or b merge with c neither */
-        LIST_FOREACH(transaction, j, j)
+        LIST_FOREACH(transaction, j, job)
                 LIST_FOREACH(transaction, k, j->transaction_next) {
                         Job *d;
 
@@ -226,7 +222,6 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
          * task conflict. If so, try to drop one of them. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t;
-                Job *k;
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
@@ -257,12 +252,12 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         /* Second step, merge the jobs. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t = j->type;
-                Job *k;
 
                 /* Merge all transaction jobs for j->unit */
                 LIST_FOREACH(transaction, k, j->transaction_next)
                         assert_se(job_type_merge_and_collapse(&t, k->type, j->unit) == 0);
 
+                Job *k;
                 while ((k = j->transaction_next)) {
                         if (tr->anchor_job == k) {
                                 transaction_merge_and_delete_job(tr, k, j, t);
@@ -293,7 +288,6 @@ static void transaction_drop_redundant(Transaction *tr) {
 
                 HASHMAP_FOREACH(j, tr->jobs) {
                         bool keep = false;
-                        Job *k;
 
                         LIST_FOREACH(transaction, k, j)
                                 if (tr->anchor_job == k ||
@@ -314,14 +308,15 @@ static void transaction_drop_redundant(Transaction *tr) {
         } while (again);
 }
 
-_pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
+_pure_ static bool unit_matters_to_anchor(Unit *u, Job *job) {
         assert(u);
-        assert(!j->transaction_prev);
+        assert(job);
+        assert(!job->transaction_prev);
 
         /* Checks whether at least one of the jobs for this unit
          * matters to the anchor. */
 
-        LIST_FOREACH(transaction, j, j)
+        LIST_FOREACH(transaction, j, job)
                 if (j->matters_to_anchor)
                         return true;
 
@@ -558,7 +553,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_erro
 }
 
 static void transaction_minimize_impact(Transaction *tr) {
-        Job *j;
+        Job *head;
 
         assert(tr);
 
@@ -566,8 +561,8 @@ static void transaction_minimize_impact(Transaction *tr) {
          * or that stop a running service. */
 
 rescan:
-        HASHMAP_FOREACH(j, tr->jobs) {
-                LIST_FOREACH(transaction, j, j) {
+        HASHMAP_FOREACH(head, tr->jobs) {
+                LIST_FOREACH(transaction, j, head) {
                         bool stops_running_service, changes_existing_job;
 
                         /* If it matters, we shouldn't drop it */
@@ -804,13 +799,13 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
 
         f = hashmap_get(tr->jobs, unit);
 
-        LIST_FOREACH(transaction, j, f) {
-                assert(j->unit == unit);
+        LIST_FOREACH(transaction, i, f) {
+                assert(i->unit == unit);
 
-                if (j->type == type) {
+                if (i->type == type) {
                         if (is_new)
                                 *is_new = false;
-                        return j;
+                        return i;
                 }
         }
 

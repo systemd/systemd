@@ -148,8 +148,6 @@ static be32_t usec_to_be32_sec(usec_t usec) {
 }
 
 static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
-        sd_radv_route_prefix *rt;
-        sd_radv_prefix *p;
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
                 .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
@@ -578,8 +576,7 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_prefix *cur;
-        bool update = false;
+        sd_radv_prefix *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -604,7 +601,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        update = true;
+                        found = cur;
                         break;
                 }
 
@@ -615,15 +612,13 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        if (update) {
-                assert(cur);
-
+        if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
                 sd_radv_prefix_ref(p);
 
                 /* Then, remove the old entry. */
-                LIST_REMOVE(prefix, ra->prefixes, cur);
-                sd_radv_prefix_unref(cur);
+                LIST_REMOVE(prefix, ra->prefixes, found);
+                sd_radv_prefix_unref(found);
 
                 /* Finally, add the new entry. */
                 LIST_APPEND(prefix, ra->prefixes, p);
@@ -659,15 +654,18 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         return 0;
 }
 
-sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
-                                               const struct in6_addr *prefix,
-                                               unsigned char prefixlen) {
-        sd_radv_prefix *cur, *next;
+void sd_radv_remove_prefix(
+                sd_radv *ra,
+                const struct in6_addr *prefix,
+                unsigned char prefixlen) {
 
-        assert_return(ra, NULL);
-        assert_return(prefix, NULL);
+        if (!ra)
+                return;
 
-        LIST_FOREACH_SAFE(prefix, cur, next, ra->prefixes) {
+        if (!prefix)
+                return;
+
+        LIST_FOREACH(prefix, cur, ra->prefixes) {
                 if (prefixlen != cur->opt.prefixlen)
                         continue;
 
@@ -677,17 +675,13 @@ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
                 LIST_REMOVE(prefix, ra->prefixes, cur);
                 ra->n_prefixes--;
                 sd_radv_prefix_unref(cur);
-
-                break;
+                return;
         }
-
-        return cur;
 }
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_route_prefix *cur;
-        bool update = false;
+        sd_radv_route_prefix *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -708,7 +702,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        update = true;
+                        found = cur;
                         break;
                 }
 
@@ -719,15 +713,13 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        if (update) {
-                assert(cur);
-
+        if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
                 sd_radv_route_prefix_ref(p);
 
                 /* Then, remove the old entry. */
-                LIST_REMOVE(prefix, ra->route_prefixes, cur);
-                sd_radv_route_prefix_unref(cur);
+                LIST_REMOVE(prefix, ra->route_prefixes, found);
+                sd_radv_route_prefix_unref(found);
 
                 /* Finally, add the new entry. */
                 LIST_APPEND(prefix, ra->route_prefixes, p);
@@ -762,8 +754,12 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         return 0;
 }
 
-int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
-                               const struct in6_addr *dns, size_t n_dns) {
+int sd_radv_set_rdnss(
+                sd_radv *ra,
+                uint32_t lifetime,
+                const struct in6_addr *dns,
+                size_t n_dns) {
+
         _cleanup_free_ struct sd_radv_opt_dns *opt_rdnss = NULL;
         size_t len;
 
@@ -796,8 +792,11 @@ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
         return 0;
 }
 
-int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
-                               char **search_list) {
+int sd_radv_set_dnssl(
+                sd_radv *ra,
+                uint32_t lifetime,
+                char **search_list) {
+
         _cleanup_free_ struct sd_radv_opt_dns *opt_dnssl = NULL;
         size_t len = 0;
         char **s;
@@ -876,8 +875,11 @@ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_prefix, sd_radv_prefix, mfree);
 
-int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
-                                       unsigned char prefixlen) {
+int sd_radv_prefix_set_prefix(
+                sd_radv_prefix *p,
+                const struct in6_addr *in6_addr,
+                unsigned char prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 
@@ -894,8 +896,11 @@ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr
         return 0;
 }
 
-int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
-                                       unsigned char *ret_prefixlen) {
+int sd_radv_prefix_get_prefix(
+                sd_radv_prefix *p,
+                struct in6_addr *ret_in6_addr,
+                unsigned char *ret_prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(ret_in6_addr, -EINVAL);
         assert_return(ret_prefixlen, -EINVAL);
@@ -914,8 +919,7 @@ int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
         return 0;
 }
 
-int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
-                                                          int address_autoconfiguration) {
+int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p, int address_autoconfiguration) {
         assert_return(p, -EINVAL);
 
         SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_AUTO, address_autoconfiguration);
@@ -967,8 +971,11 @@ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_route_prefix, sd_radv_route_prefix, mfree);
 
-int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr,
-                                             unsigned char prefixlen) {
+int sd_radv_route_prefix_set_prefix(
+                sd_radv_route_prefix *p,
+                const struct in6_addr *in6_addr,
+                unsigned char prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 
