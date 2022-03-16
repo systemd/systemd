@@ -1070,9 +1070,11 @@ static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t 
                 "IODeviceWeight",
                 "BlockIODeviceWeight",
         };
+        static bool warned = false;
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
         const char *p;
         uint64_t bfq_weight;
+        int r;
 
         /* FIXME: drop this function when distro kernels properly support BFQ through "io.weight"
          * See also: https://github.com/systemd/systemd/pull/13335 and
@@ -1086,7 +1088,21 @@ static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t 
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        if (set_attribute_and_warn(u, controller, p, buf) >= 0 && io_weight != bfq_weight)
+        r = cg_set_attribute(controller, u->cgroup_path, p, buf);
+
+        /* FIXME: drop this when kernels prior
+         * 795fe54c2a82 ("bfq: Add per-device weight") v5.4
+         * are not interesting anymore. Old kernels will fail with EINVAL, while new kernels won't return
+         * EINVAL on properly formatted input by us. Treat EINVAL accordingly. */
+        if (r == -EINVAL && major(dev) > 0 && !warned) {
+               log_unit_warning(u, "Kernel version does not accept per-device setting in %s.", p);
+               warned = true;
+        }
+        if (r < 0)
+                log_unit_full_errno(u, r == -EINVAL ? LOG_DEBUG : LOG_LEVEL_CGROUP_WRITE(r),
+                                    r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
+                                    p, empty_to_root(u->cgroup_path), (int) strcspn(buf, NEWLINE), buf);
+        else if (io_weight != bfq_weight)
                 log_unit_debug(u, "%s=%" PRIu64 " scaled to %s=%" PRIu64,
                                prop_names[2*(major(dev) > 0) + streq(controller, "blkio")],
                                io_weight, p, bfq_weight);
