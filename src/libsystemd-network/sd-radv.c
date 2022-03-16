@@ -578,8 +578,7 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_prefix *cur;
-        bool update = false;
+        sd_radv_prefix *cur, *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -604,7 +603,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        update = true;
+                        found = cur;
                         break;
                 }
 
@@ -615,15 +614,13 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        if (update) {
-                assert(cur);
-
+        if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
                 sd_radv_prefix_ref(p);
 
                 /* Then, remove the old entry. */
-                LIST_REMOVE(prefix, ra->prefixes, cur);
-                sd_radv_prefix_unref(cur);
+                LIST_REMOVE(prefix, ra->prefixes, found);
+                sd_radv_prefix_unref(found);
 
                 /* Finally, add the new entry. */
                 LIST_APPEND(prefix, ra->prefixes, p);
@@ -688,8 +685,7 @@ void sd_radv_remove_prefix(
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         _cleanup_free_ char *addr_p = NULL;
-        sd_radv_route_prefix *cur;
-        bool update = false;
+        sd_radv_route_prefix *cur, *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
@@ -710,7 +706,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                         continue;
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
-                        update = true;
+                        found = cur;
                         break;
                 }
 
@@ -721,15 +717,13 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                                       strna(addr_p), strna(addr_cur));
         }
 
-        if (update) {
-                assert(cur);
-
+        if (found) {
                 /* p and cur may be equivalent. First increment the reference counter. */
                 sd_radv_route_prefix_ref(p);
 
                 /* Then, remove the old entry. */
-                LIST_REMOVE(prefix, ra->route_prefixes, cur);
-                sd_radv_route_prefix_unref(cur);
+                LIST_REMOVE(prefix, ra->route_prefixes, found);
+                sd_radv_route_prefix_unref(found);
 
                 /* Finally, add the new entry. */
                 LIST_APPEND(prefix, ra->route_prefixes, p);
