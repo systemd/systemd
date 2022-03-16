@@ -10,8 +10,7 @@ EFI_STATUS pack_cpio(
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
                 UINT32 access_mode,
-                UINTN tpm_pcr,
+                UINT32 tpm_pcr,
                 const CHAR16 *tpm_description,
                 void **ret_buffer,
                 UINTN *ret_buffer_size);
-
