@@ -758,8 +758,12 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
         return 0;
 }
 
-int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
-                               const struct in6_addr *dns, size_t n_dns) {
+int sd_radv_set_rdnss(
+                sd_radv *ra,
+                uint32_t lifetime,
+                const struct in6_addr *dns,
+                size_t n_dns) {
+
         _cleanup_free_ struct sd_radv_opt_dns *opt_rdnss = NULL;
         size_t len;
 
@@ -792,8 +796,11 @@ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
         return 0;
 }
 
-int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
-                               char **search_list) {
+int sd_radv_set_dnssl(
+                sd_radv *ra,
+                uint32_t lifetime,
+                char **search_list) {
+
         _cleanup_free_ struct sd_radv_opt_dns *opt_dnssl = NULL;
         size_t len = 0;
         char **s;
@@ -872,8 +879,11 @@ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_prefix, sd_radv_prefix, mfree);
 
-int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
-                                       unsigned char prefixlen) {
+int sd_radv_prefix_set_prefix(
+                sd_radv_prefix *p,
+                const struct in6_addr *in6_addr,
+                unsigned char prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 
@@ -890,8 +900,11 @@ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr
         return 0;
 }
 
-int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
-                                       unsigned char *ret_prefixlen) {
+int sd_radv_prefix_get_prefix(
+                sd_radv_prefix *p,
+                struct in6_addr *ret_in6_addr,
+                unsigned char *ret_prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(ret_in6_addr, -EINVAL);
         assert_return(ret_prefixlen, -EINVAL);
@@ -910,8 +923,7 @@ int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
         return 0;
 }
 
-int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
-                                                          int address_autoconfiguration) {
+int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p, int address_autoconfiguration) {
         assert_return(p, -EINVAL);
 
         SET_FLAG(p->opt.flags, ND_OPT_PI_FLAG_AUTO, address_autoconfiguration);
@@ -963,8 +975,11 @@ int sd_radv_route_prefix_new(sd_radv_route_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_route_prefix, sd_radv_route_prefix, mfree);
 
-int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr,
-                                             unsigned char prefixlen) {
+int sd_radv_route_prefix_set_prefix(
+                sd_radv_route_prefix *p,
+                const struct in6_addr *in6_addr,
+                unsigned char prefixlen) {
+
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 
