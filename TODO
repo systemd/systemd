@@ -78,6 +78,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* kernel-install:
+  - add --all switch for rerunning kernel-install for all installed kernels
+  - maybe add env var that shortcuts kernel-install for installers that want to
+    call it at the end only
+
 * doc: prep a document explaining resolved's internal objects, i.e. Query
   vs. Question vs. Transaction vs. Stream and so on.
 
