@@ -253,6 +253,13 @@ So, if you want to do your own raw cgroups kernel level access, then allocate a
 scope unit, or a service unit (or just use the service unit you already have
 for your service code), and turn on delegation for it.
 
+The service manager sets the `user.delegate` extended attribute (readable via
+`getxattr(2)` and related calls) to the character `1` on cgroup directories
+where delegation is enabled (and removes it on those cgroups where it is
+not). This may be used by service programs to determine whether a cgroup tree
+was delegated to them. Note that this is only supported on kernels 5.6 and
+newer in combination with systemd 251 and newer.
+
 (OK, here's one caveat: if you turn on delegation for a service, and that
 service has `ExecStartPost=`, `ExecReload=`, `ExecStop=` or `ExecStopPost=`
 set, then these commands will be executed within the `.control/` sub-cgroup of
