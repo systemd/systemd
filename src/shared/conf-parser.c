@@ -291,13 +291,14 @@ int config_parse(
         if (!f) {
                 f = ours = fopen(filename, "re");
                 if (!f) {
-                        /* Only log on request, except for ENOENT,
+                        /* Only log on request, except for ENOENT and ENOTDIR,
                          * since we return 0 to the caller. */
-                        if ((flags & CONFIG_PARSE_WARN) || errno == ENOENT)
-                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                        bool is_fatal = errno != ENOENT && errno != ENOTDIR;
+                        if ((flags & CONFIG_PARSE_WARN) || !is_fatal)
+                                log_full_errno(is_fatal ? LOG_ERR : LOG_DEBUG, errno,
                                                "Failed to open configuration file '%s': %m", filename);
 
-                        if (errno == ENOENT) {
+                        if (!is_fatal) {
                                 if (ret_stat)
                                         *ret_stat = (struct stat) {};
 
