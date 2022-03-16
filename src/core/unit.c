@@ -5869,7 +5869,7 @@ int unit_thaw_vtable_common(Unit *u) {
 }
 
 Condition *unit_find_failed_condition(Unit *u) {
-        Condition *c, *failed_trigger = NULL;
+        Condition *failed_trigger = NULL;
         bool has_succeeded_trigger = false;
 
         if (u->condition_result)

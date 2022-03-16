@@ -328,7 +328,6 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct i
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         struct ia_header header;
-        const DHCP6Address *addr;
         size_t ia_buflen;
         uint8_t *ia_hdr;
         uint16_t len;
