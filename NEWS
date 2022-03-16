@@ -120,6 +120,19 @@ CHANGES WITH 251:
           250. For newer kernels, non-x86 systems, or older x86 systems,
           there should be no visible changes.
 
+        * sd-boot will now measure the kernel command line into TPM PCR 12
+          rather than PCR 8. This improves usefulness of the measurements on
+          sytems where sd-boot is chainloaded from Grub. Grub measures all
+          commands its executes into PCR 8, which makes it very hard to use
+          reasonably, hence separate ourselves from that and use PCR 12
+          instead, which is already what certain Ubuntu editions use it for. To
+          retain compatibility with systems running older systemd systems a new
+          Meson option 'efi-tpm-pcr-compat' has been added (which defaults to
+          false). If enabled, the measurement is done twice: into the new-style
+          PCR 12 *and* the old-style PCR 8. It's strongly advised to migrate
+          all users to PCR 12 for this purpose in the long run, as we intend to
+          remove this compatibility feature again in two year's time.
+
 CHANGES WITH 250:
 
         * Support for encrypted and authenticated credentials has been added.
