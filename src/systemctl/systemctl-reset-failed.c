@@ -10,7 +10,6 @@
 int verb_reset_failed(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
-        char **name;
         int r, q;
 
         if (argc <= 1) /* Shortcut to trivial_method() if no argument is given */

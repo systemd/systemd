@@ -58,7 +58,6 @@ static bool prefix_match(const char *unit, const char *prefix) {
 
 static bool unit_match(const char *unit, char **matches) {
         const char *dot;
-        char **i;
 
         dot = strrchr(unit, '.');
         if (!dot)
@@ -182,7 +181,6 @@ static int extract_now(
         _cleanup_close_ int os_release_fd = -1;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
-        char **i;
         int r;
 
         /* Extracts the metadata from a directory tree 'where'. Extracts two kinds of information: the /etc/os-release
@@ -535,8 +533,6 @@ static int extract_image_and_extensions(
                 return r;
 
         if (!strv_isempty(extension_image_paths)) {
-                char **p;
-
                 extension_images = ordered_hashmap_new(&image_hash_ops);
                 if (!extension_images)
                         return -ENOMEM;
@@ -1261,8 +1257,6 @@ static int install_image_and_extensions_symlinks(
 }
 
 static bool prefix_matches_compatible(char **matches, char **valid_prefixes) {
-        char **m;
-
         /* Checks if all 'matches' are included in the list of 'valid_prefixes' */
 
         STRV_FOREACH(m, matches)
@@ -1380,7 +1374,6 @@ int portable_attach(
 
 static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths) {
         _cleanup_strv_free_ char **root_and_extensions = NULL;
-        char **image_name_or_path;
         const char *a;
         int r;
 

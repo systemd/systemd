@@ -96,8 +96,6 @@ bool env_assignment_is_valid(const char *e) {
 }
 
 bool strv_env_is_valid(char **e) {
-        char **p, **q;
-
         STRV_FOREACH(p, e) {
                 size_t k;
 
@@ -115,8 +113,6 @@ bool strv_env_is_valid(char **e) {
 }
 
 bool strv_env_name_is_valid(char **l) {
-        char **p;
-
         STRV_FOREACH(p, l) {
                 if (!env_name_is_valid(*p))
                         return false;
@@ -129,8 +125,6 @@ bool strv_env_name_is_valid(char **l) {
 }
 
 bool strv_env_name_or_assignment_is_valid(char **l) {
-        char **p;
-
         STRV_FOREACH(p, l) {
                 if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
                         return false;
@@ -272,7 +266,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
 
 char **strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
-        char **k, **r;
+        char **r;
         va_list ap;
 
         /* Deletes every entry from x that is mentioned in the other
@@ -287,7 +281,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
         STRV_FOREACH(k, x) {
                 va_start(ap, n_lists);
                 for (size_t v = 0; v < n_lists; v++) {
-                        char **l, **j;
+                        char **l;
 
                         l = va_arg(ap, char**);
                         STRV_FOREACH(j, l)
@@ -379,7 +373,6 @@ char **strv_env_unset_many(char **l, ...) {
 
 int strv_env_replace_consume(char ***l, char *p) {
         const char *t, *name;
-        char **f;
         int r;
 
         assert(p);
@@ -467,8 +460,6 @@ int strv_env_assign(char ***l, const char *key, const char *value) {
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
-        char **i;
-
         assert(name);
 
         if (k <= 0)
@@ -496,7 +487,7 @@ char *strv_env_get(char **l, const char *name) {
 }
 
 char *strv_env_pairs_get(char **l, const char *name) {
-        char **key, **value, *result = NULL;
+        char *result = NULL;
 
         assert(name);
 
@@ -508,7 +499,6 @@ char *strv_env_pairs_get(char **l, const char *name) {
 }
 
 char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
-        char **p, **q;
         int k = 0;
 
         STRV_FOREACH(p, e) {
@@ -702,7 +692,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 }
 
 char **replace_env_argv(char **argv, char **env) {
-        char **ret, **i;
+        char **ret;
         size_t k = 0, l = 0;
 
         l = strv_length(argv);
@@ -832,7 +822,6 @@ int setenv_systemd_exec_pid(bool update_only) {
 int getenv_path_list(const char *name, char ***ret_paths) {
         _cleanup_strv_free_ char **l = NULL;
         const char *e;
-        char **p;
         int r;
 
         assert(name);

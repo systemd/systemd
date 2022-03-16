@@ -1394,7 +1394,6 @@ static int context_read_definitions(
 
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = NULL;
-        char **f;
         int r;
 
         assert(context);
@@ -2816,7 +2815,6 @@ static int context_copy_blocks(Context *context) {
 }
 
 static int do_copy_files(Partition *p, const char *fs) {
-        char **source, **target;
         int r;
 
         assert(p);
@@ -2913,7 +2911,6 @@ static int do_copy_files(Partition *p, const char *fs) {
 }
 
 static int do_make_directories(Partition *p, const char *fs) {
-        char **d;
         int r;
 
         assert(p);

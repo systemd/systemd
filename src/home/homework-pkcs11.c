@@ -20,7 +20,6 @@ int pkcs11_callback(
         CK_TOKEN_INFO updated_token_info;
         size_t decrypted_key_size;
         CK_OBJECT_HANDLE object;
-        char **i;
         CK_RV rv;
         int r;
 

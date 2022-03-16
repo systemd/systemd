@@ -143,7 +143,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        char **i, *k;
+        char *k;
         void *v;
         int r;
 
@@ -504,7 +504,6 @@ static int tree_one(sd_bus *bus, const char *service) {
 
 static int tree(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        char **i;
         int r;
 
         /* Do superficial verification of arguments before even opening the bus */
@@ -1208,7 +1207,6 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char **i;
         uint32_t flags = 0;
         const char *unique_name;
         bool is_monitor = false;
@@ -2124,7 +2122,6 @@ static int emit_signal(int argc, char **argv, void *userdata) {
 static int get_property(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char **i;
         int r;
 
         r = acquire_bus(false, &bus);

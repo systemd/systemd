@@ -58,7 +58,6 @@ int _ordered_set_put_strdup(OrderedSet **s, const char *p  HASHMAP_DEBUG_PARAMS)
 
 int _ordered_set_put_strdupv(OrderedSet **s, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
-        char **i;
 
         STRV_FOREACH(i, l) {
                 r = _ordered_set_put_strdup(s, *i  HASHMAP_DEBUG_PASS_ARGS);

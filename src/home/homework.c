@@ -97,9 +97,7 @@ int user_record_authenticate(
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
         /* Second, test cached PKCS#11 passwords */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
-                char **pp;
-
+        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
                         r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
                         if (r < 0)
@@ -109,12 +107,9 @@ int user_record_authenticate(
                                 return 1;
                         }
                 }
-        }
 
         /* Third, test cached FIDO2 passwords */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
-                char **pp;
-
+        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
                         r = test_password_one(h->fido2_hmac_salt[n].hashed_password, *pp);
@@ -125,7 +120,6 @@ int user_record_authenticate(
                                 return 1;
                         }
                 }
-        }
 
         /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
@@ -1096,7 +1090,6 @@ static int user_record_compile_effective_passwords(
 
         _cleanup_(strv_free_erasep) char **effective = NULL;
         size_t n;
-        char **i;
         int r;
 
         assert(h);
@@ -1116,7 +1109,6 @@ static int user_record_compile_effective_passwords(
 
         STRV_FOREACH(i, h->hashed_password) {
                 bool found = false;
-                char **j;
 
                 log_debug("Looking for plaintext password for: %s", *i);
 
@@ -1144,7 +1136,6 @@ static int user_record_compile_effective_passwords(
 
         for (n = 0; n < h->n_recovery_key; n++) {
                 bool found = false;
-                char **j;
 
                 log_debug("Looking for plaintext recovery key for: %s", h->recovery_key[n].hashed_password);
 

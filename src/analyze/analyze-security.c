@@ -2666,7 +2666,6 @@ static int offline_security_checks(char **filenames,
         _cleanup_free_ char *var = NULL;
         int r, k;
         size_t count = 0;
-        char **filename;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -2789,7 +2788,6 @@ static int analyze_security(sd_bus *bus,
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_strv_free_ char **list = NULL;
                 size_t n = 0;
-                char **i;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -2841,9 +2839,7 @@ static int analyze_security(sd_bus *bus,
                                 ret = r;
                 }
 
-        } else {
-                char **i;
-
+        } else
                 STRV_FOREACH(i, units) {
                         _cleanup_free_ char *mangled = NULL, *instance = NULL;
                         const char *name;
@@ -2875,7 +2871,6 @@ static int analyze_security(sd_bus *bus,
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
-        }
 
         if (overview_table) {
                 if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {

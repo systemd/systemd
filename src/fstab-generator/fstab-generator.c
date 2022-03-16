@@ -237,7 +237,6 @@ static int write_dependency(
 
         _cleanup_strv_free_ char **names = NULL, **units = NULL;
         _cleanup_free_ char *res = NULL;
-        char **s;
         int r;
 
         assert(f);
@@ -518,8 +517,6 @@ static int add_mount(
                         if (r < 0)
                                 return r;
                 } else {
-                        char **s;
-
                         STRV_FOREACH(s, wanted_by) {
                                 r = generator_add_symlink(dest, *s, "wants", name);
                                 if (r < 0)

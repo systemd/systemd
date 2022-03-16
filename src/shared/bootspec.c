@@ -273,7 +273,6 @@ static int boot_entries_find(
                 size_t *n_entries) {
 
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(root);
@@ -833,8 +832,6 @@ int boot_entries_augment_from_loader(
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
-        char **i;
-
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
@@ -843,7 +840,6 @@ int boot_entries_augment_from_loader(
         STRV_FOREACH(i, found_by_loader) {
                 BootEntry *existing;
                 _cleanup_free_ char *c = NULL, *t = NULL, *p = NULL;
-                char **a, **b;
 
                 existing = boot_config_find_entry(config, *i);
                 if (existing) {

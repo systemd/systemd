@@ -2031,7 +2031,6 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
 
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        const char **path;
         int r;
 
         assert_return(ret, -EINVAL);

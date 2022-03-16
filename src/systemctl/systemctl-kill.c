@@ -8,7 +8,7 @@
 
 int verb_kill(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
-        char *kill_who = NULL, **name;
+        char *kill_who = NULL;
         sd_bus *bus;
         int r, q;
 

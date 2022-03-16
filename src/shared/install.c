@@ -869,7 +869,6 @@ static int find_symlinks_in_scope(
         bool same_name_link_runtime = false, same_name_link_config = false;
         bool enabled_in_runtime = false, enabled_at_all = false;
         bool ignore_same_name = false;
-        char **p;
         int r;
 
         assert(paths);
@@ -1426,7 +1425,6 @@ static int unit_file_search(
         _cleanup_free_ char *template = NULL;
         bool found_unit = false;
         int r, result;
-        char **p;
 
         assert(info);
         assert(paths);
@@ -1818,7 +1816,6 @@ static int install_info_symlink_alias(
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
-        char **s;
         int r = 0, q;
 
         assert(i);
@@ -1862,7 +1859,6 @@ static int install_info_symlink_wants(
         _cleanup_free_ char *buf = NULL;
         UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
         const char *n;
-        char **s;
         int r = 0, q;
 
         assert(i);
@@ -2166,7 +2162,6 @@ int unit_file_mask(
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         const char *config_path;
-        char **i;
         int r;
 
         assert(scope >= 0);
@@ -2216,7 +2211,6 @@ int unit_file_unmask(
         const char *config_path;
         size_t n_todo = 0;
         bool dry_run;
-        char **i;
         int r, q;
 
         assert(scope >= 0);
@@ -2308,7 +2302,6 @@ int unit_file_link(
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
-        char **i;
         int r, q;
 
         assert(scope >= 0);
@@ -2408,7 +2401,6 @@ int unit_file_revert(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0;
-        char **i;
         int r, q;
 
         /* Puts a unit file back into vendor state. This means:
@@ -2428,7 +2420,6 @@ int unit_file_revert(
 
         STRV_FOREACH(i, files) {
                 bool has_vendor = false;
-                char **p;
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
@@ -2512,7 +2503,6 @@ int unit_file_revert(
         STRV_FOREACH(i, todo) {
                 _cleanup_strv_free_ char **fs = NULL;
                 const char *rp;
-                char **j;
 
                 (void) get_files_in_directory(*i, &fs);
 
@@ -2565,7 +2555,6 @@ int unit_file_add_dependency(
         _cleanup_(install_context_done) InstallContext c = {};
         UnitFileInstallInfo *i, *target_info;
         const char *config_path;
-        char **f;
         int r;
 
         assert(scope >= 0);
@@ -2634,7 +2623,6 @@ int unit_file_enable(
         _cleanup_(install_context_done) InstallContext c = {};
         const char *config_path;
         UnitFileInstallInfo *i;
-        char **f;
         int r;
 
         assert(scope >= 0);
@@ -2677,7 +2665,6 @@ int unit_file_disable(
         _cleanup_(install_context_done) InstallContext c = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         const char *config_path;
-        char **i;
         int r;
 
         assert(scope >= 0);
@@ -2995,7 +2982,6 @@ static int presets_find_config(UnitFileScope scope, const char *root_dir, char *
 static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePresets *presets) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets ps = {};
         _cleanup_strv_free_ char **files = NULL;
-        char **p;
         int r;
 
         assert(scope >= 0);
@@ -3113,7 +3099,6 @@ static int pattern_match_multiple_instances(
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_strv_free_ char **out_strv = NULL;
 
-                char **iter;
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
 
@@ -3160,11 +3145,10 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files don't specify rule for %s. Enabling.", name);
                 return 1;
         case PRESET_ENABLE:
-                if (instance_name_list && *instance_name_list) {
-                        char **s;
+                if (instance_name_list && *instance_name_list)
                         STRV_FOREACH(s, *instance_name_list)
                                 log_debug("Preset files say enable %s.", *s);
-                } else
+                else
                         log_debug("Preset files say enable %s.", name);
                 return 1;
         case PRESET_DISABLE:
@@ -3270,15 +3254,14 @@ static int preset_prepare_one(
                 return r;
 
         if (r > 0) {
-                if (instance_name_list) {
-                        char **s;
+                if (instance_name_list)
                         STRV_FOREACH(s, instance_name_list) {
                                 r = install_info_discover_and_check(scope, plus, paths, *s, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                                     &i, changes, n_changes);
                                 if (r < 0)
                                         return r;
                         }
-                } else {
+                else {
                         r = install_info_discover_and_check(scope, plus, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                             &i, changes, n_changes);
                         if (r < 0)
@@ -3305,7 +3288,6 @@ int unit_file_preset(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         const char *config_path;
-        char **i;
         int r;
 
         assert(scope >= 0);
@@ -3345,7 +3327,6 @@ int unit_file_preset_all(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         const char *config_path = NULL;
-        char **i;
         int r;
 
         assert(scope >= 0);
@@ -3417,7 +3398,6 @@ int unit_file_get_list(
                 char **patterns) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        char **dirname;
         int r;
 
         assert(scope >= 0);

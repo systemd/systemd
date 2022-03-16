@@ -704,7 +704,6 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         _cleanup_free_ char *j = NULL;
         Link *l = userdata;
         int r;
-        char **i;
 
         assert(message);
         assert(l);

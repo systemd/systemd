@@ -669,7 +669,7 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***path
         if (!n)
                 return -ENOMEM;
 
-        char **i, **j = n;
+        char **j = n;
         STRV_FOREACH(i, l) {
                 *j = path_join(*i, suffix);
                 if (!*j)

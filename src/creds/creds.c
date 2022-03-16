@@ -311,7 +311,6 @@ static int write_blob(FILE *f, const void *data, size_t size) {
 static int verb_cat(int argc, char **argv, void *userdata) {
         _cleanup_(closedirp) DIR *d = NULL;
         int r, ret = 0;
-        char **cn;
 
         r = open_credential_directory(&d);
         if (r == -ENXIO)

@@ -18,9 +18,8 @@ static int graph_one_property(
                 char *to_patterns[]) {
 
         _cleanup_strv_free_ char **units = NULL;
-        char **unit;
-        int r;
         bool match_patterns;
+        int r;
 
         assert(u);
         assert(prop);
@@ -84,7 +83,6 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
 
 static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
         _cleanup_strv_free_ char **expanded_patterns = NULL;
-        char **pattern;
         int r;
 
         STRV_FOREACH(pattern, patterns) {

@@ -409,7 +409,6 @@ static int dns_trust_anchor_load_files(
                 int (*loader)(DnsTrustAnchor *d, const char *path, unsigned n, const char *line)) {
 
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(d);

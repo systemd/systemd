@@ -324,7 +324,6 @@ static int device_unsigned_attribute(sd_device *device, const char *attr, unsign
 
 int link_config_load(LinkConfigContext *ctx) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         link_configs_free(ctx);
@@ -830,7 +829,6 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get alternative names, ignoring: %m");
 
-        char **p;
         STRV_FOREACH(p, current_altnames)
                 strv_remove(altnames, *p);
 
