@@ -70,10 +70,9 @@ char* strv_find_startswith(char * const *l, const char *name) {
 }
 
 char** strv_free(char **l) {
-        if (!l)
-                return NULL;
+        char **k;
 
-        for (char **k = l; *k; k++)
+        STRV_FOREACH(k, l)
                 free(*k);
 
         return mfree(l);
@@ -109,12 +108,10 @@ char** strv_copy(char * const *l) {
 }
 
 size_t strv_length(char * const *l) {
+        char * const *i;
         size_t n = 0;
 
-        if (!l)
-                return 0;
-
-        for (; *l; l++)
+        STRV_FOREACH(i, l)
                 n++;
 
         return n;
