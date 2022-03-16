@@ -659,15 +659,20 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         return 0;
 }
 
-sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
-                                               const struct in6_addr *prefix,
-                                               unsigned char prefixlen) {
-        sd_radv_prefix *cur, *next;
+void sd_radv_remove_prefix(
+                sd_radv *ra,
+                const struct in6_addr *prefix,
+                unsigned char prefixlen) {
 
-        assert_return(ra, NULL);
-        assert_return(prefix, NULL);
+        sd_radv_prefix *cur;
 
-        LIST_FOREACH_SAFE(prefix, cur, next, ra->prefixes) {
+        if (!ra)
+                return;
+
+        if (!prefix)
+                return;
+
+        LIST_FOREACH(prefix, cur, ra->prefixes) {
                 if (prefixlen != cur->opt.prefixlen)
                         continue;
 
@@ -677,11 +682,8 @@ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
                 LIST_REMOVE(prefix, ra->prefixes, cur);
                 ra->n_prefixes--;
                 sd_radv_prefix_unref(cur);
-
-                break;
+                return;
         }
-
-        return cur;
 }
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
