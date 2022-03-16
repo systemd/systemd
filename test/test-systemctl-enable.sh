@@ -68,27 +68,27 @@ EOF
 "$systemctl" --root="$root" enable test1 && { echo "Expected failure" >&2; exit 1; }
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test -h "$root/etc/systemd/system/special.target.requires/test1.service"
-test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test -e "$root/etc/systemd/system/test1-goodalias.service"
 test -h "$root/etc/systemd/system/test1-goodalias.service"
-test ! -e "$root/etc/systemd/system/test1@badalias.service"
-test ! -e "$root/etc/systemd/system/test1-badalias.target"
-test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+test ! -h "$root/etc/systemd/system/test1@badalias.service"
+test ! -h "$root/etc/systemd/system/test1-badalias.target"
+test ! -h "$root/etc/systemd/system/test1-badalias.socket"
+test -e "$root/etc/systemd/system/test1-goodalias2.service"
 test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
 : -------aliases in reeanble----------------------------------
 "$systemctl" --root="$root" reenable test1 && { echo "Expected failure" >&2; exit 1; }
-test -h "$root/etc/systemd/system/default.target.wants/test1.service"
-test ! -e "$root/etc/systemd/system/test1-goodalias.service"
-test -h "$root/etc/systemd/system/test1-goodalias.service"
+islink "$root/etc/systemd/system/default.target.wants/test1.service" "../test1.service"
+islink "$root/etc/systemd/system/test1-goodalias.service" "test1.service"
 
-test ! -e "$root/etc/systemd/system/test1@badalias.service"
-test ! -e "$root/etc/systemd/system/test1-badalias.target"
-test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+test ! -h "$root/etc/systemd/system/test1@badalias.service"
+test ! -h "$root/etc/systemd/system/test1-badalias.target"
+test ! -h "$root/etc/systemd/system/test1-badalias.socket"
 
 "$systemctl" --root="$root" disable test1
-test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
-test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
-test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -h "$root/etc/systemd/system/test1-goodalias.service"
 
 : -------also units-------------------------------------------
 cat >"$root/etc/systemd/system/test2.socket" <<EOF
@@ -165,17 +165,17 @@ test ! -e "$root/etc/systemd/system/link1.path"
 : -------link and enable--------------------------------------
 "$systemctl" --root="$root" enable '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
-islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : -------enable already linked same path----------------------
 "$systemctl" --root="$root" enable '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
-islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : -------enable already linked different path-----------------
 "$systemctl" --root="$root" enable '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
-islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : -------enable bad suffix------------------------------------
 cp "$root/link1.path" "$root/subdir/link1.suffix"
@@ -204,11 +204,11 @@ test ! -h "$root/etc/systemd/system/paths.target.wants/link1.path"
 
 "$systemctl" --root="$root" enable 'link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
-islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 "$systemctl" --root="$root" reenable 'link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
-islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
+islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : -------manual link------------------------------------------
 cat >"$root/link3.suffix" <<EOF
@@ -253,7 +253,7 @@ test ! -h "$root/etc/systemd/system/services.target.wants/link5-also.service"
 
 "$systemctl" --root="$root" enable 'link5-also.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/link5.service"
-islink "$root/etc/systemd/system/services.target.wants/link5-also.service" "/etc/systemd/system/link5-also.service"
+islink "$root/etc/systemd/system/services.target.wants/link5-also.service" "../link5-also.service"
 
 : -------template enablement----------------------------------
 cat >"$root/etc/systemd/system/templ1@.service" <<EOF
@@ -267,17 +267,17 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "../templ1@one.service"
 
 "$systemctl" --root="$root" enable 'templ1@two.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "../templ1@one.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "../templ1@two.service"
 
 "$systemctl" --root="$root" disable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "../templ1@two.service"
 
 "$systemctl" --root="$root" disable 'templ1@two.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
@@ -295,33 +295,33 @@ EOF
 
 "$systemctl" --root="$root" enable 'templ1@.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "../templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "../templ1@one.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "../templ1@one.service"
 
 "$systemctl" --root="$root" enable 'templ1@two.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "../templ1@one.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service" "../templ1@one.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "../templ1@two.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "../templ1@two.service"
 
 "$systemctl" --root="$root" disable 'templ1@one.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@333.service" "../templ1@.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@333.service" "../templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.service"
-islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
-islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "../templ1@two.service"
+islink "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service" "../templ1@two.service"
 
 # disable remaining links here
 "$systemctl" --root="$root" disable 'templ1@.service'
@@ -360,18 +360,18 @@ RequiredBy=another-template@.target
 EOF
 
 "$systemctl" --root="$root" enable 'templ2@.service'
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "../templ2@.service"
 
 "$systemctl" --root="$root" enable 'templ2@two.service'
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "../templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "../templ2@two.service"
 
 "$systemctl" --root="$root" disable 'templ2@other.service'
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "../templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service" "../templ2@two.service"
 
 "$systemctl" --root="$root" disable 'templ2@two.service'
-islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "/etc/systemd/system/templ2@.service"
+islink "$root/etc/systemd/system/another-template@.target.requires/templ2@.service" "../templ2@.service"
 test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service"
 
 "$systemctl" --root="$root" disable 'templ2@.service'
@@ -393,8 +393,8 @@ EOF
 test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
 test ! -h "$root/etc/systemd/system/link4@.service"
 test ! -h "$root/etc/systemd/system/link4@inst.service"
-islink "$root/etc/systemd/system/link4alias.service" "/etc/systemd/system/link4.service"
-islink "$root/etc/systemd/system/link4alias2.service" "/etc/systemd/system/link4.service"
+islink "$root/etc/systemd/system/link4alias.service" "link4.service"
+islink "$root/etc/systemd/system/link4alias2.service" "link4.service"
 
 "$systemctl" --root="$root" disable 'link4.service'
 test ! -h "$root/etc/systemd/system/link4.service"
@@ -413,8 +413,8 @@ EOF
 # Apparently this works. I'm not sure what to think.
 "$systemctl" --root="$root" enable '/etc/systemd/system/link4.service'
 test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
-islink "$root/etc/systemd/system/link4alias.service" "/etc/systemd/system/link4.service"
-islink "$root/etc/systemd/system/link4alias2.service" "/etc/systemd/system/link4.service"
+islink "$root/etc/systemd/system/link4alias.service" "link4.service"
+islink "$root/etc/systemd/system/link4alias2.service" "link4.service"
 
 "$systemctl" --root="$root" disable '/etc/systemd/system/link4.service'
 test ! -h "$root/etc/systemd/system/link4.service"
@@ -432,8 +432,8 @@ EOF
 
 "$systemctl" --root="$root" enable 'link5.service'
 test ! -h "$root/etc/systemd/system/link5.service"  # this is our file
-islink "$root/etc/systemd/system/link5alias.service" "/etc/systemd/system/link5.service"
-islink "$root/etc/systemd/system/link5alias2.service" "/etc/systemd/system/link5.service"
+islink "$root/etc/systemd/system/link5alias.service" "link5.service"
+islink "$root/etc/systemd/system/link5alias2.service" "link5.service"
 
 "$systemctl" --root="$root" disable 'link5.service'
 test ! -h "$root/etc/systemd/system/link5alias.service"
@@ -455,10 +455,6 @@ islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
 test ! -h "$root/etc/systemd/system/link5alias.service"
 test ! -h "$root/etc/systemd/system/link5alias2.service"
 
-# FIXME: we must create link5alias2 and link5alias as relative links to link5.service
-# When they are independent links to /link5.service, systemd doesn't know that
-# they are aliases, because we do not follow symlinks outside of the search paths.
-
 "$systemctl" --root="$root" disable 'link5copy.service'
 test ! -h "$root/etc/systemd/system/link5copy.service"
 test ! -h "$root/etc/systemd/system/link5alias.service"
@@ -466,8 +462,8 @@ test ! -h "$root/etc/systemd/system/link5alias2.service"
 
 "$systemctl" --root="$root" enable '/link5copy.service'
 islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias2.service" '/link5copy.service'
+islink "$root/etc/systemd/system/link5alias.service" 'link5copy.service'
+islink "$root/etc/systemd/system/link5alias2.service" 'link5copy.service'
 
 "$systemctl" --root="$root" disable 'link5copy.service'
 test ! -h "$root/etc/systemd/system/link5copy.service"
@@ -486,10 +482,10 @@ EOF
 
 "$systemctl" --root="$root" enable 'link5@.path'
 test ! -h "$root/etc/systemd/system/link5@.path"  # this is our file
-islink "$root/etc/systemd/system/target5@.target.wants/link5@.path" "/etc/systemd/system/link5@.path"
-islink "$root/etc/systemd/system/target5@.target.requires/link5@.path" "/etc/systemd/system/link5@.path"
-islink "$root/etc/systemd/system/target5@inst.target.wants/link5@.path" "/etc/systemd/system/link5@.path"
-islink "$root/etc/systemd/system/target5@inst.target.requires/link5@.path" "/etc/systemd/system/link5@.path"
+islink "$root/etc/systemd/system/target5@.target.wants/link5@.path" "../link5@.path"
+islink "$root/etc/systemd/system/target5@.target.requires/link5@.path" "../link5@.path"
+islink "$root/etc/systemd/system/target5@inst.target.wants/link5@.path" "../link5@.path"
+islink "$root/etc/systemd/system/target5@inst.target.requires/link5@.path" "../link5@.path"
 
 "$systemctl" --root="$root" disable 'link5@.path'
 test ! -h "$root/etc/systemd/system/link5@.path"  # this is our file
@@ -528,7 +524,7 @@ check_alias() {
 Alias=target@$1:%$1.socket
 EOF
     SYSTEMD_LOG_LEVEL=debug "$systemctl" --root="$root" enable 'some-some-link6@.socket' || return 1
-    islink "$root/etc/systemd/system/target@$1:$2.socket" "/etc/systemd/system/some-some-link6@.socket" || return 2
+    islink "$root/etc/systemd/system/target@$1:$2.socket" "some-some-link6@.socket" || return 2
 }
 
 check_alias a "$(uname -m | tr '_' '-')"
@@ -629,10 +625,10 @@ RequiredBy=another-target2@.target
 EOF
 
 "$systemctl" --root="$root" enable 'some-some-link7.socket'
-islink "$root/etc/systemd/system/target@some-some-link7.target.wants/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
-islink "$root/etc/systemd/system/another-target@.target.wants/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
-islink "$root/etc/systemd/system/target2@some-some-link7.target.requires/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
-islink "$root/etc/systemd/system/another-target2@.target.requires/some-some-link7.socket" "/etc/systemd/system/some-some-link7.socket"
+islink "$root/etc/systemd/system/target@some-some-link7.target.wants/some-some-link7.socket" "../some-some-link7.socket"
+islink "$root/etc/systemd/system/another-target@.target.wants/some-some-link7.socket" "../some-some-link7.socket"
+islink "$root/etc/systemd/system/target2@some-some-link7.target.requires/some-some-link7.socket" "../some-some-link7.socket"
+islink "$root/etc/systemd/system/another-target2@.target.requires/some-some-link7.socket" "../some-some-link7.socket"
 
 "$systemctl" --root="$root" disable 'some-some-link7.socket'
 test ! -h "$root/etc/systemd/system/target@some-some-link7.target.wants/some-some-link7.socket"
