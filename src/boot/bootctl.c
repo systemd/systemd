@@ -1932,6 +1932,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         bool install, graceful;
         int r;
 
+        /* Invoked for both "update" and "install" */
+
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
