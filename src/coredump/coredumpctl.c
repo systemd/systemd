@@ -91,7 +91,6 @@ static int add_match(sd_journal *j, const char *match) {
 }
 
 static int add_matches(sd_journal *j, char **matches) {
-        char **match;
         int r;
 
         r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);

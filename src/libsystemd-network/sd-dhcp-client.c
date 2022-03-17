@@ -595,7 +595,6 @@ int sd_dhcp_client_set_user_class(
                 sd_dhcp_client *client,
                 char * const *user_class) {
 
-        char * const *p;
         char **s = NULL;
 
         assert_return(client, -EINVAL);

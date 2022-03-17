@@ -91,7 +91,6 @@ static int do_execute(
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
-        char **path, **e;
         int r;
         bool parallel_execution;
 
@@ -254,7 +253,7 @@ int execute_directories(
 }
 
 static int gather_environment_generate(int fd, void *arg) {
-        char ***env = arg, **x, **y;
+        char ***env = arg;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **new = NULL;
         int r;
@@ -369,7 +368,6 @@ static int gather_environment_consume(int fd, void *arg) {
 
 int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
         ExecCommandFlags ex_flag, ret_flags = 0;
-        char **opt;
 
         assert(flags);
 

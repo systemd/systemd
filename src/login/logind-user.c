@@ -189,7 +189,6 @@ static int user_save_internal(User *u) {
                         u->last_session_timestamp);
 
         if (u->sessions) {
-                Session *i;
                 bool first;
 
                 fputs("SESSIONS=", f);
@@ -499,8 +498,8 @@ static void user_stop_service(User *u, bool force) {
 }
 
 int user_stop(User *u, bool force) {
-        Session *s;
         int r = 0;
+
         assert(u);
 
         /* This is called whenever we begin with tearing down a user record. It's called in two cases: explicit API
@@ -534,7 +533,6 @@ int user_stop(User *u, bool force) {
 }
 
 int user_finalize(User *u) {
-        Session *s;
         int r = 0, k;
 
         assert(u);
@@ -575,7 +573,6 @@ int user_finalize(User *u) {
 }
 
 int user_get_idle_hint(User *u, dual_timestamp *t) {
-        Session *s;
         bool idle_hint = true;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
 
@@ -721,8 +718,6 @@ void user_add_to_gc_queue(User *u) {
 }
 
 UserState user_get_state(User *u) {
-        Session *i;
-
         assert(u);
 
         if (u->stopping)
@@ -805,8 +800,6 @@ static int elect_display_compare(Session *s1, Session *s2) {
 }
 
 void user_elect_display(User *u) {
-        Session *s;
-
         assert(u);
 
         /* This elects a primary session for each user, which we call the "display". We try to keep the assignment

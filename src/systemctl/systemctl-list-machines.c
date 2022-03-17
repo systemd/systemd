@@ -93,7 +93,6 @@ static int get_machine_list(
         struct machine_info *machine_infos = NULL;
         _cleanup_strv_free_ char **m = NULL;
         _cleanup_free_ char *hn = NULL;
-        char **i;
         int c = 0, r;
 
         hn = gethostname_malloc();
