@@ -29,7 +29,7 @@ static const NamingScheme naming_schemes[] = {
 };
 
 const NamingScheme* naming_scheme_from_name(const char *name) {
-        /* "latest" may either be defined explicitly by the extra map, in which case we we will find it in
+        /* "latest" may either be defined explicitly by the extra map, in which case we will find it in
          * the table like any other name. After iterating through the table, we check for "latest" again,
          * which means that if not mapped explicitly, it maps to the last defined entry, whatever that is. */
 
