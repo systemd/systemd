@@ -1203,7 +1203,7 @@ static int config_parse_also(
                 if (r == 0)
                         break;
 
-                r = install_name_printf(ctx->scope, info, word, info->root, &printed);
+                r = install_name_printf(ctx->scope, info, word, &printed);
                 if (r < 0)
                         return log_syntax(unit, LOG_WARNING, filename, line, r,
                                           "Failed to resolve unit name in Also=\"%s\": %m", word);
@@ -1252,7 +1252,7 @@ static int config_parse_default_instance(
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "DefaultInstance= only makes sense for template units, ignoring.");
 
-        r = install_name_printf(ctx->scope, info, rvalue, info->root, &printed);
+        r = install_name_printf(ctx->scope, info, rvalue, &printed);
         if (r < 0)
                 return log_syntax(unit, LOG_WARNING, filename, line, r,
                                   "Failed to resolve instance name in DefaultInstance=\"%s\": %m", rvalue);
@@ -1845,7 +1845,7 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, info->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
-                q = install_name_printf(scope, info, *s, info->root, &dst);
+                q = install_name_printf(scope, info, *s, &dst);
                 if (q < 0) {
                         unit_file_changes_add(changes, n_changes, q, *s, NULL);
                         r = r < 0 ? r : q;
@@ -1935,7 +1935,7 @@ static int install_info_symlink_wants(
         STRV_FOREACH(s, list) {
                 _cleanup_free_ char *dst = NULL;
 
-                q = install_name_printf(scope, info, *s, info->root, &dst);
+                q = install_name_printf(scope, info, *s, &dst);
                 if (q < 0) {
                         unit_file_changes_add(changes, n_changes, q, *s, NULL);
                         return q;
