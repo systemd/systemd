@@ -216,6 +216,12 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
         if (r < 0)
                 return log_oom();
 
+        /* Map nspawn's mapped root UID as identity mapping so that people can run nspawn uidmap mounted
+         * containers off $HOME, if they want. */
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1);
+        if (r < 0)
+                return log_oom();
+
         /* Leave everything else unmapped, starting from UID_NOBODY itself. Specifically, this means the
          * whole space outside of 16bit remains unmapped */
 
