@@ -656,15 +656,13 @@ CHANGES WITH 250:
           may be used to set the boot menu time-out of the boot loader (for all
           or just the subsequent boot).
 
-        * bootctl and kernel-install will now read KERNEL_INSTALL_MACHINE_ID
-          and KERNEL_INSTALL_LAYOUT from kernel/install.conf. The first
-          variable specifies the machine-id to use for installation. It would
-          previously be used if set in the environment, and now it'll also be
-          read automatically from the config file. The second variable is new.
-          When set, it specifies the layout to use for installation directories
-          on the boot partition, so that tools don't need to guess it based on
-          the already-existing directories. The only value that is defined
-          natively is "bls", corresponding to the layout specified in
+        * bootctl and kernel-install will now read variables
+          KERNEL_INSTALL_LAYOUT= from /etc/machine-info and layout= from
+          /etc/kernel/install.conf. When set, it specifies the layout to use
+          for installation directories on the boot partition, so that tools
+          don't need to guess it based on the already-existing directories. The
+          only value that is defined natively is "bls", corresponding to the
+          layout specified in
           https://systemd.io/BOOT_LOADER_SPECIFICATION/. Plugins for
           kernel-install that implement a different layout can declare other
           values for this variable.
