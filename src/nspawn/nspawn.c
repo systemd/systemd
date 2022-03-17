@@ -3781,7 +3781,7 @@ static int outer_child(
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
 
-                r = remount_idmap(directory, arg_uid_shift, arg_uid_range);
+                r = remount_idmap(directory, arg_uid_shift, arg_uid_range, REMOUNT_IDMAP_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the

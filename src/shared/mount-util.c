@@ -1049,14 +1049,31 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
-static int make_userns(uid_t uid_shift, uid_t uid_range) {
-        char line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags) {
         _cleanup_close_ int userns_fd = -1;
+        _cleanup_free_ char *line = NULL;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
-        xsprintf(line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range);
+        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range) < 0)
+                return log_oom_debug();
+
+        /* If requested we'll include an entry in the mapping so that the host root user can make changes to
+         * the uidmapped mount like it normally would. Specifically, we'll map the user with UID_HOST_ROOT on
+         * the backing fs to UID 0. This is useful, since nspawn code wants to create various missing inodes
+         * in the OS tree before booting into it, and this becomes very easy and straightforward to do if it
+         * can just do it under its own regular UID. Note that in that case the container's runtime uidmap
+         * (i.e. the one the container payload processes run in) will leave this UID unmapped, i.e. if we
+         * accidentally leave files owned by host root in the already uidmapped tree around they'll show up
+         * as owned by 'nobody', which is safe. (Of course, we shouldn't leave such inodes around, but always
+         * chown() them to the container's own UID range, but it's good to have a safety net, in case we
+         * forget it.) */
+        if (flags & REMOUNT_IDMAP_HOST_ROOT)
+                if (strextendf(&line,
+                               UID_FMT " " UID_FMT " " UID_FMT "\n",
+                               UID_MAPPED_ROOT, 0, 1) < 0)
+                        return log_oom_debug();
 
         /* We always assign the same UID and GID ranges */
         userns_fd = userns_acquire(line, line);
@@ -1069,7 +1086,8 @@ static int make_userns(uid_t uid_shift, uid_t uid_range) {
 int remount_idmap(
                 const char *p,
                 uid_t uid_shift,
-                uid_t uid_range) {
+                uid_t uid_range,
+                RemountIdmapFlags flags) {
 
         _cleanup_close_ int mount_fd = -1, userns_fd = -1;
         int r;
@@ -1085,7 +1103,7 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
 
         /* Create a user namespace mapping */
-        userns_fd = make_userns(uid_shift, uid_range);
+        userns_fd = make_userns(uid_shift, uid_range, flags);
         if (userns_fd < 0)
                 return userns_fd;
 
