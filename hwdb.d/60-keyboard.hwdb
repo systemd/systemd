@@ -603,7 +603,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
 #Elitebook 2760p
-evdev:input:b0011v0001p0001eAB41*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
  KEYBOARD_KEY_89=battery                                # Fn+F8
  KEYBOARD_KEY_f8=unknown                                # rfkill is also reported by HP Wireless hotkeys
  KEYBOARD_KEY_86=volumeup
