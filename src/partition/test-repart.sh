@@ -199,6 +199,11 @@ $D/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79-3D
 EOF
 
     LOOP="$(losetup -P --show --find "$D/zzz")"
+    while : ; do
+        test -e "$LOOP" && break
+        sleep .2
+    done
+
     VOLUME="test-repart-$RANDOM"
 
     touch "$D/empty-password"
