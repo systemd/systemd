@@ -37,7 +37,7 @@
 
     <para>If the <option>systemd.mask=</option> or <option>rd.systemd.mask=</option>
     option is specified and followed by a unit name, this unit is
-    masked for the runtime, similar to the effect of
+    masked for the runtime (i.e. for this session - from boot to shutdown), similar to the effect of
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>mask</command> command. This is useful to boot with
     certain units removed from the initial boot transaction for
