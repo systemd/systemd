@@ -143,38 +143,70 @@ static int acquire_xbootldr(
         return 1;
 }
 
-static int load_install_machine_id_and_layout(void) {
-        /* Figure out the right machine-id for operations. If KERNEL_INSTALL_MACHINE_ID is configured in
-         * /etc/machine-info, let's use that. Otherwise, just use the real machine-id.
-         *
-         * Also load KERNEL_INSTALL_LAYOUT.
-         */
+static int load_etc_machine_id(void) {
+        int r;
+
+        r = sd_id128_get_machine(&arg_machine_id);
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) /* Not set or empty */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine-id: %m");
+
+        log_debug("Loaded machine ID %s from /etc/machine-id.", SD_ID128_TO_STRING(arg_machine_id));
+        return 0;
+}
+
+static int load_etc_machine_info(void) {
+        /* systemd v250 added support to store the kernel-install layout setting and the machine ID to use
+         * for setting up the ESP in /etc/machine-info. The newer /etc/kernel/entry-token file, as well as
+         * the $layout field in /etc/kernel/install.conf are better replacements for this though, hence this
+         * has been deprecated and is only returned for compatibility. */
         _cleanup_free_ char *s = NULL, *layout = NULL;
         int r;
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "KERNEL_INSTALL_LAYOUT", &layout,
                            "KERNEL_INSTALL_MACHINE_ID", &s);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to parse /etc/machine-info: %m");
 
-        if (isempty(s)) {
-                r = sd_id128_get_machine(&arg_machine_id);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM))
-                        return log_error_errno(r, "Failed to get machine-id: %m");
-        } else {
+        if (!isempty(s)) {
+                log_notice("Read kernel install machine ID from /etc/machine-info. Please migrate to /etc/kernel/entry-token instead.");
+
                 r = sd_id128_from_string(s, &arg_machine_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse KERNEL_INSTALL_MACHINE_ID=%s in /etc/machine-info: %m", s);
 
+                log_debug("Loaded KERNEL_INSTALL_MACHINE_ID=%s from KERNEL_INSTALL_MACHINE_ID in /etc/machine-info.",
+                          SD_ID128_TO_STRING(arg_machine_id));
         }
-        log_debug("Using KERNEL_INSTALL_MACHINE_ID=%s from %s.",
-                  SD_ID128_TO_STRING(arg_machine_id),
-                  isempty(s) ? "/etc/machine_id" : "KERNEL_INSTALL_MACHINE_ID in /etc/machine-info");
 
         if (!isempty(layout)) {
+                log_notice("Read kernel install layout from /etc/machine-info. Please migrate to /etc/kernel/install.conf instead.");
+
                 log_debug("KERNEL_INSTALL_LAYOUT=%s is specified in /etc/machine-info.", layout);
-                arg_install_layout = TAKE_PTR(layout);
+                free_and_replace(arg_install_layout, layout);
+        }
+
+        return 0;
+}
+
+static int load_etc_kernel_install_conf(void) {
+        _cleanup_free_ char *layout = NULL;
+        int r;
+
+        r = parse_env_file(NULL, "/etc/kernel/install.conf",
+                           "layout", &layout);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse /etc/kernel/install.conf: %m");
+
+        if (!isempty(layout)) {
+                log_debug("layout=%s is specified in /etc/machine-info.", layout);
+                free_and_replace(arg_install_layout, layout);
         }
 
         return 0;
@@ -281,7 +313,15 @@ static bool use_boot_loader_spec_type1(void) {
 static int settle_make_entry_directory(void) {
         int r;
 
-        r = load_install_machine_id_and_layout();
+        r = load_etc_machine_id();
+        if (r < 0)
+                return r;
+
+        r = load_etc_machine_info();
+        if (r < 0)
+                return r;
+
+        r = load_etc_kernel_install_conf();
         if (r < 0)
                 return r;
 
@@ -899,10 +939,10 @@ static int install_binaries(const char *esp_path, bool force) {
 
                 /* skip the .efi file, if there's a .signed version of it */
                 if (endswith_no_case(de->d_name, ".efi")) {
-                        _cleanup_free_ const char *s = strjoin(BOOTLIBDIR, "/", de->d_name, ".signed");
+                        _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
                         if (!s)
                                 return log_oom();
-                        if (access(s, F_OK) >= 0)
+                        if (faccessat(dirfd(d), s, F_OK, 0) >= 0)
                                 continue;
                 }
 
@@ -1245,7 +1285,6 @@ static int remove_loader_variables(void) {
 static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -1;
         const char *p;
         int r;
 
@@ -1255,13 +1294,9 @@ static int install_loader_config(const char *esp_path) {
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
-        fd = open_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
-
-        f = take_fdopen(&fd, "w");
-        if (!f)
-                return log_oom();
+        r = fopen_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open \"%s\" for writing: %m", p);
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n");
@@ -1271,11 +1306,36 @@ static int install_loader_config(const char *esp_path) {
                 fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
-        r = fflush_sync_and_check(f);
+        r = flink_tmpfile(f, t, p);
+        if (r == -EEXIST)
+                return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
-                return log_error_errno(r, "Failed to write \"%s\": %m", p);
+                return log_error_errno(r, "Failed to move \"%s\" into place: %m", p);
 
-        r = link_tmpfile(fileno(f), t, p);
+        t = mfree(t);
+        return 1;
+}
+
+static int install_loader_specification(const char *root) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        p = path_join(root, "/loader/entries.srel");
+        if (!p)
+                return log_oom();
+
+        if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
+                return 0;
+
+        r = fopen_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open \"%s\" for writing: %m", p);
+
+        fprintf(f, "standard\n");
+
+        r = flink_tmpfile(f, t, p);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -1932,6 +1992,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         bool install, graceful;
         int r;
 
+        /* Invoked for both "update" and "install" */
+
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
@@ -1995,6 +2057,10 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                r = install_loader_specification(arg_dollar_boot_path());
+                if (r < 0)
+                        return r;
         }
 
         (void) sync_everything();
@@ -2034,6 +2100,10 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        q = remove_file(arg_esp_path, "/loader/entries.srel");
+        if (q < 0 && r >= 0)
+                r = q;
+
         q = remove_subdirs(arg_esp_path, esp_subdirs);
         if (q < 0 && r >= 0)
                 r = q;
@@ -2044,10 +2114,15 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
         q = remove_entry_directory(arg_esp_path);
         if (q < 0 && r >= 0)
-                r = 1;
+                r = q;
 
         if (arg_xbootldr_path) {
-                /* Remove the latter two also in the XBOOTLDR partition if it exists */
+                /* Remove a subset of these also from the XBOOTLDR partition if it exists */
+
+                q = remove_file(arg_xbootldr_path, "/loader/entries.srel");
+                if (q < 0 && r >= 0)
+                        r = q;
+
                 q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
                 if (q < 0 && r >= 0)
                         r = q;
