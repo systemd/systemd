@@ -5612,31 +5612,36 @@ static int run(int argc, char *argv[]) {
                 }
 
                 if (arg_start_mode == START_BOOT) {
+                        _cleanup_free_ char *b = NULL;
                         const char *p;
 
-                        if (arg_pivot_root_new)
-                                p = prefix_roota(arg_directory, arg_pivot_root_new);
-                        else
+                        if (arg_pivot_root_new) {
+                                b = path_join(arg_directory, arg_pivot_root_new);
+                                if (!b)
+                                        return log_oom();
+
+                                p = b;
+                        } else
                                 p = arg_directory;
 
                         if (path_is_os_tree(p) <= 0) {
-                                log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", p);
-                                r = -EINVAL;
+                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                    "Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", p);
                                 goto finish;
                         }
                 } else {
-                        const char *p, *q;
+                        _cleanup_free_ char *p = NULL;
 
                         if (arg_pivot_root_new)
-                                p = prefix_roota(arg_directory, arg_pivot_root_new);
+                                p = path_join(arg_directory, arg_pivot_root_new, "/usr/");
                         else
-                                p = arg_directory;
+                                p = path_join(arg_directory, "/usr/");
+                        if (!p)
+                                return log_oom();
 
-                        q = strjoina(p, "/usr/");
-
-                        if (laccess(q, F_OK) < 0) {
-                                log_error("Directory %s doesn't look like it has an OS tree. Refusing.", p);
-                                r = -EINVAL;
+                        if (laccess(p, F_OK) < 0) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                    "Directory %s doesn't look like it has an OS tree (/usr/ directory is missing). Refusing.", arg_directory);
                                 goto finish;
                         }
                 }
