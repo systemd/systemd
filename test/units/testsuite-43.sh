@@ -144,6 +144,12 @@ if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o low
         grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
 fi
 
+systemctl start systemd-journald@foo.service
+runas testuser systemd-run --wait --user --unit=test-log-namespace \
+    -p PrivateUsers=yes -p LogNamespace=foo \
+    echo MARKER=2
+journalctl --namespace=foo | grep -q -F "MARKER=2"
+
 systemd-analyze log-level info
 
 echo OK >/testok
