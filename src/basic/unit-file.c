@@ -282,7 +282,9 @@ int unit_file_resolve_symlink(
          *
          * If resolve_destination_target is true, an absolute path will be returned.
          * If not, an absolute path is returned for linked unit files, and a relative
-         * path otherwise. */
+         * path otherwise.
+         *
+         * Returns an error, false if this is an alias, true if it's a linked unit file. */
 
         assert(filename);
         assert(ret_destination);
@@ -364,7 +366,7 @@ int unit_file_resolve_symlink(
         }
 
         *ret_destination = TAKE_PTR(dst);
-        return 0;
+        return !tail;  /* true if linked unit file */
 }
 
 int unit_file_build_name_map(
