@@ -184,7 +184,6 @@ export KERNEL_INSTALL_STAGING_AREA
 [ "$layout" = "bls" ]
 MAKE_ENTRY_DIR_ABS=$?
 
-
 ret=0
 
 PLUGINS="$(
