@@ -85,6 +85,7 @@ else
     shift
 fi
 
+# These two settings are settable in install.conf
 layout=
 initrd_generator=
 
