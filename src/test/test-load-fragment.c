@@ -515,7 +515,7 @@ TEST(install_printf, .sd_booted = true) {
                 _cleanup_free_ char *t = NULL,                          \
                         *d1 = ASSERT_PTR(strdup(i.name)),               \
                         *d2 = ASSERT_PTR(strdup(i.path));               \
-                int r = install_name_printf(scope, &src, pattern, NULL, &t); \
+                int r = install_name_printf(scope, &src, pattern, &t);  \
                 assert_se(result ? r >= 0 : r < 0);                     \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
