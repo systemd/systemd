@@ -326,27 +326,16 @@ int unit_file_resolve_symlink(
 
         assert(path_is_absolute(simplified));
 
-        /* Check if the symlink goes outside of our search path.
-         * If yes, it's a linked unit file or mask, and we don't care about the target name
+        /* Check if the symlink remain inside of of our search path.
+         * If yes, it is an alias. Verify that it is valid.
+         *
+         * If no, then this is a linked unit file or mask, and we don't care about the target name
          * when loading units, and we return the link *source* (resolve_destination_target == false);
          * When this is called for installation purposes, we want the final destination,
          * so we return the *target*.
-         *
-         * Otherwise, let's verify that it's a good alias.
          */
         const char *tail = path_startswith_strv(simplified, search_path);
-        if (!tail) {
-                log_debug("Linked unit file: %s/%s → %s", dir, filename, simplified);
-
-                if (resolve_destination_target)
-                        dst = TAKE_PTR(simplified);
-                else {
-                        dst = path_join(dir, filename);
-                        if (!dst)
-                                return log_oom();
-                }
-
-        } else {
+        if (tail) {  /* An alias */
                 _cleanup_free_ char *target_name = NULL;
 
                 r = path_extract_filename(simplified, &target_name);
@@ -361,6 +350,17 @@ int unit_file_resolve_symlink(
                                     dir, filename, simplified);
 
                 dst = resolve_destination_target ? TAKE_PTR(simplified) : TAKE_PTR(target_name);
+
+        } else {
+                log_debug("Linked unit file: %s/%s → %s", dir, filename, simplified);
+
+                if (resolve_destination_target)
+                        dst = TAKE_PTR(simplified);
+                else {
+                        dst = path_join(dir, filename);
+                        if (!dst)
+                                return log_oom();
+                }
         }
 
         *ret_destination = TAKE_PTR(dst);
