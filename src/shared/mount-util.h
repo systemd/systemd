@@ -112,7 +112,11 @@ int mount_image_in_namespace(pid_t target, const char *propagate_path, const cha
 
 int make_mount_point(const char *path);
 
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range);
+typedef enum RemountIdmapFlags {
+        REMOUNT_IDMAP_HOST_ROOT = 1 << 0,
+} RemountIdmapFlags;
+
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags);
 
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
