@@ -3563,7 +3563,7 @@ static int inner_child(
 
 static int setup_notify_child(void) {
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa = {
+        static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = NSPAWN_NOTIFY_SOCKET_PATH,
         };
