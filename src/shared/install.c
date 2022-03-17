@@ -1608,7 +1608,8 @@ static int install_info_traverse(
                                 return -ELOOP;
                 }
 
-                r = install_info_follow(ctx, i, lp, flags, false);
+                r = install_info_follow(ctx, i, lp, flags,
+                                        i->type == UNIT_FILE_TYPE_LINKED);  /* If linked, don't look at the target name */
                 if (r == -EXDEV) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
