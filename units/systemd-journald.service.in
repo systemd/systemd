@@ -16,6 +16,8 @@ After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-a
 Before=sysinit.target
 
 [Service]
+BindPaths=/run/log:/run/log:norbind
+BindPaths=/run/systemd:/run/systemd:norbind
 DeviceAllow=char-* rw
 ExecStart={{ROOTLIBEXECDIR}}/systemd-journald
 FileDescriptorStoreMax=4224
@@ -38,6 +40,7 @@ StandardOutput=null
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
+TemporaryFileSystem=/run:nodev,noexec,nosuid,ro,size=32k,nr_inodes=10,mode=0755
 Type=notify
 {{SERVICE_WATCHDOG}}
 

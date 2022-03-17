@@ -20,6 +20,7 @@ Wants=time-set.target
 
 [Service]
 AmbientCapabilities=CAP_SYS_TIME
+BindPaths=/run/systemd:/run/systemd:norbind
 BusName=org.freedesktop.timesync1
 CapabilityBoundingSet=CAP_SYS_TIME
 # Turn off DNSSEC validation for hostname look-ups, since those need the
@@ -51,6 +52,7 @@ StateDirectory=systemd/timesync
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @clock
+TemporaryFileSystem=/run:nodev,noexec,nosuid,ro,size=32k,nr_inodes=10,mode=0755
 Type=notify
 User=systemd-timesync
 {{SERVICE_WATCHDOG}}

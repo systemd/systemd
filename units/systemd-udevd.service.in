@@ -16,6 +16,8 @@ Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
 [Service]
+BindPaths=/run/systemd:/run/systemd:norbind
+BindPaths=/run/udev:/run/udev:norbind
 DeviceAllow=block-* rwm
 DeviceAllow=char-* rwm
 Type=notify
@@ -40,4 +42,5 @@ SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
 IPAddressDeny=any
+TemporaryFileSystem=/run:nodev,noexec,nosuid,ro,size=32k,nr_inodes=10,mode=0755
 {{SERVICE_WATCHDOG}}

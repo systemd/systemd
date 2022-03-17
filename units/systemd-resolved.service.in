@@ -22,6 +22,8 @@ Wants=nss-lookup.target
 
 [Service]
 AmbientCapabilities=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
+BindPaths=/run/systemd:/run/systemd:norbind
+BindReadOnlyPaths=/run/dbus:/run/dbus:norbind
 BusName=org.freedesktop.resolve1
 CapabilityBoundingSet=CAP_SETPCAP CAP_NET_RAW CAP_NET_BIND_SERVICE
 ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-resolved
@@ -49,6 +51,7 @@ RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
+TemporaryFileSystem=/run:nodev,noexec,nosuid,ro,size=32k,nr_inodes=10,mode=0755
 Type=notify
 User=systemd-resolve
 {{SERVICE_WATCHDOG}}
