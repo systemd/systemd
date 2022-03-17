@@ -1228,7 +1228,7 @@ create_empty_image() {
         exit 1
     fi
 
-    local size=500
+    local size=750
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
             size=$((size+=200))
