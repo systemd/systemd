@@ -6,7 +6,6 @@
 
 int install_name_printf(
                 UnitFileScope scope,
-                const UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *info,
                 const char *format,
-                const char *root,
                 char **ret);

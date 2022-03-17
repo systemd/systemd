@@ -99,9 +99,8 @@ static int specifier_last_component(char specifier, const void *data, const char
 
 int install_name_printf(
                 UnitFileScope scope,
-                const UnitFileInstallInfo *i,
+                const UnitFileInstallInfo *info,
                 const char *format,
-                const char *root,
                 char **ret) {
         /* This is similar to unit_name_printf() */
 
@@ -118,9 +117,9 @@ int install_name_printf(
                 {}
         };
 
-        assert(i);
+        assert(info);
         assert(format);
         assert(ret);
 
-        return specifier_printf(format, UNIT_NAME_MAX, table, root, i, ret);
+        return specifier_printf(format, UNIT_NAME_MAX, table, info->root, info, ret);
 }
