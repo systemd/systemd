@@ -9,7 +9,12 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+/* In case of repeating keys, later entries win. */
+
 #define env_file_1                              \
+        "a=a\n"                                 \
+        "a=b\n"                                 \
+        "a=b\n"                                 \
         "a=a\n"                                 \
         "b=b\\\n"                               \
         "c\n"                                   \
@@ -55,18 +60,11 @@
 
 
 TEST(load_env_file_1) {
-        _cleanup_strv_free_ char **data = NULL;
-        int r;
-
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
+        assert_se(write_tmpfile(name, env_file_1) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_1, strlen(env_file_1)) == strlen(env_file_1));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(streq(data[1], "b=bc"));
         assert_se(streq(data[2], "d=de  f"));
@@ -77,50 +75,30 @@ TEST(load_env_file_1) {
 }
 
 TEST(load_env_file_2) {
-        _cleanup_strv_free_ char **data = NULL;
-        int r;
-
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
+        assert_se(write_tmpfile(name, env_file_2) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_2, strlen(env_file_2)) == strlen(env_file_2));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(data[1] == NULL);
 }
 
 TEST(load_env_file_3) {
-        _cleanup_strv_free_ char **data = NULL;
-        int r;
-
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
+        assert_se(write_tmpfile(name, env_file_3) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_3, strlen(env_file_3)) == strlen(env_file_3));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(data == NULL);
 }
 
 TEST(load_env_file_4) {
-        _cleanup_strv_free_ char **data = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
-        int r;
+        assert_se(write_tmpfile(name, env_file_4) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_4, strlen(env_file_4)) == strlen(env_file_4));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
         assert_se(streq(data[1], "MODULE_0=coretemp"));
         assert_se(streq(data[2], "MODULE_1=f71882fg"));
@@ -128,36 +106,22 @@ TEST(load_env_file_4) {
 }
 
 TEST(load_env_file_5) {
-        _cleanup_strv_free_ char **data = NULL;
-        int r;
-
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
+        assert_se(write_tmpfile(name, env_file_5) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_5, strlen(env_file_5)) == strlen(env_file_5));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));
         assert_se(data[2] == NULL);
 }
 
 TEST(load_env_file_6) {
-        _cleanup_strv_free_ char **data = NULL;
-        int r;
-
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        _cleanup_close_ int fd;
+        assert_se(write_tmpfile(name, env_file_6) == 0);
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, env_file_6, strlen(env_file_6)) == strlen(env_file_6));
-
-        r = load_env_file(NULL, name, &data);
-        assert_se(r == 0);
+        _cleanup_strv_free_ char **data = NULL;
+        assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a= n t x y '"));
         assert_se(streq(data[1], "b=$'"));
         assert_se(streq(data[2], "c= \\n\\t\\$\\`\\\\\n"));

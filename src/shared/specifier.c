@@ -22,6 +22,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-file.h"
 #include "user-util.h"
 
 /*
@@ -67,6 +68,12 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
                                         size_t k, j;
 
                                         r = i->lookup(i->specifier, i->data, root, userdata, &w);
+                                        if (r == -ENOENT)
+                                                /* Many specifiers refer to machine-id or os-release fields,
+                                                 * which will return -ENOENT if the file is not present.
+                                                 * Let's translate this to -ENODATA to make the error more
+                                                 * understandable in the lower layers of the call stack. */
+                                                return -ENODATA;
                                         if (r < 0)
                                                 return r;
                                         if (isempty(w))
@@ -269,7 +276,9 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
 }
 
 /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
- * otherwise. We'll return an empty value or NULL in that case from the functions below. */
+ * otherwise. We'll return an empty value or NULL in that case from the functions below. But if the
+ * os-release file is missing, we'll return -ENODATA. This means that something is seriously wrong with the
+ * installation. */
 
 int specifier_os_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         assert(ret);
@@ -302,11 +311,15 @@ int specifier_os_image_version(char specifier, const void *data, const char *roo
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        UnitFileScope scope = PTR_TO_INT(data);
         char *t;
 
         assert(ret);
 
-        t = gid_to_name(getgid());
+        if (scope == UNIT_FILE_GLOBAL)
+                return -EINVAL;
+
+        t = gid_to_name(scope == UNIT_FILE_USER ? getgid() : 0);
         if (!t)
                 return -ENOMEM;
 
@@ -315,27 +328,42 @@ int specifier_group_name(char specifier, const void *data, const char *root, con
 }
 
 int specifier_group_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        UnitFileScope scope = PTR_TO_INT(data);
+        gid_t gid;
+
         assert(ret);
 
-        if (asprintf(ret, UID_FMT, getgid()) < 0)
+        if (scope == UNIT_FILE_GLOBAL)
+                return -EINVAL;
+
+        gid = scope == UNIT_FILE_USER ? getgid() : 0;
+
+        if (asprintf(ret, UID_FMT, gid) < 0)
                 return -ENOMEM;
 
         return 0;
 }
 
 int specifier_user_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        UnitFileScope scope = PTR_TO_INT(data);
+        uid_t uid;
         char *t;
 
         assert(ret);
 
-        /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want to be able
-         * to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
+        if (scope == UNIT_FILE_GLOBAL)
+                return -EINVAL;
 
-         * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain consistent with
-         * specifer_user_id() below.
+        uid = scope == UNIT_FILE_USER ? getuid() : 0;
+
+        /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want
+         * to be able to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
+
+         * We don't use getusername_malloc() here, because we don't want to look at $USER, to remain
+         * consistent with specifer_user_id() below.
          */
 
-        t = uid_to_name(getuid());
+        t = uid_to_name(uid);
         if (!t)
                 return -ENOMEM;
 
@@ -344,9 +372,17 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
 }
 
 int specifier_user_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        UnitFileScope scope = PTR_TO_INT(data);
+        uid_t uid;
+
         assert(ret);
 
-        if (asprintf(ret, UID_FMT, getuid()) < 0)
+        if (scope == UNIT_FILE_GLOBAL)
+                return -EINVAL;
+
+        uid = scope == UNIT_FILE_USER ? getuid() : 0;
+
+        if (asprintf(ret, UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         return 0;

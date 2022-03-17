@@ -114,7 +114,7 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
         if (r < 0)
                 return log_error_errno(r, "Failed to convert PIN array: %m");
 
-        if (strv_find(pins, pin))
+        if (strv_contains(pins, pin))
                 return 0;
 
         r = strv_extend(&pins, pin);

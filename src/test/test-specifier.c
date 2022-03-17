@@ -8,6 +8,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "unit-file.h"
 
 static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
@@ -46,7 +47,7 @@ TEST(specifier_escape_strv) {
 static const Specifier specifier_table[] = {
         COMMON_SYSTEM_SPECIFIERS,
 
-        COMMON_CREDS_SPECIFIERS,
+        COMMON_CREDS_SPECIFIERS(UNIT_FILE_USER),
         { 'h', specifier_user_home,       NULL },
 
         COMMON_TMP_SPECIFIERS,
@@ -98,8 +99,8 @@ TEST(specifier_real_path) {
         int r;
 
         r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0 || r == -ENOENT);
-        assert_se(w || r == -ENOENT);
+        assert_se(r >= 0 || r == -ENODATA);
+        assert_se(w || r == -ENODATA);
         puts(strnull(w));
 
         /* /dev/initctl should normally be a symlink to /run/initctl */
@@ -119,10 +120,10 @@ TEST(specifier_real_path_missing_file) {
         int r;
 
         r = specifier_printf("p=%p y=%y", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r == -ENOENT);
+        assert_se(r == -ENODATA);
 
         r = specifier_printf("p=%p Y=%Y", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r == -ENOENT);
+        assert_se(r == -ENODATA);
 }
 
 TEST(specifiers) {
@@ -136,6 +137,20 @@ TEST(specifiers) {
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
+}
+
+TEST(specifiers_missing_data_ok) {
+        _cleanup_free_ char *resolved = NULL;
+
+        assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) >= 0);
+        assert_se(streq(resolved, "-----"));
+
+        assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -ENODATA);
+        assert_se(streq(resolved, "-----"));
+
+        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
