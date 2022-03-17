@@ -1807,7 +1807,7 @@ static int mount_partition(
                 (void) fs_grow(node, p);
 
         if (remap_uid_gid) {
-                r = remount_idmap(p, uid_shift, uid_range);
+                r = remount_idmap(p, uid_shift, uid_range, REMOUNT_IDMAP_HOST_ROOT);
                 if (r < 0)
                         return r;
         }
