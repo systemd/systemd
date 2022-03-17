@@ -78,6 +78,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* journalctl/timesyncd: whenever timesyncd acquires a synchronization from NTP,
+  create a structured log entry that contains boot ID, monotonic clock and
+  realtime clock (I mean, this requires no special work, as these three fields
+  are implicit). Then in journalctl when attempting to display the realtime
+  timestamp of a log entry, first search for the closest later log entry
+  of this kinda that has a matching boot id, and convert the monotonic clock
+  timestamp of the entry to the realtime clock using this info. This way we can
+  retroactively correct the wallclock timestamps, in particular for systems
+  without RTC, i.e. where initially wallclock timestamps carry rubbish, until
+  an NTP sync is acquired.
+
 * kernel-install:
   - add --all switch for rerunning kernel-install for all installed kernels
   - maybe add env var that shortcuts kernel-install for installers that want to
@@ -88,8 +99,6 @@ Features:
 
 * doc: prep a document explaining PID 1's internal logic, i.e. transactions,
   jobs, units
-
-* userbdctl: show user types via colors, also display UID range info in some way
 
 * bootspec: remove tries counter from boot entry ids
 
@@ -235,10 +244,7 @@ Features:
 
 * rework recursive read-only remount to use new mount API
 
-* PAM: pick auf one authentication token from credentials
-
-* tpm2: figure out if we need to do anything for TPM2 parameter encryption? And
-  if so, what precisely?
+* PAM: pick up authentication token from credentials
 
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
   data in the image, make sure the image filename actually matches this, so
@@ -292,9 +298,6 @@ Features:
 * importd: support image signature verification with PKCS#7 + OpenBSD signify
   logic, as alternative to crummy gpg
 
-* sysext: optionally, if the merged trees allow it use bind mounts instead of
-  overlayfs
-
 * add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running
   "systemd-analyze debug" instance shall be contacted and execution paused
@@ -325,10 +328,6 @@ Features:
 
 * add tpm.target or so which is delayed until TPM2 device showed up in case
   firmware indicates there is one.
-
-* tpm2: support a PIN policy, i.e. allowing windows-style short authentication
-  passwords by using the TPM2 to enforce ratelimiting and such, use for
-  cryptsetup and homed
 
 * Add concept for upgrading TPM2 enrollments, maybe a new switch
   --pcrs=4:<hash> or so, i.e. select a PCR to include in the hash, and then
@@ -433,8 +432,6 @@ Features:
 
 * seccomp: don't install filters for ABIs that are masked anyway for the
   specific service
-
-* seccomp: maybe merge all filters we install into one with that libseccomp API that allows merging.
 
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
@@ -615,9 +612,7 @@ Features:
   selected user is resolvable in the service even if it ships its own /etc/passwd)
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
-  other doesn't. What a disaster. Probably to exclude it. Also
-  DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
-  numbers.
+  other doesn't. What a disaster. Probably to exclude it.
 
 * Check that users of inotify's IN_DELETE_SELF flag are using it properly, as
   usually IN_ATTRIB is the right way to watch deleted files, as the former only
@@ -717,7 +712,7 @@ Features:
 * beef up pam_systemd to take unit file settings such as cgroups properties as
   parameters
 
-* maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
+* maybe hook up xfs/ext4 quotactl() with services? i.e. automatically manage
   the quota of the user indicated in User= via unit file settings, like the
   other resource management concepts. Would mix nicely with DynamicUser=1. Or
   alternatively, do this with projids, so that we can also cover services
@@ -739,10 +734,6 @@ Features:
   that we create the dir in question when the service is started. Example:
 
   ReadWritePaths=:/var/lib/foobar
-
-* hostnamed: populate form factor data from a new hwdb database, so that old
-  yogas can be recognized as "convertible" too, even if they predate the DMI
-  "convertible" form factor
 
 * Add ExecMonitor= setting. May be used multiple times. Forks off a process in
   the service cgroup, which is supposed to monitor the service, and when it
@@ -817,8 +808,6 @@ Features:
   specifications.
 
 * when we detect that there are waiting jobs but no running jobs, do something
-
-* push CPUAffinity= also into the "cpuset" cgroup controller
 
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 
@@ -1011,8 +1000,7 @@ Features:
   - add verification of [Install] section to systemd-analyze verify
 
 * timer units:
-  - timer units should get the ability to trigger when:
-    o DST changes
+  - timer units should get the ability to trigger when DST changes
   - Modulate timer frequency based on battery state
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
@@ -1022,8 +1010,6 @@ Features:
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
 
 * make repeated alt-ctrl-del presses printing a dump
-
-* hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
 
