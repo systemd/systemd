@@ -2044,7 +2044,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
         q = remove_entry_directory(arg_esp_path);
         if (q < 0 && r >= 0)
-                r = 1;
+                r = q;
 
         if (arg_xbootldr_path) {
                 /* Remove the latter two also in the XBOOTLDR partition if it exists */
