@@ -899,10 +899,10 @@ static int install_binaries(const char *esp_path, bool force) {
 
                 /* skip the .efi file, if there's a .signed version of it */
                 if (endswith_no_case(de->d_name, ".efi")) {
-                        _cleanup_free_ const char *s = strjoin(BOOTLIBDIR, "/", de->d_name, ".signed");
+                        _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
                         if (!s)
                                 return log_oom();
-                        if (access(s, F_OK) >= 0)
+                        if (faccessat(dirfd(d), s, F_OK, 0) >= 0)
                                 continue;
                 }
 
