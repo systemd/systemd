@@ -1452,7 +1452,7 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
         }
 
         /* Let's start a timer to retry deactivation in 15. We'll stop the timer once we manage to deactivate
-         * the home directory again, or we we start any other operation. */
+         * the home directory again, or we start any other operation. */
         home_start_retry_deactivate(h);
 
         return r;
