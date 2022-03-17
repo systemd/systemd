@@ -144,7 +144,20 @@ static int acquire_xbootldr(
         return 1;
 }
 
-static int load_install_machine_id_and_layout(void) {
+static int load_etc_machine_id(void) {
+        int r;
+
+        r = sd_id128_get_machine(&arg_machine_id);
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) /* Not set or empty */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine-id: %m");
+
+        log_debug("Loaded machine ID %s from /etc/machine-id.", SD_ID128_TO_STRING(arg_machine_id));
+        return 0;
+}
+
+static int load_etc_machine_info(void) {
         /* systemd v250 added support to store the kernel-install layout setting and the machine ID to use
          * for setting up the ESP in /etc/machine-info. The newer /etc/kernel/entry-token file, as well as
          * the $layout field in /etc/kernel/install.conf are better replacements for this though, hence this
@@ -155,30 +168,46 @@ static int load_install_machine_id_and_layout(void) {
         r = parse_env_file(NULL, "/etc/machine-info",
                            "KERNEL_INSTALL_LAYOUT", &layout,
                            "KERNEL_INSTALL_MACHINE_ID", &s);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to parse /etc/machine-info: %m");
 
-        if (isempty(s)) {
-                r = sd_id128_get_machine(&arg_machine_id);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM))
-                        return log_error_errno(r, "Failed to get machine-id: %m");
-        } else {
+        if (!isempty(s)) {
                 log_notice("Read $KERNEL_INSTALL_MACHINE_ID from /etc/machine-info. Please move it to /etc/kernel/entry-token.");
 
                 r = sd_id128_from_string(s, &arg_machine_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse KERNEL_INSTALL_MACHINE_ID=%s in /etc/machine-info: %m", s);
 
+                log_debug("Loaded KERNEL_INSTALL_MACHINE_ID=%s from KERNEL_INSTALL_MACHINE_ID in /etc/machine-info.",
+                          SD_ID128_TO_STRING(arg_machine_id));
         }
-        log_debug("Using KERNEL_INSTALL_MACHINE_ID=%s from %s.",
-                  SD_ID128_TO_STRING(arg_machine_id),
-                  isempty(s) ? "/etc/machine_id" : "KERNEL_INSTALL_MACHINE_ID in /etc/machine-info");
 
         if (!isempty(layout)) {
                 log_notice("Read $KERNEL_INSTALL_LAYOUT from /etc/machine-info. Please move it to the layout= setting of /etc/kernel/install.conf.");
 
                 log_debug("KERNEL_INSTALL_LAYOUT=%s is specified in /etc/machine-info.", layout);
-                arg_install_layout = TAKE_PTR(layout);
+                free_and_replace(arg_install_layout, layout);
+        }
+
+        return 0;
+}
+
+static int load_etc_kernel_install_conf(void) {
+        _cleanup_free_ char *layout = NULL;
+        int r;
+
+        r = parse_env_file(NULL, "/etc/kernel/install.conf",
+                           "layout", &layout);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse /etc/kernel/install.conf: %m");
+
+        if (!isempty(layout)) {
+                log_debug("layout=%s is specified in /etc/machine-info.", layout);
+                free_and_replace(arg_install_layout, layout);
         }
 
         return 0;
@@ -285,7 +314,15 @@ static bool use_boot_loader_spec_type1(void) {
 static int settle_make_entry_directory(void) {
         int r;
 
-        r = load_install_machine_id_and_layout();
+        r = load_etc_machine_id();
+        if (r < 0)
+                return r;
+
+        r = load_etc_machine_info();
+        if (r < 0)
+                return r;
+
+        r = load_etc_kernel_install_conf();
         if (r < 0)
                 return r;
 
