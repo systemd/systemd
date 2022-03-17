@@ -93,8 +93,9 @@ void unit_file_presets_freep(UnitFilePresets *p) {
 
 static const char *const unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
         [UNIT_FILE_TYPE_REGULAR] = "regular",
-        [UNIT_FILE_TYPE_SYMLINK] = "symlink",
-        [UNIT_FILE_TYPE_MASKED] = "masked",
+        [UNIT_FILE_TYPE_LINKED]  = "linked",
+        [UNIT_FILE_TYPE_ALIAS]   = "alias",
+        [UNIT_FILE_TYPE_MASKED]  = "masked",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
@@ -1399,6 +1400,7 @@ static int unit_file_load_or_readlink(
                                       true, &info->symlink_target);
         if (r < 0)
                 return r;
+        bool outside_search_path = r > 0;
 
         /* A symlink to /dev/null or an empty file?
          * When looking under root_dir, we can't expect /dev/ to be mounted,
@@ -1406,8 +1408,10 @@ static int unit_file_load_or_readlink(
         if (null_or_empty_path(info->symlink_target) > 0 ||
             (lp->root_dir && path_equal_ptr(path_startswith(info->symlink_target, lp->root_dir), "dev/null")))
                 info->type = UNIT_FILE_TYPE_MASKED;
+        else if (outside_search_path)
+                info->type = UNIT_FILE_TYPE_LINKED;
         else
-                info->type = UNIT_FILE_TYPE_SYMLINK;
+                info->type = UNIT_FILE_TYPE_ALIAS;
 
         return 0;
 }
@@ -1547,7 +1551,7 @@ static int install_info_follow(
         assert(ctx);
         assert(info);
 
-        if (info->type != UNIT_FILE_TYPE_SYMLINK)
+        if (!IN_SET(info->type, UNIT_FILE_TYPE_ALIAS, UNIT_FILE_TYPE_LINKED))
                 return -EINVAL;
         if (!info->symlink_target)
                 return -EINVAL;
@@ -1587,7 +1591,7 @@ static int install_info_traverse(
                 return r;
 
         i = start;
-        while (i->type == UNIT_FILE_TYPE_SYMLINK) {
+        while (IN_SET(i->type, UNIT_FILE_TYPE_ALIAS, UNIT_FILE_TYPE_LINKED)) {
                 /* Follow the symlink */
 
                 if (++k > UNIT_FILE_FOLLOW_SYMLINK_MAX)
