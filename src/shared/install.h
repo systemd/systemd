@@ -70,7 +70,8 @@ struct UnitFileList {
 
 enum UnitFileType {
         UNIT_FILE_TYPE_REGULAR,
-        UNIT_FILE_TYPE_SYMLINK,
+        UNIT_FILE_TYPE_LINKED,
+        UNIT_FILE_TYPE_ALIAS,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
         _UNIT_FILE_TYPE_INVALID = -EINVAL,
