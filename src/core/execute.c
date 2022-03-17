@@ -3415,6 +3415,9 @@ static bool insist_on_sandboxing(
         if (context->dynamic_user)
                 return true;
 
+        if (context->n_extension_images > 0 || !strv_isempty(context->extension_directories))
+                return true;
+
         /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
          * essential. */
         for (size_t i = 0; i < n_bind_mounts; i++)
