@@ -1317,6 +1317,35 @@ static int install_loader_config(const char *esp_path) {
         return 1;
 }
 
+static int install_loader_specification(const char *root) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        p = path_join(root, "/loader/entries.srel");
+        if (!p)
+                return log_oom();
+
+        if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
+                return 0;
+
+        r = fopen_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open \"%s\" for writing: %m", p);
+
+        fprintf(f, "type1\n");
+
+        r = flink_tmpfile(f, t, p);
+        if (r == -EEXIST)
+                return 0; /* Silently skip creation if the file exists now (recheck) */
+        if (r < 0)
+                return log_error_errno(r, "Failed to move \"%s\" into place: %m", p);
+
+        t = mfree(t);
+        return 1;
+}
+
 static int install_entry_directory(const char *root) {
         assert(root);
         assert(arg_make_entry_directory >= 0);
@@ -2029,6 +2058,10 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                r = install_loader_specification(arg_dollar_boot_path());
+                if (r < 0)
+                        return r;
         }
 
         (void) sync_everything();
@@ -2068,6 +2101,10 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (q < 0 && r >= 0)
                 r = q;
 
+        q = remove_file(arg_esp_path, "/loader/entries.srel");
+        if (q < 0 && r >= 0)
+                r = q;
+
         q = remove_subdirs(arg_esp_path, esp_subdirs);
         if (q < 0 && r >= 0)
                 r = q;
@@ -2081,7 +2118,12 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
                 r = q;
 
         if (arg_xbootldr_path) {
-                /* Remove the latter two also in the XBOOTLDR partition if it exists */
+                /* Remove a subset of these also from the XBOOTLDR partition if it exists */
+
+                q = remove_file(arg_xbootldr_path, "/loader/entries.srel");
+                if (q < 0 && r >= 0)
+                        r = q;
+
                 q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
                 if (q < 0 && r >= 0)
                         r = q;
