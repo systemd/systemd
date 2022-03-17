@@ -38,7 +38,7 @@ CHANGES WITH 251:
           image" environments, where the machine ID shall be initialized on
           first boot (as opposed to at installation time before first boot) the
           machine ID is not be available at build time to name the entry
-          after. In this case the the --entry-token= switch to bootctl (or the
+          after. In this case the --entry-token= switch to bootctl (or the
           /etc/kernel/entry-token file) may be used to override the "token" to
           identify the entry by, and use another ID, for example the IMAGE_ID=
           or ID= fields from /etc/os-release. This will make the OS images

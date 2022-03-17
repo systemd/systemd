@@ -6,7 +6,7 @@
 /* This TPM PCR is where we extend the kernel command line and any passed credentials here. */
 #define TPM_PCR_INDEX_KERNEL_PARAMETERS 12U
 
-/* We used to write the the kernel command line/credentials into PCR 8, in systemd <= 250. Let's provide for
+/* We used to write the kernel command line/credentials into PCR 8, in systemd <= 250. Let's provide for
  * some compatibility. (Remove in 2023!) */
 #if EFI_TPM_PCR_COMPAT
 #define TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT 8U

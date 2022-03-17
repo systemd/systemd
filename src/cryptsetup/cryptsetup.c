@@ -1186,7 +1186,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 /* Before using this key as passphrase we base64 encode it. Why? For compatibility
                  * with homed's PKCS#11 hookup: there we want to use the key we acquired through
                  * PKCS#11 for other authentication/decryption mechanisms too, and some of them do
-                 * not not take arbitrary binary blobs, but require NUL-terminated strings — most
+                 * not take arbitrary binary blobs, but require NUL-terminated strings — most
                  * importantly UNIX password hashes. Hence, for compatibility we want to use a string
                  * without embedded NUL here too, and that's easiest to generate from a binary blob
                  * via base64 encoding. */

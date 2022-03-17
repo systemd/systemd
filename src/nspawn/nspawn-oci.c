@@ -2006,7 +2006,7 @@ static int oci_masked_paths(const char *name, JsonVariant *v, JsonDispatchFlags 
 
                 if (!path_is_absolute(p))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Path is not not absolute, refusing: %s", p);
+                                        "Path is not absolute, refusing: %s", p);
 
                 if (oci_exclude_mount(p))
                         continue;
@@ -2048,7 +2048,7 @@ static int oci_readonly_paths(const char *name, JsonVariant *v, JsonDispatchFlag
 
                 if (!path_is_absolute(p))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Path is not not absolute, refusing: %s", p);
+                                        "Path is not absolute, refusing: %s", p);
 
                 if (oci_exclude_mount(p))
                         continue;

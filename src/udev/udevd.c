@@ -497,7 +497,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                  * supposed to be enabled via an option set via udev rules (OPTIONS+="watch"). If we skip the
                  * udev rules here however (as we just said we do), we would thus never see that specific
                  * udev rule, and thus never turn on inotify watching. But in order to catch up eventually
-                 * and run them we we need the inotify watching: hence a classic chicken and egg problem.
+                 * and run them we need the inotify watching: hence a classic chicken and egg problem.
                  *
                  * Our way out here: if we see the block device locked, unconditionally watch the device via
                  * inotify, regardless of any explicit request via OPTIONS+="watch". Thus, a device that is

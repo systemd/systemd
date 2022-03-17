@@ -138,7 +138,7 @@ class NetworkdTestingUtilities:
 
     def read_attr(self, link, attribute):
         """Read a link attributed from the sysfs."""
-        # Note we we don't want to check if interface `link' is managed, we
+        # Note we don't want to check if interface `link' is managed, we
         # want to evaluate link variable and pass the value of the link to
         # assert_link_states e.g. eth0=managed.
         self.assert_link_states(**{link:'managed'})
