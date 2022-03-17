@@ -1286,7 +1286,6 @@ static int remove_loader_variables(void) {
 static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -1;
         const char *p;
         int r;
 
@@ -1296,13 +1295,9 @@ static int install_loader_config(const char *esp_path) {
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
-        fd = open_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
-
-        f = take_fdopen(&fd, "w");
-        if (!f)
-                return log_oom();
+        r = fopen_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open \"%s\" for writing: %m", p);
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n");
@@ -1312,11 +1307,7 @@ static int install_loader_config(const char *esp_path) {
                 fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
-        r = fflush_sync_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write \"%s\": %m", p);
-
-        r = link_tmpfile(fileno(f), t, p);
+        r = flink_tmpfile(f, t, p);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)

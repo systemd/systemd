@@ -275,6 +275,28 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         return fd;
 }
 
+int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE **ret_file) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
+
+        assert(target);
+        assert(ret_file);
+        assert(ret_path);
+
+        fd = open_tmpfile_linkable(target, flags, &path);
+        if (fd < 0)
+                return fd;
+
+        f = take_fdopen(&fd, "w");
+        if (!f)
+                return -ENOMEM;
+
+        *ret_path = TAKE_PTR(path);
+        *ret_file = TAKE_PTR(f);
+        return 0;
+}
+
 int link_tmpfile(int fd, const char *path, const char *target) {
         assert(fd >= 0);
         assert(target);
@@ -290,6 +312,23 @@ int link_tmpfile(int fd, const char *path, const char *target) {
                 return rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
 
         return RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW));
+}
+
+int flink_tmpfile(FILE *f, const char *path, const char *target) {
+        int fd, r;
+
+        assert(f);
+        assert(target);
+
+        fd = fileno(f);
+        if (fd < 0) /* Not all FILE* objects encapsulate fds */
+                return -EBADF;
+
+        r = fflush_sync_and_check(f);
+        if (r < 0)
+                return r;
+
+        return link_tmpfile(fd, path, target);
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {
