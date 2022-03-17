@@ -216,12 +216,16 @@ cat >"$root/link3.suffix" <<EOF
 WantedBy=services.target
 EOF
 
+# We wouldn't create such a link ourselves, but it should accept it when present.
 ln -s "/link3.suffix" "$root/etc/systemd/system/link3.service"
 
-# SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_LOCATION=1 "$systemctl" --root="$root" enable 'link3.service'
-# islink "$root/etc/systemd/system/link3.service" "/link3.suffix"
-# islink "$root/etc/systemd/system/services.target.wants/link3.service" "../link3.service"
-# unit_file_load_or_readlink() needs to be fixed to not follow links
+SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_LOCATION=1 "$systemctl" --root="$root" enable 'link3.service'
+islink "$root/etc/systemd/system/link3.service" "/link3.suffix"
+islink "$root/etc/systemd/system/services.target.wants/link3.service" "../link3.service"
+
+SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_LOCATION=1 "$systemctl" --root="$root" disable 'link3.service'
+test ! -h "$root/etc/systemd/system/link3.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/link3.service"
 
 : -------enable on masked-------------------------------------
 ln -s "/dev/null" "$root/etc/systemd/system/masked.service"
