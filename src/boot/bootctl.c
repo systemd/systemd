@@ -144,11 +144,10 @@ static int acquire_xbootldr(
 }
 
 static int load_install_machine_id_and_layout(void) {
-        /* Figure out the right machine-id for operations. If KERNEL_INSTALL_MACHINE_ID is configured in
-         * /etc/machine-info, let's use that. Otherwise, just use the real machine-id.
-         *
-         * Also load KERNEL_INSTALL_LAYOUT.
-         */
+        /* systemd v250 added support to store the kernel-install layout setting and the machine ID to use
+         * for setting up the ESP in /etc/machine-info. The newer /etc/kernel/entry-token file, as well as
+         * the $layout field in /etc/kernel/install.conf are better replacements for this though, hence this
+         * has been deprecated and is only returned for compatibility. */
         _cleanup_free_ char *s = NULL, *layout = NULL;
         int r;
 
@@ -163,6 +162,8 @@ static int load_install_machine_id_and_layout(void) {
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM))
                         return log_error_errno(r, "Failed to get machine-id: %m");
         } else {
+                log_notice("Read kernel install machine ID from /etc/machine-info. Please migrate to /etc/kernel/entry-token instead.");
+
                 r = sd_id128_from_string(s, &arg_machine_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse KERNEL_INSTALL_MACHINE_ID=%s in /etc/machine-info: %m", s);
@@ -173,6 +174,8 @@ static int load_install_machine_id_and_layout(void) {
                   isempty(s) ? "/etc/machine_id" : "KERNEL_INSTALL_MACHINE_ID in /etc/machine-info");
 
         if (!isempty(layout)) {
+                log_notice("Read kernel install layout from /etc/machine-info. Please migrate to /etc/kernel/install.conf instead.");
+
                 log_debug("KERNEL_INSTALL_LAYOUT=%s is specified in /etc/machine-info.", layout);
                 arg_install_layout = TAKE_PTR(layout);
         }
