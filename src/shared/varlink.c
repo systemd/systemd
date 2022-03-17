@@ -1660,6 +1660,7 @@ int varlink_errorb(Varlink *v, const char *error_id, ...) {
 }
 
 int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
+        int r;
 
         assert_return(v, -EINVAL);
         assert_return(parameters, -EINVAL);
@@ -1669,13 +1670,33 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
          * variant in which case we'll pull out the first key. The latter mode is useful in functions that
          * don't expect any arguments. */
 
-        if (json_variant_is_string(parameters))
-                return varlink_error(v, VARLINK_ERROR_INVALID_PARAMETER, parameters);
+        /* varlink_error(...) expects a json object as the third parameter. Passing a string variant causes
+         * parameter sanitization to fail, and it returns -EINVAL. */
+
+        if (json_variant_is_string(parameters)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *parameters_obj = NULL;
+
+                r = json_build(&parameters_obj,
+                                JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("parameter", JSON_BUILD_VARIANT(parameters))));
+                if (r < 0)
+                        return r;
+
+                return varlink_error(v, VARLINK_ERROR_INVALID_PARAMETER, parameters_obj);
+        }
 
         if (json_variant_is_object(parameters) &&
-            json_variant_elements(parameters) > 0)
-                return varlink_error(v, VARLINK_ERROR_INVALID_PARAMETER,
-                                     json_variant_by_index(parameters, 0));
+            json_variant_elements(parameters) > 0) {
+                _cleanup_(json_variant_unrefp) JsonVariant *parameters_obj = NULL;
+
+                r = json_build(&parameters_obj,
+                                JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("parameter", JSON_BUILD_VARIANT(json_variant_by_index(parameters, 0)))));
+                if (r < 0)
+                        return r;
+
+                return varlink_error(v, VARLINK_ERROR_INVALID_PARAMETER, parameters_obj);
+        }
 
         return -EINVAL;
 }
