@@ -1086,6 +1086,7 @@ static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
         test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
+        test(m, "exec-specifier-credentials-dir.service", 0, CLD_EXITED);
 }
 
 static void test_exec_standardinput(Manager *m) {

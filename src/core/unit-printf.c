@@ -148,6 +148,20 @@ static int specifier_special_directory(char specifier, const void *data, const c
         return 0;
 }
 
+static int specifier_credentials_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const Unit *u = ASSERT_PTR(userdata);
+        char *d;
+
+        assert(ret);
+
+        d = strjoin(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
+        if (!d)
+                return -ENOMEM;
+
+        *ret = d;
+        return 0;
+}
+
 int unit_name_printf(const Unit *u, const char* format, char **ret) {
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
@@ -191,6 +205,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
          * %R: the root of this systemd's instance tree (deprecated)
          *
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
+         * %d: the credentials directory ($CREDENTIALS_DIRECTORY)
          * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
          * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
          * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
@@ -227,6 +242,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 { 'R', specifier_cgroup_root,              NULL },
 
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
+                { 'd', specifier_credentials_dir,          NULL },
                 { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
                 { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
