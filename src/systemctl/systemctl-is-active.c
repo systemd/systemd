@@ -13,7 +13,6 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         _cleanup_strv_free_ char **names = NULL;
         UnitActiveState active_state;
         sd_bus *bus;
-        char **name;
         int r;
         bool found = false;
 

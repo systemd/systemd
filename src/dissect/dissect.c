@@ -354,7 +354,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int strv_pair_to_json(char **l, JsonVariant **ret) {
         _cleanup_strv_free_ char **jl = NULL;
-        char **a, **b;
 
         STRV_FOREACH_PAIR(a, b, l) {
                 char *j;
@@ -371,8 +370,6 @@ static int strv_pair_to_json(char **l, JsonVariant **ret) {
 }
 
 static void strv_pair_print(char **l, const char *prefix) {
-        char **p, **q;
-
         assert(prefix);
 
         STRV_FOREACH_PAIR(p, q, l) {

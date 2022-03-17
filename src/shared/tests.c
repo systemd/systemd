@@ -49,7 +49,6 @@ static void load_testdata_env(void) {
         _cleanup_free_ char *s = NULL;
         _cleanup_free_ char *envpath = NULL;
         _cleanup_strv_free_ char **pairs = NULL;
-        char **k, **v;
 
         if (called)
                 return;

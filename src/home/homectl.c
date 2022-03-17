@@ -557,7 +557,6 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
 static int activate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
-        char **i;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -606,7 +605,6 @@ static int activate_home(int argc, char *argv[], void *userdata) {
 static int deactivate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
-        char **i;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -693,7 +691,7 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(strv_freep) char **mangled_list = NULL;
         int r, ret = 0;
-        char **items, **i;
+        char **items;
 
         pager_open(arg_pager_flags);
 
@@ -777,7 +775,7 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(strv_freep) char **mangled_list = NULL;
         int r, ret = 0;
-        char **i, **items;
+        char **items;
 
         items = mangle_user_list(strv_skip(argv, 1), &mangled_list);
         if (!items)
@@ -1087,7 +1085,6 @@ static int add_disposition(JsonVariant **v) {
 static int acquire_new_home_record(UserRecord **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        char **i;
         int r;
 
         assert(ret);
@@ -1370,7 +1367,6 @@ static int create_home(int argc, char *argv[], void *userdata) {
 static int remove_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
-        char **i;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -1408,7 +1404,6 @@ static int acquire_updated_home_record(
 
         _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        char **i;
         int r;
 
         assert(ret);
@@ -1858,7 +1853,6 @@ static int resize_home(int argc, char *argv[], void *userdata) {
 static int lock_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
-        char **i;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -1890,7 +1884,6 @@ static int lock_home(int argc, char *argv[], void *userdata) {
 static int unlock_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
-        char **i;
 
         r = acquire_bus(&bus);
         if (r < 0)

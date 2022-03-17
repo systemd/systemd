@@ -197,7 +197,6 @@ static int fscrypt_slot_try_many(
                 const uint8_t match_key_descriptor[static FS_KEY_DESCRIPTOR_SIZE],
                 void **ret_decrypted, size_t *ret_decrypted_size) {
 
-        char **i;
         int r;
 
         STRV_FOREACH(i, passwords) {
@@ -499,7 +498,6 @@ int home_create_fscrypt(
         _cleanup_free_ char *d = NULL;
         uint32_t nr = 0;
         const char *ip;
-        char **i;
         int r;
 
         assert(h);
@@ -649,7 +647,6 @@ int home_passwd_fscrypt(
         size_t volume_key_size = 0;
         uint32_t slot = 0;
         const char *xa;
-        char **p;
         int r;
 
         assert(h);

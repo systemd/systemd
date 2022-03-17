@@ -489,7 +489,6 @@ static int prepare_luks(
 
                 for (;;) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
-                        char **p;
 
                         if (--i == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),

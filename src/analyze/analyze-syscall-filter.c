@@ -120,7 +120,6 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
 
                 if (!set_isempty(known)) {
                         _cleanup_free_ char **l = NULL;
-                        char **syscall;
 
                         printf("\n"
                                "# %sUngrouped System Calls%s (known but not included in any of the groups except @known):\n",
@@ -143,7 +142,6 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                                 log_notice_errno(k, "# Not showing unlisted system calls, couldn't retrieve kernel system call list: %m");
                 } else if (!set_isempty(kernel)) {
                         _cleanup_free_ char **l = NULL;
-                        char **syscall;
 
                         printf("\n"
                                "# %sUnlisted System Calls%s (supported by the local kernel, but not included in any of the groups listed above):\n",
@@ -158,9 +156,7 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                         STRV_FOREACH(syscall, l)
                                 printf("#   %s\n", *syscall);
                 }
-        } else {
-                char **name;
-
+        } else
                 STRV_FOREACH(name, strv_skip(argv, 1)) {
                         const SyscallFilterSet *set;
 
@@ -179,7 +175,6 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                         dump_syscall_filter(set);
                         first = false;
                 }
-        }
 
         return 0;
 }

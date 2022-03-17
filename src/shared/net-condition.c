@@ -48,7 +48,6 @@ bool net_match_is_empty(const NetMatch *match) {
 }
 
 static bool net_condition_test_strv(char * const *patterns, const char *string) {
-        char * const *p;
         bool match = false, has_positive_rule = false;
 
         if (strv_isempty(patterns))
@@ -79,7 +78,6 @@ static bool net_condition_test_ifname(char * const *patterns, const char *ifname
         if (net_condition_test_strv(patterns, ifname))
                 return true;
 
-        char * const *p;
         STRV_FOREACH(p, alternative_names)
                 if (net_condition_test_strv(patterns, *p))
                         return true;
@@ -88,8 +86,6 @@ static bool net_condition_test_ifname(char * const *patterns, const char *ifname
 }
 
 static int net_condition_test_property(char * const *match_property, sd_device *device) {
-        char * const *p;
-
         if (strv_isempty(match_property))
                 return true;
 

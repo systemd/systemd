@@ -1146,7 +1146,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int add_matches(sd_journal *j, char **args) {
-        char **i;
         bool have_term = false;
 
         assert(j);
@@ -1334,7 +1333,7 @@ static int get_boots(
 
         bool skip_once;
         int r, count = 0;
-        BootId *head = NULL, *tail = NULL, *id;
+        BootId *head = NULL, *tail = NULL;
         const bool advance_older = boot_id && offset <= 0;
         sd_id128_t previous_boot_id;
 
@@ -1449,7 +1448,7 @@ finish:
 
 static int list_boots(sd_journal *j) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        BootId *id, *all_ids;
+        BootId *all_ids;
         int count, i, r;
 
         assert(j);
@@ -1584,7 +1583,7 @@ static int get_possible_units(
                         return r;
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        char **pattern, *eq;
+                        char *eq;
                         size_t prefix;
                         _cleanup_free_ char *u = NULL;
 
@@ -1637,7 +1636,6 @@ static int get_possible_units(
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
         int r, count = 0;
-        char **i;
 
         assert(j);
 
@@ -1782,7 +1780,6 @@ static int add_facilities(sd_journal *j) {
 
 static int add_syslog_identifier(sd_journal *j) {
         int r;
-        char **i;
 
         assert(j);
 

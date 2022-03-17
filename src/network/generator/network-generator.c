@@ -1033,7 +1033,6 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
 
 int context_merge_networks(Context *context) {
         Network *all, *network;
-        Route *route;
         int r;
 
         assert(context);
@@ -1129,10 +1128,7 @@ static int route_dump(Route *route, FILE *f) {
 }
 
 void network_dump(Network *network, FILE *f) {
-        Address *address;
-        Route *route;
         const char *dhcp;
-        char **dns;
 
         assert(network);
         assert(f);

@@ -69,12 +69,10 @@ static LinkConfig* link_config_free(LinkConfig *config) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfig*, link_config_free);
 
 static void link_configs_free(LinkConfigContext *ctx) {
-        LinkConfig *config, *config_next;
-
         if (!ctx)
                 return;
 
-        LIST_FOREACH_SAFE(configs, config, config_next, ctx->configs)
+        LIST_FOREACH(configs, config, ctx->configs)
                 link_config_free(config);
 }
 
@@ -326,7 +324,6 @@ static int device_unsigned_attribute(sd_device *device, const char *attr, unsign
 
 int link_config_load(LinkConfigContext *ctx) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         link_configs_free(ctx);
@@ -423,7 +420,6 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
 }
 
 int link_get_config(LinkConfigContext *ctx, Link *link) {
-        LinkConfig *config;
         int r;
 
         assert(ctx);
@@ -833,7 +829,6 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get alternative names, ignoring: %m");
 
-        char **p;
         STRV_FOREACH(p, current_altnames)
                 strv_remove(altnames, *p);
 

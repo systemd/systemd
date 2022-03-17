@@ -2321,7 +2321,6 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
 }
 
 static void setenv_manager_environment(void) {
-        char **p;
         int r;
 
         STRV_FOREACH(p, arg_manager_environment) {

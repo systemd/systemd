@@ -201,7 +201,6 @@ static int run(int argc, char *argv[]) {
         if (arg_names) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *root = NULL;
-                char **name;
 
                 STRV_FOREACH(name, arg_names) {
                         int q;
