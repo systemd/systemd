@@ -398,12 +398,16 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
-
                 case -ENOENT:
                         log_error_errno(changes[i].type_or_errno, "Failed to %s unit, unit %s does not exist.", verb, changes[i].path);
                         logged = true;
                         break;
-
+                case -ENOLINK:
+                        log_error_errno(changes[i].type_or_errno,
+                                        "Failed to %s unit, unit %s is an alias to an unexistent unit.",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
                 default:
                         assert(changes[i].type_or_errno < 0);
                         log_error_errno(changes[i].type_or_errno, "Failed to %s unit, file %s: %m.",
@@ -3273,18 +3277,16 @@ static int preset_prepare_one(
                 if (instance_name_list) {
                         char **s;
                         STRV_FOREACH(s, instance_name_list) {
-                                r = install_info_discover_and_check(scope, plus, paths, *s, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                                r = install_info_discover_and_check(scope, plus, paths, *s,
+                                                                    SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                                     &i, changes, n_changes);
                                 if (r < 0)
                                         return r;
                         }
-                } else {
-                        r = install_info_discover_and_check(scope, plus, paths, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
+                } else
+                        r = install_info_discover_and_check(scope, plus, paths, name,
+                                                            SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                             &i, changes, n_changes);
-                        if (r < 0)
-                                return r;
-                }
-
         } else
                 r = install_info_discover(scope, minus, paths, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                           &i, changes, n_changes);
@@ -3385,7 +3387,7 @@ int unit_file_preset_all(
 
                         r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, changes, n_changes);
                         if (r < 0 &&
-                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT))
+                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -ENOLINK))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
                                  * Coordinate with unit_file_dump_changes() above. */
                                 return r;
