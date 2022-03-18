@@ -283,11 +283,12 @@ pre-defined purposes between Linux, generic low-level distributions and
 ranges.
 
 Note that the range 2147483648…4294967294 (i.e. 2^31…2^32-2) should be handled
-with care. Various programs (including kernel file systems, see `devpts`) have
-trouble with UIDs outside of the signed 32bit range, i.e any UIDs equal to or
-above 2147483648. It is thus strongly recommended to stay away from this range
-in order to avoid complications. This range should be considered reserved for
-future, special purposes.
+with care. Various programs (including kernel file systems — see `devpts` — or
+even kernel syscalls – see `setfsuid()`) have trouble with UIDs outside of the
+signed 32bit range, i.e any UIDs equal to or above 2147483648. It is thus
+strongly recommended to stay away from this range in order to avoid
+complications. This range should be considered reserved for future, special
+purposes.
 
 ## Notes on resolvability of user and group names
 
