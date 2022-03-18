@@ -391,7 +391,6 @@ ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f) {
 }
 
 int managed_journal_file_open(
-                int fd,
                 const char *fname,
                 int open_flags,
                 JournalFileFlags file_flags,
@@ -411,7 +410,7 @@ int managed_journal_file_open(
         if (!f)
                 return -ENOMEM;
 
-        r = journal_file_open(fd, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+        r = journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                               mmap_cache, template ? template->file : NULL, &f->file);
         if (r < 0)
                 return r;
@@ -459,7 +458,6 @@ int managed_journal_file_rotate(
                 return r;
 
         r = managed_journal_file_open(
-                        -1,
                         path,
                         (*f)->file->open_flags,
                         file_flags,
@@ -491,7 +489,7 @@ int managed_journal_file_open_reliably(
 
         int r;
 
-        r = managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes,
+        r = managed_journal_file_open(fname, open_flags, file_flags, mode, compress_threshold_bytes,
                                       metrics, mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -527,6 +525,6 @@ int managed_journal_file_open_reliably(
 
         log_debug("Now retrying to create %s.", fname);
 
-        return managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes,
+        return managed_journal_file_open(fname, open_flags, file_flags, mode, compress_threshold_bytes,
                                          metrics, mmap_cache, deferred_closes, template, ret);
 }
