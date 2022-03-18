@@ -11,6 +11,8 @@ typedef enum ServerType {
         SERVER_SYSTEM,
         SERVER_FALLBACK,
         SERVER_LINK,
+        SERVER_RUNTIME,
+        _SERVER_TYPE_MAX,
 } ServerType;
 
 #include "timesyncd-manager.h"
