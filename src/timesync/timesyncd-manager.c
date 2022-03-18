@@ -245,7 +245,6 @@ static int manager_clock_watch_setup(Manager *m) {
 
 static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         struct timex tmx;
-        int r;
 
         assert(m);
 
@@ -298,13 +297,6 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         if (clock_adjtime(CLOCK_REALTIME, &tmx) < 0)
                 return -errno;
-
-        r = manager_save_time_and_rearm(m);
-        if (r < 0)
-                return r;
-
-        /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
-        (void) touch("/run/systemd/timesync/synchronized");
 
         m->drift_freq = tmx.freq;
 
@@ -580,6 +572,13 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
+
+                r = manager_save_time_and_rearm(m);
+                if (r < 0)
+                        return r;
+
+                /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
+                (void) touch("/run/systemd/timesync/synchronized");
         }
 
         /* Save NTP response */
