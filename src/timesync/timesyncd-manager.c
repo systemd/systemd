@@ -422,7 +422,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_name = &server_addr,
                 .msg_namelen = sizeof(server_addr),
         };
-        struct cmsghdr *cmsg;
         struct timespec *recv_time = NULL;
         ssize_t len;
         double origin, receive, trans, dest, delay, offset, root_distance;
@@ -458,21 +457,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
-        CMSG_FOREACH(cmsg, &msghdr) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                switch (cmsg->cmsg_type) {
-                case SCM_TIMESTAMPNS:
-                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(struct timespec)));
-
-                        recv_time = (struct timespec *) CMSG_DATA(cmsg);
-                        break;
-                }
-        }
+        recv_time = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_TIMESTAMPNS, struct timespec);
         if (!recv_time)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid packet timestamp.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Packet timestamp missing.");
 
         if (!m->pending) {
                 log_debug("Unexpected reply. Ignoring.");
