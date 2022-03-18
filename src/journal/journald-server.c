@@ -277,7 +277,7 @@ static int open_journal(
                                                 s->compress.threshold_bytes, seal, metrics, s->mmap,
                                                 s->deferred_closes, NULL, &f);
         else
-                r = managed_journal_file_open(-1, fname, flags, 0640, s->compress.enabled,
+                r = managed_journal_file_open(fname, flags, 0640, s->compress.enabled,
                                        s->compress.threshold_bytes, seal, metrics, s->mmap,
                                        s->deferred_closes, NULL, &f);
 
