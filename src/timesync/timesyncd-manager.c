@@ -626,10 +626,11 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 m->good = true;
 
-                server_address_pretty(m->current_server_address, &pretty);
+                (void) server_address_pretty(m->current_server_address, &pretty);
+
                 /* "Initial", as further successful syncs will not be logged. */
                 log_info("Initial synchronization to time server %s (%s).", strna(pretty), m->current_server_name->string);
-                sd_notifyf(false, "STATUS=Initial synchronization to time server %s (%s).", strna(pretty), m->current_server_name->string);
+                (void) sd_notifyf(false, "STATUS=Initial synchronization to time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -693,7 +694,7 @@ static int manager_begin(Manager *m) {
 
         server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
-        sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
+        (void) sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);
         if (r < 0)
@@ -915,7 +916,7 @@ void manager_disconnect(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        sd_notify(false, "STATUS=Idle.");
+        (void) sd_notify(false, "STATUS=Idle.");
 }
 
 void manager_flush_server_names(Manager  *m, ServerType t) {
