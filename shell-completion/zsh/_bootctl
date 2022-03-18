@@ -69,6 +69,7 @@ _arguments \
     '--boot-path=[Path to the $BOOT partition]:path:_directories' \
     {-p,--print-esp-path}'[Print path to the EFI system partition]' \
     {-x,--print-boot-path}'[Print path to the $BOOT partition]' \
+    '--make-machine-id-directory=[Control creation and deletion of the top-level machine ID directory.]:options:(yes no auto)' \
     '--no-variables[Do not touch EFI variables]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--graceful[Do not fail when locating ESP or writing fails]' \
