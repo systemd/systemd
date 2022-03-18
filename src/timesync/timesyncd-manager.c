@@ -569,9 +569,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
 
-                r = manager_save_time_and_rearm(m);
-                if (r < 0)
-                        return r;
+                (void) manager_save_time_and_rearm(m);
 
                 /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
                 (void) touch("/run/systemd/timesync/synchronized");
