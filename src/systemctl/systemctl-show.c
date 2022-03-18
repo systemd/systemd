@@ -305,10 +305,8 @@ static void print_status_info(
 
         const char *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
-        ExecStatusInfo *p;
         usec_t timestamp;
         const char *path;
-        char **t, **t2;
         int r;
 
         assert(i);
@@ -367,7 +365,6 @@ static void print_status_info(
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
                 bool last = false;
-                char ** dropin;
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
                         _cleanup_free_ char *dropin_formatted = NULL;
@@ -488,7 +485,6 @@ static void print_status_info(
         }
 
         if (!i->condition_result && i->condition_timestamp > 0) {
-                UnitCondition *c;
                 int n = 0;
 
                 printf("  Condition: start %scondition failed%s at %s; %s\n",
@@ -774,8 +770,6 @@ static void print_status_info(
 }
 
 static void show_unit_help(UnitStatusInfo *i) {
-        char **p;
-
         assert(i);
 
         if (!i->documentation) {
@@ -1078,7 +1072,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         if (FLAGS_SET(flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) || allow_list || !strv_isempty(l)) {
                                 bool first = true;
-                                char **i;
 
                                 if (!FLAGS_SET(flags, BUS_PRINT_PROPERTY_ONLY_VALUE)) {
                                         fputs(name, stdout);
@@ -1970,7 +1963,6 @@ static int show_one(
                 .io_read_bytes = UINT64_MAX,
                 .io_write_bytes = UINT64_MAX,
         };
-        char **pp;
         int r;
 
         assert(path);
@@ -2194,7 +2186,6 @@ int verb_show(int argc, char *argv[], void *userdata) {
                         ret = show_all(bus, &new_line, &ellipsized);
         } else {
                 _cleanup_free_ char **patterns = NULL;
-                char **name;
 
                 STRV_FOREACH(name, strv_skip(argv, 1)) {
                         _cleanup_free_ char *path = NULL, *unit = NULL;

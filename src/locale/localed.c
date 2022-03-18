@@ -346,7 +346,6 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         Context *c = userdata;
         bool modified = false;
         int interactive, r;
-        char **i;
         bool use_localegen;
 
         assert(m);

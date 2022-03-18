@@ -313,8 +313,6 @@ static int fido2_use_hmac_hash_specific_token(
                 bool retry_with_up = false, retry_with_pin = false;
 
                 if (FLAGS_SET(required, FIDO2ENROLL_PIN)) {
-                        char **i;
-
                         /* OK, we need a pin, try with all pins in turn */
                         if (strv_isempty(pins))
                                 r = FIDO_ERR_PIN_REQUIRED;
@@ -683,7 +681,6 @@ int fido2_generate_hmac_hash(
 
                 for (;;) {
                         _cleanup_(strv_free_erasep) char **pin = NULL;
-                        char **i;
 
                         r = ask_password_auto("Please enter security token PIN:", askpw_icon_name, NULL, "fido2-pin", "fido2-pin", USEC_INFINITY, 0, &pin);
                         if (r < 0)

@@ -890,7 +890,6 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         int r;
-        char **unit;
         _cleanup_strv_free_ char **units = NULL;
 
         assert(message);

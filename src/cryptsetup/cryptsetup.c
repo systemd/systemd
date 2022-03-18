@@ -573,7 +573,7 @@ static int get_password(
 
         _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
-        char **p, *id;
+        char *id;
         int r = 0;
         AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE;
 
@@ -861,7 +861,6 @@ static int attach_luks2_by_fido2(
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
         _cleanup_strv_free_erase_ char **pins = NULL;
-        char **p;
         int r;
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
@@ -1547,7 +1546,6 @@ static int attach_luks_or_plain_or_bitlk_by_passphrase(
                 uint32_t flags,
                 bool pass_volume_key) {
 
-        char **p;
         int r;
 
         assert(cd);

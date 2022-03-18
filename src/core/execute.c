@@ -995,7 +995,6 @@ static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid)
 static int get_supplementary_groups(const ExecContext *c, const char *user,
                                     const char *group, gid_t gid,
                                     gid_t **supplementary_gids, int *ngids) {
-        char **i;
         int r, k = 0;
         int ngroups_max;
         bool keep_groups = false;
@@ -1187,7 +1186,6 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
-        char **nv;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
         int flags = 0;
@@ -2005,7 +2003,6 @@ static int build_environment(
 static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
         size_t n_env = 0;
-        char **i;
 
         STRV_FOREACH(i, c->pass_environment) {
                 _cleanup_free_ char *x = NULL;
@@ -2281,7 +2278,6 @@ static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryT
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
         _cleanup_free_ char *src_abs = NULL;
-        char **dst;
         int r;
 
         assert(source);
@@ -3352,7 +3348,6 @@ static int compile_symlinks(
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 for (size_t i = 0; i < context->directories[dt].n_items; i++) {
                         _cleanup_free_ char *private_path = NULL, *path = NULL;
-                        char **symlink;
 
                         STRV_FOREACH(symlink, context->directories[dt].items[i].symlinks) {
                                 _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
@@ -5349,7 +5344,6 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
                  * service next. */
                 (void) rm_rf(p, REMOVE_ROOT);
 
-                char **symlink;
                 STRV_FOREACH(symlink, c->directories[EXEC_DIRECTORY_RUNTIME].items[i].symlinks) {
                         _cleanup_free_ char *symlink_abs = NULL;
 
@@ -5423,12 +5417,9 @@ void exec_command_reset_status_array(ExecCommand *c, size_t n) {
 }
 
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
-        for (size_t i = 0; i < n; i++) {
-                ExecCommand *z;
-
+        for (size_t i = 0; i < n; i++)
                 LIST_FOREACH(command, z, c[i])
                         exec_status_reset(&z->exec_status);
-        }
 }
 
 typedef struct InvalidEnvInfo {
@@ -5523,7 +5514,6 @@ static int exec_context_named_iofds(
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **v = NULL;
-        char **i;
         int r;
 
         assert(c);
@@ -5630,8 +5620,6 @@ bool exec_context_may_touch_console(const ExecContext *ec) {
 }
 
 static void strv_fprintf(FILE *f, char **l) {
-        char **g;
-
         assert(f);
 
         STRV_FOREACH(g, l)
@@ -5651,7 +5639,6 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
 }
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
-        char **e, **d;
         int r;
 
         assert(c);
@@ -5713,8 +5700,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         if (c->root_image_options) {
-                MountOptions *o;
-
                 fprintf(f, "%sRootImageOptions:", prefix);
                 LIST_FOREACH(mount_options, o, c->root_image_options)
                         if (!isempty(o->options))
@@ -6113,8 +6098,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sMountImages: %s%s:%s", prefix,
                         c->mount_images[i].ignore_enoent ? "-": "",
                         c->mount_images[i].source,
@@ -6127,8 +6110,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_extension_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         c->extension_images[i].ignore_enoent ? "-": "",
                         c->extension_images[i].source);
@@ -6280,7 +6261,6 @@ int exec_context_get_clean_directories(
                                         return r;
                         }
 
-                        char **symlink;
                         STRV_FOREACH(symlink, c->directories[t].items[i].symlinks) {
                                 j = path_join(prefix[t], *symlink);
                                 if (!j)
@@ -6395,8 +6375,8 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
 
         prefix = strempty(prefix);
 
-        LIST_FOREACH(command, c, c)
-                exec_command_dump(c, f, prefix);
+        LIST_FOREACH(command, i, c)
+                exec_command_dump(i, f, prefix);
 }
 
 void exec_command_append_list(ExecCommand **l, ExecCommand *e) {

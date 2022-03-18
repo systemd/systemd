@@ -916,13 +916,15 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
 }
 
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len) {
-        struct sd_dhcp_raw_option *cur, *option;
+        struct sd_dhcp_raw_option *option, *before = NULL;
 
         assert(lease);
 
         LIST_FOREACH(options, cur, lease->private_options) {
-                if (tag < cur->tag)
+                if (tag < cur->tag) {
+                        before = cur;
                         break;
+                }
                 if (tag == cur->tag) {
                         log_debug("Ignoring duplicate option, tagged %i.", tag);
                         return 0;
@@ -941,7 +943,7 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
                 return -ENOMEM;
         }
 
-        LIST_INSERT_BEFORE(options, lease->private_options, cur, option);
+        LIST_INSERT_BEFORE(options, lease->private_options, before, option);
         return 0;
 }
 
@@ -961,7 +963,6 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        struct sd_dhcp_raw_option *option;
         struct in_addr address;
         const struct in_addr *addresses;
         const void *client_id, *data;

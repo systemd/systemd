@@ -594,7 +594,6 @@ static int create_remoteserver(
                 const char* trust) {
 
         int r, n, fd;
-        char **file;
 
         r = journal_remote_server_init(s, arg_output, arg_split_mode, arg_compress, arg_seal);
         if (r < 0)

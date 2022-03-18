@@ -17,7 +17,7 @@ int user_record_quality_check_password(
                 sd_bus_error *error) {
 
         _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
-        char buf[PWQ_MAX_ERROR_MESSAGE_LEN], **pp;
+        char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;
 
@@ -37,7 +37,6 @@ int user_record_quality_check_password(
         /* Iterate through all new passwords */
         STRV_FOREACH(pp, secret->password) {
                 bool called = false;
-                char **old;
 
                 r = test_password_many(hr->hashed_password, *pp);
                 if (r < 0)

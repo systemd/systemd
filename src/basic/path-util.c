@@ -202,9 +202,9 @@ int path_make_relative(const char *from, const char *to, char **ret) {
 }
 
 char* path_startswith_strv(const char *p, char **set) {
-        char **s, *t;
-
         STRV_FOREACH(s, set) {
+                char *t;
+
                 t = path_startswith(p, *s);
                 if (t)
                         return t;
@@ -214,7 +214,6 @@ char* path_startswith_strv(const char *p, char **set) {
 }
 
 int path_strv_make_absolute_cwd(char **l) {
-        char **s;
         int r;
 
         /* Goes through every item in the string list and makes it
@@ -236,7 +235,6 @@ int path_strv_make_absolute_cwd(char **l) {
 }
 
 char **path_strv_resolve(char **l, const char *root) {
-        char **s;
         unsigned k = 0;
         bool enomem = false;
         int r;
@@ -700,12 +698,12 @@ int find_executable_full(const char *name, const char *root, char **exec_search_
                 p = DEFAULT_PATH;
 
         if (exec_search_path) {
-                char **element;
-
                 STRV_FOREACH(element, exec_search_path) {
                         _cleanup_free_ char *full_path = NULL;
+
                         if (!path_is_absolute(*element))
                                 continue;
+
                         full_path = path_join(*element, name);
                         if (!full_path)
                                 return -ENOMEM;
@@ -754,7 +752,6 @@ int find_executable_full(const char *name, const char *root, char **exec_search_
 
 bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
         bool changed = false, originally_unset;
-        const char* const* i;
 
         assert(timestamp);
 
@@ -1339,7 +1336,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
 
                 _cleanup_strv_free_ char **names = NULL;
                 _cleanup_free_ char *path = NULL;
-                char *c, **name;
+                char *c;
 
                 path = path_join(root, pattern);
                 if (!path)
@@ -1411,8 +1408,6 @@ bool empty_or_root(const char *path) {
 }
 
 bool path_strv_contains(char **l, const char *path) {
-        char **i;
-
         STRV_FOREACH(i, l)
                 if (path_equal(*i, path))
                         return true;
@@ -1421,10 +1416,9 @@ bool path_strv_contains(char **l, const char *path) {
 }
 
 bool prefixed_path_strv_contains(char **l, const char *path) {
-        char **i, *j;
-
         STRV_FOREACH(i, l) {
-                j = *i;
+                const char *j = *i;
+
                 if (*j == '-')
                         j++;
                 if (*j == '+')
