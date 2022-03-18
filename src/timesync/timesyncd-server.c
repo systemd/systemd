@@ -16,16 +16,19 @@ int server_address_new(
         assert(socklen >= offsetof(struct sockaddr, sa_data));
         assert(socklen <= sizeof(union sockaddr_union));
 
-        a = new0(ServerAddress, 1);
+        a = new(ServerAddress, 1);
         if (!a)
                 return -ENOMEM;
 
+        *a = (ServerAddress) {
+                .name = n,
+                .socklen = socklen,
+        };
+
         memcpy(&a->sockaddr, sockaddr, socklen);
-        a->socklen = socklen;
 
         LIST_FIND_TAIL(addresses, n->addresses, tail);
         LIST_INSERT_AFTER(addresses, n->addresses, tail, a);
-        a->name = n;
 
         if (ret)
                 *ret = a;
@@ -58,12 +61,16 @@ int server_name_new(
         assert(m);
         assert(string);
 
-        n = new0(ServerName, 1);
+        n = new(ServerName, 1);
         if (!n)
                 return -ENOMEM;
 
-        n->type = type;
-        n->string = strdup(string);
+        *n = (ServerName) {
+                .manager = m,
+                .type = type,
+                .string = strdup(string),
+        };
+
         if (!n->string) {
                 free(n);
                 return -ENOMEM;
@@ -80,8 +87,6 @@ int server_name_new(
                 LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
         } else
                 assert_not_reached();
-
-        n->manager = m;
 
         if (type != SERVER_FALLBACK &&
             m->current_server_name &&
