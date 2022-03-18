@@ -3447,6 +3447,8 @@ int journal_file_open(
 
         if (f->last_stat.st_size == 0 && f->writable) {
 
+                newly_created = true;
+
                 (void) journal_file_warn_btrfs(f);
 
                 /* Let's attach the creation time to the journal file, so that the vacuuming code knows the age of this
@@ -3473,8 +3475,6 @@ int journal_file_open(
                 r = journal_file_fstat(f);
                 if (r < 0)
                         goto fail;
-
-                newly_created = true;
         }
 
         if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
@@ -3569,6 +3569,9 @@ fail:
                 r = -EIO;
 
         (void) journal_file_close(f);
+
+        if (newly_created && fd < 0 && (flags & O_CREAT))
+                (void) unlink(fname);
 
         return r;
 }
