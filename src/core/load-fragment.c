@@ -4091,6 +4091,12 @@ int config_parse_delegate_cg(
         if (path_simplify_and_warn(path_payload, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
                 return 0;
 
+        if (strchr(path_payload, '/')) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Payload path in %s= is too deep, ignoring.", lvalue);
+                return 0;
+        }
+
         if (path_startswith(strempty(path_payload), strempty(path_control))) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Payload path in %s= cannot be under control path, ignoring.", lvalue);
