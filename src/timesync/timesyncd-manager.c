@@ -593,10 +593,10 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                 "NTPMessage",
                                 NULL);
 
-        if (!m->good) {
+        if (!m->talking) {
                 _cleanup_free_ char *pretty = NULL;
 
-                m->good = true;
+                m->talking = true;
 
                 (void) server_address_pretty(m->current_server_address, &pretty);
 
@@ -659,7 +659,7 @@ static int manager_begin(Manager *m) {
         assert_return(m->current_server_name, -EHOSTUNREACH);
         assert_return(m->current_server_address, -EHOSTUNREACH);
 
-        m->good = false;
+        m->talking = false;
         m->missed_replies = NTP_MAX_MISSED_REPLIES;
         if (m->poll_interval_usec == 0)
                 m->poll_interval_usec = m->poll_interval_min_usec;
