@@ -86,9 +86,9 @@ TEST_RET(bootspec_sort) {
         assert_se(streq(config.entries[2].id, "c.conf"));
 
         /* The following ones have no sort key, hence order by version compared ids, lowest first */
-        assert_se(streq(config.entries[3].id, "a-5.conf"));
+        assert_se(streq(config.entries[3].id, "b.conf"));
         assert_se(streq(config.entries[4].id, "a-10.conf"));
-        assert_se(streq(config.entries[5].id, "b.conf"));
+        assert_se(streq(config.entries[5].id, "a-5.conf"));
 
         return 0;
 }
