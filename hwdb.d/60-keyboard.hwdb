@@ -602,6 +602,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# Elitebook 2760p
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
+ KEYBOARD_KEY_89=battery                                # Fn+F8
+ KEYBOARD_KEY_f8=unknown                                # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_86=volumeup
+ KEYBOARD_KEY_87=volumedown
+ KEYBOARD_KEY_92=brightnessdown
+ KEYBOARD_KEY_97=brightnessup
+ KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d9=!f22                                   # touchpad on
+ KEYBOARD_KEY_b3=unknown                                # FIXME: Auto brightness
+
 # TX2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:*
  KEYBOARD_KEY_c2=media
