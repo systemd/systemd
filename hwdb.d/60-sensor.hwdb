@@ -449,6 +449,12 @@ sensor:modalias:acpi:BMA250E*:dmi:*:svnInsyde*:pni101c:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*HP*:*
  ACCEL_LOCATION=base
+ 
+# HP Elitebook 2760p
+# Physicaly accel is in base, but 2760p is 2 in 1 transformer, and accel can be used in tablet mode to rotate screen
+sensor:modalias:platform:lis3lv02d:dmi:*svnHewlett-Packard:pnHPEliteBook2760p:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+ ACCEL_LOCATION=display
 
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
