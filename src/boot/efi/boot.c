@@ -1703,10 +1703,10 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
                         return r;
         }
 
-        /* Now order by ID (the version is likely part of the ID, thus note that this might put the oldest
-         * version last, not first, i.e. specifying a sort key explicitly is thus generally preferable, to
-         * take benefit of the explicit sorting above.) */
-        r = strverscmp_improved(a->id, b->id);
+        /* Now order by ID. The version is likely part of the ID, thus note that this will generatelly put
+         * the newer versions earlier. Specifying a sort key explicitly is preferable, because it gives an
+         * explicit sort order. */
+        r = -strverscmp_improved(a->id, b->id);
         if (r != 0)
                 return r;
 

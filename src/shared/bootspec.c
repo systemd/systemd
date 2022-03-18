@@ -254,6 +254,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         r = CMP(!a->sort_key, !b->sort_key);
         if (r != 0)
                 return r;
+
         if (a->sort_key && b->sort_key) {
                 r = strcmp(a->sort_key, b->sort_key);
                 if (r != 0)
@@ -268,7 +269,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                         return r;
         }
 
-        return strverscmp_improved(a->id, b->id);
+        return -strverscmp_improved(a->id, b->id);
 }
 
 static int boot_entries_find(
