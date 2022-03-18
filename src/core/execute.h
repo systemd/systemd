@@ -27,6 +27,9 @@ typedef struct Manager Manager;
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
+/* Default delegated cgroup wrappers */
+#define DELEGATE_CGROUP_CONTROL ".control"
+#define DELEGATE_CGROUP_PAYLOAD ""
 
 typedef enum ExecUtmpMode {
         EXEC_UTMP_INIT,
