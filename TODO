@@ -1129,6 +1129,10 @@ Features:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
   - make it operate on loopback files, dissecting enough to find ESP to operate on
+  - bootspec: properly support boot attempt counters when parsing entry file names
+
+* kernel-install:
+  - optionally, support generating type #2 entries instead of type #1, including signing them
 
 * logind:
   - logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around
