@@ -495,8 +495,8 @@ int managed_journal_file_open_reliably(
 
         int r;
 
-        r = managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics,
-                               mmap_cache, deferred_closes, template, ret);
+        r = managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal,
+                                      metrics, mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
                     -ENODATA,           /* Truncated */
@@ -512,19 +512,25 @@ int managed_journal_file_open_reliably(
         if ((flags & O_ACCMODE) == O_RDONLY)
                 return r;
 
-        if (!(flags & O_CREAT))
-                return r;
-
         if (!endswith(fname, ".journal"))
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
-        log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
+        log_warning_errno(r, "File %s corrupted or uncleanly shut down, trying to move it out of the way: %m", fname);
 
         r = journal_file_dispose(AT_FDCWD, fname);
-        if (r < 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to move %s out of the way: %m", fname);
+                return r;
+        }
+
+        log_debug("Successfully moved %s out of the way.", fname);
+
+        if (!(flags & O_CREAT))
                 return r;
 
-        return managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics,
-                                  mmap_cache, deferred_closes, template, ret);
+        log_debug("Now retrying to create %s.", fname);
+
+        return managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes,
+                                         seal, metrics, mmap_cache, deferred_closes, template, ret);
 }
