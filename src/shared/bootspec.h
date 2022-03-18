@@ -27,6 +27,7 @@ typedef struct BootEntry {
         char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
         char *title;
         char *show_title;
+        char *sort_key;
         char *version;
         char *machine_id;
         char *architecture;

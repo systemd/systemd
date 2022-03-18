@@ -591,6 +591,8 @@ static int boot_entry_show(
 
                 printf("       source: %s\n", link ?: e->path);
         }
+        if (e->sort_key)
+                printf("     sort-key: %s\n", e->sort_key);
         if (e->version)
                 printf("      version: %s\n", e->version);
         if (e->machine_id)
