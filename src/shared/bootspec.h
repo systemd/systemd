@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/types.h>
-
-#include "sd-id128.h"
 
 #include "string-util.h"
 
@@ -90,6 +89,3 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
         return entry->show_title ?: entry->title ?: entry->id;
 }
-
-int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
-int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid, dev_t *ret_devid);
