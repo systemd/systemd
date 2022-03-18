@@ -40,8 +40,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 usec_t stamp;
 
                 /* check if the recorded time is later than the compiled-in one */
-                r = fstat(fd, &st);
-                if (r >= 0) {
+                if (fstat(fd, &st) >= 0) {
                         stamp = timespec_load(&st.st_mtim);
                         if (stamp > min)
                                 min = stamp;

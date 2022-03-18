@@ -301,8 +301,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 break;
         }
 
-        r = clock_adjtime(CLOCK_REALTIME, &tmx);
-        if (r < 0)
+        if (clock_adjtime(CLOCK_REALTIME, &tmx) < 0)
                 return -errno;
 
         r = manager_save_time_and_rearm(m);
