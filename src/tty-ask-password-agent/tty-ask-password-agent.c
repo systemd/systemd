@@ -581,8 +581,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
 }
 
 static void terminate_agents(Set *pids) {
-        struct timespec ts;
-        siginfo_t status = {};
         sigset_t set;
         void *p;
         int r, signum;
@@ -599,11 +597,10 @@ static void terminate_agents(Set *pids) {
          */
         assert_se(sigemptyset(&set) >= 0);
         assert_se(sigaddset(&set, SIGCHLD) >= 0);
-        timespec_store(&ts, 50 * USEC_PER_MSEC);
 
         while (!set_isempty(pids)) {
+                siginfo_t status = {};
 
-                zero(status);
                 r = waitid(P_ALL, 0, &status, WEXITED|WNOHANG);
                 if (r < 0 && errno == EINTR)
                         continue;
@@ -613,7 +610,7 @@ static void terminate_agents(Set *pids) {
                         continue;
                 }
 
-                signum = sigtimedwait(&set, NULL, &ts);
+                signum = sigtimedwait(&set, NULL, TIMESPEC_STORE(50 * USEC_PER_MSEC));
                 if (signum < 0) {
                         if (errno != EAGAIN)
                                 log_error_errno(errno, "sigtimedwait() failed: %m");

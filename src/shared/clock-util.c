@@ -134,9 +134,8 @@ int clock_reset_timewarp(void) {
 #define EPOCH_FILE "/usr/lib/clock-epoch"
 
 int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
-        struct stat st;
-        struct timespec ts;
         usec_t epoch_usec, now_usec;
+        struct stat st;
 
         /* NB: we update *ret_attempted_change in *all* cases, both
          * on success and failure, to indicate what we intended to do! */
@@ -161,7 +160,7 @@ int clock_apply_epoch(ClockChangeDirection *ret_attempted_change) {
                 return 0;
         }
 
-        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, epoch_usec)) < 0)
+        if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(epoch_usec)) < 0)
                 return -errno;
 
         return 1;

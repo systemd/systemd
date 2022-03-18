@@ -159,7 +159,6 @@ int pipe_eof(int fd) {
 }
 
 int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
-        struct timespec ts;
         int r;
 
         assert(fds || nfds == 0);
@@ -167,7 +166,7 @@ int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
         if (nfds == 0)
                 return 0;
 
-        r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL);
+        r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), NULL);
         if (r < 0)
                 return -errno;
         if (r == 0)

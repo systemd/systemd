@@ -72,13 +72,12 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 settime:
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
-                struct timespec ts;
                 char date[FORMAT_TIMESTAMP_MAX];
 
                 log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
                          format_timestamp(date, sizeof(date), min));
 
-                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
+                if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min)) < 0)
                         log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
         }
 
