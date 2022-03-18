@@ -244,7 +244,7 @@ void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
         c->delegate_path_control = mfree(c->delegate_path_control);
-        c->delegate_path_payload = nfree(c->delegate_path_payload);
+        c->delegate_path_payload = mfree(c->delegate_path_payload);
 
         while (c->io_device_weights)
                 cgroup_context_free_io_device_weight(c, c->io_device_weights);
@@ -519,9 +519,13 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
+                fprintf(f, "%sDelegateControllers: %s\n"
+                           "%sDelegateControlControlGroup: %s\n"
+                           "%sDelegatePayloadControlGroup: %s\n",
+                        prefix, strempty(t),
+                        prefix, c->delegate_path_control, // XXX NULL -> default
+                        prefix, c->delegate_path_payload
+                        );
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
