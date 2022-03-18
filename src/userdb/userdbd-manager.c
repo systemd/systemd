@@ -251,7 +251,6 @@ static int start_workers(Manager *m, bool explicit_request) {
 }
 
 int manager_startup(Manager *m) {
-        struct timeval ts;
         int n, r;
 
         assert(m);
@@ -300,7 +299,7 @@ int manager_startup(Manager *m) {
 
         /* Let's make sure every accept() call on this socket times out after 25s. This allows workers to be
          * GC'ed on idle */
-        if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, timeval_store(&ts, LISTEN_TIMEOUT_USEC), sizeof(ts)) < 0)
+        if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
         return start_workers(m, false);

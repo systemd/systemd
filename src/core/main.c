@@ -1571,8 +1571,6 @@ static void initialize_clock(void) {
 }
 
 static void apply_clock_update(void) {
-        struct timespec ts;
-
         /* This is called later than initialize_clock(), i.e. after we parsed configuration files/kernel
          * command line and such. */
 
@@ -1582,7 +1580,7 @@ static void apply_clock_update(void) {
         if (getpid_cached() != 1)
                 return;
 
-        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, arg_clock_usec)) < 0)
+        if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(arg_clock_usec)) < 0)
                 log_error_errno(errno, "Failed to set system clock to time specified on kernel command line: %m");
         else
                 log_info("Set system clock to %s, as specified on the kernel command line.",
