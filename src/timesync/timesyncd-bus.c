@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/capability.h>
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
 #include "bus-internal.h"
 #include "bus-log-control-api.h"
+#include "bus-polkit.h"
 #include "bus-protocol.h"
 #include "bus-util.h"
 #include "dns-domain.h"
@@ -15,6 +18,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "timesyncd-bus.h"
+#include "user-util.h"
 
 static int reply_server_names(ServerName *names, sd_bus_message *reply) {
         ServerName *p;
@@ -85,6 +89,17 @@ static int property_set_runtime_servers(
         assert(m);
         assert(bus);
         assert(message);
+
+        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
+                                    "org.freedesktop.timesync1.set-runtime-servers",
+                                    NULL, true, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+
+        if (r == 0)
+                /* Polkit will call us back */
+                return 1;
 
         r = sd_bus_message_read_strv(message, &msg_names);
         if (r < 0)

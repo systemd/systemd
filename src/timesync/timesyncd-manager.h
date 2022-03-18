@@ -8,6 +8,7 @@
 #include "sd-network.h"
 #include "sd-resolve.h"
 
+#include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
@@ -64,6 +65,9 @@ struct Manager {
         uint64_t packet_count;
         sd_event_source *event_timeout;
         bool good;
+
+        /* PolicyKit */
+        Hashmap *polkit_registry;
 
         /* last sent packet */
         struct timespec trans_time_mon;
