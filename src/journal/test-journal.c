@@ -39,7 +39,7 @@ TEST(non_empty) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f) == 0);
+        assert_se(managed_journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
@@ -128,10 +128,10 @@ TEST(empty) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, m, NULL, NULL, &f1) == 0);
-        assert_se(managed_journal_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &f2) == 0);
-        assert_se(managed_journal_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, m, NULL, NULL, &f3) == 0);
-        assert_se(managed_journal_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f4) == 0);
+        assert_se(managed_journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, false, NULL, m, NULL, NULL, &f1) == 0);
+        assert_se(managed_journal_file_open("test-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &f2) == 0);
+        assert_se(managed_journal_file_open("test-seal.journal", O_RDWR|O_CREAT, 0666, false, UINT64_MAX, true, NULL, m, NULL, NULL, &f3) == 0);
+        assert_se(managed_journal_file_open("test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, true, NULL, m, NULL, NULL, &f4) == 0);
 
         journal_file_print_header(f1->file);
         puts("");
@@ -178,7 +178,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, m, NULL, NULL, &f) == 0);
+        assert_se(managed_journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, m, NULL, NULL, &f) == 0);
 
         dual_timestamp_get(&ts);
 
