@@ -249,10 +249,8 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         assert(m);
 
-        /*
-         * For small deltas, tell the kernel to gradually adjust the system
-         * clock to the NTP time, larger deltas are just directly set.
-         */
+        /* For small deltas, tell the kernel to gradually adjust the system clock to the NTP time, larger
+         * deltas are just directly set. */
         if (fabs(offset) < NTP_MAX_ADJUST) {
                 tmx = (struct timex) {
                         .modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR,
@@ -281,14 +279,11 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 log_debug("  adjust (jump): %+.3f sec", offset);
         }
 
-        /*
-         * An unset STA_UNSYNC will enable the kernel's 11-minute mode,
-         * which syncs the system time periodically to the RTC.
+        /* An unset STA_UNSYNC will enable the kernel's 11-minute mode, which syncs the system time
+         * periodically to the RTC.
          *
-         * In case the RTC runs in local time, never touch the RTC,
-         * we have no way to properly handle daylight saving changes and
-         * mobile devices moving between time zones.
-         */
+         * In case the RTC runs in local time, never touch the RTC, we have no way to properly handle
+         * daylight saving changes and mobile devices moving between time zones. */
         if (m->rtc_local_time)
                 tmx.status |= STA_UNSYNC;
 
