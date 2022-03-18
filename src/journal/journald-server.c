@@ -157,7 +157,7 @@ static int cache_space_refresh(Server *s, JournalStorage *storage) {
 
         avail = LESS_BY(vfs_avail, metrics->keep_free);
 
-        space->limit = MIN(MAX(vfs_used + avail, metrics->min_use), metrics->max_use);
+        space->limit = CLAMP(vfs_used + avail, metrics->min_use, metrics->max_use);
         space->available = LESS_BY(space->limit, vfs_used);
         space->timestamp = ts;
         return 1;
