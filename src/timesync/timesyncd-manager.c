@@ -580,7 +580,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 (void) manager_save_time_and_rearm(m, dts.realtime);
 
                 /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
-                (void) touch("/run/systemd/timesync/synchronized");
+                r = touch("/run/systemd/timesync/synchronized");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch /run/systemd/timesync/synchronized, ignoring: %m");
         }
 
         /* Save NTP response */
