@@ -1675,10 +1675,9 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         assert(b);
 
         /* Order entries that have no tries left to the end of the list */
-        if (a->tries_left == 0 && b->tries_left != 0)
-                return 1;
-        if (a->tries_left != 0 && b->tries_left == 0)
-                return -1;
+        r = CMP(a->tries_left == 0, b->tries_left == 0);
+        if (r != 0)
+                return r;
 
         /* If there's a sort key defined for *both* entries, then we do new-style ordering, i.e. by
          * sort-key/machine-id/version, with a final fallback to id. If there's no sort key for either, we do
@@ -1687,8 +1686,8 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         r = CMP(!a->sort_key, !b->sort_key);
         if (r != 0) /* one is old-style, one new-style */
                 return r;
-        if (a->sort_key && b->sort_key) {
 
+        if (a->sort_key && b->sort_key) {
                 r = strcmp(a->sort_key, b->sort_key);
                 if (r != 0)
                         return r;
@@ -1711,23 +1710,16 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         if (r != 0)
                 return r;
 
-        if (a->tries_left == UINTN_MAX ||
-            b->tries_left == UINTN_MAX)
+        if (a->tries_left == UINTN_MAX || b->tries_left == UINTN_MAX)
                 return 0;
 
         /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
-        if (a->tries_left < b->tries_left)
-                return 1;
-        if (a->tries_left > b->tries_left)
-                return -1;
+        r = -CMP(a->tries_left, b->tries_left);
+        if (r != 0)
+                return r;
 
         /* If they have the same number of tries left, then let the one win which was tried fewer times so far */
-        if (a->tries_done > b->tries_done)
-                return 1;
-        if (a->tries_done < b->tries_done)
-                return -1;
-
-        return 0;
+        return CMP(a->tries_done, b->tries_done);
 }
 
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
