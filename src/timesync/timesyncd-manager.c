@@ -14,6 +14,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -959,6 +960,8 @@ Manager* manager_free(Manager *m) {
         sd_event_unref(m->event);
 
         sd_bus_flush_close_unref(m->bus);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         return mfree(m);
 }
