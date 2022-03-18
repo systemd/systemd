@@ -63,7 +63,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
                 /* create stamp file with the compiled-in date */
-                r = touch_file(CLOCK_FILE, false, min, uid, gid, 0644);
+                r = touch_file(CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
                 if (r < 0)
                         log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
         }
