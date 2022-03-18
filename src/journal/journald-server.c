@@ -289,7 +289,6 @@ static int open_journal(
                                 &f);
         else
                 r = managed_journal_file_open(
-                                -1,
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -593,7 +592,6 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 /* Open the file briefly, so that we can archive it */
                 r = managed_journal_file_open_reliably(
-                                fd,
                                 full,
                                 O_RDWR,
                                 (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
