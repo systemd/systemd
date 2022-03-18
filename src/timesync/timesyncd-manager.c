@@ -244,7 +244,7 @@ static int manager_clock_watch_setup(Manager *m) {
 }
 
 static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
-        struct timex tmx = {};
+        struct timex tmx;
         int r;
 
         assert(m);
@@ -254,21 +254,22 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
          * clock to the NTP time, larger deltas are just directly set.
          */
         if (fabs(offset) < NTP_MAX_ADJUST) {
-                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
-                tmx.status = STA_PLL;
-                tmx.offset = offset * NSEC_PER_SEC;
-                tmx.constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 4;
-                tmx.maxerror = 0;
-                tmx.esterror = 0;
+                tmx = (struct timex) {
+                        .modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR,
+                        .status = STA_PLL,
+                        .offset = offset * NSEC_PER_SEC,
+                        .constant = log2i(m->poll_interval_usec / USEC_PER_SEC) - 4,
+                };
+
                 log_debug("  adjust (slew): %+.3f sec", offset);
         } else {
-                tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET | ADJ_MAXERROR | ADJ_ESTERROR;
+                tmx = (struct timex) {
+                        .modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET | ADJ_MAXERROR | ADJ_ESTERROR,
 
-                /* ADJ_NANO uses nanoseconds in the microseconds field */
-                tmx.time.tv_sec = (long)offset;
-                tmx.time.tv_usec = (offset - tmx.time.tv_sec) * NSEC_PER_SEC;
-                tmx.maxerror = 0;
-                tmx.esterror = 0;
+                        /* ADJ_NANO uses nanoseconds in the microseconds field */
+                        .time.tv_sec = (long)offset,
+                        .time.tv_usec = (offset - (double) (long) offset) * NSEC_PER_SEC,
+                };
 
                 /* the kernel expects -0.3s as {-1, 7000.000.000} */
                 if (tmx.time.tv_usec < 0) {
@@ -1098,21 +1099,27 @@ int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC;
-        m->poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC;
-        m->poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC;
+        *m = (Manager) {
+                .root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC,
+                .poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC,
+                .poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC,
 
-        m->connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC;
+                .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
-        m->server_socket = m->clock_watch_fd = -1;
+                .server_socket = -1,
+                .clock_watch_fd = -1,
 
-        m->ratelimit = (RateLimit) { RATELIMIT_INTERVAL_USEC, RATELIMIT_BURST };
+                .ratelimit = (RateLimit) {
+                        RATELIMIT_INTERVAL_USEC,
+                        RATELIMIT_BURST
+                },
 
-        m->save_time_interval_usec = DEFAULT_SAVE_TIME_INTERVAL_USEC;
+                .save_time_interval_usec = DEFAULT_SAVE_TIME_INTERVAL_USEC,
+        };
 
         r = sd_event_default(&m->event);
         if (r < 0)
