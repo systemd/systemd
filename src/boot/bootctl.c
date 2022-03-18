@@ -24,6 +24,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "main-func.h"
