@@ -22,9 +22,8 @@
 #include "user-util.h"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
+        usec_t min = TIME_EPOCH * USEC_PER_SEC, ct;
         _cleanup_close_ int fd = -1;
-        usec_t min = TIME_EPOCH * USEC_PER_SEC;
-        usec_t ct;
         int r;
 
         /* Let's try to make sure that the clock is always

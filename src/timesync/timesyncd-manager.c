@@ -425,12 +425,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         struct cmsghdr *cmsg;
         struct timespec *recv_time = NULL;
         ssize_t len;
-        double origin, receive, trans, dest;
-        double delay, offset;
-        double root_distance;
+        double origin, receive, trans, dest, delay, offset, root_distance;
         bool spike;
-        int leap_sec;
-        int r;
+        int leap_sec, r;
 
         assert(source);
         assert(m);
