@@ -154,8 +154,6 @@ static int boot_entry_load(
 }
 
 void boot_config_free(BootConfig *config) {
-        size_t i;
-
         assert(config);
 
         free(config->default_pattern);
@@ -171,7 +169,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_default);
         free(config->entry_selected);
 
-        for (i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
 }
@@ -418,12 +416,9 @@ static int find_sections(
 
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         _cleanup_free_ char *osrelease = NULL, *cmdline = NULL;
-        size_t i, n_sections;
-        struct DosFileHeader dos;
-        struct PeHeader pe;
-        uint64_t start;
         ssize_t n;
 
+        struct DosFileHeader dos;
         n = pread(fd, &dos, sizeof(dos), 0);
         if (n < 0)
                 return log_error_errno(errno, "Failed read DOS header: %m");
@@ -433,7 +428,9 @@ static int find_sections(
         if (dos.Magic[0] != 'M' || dos.Magic[1] != 'Z')
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DOS executable magic missing, refusing.");
 
-        start = unaligned_read_le32(&dos.ExeHeader);
+        uint64_t start = unaligned_read_le32(&dos.ExeHeader);
+
+        struct PeHeader pe;
         n = pread(fd, &pe, sizeof(pe), start);
         if (n < 0)
                 return log_error_errno(errno, "Failed to read PE header: %m");
@@ -443,7 +440,7 @@ static int find_sections(
         if (pe.Magic[0] != 'P' || pe.Magic[1] != 'E' || pe.Magic[2] != 0 || pe.Magic[3] != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE executable magic missing, refusing.");
 
-        n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
+        size_t n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
         if (n_sections > 96)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE header has too many sections, refusing.");
 
@@ -459,7 +456,7 @@ static int find_sections(
         if ((size_t) n != n_sections * sizeof(struct PeSectionHeader))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading sections, refusing.");
 
-        for (i = 0; i < n_sections; i++) {
+        for (size_t i = 0; i < n_sections; i++) {
                 _cleanup_free_ char *k = NULL;
                 uint32_t offset, size;
                 char **b;
