@@ -520,9 +520,13 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
+                fprintf(f, "%sDelegateControllers: %s\n"
+                           "%sDelegateControlControlGroup: %s\n"
+                           "%sDelegatePayloadControlGroup: %s\n",
+                        prefix, strempty(t),
+                        prefix, c->delegate_path_control, // XXX NULL -> default
+                        prefix, c->delegate_path_payload
+                        );
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
