@@ -13,6 +13,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -966,6 +967,8 @@ Manager* manager_free(Manager *m) {
         sd_event_unref(m->event);
 
         sd_bus_flush_close_unref(m->bus);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 
         return mfree(m);
 }
