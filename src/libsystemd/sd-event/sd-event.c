@@ -3906,6 +3906,7 @@ static int epoll_wait_usec(
         int msec;
 #if 0
         static bool epoll_pwait2_absent = false;
+        int r;
 
         /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not.
          *
@@ -3914,12 +3915,10 @@ static int epoll_wait_usec(
          * https://github.com/systemd/systemd/issues/19052. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
-                struct timespec ts;
-
                 r = epoll_pwait2(fd,
                                  events,
                                  maxevents,
-                                 timespec_store(&ts, timeout),
+                                 TIMESPEC_STORE(timeout),
                                  NULL);
                 if (r >= 0)
                         return r;
