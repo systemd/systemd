@@ -8,6 +8,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
