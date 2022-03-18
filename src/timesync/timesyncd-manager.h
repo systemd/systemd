@@ -61,7 +61,7 @@ struct Manager {
         int missed_replies;
         uint64_t packet_count;
         sd_event_source *event_timeout;
-        bool good;
+        bool talking;
 
         /* last sent packet */
         struct timespec trans_time_mon;
@@ -92,7 +92,6 @@ struct Manager {
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
-        int clock_watch_fd;
 
         /* Retry connections */
         sd_event_source *event_retry;
@@ -104,6 +103,9 @@ struct Manager {
         struct ntp_msg ntpmsg;
         struct timespec origin_time, dest_time;
         bool spike;
+
+        /* Indicates whether we ever managed to set the local clock from NTP */
+        bool synchronized;
 
         /* save time event */
         sd_event_source *event_save_time;
