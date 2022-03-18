@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -229,14 +230,9 @@ static int manager_clock_watch_setup(Manager *m) {
 
         assert(m);
 
-        m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
-        safe_close(m->clock_watch_fd);
+        m->event_clock_watch = sd_event_source_disable_unref(m->event_clock_watch);
 
-        m->clock_watch_fd = time_change_fd();
-        if (m->clock_watch_fd < 0)
-                return log_error_errno(m->clock_watch_fd, "Failed to create timerfd: %m");
-
-        r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
+        r = event_add_time_change(m->event, &m->event_clock_watch, manager_clock_watch, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create clock watch event source: %m");
 
@@ -889,8 +885,7 @@ void manager_disconnect(Manager *m) {
 
         manager_listen_stop(m);
 
-        m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
-        m->clock_watch_fd = safe_close(m->clock_watch_fd);
+        m->event_clock_watch = sd_event_source_disable_unref(m->event_clock_watch);
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
@@ -1089,7 +1084,6 @@ int manager_new(Manager **ret) {
                 .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
                 .server_socket = -1,
-                .clock_watch_fd = -1,
 
                 .ratelimit = (RateLimit) {
                         RATELIMIT_INTERVAL_USEC,
