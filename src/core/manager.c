@@ -39,6 +39,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "event-util.h"
 #include "exec-util.h"
 #include "execute.h"
 #include "exit-status.h"
@@ -406,13 +407,8 @@ static int manager_setup_time_change(Manager *m) {
                 return 0;
 
         m->time_change_event_source = sd_event_source_disable_unref(m->time_change_event_source);
-        m->time_change_fd = safe_close(m->time_change_fd);
 
-        m->time_change_fd = time_change_fd();
-        if (m->time_change_fd < 0)
-                return log_error_errno(m->time_change_fd, "Failed to create timer change timer fd: %m");
-
-        r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
+        r = event_add_time_change(m->event, &m->time_change_event_source, manager_dispatch_time_change_fd, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create time change event source: %m");
 
@@ -420,8 +416,6 @@ static int manager_setup_time_change(Manager *m) {
         r = sd_event_source_set_priority(m->time_change_event_source, SD_EVENT_PRIORITY_NORMAL-1);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of time change event sources: %m");
-
-        (void) sd_event_source_set_description(m->time_change_event_source, "manager-time-change");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
 
@@ -820,7 +814,6 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .notify_fd = -1,
                 .cgroups_agent_fd = -1,
                 .signal_fd = -1,
-                .time_change_fd = -1,
                 .user_lookup_fds = { -1, -1 },
                 .private_listen_fd = -1,
                 .dev_autofs_fd = -1,
@@ -1509,7 +1502,6 @@ Manager* manager_free(Manager *m) {
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
         safe_close(m->cgroups_agent_fd);
-        safe_close(m->time_change_fd);
         safe_close_pair(m->user_lookup_fds);
 
         manager_close_ask_password(m);
@@ -2913,7 +2905,6 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         Unit *u;
 
         assert(m);
-        assert(m->time_change_fd == fd);
 
         log_struct(LOG_DEBUG,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,

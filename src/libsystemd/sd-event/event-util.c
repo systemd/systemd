@@ -4,6 +4,7 @@
 
 #include "event-source.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
 
@@ -120,4 +121,42 @@ int event_source_is_enabled(sd_event_source *s) {
                 return false;
 
         return sd_event_source_get_enabled(s, NULL);
+}
+
+int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(e);
+
+        /* Allocates an IO event source that gets woken up whenever the clock changes. Needs to be recreated on each event */
+
+        fd = time_change_fd();
+        if (fd < 0)
+                return fd;
+
+        r = sd_event_add_io(e, &s, fd, EPOLLIN, callback, userdata);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(fd);
+
+        r = sd_event_source_set_description(s, "time-change");
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        else {
+                r = sd_event_source_set_floating(s, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

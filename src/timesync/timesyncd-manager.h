@@ -92,7 +92,6 @@ struct Manager {
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
-        int clock_watch_fd;
 
         /* Retry connections */
         sd_event_source *event_retry;
