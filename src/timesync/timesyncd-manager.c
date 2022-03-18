@@ -29,6 +29,7 @@
 #include "time-util.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
+#include "user-util.h"
 #include "util.h"
 
 #ifndef ADJ_SETOFFSET
@@ -60,7 +61,7 @@ static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
 static int manager_listen_setup(Manager *m);
 static void manager_listen_stop(Manager *m);
-static int manager_save_time_and_rearm(Manager *m);
+static int manager_save_time_and_rearm(Manager *m, usec_t t);
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -411,6 +412,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct timespec *recv_time = NULL;
+        triple_timestamp dts;
         ssize_t len;
         double origin, receive, trans, dest, delay, offset, root_distance;
         bool spike;
@@ -564,12 +566,18 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->samples_jitter, spike ? " spike" : "",
                   m->poll_interval_usec / USEC_PER_SEC);
 
+        /* Get current monotonic/realtime clocks immediately before adjusting the latter */
+        triple_timestamp_get(&dts);
+
         if (!spike) {
+                /* Fix up our idea of the time. */
+                dts.realtime = (usec_t) (dts.realtime + offset * USEC_PER_SEC);
+
                 r = manager_adjust_clock(m, offset, leap_sec);
                 if (r < 0)
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
 
-                (void) manager_save_time_and_rearm(m);
+                (void) manager_save_time_and_rearm(m, dts.realtime);
 
                 /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
                 (void) touch("/run/systemd/timesync/synchronized");
@@ -1124,7 +1132,7 @@ static int manager_save_time_handler(sd_event_source *s, uint64_t usec, void *us
 
         assert(m);
 
-        (void) manager_save_time_and_rearm(m);
+        (void) manager_save_time_and_rearm(m, USEC_INFINITY);
         return 0;
 }
 
@@ -1152,12 +1160,16 @@ int manager_setup_save_time_event(Manager *m) {
         return 0;
 }
 
-static int manager_save_time_and_rearm(Manager *m) {
+static int manager_save_time_and_rearm(Manager *m, usec_t t) {
         int r;
 
         assert(m);
 
-        r = touch(CLOCK_FILE);
+        /* Updates the timestamp file to the specified time. If 't' is USEC_INFINITY uses the current system
+         * clock, but otherwise uses the specified timestamp. Note that whenever we acquire an NTP sync the
+         * specified timestamp value might be more accurate than the system clock, since the latter is
+         * subject to slow adjustments. */
+        r = touch_file(CLOCK_FILE, false, t, UID_INVALID, GID_INVALID, MODE_INVALID);
         if (r < 0)
                 log_debug_errno(r, "Failed to update " CLOCK_FILE ", ignoring: %m");
 
