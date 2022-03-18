@@ -85,6 +85,7 @@ else
     shift
 fi
 
+# These two settings are settable in install.conf
 layout=
 initrd_generator=
 
@@ -182,7 +183,6 @@ export KERNEL_INSTALL_STAGING_AREA
 
 [ "$layout" = "bls" ]
 MAKE_ENTRY_DIR_ABS=$?
-
 
 ret=0
 

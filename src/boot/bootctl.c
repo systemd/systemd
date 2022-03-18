@@ -899,10 +899,10 @@ static int install_binaries(const char *esp_path, bool force) {
 
                 /* skip the .efi file, if there's a .signed version of it */
                 if (endswith_no_case(de->d_name, ".efi")) {
-                        _cleanup_free_ const char *s = strjoin(BOOTLIBDIR, "/", de->d_name, ".signed");
+                        _cleanup_free_ const char *s = strjoin(de->d_name, ".signed");
                         if (!s)
                                 return log_oom();
-                        if (access(s, F_OK) >= 0)
+                        if (faccessat(dirfd(d), s, F_OK, 0) >= 0)
                                 continue;
                 }
 
@@ -1932,6 +1932,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         bool install, graceful;
         int r;
 
+        /* Invoked for both "update" and "install" */
+
         install = streq(argv[0], "install");
         graceful = !install && arg_graceful; /* support graceful mode for updates */
 
@@ -2044,7 +2046,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
         q = remove_entry_directory(arg_esp_path);
         if (q < 0 && r >= 0)
-                r = 1;
+                r = q;
 
         if (arg_xbootldr_path) {
                 /* Remove the latter two also in the XBOOTLDR partition if it exists */
