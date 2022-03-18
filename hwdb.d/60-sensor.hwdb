@@ -449,7 +449,7 @@ sensor:modalias:acpi:BMA250E*:dmi:*:svnInsyde*:pni101c:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*HP*:*
  ACCEL_LOCATION=base
- 
+
 # Elitebook 2760p
 sensor:modalias:platform:lis3lv02d:dmi:*svnHewlett-Packard:pnHPEliteBook2760p:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
