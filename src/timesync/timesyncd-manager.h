@@ -104,6 +104,9 @@ struct Manager {
         struct timespec origin_time, dest_time;
         bool spike;
 
+        /* Indicates whether we ever managed to set the local clock from NTP */
+        bool synchronized;
+
         /* save time event */
         sd_event_source *event_save_time;
         usec_t save_time_interval_usec;

@@ -526,3 +526,11 @@ be updated to operate in a hotplug fashion without depending on
 systemd-udev-settle.service:
 
     @OFFENDING_UNITS@
+
+-- 7c8a41f37b764941a0e1780b1be2f037
+Subject: Initial clock synchronization
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+For the first time during the current boot an NTP synchronization has been
+acquired and the local system clock adjustment has been initiated.

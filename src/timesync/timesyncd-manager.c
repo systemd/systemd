@@ -11,6 +11,7 @@
 #include <sys/types.h>
 
 #include "sd-daemon.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -615,6 +616,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 (void) sd_notifyf(false, "STATUS=Initial synchronization to time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
+        if (!spike && !m->synchronized) {
+                m->synchronized = true;
+
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("Initial clock synchronization to %s.", FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
+                           "MESSAGE_ID=" SD_MESSAGE_TIME_SYNC_STR,
+                           "MONOTONIC_USEC=" USEC_FMT, dts.monotonic,
+                           "REALTIME_USEC=" USEC_FMT, dts.realtime,
+                           "BOOTIME_USEC=" USEC_FMT, dts.boottime);
+        }
+
         r = manager_arm_timer(m, m->poll_interval_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to rearm timer: %m");
@@ -1109,6 +1121,12 @@ int manager_new(Manager **ret) {
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         (void) sd_event_set_watchdog(m->event, true);
+
+        /* Load previous synchronization state */
+        r = access("/run/systemd/timesync/synchronized", F_OK);
+        if (r < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to determine whether /run/systemd/timesync/synchronized exists, ignoring: %m");
+        m->synchronized = r >= 0;
 
         r = sd_resolve_default(&m->resolve);
         if (r < 0)
