@@ -329,3 +329,7 @@ int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m) {
 int sd_nfnl_socket_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_NETFILTER);
 }
+
+int sd_nfnl_socket_open_flags(sd_netlink **ret, int flags) {
+        return netlink_open_family_flags(ret, NETLINK_NETFILTER, flags);
+}

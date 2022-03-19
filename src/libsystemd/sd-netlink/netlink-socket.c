@@ -17,10 +17,10 @@
 #include "socket-util.h"
 #include "util.h"
 
-int socket_open(int family) {
+int socket_open_flags(int family, int flags) {
         int fd;
 
-        fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, family);
+        fd = socket(AF_NETLINK, SOCK_RAW | flags, family);
         if (fd < 0)
                 return -errno;
 
