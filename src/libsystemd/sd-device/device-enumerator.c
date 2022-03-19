@@ -838,26 +838,17 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
 }
 
 static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
-        int r = 0;
+        int k, r = 0;
 
         log_debug("sd-device-enumerator: Scan all dirs");
 
-        if (access("/sys/subsystem", F_OK) >= 0) {
-                /* we have /subsystem/, forget all the old stuff */
-                r = enumerator_scan_dir(enumerator, "subsystem", "devices", NULL);
-                if (r < 0)
-                        return log_debug_errno(r, "sd-device-enumerator: Failed to scan /sys/subsystem: %m");
-        } else {
-                int k;
+        k = enumerator_scan_dir(enumerator, "bus", "devices", NULL);
+        if (k < 0)
+                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/bus: %m");
 
-                k = enumerator_scan_dir(enumerator, "bus", "devices", NULL);
-                if (k < 0)
-                        r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/bus: %m");
-
-                k = enumerator_scan_dir(enumerator, "class", NULL, NULL);
-                if (k < 0)
-                        r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/class: %m");
-        }
+        k = enumerator_scan_dir(enumerator, "class", NULL, NULL);
+        if (k < 0)
+                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/class: %m");
 
         return r;
 }
@@ -923,7 +914,6 @@ _public_ sd_device *sd_device_enumerator_get_device_next(sd_device_enumerator *e
 }
 
 int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
-        const char *subsysdir;
         int r = 0, k;
 
         assert(enumerator);
@@ -941,21 +931,16 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan modules: %m");
         }
 
-        if (access("/sys/subsystem", F_OK) >= 0)
-                subsysdir = "subsystem";
-        else
-                subsysdir = "bus";
-
         /* subsystems (only buses support coldplug) */
         if (match_subsystem(enumerator, "subsystem")) {
-                k = enumerator_scan_dir_and_add_devices(enumerator, subsysdir, NULL, NULL);
+                k = enumerator_scan_dir_and_add_devices(enumerator, "bus", NULL, NULL);
                 if (k < 0)
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan subsystems: %m");
         }
 
         /* subsystem drivers */
         if (match_subsystem(enumerator, "drivers")) {
-                k = enumerator_scan_dir(enumerator, subsysdir, "drivers", "drivers");
+                k = enumerator_scan_dir(enumerator, "bus", "drivers", "drivers");
                 if (k < 0)
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan drivers: %m");
         }
