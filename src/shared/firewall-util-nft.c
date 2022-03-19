@@ -748,7 +748,7 @@ int fw_nftables_init(FirewallContext *ctx) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         int r;
 
-        r = sd_nfnl_socket_open(&nfnl);
+        r = sd_nfnl_socket_open_flags(&nfnl, SOCK_CLOEXEC);
         if (r < 0)
                 return r;
 

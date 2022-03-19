@@ -142,11 +142,12 @@ uint32_t message_get_serial(sd_netlink_message *m);
 void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
+int netlink_open_family_flags(sd_netlink **ret, int family, int flags);
 bool netlink_pid_changed(sd_netlink *nl);
 int netlink_rqueue_make_room(sd_netlink *nl);
 int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
-int socket_open(int family);
+int socket_open_flags(int family, int flags);
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);

@@ -212,6 +212,7 @@ int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t
 
 /* nfnl */
 int sd_nfnl_socket_open(sd_netlink **ret);
+int sd_nfnl_socket_open_flags(sd_netlink **ret, int flags);
 int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,

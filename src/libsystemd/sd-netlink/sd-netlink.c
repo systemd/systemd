@@ -131,11 +131,11 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
         return 0;
 }
 
-int netlink_open_family(sd_netlink **ret, int family) {
+int netlink_open_family_flags(sd_netlink **ret, int family, int flags) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        fd = socket_open(family);
+        fd = socket_open_flags(family, flags);
         if (fd < 0)
                 return fd;
 
@@ -145,6 +145,10 @@ int netlink_open_family(sd_netlink **ret, int family) {
         TAKE_FD(fd);
 
         return 0;
+}
+
+int netlink_open_family(sd_netlink **ret, int family) {
+        return netlink_open_family_flags(ret, family, SOCK_CLOEXEC|SOCK_NONBLOCK);
 }
 
 int sd_netlink_open(sd_netlink **ret) {
