@@ -5,6 +5,7 @@
 #include "set.h"
 #include "bus-util.h"
 #include "bus-internal.h"
+#include "bus-parse-xml.h"
 #include "unit-def.h"
 #include "escape.h"
 #include "strv.h"
@@ -78,12 +79,71 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
+static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
+        bool *ret_available = ASSERT_PTR(userdata);
+
+        assert(name);
+
+        if (streq(name, "JobRemoved2"))
+                *ret_available = true;
+
+        return 0;
+}
+
+int bus_jobremoved2_signal_available(sd_bus *bus, bool *ret_available) {
+        static const XMLIntrospectOps ops = {
+                .on_signal = on_signal,
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        const char *xml;
+        int r;
+
+        assert(bus);
+        assert(ret_available);
+
+        r = sd_bus_call_method(
+                        bus,
+                        bus->bus_client ? "org.freedesktop.systemd1" : NULL,
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Introspectable",
+                        "Introspect",
+                        &error,
+                        &reply,
+                        NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Could not introspect /org/freedesktop/systemd1: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &xml);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = parse_xml_introspect("/org/freedesktop/systemd1", xml, &ops, ret_available);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse DBus introspect XML: %m");
+
+        return 0;
+}
+
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *d = NULL;
+        static int legacy_signal = -1;
         int r;
 
         assert(bus);
         assert(ret);
+
+        if (legacy_signal == -1) {
+                bool available = false;
+
+                (void) bus_jobremoved2_signal_available(bus, &available);
+
+                if (available)
+                        legacy_signal = 0;
+                else
+                        legacy_signal = 1;
+        }
 
         d = new(BusWaitForJobs, 1);
         if (!d)
@@ -102,7 +162,7 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
                         bus->bus_client ? "org.freedesktop.systemd1" : NULL,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
+                        legacy_signal ? "JobRemoved" : "JobRemoved2",
                         match_job_removed, NULL, d);
         if (r < 0)
                 return r;
