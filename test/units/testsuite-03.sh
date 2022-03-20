@@ -97,4 +97,27 @@ ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 
+systemd-run --unit=bus-monitor-old -p StandardOutput=truncate:/tmp/bus-test-output-old \
+    busctl monitor --match 'type=signal,path=/org/freedesktop/systemd1,interface=org.freedesktop.systemd1.Manager,member=JobRemoved'
+for ((i = 0; i < 60; i++)); do
+    ! systemctl --quiet is-active bus-monitor-old.service || break
+    sleep .5
+done
+
+systemd-run --unit=bus-monitor-new -p StandardOutput=truncate:/tmp/bus-test-output-new \
+    busctl monitor --match 'type=signal,path=/org/freedesktop/systemd1,interface=org.freedesktop.systemd1.Manager,member=JobRemoved2'
+for ((i = 0; i < 60; i++)); do
+    ! systemctl --quiet is-active bus-monitor-new.service || break
+    sleep .5
+done
+
+systemd-run -t -p ConditionPathExists=/nonexisting true
+
+systemctl stop bus-monitor-old.service bus-monitor-new.service
+
+grep -q -F 'STRING "done"' /tmp/bus-test-output-old
+grep -v -q -F 'STRING "skipped"' /tmp/bus-test-output-old
+grep -v -q -F 'STRING "done"' /tmp/bus-test-output-new
+grep -q -F 'STRING "skipped"' /tmp/bus-test-output-new
+
 touch /testok

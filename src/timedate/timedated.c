@@ -18,6 +18,7 @@
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
 #include "bus-polkit.h"
+#include "bus-wait-for-jobs.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "def.h"
@@ -956,11 +957,19 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 u->path = mfree(u->path);
 
         if (!c->slot_job_removed) {
+                bool new_signal_available = false;
+
+                r = bus_jobremoved2_signal_available(bus);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether JobRemoved2 signal is available, falling back to legacy JobRemoved: %m");
+                else
+                        new_signal_available = r > 0;
+
                 r = bus_match_signal_async(
                                 bus,
                                 &slot,
                                 bus_systemd_mgr,
-                                "JobRemoved",
+                                new_signal_available ? "JobRemoved2" : "JobRemoved",
                                 match_job_removed, NULL, c);
                 if (r < 0)
                         return r;
