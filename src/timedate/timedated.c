@@ -18,6 +18,7 @@
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
 #include "bus-polkit.h"
+#include "bus-wait-for-jobs.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "def.h"
@@ -459,6 +460,12 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;
+        }
+
+        if (sd_bus_message_is_signal(m, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(m, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
         }
 
         LIST_FOREACH(units, u, c->units)
@@ -956,11 +963,26 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 u->path = mfree(u->path);
 
         if (!c->slot_job_removed) {
+                bool new_signal_available = false;
+
+                r = bus_subscribe_with_flags_cached(bus);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether JobRemovedEx signal is available, falling back to legacy JobRemoved: %m");
+                else
+                        new_signal_available = r > 0;
+
+                if (new_signal_available)
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "SubscribeWithFlags", NULL, NULL, "t", 0);
+                else
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable subscription: %m");
+
                 r = bus_match_signal_async(
                                 bus,
                                 &slot,
                                 bus_systemd_mgr,
-                                "JobRemoved",
+                                new_signal_available ? "JobRemovedEx" : "JobRemoved",
                                 match_job_removed, NULL, c);
                 if (r < 0)
                         return r;
