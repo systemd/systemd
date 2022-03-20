@@ -13,6 +13,7 @@
 #include "bus-polkit.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
@@ -338,27 +339,15 @@ static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, vo
 }
 
 static int manager_clock_change_listen(Manager *m) {
-        _cleanup_close_ int fd = -1;
         int r;
 
         assert(m);
 
         m->clock_change_event_source = sd_event_source_disable_unref(m->clock_change_event_source);
 
-        fd = time_change_fd();
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to allocate clock change timer fd: %m");
-
-        r = sd_event_add_io(m->event, &m->clock_change_event_source, fd, EPOLLIN, on_clock_change, m);
+        r = event_add_time_change(m->event, &m->clock_change_event_source, on_clock_change, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create clock change event source: %m");
-
-        r = sd_event_source_set_io_fd_own(m->clock_change_event_source, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to pass ownership of clock fd to event source: %m");
-        TAKE_FD(fd);
-
-        (void) sd_event_source_set_description(m->clock_change_event_source, "clock-change");
 
         return 0;
 }
