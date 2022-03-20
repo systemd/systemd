@@ -1340,6 +1340,22 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
                         return r;
                 if (r == 0)
                         return sd_bus_error_set(error, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+
+                if (sd_bus_message_is_method_call(message, NULL, "Subscribe"))
+                        m->n_legacy_subscribers++;
+        }
+
+        if (sd_bus_message_is_method_call(message, NULL, "SubscribeWithFlags")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+                /* Let clients know that this version doesn't support any flags at the moment. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1364,6 +1380,22 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
                         return r;
                 if (r == 0)
                         return sd_bus_error_set(error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+
+                if (sd_bus_message_is_method_call(message, NULL, "Unsubscribe"))
+                        m->n_legacy_subscribers--;
+        }
+
+        if (sd_bus_message_is_method_call(message, NULL, "UnsubscribeWithFlags")) {
+                uint64_t input_flags = 0;
+
+                r = sd_bus_message_read(message, "t", &input_flags);
+                if (r < 0)
+                        return r;
+                /* Let clients know that this version doesn't support any flags at the moment. */
+                if (input_flags != 0)
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                          input_flags);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -3149,11 +3181,23 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       method_subscribe,
                       SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SubscribeWithFlags",
+                                 "t",
+                                 SD_BUS_PARAM(flags),
+                                 NULL,,
+                                 method_subscribe,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe",
                       NULL,
                       NULL,
                       method_unsubscribe,
                       SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("UnsubscribeWithFlags",
+                                 "t",
+                                 SD_BUS_PARAM(flags),
+                                 NULL,,
+                                 method_unsubscribe,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("Dump",
                                  NULL,,
                                  "s",
@@ -3458,6 +3502,14 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(job)
                                  SD_BUS_PARAM(unit)
                                  SD_BUS_PARAM(result),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("JobRemovedEx",
+                                 "uossay",
+                                 SD_BUS_PARAM(id)
+                                 SD_BUS_PARAM(job)
+                                 SD_BUS_PARAM(unit)
+                                 SD_BUS_PARAM(result)
+                                 SD_BUS_PARAM(invocation_id),
                                  0),
         SD_BUS_SIGNAL_WITH_NAMES("StartupFinished",
                                  "tttttt",
