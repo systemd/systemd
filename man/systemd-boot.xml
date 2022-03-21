@@ -30,12 +30,12 @@
 
     <para><command>systemd-boot</command> loads boot entry information from the EFI system partition (ESP),
     usually mounted at <filename>/efi/</filename>, <filename>/boot/</filename>, or
-    <filename>/boot/efi/</filename> during OS runtime, as well as from the Extended Boot Loader partition if
-    it exists (usually mounted to <filename>/boot/</filename>). Configuration file fragments, kernels,
-    initrds and other EFI images to boot generally need to reside on the ESP or the Extended Boot Loader
-    partition. Linux kernels must be built with <option>CONFIG_EFI_STUB</option> to be able to be directly
-    executed as an EFI image. During boot <command>systemd-boot</command> automatically assembles a list of
-    boot entries from the following sources:</para>
+    <filename>/boot/efi/</filename> during OS runtime, as well as from the Extended Boot Loader partition
+    (XBOOTLDR) if it exists (usually mounted to <filename>/boot/</filename>). Configuration file fragments,
+    kernels, initrds and other EFI images to boot generally need to reside on the ESP or the Extended Boot
+    Loader partition. Linux kernels must be built with <option>CONFIG_EFI_STUB</option> to be able to be
+    directly executed as an EFI image. During boot <command>systemd-boot</command> automatically assembles a
+    list of boot entries from the following sources:</para>
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink

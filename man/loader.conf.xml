@@ -23,6 +23,7 @@
   <refsynopsisdiv>
     <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>,
     <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename>
+    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename>
     </para>
   </refsynopsisdiv>
 
@@ -33,8 +34,10 @@
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
     read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>, and any files with the
     <literal>.conf</literal> extension under
-    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP) as
-    defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.
+    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP),
+    and <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/</filename> on the extended boot loader
+    partition (XBOOTLDR) as defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+    Specification</ulink>.
     </para>
 
     <para>Each of these configuration files must consist of series of newline (i.e. ASCII code 10) separated
@@ -52,8 +55,10 @@
     <title>Options</title>
 
     <para>The configuration options supported by
-    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> files are defined as part of
-    the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.</para>
+    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> and
+    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename> files are defined as part
+    of the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+    Specification</ulink>.</para>
 
     <para>The following configuration are supported by the <filename>loader.conf</filename> configuration
     file:</para>
