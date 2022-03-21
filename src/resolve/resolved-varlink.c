@@ -559,7 +559,6 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
 
 static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata)
 {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         Manager *m;
 
         assert(link);

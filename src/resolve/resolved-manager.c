@@ -1088,7 +1088,6 @@ int send_dns_notification(Manager* m, DnsAnswer* answer)
                                JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
                                                JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
-                                               JSON_BUILD_PAIR("ttl", JSON_BUILD_INTEGER(rr->ttl)),
                                                JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
 
                 if (!canonical)
