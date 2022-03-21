@@ -78,6 +78,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* per-service sandboxing option: ProtectIds=. If used, will overmount
+  /etc/machine-id and /proc/sys/kernel/random/boot_id with synthetic files, to
+  make it harder for the service to identify the host. Depending on the user
+  setting it should be fully randomized at invocation time, or a hash of the
+  real thing, keyed by the unit name or so. Of course, there are other ways to
+  get these IDs (e.g. journal) or similar ids (e.g. MAC addresses, DMI ids, CPU
+  ids), so this knob would only be useful in combination with other lockdown
+  options. Particularly useful for portable services, and anything else that
+  uses RootDirectory= or RootImage=. (Might also over-mount
+  /sys/class/dmi/id/*{uuid,serial} with /dev/null).
+
 * journalctl/timesyncd: whenever timesyncd acquires a synchronization from NTP,
   create a structured log entry that contains boot ID, monotonic clock and
   realtime clock (I mean, this requires no special work, as these three fields
