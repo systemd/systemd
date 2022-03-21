@@ -971,7 +971,7 @@ manpages = [
  ['systemd-stdio-bridge', '1', [], ''],
  ['systemd-stub',
   '7',
-  ['linuxaa64.efi.stub', 'linuxia32.efi.stub', 'linuxx64.efi.stub'],
+  ['linuxaa64.efi.stub', 'linuxia32.efi.stub', 'linuxx64.efi.stub', 'sd-stub'],
   'HAVE_GNU_EFI'],
  ['systemd-suspend.service',
   '8',
