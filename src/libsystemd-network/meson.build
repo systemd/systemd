@@ -119,7 +119,7 @@ fuzzers += [
          [libsystemd_network,
           libshared]],
 
-        [files('fuzz-dhcp-server-relay-message.c'),
+        [files('fuzz-dhcp-server-relay.c'),
          [libsystemd_network,
           libshared]],
 
