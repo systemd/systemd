@@ -37,9 +37,10 @@
     defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.
     </para>
 
-    <para>Each configuration file must consist of an option name, followed by
-    whitespace, and the option value. <literal>#</literal> may be used to start
-    a comment line. Empty and comment lines are ignored.</para>
+    <para>Each of these configuration files must consist of series of newline (i.e. ASCII code 10) separated
+    lines, each consisting of an option name, followed by whitespace, and the option
+    value. <literal>#</literal> may be used to start a comment line. Empty and comment lines are ignored. The
+    files use UTF-8 encoding.</para>
 
     <para>Boolean arguments may be written as
     <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
