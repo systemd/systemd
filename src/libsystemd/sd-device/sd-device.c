@@ -824,14 +824,14 @@ int device_set_drivers_subsystem(sd_device *device) {
                 return r;
 
         drivers = strstr(syspath, "/drivers/");
-        if (!drivers)
+        if (!drivers || drivers == syspath)
                 return -EINVAL;
 
-        for (p = drivers - 1; p >= syspath; p--)
+        for (p = drivers - 1; p > syspath; p--)
                 if (*p == '/')
                         break;
 
-        if (p <= syspath)
+        if (p == syspath)
                 /* syspath does not start with /sys/ ?? */
                 return -EINVAL;
         p++;
