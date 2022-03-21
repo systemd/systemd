@@ -638,7 +638,9 @@ endif
 
 ############################################################
 
-if run_command('python3', '-c', 'import jinja2', check : false).returncode() != 0
+pymod = import('python')
+python = pymod.find_installation('python3')
+if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
         error('python3 jinja2 missing')
 endif
 
