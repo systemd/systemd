@@ -970,6 +970,56 @@ TEST(open_mkdir_at) {
         assert_se(subsubdir_fd >= 0);
 }
 
+TEST(openat_report_new) {
+        _cleanup_free_ char *j = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _cleanup_close_ int fd = -1;
+        bool b;
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+
+        j = path_join(d, "test");
+        assert_se(j);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(b);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(!b);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(!b);
+
+        assert_se(unlink(j) >= 0);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(b);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(!b);
+
+        assert_se(unlink(j) >= 0);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, NULL);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+
+        fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
+        assert_se(!b);
+}
+
 static int intro(void) {
         arg_test_dir = saved_argv[1];
         return EXIT_SUCCESS;
