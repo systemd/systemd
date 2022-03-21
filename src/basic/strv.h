@@ -134,7 +134,7 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
                                 _len > 0 ? h + _len - 1 : NULL;         \
                         });                                             \
              (s = i);                                                   \
-             i > h ? i-- : (i = NULL))
+             i = PTR_SUB1(i, h))
 
 #define STRV_FOREACH_BACKWARDS(s, l)                                    \
         _STRV_FOREACH_BACKWARDS(s, l, UNIQ_T(h, UNIQ), UNIQ_T(i, UNIQ))
