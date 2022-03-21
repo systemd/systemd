@@ -24,7 +24,12 @@ EOF
 test_append_files() {
     local workspace="${1:?}"
     # prevent shutdown in test suite, the expect script does that manually.
-    rm "${workspace:?}/usr/lib/systemd/tests/testdata/units/end.service"
+    mkdir -p "${workspace:?}/etc/systemd/system/end.service.d"
+    cat >"$workspace/etc/systemd/system/end.service.d/99-override.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=/bin/true
+EOF
     inst /usr/bin/screen
     echo "PS1='screen\$WINDOW # '" >>"$workspace/root/.bashrc"
     echo 'startup_message off' >"$workspace/etc/screenrc"
