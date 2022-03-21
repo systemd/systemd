@@ -930,7 +930,7 @@ int path_find_first_component(const char **p, bool accept_dot_dot, const char **
 static const char *skip_slash_or_dot_backward(const char *path, const char *q) {
         assert(path);
 
-        for (; q >= path; q--) {
+        for (; q; q = PTR_SUB1(q, path)) {
                 if (*q == '/')
                         continue;
                 if (q > path && strneq(q - 1, "/.", 2))
