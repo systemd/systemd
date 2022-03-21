@@ -148,10 +148,10 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
  *                  the previous label (always skipping one dot) or to NULL if there are no more
  *                  labels. */
 int dns_label_unescape_suffix(const char *name, const char **label_terminal, char *dest, size_t sz) {
-        const char *terminal;
+        const char *label = ASSERT_PTR(name);
+        ssize_t terminal;
         int r;
 
-        assert(name);
         assert(label_terminal);
         assert(dest);
 
@@ -163,34 +163,32 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                 return 0;
         }
 
-        terminal = *label_terminal;
-        assert(IN_SET(*terminal, 0, '.'));
+        terminal = *label_terminal - name;
+        assert(IN_SET(name[terminal], '\0', '.'));
 
-        /* Skip current terminal character (and accept domain names ending it ".") */
-        if (*terminal == 0)
+        /* Skip current terminal character (and accept domain names ending with ".") */
+        if (name[terminal] == '\0')
                 terminal--;
-        if (terminal >= name && *terminal == '.')
+        if (terminal >= 0 && name[terminal] == '.')
                 terminal--;
 
         /* Point name to the last label, and terminal to the preceding terminal symbol (or make it a NULL pointer) */
         for (;;) {
-                if (terminal < name) {
-                        /* Reached the first label, so indicate that there are no more */
-                        terminal = NULL;
+                if (terminal < 0)
+                        /* Reached the first label, there are no more */
                         break;
-                }
 
                 /* Find the start of the last label */
-                if (*terminal == '.') {
-                        const char *y;
+                if (name[terminal] == '.') {
+                        ssize_t y;
                         unsigned slashes = 0;
 
-                        for (y = terminal - 1; y >= name && *y == '\\'; y--)
+                        for (y = terminal - 1; y >= 0 && name[y] == '\\'; y--)
                                 slashes++;
 
                         if (slashes % 2 == 0) {
-                                /* The '.' was not escaped */
-                                name = terminal + 1;
+                                /* The '.' was not escaped, we found the label to unescape */
+                                label = name + terminal + 1;
                                 break;
                         } else {
                                 terminal = y;
@@ -201,11 +199,11 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                 terminal--;
         }
 
-        r = dns_label_unescape(&name, dest, sz, 0);
+        r = dns_label_unescape(&label, dest, sz, 0);
         if (r < 0)
                 return r;
 
-        *label_terminal = terminal;
+        *label_terminal = terminal >= 0 ? name + terminal : NULL;
 
         return r;
 }
