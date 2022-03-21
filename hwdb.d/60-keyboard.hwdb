@@ -164,6 +164,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
  KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
  KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F9
 
+# Travelmate B311-31, B311R-31, B311RN-31
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311-31*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311R-31*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMateB311RN-31*:pvr*
+ KEYBOARD_KEY_8a=f20                                    # Microphone mute
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
@@ -595,6 +601,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:*
 # 2570p
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
+# Elitebook 2760p
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
+ KEYBOARD_KEY_89=battery                                # Fn+F8
+ KEYBOARD_KEY_f8=unknown                                # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_86=volumeup
+ KEYBOARD_KEY_87=volumedown
+ KEYBOARD_KEY_92=brightnessdown
+ KEYBOARD_KEY_97=brightnessup
+ KEYBOARD_KEY_d8=!f23                                   # touchpad off
+ KEYBOARD_KEY_d9=!f22                                   # touchpad on
+ KEYBOARD_KEY_b3=unknown                                # FIXME: Auto brightness
 
 # TX2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:*
@@ -1344,6 +1362,17 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
+
+##########################################
+# NEC
+##########################################
+
+# VersaPro VG-S
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNEC:pnPC-VK22TGSGS:pvr*
+ KEYBOARD_KEY_a8=f21                                    # Fn+Space touchpad toggle
+ KEYBOARD_KEY_67=brightnessdown                         # Fn+F7 brightness down
+ KEYBOARD_KEY_65=brightnessup                           # Fn+F8 brightness up
+ KEYBOARD_KEY_71=battery                                # Fn+F4 ECO
 
 ###########################################################
 # Olimex

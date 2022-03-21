@@ -12,7 +12,6 @@
 #include "systemctl.h"
 
 static int normalize_filenames(char **names) {
-        char **u;
         int r;
 
         STRV_FOREACH(u, names)
@@ -39,8 +38,7 @@ static int normalize_filenames(char **names) {
         return 0;
 }
 
-static int normalize_names(char **names, bool warn_if_path) {
-        char **u;
+static int normalize_names(char **names) {
         bool was_path = false;
 
         STRV_FOREACH(u, names) {
@@ -56,7 +54,7 @@ static int normalize_names(char **names, bool warn_if_path) {
                 was_path = true;
         }
 
-        if (warn_if_path && was_path)
+        if (was_path)
                 log_warning("Warning: Can't execute disable on the unit file path. Proceeding with the unit name.");
 
         return 0;
@@ -92,7 +90,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
         if (streq(verb, "disable")) {
-                r = normalize_names(names, true);
+                r = normalize_names(names);
                 if (r < 0)
                         return r;
         }
@@ -117,9 +115,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
                         r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "preset")) {
+                else if (streq(verb, "preset"))
                         r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
-                } else if (streq(verb, "mask"))
+                else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
@@ -141,7 +139,6 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
-                        char **name;
                         _cleanup_(lookup_paths_free) LookupPaths lp = {};
 
                         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);

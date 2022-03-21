@@ -22,9 +22,8 @@
 #include "user-util.h"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
+        usec_t min = TIME_EPOCH * USEC_PER_SEC, ct;
         _cleanup_close_ int fd = -1;
-        usec_t min = TIME_EPOCH * USEC_PER_SEC;
-        usec_t ct;
         int r;
 
         /* Let's try to make sure that the clock is always
@@ -40,8 +39,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 usec_t stamp;
 
                 /* check if the recorded time is later than the compiled-in one */
-                r = fstat(fd, &st);
-                if (r >= 0) {
+                if (fstat(fd, &st) >= 0) {
                         stamp = timespec_load(&st.st_mtim);
                         if (stamp > min)
                                 min = stamp;
@@ -64,7 +62,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
                 /* create stamp file with the compiled-in date */
-                r = touch_file(CLOCK_FILE, false, min, uid, gid, 0644);
+                r = touch_file(CLOCK_FILE, /* parents= */ false, min, uid, gid, 0644);
                 if (r < 0)
                         log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
         }
@@ -72,13 +70,12 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 settime:
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
-                struct timespec ts;
                 char date[FORMAT_TIMESTAMP_MAX];
 
                 log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
                          format_timestamp(date, sizeof(date), min));
 
-                if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
+                if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min)) < 0)
                         log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
         }
 

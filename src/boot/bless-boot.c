@@ -8,6 +8,7 @@
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -324,7 +325,6 @@ static const char *skip_slash(const char *path) {
 static int verb_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
-        char **p;
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
@@ -401,7 +401,6 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL, *parent = NULL;
         const char *target, *source1, *source2;
         uint64_t done;
-        char **p;
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, NULL, &done, &suffix);

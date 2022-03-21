@@ -60,7 +60,7 @@ bytes however, as well as any other binary data. Keys may not include the `=`
 or newline characters (or any other control characters or non-ASCII characters)
 and may not be empty.
 
-Serialization into the datagram payload or `memfd` is straight-forward: each
+Serialization into the datagram payload or `memfd` is straightforward: each
 key/value pair is serialized via one of two methods:
 
 * The first method inserts a `=` character between key and value, and suffixes

@@ -307,13 +307,9 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(d->sysfs),
                 prefix, strna(s));
 
-        if (!strv_isempty(d->wants_property)) {
-                char **i;
-
-                STRV_FOREACH(i, d->wants_property)
-                        fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
-                                prefix, *i);
-        }
+        STRV_FOREACH(i, d->wants_property)
+                fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
+                        prefix, *i);
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
@@ -419,9 +415,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 k = NULL;
         }
 
-        if (d->state != DEVICE_DEAD) {
-                char **i;
-
+        if (d->state != DEVICE_DEAD)
                 /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
                  * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
                  * changes while the device unit is already up, let's manually trigger any new units listed in it not
@@ -431,7 +425,6 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                  *
                  * We do this only if the device has been up already when we parse this, as otherwise the usual
                  * dependency logic that is run from the dead → plugged transition will trigger these deps. */
-
                 STRV_FOREACH(i, added) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -442,7 +435,6 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
                 }
-        }
 
         return strv_free_and_replace(d->wants_property, added);
 }
@@ -710,7 +702,7 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
 }
 
 static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
-        Device *d, *l, *n;
+        Device *l;
 
         assert(m);
         assert(sysfs);
@@ -719,7 +711,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
                 return;
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l)
+        LIST_FOREACH(same_sysfs, d, l)
                 device_update_found_one(d, found, mask);
 }
 
@@ -765,7 +757,7 @@ static bool device_is_ready(sd_device *dev) {
 
 static Unit *device_following(Unit *u) {
         Device *d = DEVICE(u);
-        Device *other, *first = NULL;
+        Device *first = NULL;
 
         assert(d);
 
@@ -788,7 +780,7 @@ static Unit *device_following(Unit *u) {
 }
 
 static int device_following_set(Unit *u, Set **_set) {
-        Device *d = DEVICE(u), *other;
+        Device *d = DEVICE(u);
         _cleanup_set_free_ Set *set = NULL;
         int r;
 
@@ -898,14 +890,14 @@ fail:
 }
 
 static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
-        Device *d, *l, *n;
+        Device *l;
         int r;
 
         assert(m);
         assert(sysfs);
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
+        LIST_FOREACH(same_sysfs, d, l) {
                 if (d->state == DEVICE_DEAD)
                         continue;
 

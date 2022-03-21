@@ -215,7 +215,6 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
                 _cleanup_strv_free_ char **args = NULL;
-                char **p;
 
                 args = strv_parse_nulstr(t, k);
                 if (!args)
@@ -820,13 +819,12 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
         for (;;) {
                 usec_t n;
                 siginfo_t status = {};
-                struct timespec ts;
 
                 n = now(CLOCK_MONOTONIC);
                 if (n >= until)
                         break;
 
-                r = RET_NERRNO(sigtimedwait(&mask, NULL, timespec_store(&ts, until - n)));
+                r = RET_NERRNO(sigtimedwait(&mask, NULL, TIMESPEC_STORE(until - n)));
                 /* Assuming we woke due to the child exiting. */
                 if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
                         if (status.si_pid == pid) {

@@ -304,7 +304,6 @@ static int luks_try_passwords(
                 size_t *volume_key_size,
                 key_serial_t *ret_key_serial) {
 
-        char **pp;
         int r;
 
         assert(h);
@@ -1151,44 +1150,33 @@ static int lock_image_fd(int image_fd, const char *ip) {
          * image file, and send it to our parent. homed will keep it open to ensure no other instance of
          * homed (across the network or such) will also mount the file. */
 
+        assert(image_fd >= 0);
+        assert(ip);
+
         r = getenv_bool("SYSTEMD_LUKS_LOCK");
         if (r == -ENXIO)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_LUKS_LOCK environment variable: %m");
-        if (r > 0) {
-                struct stat st;
+        if (r == 0)
+                return 0;
 
-                if (fstat(image_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat image file: %m");
-                if (S_ISBLK(st.st_mode)) {
-                        /* Locking block devices doesn't really make sense, as this might interfere with
-                         * udev's workings, and these locks aren't network propagated anyway, hence not what
-                         * we are after here. */
-                        log_debug("Not locking image file '%s', since it's a block device.", ip);
-                        return 0;
-                }
-                r = stat_verify_regular(&st);
-                if (r < 0)
-                        return log_error_errno(r, "Image file to lock is not a regular file: %m");
+        if (flock(image_fd, LOCK_EX|LOCK_NB) < 0) {
 
-                if (flock(image_fd, LOCK_EX|LOCK_NB) < 0) {
+                if (errno == EWOULDBLOCK)
+                        log_error_errno(errno, "Image file '%s' already locked, can't use.", ip);
+                else
+                        log_error_errno(errno, "Failed to lock image file '%s': %m", ip);
 
-                        if (errno == EWOULDBLOCK)
-                                log_error_errno(errno, "Image file '%s' already locked, can't use.", ip);
-                        else
-                                log_error_errno(errno, "Failed to lock image file '%s': %m", ip);
-
-                        return errno != EWOULDBLOCK ? -errno : -EADDRINUSE; /* Make error recognizable */
-                }
-
-                log_info("Successfully locked image file '%s'.", ip);
-
-                /* Now send it to our parent to keep safe while the home dir is active */
-                r = sd_pid_notify_with_fds(0, false, "SYSTEMD_LUKS_LOCK_FD=1", &image_fd, 1);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to send LUKS lock fd to parent, ignoring: %m");
+                return errno != EWOULDBLOCK ? -errno : -EADDRINUSE; /* Make error recognizable */
         }
+
+        log_info("Successfully locked image file '%s'.", ip);
+
+        /* Now send it to our parent to keep safe while the home dir is active */
+        r = sd_pid_notify_with_fds(0, false, "SYSTEMD_LUKS_LOCK_FD=1", &image_fd, 1);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send LUKS lock fd to parent, ignoring: %m");
 
         return 0;
 }
@@ -1203,6 +1191,8 @@ static int open_image_file(
         const char *ip;
         int r;
 
+        assert(h || force_image_path);
+
         ip = force_image_path ?: user_record_image_path(h);
 
         image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -1216,9 +1206,14 @@ static int open_image_file(
                                 S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
                                 "Image file %s is not a regular file or block device: %m", ip);
 
-        r = lock_image_fd(image_fd, ip);
-        if (r < 0)
-                return r;
+        /* Locking block devices doesn't really make sense, as this might interfere with
+         * udev's workings, and these locks aren't network propagated anyway, hence not what
+         * we are after here. */
+        if (S_ISREG(st.st_mode)) {
+                r = lock_image_fd(image_fd, ip);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_stat)
                 *ret_stat = st;
@@ -1722,7 +1717,6 @@ static int luks_format(
         _cleanup_free_ char *text = NULL;
         size_t volume_key_size;
         int slot = 0, r;
-        char **pp;
 
         assert(node);
         assert(dm_name);
@@ -2204,12 +2198,10 @@ int home_create_luks(
 
                 /* Let's place the home directory on a real device, i.e. an USB stick or such */
 
-                setup->image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                setup->image_fd = open_image_file(h, ip, &st);
                 if (setup->image_fd < 0)
-                        return log_error_errno(errno, "Failed to open device %s: %m", ip);
+                        return setup->image_fd;
 
-                if (fstat(setup->image_fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat device %s: %m", ip);
                 if (!S_ISBLK(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
 
@@ -3665,7 +3657,6 @@ static int luks_try_resume(
                 const char *dm_name,
                 char **password) {
 
-        char **pp;
         int r;
 
         assert(cd);

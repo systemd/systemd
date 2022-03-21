@@ -709,7 +709,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse static routes, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_INTERFACE_MTU:
+        case SD_DHCP_OPTION_MTU_INTERFACE:
                 r = lease_parse_u16(option, len, &lease->mtu, 68);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
@@ -729,7 +729,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
                 break;
 
-        case SD_DHCP_OPTION_DOMAIN_SEARCH_LIST:
+        case SD_DHCP_OPTION_DOMAIN_SEARCH:
                 r = dhcp_lease_parse_search_domains(option, len, &lease->search_domains);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse Domain Search List, ignoring: %m");
@@ -750,13 +750,13 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse root path, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_RENEWAL_T1_TIME:
+        case SD_DHCP_OPTION_RENEWAL_TIME:
                 r = lease_parse_u32(option, len, &lease->t1, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 time, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_REBINDING_T2_TIME:
+        case SD_DHCP_OPTION_REBINDING_TIME:
                 r = lease_parse_u32(option, len, &lease->t2, 1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 time, ignoring: %m");
@@ -768,7 +768,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse classless routes, ignoring: %m");
                 break;
 
-        case SD_DHCP_OPTION_NEW_TZDB_TIMEZONE: {
+        case SD_DHCP_OPTION_TZDB_TIMEZONE: {
                 _cleanup_free_ char *tz = NULL;
 
                 r = lease_parse_string(option, len, &tz);
@@ -916,13 +916,15 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
 }
 
 int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const void *data, uint8_t len) {
-        struct sd_dhcp_raw_option *cur, *option;
+        struct sd_dhcp_raw_option *option, *before = NULL;
 
         assert(lease);
 
         LIST_FOREACH(options, cur, lease->private_options) {
-                if (tag < cur->tag)
+                if (tag < cur->tag) {
+                        before = cur;
                         break;
+                }
                 if (tag == cur->tag) {
                         log_debug("Ignoring duplicate option, tagged %i.", tag);
                         return 0;
@@ -941,7 +943,7 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
                 return -ENOMEM;
         }
 
-        LIST_INSERT_BEFORE(options, lease->private_options, cur, option);
+        LIST_INSERT_BEFORE(options, lease->private_options, before, option);
         return 0;
 }
 
@@ -961,7 +963,6 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        struct sd_dhcp_raw_option *option;
         struct in_addr address;
         const struct in_addr *addresses;
         const void *client_id, *data;

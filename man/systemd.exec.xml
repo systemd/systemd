@@ -145,7 +145,7 @@
           <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
         </example>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,9 +276,7 @@
 
         <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate</filename>
         on the host will be used to set up new mounts, and <filename>/run/host/incoming/</filename> in the private namespace
-        will be used as an intermediate step to store them before being moved to the final mount point.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        will be used as an intermediate step to store them before being moved to the final mount point.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -364,9 +362,7 @@
         <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
         directories if <varname>ProtectHome=yes</varname> is
         specified. <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal> or
-        <varname>ProtectHome=tmpfs</varname> should be used instead.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <varname>ProtectHome=tmpfs</varname> should be used instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -485,7 +481,10 @@
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
+        which was first introduced in kernel v5.11.</para>
+
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -630,7 +629,7 @@
   <refsect1>
     <title>Capabilities</title>
 
-    <xi:include href="system-only.xml" xpointer="plural"/>
+    <xi:include href="system-or-user-ns.xml" xpointer="plural"/>
 
     <variablelist class='unit-directives'>
 
@@ -1259,7 +1258,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all cases. In
         general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1513,7 +1512,7 @@ NoExecPaths=/
 ExecPaths=/usr/sbin/my_daemon /usr/lib /usr/lib64
 </programlisting></para>
 
-        <xi:include href="system-only.xml" xpointer="plural"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="plural"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1538,7 +1537,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         then the invoked processes by the unit cannot see any files or directories under <filename>/var/</filename> except for
         <filename>/var/lib/systemd</filename> or its contents.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1566,7 +1565,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         available), and the unit should be written in a way that does not solely rely on this setting for
         security.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1600,7 +1599,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         namespaces are not available), and the unit should be written in a way that does not solely rely on
         this setting for security.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
         <para>When access to some but not all devices must be possible, the <varname>DeviceAllow=</varname>
         setting might be used instead. See
@@ -1634,7 +1633,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>JoinsNamespaceOf=</varname> to listen on sockets inside of network namespaces of other
         services.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1653,7 +1652,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
         bound within the specified network namespace.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1684,7 +1683,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         not available), and the unit should be written in a way that does not solely rely on this setting for
         security.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1700,7 +1699,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>IPCNamespacePath=</varname> configured, as otherwise the network namespace of those
         units is reused.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1754,7 +1753,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         capability (e.g. services for which <varname>User=</varname> is set),
         <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1771,7 +1770,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for which
         <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1795,7 +1794,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         inaccessible. If <varname>ProtectKernelTunables=</varname> is set,
         <varname>MountAPIVFS=yes</varname> is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1816,7 +1815,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for
         which <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1835,7 +1834,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         capability (e.g. services for which <varname>User=</varname> is set),
         <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2139,7 +2138,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
         used.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2169,7 +2168,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
         options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -2719,8 +2718,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
         on the filesystem, it is opened (created if it doesn't exist yet) for writing at the beginning of the file,
         but without truncating it.
-        If standard input and output are directed to the same file path, it is opened only once, for reading as well
-        as writing and duplicated. This is particularly useful when the specified path refers to an
+        If standard input and output are directed to the same file path, it is opened only once — for reading as well
+        as writing — and duplicated. This is particularly useful when the specified path refers to an
         <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
 
@@ -2746,16 +2745,17 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
 
-        <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard output to a specific,
-        named file descriptor provided by a socket unit.  A name may be specified as part of this option, following a
-        <literal>:</literal> character (e.g. <literal>fd:foobar</literal>).  If no name is specified, the name
+        <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard output to a
+        specific, named file descriptor provided by a socket unit.  A name may be specified as part of this
+        option, following a <literal>:</literal> character
+        (e.g. <literal>fd:<replaceable>foobar</replaceable></literal>). If no name is specified, the name
         <literal>stdout</literal> is implied (i.e. <literal>fd</literal> is equivalent to
-        <literal>fd:stdout</literal>).  At least one socket unit defining the specified name must be provided via the
-        <varname>Sockets=</varname> option, and the file descriptor name may differ from the name of its containing
-        socket unit.  If multiple matches are found, the first one will be used.  See
+        <literal>fd:stdout</literal>). At least one socket unit defining the specified name must be provided
+        via the <varname>Sockets=</varname> option, and the file descriptor name may differ from the name of
+        its containing socket unit. If multiple matches are found, the first one will be used. See
         <varname>FileDescriptorName=</varname> in
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
-        details about named descriptors and their ordering.</para>
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more details about named descriptors and their ordering.</para>
 
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
@@ -3410,7 +3410,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varlistentry>
           <term><varname>$SERVICE_RESULT</varname></term>
 
-          <listitem><para>Only defined for the service unit type, this environment variable is passed to all
+          <listitem><para>Only used for the service unit type. This environment variable is passed to all
           <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes, and encodes the service
           "result". Currently, the following values are defined:</para>
 
@@ -3478,7 +3478,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           <term><varname>$EXIT_CODE</varname></term>
           <term><varname>$EXIT_STATUS</varname></term>
 
-          <listitem><para>Only defined for the service unit type, these environment variables are passed to all
+          <listitem><para>Only defined for the service unit type. These environment variables are passed to all
           <varname>ExecStop=</varname>, <varname>ExecStopPost=</varname> processes and contain exit status/code
           information of the main process of the service. For the precise definition of the exit code and status, see
           <citerefentry><refentrytitle>wait</refentrytitle><manvolnum>2</manvolnum></citerefentry>. <varname>$EXIT_CODE</varname>
@@ -3591,38 +3591,28 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </varlistentry>
 
         <varlistentry>
-          <term><varname>$MONITOR_METADATA</varname></term>
+          <term><varname>$MONITOR_SERVICE_RESULT</varname></term>
+          <term><varname>$MONITOR_EXIT_CODE</varname></term>
+          <term><varname>$MONITOR_EXIT_STATUS</varname></term>
+          <term><varname>$MONITOR_INVOCATION_ID</varname></term>
+          <term><varname>$MONITOR_UNIT</varname></term>
 
-          <listitem><para>Only defined for the service unit type, this environment variable is passed to all
-          <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which run in services
-          triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.</para>
-
-          <para>
-          The contents of this variable consists of a semi-colon separated list of metadata fields associated with the triggering
-          service. For each service which triggered the <varname>OnFailure=</varname> or <varname>OnSuccess=</varname>
-          dependency the following fields will be set:
+          <listitem><para>Only defined for the service unit type. Those environment variable are passed to
+          all <varname>ExecStart=</varname> and <varname>ExecStartPre=</varname> processes which run in
+          services triggered by <varname>OnFailure=</varname> or <varname>OnSuccess=</varname> dependencies.
           </para>
 
-          <itemizedlist>
-            <listitem><para><constant>SERVICE_RESULT</constant></para></listitem>
-            <listitem><para><constant>EXIT_CODE</constant></para></listitem>
-            <listitem><para><constant>EXIT_STATUS</constant></para></listitem>
-            <listitem><para><constant>INVOCATION_ID</constant></para></listitem>
-            <listitem><para><constant>UNIT</constant></para></listitem>
-          </itemizedlist>
+          <para>Variables <varname>$MONITOR_SERVICE_RESULT</varname>, <varname>$MONITOR_EXIT_CODE</varname>
+          and <varname>$MONITOR_EXIT_STATUS</varname> take the same values as for
+          <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes. Variables
+          <varname>$MONITOR_INVOCATION_ID</varname> and <varname>$MONITOR_UNIT</varname> are set to the
+          invocaton id and unit name of the service which triggered the dependency.</para>
 
-          <para>The fields <constant>SERVICE_RESULT</constant>, <constant>EXIT_CODE</constant> and
-          <constant>EXIT_STATUS</constant> may take the same values that are allowed when set for
-          <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> processes. The fields
-          <constant>INVOCATION_ID</constant> and <constant>UNIT</constant> are the invocaton id and unit
-          name of the service which triggered the dependency. Each field is comma separated, i.e.</para>
-
-          <programlisting>
-SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=triggering.service
-          </programlisting>
-
-          </listitem>
-
+          <para>Note that when multiple services trigger the same unit, those variables will be
+          <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:
+          <literal>OnFailure=<replaceable>handler</replaceable>@%n.service</literal> for non-templated units,
+          or <literal>OnFailure=<replaceable>handler</replaceable>@%p-%i.service</literal> for templated
+          units.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -4066,7 +4056,7 @@ SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCAT
     <title>Examples</title>
 
       <example>
-        <title><varname>$MONITOR_METADATA</varname> usage</title>
+        <title><varname>$MONITOR_<replaceable>*</replaceable></varname> usage</title>
 
         <para>A service <filename index="false">myfailer.service</filename> which can trigger an
         <varname>OnFailure=</varname> dependency.</para>
@@ -4100,33 +4090,31 @@ ExecStart=/bin/mysecondprogram
 Description=Acts on service failing or succeeding
 
 [Service]
-ExecStart=/bin/bash -c "echo $MONITOR_METADATA"
+ExecStart=/bin/bash -c "echo $MONITOR_SERVICE_RESULT $MONITOR_EXIT_CODE $MONITOR_EXIT_STATUS $MONITOR_INVOCATION_ID $MONITOR_UNIT"
         </programlisting>
 
         <para>If <filename index="false">myfailer.service</filename> were to run and exit in failure,
         then <filename index="false">myhandler.service</filename> would be triggered and the
-        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+        monitor variables would be set as follows:</para>
 
         <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service
+MONITOR_SERVICE_RESULT=exit-code
+MONITOR_EXIT_CODE=exited
+MONITOR_EXIT_STATUS=1
+MONITOR_INVOCATION_ID=cc8fdc149b2b4ca698d4f259f4054236
+MONITOR_UNIT=myfailer.service
         </programlisting>
 
         <para>If <filename index="false">mysuccess.service</filename> were to run and exit in success,
         then <filename index="false">myhandler.service</filename> would be triggered and the
-        <varname>$MONITOR_METADATA</varname> variable would be set as follows:</para>
+        monitor variables would be set as follows:</para>
 
         <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
-        </programlisting>
-
-        <para>If <filename index="false">myfailer.service</filename> and <filename index="false">mysuccess.service</filename> were to run and exit,
-        there is a chance that the triggered dependency start job might be merged. Thus only a single invocation of
-        <filename index="false">myhandler.service</filename> would be triggered. In this case the <varname>$MONITOR_METADATA</varname> variable
-        would be a list containing exit metadata for both of <filename index="false">myfailer.service</filename>
-        and <filename index="false">mysuccess.service</filename>.</para>
-
-        <programlisting>
-MONITOR_METADATA=SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=myfailer.service;SERVICE_RESULT=result-string,EXIT_CODE=exit-code,EXIT_STATUS=exit-status,INVOCATION_ID=invocation-id,UNIT=mysuccess.service
+MONITOR_SERVICE_RESULT=success
+MONITOR_EXIT_CODE=exited
+MONITOR_EXIT_STATUS=0
+MONITOR_INVOCATION_ID=6ab9af147b8c4a3ebe36e7a5f8611697
+MONITOR_UNIT=mysuccess.service
         </programlisting>
 
     </example>

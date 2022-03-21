@@ -513,6 +513,8 @@ tests += [
 
         [files('test-strbuf.c')],
 
+        [files('test-bootspec.c')],
+
         [files('test-strv.c')],
 
         [files('test-path-util.c')],
@@ -611,7 +613,7 @@ tests += [
                'nss-test-util.h'),
          [],
          [libdl],
-         [], 'ENABLE_NSS'],
+         [], 'ENABLE_NSS', 'timeout=120'],
 
         [files('test-nss-users.c',
                'nss-test-util.c',

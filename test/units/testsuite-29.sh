@@ -31,21 +31,13 @@ portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
-set +o pipefail
-set +e
 systemctl is-active minimal-app0-bar.service && exit 1
-set -e
-set -o pipefail
 
 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
-set +o pipefail
-set +e
 systemctl is-active minimal-app0-foo.service && exit 1
-set -e
-set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 
@@ -62,21 +54,13 @@ portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 mi
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
-set +o pipefail
-set +e
 systemctl is-active minimal-app0-bar.service && exit 1
-set -e
-set -o pipefail
 
 portablectl "${ARGS[@]}" reattach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
-set +o pipefail
-set +e
 systemctl is-active minimal-app0-foo.service && exit 1
-set -e
-set -o pipefail
 
 portablectl list | grep -q -F "minimal_1"
 

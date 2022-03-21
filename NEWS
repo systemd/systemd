@@ -9,6 +9,66 @@ CHANGES WITH 251:
           can still be used by explicitly configuring RouteTable= setting in
           .netdev files.
 
+        * Jobs started via StartUnitWithFlags() will no longer return 'skipped'
+          when a Condition*= check does not succeed, restoring the JobRemoved
+          signal to the behaviour it had before v250.
+
+        * The org.freedesktop.portable1 methods GetMetadataWithExtensions and
+          GetImageMetadataWithExtensions have been fixed to provide an extra return
+          parameter, containing the actual extensions release metadata. The
+          current implementation was judged to be broken and unusable, and thus
+          the usual procedure of adding a new set of methods is skipped, opting
+          for breaking backward compatibility instead, as nobody should be
+          affected, given the state of the current interface.
+
+        * Service monitor environment variables will only be passed to
+          OnFailure=/OnSuccess= handlers if exactly one unit lists the handler
+          unit as OnFailure=/OnSuccess=.  Therefore, $MONITOR_METADATA is no
+          longer used, and instead separate variables are used:
+          $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE, $MONITOR_EXIT_STATUS,
+          $MONITOR_INVOCATION_ID and $MONITOR_UNIT.  For cases when a single
+          handler needs to watch multiple units, use a templated handler.
+
+        * kernel-install's and bootctl's Boot Loader Specification Type #1
+          entry generation logic has been reworked. The user may now pick
+          explicitly by which "token" string to name the installation's boot
+          entries, through the new /etc/kernel/entry-token file or the new
+          --entry-token= switch to bootctl. By default — as before — the
+          entries are named after the local machine ID. However, in "golden
+          image" environments, where the machine ID shall be initialized on
+          first boot (as opposed to at installation time before first boot) the
+          machine ID is not be available at build time to name the entry
+          after. In this case the --entry-token= switch to bootctl (or the
+          /etc/kernel/entry-token file) may be used to override the "token" to
+          identify the entry by, and use another ID, for example the IMAGE_ID=
+          or ID= fields from /etc/os-release. This will make the OS images
+          independent of any machine ID, and ensure that the images will not
+          carry any identifiable information before first boot, but on the
+          other hand means that multiple parallel installations of the very
+          same image on the same disk cannot be supported. Summary: if you are
+          building golden images that shall acquire identity information
+          exclusively on first boot, make sure to both remove /etc/machine-id
+          *and* to write /etc/kernel/entry-token to the value of the IMAGE_ID
+          or ID field of /etc/os-release or another suitable identifier before
+          deploying the image.
+
+        * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
+          loader.conf that implements booting Microsoft Windows from the
+          sd-boot in a way that first reboots the system, to reset the TPM
+          PCRs. This improves compatibility with BitLocker's TPM use, as the
+          PCRs will only record the Windows boot process, and not sd-boot
+          itself, thus retaining the PCR measurements not involving
+          sd-boot. Note that this feature is experimental for now, and is
+          likely going to be generalized, renamed and removed in its current
+          form in a future release, without retaining compatibility with its
+          current implementation.
+
+        * The --make-machine-id-directory= switch to bootctl has been replaced
+          by --make-entry-directory=, given that the entry directory is not
+          necessarily named after the machine ID, but after some other suitable
+          ID as selected via --entry-token= described above. The old name of
+          the option is still understood to maximize compatibility.
+
         * Services with Restart=always and a failing ExecCondition= will no longer
           be restarted, to bring ExecCondition= in line with Condition*= settings.
 
@@ -45,6 +105,33 @@ CHANGES WITH 251:
           user databases or persistent configuration, thus greatly simplifying
           handling, and improving compatibility with home directories intended
           to be portable like the ones managed by systemd-homed.
+
+        * All kernels supported by systemd mix RDRAND (or similar) into the
+          entropy pool at early boot. This means that on those systems, even
+          if /dev/urandom is not yet initialized, it still returns bytes that
+          that are at least as high quality as RDRAND. For that reason, we no
+          longer have reason to invoke RDRAND from systemd itself, which has
+          historically been a source of bugs. Furthermore, kernels ≥5.6 provide
+          the getrandom(GRND_INSECURE) interface for returning random bytes
+          before the entropy pool is initialized without warning into kmsg,
+          which is what we attempt to use if available. By removing systemd's
+          direct usage of RDRAND, x86 systems ≥Broadwell that are running an
+          older kernel may experience kmsg warnings that were not seen with
+          250. For newer kernels, non-x86 systems, or older x86 systems,
+          there should be no visible changes.
+
+        * sd-boot will now measure the kernel command line into TPM PCR 12
+          rather than PCR 8. This improves usefulness of the measurements on
+          sytems where sd-boot is chainloaded from Grub. Grub measures all
+          commands its executes into PCR 8, which makes it very hard to use
+          reasonably, hence separate ourselves from that and use PCR 12
+          instead, which is already what certain Ubuntu editions use it for. To
+          retain compatibility with systems running older systemd systems a new
+          Meson option 'efi-tpm-pcr-compat' has been added (which defaults to
+          false). If enabled, the measurement is done twice: into the new-style
+          PCR 12 *and* the old-style PCR 8. It's strongly advised to migrate
+          all users to PCR 12 for this purpose in the long run, as we intend to
+          remove this compatibility feature again in two year's time.
 
 CHANGES WITH 250:
 
@@ -12406,7 +12493,7 @@ CHANGES WITH 197:
           based on a calendar time specification such as "Thu,Fri
           2013-*-1,5 11:12:13" which refers to 11:12:13 of the first
           or fifth day of any month of the year 2013, given that it is
-          a thursday or friday. This brings timer event support
+          a Thursday or a Friday. This brings timer event support
           considerably closer to cron's capabilities. For details on
           the supported calendar time specification language see
           systemd.time(7).

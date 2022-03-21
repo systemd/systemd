@@ -22,6 +22,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-libevdev
     python3-pyparsing
+    rpm
     zstd
 )
 

@@ -32,7 +32,7 @@ _bootctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful'
-        [ARG]='--esp-path --boot-path'
+        [ARG]='--esp-path --boot-path --make-machine-id-directory'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -44,6 +44,9 @@ _bootctl() {
                     comps=$(compgen -A directory -- "$cur" )
                 fi
                 compopt -o filenames
+                ;;
+            --make-machine-id-directory)
+                comps="yes no auto"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

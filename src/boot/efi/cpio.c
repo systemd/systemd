@@ -311,7 +311,8 @@ EFI_STATUS pack_cpio(
                 const CHAR8 *target_dir_prefix,
                 UINT32 dir_mode,
                 UINT32 access_mode,
-                UINTN tpm_pcr,
+                const UINT32 tpm_pcr[],
+                UINTN n_tpm_pcr,
                 const CHAR16 *tpm_description,
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
@@ -324,9 +325,11 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ void *buffer = NULL;
         UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
+        EFI_FILE_IO_INTERFACE *volume;
 
         assert(loaded_image);
         assert(target_dir_prefix);
+        assert(tpm_pcr || n_tpm_pcr == 0);
         assert(ret_buffer);
         assert(ret_buffer_size);
 
@@ -336,9 +339,24 @@ EFI_STATUS pack_cpio(
                 return EFI_SUCCESS;
         }
 
-        root = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.");
+        err = BS->HandleProtocol(loaded_image->DeviceHandle,
+                                 &FileSystemProtocol, (void*)&volume);
+        /* Error will be unsupported if the bootloader doesn't implement the
+         * file system protocol on its file handles.
+         */
+        if (err == EFI_UNSUPPORTED) {
+                *ret_buffer = NULL;
+                *ret_buffer_size = 0;
+                return EFI_SUCCESS;
+        }
+        if (EFI_ERROR(err))
+                return log_error_status_stall(
+                                err, L"Unable to load file system protocol: %r", err);
+
+        err = volume->OpenVolume(volume, &root);
+        if (EFI_ERROR(err))
+                return log_error_status_stall(
+                                err, L"Unable to open root directory: %r", err);
 
         if (!dropin_dir)
                 dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
@@ -433,13 +451,15 @@ EFI_STATUS pack_cpio(
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-        err = tpm_log_event(
-                        tpm_pcr,
-                        POINTER_TO_PHYSICAL_ADDRESS(buffer),
-                        buffer_size,
-                        tpm_description);
-        if (EFI_ERROR(err))
-                log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr, tpm_description, err);
+        for (UINTN i = 0; i < n_tpm_pcr; i++) {
+                err = tpm_log_event(
+                                tpm_pcr[i],
+                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                                buffer_size,
+                                tpm_description);
+                if (EFI_ERROR(err))
+                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
+        }
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;

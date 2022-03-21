@@ -23,7 +23,7 @@ static int property_get_servers(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ServerName *p, **s = userdata;
+        ServerName **s = userdata;
         int r;
 
         assert(s);

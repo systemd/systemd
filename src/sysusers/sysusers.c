@@ -312,14 +312,13 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         if (a) {
                 _cleanup_strv_free_ char **l = NULL;
                 bool added = false;
-                char **i;
 
                 l = strv_copy(gr->gr_mem);
                 if (!l)
                         return -ENOMEM;
 
                 STRV_FOREACH(i, a) {
-                        if (strv_find(l, *i))
+                        if (strv_contains(l, *i))
                                 continue;
 
                         if (strv_extend(&l, *i) < 0)
@@ -357,14 +356,13 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         if (a) {
                 _cleanup_strv_free_ char **l = NULL;
                 bool added = false;
-                char **i;
 
                 l = strv_copy(sg->sg_mem);
                 if (!l)
                         return -ENOMEM;
 
                 STRV_FOREACH(i, a) {
-                        if (strv_find(l, *i))
+                        if (strv_contains(l, *i))
                                 continue;
 
                         if (strv_extend(&l, *i) < 0)
@@ -1406,8 +1404,6 @@ static int add_implicit(void) {
 
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members) {
-                char **m;
-
                 STRV_FOREACH(m, l)
                         if (!ordered_hashmap_get(users, *m)) {
                                 _cleanup_(item_freep) Item *j = NULL;
@@ -1977,7 +1973,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int parse_arguments(char **args) {
-        char **arg;
         unsigned pos = 1;
         int r;
 
@@ -1999,7 +1994,6 @@ static int parse_arguments(char **args) {
 static int read_config_files(char **args) {
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_free_ char *p = NULL;
-        char **f;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, &p);

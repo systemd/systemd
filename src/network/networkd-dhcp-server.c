@@ -217,8 +217,6 @@ static int link_push_uplink_to_dhcp_server(
                 break;
 
         case SD_DHCP_LEASE_NTP: {
-                char **i;
-
                 /* For NTP things are similar, but for NTP hostnames can be configured too, which we cannot
                  * propagate via DHCP. Hence let's only propagate those which are IP addresses. */
 
@@ -416,13 +414,17 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        r = sd_dhcp_server_set_next_server(link->dhcp_server, &link->network->dhcp_server_next_server);
+        r = sd_dhcp_server_set_boot_server_address(link->dhcp_server, &link->network->dhcp_server_boot_server_address);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set next server for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
 
-        r = sd_dhcp_server_set_filename(link->dhcp_server, link->network->dhcp_server_filename);
+        r = sd_dhcp_server_set_boot_server_name(link->dhcp_server, link->network->dhcp_server_boot_server_name);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to set filename for DHCPv4 server instance: %m");
+                return log_link_warning_errno(link, r, "Failed to set boot server name for DHCPv4 server instance: %m");
+
+        r = sd_dhcp_server_set_boot_filename(link->dhcp_server, link->network->dhcp_server_boot_filename);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set boot filename for DHCPv4 server instance: %m");
 
         for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
 
@@ -567,13 +569,10 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         return true;
 }
 
-int request_process_dhcp_server(Request *req) {
-        Link *link;
+static int dhcp_server_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
-        assert(req);
-        assert(req->type == REQUEST_TYPE_DHCP_SERVER);
-        assert_se(link = req->link);
+        assert(link);
 
         if (!dhcp_server_is_ready_to_configure(link))
                 return 0;
@@ -597,7 +596,7 @@ int link_request_dhcp_server(Link *link) {
                 return 0;
 
         log_link_debug(link, "Requesting DHCP server.");
-        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, NULL, false, NULL, NULL, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuration of DHCP server: %m");
 
@@ -712,7 +711,7 @@ int config_parse_dhcp_server_address(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         unsigned char prefixlen;
         int r;

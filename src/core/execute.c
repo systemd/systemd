@@ -995,7 +995,6 @@ static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid)
 static int get_supplementary_groups(const ExecContext *c, const char *user,
                                     const char *group, gid_t gid,
                                     gid_t **supplementary_gids, int *ngids) {
-        char **i;
         int r, k = 0;
         int ngroups_max;
         bool keep_groups = false;
@@ -1187,7 +1186,6 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
-        char **nv;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
         int flags = 0;
@@ -2005,7 +2003,6 @@ static int build_environment(
 static int build_pass_environment(const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **pass_env = NULL;
         size_t n_env = 0;
-        char **i;
 
         STRV_FOREACH(i, c->pass_environment) {
                 _cleanup_free_ char *x = NULL;
@@ -2281,7 +2278,6 @@ static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryT
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
         _cleanup_free_ char *src_abs = NULL;
-        char **dst;
         int r;
 
         assert(source);
@@ -3352,7 +3348,6 @@ static int compile_symlinks(
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 for (size_t i = 0; i < context->directories[dt].n_items; i++) {
                         _cleanup_free_ char *private_path = NULL, *path = NULL;
-                        char **symlink;
 
                         STRV_FOREACH(symlink, context->directories[dt].items[i].symlinks) {
                                 _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
@@ -3415,6 +3410,9 @@ static bool insist_on_sandboxing(
         if (context->dynamic_user)
                 return true;
 
+        if (context->n_extension_images > 0 || !strv_isempty(context->extension_directories))
+                return true;
+
         /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
          * essential. */
         for (size_t i = 0; i < n_bind_mounts; i++)
@@ -3438,7 +3436,8 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
+        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
+                        *extension_dir = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3537,7 +3536,17 @@ static int apply_mount_namespace(
                         r = -ENOMEM;
                         goto finalize;
                 }
-        }
+
+                extension_dir = strdup("/run/systemd/unit-extensions");
+                if (!extension_dir) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+        } else
+                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
@@ -3566,6 +3575,7 @@ static int apply_mount_namespace(
                             context->extension_directories,
                             propagate_dir,
                             incoming_dir,
+                            extension_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
                             error_path);
 
@@ -4459,12 +4469,9 @@ static int exec_child(
                 return log_oom();
         }
 
-        /* The PATH variable is set to the default path in params->environment.
-         * However, this is overridden if user specified fields have PATH set.
-         * The intention is to also override PATH if the user does
-         * not specify PATH and the user has specified ExecSearchPath
-         */
-
+        /* The $PATH variable is set to the default path in params->environment. However, this is overridden
+         * if user-specified fields have $PATH set. The intention is to also override $PATH if the unit does
+         * not specify PATH but the unit has ExecSearchPath. */
         if (!strv_isempty(context->exec_search_path)) {
                 _cleanup_free_ char *joined = NULL;
 
@@ -4501,22 +4508,26 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to set up kernel keyring: %m");
         }
 
-        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted from it */
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
+         * from it. */
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
 
-        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked for it, and the kernel doesn't actually support ambient caps */
+        /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked
+         * for it, and the kernel doesn't actually support ambient caps. */
         needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
 
-        /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not desired */
+        /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
+         * excepted from either whole sandboxing or just setresuid() itself, and the ambient hack is not
+         * desired. */
         if (needs_ambient_hack)
                 needs_setuid = false;
         else
                 needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
         if (needs_sandboxing) {
-                /* MAC enablement checks need to be done before a new mount ns is created, as they rely on /sys being
-                 * present. The actual MAC context application will happen later, as late as possible, to avoid
-                 * impacting our own code paths. */
+                /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
+                 * /sys being present. The actual MAC context application will happen later, as late as
+                 * possible, to avoid impacting our own code paths. */
 
 #if HAVE_SELINUX
                 use_selinux = mac_selinux_use();
@@ -5333,7 +5344,6 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
                  * service next. */
                 (void) rm_rf(p, REMOVE_ROOT);
 
-                char **symlink;
                 STRV_FOREACH(symlink, c->directories[EXEC_DIRECTORY_RUNTIME].items[i].symlinks) {
                         _cleanup_free_ char *symlink_abs = NULL;
 
@@ -5407,12 +5417,9 @@ void exec_command_reset_status_array(ExecCommand *c, size_t n) {
 }
 
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
-        for (size_t i = 0; i < n; i++) {
-                ExecCommand *z;
-
+        for (size_t i = 0; i < n; i++)
                 LIST_FOREACH(command, z, c[i])
                         exec_status_reset(&z->exec_status);
-        }
 }
 
 typedef struct InvalidEnvInfo {
@@ -5507,7 +5514,6 @@ static int exec_context_named_iofds(
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
         _cleanup_strv_free_ char **v = NULL;
-        char **i;
         int r;
 
         assert(c);
@@ -5614,8 +5620,6 @@ bool exec_context_may_touch_console(const ExecContext *ec) {
 }
 
 static void strv_fprintf(FILE *f, char **l) {
-        char **g;
-
         assert(f);
 
         STRV_FOREACH(g, l)
@@ -5635,7 +5639,6 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
 }
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
-        char **e, **d;
         int r;
 
         assert(c);
@@ -5697,8 +5700,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         if (c->root_image_options) {
-                MountOptions *o;
-
                 fprintf(f, "%sRootImageOptions:", prefix);
                 LIST_FOREACH(mount_options, o, c->root_image_options)
                         if (!isempty(o->options))
@@ -6067,9 +6068,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
 #if HAVE_LIBBPF
-        if (exec_context_restrict_filesystems_set(c))
-                SET_FOREACH(e, c->restrict_filesystems)
-                        fprintf(f, "%sRestrictFileSystems: %s\n", prefix, *e);
+        if (exec_context_restrict_filesystems_set(c)) {
+                char *fs;
+                SET_FOREACH(fs, c->restrict_filesystems)
+                        fprintf(f, "%sRestrictFileSystems: %s\n", prefix, fs);
+        }
 #endif
 
         if (c->network_namespace_path)
@@ -6095,8 +6098,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sMountImages: %s%s:%s", prefix,
                         c->mount_images[i].ignore_enoent ? "-": "",
                         c->mount_images[i].source,
@@ -6109,8 +6110,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         for (size_t i = 0; i < c->n_extension_images; i++) {
-                MountOptions *o;
-
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         c->extension_images[i].ignore_enoent ? "-": "",
                         c->extension_images[i].source);
@@ -6262,7 +6261,6 @@ int exec_context_get_clean_directories(
                                         return r;
                         }
 
-                        char **symlink;
                         STRV_FOREACH(symlink, c->directories[t].items[i].symlinks) {
                                 j = path_join(prefix[t], *symlink);
                                 if (!j)
@@ -6377,8 +6375,8 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
 
         prefix = strempty(prefix);
 
-        LIST_FOREACH(command, c, c)
-                exec_command_dump(c, f, prefix);
+        LIST_FOREACH(command, i, c)
+                exec_command_dump(i, f, prefix);
 }
 
 void exec_command_append_list(ExecCommand **l, ExecCommand *e) {

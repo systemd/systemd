@@ -28,6 +28,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "dev-setup.h"
@@ -48,6 +49,7 @@
 #include "mkdir.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -85,7 +87,7 @@ typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(Event, events);
-        const char *cgroup;
+        char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
         int log_level;
 
@@ -108,8 +110,6 @@ typedef struct Manager {
 
         bool stop_exec_queue;
         bool exit;
-
-        pid_t pid_udevadm; /* pid of 'udevadm control' */
 } Manager;
 
 typedef enum EventState {
@@ -181,9 +181,7 @@ static Event *event_free(Event *event) {
 }
 
 static void event_queue_cleanup(Manager *manager, EventState match_state) {
-        Event *event, *tmp;
-
-        LIST_FOREACH_SAFE(event, event, tmp, manager->events) {
+        LIST_FOREACH(event, event, manager->events) {
                 if (match_state != EVENT_UNDEF && match_state != event->state)
                         continue;
 
@@ -240,6 +238,7 @@ static Manager* manager_free(Manager *manager) {
         safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
 
+        free(manager->cgroup);
         return mfree(manager);
 }
 
@@ -496,7 +495,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                  * supposed to be enabled via an option set via udev rules (OPTIONS+="watch"). If we skip the
                  * udev rules here however (as we just said we do), we would thus never see that specific
                  * udev rule, and thus never turn on inotify watching. But in order to catch up eventually
-                 * and run them we we need the inotify watching: hence a classic chicken and egg problem.
+                 * and run them we need the inotify watching: hence a classic chicken and egg problem.
                  *
                  * Our way out here: if we see the block device locked, unconditionally watch the device via
                  * inotify, regardless of any explicit request via OPTIONS+="watch". Thus, a device that is
@@ -780,7 +779,7 @@ static int event_run(Event *event) {
 static int event_is_blocked(Event *event) {
         const char *subsystem, *devpath, *devpath_old = NULL;
         dev_t devnum = makedev(0, 0);
-        Event *loop_event;
+        Event *loop_event = NULL;
         size_t devpath_len;
         int r, ifindex = 0;
         bool is_block;
@@ -795,7 +794,9 @@ static int event_is_blocked(Event *event) {
                 /* we have checked previously and no blocker found */
                 return false;
 
-        LIST_FOREACH(event, loop_event, event->manager->events) {
+        LIST_FOREACH(event, e, event->manager->events) {
+                loop_event = e;
+
                 /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->blocker_seqnum)
                         continue;
@@ -841,9 +842,11 @@ static int event_is_blocked(Event *event) {
                 return r;
 
         /* check if queue contains events we depend on */
-        LIST_FOREACH(event, loop_event, loop_event) {
+        LIST_FOREACH(event, e, loop_event) {
                 size_t loop_devpath_len, common;
                 const char *loop_devpath;
+
+                loop_event = e;
 
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
@@ -914,7 +917,6 @@ no_blocker:
 }
 
 static int event_queue_start(Manager *manager) {
-        Event *event, *event_next;
         usec_t usec;
         int r;
 
@@ -947,7 +949,7 @@ static int event_queue_start(Manager *manager) {
                         return log_warning_errno(r, "Failed to read udev rules: %m");
         }
 
-        LIST_FOREACH_SAFE(event, event, event_next, manager->events) {
+        LIST_FOREACH(event, event, manager->events) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
@@ -1216,10 +1218,6 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         case UDEV_CTRL_EXIT:
                 log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
-                break;
-        case UDEV_CTRL_SENDER_PID:
-                log_debug("Received udev control message (SENDER_PID)");
-                manager->pid_udevadm = value->pid;
                 break;
         default:
                 log_debug("Received unknown udev control message, ignoring");
@@ -1496,35 +1494,9 @@ static int on_post(sd_event_source *s, void *userdata) {
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
 
-        if (!manager->cgroup)
-                return 1;
-
-        /* Cleanup possible left-over processes in our cgroup. But do not kill udevadm called by
-         * ExecReload= in systemd-udevd.service. See #16867. To protect it, the following two ways are
-         * introduced:
-         *
-         * 1. After the connection is accepted, but the PID of udevadm is not received, do not call
-         *    cg_kill(). So, in this period, unwanted process or threads may exist in our cgroup.
-         *    But, it is expected that the PID of the udevadm will be received soon. So, this time
-         *    period should be short enough.
-         * 2. After the PID of udevadm is received, check the process is active or not, and if it is
-         *    still active, set the PID to the deny list for cg_kill(). Why udev_ctrl_is_connected() is
-         *    not enough? Because the udevadm may be still active after the control socket is
-         *    disconnected. If the process is not active, then clear the PID for later connections.
-         */
-
-        if (udev_ctrl_is_connected(manager->ctrl) >= 0 && !pid_is_valid(manager->pid_udevadm))
-                return 1;
-
-        _cleanup_set_free_ Set *pids = NULL;
-        if (pid_is_valid(manager->pid_udevadm)) {
-                if (pid_is_alive(manager->pid_udevadm))
-                        (void) set_ensure_put(&pids, NULL, PID_TO_PTR(manager->pid_udevadm));
-                else
-                        manager->pid_udevadm = 0;
-        }
-
-        (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, pids, NULL, NULL);
+        if (manager->cgroup)
+                /* cleanup possible left-over processes in our cgroup */
+                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
 
         return 1;
 }
@@ -1754,11 +1726,62 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cgroup) {
+static int create_subcgroup(char **ret) {
+        _cleanup_free_ char *cgroup = NULL, *subcgroup = NULL;
+        int r;
+
+        if (getppid() != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not invoked by PID1.");
+
+        r = sd_booted();
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if systemd is running: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "systemd is not running.");
+
+        /* Get our own cgroup, we regularly kill everything udev has left behind.
+         * We only do this on systemd systems, and only if we are directly spawned
+         * by PID1. Otherwise we are not guaranteed to have a dedicated cgroup. */
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        if (r < 0) {
+                if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                        return log_debug_errno(r, "Dedicated cgroup not found: %m");
+                return log_debug_errno(r, "Failed to get cgroup: %m");
+        }
+
+        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup, "trusted.delegate");
+        if (IN_SET(r, 0, -ENODATA))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "The cgroup %s is not delegated to us.", cgroup);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read trusted.delegate attribute: %m");
+
+        /* We are invoked with our own delegated cgroup tree, let's move us one level down, so that we
+         * don't collide with the "no processes in inner nodes" rule of cgroups, when the service
+         * manager invokes the ExecReload= job in the .control/ subcgroup. */
+
+        subcgroup = path_join(cgroup, "/udev");
+        if (!subcgroup)
+                return log_oom_debug();
+
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s subcgroup: %m", subcgroup);
+
+        log_debug("Created %s subcgroup.", subcgroup);
+        if (ret)
+                *ret = TAKE_PTR(subcgroup);
+        return 0;
+}
+
+static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
         _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(ret);
+
+        (void) create_subcgroup(&cgroup);
 
         manager = new(Manager, 1);
         if (!manager)
@@ -1767,7 +1790,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         *manager = (Manager) {
                 .inotify_fd = -1,
                 .worker_watch = { -1, -1 },
-                .cgroup = cgroup,
+                .cgroup = TAKE_PTR(cgroup),
         };
 
         r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
@@ -1912,7 +1935,6 @@ static int main_loop(Manager *manager) {
 }
 
 int run_udevd(int argc, char *argv[]) {
-        _cleanup_free_ char *cgroup = NULL;
         _cleanup_(manager_freep) Manager *manager = NULL;
         int fd_ctrl = -1, fd_uevent = -1;
         int r;
@@ -1969,24 +1991,11 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
-        if (getppid() == 1 && sd_booted() > 0) {
-                /* Get our own cgroup, we regularly kill everything udev has left behind.
-                 * We only do this on systemd systems, and only if we are directly spawned
-                 * by PID1. Otherwise we are not guaranteed to have a dedicated cgroup. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
-                if (r < 0) {
-                        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
-                                log_debug_errno(r, "Dedicated cgroup not found: %m");
-                        else
-                                log_warning_errno(r, "Failed to get cgroup: %m");
-                }
-        }
-
         r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        r = manager_new(&manager, fd_ctrl, fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 

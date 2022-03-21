@@ -437,7 +437,6 @@ static int device_verify(sd_device *device) {
 
 int device_new_from_strv(sd_device **ret, char **strv) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        char **key;
         const char *major = NULL, *minor = NULL;
         int r;
 
@@ -1029,18 +1028,9 @@ int device_update_db(sd_device *device) {
          * set 'sticky' bit to indicate that we should not clean the
          * database when we transition from initramfs to the real root
          */
-        if (device->db_persist) {
-                r = fchmod(fileno(f), 01644);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-        } else {
-                r = fchmod(fileno(f), 0644);
-                if (r < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        if (fchmod(fileno(f), device->db_persist ? 01644 : 0644) < 0) {
+                r = -errno;
+                goto fail;
         }
 
         if (has_info) {
@@ -1077,8 +1067,7 @@ int device_update_db(sd_device *device) {
         if (r < 0)
                 goto fail;
 
-        r = rename(path_tmp, path);
-        if (r < 0) {
+        if (rename(path_tmp, path) < 0) {
                 r = -errno;
                 goto fail;
         }

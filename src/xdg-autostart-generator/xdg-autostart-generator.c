@@ -24,7 +24,6 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         _cleanup_strv_free_ char **config_dirs = NULL;
         _unused_ _cleanup_strv_free_ char **data_dirs = NULL;
         _cleanup_free_ char *user_config_autostart_dir = NULL;
-        char **path;
         int r;
 
         r = xdg_user_config_dir(&user_config_autostart_dir, "/autostart");

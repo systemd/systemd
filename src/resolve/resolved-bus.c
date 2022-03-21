@@ -868,7 +868,6 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_free_ char *normalized = NULL;
-        DnsQuery *aux;
         int r;
 
         assert(q);
@@ -999,7 +998,6 @@ static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr)
 }
 
 static int append_txt(sd_bus_message *reply, DnsResourceRecord *rr) {
-        DnsTxtItem *i;
         int r;
 
         assert(reply);
@@ -1030,7 +1028,6 @@ static void resolve_service_all_complete(DnsQuery *query) {
         DnsQuestion *question;
         DnsResourceRecord *rr;
         unsigned added = 0;
-        DnsQuery *aux;
         int r;
 
         assert(q);
@@ -1453,7 +1450,6 @@ static int bus_property_get_dns_servers_internal(
                 bool extended) {
 
         Manager *m = userdata;
-        DnsServer *s;
         Link *l;
         int r;
 
@@ -1512,7 +1508,7 @@ static int bus_property_get_fallback_dns_servers_internal(
                 sd_bus_error *error,
                 bool extended) {
 
-        DnsServer *s, **f = userdata;
+        DnsServer **f = userdata;
         int r;
 
         assert(reply);
@@ -1605,7 +1601,6 @@ static int bus_property_get_domains(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        DnsSearchDomain *d;
         Link *l;
         int r;
 
@@ -1663,7 +1658,6 @@ static int bus_property_get_cache_statistics(
 
         uint64_t size = 0, hit = 0, miss = 0;
         Manager *m = userdata;
-        DnsScope *s;
 
         assert(reply);
         assert(m);
@@ -1756,7 +1750,6 @@ static int bus_property_get_resolv_conf_mode(
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
-        DnsScope *s;
 
         assert(message);
         assert(m);

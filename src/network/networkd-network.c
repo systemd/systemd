@@ -580,7 +580,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
 int network_load(Manager *manager, OrderedHashmap **networks) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(manager);
@@ -702,7 +701,8 @@ static Network *network_free(Network *network) {
 
         free(network->dhcp_server_relay_agent_circuit_id);
         free(network->dhcp_server_relay_agent_remote_id);
-        free(network->dhcp_server_filename);
+        free(network->dhcp_server_boot_server_name);
+        free(network->dhcp_server_boot_filename);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
@@ -980,52 +980,6 @@ int config_parse_domains(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_hostname(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char **hostname = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                *hostname = mfree(*hostname);
-                return 0;
-        }
-
-        if (!hostname_is_valid(rvalue, 0)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Hostname is not valid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        r = dns_name_is_valid(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
-                return 0;
-        }
-        if (r == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        return free_and_strdup_warn(hostname, rvalue);
 }
 
 int config_parse_timezone(

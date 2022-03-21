@@ -257,12 +257,9 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
         sd_event_exit(e, 0);
 }
 
-static void test_rs(void) {
+TEST(rs) {
         sd_event *e;
         sd_ndisc *nd;
-
-        if (verbose)
-                printf("* %s\n", __func__);
 
         send_ra_function = send_ra;
 
@@ -347,12 +344,9 @@ static int test_timeout_value(uint8_t flags) {
         return 0;
 }
 
-static void test_timeout(void) {
+TEST(timeout) {
         sd_event *e;
         sd_ndisc *nd;
-
-        if (verbose)
-                printf("* %s\n", __func__);
 
         send_ra_function = test_timeout_value;
 
@@ -381,12 +375,4 @@ static void test_timeout(void) {
         sd_event_unref(e);
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_DEBUG);
-
-        test_rs();
-        test_timeout();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -186,7 +186,6 @@ void link_allocate_scopes(Link *l) {
 }
 
 void link_add_rrs(Link *l, bool force_remove) {
-        LinkAddress *a;
         int r;
 
         LIST_FOREACH(addresses, a, l->addresses)
@@ -284,7 +283,6 @@ static int link_update_dns_server_one(Link *l, const char *str) {
 
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
-        char **nameserver;
         int r;
 
         assert(l);
@@ -519,7 +517,6 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
 
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
-        char **i;
         int r, q;
 
         assert(l);
@@ -682,8 +679,6 @@ int link_update(Link *l) {
 }
 
 bool link_relevant(Link *l, int family, bool local_multicast) {
-        LinkAddress *a;
-
         assert(l);
 
         /* A link is relevant for local multicast traffic if it isn't a loopback device, has a link
@@ -717,8 +712,6 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
 }
 
 LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *in_addr) {
-        LinkAddress *a;
-
         assert(l);
 
         if (!IN_SET(family, AF_INET, AF_INET6))
@@ -1223,8 +1216,6 @@ int link_save_user(Link *l) {
                 fprintf(f, "DEFAULT_ROUTE=%s\n", yes_no(l->default_route));
 
         if (l->dns_servers) {
-                DnsServer *server;
-
                 fputs("SERVERS=", f);
                 LIST_FOREACH(servers, server, l->dns_servers) {
 
@@ -1243,8 +1234,6 @@ int link_save_user(Link *l) {
         }
 
         if (l->search_domains) {
-                DnsSearchDomain *domain;
-
                 fputs("DOMAINS=", f);
                 LIST_FOREACH(domains, domain, l->search_domains) {
 

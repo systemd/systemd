@@ -73,6 +73,8 @@ int main(int argc, char *argv[]) {
         test_one("12-10-03 12:13");
         test_one("2012-12-30 18:42");
         test_one("2012-10-02");
+        test_one("Mar 12 12:01:01");
+        test_one("Mar 12 12:01:01.687197");
         test_one("Tue 2012-10-02");
         test_one("yesterday");
         test_one("today");

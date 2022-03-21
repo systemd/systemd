@@ -214,6 +214,8 @@
           <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
           <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
           <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
+          <!-- See: https://github.com/tianocore-docs/edk2-TrustedBootChain/blob/main/4_Other_Trusted_Boot_Chains.md -->
+          <!-- See: https://wiki.archlinux.org/title/Trusted_Platform_Module#Accessing_PCR_registers -->
 
           <tgroup cols='2' align='left' colsep='1' rowsep='1'>
             <colspec colname="pcr" />
@@ -267,13 +269,13 @@
                 <entry>Secure boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes. The shim project will measure most of its (non-MOK) certificates and SBAT data into this PCR.</entry>
               </row>
 
-              <row>
-                <entry>8</entry>
-                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
-                <!-- Grub measures all its commands and the kernel command line into PCR 8 too… -->
-              </row>
-
+              <!-- Grub measures all its commands and the kernel command line into PCR 8… -->
               <!-- Grub measures all files it reads (including kernel image, initrd, …) into PCR 9… -->
+
+              <row>
+                <entry>12</entry>
+                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
+              </row>
 
               <row>
                 <entry>10</entry>
@@ -297,6 +299,24 @@
         certificates is typically preferable over validation through direct measurements as it is less
         brittle in context of OS/firmware updates: the measurements will change on every update, but code
         signatures likely will validate against pre-existing certificates.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-with-pin=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN
+        when unlocking the volume in addition to PCR binding, based on TPM2 policy authentication. Defaults
+        to <literal>no</literal>. Despite being called PIN, any character can be used, not just numbers.
+        </para>
+
+        <para>Note that incorrect PIN entry when unlocking increments the
+        TPM dictionary attack lockout mechanism, and may lock out users for a prolonged time, depending on
+        its configuration. The lockout mechanism is a global property of the TPM,
+        <command>systemd-cryptenroll</command> does not control or configure the lockout mechanism. You may
+        use tpm2-tss tools to inspect or configure the dictionary attack lockout, with
+        <citerefentry><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+        <citerefentry><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        commands, respectively.</para></listitem>
       </varlistentry>
 
       <varlistentry>

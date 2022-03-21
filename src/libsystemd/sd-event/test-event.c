@@ -195,7 +195,7 @@ static int post_handler(sd_event_source *s, void *userdata) {
         return 2;
 }
 
-static void test_basic(bool with_pidfd) {
+static void test_basic_one(bool with_pidfd) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
@@ -302,11 +302,14 @@ static void test_basic(bool with_pidfd) {
         assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
 }
 
-static void test_sd_event_now(void) {
+TEST(basic) {
+        test_basic_one(true);   /* test with pidfd */
+        test_basic_one(false);  /* test without pidfd */
+}
+
+TEST(sd_event_now) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         uint64_t event_now;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &event_now) > 0);
@@ -341,11 +344,9 @@ static int rtqueue_handler(sd_event_source *s, const struct signalfd_siginfo *si
         return 0;
 }
 
-static void test_rtqueue(void) {
+TEST(rtqueue) {
         sd_event_source *u = NULL, *v = NULL, *s = NULL;
         sd_event *e = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_event_default(&e) >= 0);
 
@@ -476,7 +477,7 @@ static int delete_self_handler(sd_event_source *s, const struct inotify_event *e
         return 1;
 }
 
-static void test_inotify(unsigned n_create_events) {
+static void test_inotify_one(unsigned n_create_events) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         sd_event_source *a = NULL, *b = NULL, *c = NULL, *d = NULL;
         struct inotify_context context = {
@@ -529,6 +530,11 @@ static void test_inotify(unsigned n_create_events) {
         sd_event_unref(e);
 }
 
+TEST(inotify) {
+        test_inotify_one(100); /* should work without overflow */
+        test_inotify_one(33000); /* should trigger a q overflow */
+}
+
 static int pidfd_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
         assert_se(s);
         assert_se(si);
@@ -548,13 +554,11 @@ static int pidfd_handler(sd_event_source *s, const siginfo_t *si, void *userdata
         return 0;
 }
 
-static void test_pidfd(void) {
+TEST(pidfd) {
         sd_event_source *s = NULL, *t = NULL;
         sd_event *e = NULL;
         int pidfd;
         pid_t pid, pid2;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
@@ -628,14 +632,12 @@ static int ratelimit_expired(sd_event_source *s, void *userdata) {
         return ++expired;
 }
 
-static void test_ratelimit(void) {
+TEST(ratelimit) {
         _cleanup_close_pair_ int p[2] = {-1, -1};
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         uint64_t interval;
         unsigned count, burst;
-
-        log_info("/* %s */", __func__);
 
         assert_se(sd_event_default(&e) >= 0);
         assert_se(pipe2(p, O_CLOEXEC|O_NONBLOCK) >= 0);
@@ -706,7 +708,7 @@ static void test_ratelimit(void) {
         assert_se(expired == 0);
 }
 
-static void test_simple_timeout(void) {
+TEST(simple_timeout) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         usec_t f, t, some_time;
 
@@ -741,7 +743,7 @@ static int inotify_self_destroy_handler(sd_event_source *s, const struct inotify
         return 1;
 }
 
-static void test_inotify_self_destroy(void) {
+TEST(inotify_self_destroy) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         char path[] = "/tmp/inotifyXXXXXX";
@@ -759,25 +761,4 @@ static void test_inotify_self_destroy(void) {
         assert_se(sd_event_loop(e) >= 0);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_simple_timeout();
-
-        test_basic(true);   /* test with pidfd */
-        test_basic(false);  /* test without pidfd */
-
-        test_sd_event_now();
-        test_rtqueue();
-
-        test_inotify(100); /* should work without overflow */
-        test_inotify(33000); /* should trigger a q overflow */
-
-        test_pidfd();
-
-        test_ratelimit();
-
-        test_inotify_self_destroy();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

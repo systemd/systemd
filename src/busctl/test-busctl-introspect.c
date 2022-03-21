@@ -313,15 +313,13 @@ static int on_path(const char *path, void *userdata) {
         return 0;
 }
 
-static void test_introspect_on_path(void) {
+TEST(introspect_on_path) {
         static const XMLIntrospectOps ops = {
                 .on_path = on_path,
         };
         _cleanup_strv_free_ char **expected = NULL;
         _cleanup_set_free_ Set *paths = NULL;
         _cleanup_free_ char **l = NULL;
-
-        log_info("/* %s */", __func__);
 
         assert_se(set_put_strdup(&paths, "/") > 0);
 
@@ -363,10 +361,4 @@ static void test_introspect_on_path(void) {
         assert_se(strv_equal(l, expected));
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_introspect_on_path();
-
-        return 0;
-}
+DEFINE_TEST_MAIN(LOG_DEBUG);

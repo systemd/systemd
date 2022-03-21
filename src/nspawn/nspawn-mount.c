@@ -166,8 +166,6 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                 }
 
                 if (m->type == CUSTOM_MOUNT_OVERLAY) {
-                        char **j;
-
                         STRV_FOREACH(j, m->lower) {
                                 char *s;
 
@@ -319,8 +317,6 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!destination)
                         return -ENOMEM;
         } else {
-                char **i;
-
                 /* If more than two parameters are specified, the last one is the destination, the second to last one
                  * the "upper", and all before that the "lower" directories. */
 
@@ -780,7 +776,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapped) {
-                r = remount_idmap(where, uid_shift, uid_range);
+                r = remount_idmap(where, uid_shift, uid_range, REMOUNT_IDMAP_HOST_ROOT);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }

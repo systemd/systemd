@@ -101,7 +101,6 @@ static int add_enumerated_to_set(
                 OrderedSet *s,
                 sd_bus_error *error) {
 
-        struct node_enumerator *c;
         int r;
 
         assert(bus);
@@ -109,7 +108,7 @@ static int add_enumerated_to_set(
         assert(s);
 
         LIST_FOREACH(enumerators, c, first) {
-                char **children = NULL, **k;
+                char **children = NULL;
                 sd_bus_slot *slot;
 
                 if (bus->nodes_modified)
@@ -173,7 +172,6 @@ static int add_subtree_to_set(
                 OrderedSet *s,
                 sd_bus_error *error) {
 
-        struct node *i;
         int r;
 
         assert(bus);
@@ -251,7 +249,6 @@ static int node_callbacks_run(
                 bool require_fallback,
                 bool *found_object) {
 
-        struct node_callback *c;
         int r;
 
         assert(bus);
@@ -315,11 +312,9 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
                 return 0;
 
-        /* Check have the caller has the requested capability
-         * set. Note that the flags value contains the capability
-         * number plus one, which we need to subtract here. We do this
-         * so that we have 0 as special value for "default
-         * capability". */
+        /* Check that the caller has the requested capability set. Note that the flags value contains the
+         * capability number plus one, which we need to subtract here. We do this so that we have 0 as
+         * special value for the default. */
         cap = CAPABILITY_SHIFT(c->vtable->flags);
         if (cap == 0)
                 cap = CAPABILITY_SHIFT(c->parent->vtable[0].flags);
@@ -809,7 +804,6 @@ static int property_get_all_callbacks_run(
                 bool *found_object) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        struct node_vtable *c;
         bool found_interface;
         int r;
 
@@ -889,8 +883,6 @@ static int bus_node_exists(
                 const char *path,
                 bool require_fallback) {
 
-        struct node_vtable *c;
-        struct node_callback *k;
         int r;
 
         assert(bus);
@@ -938,7 +930,6 @@ int introspect_path(
 
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_(introspect_free) struct introspect intro = {};
-        struct node_vtable *c;
         bool empty;
         int r;
 
@@ -1059,7 +1050,6 @@ static int object_manager_serialize_path(
 
         const char *previous_interface = NULL;
         bool found_something = false;
-        struct node_vtable *i;
         struct node *n;
         int r;
 
@@ -1789,7 +1779,7 @@ static int add_object_vtable_internal(
                 void *userdata) {
 
         sd_bus_slot *s = NULL;
-        struct node_vtable *i, *existing = NULL;
+        struct node_vtable *existing = NULL;
         const sd_bus_vtable *v;
         struct node *n;
         int r;
@@ -2070,9 +2060,7 @@ static int emit_properties_changed_on_interface(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         bool has_invalidating = false, has_changing = false;
         struct vtable_member key = {};
-        struct node_vtable *c;
         struct node *n;
-        char **property;
         void *u = NULL;
         int r;
 
@@ -2357,7 +2345,6 @@ static int object_added_append_all_prefix(
                 bool require_fallback) {
 
         const char *previous_interface = NULL;
-        struct node_vtable *c;
         struct node *n;
         int r;
 
@@ -2577,7 +2564,6 @@ static int object_removed_append_all_prefix(
                 bool require_fallback) {
 
         const char *previous_interface = NULL;
-        struct node_vtable *c;
         struct node *n;
         int r;
 
@@ -2755,7 +2741,6 @@ static int interfaces_added_append_one_prefix(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool found_interface = false;
-        struct node_vtable *c;
         struct node *n;
         void *u = NULL;
         int r;
@@ -2854,7 +2839,6 @@ static int interfaces_added_append_one(
 _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct node *object_manager;
-        char **i;
         int r;
 
         assert_return(bus, -EINVAL);

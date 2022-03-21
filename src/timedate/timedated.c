@@ -102,14 +102,17 @@ static void unit_status_info_clear(UnitStatusInfo *p) {
         p->active_state = mfree(p->active_state);
 }
 
-static void unit_status_info_free(UnitStatusInfo *p) {
-        assert(p);
+static UnitStatusInfo *unit_status_info_free(UnitStatusInfo *p) {
+        if (!p)
+                return NULL;
 
         unit_status_info_clear(p);
         free(p->name);
         free(p->path);
-        free(p);
+        return mfree(p);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitStatusInfo*, unit_status_info_free);
 
 static void context_clear(Context *c) {
         UnitStatusInfo *p;
@@ -129,7 +132,11 @@ static void context_clear(Context *c) {
 }
 
 static int context_add_ntp_service(Context *c, const char *s, const char *source) {
-        UnitStatusInfo *u;
+        _cleanup_(unit_status_info_freep) UnitStatusInfo *unit = NULL;
+
+        assert(c);
+        assert(s);
+        assert(source);
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                 return -EINVAL;
@@ -139,18 +146,17 @@ static int context_add_ntp_service(Context *c, const char *s, const char *source
                 if (streq(u->name, s))
                         return 0;
 
-        u = new0(UnitStatusInfo, 1);
-        if (!u)
+        unit = new0(UnitStatusInfo, 1);
+        if (!unit)
                 return -ENOMEM;
 
-        u->name = strdup(s);
-        if (!u->name) {
-                free(u);
+        unit->name = strdup(s);
+        if (!unit->name)
                 return -ENOMEM;
-        }
 
-        LIST_APPEND(units, c->units, u);
-        log_unit_debug(u, "added from %s.", source);
+        LIST_APPEND(units, c->units, unit);
+        log_unit_debug(unit, "added from %s.", source);
+        TAKE_PTR(unit);
 
         return 0;
 }
@@ -190,7 +196,6 @@ static int context_parse_ntp_services_from_environment(Context *c) {
 
 static int context_parse_ntp_services_from_disk(Context *c) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         r = conf_files_list_strv(&files, ".list", NULL, CONF_FILES_FILTER_MASKED, UNIT_LIST_DIRS);
@@ -244,7 +249,6 @@ static int context_parse_ntp_services(Context *c) {
 }
 
 static int context_ntp_service_is_active(Context *c) {
-        UnitStatusInfo *info;
         int count = 0;
 
         assert(c);
@@ -258,7 +262,6 @@ static int context_ntp_service_is_active(Context *c) {
 }
 
 static int context_ntp_service_exists(Context *c) {
-        UnitStatusInfo *info;
         int count = 0;
 
         assert(c);
@@ -403,7 +406,6 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
                 {}
         };
-        UnitStatusInfo *u;
         int r;
 
         assert(c);
@@ -446,7 +448,6 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
 
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
-        UnitStatusInfo *u;
         const char *path;
         unsigned n = 0;
         int r;
@@ -918,7 +919,6 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         sd_bus *bus = sd_bus_message_get_bus(m);
         Context *c = userdata;
-        UnitStatusInfo *u;
         const UnitStatusInfo *selected = NULL;
         int enable, interactive, q, r;
 

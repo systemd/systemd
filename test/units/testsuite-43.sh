@@ -15,6 +15,8 @@ runas() {
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
+runas testuser systemctl --user log-level debug
+
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateUsers=yes -p PrivateTmp=yes \
     -P touch /tmp/innerfile.txt
@@ -65,6 +67,82 @@ runas testuser systemd-run --wait --user --unit=test-group-fail \
     -p PrivateUsers=yes -p Group=daemon \
     -P true \
     && { echo 'unexpected success'; exit 1; }
+
+# Check that with a new user namespace we can bind mount
+# files and use a different root directory
+runas testuser systemd-run --wait --user --unit=test-bind-mount \
+    -p PrivateUsers=yes -p BindPaths=/dev/null:/etc/os-release \
+    test ! -s /etc/os-release
+
+runas testuser systemd-run --wait --user --unit=test-read-write \
+    -p PrivateUsers=yes -p ReadOnlyPaths=/ \
+    -p ReadWritePaths="/var /run /tmp" \
+    -p NoExecPaths=/ -p ExecPaths=/usr \
+    test ! -w /etc/os-release
+
+runas testuser systemd-run --wait --user --unit=test-caps \
+    -p PrivateUsers=yes -p AmbientCapabilities=CAP_SYS_ADMIN \
+    -p CapabilityBoundingSet=CAP_SYS_ADMIN \
+    test -s /etc/os-release
+
+runas testuser systemd-run --wait --user --unit=test-devices \
+    -p PrivateUsers=yes -p PrivateDevices=yes -p PrivateIPC=yes \
+    sh -c "ls -1 /dev/ | wc -l | grep -q -F 18"
+
+# Same check as test/test-execute/exec-privatenetwork-yes.service
+runas testuser systemd-run --wait --user --unit=test-network \
+    -p PrivateUsers=yes -p PrivateNetwork=yes \
+    /bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
+
+runas testuser systemd-run --wait --user --unit=test-hostname \
+    -p PrivateUsers=yes -p ProtectHostname=yes \
+    hostnamectl hostname foo \
+    && { echo 'unexpected success'; exit 1; }
+
+runas testuser systemd-run --wait --user --unit=test-clock \
+    -p PrivateUsers=yes -p ProtectClock=yes \
+    timedatectl set-time "2012-10-30 18:17:16" \
+    && { echo 'unexpected success'; exit 1; }
+
+runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
+    -p PrivateUsers=yes -p ProtectKernelTunables=yes \
+    sh -c "echo 0 > /proc/sys/user/max_user_namespaces" \
+    && { echo 'unexpected success'; exit 1; }
+
+runas testuser systemd-run --wait --user --unit=test-kernel-mod \
+    -p PrivateUsers=yes -p ProtectKernelModules=yes \
+    sh -c "modprobe -r overlay && modprobe overlay" \
+    && { echo 'unexpected success'; exit 1; }
+
+if sysctl kernel.dmesg_restrict=0; then
+    runas testuser systemd-run --wait --user --unit=test-kernel-log \
+        -p PrivateUsers=yes -p ProtectKernelLogs=yes -p LogNamespace=yes \
+        dmesg \
+        && { echo 'unexpected success'; exit 1; }
+fi
+
+unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+runas testuser systemd-run --wait --user --unit=test-root-dir \
+    -p PrivateUsers=yes -p RootDirectory=/tmp/img \
+    grep MARKER=1 /etc/os-release
+
+mkdir /tmp/img_bind
+mount --bind /tmp/img /tmp/img_bind
+runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
+    -p PrivateUsers=yes -p RootDirectory=/tmp/img_bind -p MountFlags=private \
+    grep MARKER=1 /etc/os-release
+umount /tmp/img_bind
+
+# Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
+mkdir -p /tmp/a /tmp/b /tmp/c
+if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then
+    unsquashfs -no-xattrs -d /tmp/app2 /usr/share/app1.raw
+    runas testuser systemd-run --wait --user --unit=test-extension-dir \
+        -p PrivateUsers=yes -p ExtensionDirectories=/tmp/app2 \
+        -p TemporaryFileSystem=/run -p RootDirectory=/tmp/img \
+        -p MountAPIVFS=yes \
+        grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
+fi
 
 systemd-analyze log-level info
 

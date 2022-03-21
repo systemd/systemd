@@ -85,7 +85,6 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
 
 static int write_mode(char **modes) {
         int r = 0;
-        char **mode;
 
         STRV_FOREACH(mode, modes) {
                 int k;
@@ -103,7 +102,6 @@ static int write_mode(char **modes) {
 }
 
 static int write_state(FILE **f, char **states) {
-        char **state;
         int r = 0;
 
         assert(f);

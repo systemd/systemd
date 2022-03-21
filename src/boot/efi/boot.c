@@ -53,6 +53,7 @@ typedef struct {
         CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
         CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        CHAR16 *sort_key;   /* The string to use as primary sory key, usually ID= from os-release, possibly suffixed */
         CHAR16 *version;    /* The raw (human readable) version string of the entry */
         CHAR16 *machine_id;
         EFI_HANDLE *device;
@@ -428,6 +429,17 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
         }
 }
 
+static BOOLEAN unicode_supported(void) {
+        static INTN cache = -1;
+
+        if (cache < 0)
+                /* Basic unicode box drawing support is mandated by the spec, but it does
+                 * not hurt to make sure it works. */
+                cache = !EFI_ERROR(ST->ConOut->TestString(ST->ConOut, (CHAR16 *) L"─"));
+
+        return cache;
+}
+
 static void ps_string(const CHAR16 *fmt, const void *value) {
         assert(fmt);
         if (value)
@@ -443,7 +455,11 @@ static BOOLEAN ps_continue(void) {
         UINT64 key;
         EFI_STATUS err;
 
-        Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+        if (unicode_supported())
+                Print(L"\n─── Press any key to continue, ESC or q to quit. ───\n\n");
+        else
+                Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
+
         err = console_key_read(&key, UINT64_MAX);
         return !EFI_ERROR(err) && !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
 }
@@ -540,6 +556,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"            id: %s\n", entry->id);
                 ps_string(L"         title: %s\n", entry->title);
                 ps_string(L"    title show: %s\n", streq_ptr(entry->title, entry->title_show) ? NULL : entry->title_show);
+                ps_string(L"      sort key: %s\n", entry->sort_key);
                 ps_string(L"       version: %s\n", entry->version);
                 ps_string(L"    machine-id: %s\n", entry->machine_id);
                 if (entry->device)
@@ -598,7 +615,7 @@ static BOOLEAN menu_run(
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
         _cleanup_(strv_freep) CHAR16 **lines = NULL;
-        _cleanup_freepool_ CHAR16 *clearline = NULL, *status = NULL;
+        _cleanup_freepool_ CHAR16 *clearline = NULL, *separator = NULL, *status = NULL;
         UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
         UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
@@ -619,12 +636,11 @@ static BOOLEAN menu_run(
                 log_error_stall(L"Error switching console mode: %r", err);
         }
 
+        UINTN line_width = 0, entry_padding = 3;
         while (!exit) {
                 UINT64 key;
 
                 if (new_mode) {
-                        UINTN line_width = 0, entry_padding = 3;
-
                         console_query_mode(&x_max, &y_max);
 
                         /* account for padding+status */
@@ -643,6 +659,7 @@ static BOOLEAN menu_run(
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
+                        line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
                                 line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
@@ -655,10 +672,11 @@ static BOOLEAN menu_run(
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 4, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
+                        separator = mfree(separator);
 
                         /* menu entries title lines */
                         lines = xnew(CHAR16*, config->entry_count + 1);
@@ -682,9 +700,13 @@ static BOOLEAN menu_run(
                         lines[config->entry_count] = NULL;
 
                         clearline = xnew(CHAR16, x_max + 1);
-                        for (UINTN i = 0; i < x_max; i++)
+                        separator = xnew(CHAR16, x_max + 1);
+                        for (UINTN i = 0; i < x_max; i++) {
                                 clearline[i] = ' ';
+                                separator[i] = unicode_supported() ? L'─' : L'-';
+                        }
                         clearline[x_max] = 0;
+                        separator[x_max] = 0;
 
                         new_mode = FALSE;
                         clear = TRUE;
@@ -704,16 +726,16 @@ static BOOLEAN menu_run(
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start, y_start + i - idx_first,
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 (CHAR16*) L"=>");
+                                                 (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         }
                         refresh = FALSE;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
                         if (idx_highlight_prev == config->idx_default_efivar)
-                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) L"=>");
+                                print_at(x_start , y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         if (idx_highlight == config->idx_default_efivar)
-                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) L"=>");
+                                print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, (CHAR16*) (unicode_supported() ? L" ►" : L"=>"));
                         highlight = FALSE;
                 }
 
@@ -722,20 +744,24 @@ static BOOLEAN menu_run(
                         status = xpool_print(L"Boot in %u s.", timeout_remain);
                 }
 
-                /* print status at last line of screen */
                 if (status) {
-                        UINTN len;
-                        UINTN x;
-
-                        /* center line */
-                        len = StrLen(status);
-                        if (len < x_max)
-                                x = (x_max - len) / 2;
-                        else
-                                x = 0;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + (x_max - x));
+                        /* If we draw the last char of the last line, the screen will scroll and break our
+                         * input. Therefore, draw one less character then we could for the status message.
+                         * Note that the same does not apply for the separator line as it will never be drawn
+                         * on the last line. */
+                        UINTN len = StrnLen(status, x_max - 1);
+                        UINTN x = (x_max - len) / 2;
+                        status[len] = '\0';
+                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
+
+                        len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
+                        x = (x_max - len) / 2;
+                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                } else {
+                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
+                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -766,11 +792,7 @@ static BOOLEAN menu_run(
                 timeout_remain = 0;
 
                 /* clear status after keystroke */
-                if (status) {
-                        FreePool(status);
-                        status = NULL;
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1);
-                }
+                status = mfree(status);
 
                 idx_highlight_prev = idx_highlight;
 
@@ -1026,6 +1048,7 @@ static void config_entry_free(ConfigEntry *entry) {
         FreePool(entry->id);
         FreePool(entry->title_show);
         FreePool(entry->title);
+        FreePool(entry->sort_key);
         FreePool(entry->version);
         FreePool(entry->machine_id);
         FreePool(entry->loader);
@@ -1427,6 +1450,12 @@ static void config_entry_add_from_file(
                         continue;
                 }
 
+                if (strcmpa((CHAR8 *)"sort-key", key) == 0) {
+                        FreePool(entry->sort_key);
+                        entry->sort_key = xstra_to_str(value);
+                        continue;
+                }
+
                 if (strcmpa((CHAR8 *)"version", key) == 0) {
                         FreePool(entry->version);
                         entry->version = xstra_to_str(value);
@@ -1531,6 +1560,7 @@ static void config_entry_add_from_file(
 
         entry->device = device;
         entry->id = xstrdup(file);
+        StrLwr(entry->id);
 
         config_add_entry(config, entry);
 
@@ -1549,7 +1579,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = TRUE,
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
-                .reboot_for_bitlocker = TRUE,
+                .reboot_for_bitlocker = FALSE,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1609,6 +1639,8 @@ static void config_load_entries(
         assert(device);
         assert(root_dir);
 
+        /* Adds Boot Loader Type #1 entries (i.e. /loader/entries/….conf) */
+
         err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
         if (EFI_ERROR(err))
                 return;
@@ -1642,24 +1674,40 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         assert(a);
         assert(b);
 
-        /* Order entries that have no tries left towards the end of the list. They have
-         * proven to be bad and should not be selected automatically. */
-        if (a->tries_left != 0 && b->tries_left == 0)
-                return -1;
+        /* Order entries that have no tries left to the end of the list */
         if (a->tries_left == 0 && b->tries_left != 0)
                 return 1;
+        if (a->tries_left != 0 && b->tries_left == 0)
+                return -1;
 
-        r = strcasecmp_ptr(a->title ?: a->id, b->title ?: b->id);
-        if (r != 0)
+        /* If there's a sort key defined for *both* entries, then we do new-style ordering, i.e. by
+         * sort-key/machine-id/version, with a final fallback to id. If there's no sort key for either, we do
+         * old-style ordering, i.e. by id only. If one has sort key and the other does not, we put new-style
+         * before old-style. */
+        r = CMP(!a->sort_key, !b->sort_key);
+        if (r != 0) /* one is old-style, one new-style */
                 return r;
+        if (a->sort_key && b->sort_key) {
 
-        /* Sort by machine id now so that different installations don't interleave their versions. */
-        r = strcasecmp_ptr(a->machine_id, b->machine_id);
-        if (r != 0)
-                return r;
+                r = strcmp(a->sort_key, b->sort_key);
+                if (r != 0)
+                        return r;
 
-        /* Reverse version comparison order so that higher versions are preferred. */
-        r = strverscmp_improved(b->version, a->version);
+                /* If multiple installations of the same OS are around, group by machine ID */
+                r = strcmp_ptr(a->machine_id, b->machine_id);
+                if (r != 0)
+                        return r;
+
+                /* If the sort key was defined, then order by version now (downwards, putting the newest first) */
+                r = -strverscmp_improved(a->version, b->version);
+                if (r != 0)
+                        return r;
+        }
+
+        /* Now order by ID (the version is likely part of the ID, thus note that this might put the oldest
+         * version last, not first, i.e. specifying a sort key explicitly is thus generally preferable, to
+         * take benefit of the explicit sorting above.) */
+        r = strverscmp_improved(a->id, b->id);
         if (r != 0)
                 return r;
 
@@ -1668,19 +1716,18 @@ static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
                 return 0;
 
         /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
-        if (a->tries_left > b->tries_left)
-                return -1;
         if (a->tries_left < b->tries_left)
                 return 1;
+        if (a->tries_left > b->tries_left)
+                return -1;
 
         /* If they have the same number of tries left, then let the one win which was tried fewer times so far */
-        if (a->tries_done < b->tries_done)
-                return -1;
         if (a->tries_done > b->tries_done)
                 return 1;
+        if (a->tries_done < b->tries_done)
+                return -1;
 
-        /* As a last resort, use the id (file name). */
-        return strverscmp_improved(a->id, b->id);
+        return 0;
 }
 
 static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
@@ -1724,7 +1771,7 @@ static void config_default_entry_select(Config *config) {
                 return;
         }
 
-        /* Select the first suitable entry. */
+        /* select the first suitable entry */
         for (i = 0; i < config->entry_count; i++) {
                 if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
@@ -1853,6 +1900,7 @@ static ConfigEntry *config_entry_add_loader(
                 CHAR16 key,
                 const CHAR16 *title,
                 const CHAR16 *loader,
+                const CHAR16 *sort_key,
                 const CHAR16 *version) {
 
         ConfigEntry *entry;
@@ -1871,10 +1919,13 @@ static ConfigEntry *config_entry_add_loader(
                 .device = device,
                 .loader = xstrdup(loader),
                 .id = xstrdup(id),
+                .sort_key = xstrdup(sort_key),
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
+
+        StrLwr(entry->id);
 
         config_add_entry(config, entry);
         return entry;
@@ -1943,7 +1994,7 @@ static ConfigEntry *config_entry_add_loader_auto(
         if (EFI_ERROR(err))
                 return NULL;
 
-        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL);
+        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL, NULL);
 }
 
 static void config_entry_add_osx(Config *config) {
@@ -1982,6 +2033,9 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
         UINTN n_handles;
         EFI_STATUS err;
+
+        // FIXME: Experimental for now. Should be generalized, and become a per-entry option that can be
+        // enabled independently of BitLocker, and without a BootXXXX entry pre-existing.
 
         /* BitLocker key cannot be sealed without a TPM present. */
         if (!tpm_present())
@@ -2094,6 +2148,8 @@ static void config_entry_add_linux(
         UINTN f_size = 0;
         EFI_STATUS err;
 
+        /* Adds Boot Loader Type #2 entries (i.e. /EFI/Linux/….efi) */
+
         assert(config);
         assert(device);
         assert(root_dir);
@@ -2118,7 +2174,7 @@ static void config_entry_add_linux(
                 _cleanup_freepool_ CHAR16 *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL,
                         *path = NULL;
-                const CHAR16 *good_name, *good_version;
+                const CHAR16 *good_name, *good_version, *good_sort_key;
                 _cleanup_freepool_ CHAR8 *content = NULL;
                 UINTN offs[_SECTION_MAX] = {};
                 UINTN szs[_SECTION_MAX] = {};
@@ -2199,7 +2255,7 @@ static void config_entry_add_linux(
                         }
                 }
 
-                if (!bootspec_pick_name_version(
+                if (!bootspec_pick_name_version_sort_key(
                                     os_pretty_name,
                                     os_image_id,
                                     os_name,
@@ -2209,7 +2265,8 @@ static void config_entry_add_linux(
                                     os_version_id,
                                     os_build_id,
                                     &good_name,
-                                    &good_version))
+                                    &good_version,
+                                    &good_sort_key))
                         continue;
 
                 path = xpool_print(L"\\EFI\\Linux\\%s", f->FileName);
@@ -2217,10 +2274,11 @@ static void config_entry_add_linux(
                                 config,
                                 device,
                                 LOADER_UNIFIED_LINUX,
-                                f->FileName,
+                                /* id= */ f->FileName,
                                 /* key= */ 'l',
-                                good_name,
-                                path,
+                                /* title= */ good_name,
+                                /* loader= */ path,
+                                /* sort_key= */ good_sort_key,
                                 good_version);
 
                 config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
@@ -2446,14 +2504,12 @@ static void config_load_all_entries(
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
-        /* Add these now, so they get sorted with the rest. */
-        config_entry_add_osx(config);
-        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
-
         /* sort entries after version number */
         sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
+        config_entry_add_osx(config);
+        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,

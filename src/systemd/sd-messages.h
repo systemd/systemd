@@ -200,6 +200,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SYSTEMD_UDEV_SETTLE_DEPRECATED_STR \
                                           SD_ID128_MAKE_STR(1c,04,54,c1,bd,22,41,e0,ac,6f,ef,b4,bc,63,14,33)
 
+#define SD_MESSAGE_TIME_SYNC              SD_ID128_MAKE(7c,8a,41,f3,7b,76,49,41,a0,e1,78,0b,1b,e2,f0,37)
+#define SD_MESSAGE_TIME_SYNC_STR          SD_ID128_MAKE_STR(7c,8a,41,f3,7b,76,49,41,a0,e1,78,0b,1b,e2,f0,37)
+
 _SD_END_DECLARATIONS;
 
 #endif

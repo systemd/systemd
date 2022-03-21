@@ -153,6 +153,22 @@ endif
 
 ############################################################
 
+rpm = find_program('rpm', required : false)
+rpmspec = find_program('rpmspec', required : false)
+test_rpm_macros = find_program('test-rpm-macros.sh')
+
+if rpm.found() and rpmspec.found()
+        if want_tests != 'false'
+                test('test-rpm-macros',
+                     test_rpm_macros,
+                     args : [project_build_root])
+        endif
+else
+      message('Skipping test-rpm-macros since rpm and/or rpmspec are not available')
+endif
+
+############################################################
+
 if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
 

@@ -74,10 +74,8 @@ int verify_prepare_filename(const char *filename, char **ret) {
 }
 
 int verify_generate_path(char **var, char **filenames) {
-        const char *old;
-        char **filename;
-
         _cleanup_strv_free_ char **ans = NULL;
+        const char *old;
         int r;
 
         STRV_FOREACH(filename, filenames) {
@@ -184,7 +182,6 @@ static int verify_executables(Unit *u, const char *root) {
 }
 
 static int verify_documentation(Unit *u, bool check_man) {
-        char **p;
         int r = 0, k;
 
         STRV_FOREACH(p, u->documentation) {
@@ -258,7 +255,6 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
         int r, k, i, count = 0;
-        char **filename;
 
         if (strv_isempty(filenames))
                 return 0;

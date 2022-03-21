@@ -112,7 +112,6 @@ int logind_check_inhibitors(enum action a) {
         uint32_t uid, pid;
         sd_bus *bus;
         unsigned c = 0;
-        char **s;
         int r;
 
         if (arg_check_inhibitors == 0 || arg_force > 0)
@@ -304,24 +303,9 @@ int logind_schedule_shutdown(void) {
         if (r < 0)
                 return r;
 
-        switch (arg_action) {
-        case ACTION_HALT:
-                action = "halt";
-                break;
-        case ACTION_POWEROFF:
-                action = "poweroff";
-                break;
-        case ACTION_KEXEC:
-                action = "kexec";
-                break;
-        case ACTION_EXIT:
-                action = "exit";
-                break;
-        case ACTION_REBOOT:
-        default:
-                action = "reboot";
-                break;
-        }
+        action = action_table[arg_action].verb;
+        if (!action)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scheduling not supported for this action.");
 
         if (arg_dry_run)
                 action = strjoina("dry-", action);
@@ -414,7 +398,6 @@ int help_boot_loader_entry(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **l = NULL;
         sd_bus *bus;
-        char **i;
         int r;
 
         r = acquire_bus(BUS_FULL, &bus);

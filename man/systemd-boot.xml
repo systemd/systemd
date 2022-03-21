@@ -39,23 +39,22 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> description files
-      located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader
-      Partition. These usually describe Linux kernel images with associated initrd images, but alternatively
-      may also describe arbitrary other EFI executables.</para></listitem>
+      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1
+      description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
+      Loader Partition. These usually describe Linux kernel images with associated initrd images, but
+      alternatively may also describe other arbitrary EFI executables.</para></listitem>
 
-      <listitem><para>Unified kernel images following the <ulink
-      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, as executable EFI
-      binaries in <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.
-      </para></listitem>
+      <listitem><para>Unified kernel images, <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+      Loader Specification</ulink> Type #2, which are executable EFI binaries in
+      <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
 
-      <listitem><para>The Microsoft Windows EFI boot manager, if installed</para></listitem>
+      <listitem><para>The Microsoft Windows EFI boot manager, if installed.</para></listitem>
 
-      <listitem><para>The Apple macOS boot manager, if installed</para></listitem>
+      <listitem><para>The Apple macOS boot manager, if installed.</para></listitem>
 
-      <listitem><para>The EFI Shell binary, if installed</para></listitem>
+      <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
-      <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware</para></listitem>
+      <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
     </itemizedlist>
 
     <para><command>systemd-boot</command> supports the following features:</para>
@@ -501,10 +500,10 @@
     considered 'good' from then on.</para>
 
     <para>The boot menu takes the 'tries left' counter into account when sorting the menu entries: entries in 'bad'
-    state are ordered towards the end of the list, and entries in 'good' or 'indeterminate' towards the beginning.
-    The user can freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry
-    to boot is automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred as
-    boot entries are tried in sort order, and 'bad' entries will only be considered if there are no 'good' or
+    state are ordered at the beginning of the list, and entries in 'good' or 'indeterminate' at the end. The user can
+    freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry to boot is
+    automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred (as the bottom
+    item of the menu is the one booted by default), and 'bad' entries will only be considered if there are no 'good' or
     'indeterminate' entries left.</para>
 
     <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel

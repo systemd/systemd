@@ -33,6 +33,7 @@
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fsprg.h"
@@ -84,6 +85,7 @@ enum {
 };
 
 static OutputMode arg_output = OUTPUT_SHORT;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_utc = false;
 static bool arg_follow = false;
 static bool arg_full = true;
@@ -576,6 +578,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+                        else
+                                arg_json_format_flags = JSON_FORMAT_OFF;
 
                         break;
 
@@ -1139,7 +1146,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int add_matches(sd_journal *j, char **args) {
-        char **i;
         bool have_term = false;
 
         assert(j);
@@ -1327,7 +1333,7 @@ static int get_boots(
 
         bool skip_once;
         int r, count = 0;
-        BootId *head = NULL, *tail = NULL, *id;
+        BootId *head = NULL, *tail = NULL;
         const bool advance_older = boot_id && offset <= 0;
         sd_id128_t previous_boot_id;
 
@@ -1441,8 +1447,9 @@ finish:
 }
 
 static int list_boots(sd_journal *j) {
-        int w, i, count;
-        BootId *id, *all_ids;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        BootId *all_ids;
+        int count, i, r;
 
         assert(j);
 
@@ -1452,22 +1459,36 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        pager_open(arg_pager_flags);
+        table = table_new("idx", "boot id", "first entry", "last entry");
+        if (!table)
+                return log_oom();
 
-        /* numbers are one less, but we need an extra char for the sign */
-        w = DECIMAL_STR_WIDTH(count - 1) + 1;
+        if (arg_full)
+                table_set_width(table, 0);
+
+        r = table_set_json_field_name(table, 0, "index");
+        if (r < 0)
+                return log_error_errno(r, "Failed to set JSON field name of column 0: %m");
+
+        (void) table_set_sort(table, (size_t) 0);
+        (void) table_set_reverse(table, 0, arg_reverse);
 
         i = 0;
         LIST_FOREACH(boot_list, id, all_ids) {
-                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-
-                printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
-                       w, i - count + 1,
-                       SD_ID128_FORMAT_VAL(id->id),
-                       format_timestamp_maybe_utc(a, sizeof(a), id->first),
-                       format_timestamp_maybe_utc(b, sizeof(b), id->last));
+                r = table_add_many(table,
+                                   TABLE_INT, i - count + 1,
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_ID128, id->id,
+                                   TABLE_TIMESTAMP, id->first,
+                                   TABLE_TIMESTAMP, id->last);
+                if (r < 0)
+                        return table_log_add_error(r);
                 i++;
         }
+
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
+        if (r < 0)
+                return table_log_print_error(r);
 
         boot_id_free_all(all_ids);
 
@@ -1562,7 +1583,7 @@ static int get_possible_units(
                         return r;
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        char **pattern, *eq;
+                        char *eq;
                         size_t prefix;
                         _cleanup_free_ char *u = NULL;
 
@@ -1615,7 +1636,6 @@ static int get_possible_units(
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
         int r, count = 0;
-        char **i;
 
         assert(j);
 
@@ -1760,7 +1780,6 @@ static int add_facilities(sd_journal *j) {
 
 static int add_syslog_identifier(sd_journal *j) {
         int r;
-        char **i;
 
         assert(j);
 

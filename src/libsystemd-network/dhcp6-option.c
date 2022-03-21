@@ -72,8 +72,8 @@ bool dhcp6_option_can_request(uint16_t option) {
                 return false;
         case SD_DHCP6_OPTION_CLIENT_FQDN:
         case SD_DHCP6_OPTION_PANA_AGENT:
-        case SD_DHCP6_OPTION_NEW_POSIX_TIMEZONE:
-        case SD_DHCP6_OPTION_NEW_TZDB_TIMEZONE:
+        case SD_DHCP6_OPTION_POSIX_TIMEZONE:
+        case SD_DHCP6_OPTION_TZDB_TIMEZONE:
                 return true;
         case SD_DHCP6_OPTION_ERO:
         case SD_DHCP6_OPTION_LQ_QUERY:
@@ -328,7 +328,6 @@ static int option_append_pd_prefix(uint8_t **buf, size_t *buflen, const struct i
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         struct ia_header header;
-        const DHCP6Address *addr;
         size_t ia_buflen;
         uint8_t *ia_hdr;
         uint16_t len;
@@ -418,7 +417,6 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *user_class) {
         _cleanup_free_ uint8_t *p = NULL;
         size_t total = 0, offset = 0;
-        char * const *s;
 
         assert(buf);
         assert(*buf);
@@ -451,7 +449,6 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const
         _cleanup_free_ uint8_t *p = NULL;
         uint32_t enterprise_identifier;
         size_t total, offset;
-        char * const *s;
 
         assert(buf);
         assert(*buf);

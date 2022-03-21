@@ -18,7 +18,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
+static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_POWEROFF] = {
                 .handle                          = HANDLE_POWEROFF,
                 .target                          = SPECIAL_POWEROFF_TARGET,
@@ -43,7 +43,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is rebooting",
                 .log_message                     = "reboot",
         },
-        [HANDLE_HALT] =  {
+        [HANDLE_HALT] = {
                 .handle                          = HANDLE_HALT,
                 .target                          = SPECIAL_HALT_TARGET,
                 .inhibit_what                    = INHIBIT_SHUTDOWN,
@@ -55,7 +55,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is halting",
                 .log_message                     = "halt",
         },
-        [HANDLE_KEXEC] =  {
+        [HANDLE_KEXEC] = {
                 .handle                          = HANDLE_KEXEC,
                 .target                          = SPECIAL_KEXEC_TARGET,
                 .inhibit_what                    = INHIBIT_SHUTDOWN,
@@ -67,7 +67,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .message                         = "System is rebooting with kexec",
                 .log_message                     = "kexec",
         },
-        [HANDLE_SUSPEND] =  {
+        [HANDLE_SUSPEND] = {
                 .handle                          = HANDLE_SUSPEND,
                 .target                          = SPECIAL_SUSPEND_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -76,7 +76,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.suspend-ignore-inhibit",
                 .sleep_operation                 = SLEEP_SUSPEND,
         },
-        [HANDLE_HIBERNATE] =  {
+        [HANDLE_HIBERNATE] = {
                 .handle                          = HANDLE_HIBERNATE,
                 .target                          = SPECIAL_HIBERNATE_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -85,7 +85,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_HIBERNATE,
         },
-        [HANDLE_HYBRID_SLEEP] =  {
+        [HANDLE_HYBRID_SLEEP] = {
                 .handle                          = HANDLE_HYBRID_SLEEP,
                 .target                          = SPECIAL_HYBRID_SLEEP_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -94,7 +94,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_HYBRID_SLEEP,
         },
-        [HANDLE_SUSPEND_THEN_HIBERNATE] =  {
+        [HANDLE_SUSPEND_THEN_HIBERNATE] = {
                 .handle                          = HANDLE_SUSPEND_THEN_HIBERNATE,
                 .target                          = SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET,
                 .inhibit_what                    = INHIBIT_SLEEP,
@@ -103,7 +103,7 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
                 .polkit_action_ignore_inhibit    = "org.freedesktop.login1.hibernate-ignore-inhibit",
                 .sleep_operation                 = SLEEP_SUSPEND_THEN_HIBERNATE,
         },
-        [HANDLE_FACTORY_RESET] =  {
+        [HANDLE_FACTORY_RESET] = {
                 .handle                          = HANDLE_FACTORY_RESET,
                 .target                          = SPECIAL_FACTORY_RESET_TARGET,
                 .inhibit_what                    = _INHIBIT_WHAT_INVALID,
@@ -113,11 +113,12 @@ static const ActionTableItem action_table[_HANDLE_ACTION_MAX] = {
         },
 };
 
-const ActionTableItem* manager_item_for_handle(HandleAction handle) {
-        assert(handle >= 0);
-        assert(handle < (ssize_t) ELEMENTSOF(action_table));
+const HandleActionData* handle_action_lookup(HandleAction action) {
 
-        return &action_table[handle];
+        if (action < 0 || (size_t) action >= ELEMENTSOF(handle_action_data_table))
+                return NULL;
+
+        return &handle_action_data_table[action];
 }
 
 int manager_handle_action(
@@ -218,7 +219,7 @@ int manager_handle_action(
                                        inhibit_what_to_string(m->delayed_action->inhibit_what),
                                        handle_action_to_string(handle));
 
-        inhibit_operation = manager_item_for_handle(handle)->inhibit_what;
+        inhibit_operation = handle_action_lookup(handle)->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
@@ -241,7 +242,7 @@ int manager_handle_action(
 
         log_info("%s", message_table[handle]);
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, manager_item_for_handle(handle), &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, handle_action_lookup(handle), &error);
         if (r < 0)
                 return log_error_errno(r, "Failed to execute %s operation: %s",
                                        handle_action_to_string(handle),

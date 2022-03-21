@@ -234,7 +234,6 @@ int get_unit_list(
 
 int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
-        char **name;
         int r;
 
         assert(bus);
@@ -294,7 +293,6 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
         UnitActiveState active_state;
-        char **i;
         int r;
 
         r = unit_name_mangle(unit, 0, &n);
@@ -386,8 +384,6 @@ void warn_unit_file_changed(const char *unit) {
 }
 
 int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
-        char **p;
-
         assert(lp);
         assert(unit_name);
 
@@ -666,7 +662,6 @@ int unit_exists(LookupPaths *lp, const char *unit) {
 
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         _cleanup_strv_free_ char **with_deps = NULL;
-        char **name;
 
         assert(bus);
         assert(ret);
@@ -783,7 +778,7 @@ bool output_show_unit(const UnitInfo *u, char **patterns) {
         if (!strv_fnmatch_or_empty(patterns, u->id, FNM_NOESCAPE))
                 return false;
 
-        if (arg_types && !strv_find(arg_types, unit_type_suffix(u->id)))
+        if (arg_types && !strv_contains(arg_types, unit_type_suffix(u->id)))
                 return false;
 
         if (arg_all)
@@ -860,7 +855,7 @@ UnitFileFlags unit_file_flags_from_args(void) {
 
 int mangle_names(const char *operation, char **original_names, char ***ret_mangled_names) {
         _cleanup_strv_free_ char **l = NULL;
-        char **i, **name;
+        char **i;
         int r;
 
         assert(ret_mangled_names);
@@ -873,18 +868,15 @@ int mangle_names(const char *operation, char **original_names, char ***ret_mangl
 
                 /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
 
-                if (is_path(*name)) {
-                        *i = strdup(*name);
-                        if (!*i)
-                                return log_oom();
-                } else {
+                if (is_path(*name))
+                        r = path_make_absolute_cwd(*name, i);
+                else
                         r = unit_name_mangle_with_suffix(*name, operation,
                                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
                                                          ".service", i);
-                        if (r < 0) {
-                                *i = NULL;
-                                return log_error_errno(r, "Failed to mangle unit name: %m");
-                        }
+                if (r < 0) {
+                        *i = NULL;
+                        return log_error_errno(r, "Failed to mangle unit name or path '%s': %m", *name);
                 }
 
                 i++;

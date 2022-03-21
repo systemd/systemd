@@ -87,4 +87,13 @@ ENV{ID_SIGNAL_ANALYZER}=="?*", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"
 # rfkill / radio killswitches
 KERNEL=="rfkill", SUBSYSTEM=="misc", TAG+="uaccess"
 
+# AV production controllers
+# Most of these devices use HID for the knobs, faders, buttons, encoders, and jog wheels.
+SUBSYSTEM=="hidraw", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
+
+# Some devices use vendor defined protocols on USB Bulk endpoints for controllers.
+# Other devices transfer graphics to screens on the device through USB Bulk endpoints.
+# This also allows accessing HID devices with the libusb backend of hidapi.
+SUBSYSTEM=="usb", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
+
 LABEL="uaccess_end"

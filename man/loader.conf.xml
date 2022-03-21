@@ -30,10 +30,11 @@
     <title>Description</title>
 
     <para>
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    will read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename> and any files with the
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
+    read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>, and any files with the
     <literal>.conf</literal> extension under
-    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP).
+    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP) as
+    defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.
     </para>
 
     <para>Each configuration file must consist of an option name, followed by
@@ -206,8 +207,11 @@
       <varlistentry>
         <term>reboot-for-bitlocker</term>
 
-        <listitem><para>Work around BitLocker requiring a recovery key when the boot loader was
-        updated (enabled by default).</para>
+        <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
+        current form) in a future version of systemd.</para>
+
+        <para>Work around BitLocker requiring a recovery key when the boot loader was
+        updated (disabled by default).</para>
 
         <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found
         and Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal>

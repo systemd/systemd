@@ -1807,7 +1807,7 @@ static int mount_partition(
                 (void) fs_grow(node, p);
 
         if (remap_uid_gid) {
-                r = remount_idmap(p, uid_shift, uid_range);
+                r = remount_idmap(p, uid_shift, uid_range, REMOUNT_IDMAP_HOST_ROOT);
                 if (r < 0)
                         return r;
         }
@@ -2208,7 +2208,6 @@ static int validate_signature_userspace(const VeritySettings *verity) {
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
                                                * of declaration in place, please */
         const unsigned char *d;
-        char **i;
         int r;
 
         assert(verity);
@@ -3333,8 +3332,6 @@ MountOptions* mount_options_free_all(MountOptions *options) {
 }
 
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator) {
-        const MountOptions *m;
-
         LIST_FOREACH(mount_options, m, options)
                 if (designator == m->partition_designator && !isempty(m->options))
                         return m->options;

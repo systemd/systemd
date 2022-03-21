@@ -314,8 +314,6 @@ static void mount_entry_done(MountEntry *p) {
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
-        char **i;
-
         assert(p);
 
         /* Adds a list of user-supplied READWRITE/READWRITE_IMPLICIT/READONLY/INACCESSIBLE entries */
@@ -350,8 +348,6 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
 }
 
 static int append_empty_dir_mounts(MountEntry **p, char **strv) {
-        char **i;
-
         assert(p);
 
         /* Adds tmpfs mounts to provide readable but empty directories. This is primarily used to implement the
@@ -419,14 +415,13 @@ static int append_extensions(
                 char **extension_directories) {
 
         _cleanup_strv_free_ char **overlays = NULL;
-        char **hierarchy, **extension_directory;
         int r;
-
-        assert(p);
-        assert(extension_dir);
 
         if (n == 0 && strv_isempty(extension_directories))
                 return 0;
+
+        assert(p);
+        assert(extension_dir);
 
         /* Prepare a list of overlays, that will have as each element a string suitable for being
          * passed as a lowerdir= parameter, so start with the hierarchy on the root.
@@ -1128,9 +1123,15 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 r = path_is_mount_point(entry_path, NULL, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-                if (r == 0)
-                        /* /proc is not mounted. Propagate the original error code. */
-                        return -EPERM;
+                if (r == 0) {
+                        /* We lack permissions to mount a new instance of /proc, and it is not already
+                         * mounted. But we can access the host's, so as a final fallback bind-mount it to
+                         * the destination, as most likely we are inside a user manager in an unprivileged
+                         * user namespace. */
+                        r = mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return -EPERM;
+                }
         } else if (r < 0)
                 return r;
 
@@ -1703,7 +1704,6 @@ static void drop_unused_mounts(const char *root_directory, MountEntry *mounts, s
 }
 
 static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
-        char **src, **dst;
         int r;
 
         STRV_FOREACH_PAIR(src, dst, strv_symlinks) {
@@ -1993,6 +1993,7 @@ int setup_namespace(
                 char **extension_directories,
                 const char *propagate_dir,
                 const char *incoming_dir,
+                const char *extension_dir,
                 const char *notify_socket,
                 char **error_path) {
 
@@ -2003,7 +2004,7 @@ int setup_namespace(
         _cleanup_strv_free_ char **hierarchies = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
-        const char *root, *extension_dir = "/run/systemd/unit-extensions";
+        const char *root;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
                 DISSECT_IMAGE_REQUIRE_ROOT |
@@ -2384,9 +2385,9 @@ int setup_namespace(
         if (setup_propagate)
                 (void) mkdir_p(propagate_dir, 0600);
 
-        if (n_extension_images > 0)
-                /* ExtensionImages mountpoint directories will be created while parsing the mounts to create,
-                 * so have the parent ready */
+        if (n_extension_images > 0 || !strv_isempty(extension_directories))
+                /* ExtensionImages/Directories mountpoint directories will be created while parsing the
+                 * mounts to create, so have the parent ready */
                 (void) mkdir_p(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
@@ -2446,6 +2447,17 @@ int setup_namespace(
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_move_root(root);
+        if (r == -EINVAL && root_directory) {
+                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
+                 * namespace) and the root_directory is already a mount point in the parent namespace,
+                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
+                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
+                 * mount point) and try again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        goto finish;
+                r = mount_move_root(root);
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
                 goto finish;
@@ -2544,7 +2556,6 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        MountOptions *i;
         MountImage *c;
 
         assert(m);
