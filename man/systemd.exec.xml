@@ -1039,7 +1039,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         normally at 0.</para>
 
         <para>Use the <varname>OOMPolicy=</varname> setting of service units to configure how the service
-        manager shall react to the kernel OOM killer terminating a process of the service.  See
+        manager shall react to the kernel OOM killer or <command>systemd-oomd</command> terminating a process of the service.  See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
