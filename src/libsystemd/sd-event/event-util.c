@@ -124,7 +124,7 @@ int event_source_is_enabled(sd_event_source *s) {
 }
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
