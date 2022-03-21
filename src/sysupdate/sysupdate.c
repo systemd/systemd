@@ -95,7 +95,6 @@ static int context_read_definitions(
                 const char *node) {
 
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(c);
@@ -104,7 +103,7 @@ static int context_read_definitions(
                 r = conf_files_list_strv(&files, ".conf", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char**) STRV_MAKE(directory));
         else if (component) {
                 _cleanup_strv_free_ char **n = NULL;
-                char **l = CONF_PATHS_STRV(""), **i;
+                char **l = CONF_PATHS_STRV("");
                 size_t k = 0;
 
                 n = new0(char*, strv_length(l) + 1);
@@ -1101,7 +1100,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(set_freep) Set *names = NULL;
         _cleanup_free_ char **z = NULL; /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        char **l = CONF_PATHS_STRV(""), **i;
+        char **l = CONF_PATHS_STRV("");
         bool has_default_component = false;
         int r;
 
