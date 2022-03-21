@@ -8,6 +8,7 @@
 #include "sd-network.h"
 #include "sd-resolve.h"
 
+#include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
@@ -41,12 +42,14 @@ struct Manager {
 
         LIST_HEAD(ServerName, system_servers);
         LIST_HEAD(ServerName, link_servers);
+        LIST_HEAD(ServerName, runtime_servers);
         LIST_HEAD(ServerName, fallback_servers);
 
         bool have_fallbacks:1;
 
         RateLimit ratelimit;
         bool exhausted_servers;
+        bool runtime_servers_changed;
 
         /* network */
         sd_event_source *network_event_source;
@@ -62,6 +65,9 @@ struct Manager {
         uint64_t packet_count;
         sd_event_source *event_timeout;
         bool talking;
+
+        /* PolicyKit */
+        Hashmap *polkit_registry;
 
         /* last sent packet */
         struct timespec trans_time_mon;
@@ -124,5 +130,6 @@ void manager_flush_server_names(Manager *m, ServerType t);
 
 int manager_connect(Manager *m);
 void manager_disconnect(Manager *m);
+bool manager_is_connected(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
