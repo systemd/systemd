@@ -185,7 +185,7 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                         const char *y;
                         unsigned slashes = 0;
 
-                        for (y = terminal - 1; y >= name && *y == '\\'; y--)
+                        for (y = PTR_SUB1(terminal, name); y && *y == '\\'; y = PTR_SUB1(y, name))
                                 slashes++;
 
                         if (slashes % 2 == 0) {
