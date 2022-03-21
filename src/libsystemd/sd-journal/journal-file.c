@@ -3336,6 +3336,9 @@ int journal_file_open(
         if (!IN_SET((flags & O_ACCMODE), O_RDONLY, O_RDWR))
                 return -EINVAL;
 
+        if ((flags & O_ACCMODE) == O_RDONLY && FLAGS_SET(flags, O_CREAT))
+                return -EINVAL;
+
         if (fname && (flags & O_CREAT) && !endswith(fname, ".journal"))
                 return -EINVAL;
 
