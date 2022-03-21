@@ -30,10 +30,11 @@
     <title>Description</title>
 
     <para>
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    will read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename> and any files with the
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
+    read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>, and any files with the
     <literal>.conf</literal> extension under
-    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP).
+    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP) as
+    defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.
     </para>
 
     <para>Each configuration file must consist of an option name, followed by
