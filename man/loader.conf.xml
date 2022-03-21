@@ -51,7 +51,12 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following configuration options in <filename>loader.conf</filename> are understood:</para>
+    <para>The configuration options supported by
+    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> files are defined as part of
+    the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>.</para>
+
+    <para>The following configuration are supported by the <filename>loader.conf</filename> configuration
+    file:</para>
 
     <variablelist>
       <varlistentry>
