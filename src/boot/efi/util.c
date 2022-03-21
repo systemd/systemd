@@ -57,7 +57,7 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         assert(vendor);
         assert(name);
 
-        SPrint(str, ELEMENTSOF(str), L"%u", i);
+        SPrint(str, ELEMENTSOF(str), L"%" PRIuN, i);
         return efivar_set(vendor, name, str, flags);
 }
 
