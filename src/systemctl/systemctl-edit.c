@@ -26,7 +26,6 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
-        char **name;
         sd_bus *bus;
         bool first = true;
         int r, rc = 0;
@@ -145,7 +144,6 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         } else if (original_unit_paths) {
                 _cleanup_free_ char *new_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                char **path;
 
                 r = mac_selinux_create_file_prepare(new_path, S_IFREG);
                 if (r < 0)
@@ -318,7 +316,7 @@ static int run_editor(char **paths) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                char **editor_args = NULL, **tmp_path, **original_path;
+                char **editor_args = NULL;
                 size_t n_editor_args = 0, i = 1, argc;
                 const char **args, *editor, *p;
 
@@ -379,7 +377,6 @@ static int run_editor(char **paths) {
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        char **name;
         int r;
 
         assert(names);
@@ -501,7 +498,6 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
-        char **original, **tmp;
         sd_bus *bus;
         int r;
 

@@ -10,7 +10,7 @@
 #include "strv.h"
 
 int verb_cat_config(int argc, char *argv[], void *userdata) {
-        char **arg, **list;
+        char **list;
         int r;
 
         pager_open(arg_pager_flags);

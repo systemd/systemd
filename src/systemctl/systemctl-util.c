@@ -234,7 +234,6 @@ int get_unit_list(
 
 int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
-        char **name;
         int r;
 
         assert(bus);
@@ -294,7 +293,6 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
         UnitActiveState active_state;
-        char **i;
         int r;
 
         r = unit_name_mangle(unit, 0, &n);
@@ -386,8 +384,6 @@ void warn_unit_file_changed(const char *unit) {
 }
 
 int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
-        char **p;
-
         assert(lp);
         assert(unit_name);
 
@@ -666,7 +662,6 @@ int unit_exists(LookupPaths *lp, const char *unit) {
 
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
         _cleanup_strv_free_ char **with_deps = NULL;
-        char **name;
 
         assert(bus);
         assert(ret);
@@ -860,7 +855,7 @@ UnitFileFlags unit_file_flags_from_args(void) {
 
 int mangle_names(const char *operation, char **original_names, char ***ret_mangled_names) {
         _cleanup_strv_free_ char **l = NULL;
-        char **i, **name;
+        char **i;
         int r;
 
         assert(ret_mangled_names);

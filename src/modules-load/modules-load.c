@@ -194,7 +194,6 @@ static int run(int argc, char *argv[]) {
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
-                char **fn, **i;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
                         k = module_load_and_warn(ctx, *i, true);

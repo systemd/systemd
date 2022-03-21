@@ -41,7 +41,7 @@ TEST(paths) {
 
 TEST(user_and_global_paths) {
         _cleanup_(lookup_paths_free) LookupPaths lp_global = {}, lp_user = {};
-        char **u, **g, **p;
+        char **u, **g;
         unsigned k = 0;
 
         assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
@@ -78,7 +78,6 @@ static void test_generator_binary_paths_one(UnitFileScope scope) {
         _cleanup_strv_free_ char **env_gp_with_env = NULL;
         char *systemd_generator_path = NULL;
         char *systemd_env_generator_path = NULL;
-        char **dir;
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 

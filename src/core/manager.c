@@ -1215,7 +1215,6 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
                         is_bad = false;
         }
 
-        const UnitRef *ref;
         LIST_FOREACH(refs_by_target, ref, u->refs_by_target) {
                 unit_gc_sweep(ref->source, gc_marker);
 
@@ -3626,7 +3625,6 @@ void manager_check_finished(Manager *m) {
 }
 
 static bool generator_path_any(const char* const* paths) {
-        char **path;
         bool found = false;
 
         /* Optimize by skipping the whole process by not creating output directories

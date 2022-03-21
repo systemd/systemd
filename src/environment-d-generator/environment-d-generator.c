@@ -41,7 +41,6 @@ static int environment_dirs(char ***ret) {
 
 static int load_and_print(void) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL, **env = NULL;
-        char **i;
         int r;
 
         r = environment_dirs(&dirs);

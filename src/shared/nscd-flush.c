@@ -132,7 +132,6 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
 int nscd_flush_cache(char **databases) {
         usec_t end;
         int r = 0;
-        char **i;
 
         /* Tries to invalidate the specified database in nscd. We do this carefully, with a 5s timeout, so that we
          * don't block indefinitely on another service. */

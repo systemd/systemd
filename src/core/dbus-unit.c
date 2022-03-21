@@ -273,7 +273,7 @@ static int property_get_conditions(
                 sd_bus_error *error) {
 
         const char *(*to_string)(ConditionType type) = NULL;
-        Condition **list = userdata, *c;
+        Condition **list = userdata;
         int r;
 
         assert(bus);
@@ -2242,16 +2242,14 @@ static int bus_unit_set_transient_property(
 
         if (streq(name, "Documentation")) {
                 _cleanup_strv_free_ char **l = NULL;
-                char **p;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(p, l) {
+                STRV_FOREACH(p, l)
                         if (!documentation_url_is_valid(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid URL in %s: %s", name, *p);
-                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -2307,7 +2305,6 @@ static int bus_unit_set_transient_property(
 
         } else if (streq(name, "RequiresMountsFor")) {
                 _cleanup_strv_free_ char **l = NULL;
-                char **p;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)

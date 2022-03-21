@@ -122,19 +122,30 @@ static inline int strv_from_nulstr(char ***a, const char *nulstr) {
 
 bool strv_overlap(char * const *a, char * const *b) _pure_;
 
+#define _STRV_FOREACH(s, l, i)                                          \
+        for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
+
 #define STRV_FOREACH(s, l)                      \
-        for ((s) = (l); (s) && *(s); (s)++)
+        _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 
-#define STRV_FOREACH_BACKWARDS(s, l)                                \
-        for (s = ({                                                 \
-                        typeof(l) _l = l;                           \
-                        _l ? _l + strv_length(_l) - 1U : NULL;      \
-                        });                                         \
-             (l) && ((s) >= (l));                                   \
-             (s)--)
+#define _STRV_FOREACH_BACKWARDS(s, l, h, i)                             \
+        for (typeof(*(l)) *s, *h = (l), *i = ({                         \
+                                size_t _len = strv_length(h);           \
+                                _len > 0 ? h + _len - 1 : NULL;         \
+                        });                                             \
+             i && (s = i) >= h;                                         \
+             i--)
 
-#define STRV_FOREACH_PAIR(x, y, l)               \
-        for ((x) = (l), (y) = (x) ? (x+1) : NULL; (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
+#define STRV_FOREACH_BACKWARDS(s, l)                                    \
+        _STRV_FOREACH_BACKWARDS(s, l, UNIQ_T(h, UNIQ), UNIQ_T(i, UNIQ))
+
+#define _STRV_FOREACH_PAIR(x, y, l, i)                          \
+        for (typeof(*l) *x, *y, *i = (l);                       \
+             i && *(x = i) && *(y = i + 1);                     \
+             i += 2)
+
+#define STRV_FOREACH_PAIR(x, y, l)                      \
+        _STRV_FOREACH_PAIR(x, y, l, UNIQ_T(i, UNIQ))
 
 char** strv_sort(char **l);
 void strv_print(char * const *l);
@@ -185,7 +196,7 @@ void strv_print(char * const *l);
 #define STARTSWITH_SET(p, ...)                                  \
         ({                                                      \
                 const char *_p = (p);                           \
-                char  *_found = NULL, **_i;                     \
+                char *_found = NULL;                            \
                 STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
                         _found = startswith(_p, *_i);           \
                         if (_found)                             \
@@ -197,7 +208,7 @@ void strv_print(char * const *l);
 #define ENDSWITH_SET(p, ...)                                    \
         ({                                                      \
                 const char *_p = (p);                           \
-                char  *_found = NULL, **_i;                     \
+                char *_found = NULL;                            \
                 STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
                         _found = endswith(_p, *_i);             \
                         if (_found)                             \

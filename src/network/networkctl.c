@@ -525,7 +525,6 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 if (!strv_fnmatch_full(patterns, str, 0, &pos) &&
                     !strv_fnmatch_full(patterns, name, 0, &pos)) {
                         bool match = false;
-                        char **p;
 
                         STRV_FOREACH(p, altnames)
                                 if (strv_fnmatch_full(patterns, *p, 0, &pos)) {

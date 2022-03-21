@@ -490,7 +490,6 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
 
 int bus_track_add_name_many(sd_bus_track *t, char **l) {
         int r = 0;
-        char **i;
 
         assert(t);
 
@@ -562,7 +561,6 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 
 int bus_reply_pair_array(sd_bus_message *m, char **l) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char **k, **v;
         int r;
 
         assert(m);

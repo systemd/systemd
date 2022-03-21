@@ -9,8 +9,6 @@
 #include "terminal-util.h"
 
 int verb_timespan(int argc, char *argv[], void *userdata) {
-        char **input_timespan;
-
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
                 _cleanup_(table_unrefp) Table *table = NULL;
                 usec_t output_usecs;

@@ -3813,8 +3813,8 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 if (streq_ptr(path, user->service_job)) {
                         user->service_job = mfree(user->service_job);
 
-                        LIST_FOREACH(sessions_by_user, session, user->sessions)
-                                (void) session_jobs_reply(session, id, unit, NULL /* don't propagate user service failures to the client */);
+                        LIST_FOREACH(sessions_by_user, s, user->sessions)
+                                (void) session_jobs_reply(s, id, unit, NULL /* don't propagate user service failures to the client */);
 
                         user_save(user);
                 }
@@ -3957,7 +3957,6 @@ int manager_start_scope(
                 char **job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        char **i;
         int r;
 
         assert(manager);

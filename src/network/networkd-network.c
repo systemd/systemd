@@ -580,7 +580,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
 int network_load(Manager *manager, OrderedHashmap **networks) {
         _cleanup_strv_free_ char **files = NULL;
-        char **f;
         int r;
 
         assert(manager);

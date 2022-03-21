@@ -953,8 +953,6 @@ Manager* manager_free(Manager *m) {
 
 static int manager_network_read_link_servers(Manager *m) {
         _cleanup_strv_free_ char **ntp = NULL;
-        ServerName *n, *nx;
-        char **i;
         bool changed = false;
         int r;
 
@@ -1002,7 +1000,7 @@ static int manager_network_read_link_servers(Manager *m) {
                 }
         }
 
-        LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
+        LIST_FOREACH(names, n, m->link_servers)
                 if (n->marked) {
                         server_name_free(n);
                         changed = true;
