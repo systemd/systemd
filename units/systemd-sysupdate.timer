@@ -18,7 +18,7 @@ ConditionVirtualization=!container
 [Timer]
 # Trigger the update 15min after boot, and then – on average – every 6h, but
 # randomly distributed in a 2h…6h interval. In addition trigger things
-# persistently once on each saturday, to ensure that even on systems that are
+# persistently once on each Saturday, to ensure that even on systems that are
 # never booted up for long we have a chance to to do the update.
 OnBootSec=15min
 OnUnitActiveSec=2h

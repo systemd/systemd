@@ -12493,7 +12493,7 @@ CHANGES WITH 197:
           based on a calendar time specification such as "Thu,Fri
           2013-*-1,5 11:12:13" which refers to 11:12:13 of the first
           or fifth day of any month of the year 2013, given that it is
-          a thursday or friday. This brings timer event support
+          a Thursday or a Friday. This brings timer event support
           considerably closer to cron's capabilities. For details on
           the supported calendar time specification language see
           systemd.time(7).
