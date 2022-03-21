@@ -309,6 +309,18 @@ focus for this specification. More specifically, on non-EFI systems
 configuration snippets following this specification cannot be used to spawn
 other operating systems (such as Windows).
 
+Unfortunately, there are implementations of boot loading infrastructure that
+are also using the /loader/entries/ directory, but place files in them that are
+not valid by this specification. In order to minimize confusion a boot loader
+implementation may place a file /loader/entries.srel next to the
+/loader/entries/ directory containing the ASCII string "type1" (suffixed
+with a UNIX newline). Tools that need to determine whether an existing
+directory implements the semantics described here may check for this file and
+contents: if it exists and contains the mentioned string, it shall assume a
+standards compliant implementation is in place. If it exists but contains a
+different string it shall assume non-standard semantics are implemented. If the
+file does not exist no assumptions should be made.
+
 ### Type #2 EFI Unified Kernel Images
 
 A unified kernel image is a single EFI PE executable combining an EFI stub
