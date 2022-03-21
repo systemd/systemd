@@ -1830,9 +1830,9 @@ static int udev_rule_apply_token_to_event(
                         bool found = false;
 
                         /* Drop the last line. */
-                        for (char *p = buf + strlen(buf) - 1; p >= buf; p--)
-                                if (strchr(NEWLINE, *p)) {
-                                        *p = '\0';
+                        for (ssize_t i = strlen(buf) - 1; i >= 0; i--)
+                                if (strchr(NEWLINE, buf[i])) {
+                                        buf[i] = '\0';
                                         found = true;
                                 } else if (found)
                                         break;
