@@ -639,8 +639,13 @@ TEST(strv_foreach_backwards) {
         STRV_FOREACH_BACKWARDS(check, (char**) NULL)
                 assert_not_reached();
 
-        STRV_FOREACH_BACKWARDS(check, (char**) { NULL })
+        STRV_FOREACH_BACKWARDS(check, STRV_MAKE_EMPTY)
                 assert_not_reached();
+
+        unsigned count = 0;
+        STRV_FOREACH_BACKWARDS(check, STRV_MAKE("ONE"))
+                count++;
+        assert_se(count == 1);
 }
 
 TEST(strv_foreach_pair) {
