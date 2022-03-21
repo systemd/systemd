@@ -321,24 +321,19 @@ int seat_switch_to_next(Seat *s) {
 }
 
 int seat_switch_to_previous(Seat *s) {
-        unsigned start, i;
-        Session *session;
-
         if (MALLOC_ELEMENTSOF(s->positions) == 0)
                 return -EINVAL;
 
-        start = 1;
-        if (s->active && s->active->position > 0)
-                start = s->active->position;
+        size_t start = s->active && s->active->position > 0 ? s->active->position : 1;
 
-        for (i = start - 1; i > 0; --i) {
-                session = seat_get_position(s, i);
+        for (size_t i = start - 1; i > 0; i--) {
+                Session *session = seat_get_position(s, i);
                 if (session)
                         return session_activate(session);
         }
 
-        for (i = MALLOC_ELEMENTSOF(s->positions) - 1; i > start; --i) {
-                session = seat_get_position(s, i);
+        for (size_t i = MALLOC_ELEMENTSOF(s->positions) - 1; i > start; i--) {
+                Session *session = seat_get_position(s, i);
                 if (session)
                         return session_activate(session);
         }
