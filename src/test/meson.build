@@ -622,6 +622,8 @@ tests += [
          [libdl],
          [], 'ENABLE_NSS'],
 
+        [files('test-bus-parse-xml.c')],
+
         [files('test-bus-util.c')],
 
         [files('test-percent-util.c')],
