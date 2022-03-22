@@ -19,9 +19,10 @@
 #define EFI_VENDOR_GLOBAL_STR  SD_ID128_MAKE_UUID_STR(8b,e4,df,61,93,ca,11,d2,aa,0d,00,e0,98,03,2b,8c)
 #define EFI_VENDOR_SYSTEMD     SD_ID128_MAKE(8c,f2,64,4b,4b,0b,42,8f,93,87,6d,87,60,50,dc,67)
 #define EFI_VENDOR_SYSTEMD_STR SD_ID128_MAKE_UUID_STR(8c,f2,64,4b,4b,0b,42,8f,93,87,6d,87,60,50,dc,67)
-#define EFI_VARIABLE_NON_VOLATILE       0x0000000000000001
-#define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
-#define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
+
+#define EFI_VARIABLE_NON_VOLATILE       UINT32_C(0x00000001)
+#define EFI_VARIABLE_BOOTSERVICE_ACCESS UINT32_C(0x00000002)
+#define EFI_VARIABLE_RUNTIME_ACCESS     UINT32_C(0x00000004)
 
 /* Note that the <lowercaseuuid>-<varname> naming scheme is an efivarfs convention, i.e. part of the Linux
  * API file system implementation for EFI. EFI itself processes UIDS in binary form.
