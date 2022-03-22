@@ -439,7 +439,8 @@ int systemd_efi_options_efivarfs_if_newer(char **line) {
 
         r = read_efi_options_variable(line);
         if (r < 0)
-                return log_warning_errno(r, "Failed to read SystemdOptions EFI variable: %m");
+                return log_debug_errno(r, "Failed to read SystemdOptions EFI variable: %m");
+
         return 0;
 }
 #endif
