@@ -1045,7 +1045,8 @@ Table=1234</programlisting></para>
           Detection. See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
           When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
           <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
-          <literal>ipv6</literal>.</para>
+          <literal>ipv4</literal> for IPv4 link-local addresses, <literal>ipv6</literal> for IPv6
+          addresses, and <literal>none</literal> otherwise.</para>
         </listitem>
       </varlistentry>
 
