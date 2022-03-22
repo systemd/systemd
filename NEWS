@@ -23,14 +23,6 @@ CHANGES WITH 251 in spe:
           and backward compatibility broken instead on the assumption that
           nobody can be affected given the current state of this interface.
 
-        * Service monitor environment variables will only be passed to
-          OnFailure=/OnSuccess= handlers if exactly one unit lists the handler
-          unit as OnFailure=/OnSuccess=. In addition, $MONITOR_METADATA is no
-          longer used, and instead separate variables are set:
-          $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE, $MONITOR_EXIT_STATUS,
-          $MONITOR_INVOCATION_ID and $MONITOR_UNIT. For cases when a single
-          handler needs to watch multiple units, use a templated handler.
-
         * All kernels supported by systemd mix RDRAND (or similar) into the
           entropy pool at early boot. This means that on those systems, even if
           /dev/urandom is not yet initialized, it still returns bytes that that
@@ -173,6 +165,13 @@ CHANGES WITH 251 in spe:
           programs that link to those libraries would fail to execute because
           they were installed earlier or later than the appropriate version of
           the library.
+
+        * A new set of service monitor environment variables will be passed to
+          OnFailure=/OnSuccess= handlers, but only if exactly one unit lists the
+          handler unit as OnFailure=/OnSuccess=. The variables are:
+          $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE, $MONITOR_EXIT_STATUS,
+          $MONITOR_INVOCATION_ID and $MONITOR_UNIT. For cases when a single
+          handler needs to watch multiple units, use a templated handler.
 
         * A new ExtensionDirectories= setting allows system extensions to be
           loaded from a directory. (It is similar to ExtensionImages=, but
