@@ -1163,12 +1163,12 @@ static int lock_image_fd(int image_fd, const char *ip) {
 
         if (flock(image_fd, LOCK_EX|LOCK_NB) < 0) {
 
-                if (errno == EWOULDBLOCK)
+                if (errno == EAGAIN)
                         log_error_errno(errno, "Image file '%s' already locked, can't use.", ip);
                 else
                         log_error_errno(errno, "Failed to lock image file '%s': %m", ip);
 
-                return errno != EWOULDBLOCK ? -errno : -EADDRINUSE; /* Make error recognizable */
+                return errno != EAGAIN ? -errno : -EADDRINUSE; /* Make error recognizable */
         }
 
         log_info("Successfully locked image file '%s'.", ip);

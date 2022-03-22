@@ -217,28 +217,26 @@ static int get_child_nodes(
                 const char *prefix,
                 struct node *n,
                 unsigned flags,
-                OrderedSet **_s,
+                OrderedSet **ret,
                 sd_bus_error *error) {
 
-        OrderedSet *s = NULL;
+        _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
         int r;
 
         assert(bus);
         assert(prefix);
         assert(n);
-        assert(_s);
+        assert(ret);
 
         s = ordered_set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
         r = add_subtree_to_set(bus, prefix, n, flags, s, error);
-        if (r < 0) {
-                ordered_set_free_free(s);
+        if (r < 0)
                 return r;
-        }
 
-        *_s = s;
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -1473,7 +1471,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         return 1;
 }
 
-static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
+static struct node* bus_node_allocate(sd_bus *bus, const char *path) {
         struct node *n, *parent;
         const char *e;
         _cleanup_free_ char *s = NULL;
@@ -1499,8 +1497,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         if (streq(path, "/"))
                 parent = NULL;
         else {
-                e = strrchr(path, '/');
-                assert(e);
+                assert_se(e = strrchr(path, '/'));
 
                 p = strndupa_safe(path, MAX(1, e - path));
 
