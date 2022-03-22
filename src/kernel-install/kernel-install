@@ -155,10 +155,29 @@ done
 [ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$MACHINE_ID"
 
 if [ -z "$layout" ]; then
-    # Administrative decision: if not present, some scripts generate into /boot.
-    if [ -d "$BOOT_ROOT/$ENTRY_TOKEN" ]; then
+    # No layout configured by the administrator. Let's try to figure it out
+    # automatically from metadata already contained in $BOOT_ROOT.
+    if [ -e "$BOOT_ROOT/loader/entries.srel" ]; then
+        read -r ENTRIES_SREL <"$BOOT_ROOT/loader/entries.srel"
+        if [ "$ENTRIES_SREL" = "type1" ]; then
+            # The loader/entries.srel file clearly indicates that the installed
+            # boot loader implements the proper standard upstream boot loader
+            # spec for Type #1 entries. Let's default to that, then.
+            layout="bls"
+        else
+            # The loader/entries.srel file indicates some other spec is
+            # implemented and owns the /loader/entries/ directory. Since we
+            # have no idea what that means, let's stay away from it by default.
+            layout="other"
+        fi
+    elif [ -d "$BOOT_ROOT/$ENTRY_TOKEN" ]; then
+        # If the metadata in $BOOT_ROOT doesn't tell us anything, then check if
+        # the entry token directory already exists. If so, let's assume it's
+        # the standard boot loader spec, too.
         layout="bls"
     else
+        # There's no metadata in $BOOT_ROOT, and apparently no entry token
+        # directory installed? Then we really don't know anything.
         layout="other"
     fi
 fi
