@@ -42,8 +42,8 @@
 
 #if ENABLE_EFI
 
-int efi_get_variable(const char *variable, uint32_t *attribute, void **value, size_t *size);
-int efi_get_variable_string(const char *variable, char **p);
+int efi_get_variable(const char *variable, uint32_t *attribute, void **ret_value, size_t *ret_size);
+int efi_get_variable_string(const char *variable, char **ret);
 int efi_set_variable(const char *variable, const void *value, size_t size);
 int efi_set_variable_string(const char *variable, const char *p);
 
@@ -52,8 +52,8 @@ bool is_efi_secure_boot(void);
 SecureBootMode efi_get_secure_boot_mode(void);
 
 int cache_efi_options_variable(void);
-int systemd_efi_options_variable(char **line);
-int systemd_efi_options_efivarfs_if_newer(char **line);
+int systemd_efi_options_variable(char **ret);
+int systemd_efi_options_efivarfs_if_newer(char **ret);
 
 #else
 
@@ -61,7 +61,7 @@ static inline int efi_get_variable(const char *variable, uint32_t *attribute, vo
         return -EOPNOTSUPP;
 }
 
-static inline int efi_get_variable_string(const char *variable, char **p) {
+static inline int efi_get_variable_string(const char *variable, char **ret) {
         return -EOPNOTSUPP;
 }
 

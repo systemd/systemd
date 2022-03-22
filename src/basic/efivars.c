@@ -142,7 +142,7 @@ int efi_get_variable(
         return 0;
 }
 
-int efi_get_variable_string(const char *variable, char **p) {
+int efi_get_variable_string(const char *variable, char **ret) {
         _cleanup_free_ void *s = NULL;
         size_t ss = 0;
         int r;
@@ -156,7 +156,7 @@ int efi_get_variable_string(const char *variable, char **p) {
         if (!x)
                 return -ENOMEM;
 
-        *p = x;
+        *ret = x;
         return 0;
 }
 
@@ -350,7 +350,7 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0));
 }
 
-static int read_efi_options_variable(char **line) {
+static int read_efi_options_variable(char **ret) {
         int r;
 
         /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
@@ -370,7 +370,7 @@ static int read_efi_options_variable(char **line) {
                 return -EPERM;
         }
 
-        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), line);
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(SystemdOptions), ret);
         if (r == -ENOENT)
                 return -ENODATA;
         return r;
@@ -388,13 +388,13 @@ int cache_efi_options_variable(void) {
                                  WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
 }
 
-int systemd_efi_options_variable(char **line) {
+int systemd_efi_options_variable(char **ret) {
         const char *e;
         int r;
 
         /* Returns the contents of the variable for current boot from the cache. */
 
-        assert(line);
+        assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override this */
         e = secure_getenv("SYSTEMD_EFI_OPTIONS");
@@ -405,11 +405,11 @@ int systemd_efi_options_variable(char **line) {
                 if (!m)
                         return -ENOMEM;
 
-                *line = m;
+                *ret = m;
                 return 0;
         }
 
-        r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), line);
+        r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), ret);
         if (r == -ENOENT)
                 return -ENODATA;
         return r;
@@ -419,7 +419,7 @@ static inline int compare_stat_mtime(const struct stat *a, const struct stat *b)
         return CMP(timespec_load(&a->st_mtim), timespec_load(&b->st_mtim));
 }
 
-int systemd_efi_options_efivarfs_if_newer(char **line) {
+int systemd_efi_options_efivarfs_if_newer(char **ret) {
         struct stat a = {}, b;
         int r;
 
@@ -433,11 +433,11 @@ int systemd_efi_options_efivarfs_if_newer(char **line) {
                 log_debug("Variable SystemdOptions in evifarfs is newer than in cache.");
         else {
                 log_debug("Variable SystemdOptions in cache is up to date.");
-                *line = NULL;
+                *ret = NULL;
                 return 0;
         }
 
-        r = read_efi_options_variable(line);
+        r = read_efi_options_variable(ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read SystemdOptions EFI variable: %m");
 
