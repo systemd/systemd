@@ -323,7 +323,7 @@ static int device_compare(sd_device * const *a, sd_device * const *b) {
         if (r != 0)
                 return r;
 
-        return strcmp(devpath_a, devpath_b);
+        return path_compare(devpath_a, devpath_b);
 }
 
 static int enumerator_sort_devices(sd_device_enumerator *enumerator) {
