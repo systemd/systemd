@@ -66,7 +66,7 @@ int server_name_new(
                 ServerType type,
                 const char *string) {
 
-        ServerName *n, *tail;
+        ServerName *n;
 
         assert(m);
         assert(string);
@@ -86,20 +86,22 @@ int server_name_new(
                 return -ENOMEM;
         }
 
-        if (type == SERVER_SYSTEM) {
-                LIST_FIND_TAIL(names, m->system_servers, tail);
-                LIST_INSERT_AFTER(names, m->system_servers, tail, n);
-        } else if (type == SERVER_LINK) {
-                LIST_FIND_TAIL(names, m->link_servers, tail);
-                LIST_INSERT_AFTER(names, m->link_servers, tail, n);
-        } else if (type == SERVER_FALLBACK) {
-                LIST_FIND_TAIL(names, m->fallback_servers, tail);
-                LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
-        } else if (type == SERVER_RUNTIME) {
-                LIST_FIND_TAIL(names, m->runtime_servers, tail);
-                LIST_INSERT_AFTER(names, m->runtime_servers, tail, n);
-        } else
+        switch (type) {
+        case SERVER_SYSTEM:
+                LIST_APPEND(names, m->system_servers, n);
+                break;
+        case SERVER_LINK:
+                LIST_APPEND(names, m->link_servers, n);
+                break;
+        case SERVER_FALLBACK:
+                LIST_APPEND(names, m->fallback_servers, n);
+                break;
+        case SERVER_RUNTIME:
+                LIST_APPEND(names, m->runtime_servers, n);
+                break;
+        default:
                 assert_not_reached();
+        }
 
         if (type != SERVER_FALLBACK &&
             m->current_server_name &&
