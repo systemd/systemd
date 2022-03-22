@@ -412,7 +412,7 @@ int xdg_autostart_format_exec_start(
                         if (r < 0)
                                 return log_info_errno(r, "Exec binary '%s' does not exist: %m", c);
 
-                        escaped = cescape(executable);
+                        escaped = shell_maybe_quote(executable, 0);
                         if (!escaped)
                                 return log_oom();
 
