@@ -1088,7 +1088,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         unsigned attempts = 7;
 
         /* Just like openat(), but adds one thing: optionally returns whether we created the file anew or if
-         * it already existed before. This is only relevant of O_CREAT is set without O_EXCL, and thus will
+         * it already existed before. This is only relevant if O_CREAT is set without O_EXCL, and thus will
          * shortcut to openat() otherwise */
 
         if (!FLAGS_SET(flags, O_CREAT) || FLAGS_SET(flags, O_EXCL) || !ret_newly_created)
@@ -1116,7 +1116,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                         return -errno;
 
                 /* Hmm, so now we got EEXIST? So it apparently exists now? If so, let's try to open again
-                 * without the two flags. But let's not spin forever, hnce put a limit on things */
+                 * without the two flags. But let's not spin forever, hence put a limit on things */
 
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
                         return -EEXIST;
