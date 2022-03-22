@@ -334,7 +334,8 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         int secure = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
         if (secure < 0) {
                 if (secure != -ENOENT)
-                        log_debug_errno(secure, "Error reading SecureBoot EFI variable: %m");
+                        log_debug_errno(secure, "Error reading SecureBoot EFI variable, assuming not in SecureBoot mode: %m");
+
                 return (cache = SECURE_BOOT_UNSUPPORTED);
         }
 
