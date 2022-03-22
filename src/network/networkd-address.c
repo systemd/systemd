@@ -68,7 +68,6 @@ int address_new(Address **ret) {
                 .lifetime_valid_usec = USEC_INFINITY,
                 .lifetime_preferred_usec = USEC_INFINITY,
                 .set_broadcast = -1,
-                .duplicate_address_detection = ADDRESS_FAMILY_IPV6,
         };
 
         *ret = TAKE_PTR(address);
@@ -106,6 +105,8 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         address->network = network;
         address->section = TAKE_PTR(n);
         address->source = NETWORK_CONFIG_SOURCE_STATIC;
+        /* For static addresses, this will be adjusted in address_section_verify(). */
+        address->duplicate_address_detection = _ADDRESS_FAMILY_INVALID;
 
         r = ordered_hashmap_ensure_put(&network->addresses_by_section, &config_section_hash_ops, address->section, address);
         if (r < 0)
@@ -1938,6 +1939,54 @@ int config_parse_duplicate_address_detection(
         return 0;
 }
 
+int config_parse_enable_duplicate_address_detection(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = TAKE_PTR(userdata);
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                n->duplicate_address_detection = _ADDRESS_FAMILY_INVALID;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        n->duplicate_address_detection = r ? ADDRESS_FAMILY_YES : ADDRESS_FAMILY_NO;
+        TAKE_PTR(n);
+        return 0;
+}
+
 static int address_section_verify(Address *address) {
         if (section_is_invalid(address->section))
                 return -EINVAL;
@@ -1977,16 +2026,18 @@ static int address_section_verify(Address *address) {
                         address->scope = RT_SCOPE_LINK;
         }
 
+        if (address->duplicate_address_detection < 0) {
+                if (address->family == AF_INET6)
+                        address->duplicate_address_detection = ADDRESS_FAMILY_IPV6;
+                else if (address->family == AF_INET && in4_addr_is_link_local(&address->in_addr.in))
+                        address->duplicate_address_detection = ADDRESS_FAMILY_IPV4;
+                else
+                        address->duplicate_address_detection = ADDRESS_FAMILY_NO;
+        }
+
         if (address->family == AF_INET6 &&
             !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
-
-        if (address->family == AF_INET && in4_addr_is_link_local(&address->in_addr.in) &&
-            !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                log_debug("%s: An IPv4 link-local address is specified, enabling IPv4 Address Conflict Detection (ACD).",
-                          address->section->filename);
-                address->duplicate_address_detection |= ADDRESS_FAMILY_IPV4;
-        }
 
         return 0;
 }

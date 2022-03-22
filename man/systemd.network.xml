@@ -1038,14 +1038,14 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>DuplicateAddressDetection=</varname></term>
+        <term><varname>EnableDuplicateAddressDetection=</varname></term>
         <listitem>
-          <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>,
-          or <literal>none</literal>. When <literal>ipv4</literal>, performs IPv4 Address Conflict
-          Detection. See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
-          When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
-          <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
-          <literal>ipv6</literal>.</para>
+          <para>Takes a boolean. When true, performs the IPv4 Address Conflict Detection
+          (<ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>) if an IPv4 address is
+          specified in <varname>Address=</varname>, or the IPv6 Duplicate Address Detection
+          (<ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>) if an IPv6 address is
+          specified. Defaults to true for IPv6 addresses and IPv4 link-local addresses, and false
+          otherwise.</para>
         </listitem>
       </varlistentry>
 

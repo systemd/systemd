@@ -302,6 +302,7 @@ Mode=
 IgnoreUserspaceMulticastGroups=
 [Address]
 DuplicateAddressDetection=
+EnableDuplicateAddressDetection=
 AutoJoin=
 PreferredLifetime=
 Address=
