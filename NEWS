@@ -1,76 +1,121 @@
 systemd System and Service Manager
 
-CHANGES WITH 251:
-        * Incompatibility and Regression note:
-          In v250, the feature that automatically configures routes to addresses
-          specified in AllowedIPs= was added and enabled by default. However,
-          this feature causes network connectivity issues on many existing
-          setups. Hence, this is disabled by default since v250.3. The feature
-          can still be used by explicitly configuring RouteTable= setting in
-          .netdev files.
+CHANGES WITH 251 in spe:
+
+        Backwards-incompatible changes:
+
+        * In v250, a systemd-networkd feature that automatically configures
+          routes to addresses specified in AllowedIPs= was added and enabled by
+          default. However, this causes network connectivity issues in many
+          existing setups. Hence, it has been disabled by default since
+          systemd-stable 250.3. The feature can still be used by explicitly
+          configuring RouteTable= setting in .netdev files.
 
         * Jobs started via StartUnitWithFlags() will no longer return 'skipped'
           when a Condition*= check does not succeed, restoring the JobRemoved
           signal to the behaviour it had before v250.
 
         * The org.freedesktop.portable1 methods GetMetadataWithExtensions and
-          GetImageMetadataWithExtensions have been fixed to provide an extra return
-          parameter, containing the actual extensions release metadata. The
-          current implementation was judged to be broken and unusable, and thus
-          the usual procedure of adding a new set of methods is skipped, opting
-          for breaking backward compatibility instead, as nobody should be
-          affected, given the state of the current interface.
+          GetImageMetadataWithExtensions have been fixed to provide an extra
+          return parameter, containing the actual extension release metadata.
+          The current implementation was judged to be broken and unusable, and
+          thus the usual procedure of adding a new set of methods was skipped,
+          and backward compatibility broken instead on the assumption that
+          nobody can be affected given the current state of this interface.
 
         * Service monitor environment variables will only be passed to
           OnFailure=/OnSuccess= handlers if exactly one unit lists the handler
-          unit as OnFailure=/OnSuccess=.  Therefore, $MONITOR_METADATA is no
-          longer used, and instead separate variables are used:
+          unit as OnFailure=/OnSuccess=. In addition, $MONITOR_METADATA is no
+          longer used, and instead separate variables are set:
           $MONITOR_SERVICE_RESULT, $MONITOR_EXIT_CODE, $MONITOR_EXIT_STATUS,
-          $MONITOR_INVOCATION_ID and $MONITOR_UNIT.  For cases when a single
+          $MONITOR_INVOCATION_ID and $MONITOR_UNIT. For cases when a single
           handler needs to watch multiple units, use a templated handler.
+
+        * All kernels supported by systemd mix RDRAND (or similar) into the
+          entropy pool at early boot. This means that on those systems, even if
+          /dev/urandom is not yet initialized, it still returns bytes that that
+          are at least as high quality as RDRAND. For that reason, we no longer
+          have reason to invoke RDRAND from systemd itself, which has
+          historically been a source of bugs. Furthermore, kernels ≥5.6 provide
+          the getrandom(GRND_INSECURE) interface for returning random bytes
+          before the entropy pool is initialized without warning into kmsg,
+          which is what we attempt to use if available. systemd's direct usage
+          of RDRAND has been removed. x86 systems ≥Broadwell that are running
+          an older kernel may experience kmsg warnings that were not seen with
+          250. For newer kernels, non-x86 systems, or older x86 systems, there
+          should be no visible changes.
+
+        * sd-boot will now measure the kernel command line into TPM PCR 12
+          rather than PCR 8. This improves usefulness of the measurements on
+          sytems where sd-boot is chainloaded from Grub. Grub measures all
+          commands its executes into PCR 8, which makes it very hard to use
+          reasonably, hence separate ourselves from that and use PCR 12
+          instead, which is what certain Ubuntu editions already do. To retain
+          compatibility with systems running older systemd systems a new Meson
+          option 'efi-tpm-pcr-compat' has been added (which defaults to false).
+          If enabled, the measurement is done twice: into the new-style PCR 12
+          *and* the old-style PCR 8. It's strongly advised to migrate all users
+          to PCR 12 for this purpose in the long run, as we intend to remove
+          this compatibility feature in two year's time.
+
+        * busctl capture now writes output in the newer pcapng format instead
+          of pcap.
+
+        * An udev rule that imported hwdb matches for USB devices with
+          lowercase hexadecimal digits was added in systemd 250. This has been
+          reverted, since uppercase hexadecimal digits are supposed to be used,
+          and we already had a rule that with the appropriate match.
+
+          Users might need to adjust their local hwdb entries.
+
+        * arch_prctl(2) was moved to the @default set in the syscall filters.
+          It is apparently used by the linker now.
+
+        New functionality and other changes:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
           entry generation logic has been reworked. The user may now pick
           explicitly by which "token" string to name the installation's boot
-          entries, through the new /etc/kernel/entry-token file or the new
+          entries, via the new /etc/kernel/entry-token file or the new
           --entry-token= switch to bootctl. By default — as before — the
           entries are named after the local machine ID. However, in "golden
           image" environments, where the machine ID shall be initialized on
           first boot (as opposed to at installation time before first boot) the
-          machine ID is not be available at build time to name the entry
-          after. In this case the --entry-token= switch to bootctl (or the
-          /etc/kernel/entry-token file) may be used to override the "token" to
-          identify the entry by, and use another ID, for example the IMAGE_ID=
-          or ID= fields from /etc/os-release. This will make the OS images
-          independent of any machine ID, and ensure that the images will not
-          carry any identifiable information before first boot, but on the
-          other hand means that multiple parallel installations of the very
-          same image on the same disk cannot be supported. Summary: if you are
-          building golden images that shall acquire identity information
-          exclusively on first boot, make sure to both remove /etc/machine-id
-          *and* to write /etc/kernel/entry-token to the value of the IMAGE_ID
-          or ID field of /etc/os-release or another suitable identifier before
-          deploying the image.
+          machine ID is not be available at build time. In this case the
+          --entry-token= switch to bootctl (or the /etc/kernel/entry-token
+          file) may be used to override the "token" for the entries, for
+          example the IMAGE_ID= or ID= fields from /etc/os-release. This will
+          make the OS images independent of any machine ID, and ensure that the
+          images will not carry any identifiable information before first boot,
+          but on the other hand means that multiple parallel installations of
+          the very same image on the same disk cannot be supported.
 
-        * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
-          loader.conf that implements booting Microsoft Windows from the
-          sd-boot in a way that first reboots the system, to reset the TPM
-          PCRs. This improves compatibility with BitLocker's TPM use, as the
-          PCRs will only record the Windows boot process, and not sd-boot
-          itself, thus retaining the PCR measurements not involving
-          sd-boot. Note that this feature is experimental for now, and is
-          likely going to be generalized, renamed and removed in its current
-          form in a future release, without retaining compatibility with its
-          current implementation.
+          Summary: if you are building golden images that shall acquire
+          identity information exclusively on first boot, make sure to both
+          remove /etc/machine-id *and* to write /etc/kernel/entry-token to the
+          value of the IMAGE_ID or ID field of /etc/os-release or another
+          suitable identifier before deploying the image.
 
-        * The --make-machine-id-directory= switch to bootctl has been replaced
-          by --make-entry-directory=, given that the entry directory is not
-          necessarily named after the machine ID, but after some other suitable
-          ID as selected via --entry-token= described above. The old name of
-          the option is still understood to maximize compatibility.
+        * The Boot Loader Specification has been extended with
+          /loader/entries.srel file that disambiguates the format of the
+          entries in the /loader/entries directory. For entries that follow the
+          Specification, "type1" should be used.
 
-        * Services with Restart=always and a failing ExecCondition= will no longer
-          be restarted, to bring ExecCondition= in line with Condition*= settings.
+          bootctl will now write this file automatically when creating Type #1
+          entries.
+
+        * kernel-install supports a new initrd_generator= setting in
+          /etc/kernel/install.conf, that is exported as
+          $KERNEL_INSTALL_INITRD_GENERATOR to kernel-install plugins. This
+          allows a different initrd generator to be hooked up.
+
+        * kernel-install will now create a "staging area" (an initially-empty
+          directory to gather files for a Boot Loader Specification Type #1
+          entry). The path to this directory is exported as
+          $KERNEL_INSTALL_STAGING_AREA to kernel-install plugins, which should
+          drop files there instead of writing them directly to the final
+          location. kernel-install will move them when all files have been
+          prepared successfully.
 
         * Starting with v250 systemd-homed uses UID/GID mapping on the mounts
           of activated home directories it manages (if the kernel and selected
@@ -78,8 +123,8 @@ CHANGES WITH 251:
           range from 0…60000, the user's own UID, and the range 60514…65534,
           leaving everything else unmapped (in other words, the 16bit UID range
           is mapped almost fully, with the exception of the UID subrange used
-          for systemd-homed users, with one exception from that: the user's own
-          UID). Unmapped UIDs may not be used for file ownership in the home
+          for systemd-homed users, with one exception: the user's own UID).
+          Unmapped UIDs may not be used for file ownership in the home
           directory — any chown() attempts with them will fail. With this
           release a fourth range is added to these mappings:
           524288…1879048191. This range is the UID range intended for container
@@ -106,32 +151,149 @@ CHANGES WITH 251:
           handling, and improving compatibility with home directories intended
           to be portable like the ones managed by systemd-homed.
 
-        * All kernels supported by systemd mix RDRAND (or similar) into the
-          entropy pool at early boot. This means that on those systems, even
-          if /dev/urandom is not yet initialized, it still returns bytes that
-          that are at least as high quality as RDRAND. For that reason, we no
-          longer have reason to invoke RDRAND from systemd itself, which has
-          historically been a source of bugs. Furthermore, kernels ≥5.6 provide
-          the getrandom(GRND_INSECURE) interface for returning random bytes
-          before the entropy pool is initialized without warning into kmsg,
-          which is what we attempt to use if available. By removing systemd's
-          direct usage of RDRAND, x86 systems ≥Broadwell that are running an
-          older kernel may experience kmsg warnings that were not seen with
-          250. For newer kernels, non-x86 systems, or older x86 systems,
-          there should be no visible changes.
+        * The journal JSON export format has been added to listed of stable
+          interfaces (https://systemd.io/PORTABILITY_AND_STABILITY/).
 
-        * sd-boot will now measure the kernel command line into TPM PCR 12
-          rather than PCR 8. This improves usefulness of the measurements on
-          sytems where sd-boot is chainloaded from Grub. Grub measures all
-          commands its executes into PCR 8, which makes it very hard to use
-          reasonably, hence separate ourselves from that and use PCR 12
-          instead, which is already what certain Ubuntu editions use it for. To
-          retain compatibility with systems running older systemd systems a new
-          Meson option 'efi-tpm-pcr-compat' has been added (which defaults to
-          false). If enabled, the measurement is done twice: into the new-style
-          PCR 12 *and* the old-style PCR 8. It's strongly advised to migrate
-          all users to PCR 12 for this purpose in the long run, as we intend to
-          remove this compatibility feature again in two year's time.
+        * /etc/locale.conf is now populated through tmpfiles.d factory /etc
+          handling with the values that were configured during systemd build
+          (if /etc/locale.conf has not been created through some other
+          mechanism). This means that /etc/locale.conf should always have
+          reasonable contents and we avoid a potential mismatch in defaults.
+
+        * A new libsystemd-core-<version>.so private shared library is
+          installed under /usr/lib/systemd/system, mirroring the existing
+          libsystemd-shared-<version>.so library. This allows the total
+          installation size to be reduced by code reuse.
+
+        * The <version> tag used by libsystemd-shared.so and libsystemd-core.so
+          can be configured. Distributions may build subsequent versions of the
+          systemd package with unique tags (e.g. the full package version),
+          thus allowing multiple installations of those shared libraries to be
+          available at the same time. This is intended to fix an issue where
+          programs that link to those libraries would fail to execute because
+          they were installed earlier or later than the appropriate version of
+          the library.
+
+        * A new ExtensionDirectories= setting allows system extensions to be
+          loaded from a directory. (It is similar to ExtensionImages=, but
+          takes a path to a directory, instead of an image.)
+
+          'portablectl attach --extension' now also accepts directory paths.
+
+        * VENDOR= and MODEL= can be set in /etc/machine-info to override the
+          values gleaned from the hwdb.
+
+        * A ID_CHASSIS property can be set in the hwdb (for the DMI modalias)
+          to override the chassis that is reported by hostnamed.
+
+        * Two new hwdb files have been started to lists "handhelds" (PDAs,
+          calculators, etc.) and AV devices (DJ tables, keypads, etc.) that
+          should accessible to the seat owner by default.
+
+        * A new unit systemd-networkd-wait-online@<interface>.service can be
+          used to wait for a specific interface to be up.
+
+        * systemd-resolved is started ealier (in sysinit.target), so it
+          available earlier and will also be started in the initrd if installed
+          there.
+
+        * udevadm trigger gained a new --prioritized-subsystem option to
+          process certain subsystems (and all parent devices) earlier.
+
+          systemd-udev-trigger.service now uses this new option to trigger
+          block and TPM devices first, hopefully making the boot a bit faster.
+
+        * udevadm trigger now implements --type=all, --initialized-match,
+          --initialized-nomatch to trigger both subsystems and devices, only
+          already-initialized devices, and only devices which haven't been
+          initialized yet, respectively.
+
+        * systemd-cryptenroll can now control whether to require the user to
+          enter a PIN when unlocking a volume via the new --tpm2-with-pin=
+          option.
+
+          Option tpm2-pin= can be used in /etc/crypttab.
+
+        * The user.delegate and user.invocation_id attributes on cgroups are
+          used in addition to trusted.delegate and trusted.invocation_id. The
+          latter pair requires privileges to set, but the former doesn't and
+          can be also set by the unprivileged user manager.
+
+          (Only supported on kernels ≥5.6.)
+
+        * New option sort-key= has been added to the Boot Loader Specification
+          to override the entry sorty order. It is read by sd-boot and bootctl,
+          and will be written by kernel-install, with the default value of
+          IMAGE_ID= or ID= fields from os-release. Together, this means that
+          on multiboot installations, entries should be grouped and sorted
+          in a predictable way.
+
+        * sd-boot can now beep when the menu is shown and menu entries are
+          selected, which can be useful on machines without a working display.
+
+        * %y/%Y specifiers can be used in unit files to refer to unit file
+          path, which is particularly useful for linked unit files.
+
+          %R specifier resolves to the pretty hostname.
+
+          %d specifier resolves to the credentials directory (same as
+           $CREDENTIALS_DIRECTORY).
+
+        * The --make-machine-id-directory= switch to bootctl has been replaced
+          by --make-entry-directory=, given that the entry directory is not
+          necessarily named after the machine ID, but after some other suitable
+          ID as selected via --entry-token= described above. The old name of
+          the option is still understood to maximize compatibility.
+
+        * Services with Restart=always and a failing ExecCondition= will no longer
+          be restarted, to bring ExecCondition= in line with Condition*= settings.
+
+        * LoadCredential= now accepts a directory as the argument; all files
+          from the directory will be loaded.
+
+        * systemd-networkd gained a new [Bridge] Isolated=true|false setting
+          that configures the eponymous kernel attribute on the bridge.
+
+        * .link files gained support for [Match] Firmware= setting to match on
+          the device firmware description string. By mistake, it was previously
+          only supported in .network files.
+
+        * .link/.network files gained support for [Match] Kind= setting to match
+          on device kind ("bond", "bridge", "gre", "tun", "veth", etc.)
+
+          This value is also shown by 'networkctl status'.
+
+        * The Local= setting for various virtual network devices gained support
+          for specifying, in addition to the network address, the name of a
+          local interface which must have the specified address.
+
+        * New [DHCPServer] BootServerName=, BootServerAddress=, and
+          BootFilename= settings can be used to configure the server address,
+          server name, and file name sent in the DHCP packet (e.g. to configure
+          PXE boot).
+
+        * journalctl --list-boots now supports JSON output and the --reverse option.
+
+        * Under docs/: JOURNAL_EXPORT_FORMATS was imported from the wiki and
+          updated, BUILDING_IMAGES is new.
+
+        Experimental features:
+
+        * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
+          loader.conf that implements booting Microsoft Windows from the
+          sd-boot in a way that first reboots the system, to reset the TPM
+          PCRs. This improves compatibility with BitLocker's TPM use, as the
+          PCRs will only record the Windows boot process, and not sd-boot
+          itself, thus retaining the PCR measurements not involving sd-boot.
+          Note that this feature is experimental for now, and is likely going
+          to be generalized and renamed in a future release, without retaining
+          compatibility with the current implementation.
+
+        * A new systemd-sysupdate component has been added that automatically
+          discovers, downloads, and installs A/B-style updates for the host
+          installation itself, or container images, portable service images,
+          and other assets. See the new systemd-sysupdate man page for updates.
+
 
 CHANGES WITH 250:
 
