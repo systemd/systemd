@@ -1,7 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "string-table.h"
 #include "timesyncd-server.h"
+
+static const char * const server_type_table[_SERVER_TYPE_MAX] = {
+        [SERVER_SYSTEM]   = "system",
+        [SERVER_FALLBACK] = "fallback",
+        [SERVER_LINK]     = "link",
+        [SERVER_RUNTIME]  = "runtime",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(server_type, ServerType);
 
 int server_address_new(
                 ServerName *n,
@@ -56,7 +66,7 @@ int server_name_new(
                 ServerType type,
                 const char *string) {
 
-        ServerName *n, *tail;
+        ServerName *n;
 
         assert(m);
         assert(string);
@@ -76,24 +86,29 @@ int server_name_new(
                 return -ENOMEM;
         }
 
-        if (type == SERVER_SYSTEM) {
-                LIST_FIND_TAIL(names, m->system_servers, tail);
-                LIST_INSERT_AFTER(names, m->system_servers, tail, n);
-        } else if (type == SERVER_LINK) {
-                LIST_FIND_TAIL(names, m->link_servers, tail);
-                LIST_INSERT_AFTER(names, m->link_servers, tail, n);
-        } else if (type == SERVER_FALLBACK) {
-                LIST_FIND_TAIL(names, m->fallback_servers, tail);
-                LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
-        } else
+        switch (type) {
+        case SERVER_SYSTEM:
+                LIST_APPEND(names, m->system_servers, n);
+                break;
+        case SERVER_LINK:
+                LIST_APPEND(names, m->link_servers, n);
+                break;
+        case SERVER_FALLBACK:
+                LIST_APPEND(names, m->fallback_servers, n);
+                break;
+        case SERVER_RUNTIME:
+                LIST_APPEND(names, m->runtime_servers, n);
+                break;
+        default:
                 assert_not_reached();
+        }
 
         if (type != SERVER_FALLBACK &&
             m->current_server_name &&
             m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new server %s.", string);
+        log_debug("Added new %s server %s.", server_type_to_string(type), string);
 
         if (ret)
                 *ret = n;
@@ -114,6 +129,8 @@ ServerName *server_name_free(ServerName *n) {
                         LIST_REMOVE(names, n->manager->link_servers, n);
                 else if (n->type == SERVER_FALLBACK)
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
+                else if (n->type == SERVER_RUNTIME)
+                        LIST_REMOVE(names, n->manager->runtime_servers, n);
                 else
                         assert_not_reached();
 
