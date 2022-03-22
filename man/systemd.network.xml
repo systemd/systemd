@@ -2629,10 +2629,10 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>BootServerAddress=</varname></term>
 
         <listitem>
-          <para>Takes an IPv4 address of the boot server used by e.g. PXE boot systems. When specified,
-          the address is set to the <literal>siaddr</literal> field of the DHCP message header. See
-          <ulink url="https://www.rfc-editor.org/rfc/rfc2131.html">RFC 2131</ulink> for more details.
-          Defaults to unset.</para>
+          <para>Takes an IPv4 address of the boot server used by e.g. PXE boot systems. When specified, this
+          address is sent in the <option>siaddr</option> field of the DHCP message header. See <ulink
+          url="https://www.rfc-editor.org/rfc/rfc2131.html">RFC 2131</ulink> for more details. Defaults to
+          unset.</para>
         </listitem>
       </varlistentry>
 
@@ -2640,13 +2640,13 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>BootServerName=</varname></term>
 
         <listitem>
-          <para>Takes a name of the boot server used by e.g. PXE boot systems. When specified, the
-          server name is set to the DHCP option 66. See
-          <ulink url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details.
-          Defaults to unset.</para>
-          <para>Note that typically one of
-          <varname>BootServerName=</varname>/<varname>BootServerAddress=</varname> is sufficient to be
-          set, but both can be set too, if desired.</para>
+          <para>Takes a name of the boot server used by e.g. PXE boot systems. When specified, this name is
+          sent in the DHCP option 66 ("TFTP server name"). See <ulink
+          url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details. Defaults to
+          unset.</para>
+
+          <para>Note that typically setting one of <varname>BootServerName=</varname> or
+          <varname>BootServerAddress=</varname> is sufficient, but both can be set too, if desired.</para>
         </listitem>
       </varlistentry>
 
@@ -2654,10 +2654,10 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>BootFilename=</varname></term>
 
         <listitem>
-          <para>Takes a path or URL to a file loaded by e.g. a PXE boot loader. The specified path is
-          set to the DHCP option 67. See
-          <ulink url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details.
-          Defaults to unset.</para>
+          <para>Takes a path or URL to a file loaded by e.g. a PXE boot loader. When specified, this path is
+          sent in the DHCP option 67 ("Bootfile name"). See <ulink
+          url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details. Defaults to
+          unset.</para>
         </listitem>
       </varlistentry>
 
