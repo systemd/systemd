@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>systemd-stub</refname>
+    <refname>sd-stub</refname>
     <refname>linuxx64.efi.stub</refname>
     <refname>linuxia32.efi.stub</refname>
     <refname>linuxaa64.efi.stub</refname>
