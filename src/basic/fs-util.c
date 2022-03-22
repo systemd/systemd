@@ -1086,17 +1086,25 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         unsigned attempts = 7;
+        int fd;
 
         /* Just like openat(), but adds one thing: optionally returns whether we created the file anew or if
          * it already existed before. This is only relevant if O_CREAT is set without O_EXCL, and thus will
          * shortcut to openat() otherwise */
 
-        if (!FLAGS_SET(flags, O_CREAT) || FLAGS_SET(flags, O_EXCL) || !ret_newly_created)
+        if (!ret_newly_created)
                 return RET_NERRNO(openat(dirfd, pathname, flags, mode));
 
-        for (;;) {
-                int fd;
+        if (!FLAGS_SET(flags, O_CREAT) || FLAGS_SET(flags, O_EXCL)) {
+                fd = openat(dirfd, pathname, flags, mode);
+                if (fd < 0)
+                        return -errno;
 
+                *ret_newly_created = FLAGS_SET(flags, O_CREAT);
+                return fd;
+        }
+
+        for (;;) {
                 /* First, attempt to open without O_CREAT/O_EXCL, i.e. open existing file */
                 fd = openat(dirfd, pathname, flags & ~(O_CREAT | O_EXCL), mode);
                 if (fd >= 0) {
