@@ -153,7 +153,8 @@ Address.ManageTemporaryAddress,              config_parse_address_flags,        
 Address.PrefixRoute,                         config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0 /* deprecated */
 Address.AddPrefixRoute,                      config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0
 Address.AutoJoin,                            config_parse_address_flags,                               IFA_F_MCAUTOJOIN,              0
-Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0
+Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0 /* deprecated */
+Address.EnableDuplicateAddressDetection,     config_parse_enable_duplicate_address_detection,          0,                             0
 Address.Scope,                               config_parse_address_scope,                               0,                             0
 Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
 IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0
