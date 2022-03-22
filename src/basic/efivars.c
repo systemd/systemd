@@ -310,9 +310,17 @@ static int read_flag(const char *variable) {
 
 bool is_efi_secure_boot(void) {
         static int cache = -1;
+        int r;
 
-        if (cache < 0)
-                cache = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+        if (cache < 0) {
+                r = read_flag(EFI_GLOBAL_VARIABLE(SecureBoot));
+                if (r == -ENOENT)
+                        cache = false;
+                else if (r < 0)
+                        log_debug_errno(r, "Error reading SecureBoot EFI variable, assuming not in SecureBoot mode: %m");
+                else
+                        cache = r;
+        }
 
         return cache > 0;
 }
