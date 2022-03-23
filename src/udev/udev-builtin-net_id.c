@@ -450,7 +450,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                                  * slot index if the device is a PCI bridge, because it can have other child
                                  * devices that will try to claim the same index and that would create name
                                  * collision. */
-                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
+                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev) && !is_pci_multifunction(names->pcidev)) {
                                         log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
                                         return 0;
                                 }
