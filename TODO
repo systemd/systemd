@@ -78,6 +78,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* deprecate cgroupsv1 (i.e. taint system with it, print log message at boot)
+
+* systemd-dissect: add --cat switch for dumping files such as /etc/os-release
+
 * per-service sandboxing option: ProtectIds=. If used, will overmount
   /etc/machine-id and /proc/sys/kernel/random/boot_id with synthetic files, to
   make it harder for the service to identify the host. Depending on the user
@@ -1345,6 +1349,10 @@ Features:
     can easily set overall quota for all users
   - on login, if we can't fallocate initially, but rebalance is on, then allow
     login in discard mode, then immediately rebalance, then turn off discard
+  - extend user records with optional "bulk" data. Specifically, a user
+    avatar/photo or so. This data should be stored along wiht the user record,
+    but probably shouldn't be part of the record itself, since it might be
+    large.
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
