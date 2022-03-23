@@ -819,6 +819,21 @@ static int boot_load_efi_entry_pointers(BootConfig *config) {
         return 1;
 }
 
+int boot_config_select_special_entries(BootConfig *config) {
+        int r;
+
+        assert(config);
+
+        r = boot_load_efi_entry_pointers(config);
+        if (r < 0)
+                return r;
+
+        config->default_entry = boot_entries_select_default(config);
+        config->selected_entry = boot_entries_select_selected(config);
+
+        return 0;
+}
+
 int boot_entries_load_config(
                 const char *esp_path,
                 const char *xbootldr_path,
@@ -863,13 +878,6 @@ int boot_entries_load_config(
         r = boot_entries_uniquify(config->entries, config->n_entries);
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
-
-        r = boot_load_efi_entry_pointers(config);
-        if (r < 0)
-                return r;
-
-        config->default_entry = boot_entries_select_default(config);
-        config->selected_entry = boot_entries_select_selected(config);
 
         return 0;
 }
