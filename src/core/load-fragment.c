@@ -35,8 +35,10 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -6519,4 +6521,73 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_dynamic_user_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *family_str = NULL, *table = NULL, *set = NULL, *table_resolved = NULL, *set_resolved = NULL;
+        int nfproto, r;
+        ExecContext *c = data;
+        Unit *u = userdata;
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+        assert(u);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->dynamic_user_nft_set_context = nft_set_context_free_many(c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts);
+                c->n_dynamic_user_nft_set_contexts = 0;
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE, &family_str, &table, &set, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r != 3) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse NFT set, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                nfproto = nfproto_from_string(family_str);
+                if (nfproto < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family, ignoring: %s", family_str);
+                        return 0;
+                }
+
+                r = unit_path_printf(u, table, &table_resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", table);
+                        return 0;
+                }
+
+                if (nft_identifier_bad(table_resolved))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", table);
+
+                r = unit_path_printf(u, set, &set_resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", set);
+                        return 0;
+                }
+
+                if (nft_identifier_bad(set_resolved))
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", set);
+
+                r = nft_set_context_add(&c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts, nfproto, table_resolved, set_resolved);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
 }

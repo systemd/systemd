@@ -4005,6 +4005,43 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         return 1;
 }
 
+static void exec_op_dynamic_user_nft_set(bool add, const ExecContext *c, uid_t uid) {
+        int r;
+
+        assert(c);
+
+        for (size_t i = 0; i < c->n_dynamic_user_nft_set_contexts; i++) {
+                NFTSetContext *s = &c->dynamic_user_nft_set_context[i];
+                if (add)
+                        r = nft_set_element_add_uint32(s, uid);
+                else
+                        r = nft_set_element_del_uint32(s, uid);
+                if (r < 0)
+                        log_warning_errno(r, "%s NFT family %s table %s set %s UID " UID_FMT " failed, ignoring: %m",
+                                          add? "Adding" : "Deleting", nfproto_to_string(s->nfproto), s->table, s->set, uid);
+        }
+}
+
+static void exec_add_dynamic_user_nft_set(const ExecContext *c, uid_t uid) {
+        exec_op_dynamic_user_nft_set(true, c, uid);
+}
+
+void exec_delete_dynamic_user_nft_set(const ExecContext *c, DynamicUser *d) {
+        int r;
+        uid_t uid;
+
+        if (!d)
+                return;
+
+        r = dynamic_user_current(d, &uid);
+        if (r < 0) {
+                log_warning_errno(r, "Can't get current dynamic user, ignoring: %m");
+                return;
+        }
+
+        exec_op_dynamic_user_nft_set(false, c, uid);
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -4205,6 +4242,8 @@ static int exec_child(
 
                 if (dcreds->user)
                         username = dcreds->user->name;
+
+                exec_add_dynamic_user_nft_set(context, uid);
 
         } else {
                 r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
@@ -5268,6 +5307,8 @@ void exec_context_done(ExecContext *c) {
         c->user = mfree(c->user);
         c->group = mfree(c->group);
 
+        c->dynamic_user_nft_set_context = nft_set_context_free_many(c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts);
+
         c->supplementary_groups = strv_free(c->supplementary_groups);
 
         c->pam_name = mfree(c->pam_name);
@@ -5942,6 +5983,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sGroup: %s\n", prefix, c->group);
 
         fprintf(f, "%sDynamicUser: %s\n", prefix, yes_no(c->dynamic_user));
+        for (size_t i = 0; i < c->n_dynamic_user_nft_set_contexts; i++)
+                fprintf(f, "%sDynamicUserNFTSet: %s:%s:%s\n", prefix,
+                        nfproto_to_string(c->dynamic_user_nft_set_context[i].nfproto),
+                        c->dynamic_user_nft_set_context[i].table,
+                        c->dynamic_user_nft_set_context[i].set);
 
         strv_dump(f, prefix, "SupplementaryGroups", c->supplementary_groups);
 
@@ -6999,6 +7045,49 @@ int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char 
         (*d)[(*n) ++] = (ExecDirectoryItem) {
                 .path = TAKE_PTR(p),
                 .symlinks = TAKE_PTR(s),
+        };
+
+        return 0;
+}
+
+NFTSetContext* nft_set_context_free_many(NFTSetContext *s, size_t *n) {
+        assert(n);
+        assert(s || *n == 0);
+
+        for (size_t i = 0; i < *n; i++) {
+                free(s[i].table);
+                free(s[i].set);
+        }
+
+        free(s);
+        *n = 0;
+        return NULL;
+}
+
+int nft_set_context_add(NFTSetContext **s, size_t *n, int nfproto, const char *table, const char *set) {
+        _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
+        assert(s);
+        assert(n);
+
+        table_dup = strdup(table);
+        if (!table_dup)
+                return -ENOMEM;
+
+        set_dup = strdup(set);
+        if (!set_dup)
+                return -ENOMEM;
+
+        NFTSetContext *c;
+        c = reallocarray(*s, *n + 1, sizeof(NFTSetContext));
+        if (!c)
+                return -ENOMEM;
+
+        *s = c;
+
+        c[(*n) ++] = (NFTSetContext) {
+                .nfproto = nfproto,
+                .table = TAKE_PTR(table_dup),
+                .set = TAKE_PTR(set_dup),
         };
 
         return 0;
