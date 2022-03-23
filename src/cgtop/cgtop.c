@@ -510,7 +510,6 @@ static int refresh_one(
 }
 
 static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration) {
-        const char *c;
         int r;
 
         FOREACH_STRING(c, SYSTEMD_CGROUP_CONTROLLER, "cpu", "cpuacct", "memory", "io", "blkio", "pids") {

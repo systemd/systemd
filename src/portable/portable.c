@@ -1599,7 +1599,6 @@ int portable_detach(
 
         SET_FOREACH(item, unit_files) {
                 _cleanup_free_ char *md = NULL;
-                const char *suffix;
 
                 if (unlinkat(dirfd(d), item, 0) < 0) {
                         log_debug_errno(errno, "Can't remove unit file %s/%s: %m", where, item);

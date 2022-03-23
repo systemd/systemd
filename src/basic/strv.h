@@ -218,7 +218,7 @@ void strv_print(char * const *l);
         })
 
 #define _FOREACH_STRING(uniq, x, y, ...)                                \
-        for (char **UNIQ_T(l, uniq) = STRV_MAKE(({ x = y; }), ##__VA_ARGS__); \
+        for (const char *x, * const*UNIQ_T(l, uniq) = STRV_MAKE_CONST(({ x = y; }), ##__VA_ARGS__); \
              x;                                                         \
              x = *(++UNIQ_T(l, uniq)))
 

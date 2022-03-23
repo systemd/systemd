@@ -404,7 +404,7 @@ int tmpfs_patch_options(
 }
 
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
-        const char *full, *top, *x;
+        const char *full, *top;
         int r;
         unsigned long extra_flags = 0;
 
@@ -464,7 +464,7 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         /* Create mountpoint for cgroups. Otherwise we are not allowed since we
          * remount /sys read-only.
          */
-        x = prefix_roota(top, "/fs/cgroup");
+        const char *x = prefix_roota(top, "/fs/cgroup");
         (void) mkdir_p(x, 0755);
 
         return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
