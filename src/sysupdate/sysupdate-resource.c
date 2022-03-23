@@ -557,7 +557,7 @@ int resource_resolve_path(
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 
                 if (fstat(fd, &st) < 0)
-                        return log_error_errno(r, "Failed to stat '%s': %m", resolved);
+                        return log_error_errno(errno, "Failed to stat '%s': %m", resolved);
 
                 if (S_ISBLK(st.st_mode) && root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "When using --root= or --image= access to device nodes is prohibited.");
