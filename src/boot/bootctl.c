@@ -17,6 +17,7 @@
 #include "bootspec.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"

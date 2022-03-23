@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bootspec.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "fd-util.h"
