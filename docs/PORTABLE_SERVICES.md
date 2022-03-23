@@ -337,7 +337,7 @@ services copied onto the host.
 
 ## Links
 
-[portablectl(1)](https://www.freedesktop.org/software/systemd/man/portablectl.html)<br>
-[systemd-portabled.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-portabled.service.html)<br>
+[`portablectl(1)`](https://www.freedesktop.org/software/systemd/man/portablectl.html)<br>
+[`systemd-portabled.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-portabled.service.html)<br>
 [Walkthrough for Portable Services](https://0pointer.net/blog/walkthrough-for-portable-services.html)<br>
 [Repo with examples](https://github.com/systemd/portable-walkthrough)
