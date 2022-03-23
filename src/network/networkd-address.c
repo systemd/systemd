@@ -1917,23 +1917,19 @@ int config_parse_duplicate_address_detection(
         }
 
         r = parse_boolean(rvalue);
-        if (r >= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "For historical reasons, %s=%s means %s=%s. "
-                           "Please use 'both', 'ipv4', 'ipv6' or 'none' instead.",
-                           lvalue, rvalue, lvalue, r ? "none" : "both");
+        if (r >= 0)
                 n->duplicate_address_detection = r ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_YES;
-                n = NULL;
-                return 0;
-        }
 
-        AddressFamily a = duplicate_address_detection_address_family_from_string(rvalue);
-        if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, a,
-                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
+        else {
+                AddressFamily a = duplicate_address_detection_address_family_from_string(rvalue);
+                if (a < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, a,
+                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                n->duplicate_address_detection = a;
         }
-        n->duplicate_address_detection = a;
 
         TAKE_PTR(n);
         return 0;
