@@ -39,7 +39,7 @@ CHANGES WITH 251 in spe:
 
         * sd-boot will now measure the kernel command line into TPM PCR 12
           rather than PCR 8. This improves usefulness of the measurements on
-          sytems where sd-boot is chainloaded from Grub. Grub measures all
+          systems where sd-boot is chainloaded from Grub. Grub measures all
           commands its executes into PCR 8, which makes it very hard to use
           reasonably, hence separate ourselves from that and use PCR 12
           instead, which is what certain Ubuntu editions already do. To retain
@@ -192,7 +192,7 @@ CHANGES WITH 251 in spe:
         * A new unit systemd-networkd-wait-online@<interface>.service can be
           used to wait for a specific interface to be up.
 
-        * systemd-resolved is started ealier (in sysinit.target), so it
+        * systemd-resolved is started earlier (in sysinit.target), so it
           available earlier and will also be started in the initrd if installed
           there.
 
