@@ -784,6 +784,17 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_pd_tokens);
         set_free(network->ndisc_tokens);
 
+        for (size_t i = 0; i < network->n_ipv4_nft_set_contexts; i++) {
+                free(network->ipv4_nft_set_context[i].table);
+                free(network->ipv4_nft_set_context[i].set);
+        }
+        free(network->ipv4_nft_set_context);
+        for (size_t i = 0; i < network->n_ipv6_nft_set_contexts; i++) {
+                free(network->ipv6_nft_set_context[i].table);
+                free(network->ipv6_nft_set_context[i].set);
+        }
+        free(network->ipv6_nft_set_context);
+
         return mfree(network);
 }
 
@@ -1354,3 +1365,101 @@ static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy, "Failed to parse activation policy");
+
+static int config_parse_network_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                NFTSetContext **nft_set_context,
+                size_t *n) {
+        _cleanup_free_ char *family_str = NULL, *table = NULL, *set = NULL;
+        int nfproto, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(nft_set_context);
+
+        if (isempty(rvalue)) {
+                for (size_t i = 0; i < *n; i++) {
+                        free(nft_set_context[i]->table);
+                        free(nft_set_context[i]->set);
+                }
+                *nft_set_context = mfree(*nft_set_context);
+                *n = 0;
+
+                return 0;
+        }
+
+        r = extract_many_words(&rvalue, ":", EXTRACT_CUNESCAPE, &family_str, &table, &set, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r != 3) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse IPvxNFT set, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        nfproto = nfproto_from_string(family_str);
+        if (nfproto < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family, ignoring: %s", family_str);
+                return 0;
+        }
+
+        if (nft_identifier_bad(table))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", table);
+
+        if (nft_identifier_bad(set))
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", set);
+
+        NFTSetContext *c;
+        c = reallocarray(*nft_set_context, *n + 1, sizeof(NFTSetContext));
+        if (!c)
+                return -ENOMEM;
+
+        *nft_set_context = c;
+
+        c[(*n) ++] = (NFTSetContext) {
+                .nfproto = nfproto,
+                .table = TAKE_PTR(table),
+                .set = TAKE_PTR(set),
+        };
+
+        return 0;
+}
+
+int config_parse_ipv4_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        return config_parse_network_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ipv4_nft_set_context, &network->n_ipv4_nft_set_contexts);
+}
+
+int config_parse_ipv6_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        return config_parse_network_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ipv6_nft_set_context, &network->n_ipv6_nft_set_contexts);
+}
