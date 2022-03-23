@@ -174,6 +174,8 @@ void boot_config_free(BootConfig *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+
+        set_free(config->inodes_seen);
 }
 
 static int boot_loader_read_conf(const char *path, BootConfig *config) {
@@ -274,6 +276,58 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return -strverscmp_improved(a->id, b->id);
 }
 
+static void inode_hash_func(const struct stat *q, struct siphash *state) {
+        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
+        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
+}
+
+static int inode_compare_func(const struct stat *a, const struct stat *b) {
+        int r;
+
+        r = CMP(a->st_dev, b->st_dev);
+        if (r != 0)
+                return r;
+
+        return CMP(a->st_ino, b->st_ino);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+
+static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
+        _cleanup_free_ char *d = NULL;
+        struct stat st;
+
+        assert(config);
+        assert(fd >= 0);
+        assert(fname);
+
+        /* So, here's the thing: because of the mess around /efi/ vs. /boot/ vs. /boot/efi/ it might be that
+         * people have these dirs, or subdirs of them symlinked or bind mounted, and we might end up
+         * iterating though some dirs multiple times. Let's thus rather be safe than sorry, and track the
+         * inodes we already processed: let's ignore inodes we have seen already. This should be robust
+         * against any form of symlinking or bind mounting, and effectively suppress any such duplicates. */
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat('%s'): %m", fname);
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("File '%s' is not a reguar file, ignoring.", fname);
+                return false;
+        }
+
+        if (set_contains(config->inodes_seen, &st)) {
+                log_debug("Inode '%s' already seen before, ignoring.", fname);
+                return false;
+        }
+        d = memdup(&st, sizeof(st));
+        if (!d)
+                return log_oom();
+        if (set_ensure_put(&config->inodes_seen, &inode_hash_ops, d) < 0)
+                return log_oom();
+
+        TAKE_PTR(d);
+        return true;
+}
+
 static int boot_entries_find(
                 BootConfig *config,
                 const char *root,
@@ -309,20 +363,20 @@ static int boot_entries_find(
                 if (!endswith_no_case(de->d_name, ".conf"))
                         continue;
 
-                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
-                        return log_oom();
-
                 r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
                         continue;
                 }
 
-                r = fd_verify_regular(fileno(f));
-                if (r < 0) {
-                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
+                r = config_check_inode_relevant_and_unseen(config, fileno(f), de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
-                }
+
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
+                        return log_oom();
 
                 r = boot_entry_load(f, root, dir, de->d_name, config->entries + config->n_entries);
                 if (r < 0)
@@ -575,14 +629,13 @@ static int boot_entries_find_unified(
                         continue;
                 }
 
-                r = fd_verify_regular(fd);
-                if (r < 0) {
-                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
-                        continue;
-                }
-
-                r = find_sections(fd, &osrelease, &cmdline);
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
                 if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                if (find_sections(fd, &osrelease, &cmdline) < 0)
                         continue;
 
                 j = path_join(dir, de->d_name);
