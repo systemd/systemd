@@ -771,22 +771,20 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
                 /* Only suppress such subtrees for READONLY, READWRITE and READWRITE_IMPLICIT entries */
                 if (IN_SET(f->mode, READONLY, READWRITE, READWRITE_IMPLICIT)) {
-                        MountEntry *p;
-                        bool found = false;
+                        MountEntry *found = NULL;
 
                         /* Now let's find the first parent of the entry we are looking at. */
-                        for (p = t-1; p >= m; p--) {
+                        for (MountEntry *p = PTR_SUB1(t, m); p; p = PTR_SUB1(p, m))
                                 if (path_startswith(mount_entry_path(f), mount_entry_path(p))) {
-                                        found = true;
+                                        found = p;
                                         break;
                                 }
-                        }
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
-                        if (found && p->mode == f->mode) {
+                        if (found && found->mode == f->mode) {
                                 log_debug("%s (%s) is made redundant by %s (%s)",
                                           mount_entry_path(f), mount_mode_to_string(f->mode),
-                                          mount_entry_path(p), mount_mode_to_string(p->mode));
+                                          mount_entry_path(found), mount_mode_to_string(found->mode));
                                 mount_entry_done(f);
                                 continue;
                         }

@@ -827,7 +827,7 @@ int device_set_drivers_subsystem(sd_device *device) {
         if (!drivers)
                 return -EINVAL;
 
-        for (p = drivers - 1; p >= syspath; p--)
+        for (p = PTR_SUB1(drivers, syspath); p; p = PTR_SUB1(p, syspath))
                 if (*p == '/')
                         break;
 
