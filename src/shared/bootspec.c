@@ -13,6 +13,7 @@
 #include "find-esp.h"
 #include "path-util.h"
 #include "pe-header.h"
+#include "recurse-dir.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -40,49 +41,50 @@ static void boot_entry_free(BootEntry *entry) {
 }
 
 static int boot_entry_load(
+                FILE *f,
                 const char *root,
-                const char *path,
+                const char *dir,
+                const char *id,
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_CONF,
         };
 
-        _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         char *c;
         int r;
 
+        assert(f);
         assert(root);
-        assert(path);
+        assert(dir);
+        assert(id);
         assert(entry);
 
-        r = path_extract_filename(path, &tmp.id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from path '%s': %m", path);
+        /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        c = endswith_no_case(tmp.id, ".conf");
+        if (!efi_loader_entry_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", id);
+
+        c = endswith_no_case(id, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", id);
 
-        if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+        tmp.id = strdup(id);
+        if (!tmp.id)
+                return log_oom();
 
-        tmp.id_old = strndup(tmp.id, c - tmp.id);
+        tmp.id_old = strndup(id, c - id); /* Without .conf suffix */
         if (!tmp.id_old)
                 return log_oom();
 
-        tmp.path = strdup(path);
+        tmp.path = path_join(dir, id);
         if (!tmp.path)
                 return log_oom();
 
         tmp.root = strdup(root);
         if (!tmp.root)
                 return log_oom();
-
-        f = fopen(path, "re");
-        if (!f)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
@@ -92,9 +94,9 @@ static int boot_entry_load(
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", path, line);
+                        return log_error_errno(r, "%s:%u: Line too long", tmp.path, line);
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
 
                 line++;
 
@@ -104,11 +106,11 @@ static int boot_entry_load(
                 p = buf;
                 r = extract_first_word(&p, &field, " \t", 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", path, line);
+                        log_warning("%s:%u: Bad syntax", tmp.path, line);
                         continue;
                 }
 
@@ -141,11 +143,11 @@ static int boot_entry_load(
 
                         r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
                 } else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
+                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
         }
 
         *entry = tmp;
@@ -278,7 +280,8 @@ static int boot_entries_find(
                 BootEntry **entries,
                 size_t *n_entries) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ DirectoryEntries *dentries = NULL;
+        _cleanup_close_ int dir_fd = -1;
         int r;
 
         assert(root);
@@ -286,15 +289,44 @@ static int boot_entries_find(
         assert(entries);
         assert(n_entries);
 
-        r = conf_files_list(&files, ".conf", NULL, 0, dir);
-        if (r < 0)
-                return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
+        dir_fd = open(dir, O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
 
-        STRV_FOREACH(f, files) {
+                return log_error_errno(errno, "Failed to open '%s': %m", dir);
+        }
+
+        r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read directory '%s': %m", dir);
+
+        for (size_t i = 0; i < dentries->n_entries; i++) {
+                const struct dirent *de = dentries->entries[i];
+                _cleanup_fclose_ FILE *f = NULL;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".conf"))
+                        continue;
+
                 if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
                         return log_oom();
 
-                r = boot_entry_load(root, *f, *entries + *n_entries);
+                r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = fd_verify_regular(fileno(f));
+                if (r < 0) {
+                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = boot_entry_load(f, root, dir, de->d_name, *entries + *n_entries);
                 if (r < 0)
                         continue;
 
