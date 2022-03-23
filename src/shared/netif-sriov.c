@@ -80,6 +80,26 @@ SRIOV *sr_iov_free(SRIOV *sr_iov) {
         return mfree(sr_iov);
 }
 
+void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state) {
+        assert(sr_iov);
+        assert(state);
+
+        siphash24_compress(&sr_iov->vf, sizeof(sr_iov->vf), state);
+}
+
+int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2) {
+        assert(s1);
+        assert(s2);
+
+        return CMP(s1->vf, s2->vf);
+}
+
+DEFINE_PRIVATE_HASH_OPS(
+        sr_iov_hash_ops,
+        SRIOV,
+        sr_iov_hash_func,
+        sr_iov_compare_func);
+
 int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
         int r;
 
@@ -296,7 +316,7 @@ static int sr_iov_section_verify(uint32_t num_vfs, SRIOV *sr_iov) {
 }
 
 int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
-        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_set_free_ Set *set = NULL;
         SRIOV *sr_iov;
         int r;
 
@@ -308,9 +328,7 @@ int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_sec
                         continue;
                 }
 
-                assert(sr_iov->vf < INT_MAX);
-
-                dup = hashmap_remove(hashmap, UINT32_TO_PTR(sr_iov->vf + 1));
+                dup = set_remove(set, sr_iov);
                 if (dup) {
                         log_warning("%s: Conflicting [SR-IOV] section is specified at line %u and %u, "
                                     "dropping the [SR-IOV] section specified at line %u.",
@@ -319,7 +337,7 @@ int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_sec
                         sr_iov_free(dup);
                 }
 
-                r = hashmap_ensure_put(&hashmap, NULL, UINT32_TO_PTR(sr_iov->vf + 1), sr_iov);
+                r = set_ensure_put(&set, &sr_iov_hash_ops, sr_iov);
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
