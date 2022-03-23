@@ -20,6 +20,7 @@
 #include "cgroup-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "env-file.h"
