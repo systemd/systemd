@@ -929,8 +929,9 @@ int path_find_first_component(const char **p, bool accept_dot_dot, const char **
 
 static const char *skip_slash_or_dot_backward(const char *path, const char *q) {
         assert(path);
+        assert(!q || q >= path);
 
-        for (; q >= path; q--) {
+        for (; q; q = PTR_SUB1(q, path)) {
                 if (*q == '/')
                         continue;
                 if (q > path && strneq(q - 1, "/.", 2))
@@ -995,7 +996,7 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
                 q = path + strlen(path) - 1;
 
         q = skip_slash_or_dot_backward(path, q);
-        if ((q < path) || /* the root directory */
+        if (!q || /* the root directory */
             (q == path && *q == '.')) { /* path is "." or "./" */
                 if (next)
                         *next = path;
@@ -1006,10 +1007,10 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
 
         last_end = q + 1;
 
-        while (q >= path && *q != '/')
-                q--;
+        while (q && *q != '/')
+                q = PTR_SUB1(q, path);
 
-        last_begin = q + 1;
+        last_begin = q ? q + 1 : path;
         len = last_end - last_begin;
 
         if (len > NAME_MAX)
@@ -1019,10 +1020,7 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
 
         if (next) {
                 q = skip_slash_or_dot_backward(path, q);
-                if (q < path)
-                        *next = path;
-                else
-                        *next = q + 1;
+                *next = q ? q + 1 : path;
         }
 
         if (ret)
