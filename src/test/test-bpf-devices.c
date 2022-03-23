@@ -30,7 +30,6 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_CLOSED, true, cgroup_path, installed_prog);
         assert_se(r >= 0);
 
-        const char *s;
         FOREACH_STRING(s, "/dev/null",
                           "/dev/zero",
                           "/dev/full",

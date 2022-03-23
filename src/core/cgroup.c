@@ -786,7 +786,6 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
 }
 
 static void cgroup_xattr_apply(Unit *u) {
-        const char *xn;
         bool b;
 
         assert(u);
