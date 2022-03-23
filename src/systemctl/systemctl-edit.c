@@ -362,7 +362,7 @@ static int run_editor(char **paths) {
                         /* We do not fail if the editor doesn't exist because we want to try each one of them
                          * before failing. */
                         if (errno != ENOENT) {
-                                log_error_errno(errno, "Failed to execute %s: %m", editor);
+                                log_error_errno(errno, "Failed to execute %s: %m", name);
                                 _exit(EXIT_FAILURE);
                         }
                 }
