@@ -810,32 +810,26 @@ int device_set_subsystem(sd_device *device, const char *subsystem) {
 
 int device_set_drivers_subsystem(sd_device *device) {
         _cleanup_free_ char *subsystem = NULL;
-        const char *syspath, *drivers, *p;
+        const char *devpath, *drivers, *p;
         int r;
 
         assert(device);
 
-        r = sd_device_get_syspath(device, &syspath);
+        r = sd_device_get_devpath(device, &devpath);
         if (r < 0)
                 return r;
 
-        drivers = strstr(syspath, "/drivers/");
+        drivers = strstr(devpath, "/drivers/");
         if (!drivers)
                 return -EINVAL;
 
-        for (p = drivers - 1; p >= syspath; p--)
-                if (*p == '/')
-                        break;
-
-        if (p <= syspath)
-                /* syspath does not start with /sys/ ?? */
-                return -EINVAL;
-        p++;
-        if (p >= drivers)
-                /* refuse duplicated slashes */
+        r = path_find_last_component(devpath, false, &drivers, &p);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EINVAL;
 
-        subsystem = strndup(p, drivers - p);
+        subsystem = strndup(p, r);
         if (!subsystem)
                 return -ENOMEM;
 
