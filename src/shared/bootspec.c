@@ -40,7 +40,7 @@ static void boot_entry_free(BootEntry *entry) {
         strv_free(entry->device_tree_overlay);
 }
 
-static int boot_entry_load(
+static int boot_entry_load_type1(
                 FILE *f,
                 const char *root,
                 const char *dir,
@@ -328,7 +328,7 @@ static int config_check_inode(BootConfig *config, int fd, const char *fname) {
         return true;
 }
 
-static int boot_entries_find(
+static int boot_entries_find_type1(
                 BootConfig *config,
                 const char *root,
                 const char *dir) {
@@ -379,7 +379,7 @@ static int boot_entries_find(
                 if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
-                r = boot_entry_load(f, root, dir, de->d_name, config->entries + config->n_entries);
+                r = boot_entry_load_type1(f, root, dir, de->d_name, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
@@ -840,7 +840,7 @@ int boot_entries_load_config(
                         return r;
 
                 p = strjoina(esp_path, "/loader/entries");
-                r = boot_entries_find(config, esp_path, p);
+                r = boot_entries_find_type1(config, esp_path, p);
                 if (r < 0)
                         return r;
 
@@ -852,7 +852,7 @@ int boot_entries_load_config(
 
         if (xbootldr_path) {
                 p = strjoina(xbootldr_path, "/loader/entries");
-                r = boot_entries_find(config, xbootldr_path, p);
+                r = boot_entries_find_type1(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
 
