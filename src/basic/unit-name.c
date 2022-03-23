@@ -10,7 +10,10 @@
 #include "hexdecoct.h"
 #include "memory-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "special.h"
+#include "sd-id128.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -30,6 +33,9 @@
 #define VALID_CHARS_GLOB                        \
         VALID_CHARS_WITH_AT                     \
         "[]!-*?"
+
+#define LONG_UNIT_NAME_HASH_KEY SD_ID128_MAKE(ec,f2,37,fb,58,32,4a,32,84,9f,06,9b,0d,21,eb,9a)
+#define UNIT_NAME_HASH_LENGTH 16
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         const char *e, *i, *at;
@@ -507,6 +513,68 @@ int unit_name_template(const char *f, char **ret) {
         return 0;
 }
 
+bool unit_name_is_hashed(const char *name) {
+        char *s;
+        int i;
+
+        if (unit_name_is_valid(name, UNIT_NAME_PLAIN))
+                s = strrchr(name, '.');
+        else if (unit_name_is_valid(name, UNIT_NAME_INSTANCE))
+                s = strrchr(name, '@');
+        else
+                return false;
+
+        for (i = UNIT_NAME_HASH_LENGTH; i > 0; i--)
+                if (unhexchar(*--s) < 0)
+                        return false;
+
+        return *--s == '_';
+}
+
+int unit_name_hash_long(const char *name, char **ret) {
+        _cleanup_free_ char *s = NULL, *hash = NULL;
+        char n[UNIT_NAME_MAX] = {}, *suffix, *at;
+        uint64_t h;
+        size_t len;
+
+        if (strlen(name) < UNIT_NAME_MAX) {
+                *ret = NULL;
+                return 0;
+        }
+
+        suffix = strrchr(name, '.');
+        if (!suffix)
+                return -EINVAL;
+
+        if (unit_type_from_string(suffix+1) < 0)
+                return -EINVAL;
+
+        h = siphash24_string(name, LONG_UNIT_NAME_HASH_KEY.bytes);
+
+        hash = hexmem(&h, sizeof(h));
+        if (!hash)
+                return -ENOMEM;
+
+        assert_se(strlen(hash) == UNIT_NAME_HASH_LENGTH);
+
+        at = strrchr(name, '@');
+        if (at)
+                len = UNIT_NAME_MAX - 1 - strlen(at) - strlen(hash) - 1;
+        else
+                len = UNIT_NAME_MAX - 1 - strlen(suffix+1) - strlen(hash) - 2;
+
+        mempcpy(n, name, len);
+
+        s = strjoin(n, "_", hash, at ?: suffix);
+        if (!s)
+                return -ENOMEM;
+        assert_se(unit_name_is_valid(s, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE));
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
 int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
@@ -526,8 +594,17 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (!s)
                 return -ENOMEM;
 
-        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
-                return -ENAMETOOLONG;
+        if (strlen(s) >= UNIT_NAME_MAX) {
+                _cleanup_free_ char *n = NULL;
+
+                log_debug("Unit name too long, falling back to hashed unit name.");
+
+                r = unit_name_hash_long(s, &n);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(s, n);
+        }
 
         /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
@@ -560,8 +637,17 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         if (!s)
                 return -ENOMEM;
 
-        if (strlen(s) >= UNIT_NAME_MAX) /* Return a slightly more descriptive error for this specific condition */
-                return -ENAMETOOLONG;
+        if (strlen(s) >= UNIT_NAME_MAX) {
+                _cleanup_free_ char *n = NULL;
+
+                log_debug("Unit instance name too long, falling back to hashed unit name.");
+
+                r = unit_name_hash_long(s, &n);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(s, n);
+        }
 
         /* Refuse if this for some other reason didn't result in a valid name */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
@@ -580,6 +666,9 @@ int unit_name_to_path(const char *name, char **ret) {
         r = unit_name_to_prefix(name, &prefix);
         if (r < 0)
                 return r;
+
+        if (unit_name_is_hashed(name))
+                return -ENAMETOOLONG;
 
         return unit_name_path_unescape(prefix, ret);
 }
