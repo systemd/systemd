@@ -43,14 +43,14 @@ boot. For that it's essential to:
    image than advisable.
 
 3. Remove the `/loader/random-seed` file (see
-   [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
+   [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html))
    from the UEFI System Partition (ESP), in case the `systemd-boot` boot loader
    is used in the image.
 
 4. It might also make sense to remove
    [`/etc/hostname`](https://www.freedesktop.org/software/systemd/man/hostname.html)
    and
-   [`/etc/machine-info`][`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/machine-info.html)
+   [`/etc/machine-info`](https://www.freedesktop.org/software/systemd/man/machine-info.html)
    which carry additional identifying information about the OS image.
 
 ## Boot Menu Entry Identifiers
