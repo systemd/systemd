@@ -1255,12 +1255,11 @@ static int remove_variables(sd_id128_t uuid, const char *path, bool in_order) {
 }
 
 static int remove_loader_variables(void) {
-        const char *variable;
         int r = 0;
 
         /* Remove all persistent loader variables we define */
 
-        FOREACH_STRING(variable,
+        FOREACH_STRING(var,
                        EFI_LOADER_VARIABLE(LoaderConfigTimeout),
                        EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot),
                        EFI_LOADER_VARIABLE(LoaderEntryDefault),
@@ -1269,15 +1268,15 @@ static int remove_loader_variables(void) {
 
                 int q;
 
-                q = efi_set_variable(variable, NULL, 0);
+                q = efi_set_variable(var, NULL, 0);
                 if (q == -ENOENT)
                         continue;
                 if (q < 0) {
-                        log_warning_errno(q, "Failed to remove EFI variable %s: %m", variable);
+                        log_warning_errno(q, "Failed to remove EFI variable %s: %m", var);
                         if (r >= 0)
                                 r = q;
                 } else
-                        log_info("Removed EFI variable %s.", variable);
+                        log_info("Removed EFI variable %s.", var);
         }
 
         return r;

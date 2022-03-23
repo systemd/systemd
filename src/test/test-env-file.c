@@ -166,8 +166,6 @@ TEST(load_env_file_6) {
 }
 
 TEST(write_and_load_env_file) {
-        const char *v;
-
         /* Make sure that our writer, parser and the shell agree on what our env var files mean */
 
         FOREACH_STRING(v,
