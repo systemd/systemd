@@ -31,8 +31,12 @@ static inline int dir_is_populated(const char *path) {
 }
 
 bool null_or_empty(struct stat *st) _pure_;
-int null_or_empty_path(const char *fn);
+int null_or_empty_path_with_root(const char *fn, const char *root);
 int null_or_empty_fd(int fd);
+
+static inline int null_or_empty_path(const char *fn) {
+        return null_or_empty_path_with_root(fn, NULL);
+}
 
 int path_is_read_only_fs(const char *path);
 

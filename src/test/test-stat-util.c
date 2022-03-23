@@ -18,6 +18,30 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
+TEST(null_or_empty_path) {
+        assert_se(null_or_empty_path("/dev/null") == 1);
+        assert_se(null_or_empty_path("/dev/tty") == 1);  /* We assume that any character device is "empty", bleh. */
+        assert_se(null_or_empty_path("../../../../../../../../../../../../../../../../../../../../dev/null") == 1);
+        assert_se(null_or_empty_path("/proc/self/exe") == 0);
+        assert_se(null_or_empty_path("/nosuchfileordir") == -ENOENT);
+}
+
+TEST(null_or_empty_path_with_root) {
+        assert_se(null_or_empty_path_with_root("/dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/") == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/.././../") == 1);
+        assert_se(null_or_empty_path_with_root("/dev/null", "/.././..") == 1);
+        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", NULL) == 1);
+        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", "/") == 1);
+        assert_se(null_or_empty_path_with_root("/proc/self/exe", NULL) == 0);
+        assert_se(null_or_empty_path_with_root("/proc/self/exe", "/") == 0);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", NULL) == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././../") == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/nosuchfileordir", "/.././..") == -ENOENT);
+        assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar") == 1);
+        assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar/") == 1);
+}
+
 TEST(files_same) {
         _cleanup_close_ int fd = -1;
         char name[] = "/tmp/test-files_same.XXXXXX";
