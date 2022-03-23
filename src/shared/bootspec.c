@@ -931,6 +931,7 @@ int boot_entries_augment_from_loader(
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
+        bool added = false;
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
@@ -975,6 +976,15 @@ int boot_entries_augment_from_loader(
                         .path = TAKE_PTR(p),
                         .reported_by_loader = true,
                 };
+
+                added = true;
+        }
+
+        if (added) {
+                /* If we added a new entry that the loader found, let's reasses which entries are
+                 * default/selected */
+                config->default_entry = boot_entries_select_default(config);
+                config->selected_entry = boot_entries_select_selected(config);
         }
 
         return 0;
