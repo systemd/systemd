@@ -62,6 +62,12 @@ typedef struct BootConfig {
         Set *inodes_seen;
 } BootConfig;
 
+#define BOOT_CONFIG_NULL              \
+        {                             \
+                .default_entry = -1,  \
+                .selected_entry = -1, \
+        }
+
 static inline BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         assert(config);
         assert(id);
@@ -87,6 +93,8 @@ void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
 int boot_entries_augment_from_loader(BootConfig *config, char **list, bool only_auto);
+
+int boot_config_select_special_entries(BootConfig *config);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);

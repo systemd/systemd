@@ -18,7 +18,7 @@
 #include "systemctl.h"
 
 static int load_kexec_kernel(void) {
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
@@ -40,6 +40,10 @@ static int load_kexec_kernel(void) {
                                        is_efi_boot()
                                        ? "Cannot automatically load kernel: ESP mount point not found."
                                        : "Automatic loading works only on systems booted with EFI.");
+        if (r < 0)
+                return r;
+
+        r = boot_config_select_special_entries(&config);
         if (r < 0)
                 return r;
 
