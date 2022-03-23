@@ -22,20 +22,21 @@
  * OS versions, but not fully stabilize them. */
 typedef enum NamingSchemeFlags {
         /* First, the individual features */
-        NAMING_SR_IOV_V            = 1 << 0, /* Use "v" suffix for SR-IOV, see 609948c7043a */
-        NAMING_NPAR_ARI            = 1 << 1, /* Use NPAR "ARI", see 6bc04997b6ea */
-        NAMING_INFINIBAND          = 1 << 2, /* Use "ib" prefix for infiniband, see 938d30aa98df */
-        NAMING_ZERO_ACPI_INDEX     = 1 << 3, /* Use zero acpi_index field, see d81186ef4f6a */
-        NAMING_ALLOW_RERENAMES     = 1 << 4, /* Allow re-renaming of devices, see #9006 */
-        NAMING_STABLE_VIRTUAL_MACS = 1 << 5, /* Use device name to generate MAC, see 6d3646406560 */
-        NAMING_NETDEVSIM           = 1 << 6, /* Generate names for netdevsim devices, see eaa9d507d855 */
-        NAMING_LABEL_NOPREFIX      = 1 << 7, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
-        NAMING_NSPAWN_LONG_HASH    = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
-        NAMING_BRIDGE_NO_SLOT      = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
-        NAMING_SLOT_FUNCTION_ID    = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
-        NAMING_16BIT_INDEX         = 1 << 11, /* Allow full 16-bit for the onboard index */
-        NAMING_REPLACE_STRICTLY    = 1 << 12, /* Use udev_replace_ifname() for NAME= rule */
-        NAMING_XEN_VIF             = 1 << 13, /* GEnerate names for Xen netfront devices */
+        NAMING_SR_IOV_V                  = 1 << 0, /* Use "v" suffix for SR-IOV, see 609948c7043a */
+        NAMING_NPAR_ARI                  = 1 << 1, /* Use NPAR "ARI", see 6bc04997b6ea */
+        NAMING_INFINIBAND                = 1 << 2, /* Use "ib" prefix for infiniband, see 938d30aa98df */
+        NAMING_ZERO_ACPI_INDEX           = 1 << 3, /* Use zero acpi_index field, see d81186ef4f6a */
+        NAMING_ALLOW_RERENAMES           = 1 << 4, /* Allow re-renaming of devices, see #9006 */
+        NAMING_STABLE_VIRTUAL_MACS       = 1 << 5, /* Use device name to generate MAC, see 6d3646406560 */
+        NAMING_NETDEVSIM                 = 1 << 6, /* Generate names for netdevsim devices, see eaa9d507d855 */
+        NAMING_LABEL_NOPREFIX            = 1 << 7, /* Don't prepend ID_NET_LABEL_ONBOARD with interface type prefix */
+        NAMING_NSPAWN_LONG_HASH          = 1 << 8, /* Shorten nspawn interfaces by including 24bit hash, instead of simple truncation  */
+        NAMING_BRIDGE_NO_SLOT            = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
+        NAMING_SLOT_FUNCTION_ID          = 1 << 10, /* Use function_id if present to identify PCI hotplug slots */
+        NAMING_16BIT_INDEX               = 1 << 11, /* Allow full 16-bit for the onboard index */
+        NAMING_REPLACE_STRICTLY          = 1 << 12, /* Use udev_replace_ifname() for NAME= rule */
+        NAMING_XEN_VIF                   = 1 << 13, /* Generate names for Xen netfront devices */
+        NAMING_BRIDGE_MULTIFUNCTION_SLOT = 1 << 14, /* Use PCI hotplug slot information associated with bridge, but only if PCI device is multifunction */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -47,6 +48,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V247 = NAMING_V245 | NAMING_BRIDGE_NO_SLOT,
         NAMING_V249 = NAMING_V247 | NAMING_SLOT_FUNCTION_ID | NAMING_16BIT_INDEX | NAMING_REPLACE_STRICTLY,
         NAMING_V250 = NAMING_V249 | NAMING_XEN_VIF,
+        NAMING_V251 = NAMING_V250 | NAMING_BRIDGE_MULTIFUNCTION_SLOT,
 
         EXTRA_NET_NAMING_SCHEMES
 
