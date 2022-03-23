@@ -433,4 +433,27 @@ TEST(DECIMAL_STR_MAX) {
         assert_se(DECIMAL_STR_MAX(uint64_t) == DECIMAL_STR_WIDTH(u64_longest)+1);
 }
 
+TEST(PTR_SUB1) {
+        static const uint64_t x[4] = { 2, 3, 4, 5 };
+        const uint64_t *p;
+
+        p = x + ELEMENTSOF(x)-1;
+        assert_se(*p == 5);
+
+        p = PTR_SUB1(p, x);
+        assert_se(*p == 4);
+
+        p = PTR_SUB1(p, x);
+        assert_se(*p == 3);
+
+        p = PTR_SUB1(p, x);
+        assert_se(*p == 2);
+
+        p = PTR_SUB1(p, x);
+        assert_se(!p);
+
+        p = PTR_SUB1(p, x);
+        assert_se(!p);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

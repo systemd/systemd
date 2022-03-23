@@ -12,7 +12,8 @@
 #include "time-util.h"
 
 static void test_sd_device_one(sd_device *d) {
-        const char *syspath, *subsystem, *val;
+        _cleanup_(sd_device_unrefp) sd_device *device_from_id = NULL;
+        const char *syspath, *subsystem, *id, *val;
         dev_t devnum;
         usec_t usec;
         int i, r;
@@ -57,7 +58,17 @@ static void test_sd_device_one(sd_device *d) {
         r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
         assert_se(r >= 0 || r == -ENOENT);
 
-        log_info("syspath:%s subsystem:%s initialized:%s", syspath, strna(subsystem), yes_no(i));
+        r = device_get_device_id(d, &id);
+        assert_se(r >= 0);
+
+        r = sd_device_new_from_device_id(&device_from_id, id);
+        assert_se(r >= 0);
+
+        r = sd_device_get_syspath(device_from_id, &val);
+        assert_se(r >= 0);
+        assert_se(streq(syspath, val));
+
+        log_info("syspath:%s subsystem:%s id:%s initialized:%s", syspath, strna(subsystem), id, yes_no(i));
 }
 
 TEST(sd_device_enumerator_devices) {
