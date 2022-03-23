@@ -41,7 +41,6 @@ TEST(parse_etc_hosts) {
 
         int fd;
         _cleanup_fclose_ FILE *f;
-        const char *s;
 
         fd = mkostemp_safe(t);
         assert_se(fd >= 0);

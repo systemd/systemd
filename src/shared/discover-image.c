@@ -85,7 +85,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, st
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
-        const char *fn, *s;
+        const char *fn;
         unsigned i = 0;
 
         assert(image);

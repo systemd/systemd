@@ -128,7 +128,6 @@ TEST(mount_flags_to_string) {
 TEST(bind_remount_recursive) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_free_ char *subdir = NULL;
-        const char *p;
 
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 (void) log_tests_skipped("not running privileged");

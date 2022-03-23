@@ -33,7 +33,6 @@ int switch_root(const char *new_root,
         _cleanup_free_ char *resolved_old_root_after = NULL;
         _cleanup_close_ int old_root_fd = -1;
         bool old_root_remove;
-        const char *i;
         int r;
 
         assert(new_root);
@@ -64,12 +63,12 @@ int switch_root(const char *new_root,
         if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to set \"/\" mount propagation to private: %m");
 
-        FOREACH_STRING(i, "/sys", "/dev", "/run", "/proc") {
+        FOREACH_STRING(path, "/sys", "/dev", "/run", "/proc") {
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
+                r = chase_symlinks(path, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, i);
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, path);
                 if (r > 0) {
                         /* Already exists. Let's see if it is a mount point already. */
                         r = path_is_mount_point(chased, NULL, 0);
@@ -81,8 +80,8 @@ int switch_root(const char *new_root,
                          /* Doesn't exist yet? */
                         (void) mkdir_p_label(chased, 0755);
 
-                if (mount(i, chased, NULL, mount_flags, NULL) < 0)
-                        return log_error_errno(errno, "Failed to mount %s to %s: %m", i, chased);
+                if (mount(path, chased, NULL, mount_flags, NULL) < 0)
+                        return log_error_errno(errno, "Failed to mount %s to %s: %m", path, chased);
         }
 
         /* Do not fail if base_filesystem_create() fails. Not all switch roots are like base_filesystem_create() wants

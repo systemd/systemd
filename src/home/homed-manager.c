@@ -482,7 +482,6 @@ static int manager_enumerate_records(Manager *m) {
 static int search_quota(uid_t uid, const char *exclude_quota_path) {
         struct stat exclude_st = {};
         dev_t previous_devno = 0;
-        const char *where;
         int r;
 
         /* Checks whether the specified UID owns any files on the files system, but ignore any file system
