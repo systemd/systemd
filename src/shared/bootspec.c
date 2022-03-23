@@ -799,25 +799,22 @@ static int boot_load_efi_entry_pointers(BootConfig *config) {
         /* Loads the three "pointers" to boot loader entries from their EFI variables */
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
 
         return 1;
 }
