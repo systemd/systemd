@@ -1040,12 +1040,13 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>DuplicateAddressDetection=</varname></term>
         <listitem>
-          <para>Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>,
-          or <literal>none</literal>. When <literal>ipv4</literal>, performs IPv4 Address Conflict
-          Detection. See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>.
-          When <literal>ipv6</literal>, performs IPv6 Duplicate Address Detection. See
-          <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
-          <literal>ipv6</literal>.</para>
+          <para>Takes a boolean argument. The default is to perform IPv4 Address Conflict Detection for IPv4
+          link-local addresses (see <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>), IPv6
+          Duplicate Address Detection for IPv6 addresses (see <ulink
+          url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>). The default can be overriden by
+          specifying a boolean value: when false, no duplicate address detection will be performed, and when
+          true, IPv4 or IPv6 detection will be performed matching the configured address type.
+          </para>
         </listitem>
       </varlistentry>
 

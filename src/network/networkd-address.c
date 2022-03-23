@@ -68,7 +68,6 @@ int address_new(Address **ret) {
                 .lifetime_valid_usec = USEC_INFINITY,
                 .lifetime_preferred_usec = USEC_INFINITY,
                 .set_broadcast = -1,
-                .duplicate_address_detection = ADDRESS_FAMILY_IPV6,
         };
 
         *ret = TAKE_PTR(address);
@@ -106,6 +105,8 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         address->network = network;
         address->section = TAKE_PTR(n);
         address->source = NETWORK_CONFIG_SOURCE_STATIC;
+        /* This will be adjusted in address_section_verify(). */
+        address->duplicate_address_detection = _ADDRESS_FAMILY_INVALID;
 
         r = ordered_hashmap_ensure_put(&network->addresses_by_section, &config_section_hash_ops, address->section, address);
         if (r < 0)
@@ -1916,23 +1917,19 @@ int config_parse_duplicate_address_detection(
         }
 
         r = parse_boolean(rvalue);
-        if (r >= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "For historical reasons, %s=%s means %s=%s. "
-                           "Please use 'both', 'ipv4', 'ipv6' or 'none' instead.",
-                           lvalue, rvalue, lvalue, r ? "none" : "both");
+        if (r >= 0)
                 n->duplicate_address_detection = r ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_YES;
-                n = NULL;
-                return 0;
-        }
 
-        AddressFamily a = duplicate_address_detection_address_family_from_string(rvalue);
-        if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, a,
-                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
+        else {
+                AddressFamily a = duplicate_address_detection_address_family_from_string(rvalue);
+                if (a < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, a,
+                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                n->duplicate_address_detection = a;
         }
-        n->duplicate_address_detection = a;
 
         TAKE_PTR(n);
         return 0;
@@ -1950,6 +1947,8 @@ static int address_section_verify(Address *address) {
                                          "Ignoring [Address] section from line %u.",
                                          address->section->filename, address->section->line);
         }
+
+        assert(IN_SET(address->family, AF_INET, AF_INET6));
 
         if (in4_addr_is_set(&address->broadcast) &&
             (address->family == AF_INET6 || address->prefixlen > 30 ||
@@ -1977,16 +1976,23 @@ static int address_section_verify(Address *address) {
                         address->scope = RT_SCOPE_LINK;
         }
 
+        if (address->duplicate_address_detection < 0) {
+                if (address->family == AF_INET6)
+                        address->duplicate_address_detection = ADDRESS_FAMILY_IPV6;
+                else if (in4_addr_is_link_local(&address->in_addr.in))
+                        address->duplicate_address_detection = ADDRESS_FAMILY_IPV4;
+                else
+                        address->duplicate_address_detection = ADDRESS_FAMILY_NO;
+        } else if (address->duplicate_address_detection == ADDRESS_FAMILY_IPV6 && address->family == AF_INET)
+                log_warning("%s: DuplicateAddressDetection=ipv6 is specified for IPv4 address, ignoring.",
+                            address->section->filename);
+        else if (address->duplicate_address_detection == ADDRESS_FAMILY_IPV4 && address->family == AF_INET6)
+                log_warning("%s: DuplicateAddressDetection=ipv4 is specified for IPv6 address, ignoring.",
+                            address->section->filename);
+
         if (address->family == AF_INET6 &&
             !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
-
-        if (address->family == AF_INET && in4_addr_is_link_local(&address->in_addr.in) &&
-            !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                log_debug("%s: An IPv4 link-local address is specified, enabling IPv4 Address Conflict Detection (ACD).",
-                          address->section->filename);
-                address->duplicate_address_detection |= ADDRESS_FAMILY_IPV4;
-        }
 
         return 0;
 }
