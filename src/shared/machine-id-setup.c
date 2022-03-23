@@ -197,7 +197,7 @@ finish:
 
 int machine_id_commit(const char *root) {
         _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
-        const char *etc_machine_id, *sync_path;
+        const char *etc_machine_id;
         sd_id128_t id;
         int r;
 

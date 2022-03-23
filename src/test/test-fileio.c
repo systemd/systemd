@@ -998,7 +998,6 @@ TEST(read_full_file_offset_size) {
 }
 
 static void test_read_virtual_file_one(size_t max_size) {
-        const char *filename;
         int r;
 
         log_info("/* %s (max_size=%zu) */", __func__, max_size);

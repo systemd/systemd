@@ -54,14 +54,15 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
 }
 
 const char *net_get_persistent_name(sd_device *device) {
-        const char *name, *field;
-
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+                const char *name;
+
                 if (sd_device_get_property_value(device, field, &name) >= 0)
                         return name;
+        }
 
         return NULL;
 }

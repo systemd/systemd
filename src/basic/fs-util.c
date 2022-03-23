@@ -570,7 +570,6 @@ int get_files_in_directory(const char *path, char ***list) {
 }
 
 static int getenv_tmp_dir(const char **ret_path) {
-        const char *n;
         int r, ret = 0;
 
         assert(ret_path);

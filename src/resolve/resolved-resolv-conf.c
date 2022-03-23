@@ -50,8 +50,6 @@ int manager_check_resolv_conf(const Manager *m) {
 }
 
 static bool file_is_our_own(const struct stat *st) {
-        const char *path;
-
         assert(st);
 
         FOREACH_STRING(path,

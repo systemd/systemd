@@ -2949,8 +2949,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DISK_SIZE:
                         if (isempty(optarg)) {
-                                const char *prop;
-
                                 FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
                                         r = drop_from_identity(prop);
                                         if (r < 0)
@@ -3452,9 +3450,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_PKCS11_TOKEN_URI: {
-                        const char *p;
-
+                case ARG_PKCS11_TOKEN_URI:
                         if (streq(optarg, "list"))
                                 return pkcs11_list_tokens();
 
@@ -3488,11 +3484,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         strv_uniq(arg_pkcs11_token_uri);
                         break;
-                }
 
-                case ARG_FIDO2_DEVICE: {
-                        const char *p;
-
+                case ARG_FIDO2_DEVICE:
                         if (streq(optarg, "list"))
                                 return fido2_list_devices();
 
@@ -3522,7 +3515,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         strv_uniq(arg_fido2_device);
                         break;
-                }
 
                 case ARG_FIDO2_WITH_PIN: {
                         bool lock_with_pin;
@@ -3557,9 +3549,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_RECOVERY_KEY: {
-                        const char *p;
-
+                case ARG_RECOVERY_KEY:
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
@@ -3573,7 +3563,6 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         break;
-                }
 
                 case ARG_AUTO_RESIZE_MODE:
                         if (isempty(optarg)) {

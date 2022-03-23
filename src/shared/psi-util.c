@@ -106,8 +106,6 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 }
 
 int is_pressure_supported(void) {
-        const char *p;
-
         /* The pressure files, both under /proc and in cgroups, will exist
          * even if the kernel has PSI support disabled; we have to read
          * the file to make sure it doesn't return -EOPNOTSUPP */

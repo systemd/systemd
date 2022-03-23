@@ -114,7 +114,6 @@ int main(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
         pthread_t threads[N_THREADS];
-        const char *fs;
         sd_id128_t id;
         int r;
 

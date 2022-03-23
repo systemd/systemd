@@ -474,7 +474,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
-        const char *name, *keymap, *keymap_toggle;
+        const char *keymap, *keymap_toggle;
         int convert, interactive, r;
 
         assert(m);

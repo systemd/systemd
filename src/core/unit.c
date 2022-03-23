@@ -4133,7 +4133,6 @@ int unit_patch_contexts(Unit *u) {
 
                 if ((ec->root_image || !LIST_IS_EMPTY(ec->mount_images)) &&
                     (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow)) {
-                        const char *p;
 
                         /* When RootImage= or MountImages= is specified, the following devices are touched. */
                         FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {

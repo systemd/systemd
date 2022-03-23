@@ -332,7 +332,6 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 const char *subsystem,
                 const char *sysname) {
 
-        const char *s;
         char *name;
         int r;
 
@@ -341,7 +340,6 @@ _public_ int sd_device_new_from_subsystem_sysname(
         assert_return(path_is_normalized(sysname), -EINVAL);
 
         if (streq(subsystem, "subsystem")) {
-
                 FOREACH_STRING(s, "/sys/subsystem/", "/sys/bus/", "/sys/class/") {
                         r = device_strjoin_new(s, sysname, NULL, NULL, ret);
                         if (r < 0)
@@ -351,7 +349,6 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 }
 
         } else  if (streq(subsystem, "module")) {
-
                 r = device_strjoin_new("/sys/module/", sysname, NULL, NULL, ret);
                 if (r < 0)
                         return r;
@@ -363,9 +360,8 @@ _public_ int sd_device_new_from_subsystem_sysname(
 
                 sep = strchr(sysname, ':');
                 if (sep && sep[1] != '\0') { /* Require ":" and something non-empty after that. */
-                        const char *subsys;
 
-                        subsys = memdupa_suffix0(sysname, sep - sysname);
+                        const char *subsys = memdupa_suffix0(sysname, sep - sysname);
                         sep++;
 
                         FOREACH_STRING(s, "/sys/subsystem/", "/sys/bus/") {

@@ -21,7 +21,6 @@ static int chown_one(
                 gid_t gid,
                 mode_t mask) {
 
-        const char *n;
         int r;
 
         assert(fd >= 0);

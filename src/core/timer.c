@@ -99,8 +99,6 @@ static int timer_add_default_dependencies(Timer *t) {
                         return r;
 
                 LIST_FOREACH(value, v, t->values) {
-                        const char *target;
-
                         if (v->base != TIMER_CALENDAR)
                                 continue;
 

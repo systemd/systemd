@@ -123,7 +123,6 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
 static int exec_process(const char *name, char **argv, int start_fd, size_t n_fds) {
         _cleanup_strv_free_ char **envp = NULL;
-        const char *var;
         int r;
 
         if (arg_inetd && n_fds != 1)

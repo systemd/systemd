@@ -3041,7 +3041,6 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         case META_HAS_INIT_SYSTEM: {
                                 bool found = false;
-                                const char *init;
 
                                 FOREACH_STRING(init,
                                                "/usr/lib/systemd/systemd",  /* systemd on /usr merged system */

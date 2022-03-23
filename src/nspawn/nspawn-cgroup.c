@@ -22,7 +22,6 @@
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -1;
-        const char *fn;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)

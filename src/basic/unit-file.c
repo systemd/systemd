@@ -236,7 +236,6 @@ bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_
 }
 
 static int directory_name_is_valid(const char *name) {
-        const char *suffix;
 
         /* Accept a directory whose name is a valid unit file name ending in .wants/, .requires/ or .d/ */
 

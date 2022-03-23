@@ -318,7 +318,7 @@ static int run_editor(char **paths) {
         if (r == 0) {
                 char **editor_args = NULL;
                 size_t n_editor_args = 0, i = 1, argc;
-                const char **args, *editor, *p;
+                const char **args, *editor;
 
                 argc = strv_length(paths)/2 + 1;
 
@@ -356,9 +356,9 @@ static int run_editor(char **paths) {
                 if (n_editor_args > 0)
                         execvp(args[0], (char* const*) args);
 
-                FOREACH_STRING(p, "editor", "nano", "vim", "vi") {
-                        args[0] = p;
-                        execvp(p, (char* const*) args);
+                FOREACH_STRING(name, "editor", "nano", "vim", "vi") {
+                        args[0] = name;
+                        execvp(name, (char* const*) args);
                         /* We do not fail if the editor doesn't exist because we want to try each one of them
                          * before failing. */
                         if (errno != ENOENT) {

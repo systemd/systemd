@@ -924,12 +924,10 @@ TEST(foreach_string) {
                 "waldo",
                 NULL
         };
-        const char *x;
-        unsigned i = 0;
 
+        unsigned i = 0;
         FOREACH_STRING(x, "foo", "bar", "waldo")
                 assert_se(streq_ptr(t[i++], x));
-
         assert_se(i == 3);
 
         FOREACH_STRING(x, "zzz")

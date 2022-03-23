@@ -126,9 +126,6 @@ bool mount_point_is_api(const char *path) {
 }
 
 bool mount_point_ignore(const char *path) {
-
-        const char *i;
-
         /* These are API file systems that might be mounted by other software, we just list them here so that
          * we know that we should ignore them. */
         FOREACH_STRING(i,
@@ -515,7 +512,6 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
          * use the same label for all their files. */
         if (loaded_policy) {
                 usec_t before_relabel, after_relabel;
-                const char *i;
                 int n_extra;
 
                 before_relabel = now(CLOCK_MONOTONIC);

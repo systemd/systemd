@@ -11,16 +11,13 @@
 #include "util.h"
 
 TEST(gpt_types_against_architectures) {
-        const char *prefix;
         int r;
 
         /* Dumps a table indicating for which architectures we know we have matching GPT partition
          * types. Also validates whether we can properly categorize the entries. */
 
         FOREACH_STRING(prefix, "root-", "usr-")
-                for (int a = 0; a < _ARCHITECTURE_MAX; a++) {
-                        const char *suffix;
-
+                for (int a = 0; a < _ARCHITECTURE_MAX; a++)
                         FOREACH_STRING(suffix, "", "-verity", "-verity-sig") {
                                 _cleanup_free_ char *joined = NULL;
                                 sd_id128_t id;
@@ -48,7 +45,6 @@ TEST(gpt_types_against_architectures) {
 
                                 assert_se(gpt_partition_type_uuid_to_arch(id) == a);
                         }
-                }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

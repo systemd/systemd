@@ -170,8 +170,6 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                         }
                 }
         } else {
-                const char *p;
-
                 FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
                         r = chase_symlinks(p, root, CHASE_PREFIX_ROOT,
                                            ret_path ? &q : NULL,

@@ -1702,8 +1702,6 @@ static int start_transient_trigger(
 }
 
 static bool shall_make_executable_absolute(void) {
-        const char *f;
-
         if (strv_isempty(arg_cmdline))
                 return false;
         if (arg_transport != BUS_TRANSPORT_LOCAL)

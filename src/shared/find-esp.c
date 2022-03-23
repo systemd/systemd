@@ -435,7 +435,8 @@ int find_esp_and_warn(
                 goto found;
         }
 
-        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
+        FOREACH_STRING(_path, "/efi", "/boot", "/boot/efi") {
+                path = _path;
 
                 r = verify_esp(path, /* searching= */ true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
                 if (r >= 0)

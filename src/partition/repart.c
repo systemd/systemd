@@ -4533,9 +4533,8 @@ static int acquire_root_devno(
 }
 
 static int find_root(char **ret, int *ret_fd) {
-        const char *p;
-        int r;
         _cleanup_free_ char *device = NULL;
+        int r;
 
         assert(ret);
         assert(ret_fd);

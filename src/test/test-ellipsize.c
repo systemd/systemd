@@ -64,18 +64,14 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
 }
 
 TEST(ellipsize_mem) {
-        const char *s;
-        ssize_t l, k;
-
         FOREACH_STRING(s,
                        "_XXXXXXXXXXX_", /* ASCII */
                        "_aąęółśćńżźć_", /* two-byte utf-8 */
                        "გამარჯობა",     /* multi-byte utf-8 */
                        "你好世界",       /* wide characters */
                        "你გą世óoó界")    /* a mix */
-
-                for (l = strlen(s); l >= 0; l--)
-                        for (k = strlen(s) + 1; k >= 0; k--)
+                for (ssize_t l = strlen(s); l >= 0; l--)
+                        for (ssize_t k = strlen(s) + 1; k >= 0; k--)
                                 test_ellipsize_mem_one(s, l, k);
 }
 

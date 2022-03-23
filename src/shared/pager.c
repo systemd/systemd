@@ -144,7 +144,7 @@ void pager_open(PagerFlags flags) {
         if (r < 0)
                 return;
         if (r == 0) {
-                const char *less_charset, *exe;
+                const char *less_charset;
 
                 /* In the child start the pager */
 

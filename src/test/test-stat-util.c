@@ -67,7 +67,6 @@ TEST(path_is_fs_type) {
 }
 
 TEST(path_is_temporary_fs) {
-        const char *s;
         int r;
 
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
@@ -85,7 +84,6 @@ TEST(path_is_temporary_fs) {
 }
 
 TEST(path_is_read_only_fs) {
-        const char *s;
         int r;
 
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {

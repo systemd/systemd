@@ -190,19 +190,15 @@ static bool check_user_has_group_with_same_name(const char *name) {
 }
 
 static bool is_inaccessible_available(void) {
-        const char *p;
-
         FOREACH_STRING(p,
-                "/run/systemd/inaccessible/reg",
-                "/run/systemd/inaccessible/dir",
-                "/run/systemd/inaccessible/chr",
-                "/run/systemd/inaccessible/blk",
-                "/run/systemd/inaccessible/fifo",
-                "/run/systemd/inaccessible/sock"
-        ) {
+                       "/run/systemd/inaccessible/reg",
+                       "/run/systemd/inaccessible/dir",
+                       "/run/systemd/inaccessible/chr",
+                       "/run/systemd/inaccessible/blk",
+                       "/run/systemd/inaccessible/fifo",
+                       "/run/systemd/inaccessible/sock")
                 if (access(p, F_OK) < 0)
                         return false;
-        }
 
         return true;
 }

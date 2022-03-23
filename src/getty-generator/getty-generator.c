@@ -215,9 +215,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                         return r;
         }
 
-        /* Automatically add in a serial getty on the first
-         * virtualizer console */
-        const char *j;
+        /* Automatically add in a serial getty on the first virtualizer console */
         FOREACH_STRING(j,
                        "hvc0",
                        "xvc0",

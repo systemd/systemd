@@ -144,7 +144,6 @@ TEST(utf8_escape_non_printable) {
 }
 
 TEST(utf8_escape_non_printable_full) {
-        const char *s;
         FOREACH_STRING(s,
                        "goo goo goo",       /* ASCII */
                        "\001 \019\20\a",    /* control characters */
@@ -210,8 +209,6 @@ TEST(utf8_console_width) {
 }
 
 TEST(utf8_to_utf16) {
-        const char *p;
-
         FOREACH_STRING(p,
                        "abc",
                        "zażółcić gęślą jaźń",
