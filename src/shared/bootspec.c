@@ -275,19 +275,17 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
 }
 
 static int boot_entries_find(
+                BootConfig *config,
                 const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
+                const char *dir) {
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
         _cleanup_close_ int dir_fd = -1;
         int r;
 
+        assert(config);
         assert(root);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
         dir_fd = open(dir, O_DIRECTORY|O_CLOEXEC);
         if (dir_fd < 0) {
@@ -311,7 +309,7 @@ static int boot_entries_find(
                 if (!endswith_no_case(de->d_name, ".conf"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
@@ -326,11 +324,11 @@ static int boot_entries_find(
                         continue;
                 }
 
-                r = boot_entry_load(f, root, dir, de->d_name, *entries + *n_entries);
+                r = boot_entry_load(f, root, dir, de->d_name, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
-                (*n_entries) ++;
+                config->n_entries++;
         }
 
         return 0;
@@ -540,18 +538,15 @@ static int find_sections(
 }
 
 static int boot_entries_find_unified(
+                BootConfig *config,
                 const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
+                const char *dir) {
 
         _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
-        assert(root);
+        assert(config);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
         d = opendir(dir);
         if (!d) {
@@ -571,7 +566,7 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -594,11 +589,11 @@ static int boot_entries_find_unified(
                 if (!j)
                         return log_oom();
 
-                r = boot_entry_load_unified(root, j, osrelease, cmdline, *entries + *n_entries);
+                r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
-                (*n_entries) ++;
+                config->n_entries++;
         }
 
         return 0;
@@ -791,24 +786,24 @@ int boot_entries_load_config(
                         return r;
 
                 p = strjoina(esp_path, "/loader/entries");
-                r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find(config, esp_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(esp_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, esp_path, p);
                 if (r < 0)
                         return r;
         }
 
         if (xbootldr_path) {
                 p = strjoina(xbootldr_path, "/loader/entries");
-                r = boot_entries_find(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(xbootldr_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
         }
