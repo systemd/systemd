@@ -306,16 +306,15 @@ const char *ci_environment(void) {
          * just the general CI environment type, but also whether we're sanitizing or not, etc. The caller is
          * expected to use strstr on the returned value. */
         static const char *ans = POINTER_MAX;
-        const char *p;
         int r;
 
         if (ans != POINTER_MAX)
                 return ans;
 
         /* We allow specifying the environment with $CITYPE. Nobody uses this so far, but we are ready. */
-        p = getenv("CITYPE");
-        if (!isempty(p))
-                return (ans = p);
+        const char *citype = getenv("CITYPE");
+        if (!isempty(citype))
+                return (ans = citype);
 
         if (getenv_bool("TRAVIS") > 0)
                 return (ans = "travis");
@@ -326,12 +325,12 @@ const char *ci_environment(void) {
         if (getenv("AUTOPKGTEST_ARTIFACTS") || getenv("AUTOPKGTEST_TMP"))
                 return (ans = "autopkgtest");
 
-        FOREACH_STRING(p, "CI", "CONTINOUS_INTEGRATION") {
+        FOREACH_STRING(var, "CI", "CONTINOUS_INTEGRATION") {
                 /* Those vars are booleans according to Semaphore and Travis docs:
                  * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
                  * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci
                  */
-                r = getenv_bool(p);
+                r = getenv_bool(var);
                 if (r > 0)
                         return (ans = "unknown"); /* Some other unknown thing */
                 if (r == 0)

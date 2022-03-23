@@ -18,9 +18,8 @@
 
 int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT
-        struct init_request request;
         _cleanup_close_ int fd = -1;
-        const char *p;
+        const char *path;
         int r;
 
         /* Try to switch to the specified SysV runlevel. Returns == 0 if the operation does not apply on this
@@ -29,19 +28,19 @@ int talk_initctl(char rl) {
         if (rl == 0)
                 return 0;
 
-        FOREACH_STRING(p, "/run/initctl", "/dev/initctl") {
-                fd = open(p, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd >= 0 || errno != ENOENT)
+        FOREACH_STRING(_path, "/run/initctl", "/dev/initctl") {
+                path = _path;
+
+                fd = open(path, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                if (fd >= 0)
                         break;
         }
-        if (fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
+        if (fd < 0)
+                return 0;
 
-                return log_error_errno(errno, "Failed to open initctl fifo: %m");
-        }
-
-        request = (struct init_request) {
+        struct init_request request = {
                 .magic = INIT_MAGIC,
                 .sleeptime = 0,
                 .cmd = INIT_CMD_RUNLVL,
@@ -50,7 +49,7 @@ int talk_initctl(char rl) {
 
         r = loop_write(fd, &request, sizeof(request), false);
         if (r < 0)
-                return log_error_errno(r, "Failed to write to %s: %m", p);
+                return log_error_errno(r, "Failed to write to %s: %m", path);
 
         return 1;
 #else
