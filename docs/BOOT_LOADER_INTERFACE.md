@@ -148,6 +148,6 @@ names for them in UIs.
 
 [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
 [Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
-[systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
-[bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
-[systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
+[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
+[`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

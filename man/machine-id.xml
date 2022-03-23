@@ -80,13 +80,13 @@
     <filename>/etc/machine-id</filename> may also be written using any other means.
     </para>
 
-    <para>For operating system images which are created once and used on multiple
-    machines, for example for containers or in the cloud,
-    <filename>/etc/machine-id</filename> should be either missing or an empty file in the generic file
-    system image (the difference between the two options is described under "First Boot Semantics" below). An
-    ID will be generated during boot and saved to this file if possible. Having an empty file in place is
-    useful because it allows a temporary file to be bind-mounted over the real file, in case the image is
-    used read-only.</para>
+    <para>For operating system images which are created once and used on multiple machines, for example for
+    containers or in the cloud, <filename>/etc/machine-id</filename> should be either missing or an empty
+    file in the generic file system image (the difference between the two options is described under "First
+    Boot Semantics" below). An ID will be generated during boot and saved to this file if possible. Having an
+    empty file in place is useful because it allows a temporary file to be bind-mounted over the real file,
+    in case the image is used read-only. Also see <ulink url="https://systemd.io/BUILDING_IMAGES">Safely
+    Building Images</ulink>.</para>
 
     <para><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to initialize <filename>/etc/machine-id</filename> on mounted (but not

@@ -440,6 +440,6 @@ There are a couple of items that are out of focus for this specification:
 [GUID Partition Table](https://en.wikipedia.org/wiki/GUID_Partition_Table)<br>
 [Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE)<br>
 [Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
-[systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
-[bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
-[systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
+[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
+[`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
