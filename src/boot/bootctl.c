@@ -687,7 +687,7 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         sd_id128_t dollar_boot_partition_uuid;
         const char *dollar_boot_path;
         int r;
@@ -710,6 +710,10 @@ static int status_entries(
         printf("\n\n");
 
         r = boot_entries_load_config(esp_path, xbootldr_path, &config);
+        if (r < 0)
+                return r;
+
+        r = boot_config_select_special_entries(&config);
         if (r < 0)
                 return r;
 
@@ -1788,7 +1792,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_strv_free_ char **efi_entries = NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
@@ -1823,6 +1827,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
                 (void) boot_entries_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
+
+        r = boot_config_select_special_entries(&config);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
 

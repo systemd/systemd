@@ -3002,7 +3002,7 @@ static int property_get_reboot_to_boot_loader_entry(
 }
 
 static int boot_loader_entry_exists(Manager *m, const char *id) {
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         int r;
 
         assert(m);
@@ -3157,7 +3157,7 @@ static int property_get_boot_loader_entries(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         Manager *m = userdata;
         size_t i;
         int r;
