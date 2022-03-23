@@ -412,6 +412,7 @@ The `gdisk` tool (from version 1.0.5 onward) and its variants (`sgdisk`,
 
 [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
 [Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE)<br>
-[systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
-[bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
-[systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
+[Safely Building Images](https://systemd.io/BUILDING_IMAGES)<br>
+[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
+[`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

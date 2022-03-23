@@ -35,24 +35,29 @@ boot. For that it's essential to:
    ID, for example IPv6 addresses or transient MAC addresses.
 
 2. Remove the `/var/lib/systemd/random-seed` file (see
-   [`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html),
+   [`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)),
    which is used to seed the kernel's random pool on boot. If this file is
    shipped pre-initialized, every instance will seed its random pool with the
    same random data that is included in the image, and thus possibly generate
-   random data that is more similar to other instances booted off the same image
-   than advisable.
+   random data that is more similar to other instances booted off the same
+   image than advisable.
 
 3. Remove the `/loader/random-seed` file (see
    [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
    from the UEFI System Partition (ESP), in case the `systemd-boot` boot loader
    is used in the image.
 
-4. It might also make sense to remove `/etc/hostname` and `/etc/machine-info`
+4. It might also make sense to remove
+   [`/etc/hostname`](https://www.freedesktop.org/software/systemd/man/hostname.html)
+   and
+   [`/etc/machine-info`][`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/machine-info.html)
    which carry additional identifying information about the OS image.
 
 ## Boot Menu Entry Identifiers
 
-The `kernel-install` logic used to generate [Boot Loader Specification Type
+The
+[`kernel-install(8)`](https://www.freedesktop.org/software/systemd/man/kernel-install.html)
+logic used to generate [Boot Loader Specification Type
 1](https://systemd.io/BOOT_LOADER_SPECIFICATION) entries by default uses the
 machine ID as stored in `/etc/machine-id` for naming boot menu entries and the
 directories in the ESP to place kernel images in. This is done in order to
@@ -70,7 +75,8 @@ resources of the OS. If not configured explicitly it defaults to the machine
 ID. The file `/etc/kernel/entry-token` may be used to configure this string
 explicitly. Thus, golden image builders should write a suitable identifier into
 this file, for example the `IMAGE_ID=` or `ID=` field from
-`/etc/os-release`. It is recommended to do this before the `kernel-install`
+[`/etc/os-release`](https://www.freedesktop.org/software/systemd/man/os-release.html)
+(also see below). It is recommended to do this before the `kernel-install`
 functionality is invoked (i.e. before the package manager is used to install
 packages into the OS tree being prepared), so that the selected string is
 automatically used for all entries to be generated.
@@ -95,16 +101,18 @@ Specifically, the following mechanisms are in place:
 2. PID 1 will initialize `/etc/machine-id` automatically if not initialized yet
    (see above).
 
-3. The `nss-systemd` glibc NSS module ensures the `root` and `nobody` users and
-   groups remain resolvable, even without `/etc/passwd` and `/etc/group` around.
+3. The
+   [`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+   glibc NSS module ensures the `root` and `nobody` users and groups remain
+   resolvable, even without `/etc/passwd` and `/etc/group` around.
 
 4. The
-   [`systemd-sysusers`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.service.html)
+   [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.service.html)
    will component automatically populate `/etc/passwd` and `/etc/group` on
    first boot with further necessary system users.
 
 5. The
-   [`systemd-tmpfiles`](https://www.freedesktop.org/software/systemd/man/systemd-tmpfiles-setup.service.html)
+   [`systemd-tmpfiles(8)`](https://www.freedesktop.org/software/systemd/man/systemd-tmpfiles-setup.service.html)
    component ensures that various files and directories below `/etc/`, `/var/`
    and other places are created automatically at boot if missing. Unlike the
    directories/symlinks created by the `switch-root` logic above this logic is
@@ -113,8 +121,10 @@ Specifically, the following mechanisms are in place:
    `/usr/lib/os-release`, ensuring that the OS release information is
    unconditionally accessible through `/etc/os-release`.
 
-6. The `nss-myhostname` glibc NSS module will ensure the local host name as
-   well as `localhost` remains resolvable, even without `/etc/hosts` around.
+6. The
+   [`nss-myhostname(8)`](https://www.freedesktop.org/software/systemd/man/nss-myhostname.html)
+   glibc NSS module will ensure the local host name as well as `localhost`
+   remains resolvable, even without `/etc/hosts` around.
 
 With these mechanisms the hierarchies below `/var/` and `/etc/` can be safely
 and robustly populated on first boot, so that the OS can safely boot up. Note
@@ -170,7 +180,7 @@ it, then format it.
 `systemd` provides multiple tools to implement the above logic:
 
 1. The
-   [`systemd-repart`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)
+   [`systemd-repart(8)`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)
    component may manipulate GPT partition tables automatically on boot, growing
    partitions or adding in partitions taking the backing storage size into
    account. It can also encrypt partitions automatically it creates (even bind
@@ -179,11 +189,14 @@ it, then format it.
    incompletely set up partitions around.
 
 2. The
-   [`systemd-makefs@(8).service`](https://www.freedesktop.org/software/systemd/man/systemd-growfs.html)
+   [`systemd-growfs@(8).service`](https://www.freedesktop.org/software/systemd/man/systemd-growfs.html)
    tool can automatically grow a file system to the partition it is contained
-   in. The `x-systemd.growfs` `/etc/fstab` mount option is sufficient to enable
-   this logic for specific mounts. If the file system is already grown it
-   executes no operation.
+   in. The `x-systemd.growfs` mount option in `/etc/fstab` is sufficient to
+   enable this logic for specific mounts. Alternatively appropriately set up
+   partitions can set GPT partition flag 59 to request this behaviour, see the
+   [Discoverable Partitions
+   Specification](https://systemd.io/DISCOVERABLE_PARTITIONS) for details. If
+   the file system is already grown it executes no operation.
 
 3. Similar, the `systemd-makefs@.service` and `systemd-makeswap@.service`
    services can format file systems and swap spaces before first use, if they
@@ -196,7 +209,7 @@ While a lot of work has gone into ensuring `systemd` systems can safely boot
 with unpopulated `/etc/` trees, it sometimes is desirable to set a couple of
 basic settings *after* `dd`-ing the image to disk, but *before* first boot. For
 this the tool
-[`systemd-firstboot`](https://www.freedesktop.org/software/systemd/man/systemd-firstboot.html)
+[`systemd-firstboot(1)`](https://www.freedesktop.org/software/systemd/man/systemd-firstboot.html)
 can be useful, with its `--image=` switch. It may be used to set very basic
 settings, such as the root password or hostname on an OS disk image or
 installed block device.
@@ -225,3 +238,30 @@ initialization status of `/etc/machine-id`: if the file already carries a valid
 ID the system is already past the first boot. If it is not initialized yet it
 is still considered in the first boot state. For details see
 [`machine-id(5)`](https://www.freedesktop.org/software/systemd/man/machine-id.html).
+
+## Image Metadata
+
+Typically, when operating with golden disk images it is useful to be able to
+identify them and their version. For this the two fields `IMAGE_ID=` and
+`IMAGE_VERSION=` have been defined in
+[`os-release(5)`](https://www.freedesktop.org/software/systemd/man/os-release.html). These
+fields may be accessed from unit files and similar via the `%M` and `%A`
+specifiers.
+
+Depending on how the images are put together it might make sense to leave the
+OS distribution's `os-release` file as is in `/usr/lib/os-release` but to
+replace the usual `/etc/os-release` symlink with a regular file that extends
+the distribution's file with one augmented with these two additional
+fields.
+
+## Links
+
+[`machine-id(5)`](https://www.freedesktop.org/software/systemd/man/machine-id.html)
+[`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)
+[`os-release(5)`](https://www.freedesktop.org/software/systemd/man/os-release.html)
+[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
+[Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
+[`mkosi`](https://github.com/systemd/mkosi)
+[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[`systemd-repart(8)`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)
+[`systemd-growfs@(8).service`](https://www.freedesktop.org/software/systemd/man/systemd-growfs.html)
