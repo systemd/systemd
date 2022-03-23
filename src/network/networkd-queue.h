@@ -44,6 +44,7 @@ typedef enum RequestType {
         REQUEST_TYPE_SET_LINK_MAC,                     /* Setting MAC address. */
         REQUEST_TYPE_SET_LINK_MASTER,                  /* Setting IFLA_MASTER. */
         REQUEST_TYPE_SET_LINK_MTU,                     /* Setting MTU. */
+        REQUEST_TYPE_SRIOV,
         REQUEST_TYPE_TC_CLASS,
         REQUEST_TYPE_TC_QDISC,
         REQUEST_TYPE_UP_DOWN,

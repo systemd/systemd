@@ -6,4 +6,4 @@
 
 typedef struct Link Link;
 
-int link_configure_sr_iov(Link *link);
+int link_request_sr_iov_vfs(Link *link);
