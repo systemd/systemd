@@ -6,17 +6,12 @@
 #include "drivers.h"
 #include "util.h"
 
-static void efi_unload_image(EFI_HANDLE *h) {
-        if (*h)
-                (void) BS->UnloadImage(*h);
-}
-
 static EFI_STATUS load_one_driver(
                 EFI_HANDLE parent_image,
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *fname) {
 
-        _cleanup_(efi_unload_image) EFI_HANDLE image = NULL;
+        _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
         _cleanup_freepool_ CHAR16 *spath = NULL;
         EFI_STATUS err;
@@ -71,7 +66,7 @@ static EFI_STATUS reconnect(void) {
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
                   if (EFI_ERROR(err))
-                          log_error_status_stall(err, L"Failed to reconnect handle %u, ignoring: %r", i, err);
+                          log_error_status_stall(err, L"Failed to reconnect handle %lu, ignoring: %r", (UINT64) i, err);
           }
 
           return EFI_SUCCESS;
