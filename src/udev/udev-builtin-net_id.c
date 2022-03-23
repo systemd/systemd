@@ -451,8 +451,15 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                                  * devices that will try to claim the same index and that would create name
                                  * collision. */
                                 if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev)) {
-                                        log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
-                                        return 0;
+                                        if (naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT) && !is_pci_multifunction(names->pcidev)) {
+                                                log_device_debug(dev, "Not using slot information because the PCI device associated with the hotplug slot is a bridge and the PCI device has single function.");
+                                                return 0;
+                                        }
+
+                                        if (!naming_scheme_has(NAMING_BRIDGE_MULTIFUNCTION_SLOT)) {
+                                                log_device_debug(dev, "Not using slot information because the PCI device is a bridge.");
+                                                return 0;
+                                        }
                                 }
 
                                 break;
