@@ -256,12 +256,12 @@ fields.
 
 ## Links
 
-[`machine-id(5)`](https://www.freedesktop.org/software/systemd/man/machine-id.html)
-[`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)
-[`os-release(5)`](https://www.freedesktop.org/software/systemd/man/os-release.html)
+[`machine-id(5)`](https://www.freedesktop.org/software/systemd/man/machine-id.html)<br>
+[`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)<br>
+[`os-release(5)`](https://www.freedesktop.org/software/systemd/man/os-release.html)<br>
 [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
 [Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
-[`mkosi`](https://github.com/systemd/mkosi)
+[`mkosi`](https://github.com/systemd/mkosi)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
-[`systemd-repart(8)`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)
-[`systemd-growfs@(8).service`](https://www.freedesktop.org/software/systemd/man/systemd-growfs.html)
+[`systemd-repart(8)`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)<br>
+[`systemd-growfs@(8).service`](https://www.freedesktop.org/software/systemd/man/systemd-growfs.html)<br>
