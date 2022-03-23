@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "set.h"
 #include "string-util.h"
 
 typedef enum BootEntryType {
@@ -57,6 +58,8 @@ typedef struct BootConfig {
         size_t n_entries;
         ssize_t default_entry;
         ssize_t selected_entry;
+
+        Set *inodes_seen;
 } BootConfig;
 
 static inline BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
