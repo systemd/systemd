@@ -3550,10 +3550,16 @@ static int inner_child(
                         /* If we cannot change the directory, we'll end up in /, that is expected. */
                         (void) chdir(home ?: "/root");
 
+                execle(DEFAULT_USER_SHELL, "-" DEFAULT_USER_SHELL_NAME, NULL, env_use);
+#ifndef DEFAULT_USER_SHELL_IS_BINBASH
                 execle("/bin/bash", "-bash", NULL, env_use);
+#define BASH_INFIX ", /bin/bash"
+#else
+#define BASH_INFIX
+#endif
                 execle("/bin/sh", "-sh", NULL, env_use);
 
-                exec_target = "/bin/bash, /bin/sh";
+                exec_target = DEFAULT_USER_SHELL BASH_INFIX ", /bin/sh";
         }
 
         return log_error_errno(errno, "execv(%s) failed: %m", exec_target);
