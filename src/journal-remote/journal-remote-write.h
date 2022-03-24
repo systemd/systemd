@@ -29,8 +29,7 @@ int writer_write(Writer *s,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
                  const sd_id128_t *boot_id,
-                 bool compress,
-                 bool seal);
+                 JournalFileFlags file_flags);
 
 typedef enum JournalWriteSplitMode {
         JOURNAL_WRITE_SPLIT_NONE,

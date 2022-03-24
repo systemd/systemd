@@ -223,9 +223,7 @@ static int process_http_upload(
                 finished = true;
 
         for (;;) {
-                r = process_source(source,
-                                   journal_remote_server_global->compress,
-                                   journal_remote_server_global->seal);
+                r = process_source(source, journal_remote_server_global->file_flags);
                 if (r == -EAGAIN)
                         break;
                 if (r < 0) {
@@ -599,7 +597,12 @@ static int create_remoteserver(
 
         int r, n, fd;
 
-        r = journal_remote_server_init(s, arg_output, arg_split_mode, arg_compress, arg_seal);
+        r = journal_remote_server_init(
+                        s,
+                        arg_output,
+                        arg_split_mode,
+                        (arg_compress ? JOURNAL_COMPRESS : 0) |
+                        (arg_seal ? JOURNAL_SEAL : 0));
         if (r < 0)
                 return r;
 

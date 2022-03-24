@@ -46,7 +46,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        r = journal_file_open(-1, fn, O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, &f);
+        r = journal_file_open(-1, fn, O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, NULL, &df) == 0);
+        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, NULL, &df) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, 0666, true, UINT64_MAX, !!verification_key, NULL, m, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL: 0), 0666, UINT64_MAX, NULL, m, NULL, &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
