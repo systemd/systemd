@@ -1443,12 +1443,82 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *news = NULL;
         Server *s = userdata;
+        int r;
 
         assert(s);
 
         log_received_signal(LOG_INFO, si);
 
+        (void) sd_event_source_set_enabled(es, false); /* Make sure this handler is called at most once */
+
+        /* So on one hand we want to ensure that SIGTERMs are definitely handled in appropriate, bounded
+         * time. On the other hand we want that everything pending is first comprehensively processed and
+         * written to disk. These goals are incompatible, hence we try to find a middle ground: we'll process
+         * SIGTERM with high priority, but from the handler (this one right here) we'll install two new event
+         * sources: one low priority idle one that will issue the exit once everything else is processed (and
+         * which is hopefully the regular, clean codepath); and one high priority timer that acts as safety
+         * net: if our idle handler isn't run within 10s, we'll exit anyway.
+         *
+         * TLDR: we'll exit either when everything is processed, or after 10s max, depending on what happens
+         * first.
+         *
+         * Note that exiting before the idle event is hit doesn't typically mean that we lose any data, as
+         * messages will remain queued in the sockets they came in from, and thus can be processed when we
+         * start up next – unless we are going down for the final system shutdown, in which case everything
+         * is lost. */
+
+        r = sd_event_add_defer(s->event, &news, NULL, NULL); /* NULL handler means → exit when triggered */
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate exit idle event handler: %m");
+                goto fail;
+        }
+
+        (void) sd_event_source_set_description(news, "exit-idle");
+
+        /* Run everything relevant before this. */
+        r = sd_event_source_set_priority(news, SD_EVENT_PRIORITY_NORMAL+20);
+        if (r < 0) {
+                log_error_errno(r, "Failed to adjust priority of exit idle event handler: %m");
+                goto fail;
+        }
+
+        /* Give up ownership, so that this event source is freed automatically when the event loop is freed. */
+        r = sd_event_source_set_floating(news, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to make exit idle event handler floating: %m");
+                goto fail;
+        }
+
+        news = sd_event_source_unref(news);
+
+        r = sd_event_add_time_relative(s->event, &news, CLOCK_MONOTONIC, 10 * USEC_PER_SEC, 0, NULL, NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate exit timeout event handler: %m");
+                goto fail;
+        }
+
+        (void) sd_event_source_set_description(news, "exit-timeout");
+
+        r = sd_event_source_set_priority(news, SD_EVENT_PRIORITY_IMPORTANT-20); /* This is a safety net, with highest priority */
+        if (r < 0) {
+                log_error_errno(r, "Failed to adjust priority of exit timeout event handler: %m");
+                goto fail;
+        }
+
+        r = sd_event_source_set_floating(news, true);
+        if (r < 0) {
+                log_error_errno(r, "Failed to make exit timeout event handler floating: %m");
+                goto fail;
+        }
+
+        news = sd_event_source_unref(news);
+
+        log_debug("Exit event sources are now pending.");
+        return 0;
+
+fail:
         sd_event_exit(s->event, 0);
         return 0;
 }
@@ -1500,8 +1570,8 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        /* Let's process SIGTERM late, so that we flush all queued messages to disk before we exit */
-        r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_NORMAL+20);
+        /* Let's process SIGTERM early, so that we definitely react to it */
+        r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
         if (r < 0)
                 return r;
 
@@ -1511,7 +1581,7 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(s->sigint_event_source, SD_EVENT_PRIORITY_NORMAL+20);
+        r = sd_event_source_set_priority(s->sigint_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
         if (r < 0)
                 return r;
 
