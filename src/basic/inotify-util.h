@@ -8,10 +8,16 @@
 
 #define INOTIFY_EVENT_MAX (offsetof(struct inotify_event, name) + NAME_MAX + 1)
 
-#define FOREACH_INOTIFY_EVENT(e, buffer, sz) \
-        for ((e) = &buffer.ev;                                \
-             (uint8_t*) (e) < (uint8_t*) (buffer.raw) + (sz); \
-             (e) = (struct inotify_event*) ((uint8_t*) (e) + sizeof(struct inotify_event) + (e)->len))
+#define _FOREACH_INOTIFY_EVENT(e, buffer, sz, start, end)               \
+        for (struct inotify_event                                       \
+                     *start = &((buffer).ev),                           \
+                     *end = (struct inotify_event*) ((uint8_t*) start + (sz)), \
+                     *e = start;                                        \
+             (uint8_t*) e + sizeof(struct inotify_event) <= (uint8_t*) end && \
+             (uint8_t*) e + sizeof(struct inotify_event) + e->len <= (uint8_t*) end; \
+             e = (struct inotify_event*) ((uint8_t*) e + sizeof(struct inotify_event) + e->len))
+#define FOREACH_INOTIFY_EVENT(e, buffer, sz)                            \
+        _FOREACH_INOTIFY_EVENT(e, buffer, sz, UNIQ_T(start, UNIQ), UNIQ_T(end, UNIQ))
 
 union inotify_event_buffer {
         struct inotify_event ev;

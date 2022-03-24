@@ -173,7 +173,6 @@ void path_spec_unwatch(PathSpec *s) {
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
 
         assert(s);

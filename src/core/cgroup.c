@@ -3227,7 +3227,6 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 
         for (;;) {
                 union inotify_event_buffer buffer;
-                struct inotify_event *e;
                 ssize_t l;
 
                 l = read(fd, &buffer, sizeof(buffer));
