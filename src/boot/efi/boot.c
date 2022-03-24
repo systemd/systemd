@@ -2042,10 +2042,10 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         for (UINTN i = 0; i < n_handles; i++) {
                 EFI_BLOCK_IO *block_io;
                 err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
-                if (EFI_ERROR(err) || block_io->Media->BlockSize < 512)
+                if (EFI_ERROR(err) || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
-                CHAR8 buf[block_io->Media->BlockSize];
+                CHAR8 buf[4096];
                 err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
                 if (EFI_ERROR(err))
                         continue;
