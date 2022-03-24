@@ -25,10 +25,8 @@ wait_on_state_or_fail () {
 
 systemd-analyze log-level debug
 
-# Trigger testservice-failure-exit-handler-68.service
 cat >/run/systemd/system/testservice-failure-68.service <<EOF
 [Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS with OnFailure= trigger
 OnFailure=testservice-failure-exit-handler-68.service
 
 [Service]
@@ -37,17 +35,14 @@ EOF
 
 cat >/run/systemd/system/testservice-failure-68-template.service <<EOF
 [Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS with OnFailure= trigger (template)
 OnFailure=testservice-failure-exit-handler-68-template@%n.service
 
 [Service]
 ExecStart=sh -c "exit 1"
 EOF
 
-# Trigger testservice-success-exit-handler-68.service
 cat >/run/systemd/system/testservice-success-68.service <<EOF
 [Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS with OnSuccess= trigger
 OnSuccess=testservice-success-exit-handler-68.service
 
 [Service]
@@ -56,7 +51,6 @@ EOF
 
 cat >/run/systemd/system/testservice-success-68-template.service <<EOF
 [Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS with OnSuccess= trigger (template)
 OnSuccess=testservice-success-exit-handler-68-template@%n.service
 
 [Service]
@@ -102,11 +96,7 @@ exit 0
 EOF
 chmod +x /tmp/check_on_success.sh
 
-# Handle testservice-failure-exit-handler-68.service exiting with success.
 cat >/run/systemd/system/testservice-success-exit-handler-68.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in success
-
 [Service]
 ExecStartPre=/tmp/check_on_success.sh
 ExecStart=/tmp/check_on_success.sh
@@ -114,9 +104,6 @@ EOF
 
 # Template version.
 cat >/run/systemd/system/testservice-success-exit-handler-68-template@.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in success (template)
-
 [Service]
 ExecStartPre=echo "triggered by %i"
 ExecStartPre=/tmp/check_on_success.sh
@@ -163,11 +150,7 @@ EOF
 chmod +x /tmp/check_on_failure.sh
 
 
-# Handle testservice-failure-exit-handler-68.service exiting with failure.
 cat >/run/systemd/system/testservice-failure-exit-handler-68.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in failure
-
 [Service]
 # repeat the check to make sure that values are set correctly on repeated invocations
 Type=oneshot
@@ -180,9 +163,6 @@ EOF
 
 # Template version.
 cat >/run/systemd/system/testservice-failure-exit-handler-68-template@.service <<EOF
-[Unit]
-Description=TEST-68-PROPAGATE-EXIT-STATUS handle service exiting in failure (template)
-
 [Service]
 Type=oneshot
 ExecStartPre=echo "triggered by %i"
