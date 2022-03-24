@@ -61,12 +61,17 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 assert_not_reached();
         }
 
-        r = managed_journal_file_open_reliably(filename,
-                                        O_RDWR|O_CREAT, 0640,
-                                        s->compress, UINT64_MAX, s->seal,
-                                        &w->metrics,
-                                        w->mmap, NULL,
-                                        NULL, &w->journal);
+        r = managed_journal_file_open_reliably(
+                        filename,
+                        O_RDWR|O_CREAT,
+                        s->file_flags,
+                        0640,
+                        UINT64_MAX,
+                        &w->metrics,
+                        w->mmap,
+                        NULL,
+                        NULL,
+                        &w->journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
 
@@ -302,8 +307,7 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                bool compress,
-                bool seal) {
+                JournalFileFlags file_flags) {
 
         int r;
 
@@ -313,8 +317,7 @@ int journal_remote_server_init(
         journal_remote_server_global = s;
 
         s->split_mode = split_mode;
-        s->compress = compress;
-        s->seal = seal;
+        s->file_flags = file_flags;
 
         if (output)
                 s->output = output;
@@ -391,7 +394,7 @@ int journal_remote_handle_raw_source(
         source = s->sources[fd];
         assert(source->importer.fd == fd);
 
-        r = process_source(source, s->compress, s->seal);
+        r = process_source(source, s->file_flags);
         if (journal_importer_eof(&source->importer)) {
                 size_t remaining;
 

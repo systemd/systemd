@@ -3,8 +3,10 @@
 #include "alloc-util.h"
 #include "journal-remote.h"
 
-static int do_rotate(ManagedJournalFile **f, MMapCache *m, bool compress, bool seal) {
-        int r = managed_journal_file_rotate(f, m, compress, UINT64_MAX, seal, NULL);
+static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
+        int r;
+
+        r = managed_journal_file_rotate(f, m, file_flags, UINT64_MAX, NULL);
         if (r < 0) {
                 if (*f)
                         log_error_errno(r, "Failed to rotate %s: %m", (*f)->file->path);
@@ -60,8 +62,7 @@ int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
                  const sd_id128_t *boot_id,
-                 bool compress,
-                 bool seal) {
+                 JournalFileFlags file_flags) {
         int r;
 
         assert(w);
@@ -71,7 +72,7 @@ int writer_write(Writer *w,
         if (journal_file_rotate_suggested(w->journal->file, 0, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->file->path);
-                r = do_rotate(&w->journal, w->mmap, compress, seal);
+                r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
         }
@@ -87,7 +88,7 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->file->path);
-        r = do_rotate(&w->journal, w->mmap, compress, seal);
+        r = do_rotate(&w->journal, w->mmap, file_flags);
         if (r < 0)
                 return r;
         else
