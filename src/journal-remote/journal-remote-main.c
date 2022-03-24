@@ -266,7 +266,8 @@ static mhd_result request_handler(
                 void **connection_cls) {
 
         const char *header;
-        int r, code, fd;
+        int r, fd;
+        int code = 0;
         _cleanup_free_ char *hostname = NULL;
         bool chunked = false;
 
