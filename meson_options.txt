@@ -220,6 +220,8 @@ option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : '473364000000000', # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
+option('default-user-shell', type : 'string', value : '/bin/bash',
+       description : 'default interactive shell')
 
 option('system-alloc-uid-min', type : 'integer', value : '-1',
        description : 'minimum system UID used when allocating')
