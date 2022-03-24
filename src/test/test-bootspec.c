@@ -74,7 +74,7 @@ TEST_RET(bootspec_sort) {
                 assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
-        assert_se(boot_entries_load_config(d, NULL, &config) >= 0);
+        assert_se(boot_config_load(&config, d, NULL) >= 0);
 
         assert_se(config.n_entries == 6);
 
