@@ -62,7 +62,7 @@ typedef struct JournalFile {
 
         mode_t mode;
 
-        int flags;
+        int open_flags;
         bool writable:1;
         bool compress_xz:1;
         bool compress_lz4:1;
@@ -126,14 +126,18 @@ typedef struct JournalFile {
 #endif
 } JournalFile;
 
+typedef enum JournalFileFlags {
+        JOURNAL_COMPRESS = 1 << 0,
+        JOURNAL_SEAL     = 1 << 1,
+} JournalFileFlags;
+
 int journal_file_open(
                 int fd,
                 const char *fname,
-                int flags,
+                int open_flags,
+                JournalFileFlags file_flags,
                 mode_t mode,
-                bool compress,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,

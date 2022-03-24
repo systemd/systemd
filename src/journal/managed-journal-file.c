@@ -393,11 +393,10 @@ ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f) {
 int managed_journal_file_open(
                 int fd,
                 const char *fname,
-                int flags,
+                int open_flags,
+                JournalFileFlags file_flags,
                 mode_t mode,
-                bool compress,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 Set *deferred_closes,
@@ -412,7 +411,7 @@ int managed_journal_file_open(
         if (!f)
                 return -ENOMEM;
 
-        r = journal_file_open(fd, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics,
+        r = journal_file_open(fd, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                               mmap_cache, template ? template->file : NULL, &f->file);
         if (r < 0)
                 return r;
@@ -444,9 +443,8 @@ ManagedJournalFile* managed_journal_file_initiate_close(ManagedJournalFile *f, S
 int managed_journal_file_rotate(
                 ManagedJournalFile **f,
                 MMapCache *mmap_cache,
-                bool compress,
+                JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 Set *deferred_closes) {
 
         _cleanup_free_ char *path = NULL;
@@ -463,11 +461,10 @@ int managed_journal_file_rotate(
         r = managed_journal_file_open(
                         -1,
                         path,
-                        (*f)->file->flags,
+                        (*f)->file->open_flags,
+                        file_flags,
                         (*f)->file->mode,
-                        compress,
                         compress_threshold_bytes,
-                        seal,
                         NULL,            /* metrics */
                         mmap_cache,
                         deferred_closes,
@@ -482,11 +479,10 @@ int managed_journal_file_rotate(
 
 int managed_journal_file_open_reliably(
                 const char *fname,
-                int flags,
+                int open_flags,
+                JournalFileFlags file_flags,
                 mode_t mode,
-                bool compress,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 Set *deferred_closes,
@@ -495,7 +491,7 @@ int managed_journal_file_open_reliably(
 
         int r;
 
-        r = managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics,
+        r = managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                                mmap_cache, deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -509,10 +505,10 @@ int managed_journal_file_open_reliably(
                     -ETXTBSY))          /* File is from the future */
                 return r;
 
-        if ((flags & O_ACCMODE) == O_RDONLY)
+        if ((open_flags & O_ACCMODE) == O_RDONLY)
                 return r;
 
-        if (!(flags & O_CREAT))
+        if (!(open_flags & O_CREAT))
                 return r;
 
         if (!endswith(fname, ".journal"))
@@ -525,6 +521,6 @@ int managed_journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return managed_journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics,
+        return managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                                   mmap_cache, deferred_closes, template, ret);
 }
