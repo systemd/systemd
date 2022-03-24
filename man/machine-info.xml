@@ -130,17 +130,19 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>VENDOR=</varname></term>
+        <term><varname>HARDWARE_VENDOR=</varname></term>
 
-        <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI
-        or hwdb will be used.</para></listitem>
+        <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI or
+        <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
+        used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MODEL=</varname></term>
+        <term><varname>HARDWARE_MODEL=</varname></term>
 
         <listitem><para>Specifies the hardware model. If unspecified, the hardware model set in DMI or
-        hwdb will be used.</para></listitem>
+        <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
+        used.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

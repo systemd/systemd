@@ -53,8 +53,8 @@ typedef enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
-        PROP_VENDOR,
-        PROP_MODEL,
+        PROP_HARDWARE_VENDOR,
+        PROP_HARDWARE_MODEL,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -136,8 +136,8 @@ static void context_read_machine_info(Context *c) {
                            "CHASSIS", &c->data[PROP_CHASSIS],
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION],
-                           "VENDOR", &c->data[PROP_VENDOR],
-                           "MODEL", &c->data[PROP_MODEL]);
+                           "HARDWARE_VENDOR", &c->data[PROP_HARDWARE_VENDOR],
+                           "HARDWARE_MODEL", &c->data[PROP_HARDWARE_MODEL]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
 
@@ -563,7 +563,7 @@ static int property_get_hardware_property(
 
         assert(reply);
         assert(c);
-        assert(IN_SET(prop, PROP_VENDOR, PROP_MODEL));
+        assert(IN_SET(prop, PROP_HARDWARE_VENDOR, PROP_HARDWARE_MODEL));
         assert(getter);
 
         context_read_machine_info(c);
@@ -583,7 +583,7 @@ static int property_get_hardware_vendor(
                 void *userdata,
                 sd_bus_error *error) {
 
-        return property_get_hardware_property(reply, userdata, PROP_VENDOR, get_hardware_vendor);
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_VENDOR, get_hardware_vendor);
 }
 
 static int property_get_hardware_model(
@@ -595,7 +595,7 @@ static int property_get_hardware_model(
                 void *userdata,
                 sd_bus_error *error) {
 
-        return property_get_hardware_property(reply, userdata, PROP_MODEL, get_hardware_model);
+        return property_get_hardware_property(reply, userdata, PROP_HARDWARE_MODEL, get_hardware_model);
 }
 
 static int property_get_hostname(
@@ -1179,9 +1179,9 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         assert_se(uname(&u) >= 0);
 
-        if (isempty(c->data[PROP_VENDOR]))
+        if (isempty(c->data[PROP_HARDWARE_VENDOR]))
                 (void) get_hardware_vendor(&vendor);
-        if (isempty(c->data[PROP_MODEL]))
+        if (isempty(c->data[PROP_HARDWARE_MODEL]))
                 (void) get_hardware_model(&model);
 
         if (privileged) {
@@ -1206,8 +1206,8 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("OperatingSystemPrettyName", JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemCPEName", JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemHomeURL", JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
-                                       JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_VENDOR])),
-                                       JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_MODEL])),
+                                       JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
+                                       JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
