@@ -760,6 +760,10 @@ conf.set('TIME_EPOCH', time_epoch)
 
 conf.set('CLOCK_VALID_RANGE_USEC_MAX', get_option('clock-valid-range-usec-max'))
 
+default_user_shell = get_option('default-user-shell')
+conf.set_quoted('DEFAULT_USER_SHELL',      default_user_shell)
+conf.set_quoted('DEFAULT_USER_SHELL_NAME', fs.name(default_user_shell))
+
 foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.defs(5).
                  ['system-uid-max',       'SYS_UID_MAX', 999],
                  ['system-alloc-gid-min', 'SYS_GID_MIN', 1],

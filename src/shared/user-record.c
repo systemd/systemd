@@ -1747,7 +1747,7 @@ const char *user_record_shell(UserRecord *h) {
                 return "/bin/sh";
 
         if (user_record_disposition(h) == USER_REGULAR)
-                return "/bin/bash";
+                return DEFAULT_USER_SHELL;
 
         return NOLOGIN;
 }
