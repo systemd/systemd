@@ -173,7 +173,6 @@ void path_spec_unwatch(PathSpec *s) {
 
 int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
 
         assert(s);
@@ -191,7 +190,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         }
 
         if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED))
-                FOREACH_INOTIFY_EVENT(e, buffer, l)
+                FOREACH_INOTIFY_EVENT_WARN(e, buffer, l)
                         if (s->primary_wd == e->wd)
                                 return 1;
 
