@@ -57,9 +57,9 @@ static Writer* writer_free(Writer *w) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
 int writer_write(Writer *w,
-                 struct iovec_wrapper *iovw,
-                 dual_timestamp *ts,
-                 sd_id128_t *boot_id,
+                 const struct iovec_wrapper *iovw,
+                 const dual_timestamp *ts,
+                 const sd_id128_t *boot_id,
                  bool compress,
                  bool seal) {
         int r;
