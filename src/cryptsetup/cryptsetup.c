@@ -1414,7 +1414,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         if (is_efi_boot() && !efi_has_tpm2())
                                 return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                        "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unocking.");
+                                                        "No TPM2 hardware discovered and EFI bios indicates no support for it either, assuming TPM2-less system, falling back to traditional unlocking.");
 
                         r = make_tpm2_device_monitor(&event, &monitor);
                         if (r < 0)
