@@ -22,7 +22,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "cpu-set-util.h"
-#include "efi-loader.h"
+#include "efi-api.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"

@@ -17,7 +17,7 @@
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
-#include "efi-loader.h"
+#include "efi-api.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
