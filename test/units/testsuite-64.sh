@@ -148,6 +148,42 @@ helper_wait_for_pvscan() {
     return 1
 }
 
+# Generate an `flock` command line for a device list
+#
+# This is useful mainly for mkfs.btrfs, which doesn't hold the lock on each
+# device for the entire duration of mkfs.btrfs, causing weird races between udev
+# and mkfs.btrfs. This function creates an array of chained flock calls to take
+# the lock of all involved devices, which can be then used in combination with
+# mkfs.btrfs to mitigate the issue.
+#
+# For example, calling:
+#   helper_generate_flock_cmdline my_array /dev/loop1 /dev/loop2 /dev/loop3
+#
+# will result in "${my_array[@]}" containing:
+#   flock -x /dev/loop1 flock -x /dev/loop2 flock -x /dev/loop3
+#
+# Note: the array will be CLEARED before the first assignment
+#
+# Arguments:
+#   $1    - NAME of an array in which the commands/argument will be stored
+#   $2-$n - path to devices
+helper_generate_flock_cmdline() {
+    # Create a name reference to the array passed as the first argument
+    # (requires bash 4.3+)
+    local -n cmd_array="${1:?}"
+    shift
+
+    if [[ $# -eq 0 ]]; then
+        echo >&2 "Missing argument(s): device path(s)"
+        return 1
+    fi
+
+    cmd_array=()
+    for dev in "$@"; do
+        cmd_array+=("flock" "-x" "$dev")
+    done
+}
+
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -388,6 +424,7 @@ testcase_lvm_basic() {
 
 testcase_btrfs_basic() {
     local dev_stub i label mpoint uuid
+    local flock_cmd=()
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
     )
@@ -397,7 +434,8 @@ testcase_btrfs_basic() {
     echo "Single device: default settings"
     uuid="deadbeef-dead-dead-beef-000000000000"
     label="btrfs_root"
-    mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
+    helper_generate_flock_cmdline flock_cmd "${devices[0]}"
+    "${flock_cmd[@]}" mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -416,7 +454,9 @@ name="diskpart3", size=85M
 name="diskpart4", size=85M
 EOF
     udevadm settle
-    mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
+    # We need to flock only the device itself, not its partitions
+    helper_generate_flock_cmdline flock_cmd "${devices[0]}"
+    "${flock_cmd[@]}" mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -427,7 +467,8 @@ EOF
     echo "Multiple devices: using disks, data: raid10, metadata: raid10, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000002"
     label="btrfs_mdisk"
-    mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
+    helper_generate_flock_cmdline flock_cmd "${devices[@]}"
+    "${flock_cmd[@]}" mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"
@@ -464,7 +505,8 @@ EOF
     # Check if we have all necessary DM devices
     ls -l /dev/mapper/encbtrfs{0..3}
     # Create a multi-device btrfs filesystem on the LUKS devices
-    mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
+    helper_generate_flock_cmdline flock_cmd /dev/mapper/encbtrfs{0..3}
+    "${flock_cmd[@]}" mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
     udevadm settle
     btrfs filesystem show
     test -e "/dev/disk/by-uuid/$uuid"

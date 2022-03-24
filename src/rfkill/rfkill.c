@@ -80,7 +80,7 @@ static int find_device(
 
         r = sd_device_new_from_subsystem_sysname(&device, "rfkill", sysname);
         if (r < 0)
-                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
+                return log_full_errno(ERRNO_IS_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to open device '%s': %m", sysname);
 
         r = sd_device_get_sysattr_value(device, "name", &name);
