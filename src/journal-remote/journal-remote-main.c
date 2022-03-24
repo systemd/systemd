@@ -46,7 +46,11 @@ static const char* arg_output = NULL;
 static char *arg_key = NULL;
 static char *arg_cert = NULL;
 static char *arg_trust = NULL;
+#if HAVE_GNUTLS
 static bool arg_trust_all = false;
+#else
+static bool arg_trust_all = true;
+#endif
 
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
@@ -932,6 +936,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TRUST:
+#if HAVE_GNUTLS
                         if (arg_trust || arg_trust_all)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Confusing trusted CA configuration");
@@ -939,16 +944,14 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "all"))
                                 arg_trust_all = true;
                         else {
-#if HAVE_GNUTLS
                                 arg_trust = strdup(optarg);
                                 if (!arg_trust)
                                         return log_oom();
-#else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Option --trust is not available.");
-#endif
                         }
-
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Option --trust is not available.");
+#endif
                         break;
 
                 case 'o':
