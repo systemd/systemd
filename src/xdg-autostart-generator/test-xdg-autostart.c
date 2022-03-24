@@ -25,13 +25,13 @@ static void test_xdg_format_exec_start_one(const char *exec, const char *expecte
 }
 
 TEST(xdg_format_exec_start) {
-        test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep \"100\"");
+        test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep 100");
 
         /* All standardised % identifiers are stripped. */
         test_xdg_format_exec_start_one("/bin/sleep %f \"%F\" %u %U %d %D\t%n %N %i %c %k %v %m", "/bin/sleep");
 
         /* Unknown % identifier currently remain, but are escaped. */
-        test_xdg_format_exec_start_one("/bin/sleep %X \"%Y\"", "/bin/sleep \"%%X\" \"%%Y\"");
+        test_xdg_format_exec_start_one("/bin/sleep %X \"%Y\"", "/bin/sleep %%X %%Y");
 
         test_xdg_format_exec_start_one("/bin/sleep \";\\\"\"", "/bin/sleep \";\\\"\"");
 }
