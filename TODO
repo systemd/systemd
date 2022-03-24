@@ -78,6 +78,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* improve scope units to support creation by pidfd instead of by PID
+
 * deprecate cgroupsv1 (i.e. taint system with it, print log message at boot)
 
 * systemd-dissect: add --cat switch for dumping files such as /etc/os-release
