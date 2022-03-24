@@ -1341,7 +1341,6 @@ static int synthesize_change(sd_device *dev) {
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = userdata;
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
         int r;
 

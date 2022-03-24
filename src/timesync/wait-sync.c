@@ -80,7 +80,6 @@ static int inotify_handler(sd_event_source *s,
         sd_event *event = sd_event_source_get_event(s);
         ClockState *sp = userdata;
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
 
         l = read(fd, &buffer, sizeof(buffer));
