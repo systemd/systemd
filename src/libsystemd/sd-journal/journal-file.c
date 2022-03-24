@@ -2022,10 +2022,17 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
 }
 
 static void schedule_post_change(JournalFile *f) {
+        sd_event *e;
         int r;
 
         assert(f);
         assert(f->post_change_timer);
+
+        assert_se(e = sd_event_source_get_event(f->post_change_timer));
+
+        /* If we are aleady going down, post the change immediately. */
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                goto fail;
 
         r = sd_event_source_get_enabled(f->post_change_timer, NULL);
         if (r < 0) {
