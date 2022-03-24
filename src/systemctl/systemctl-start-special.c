@@ -32,7 +32,7 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = boot_entries_load_config_auto(NULL, NULL, &config);
+        r = boot_config_load_auto(&config, NULL, NULL);
         if (r == -ENOKEY)
                 /* The call doesn't log about ENOKEY, let's do so here. */
                 return log_error_errno(r,

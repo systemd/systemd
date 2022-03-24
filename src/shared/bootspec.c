@@ -834,10 +834,10 @@ int boot_config_select_special_entries(BootConfig *config) {
         return 0;
 }
 
-int boot_entries_load_config(
+int boot_config_load(
+                BootConfig *config,
                 const char *esp_path,
-                const char *xbootldr_path,
-                BootConfig *config) {
+                const char *xbootldr_path) {
 
         const char *p;
         int r;
@@ -882,10 +882,10 @@ int boot_entries_load_config(
         return 0;
 }
 
-int boot_entries_load_config_auto(
+int boot_config_load_auto(
+                BootConfig *config,
                 const char *override_esp_path,
-                const char *override_xbootldr_path,
-                BootConfig *config) {
+                const char *override_xbootldr_path) {
 
         _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -902,7 +902,7 @@ int boot_entries_load_config_auto(
 
         if (!override_esp_path && !override_xbootldr_path) {
                 if (access("/run/boot-loader-entries/", F_OK) >= 0)
-                        return boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
+                        return boot_config_load(config, "/run/boot-loader-entries/", NULL);
 
                 if (errno != ENOENT)
                         return log_error_errno(errno,
@@ -921,10 +921,10 @@ int boot_entries_load_config_auto(
         if (esp_where && xbootldr_where && devid_set_and_equal(esp_devid, xbootldr_devid))
                 xbootldr_where = mfree(xbootldr_where);
 
-        return boot_entries_load_config(esp_where, xbootldr_where, config);
+        return boot_config_load(config, esp_where, xbootldr_where);
 }
 
-int boot_entries_augment_from_loader(
+int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
                 bool only_auto) {
