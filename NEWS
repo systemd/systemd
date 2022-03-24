@@ -15,8 +15,8 @@ CHANGES WITH 251 in spe:
           when a Condition*= check does not succeed, restoring the JobRemoved
           signal to the behaviour it had before v250.
 
-        * The org.freedesktop.portable1 methods GetMetadataWithExtensions and
-          GetImageMetadataWithExtensions have been fixed to provide an extra
+        * The org.freedesktop.portable1 methods GetMetadataWithExtensions() and
+          GetImageMetadataWithExtensions() have been fixed to provide an extra
           return parameter, containing the actual extension release metadata.
           The current implementation was judged to be broken and unusable, and
           thus the usual procedure of adding a new set of methods was skipped,
@@ -60,7 +60,8 @@ CHANGES WITH 251 in spe:
 
           Users might need to adjust their local hwdb entries.
 
-        * arch_prctl(2) was moved to the @default set in the syscall filters.
+        * arch_prctl(2) has been moved to the @default set in the syscall filters
+          (as exposed via the SystemCallFilter= setting in service unit files).
           It is apparently used by the linker now.
 
         New functionality and other changes:
@@ -73,7 +74,7 @@ CHANGES WITH 251 in spe:
           entries are named after the local machine ID. However, in "golden
           image" environments, where the machine ID shall be initialized on
           first boot (as opposed to at installation time before first boot) the
-          machine ID is not be available at build time. In this case the
+          machine ID will not be available at build time. In this case the
           --entry-token= switch to bootctl (or the /etc/kernel/entry-token
           file) may be used to override the "token" for the entries, for
           example the IMAGE_ID= or ID= fields from /etc/os-release. This will
@@ -85,21 +86,23 @@ CHANGES WITH 251 in spe:
           Summary: if you are building golden images that shall acquire
           identity information exclusively on first boot, make sure to both
           remove /etc/machine-id *and* to write /etc/kernel/entry-token to the
-          value of the IMAGE_ID or ID field of /etc/os-release or another
+          value of the IMAGE_ID= or ID= field of /etc/os-release or another
           suitable identifier before deploying the image.
 
         * The Boot Loader Specification has been extended with
-          /loader/entries.srel file that disambiguates the format of the
-          entries in the /loader/entries directory. For entries that follow the
-          Specification, "type1" should be used.
+          /loader/entries.srel file located in the EFI System Partition (ESP)
+          that disambiguates the format of the entries in the /loader/entries/
+          directory (in order to discern them from incompatible uses of this
+          directory by other projects). For entries that follow the
+          Specification, the string "type1" is stored in this file.
 
-          bootctl will now write this file automatically when creating Type #1
-          entries.
+          bootctl will now write this file automatically when installing the
+          systemd-boot boot loader.
 
         * kernel-install supports a new initrd_generator= setting in
           /etc/kernel/install.conf, that is exported as
           $KERNEL_INSTALL_INITRD_GENERATOR to kernel-install plugins. This
-          allows a different initrd generator to be hooked up.
+          allows choosing different initrd generators.
 
         * kernel-install will now create a "staging area" (an initially-empty
           directory to gather files for a Boot Loader Specification Type #1
@@ -146,7 +149,7 @@ CHANGES WITH 251 in spe:
         * The journal JSON export format has been added to listed of stable
           interfaces (https://systemd.io/PORTABILITY_AND_STABILITY/).
 
-        * /etc/locale.conf is now populated through tmpfiles.d factory /etc
+        * /etc/locale.conf is now populated through tmpfiles.d factory /etc/
           handling with the values that were configured during systemd build
           (if /etc/locale.conf has not been created through some other
           mechanism). This means that /etc/locale.conf should always have
@@ -155,16 +158,16 @@ CHANGES WITH 251 in spe:
         * A new libsystemd-core-<version>.so private shared library is
           installed under /usr/lib/systemd/system, mirroring the existing
           libsystemd-shared-<version>.so library. This allows the total
-          installation size to be reduced by code reuse.
+          installation size to be reduced by binary code reuse.
 
-        * The <version> tag used by libsystemd-shared.so and libsystemd-core.so
-          can be configured. Distributions may build subsequent versions of the
-          systemd package with unique tags (e.g. the full package version),
-          thus allowing multiple installations of those shared libraries to be
-          available at the same time. This is intended to fix an issue where
-          programs that link to those libraries would fail to execute because
-          they were installed earlier or later than the appropriate version of
-          the library.
+        * The <version> tag used in the name of libsystemd-shared.so and
+          libsystemd-core.so can be configured. Distributions may build
+          subsequent versions of the systemd package with unique tags (e.g. the
+          full package version), thus allowing multiple installations of those
+          shared libraries to be available at the same time. This is intended
+          to fix an issue where programs that link to those libraries would
+          fail to execute because they were installed earlier or later than the
+          appropriate version of the library.
 
         * A new set of service monitor environment variables will be passed to
           OnFailure=/OnSuccess= handlers, but only if exactly one unit lists the
@@ -173,31 +176,35 @@ CHANGES WITH 251 in spe:
           $MONITOR_INVOCATION_ID and $MONITOR_UNIT. For cases when a single
           handler needs to watch multiple units, use a templated handler.
 
-        * A new ExtensionDirectories= setting allows system extensions to be
-          loaded from a directory. (It is similar to ExtensionImages=, but
-          takes a path to a directory, instead of an image.)
+        * A new ExtensionDirectories= setting in service unit files allows
+          system extensions to be loaded from a directory. (It is similar to
+          ExtensionImages=, but takes paths to directories, instead of
+          disk image files.)
 
-          'portablectl attach --extension' now also accepts directory paths.
+          'portablectl attach --extension=' now also accepts directory paths.
 
         * VENDOR= and MODEL= can be set in /etc/machine-info to override the
           values gleaned from the hwdb.
 
-        * A ID_CHASSIS property can be set in the hwdb (for the DMI modalias)
-          to override the chassis that is reported by hostnamed.
+        * A ID_CHASSIS property can be set in the hwdb (for the DMI device
+          /sys/class/dmi/id) to override the chassis that is reported by
+          hostnamed.
 
-        * Two new hwdb files have been started to lists "handhelds" (PDAs,
-          calculators, etc.) and AV devices (DJ tables, keypads, etc.) that
-          should accessible to the seat owner by default.
+        * Two new hwdb files have been added. One lists "handhelds" (PDAs,
+          calculators, etc.), the other AV production devices (DJ tables,
+          keypads, etc.) that should accessible to the seat owner user by
+          default.
 
-        * A new unit systemd-networkd-wait-online@<interface>.service can be
-          used to wait for a specific interface to be up.
+        * A new unit systemd-networkd-wait-online@<interface>.service has been
+          added that can be used to wait for a specific network interface to be
+          up.
 
         * systemd-resolved is started earlier (in sysinit.target), so it
           available earlier and will also be started in the initrd if installed
           there.
 
-        * udevadm trigger gained a new --prioritized-subsystem option to
-          process certain subsystems (and all parent devices) earlier.
+        * udevadm trigger gained a new --prioritized-subsystem= option to
+          process certain subsystems (and all their parent devices) earlier.
 
           systemd-udev-trigger.service now uses this new option to trigger
           block and TPM devices first, hopefully making the boot a bit faster.
@@ -208,35 +215,39 @@ CHANGES WITH 251 in spe:
           initialized yet, respectively.
 
         * systemd-cryptenroll can now control whether to require the user to
-          enter a PIN when unlocking a volume via the new --tpm2-with-pin=
-          option.
+          enter a PIN when using TPM-based unlocking of a volume via the new
+          --tpm2-with-pin= option.
 
           Option tpm2-pin= can be used in /etc/crypttab.
 
-        * The user.delegate and user.invocation_id attributes on cgroups are
-          used in addition to trusted.delegate and trusted.invocation_id. The
-          latter pair requires privileges to set, but the former doesn't and
-          can be also set by the unprivileged user manager.
+        * The user.delegate and user.invocation_id extended attributes on
+          cgroups are used in addition to trusted.delegate and
+          trusted.invocation_id. The latter pair requires privileges to set,
+          but the former doesn't and can be also set by the unprivileged user
+          manager.
 
           (Only supported on kernels ≥5.6.)
 
         * New option sort-key= has been added to the Boot Loader Specification
-          to override the entry sorty order. It is read by sd-boot and bootctl,
-          and will be written by kernel-install, with the default value of
-          IMAGE_ID= or ID= fields from os-release. Together, this means that
-          on multiboot installations, entries should be grouped and sorted
-          in a predictable way.
+          to override the sorting order of the entries in the boot menu. It is
+          read by sd-boot and bootctl, and will be written by kernel-install,
+          with the default value of IMAGE_ID= or ID= fields from
+          os-release. Together, this means that on multiboot installations,
+          entries should be grouped and sorted in a predictable way.
 
-        * sd-boot can now beep when the menu is shown and menu entries are
-          selected, which can be useful on machines without a working display.
+        * sd-boot can now optionally beep when the menu is shown and menu
+          entries are selected, which can be useful on machines without a
+          working display. (Controllable via a loader.conf setting.)
 
-        * %y/%Y specifiers can be used in unit files to refer to unit file
-          path, which is particularly useful for linked unit files.
+        * In unit files the new %y/%Y specifiers can be used to refer to
+          normalized unit file path, which is particularly useful for symlinked
+          unit files.
 
-          %R specifier resolves to the pretty hostname.
+          The new %R specifier resolves to the pretty hostname
+          (i.e. PRETTY_HOSTNAME= from /etc/machine-info).
 
-          %d specifier resolves to the credentials directory (same as
-           $CREDENTIALS_DIRECTORY).
+          The new %d specifier resolves to the credentials directory of a
+          service (same as $CREDENTIALS_DIRECTORY).
 
         * The --make-machine-id-directory= switch to bootctl has been replaced
           by --make-entry-directory=, given that the entry directory is not
@@ -244,11 +255,12 @@ CHANGES WITH 251 in spe:
           ID as selected via --entry-token= described above. The old name of
           the option is still understood to maximize compatibility.
 
-        * Services with Restart=always and a failing ExecCondition= will no longer
-          be restarted, to bring ExecCondition= in line with Condition*= settings.
+        * Services with Restart=always and a failing ExecCondition= will no
+          longer be restarted, to bring ExecCondition= behaviour in line with
+          Condition*= settings.
 
         * LoadCredential= now accepts a directory as the argument; all files
-          from the directory will be loaded.
+          from the directory will be loaded as credentials.
 
         * systemd-networkd gained a new [Bridge] Isolated=true|false setting
           that configures the eponymous kernel attribute on the bridge.
@@ -274,7 +286,10 @@ CHANGES WITH 251 in spe:
         * journalctl --list-boots now supports JSON output and the --reverse option.
 
         * Under docs/: JOURNAL_EXPORT_FORMATS was imported from the wiki and
-          updated, BUILDING_IMAGES is new.
+          updated, BUILDING_IMAGES is new:
+
+          https://systemd.io/JOURNAL_EXPORT_FORMATS
+          https://systemd.io/BUILDING_IMAGES
 
         Experimental features:
 
