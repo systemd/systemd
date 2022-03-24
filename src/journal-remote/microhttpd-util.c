@@ -300,7 +300,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
 #else
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
-        return -EPERM;
+        assert_not_reached();
 }
 
 int setup_gnutls_logger(char **categories) {
