@@ -54,9 +54,10 @@ CHANGES WITH 251 in spe:
           of pcap.
 
         * An udev rule that imported hwdb matches for USB devices with
-          lowercase hexadecimal digits was added in systemd 250. This has been
-          reverted, since uppercase hexadecimal digits are supposed to be used,
-          and we already had a rule that with the appropriate match.
+          lowercase hexadecimal vendor/product ID digits was added in systemd
+          250. This has been reverted, since uppercase hexadecimal digits are
+          supposed to be used, and we already had a rule that with the
+          appropriate match.
 
           Users might need to adjust their local hwdb entries.
 
@@ -190,6 +191,9 @@ CHANGES WITH 251 in spe:
           /sys/class/dmi/id) to override the chassis that is reported by
           hostnamed.
 
+        * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
+          for reading the hardware serial, as reportd by DMI.
+
         * Two new hwdb files have been added. One lists "handhelds" (PDAs,
           calculators, etc.), the other AV production devices (DJ tables,
           keypads, etc.) that should accessible to the seat owner user by
@@ -220,6 +224,10 @@ CHANGES WITH 251 in spe:
 
           Option tpm2-pin= can be used in /etc/crypttab.
 
+        * When unlocking devices via TPM, TPM2 parameter encryption is now
+          used, to ensure that communication between CPU and discrete TPM chips
+          cannoted be eavesdropped to acquire disk encryption keys.
+
         * The user.delegate and user.invocation_id extended attributes on
           cgroups are used in addition to trusted.delegate and
           trusted.invocation_id. The latter pair requires privileges to set,
@@ -249,11 +257,18 @@ CHANGES WITH 251 in spe:
           The new %d specifier resolves to the credentials directory of a
           service (same as $CREDENTIALS_DIRECTORY).
 
+        * The RootDirectory=, MountAPIVFS=, ExtensionDirectories= service
+          settings now also work in unprivileged user services, i.e. those run
+          by the user's --user service manager.
+
         * The --make-machine-id-directory= switch to bootctl has been replaced
           by --make-entry-directory=, given that the entry directory is not
           necessarily named after the machine ID, but after some other suitable
           ID as selected via --entry-token= described above. The old name of
           the option is still understood to maximize compatibility.
+
+        * 'bootctl list' gained support for a new --json= switch to output boot
+          menu entries in a simply JSON format.
 
         * Services with Restart=always and a failing ExecCondition= will no
           longer be restarted, to bring ExecCondition= behaviour in line with
@@ -262,8 +277,15 @@ CHANGES WITH 251 in spe:
         * LoadCredential= now accepts a directory as the argument; all files
           from the directory will be loaded as credentials.
 
+        * A new D-Bus property ControlGroupId is now exposed on service units,
+          that encapsulates the service's numeric cgroup ID that newer kernels
+          maintain for each cgroup.
+
         * systemd-networkd gained a new [Bridge] Isolated=true|false setting
           that configures the eponymous kernel attribute on the bridge.
+
+        * .netdev files now can be used to create virtual WLAN devices, and
+          configure various settings on them, via the [VirtualWLAN] section.
 
         * .link files gained support for [Match] Firmware= setting to match on
           the device firmware description string. By mistake, it was previously
@@ -273,6 +295,8 @@ CHANGES WITH 251 in spe:
           on device kind ("bond", "bridge", "gre", "tun", "veth", etc.)
 
           This value is also shown by 'networkctl status'.
+
+        * .link files gained support for setting MDI/MID-X on a link.
 
         * The Local= setting for various virtual network devices gained support
           for specifying, in addition to the network address, the name of a
@@ -290,6 +314,24 @@ CHANGES WITH 251 in spe:
 
           https://systemd.io/JOURNAL_EXPORT_FORMATS
           https://systemd.io/BUILDING_IMAGES
+
+        * The sd-id128 API gained a new call sd_id128_to_uuid_string() that is
+          similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
+          format instead of simple series of hex characters.
+
+        * The userdbctl tool will now show UID range information as part of the
+          list of known users.
+
+        * systemctl's --timestamp= option gained a new choice "unix", to show
+          timestamp as unix times, i.e. seconds since 1970, Jan 1st.
+
+        * PID 1 gained support for configuring the "pre-timeout" of watchdog
+          devices and the associated governor, via the new
+          RuntimeWatchdogPreSec= and RuntimeWatchdogPreGovernor= configuration
+          options in /etc/systemd/system.conf.
+
+        * The kernel-install tool gained a new 'inspect' verb which shows the
+          paths and other settings used.
 
         Experimental features:
 
