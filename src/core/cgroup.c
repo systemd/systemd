@@ -1063,10 +1063,12 @@ static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
                      CGROUP_BLKIO_WEIGHT_MIN, CGROUP_BLKIO_WEIGHT_MAX);
 }
 
-static void set_bfq_weight(Unit *u, const char *controller, uint64_t io_weight) {
-        char buf[DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
+static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
+        static bool warned = false;
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
         const char *p;
         uint64_t bfq_weight;
+        int r;
 
         /* FIXME: drop this function when distro kernels properly support BFQ through "io.weight"
          * See also: https://github.com/systemd/systemd/pull/13335 and
@@ -1075,25 +1077,59 @@ static void set_bfq_weight(Unit *u, const char *controller, uint64_t io_weight) 
         /* Adjust to kernel range is 1..1000, the default is 100. */
         bfq_weight = BFQ_WEIGHT(io_weight);
 
-        xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
+        if (major(dev) > 0)
+                xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), bfq_weight);
+        else
+                xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        if (set_attribute_and_warn(u, controller, p, buf) >= 0 && io_weight != bfq_weight)
-                log_unit_debug(u, "%sIOWeight=%" PRIu64 " scaled to %s=%" PRIu64,
+        r = cg_set_attribute(controller, u->cgroup_path, p, buf);
+
+        /* FIXME: drop this when kernels prior
+         * 795fe54c2a82 ("bfq: Add per-device weight") v5.4-rc1~148^2~20
+         * are not interesting anymore. Old kernels will fail with EINVAL, while new kernels won't return
+         * EINVAL on properly formatted input by us. Treat EINVAL specially. */
+        if (r < 0 && r == -EINVAL && major(dev) > 0) {
+               if (!warned) {
+                        log_unit_warning(u, "Kernel version does not accept per-device setting in %s.", p);
+                        warned = true;
+               }
+               r = -EOPNOTSUPP; /* mask as unconfigured device */
+        } else if (r >= 0 && io_weight != bfq_weight)
+                log_unit_debug(u, "%sIO%sWeight=%" PRIu64 " scaled to %s=%" PRIu64,
                                streq(controller, "blkio") ? "Block" : "",
+                               major(dev) > 0 ? "Device" : "",
                                io_weight, p, bfq_weight);
+        return r;
 }
 
 static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_t io_weight) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
-        int r;
+        int r, r1, r2;
 
-        r = lookup_block_device(dev_path, &dev);
-        if (r < 0)
+        if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
+        r1 = set_bfq_weight(u, "io", dev, io_weight);
+
         xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
-        (void) set_attribute_and_warn(u, "io", "io.weight", buf);
+        r2 = cg_set_attribute("io", u->cgroup_path, "io.weight", buf);
+
+        if (r1 >= 0 && r2 >= 0)
+                return;
+        if (r1 == -EOPNOTSUPP && r2 == -EOPNOTSUPP)
+                r = -EOPNOTSUPP; /* unconfigured device */
+        else if (r1 == -EOPNOTSUPP)
+                r = r2;
+        else if (r2 == -EOPNOTSUPP)
+                r = r1;
+        else /* both fail, prefer latter errno */
+                r = r2;
+
+        if (r < 0)
+                log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r),
+                                    r, "Failed to set 'io[.bfq].weight' attribute on '%s' to '%.*s': %m",
+                                    empty_to_root(u->cgroup_path), (int) strcspn(buf, NEWLINE), buf);
 }
 
 static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint64_t blkio_weight) {
@@ -1298,7 +1334,7 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        set_bfq_weight(u, "io", weight);
+        (void) set_bfq_weight(u, "io", makedev(0, 0), weight);
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "io", "io.weight", buf);
@@ -1309,7 +1345,7 @@ static void set_blkio_weight(Unit *u, uint64_t weight) {
 
         assert(u);
 
-        set_bfq_weight(u, "blkio", weight);
+        (void) set_bfq_weight(u, "blkio", makedev(0, 0), weight);
 
         xsprintf(buf, "%" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
