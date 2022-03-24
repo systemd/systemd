@@ -723,7 +723,7 @@ static int status_entries(
                 printf("Default Boot Loader Entry:\n");
 
                 r = boot_entry_show(
-                                config.entries + config.default_entry,
+                                boot_config_default_entry(&config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
