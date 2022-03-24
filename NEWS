@@ -226,7 +226,7 @@ CHANGES WITH 251 in spe:
 
         * When unlocking devices via TPM, TPM2 parameter encryption is now
           used, to ensure that communication between CPU and discrete TPM chips
-          cannoted be eavesdropped to acquire disk encryption keys.
+          cannot be eavesdropped to acquire disk encryption keys.
 
         * The user.delegate and user.invocation_id extended attributes on
           cgroups are used in addition to trusted.delegate and
@@ -257,9 +257,14 @@ CHANGES WITH 251 in spe:
           The new %d specifier resolves to the credentials directory of a
           service (same as $CREDENTIALS_DIRECTORY).
 
-        * The RootDirectory=, MountAPIVFS=, ExtensionDirectories= service
-          settings now also work in unprivileged user services, i.e. those run
-          by the user's --user service manager.
+        * The RootDirectory=, MountAPIVFS=, ExtensionDirectories=,
+          *Capabilities*=, ProtectHome=, *Directory=, TemporaryFileSystem=,
+          PrivateTmp=, PrivateDevices=, PrivateNetwork=, NetworkNamespacePath=,
+          PrivateIPC=, IPCNamespacePath=, PrivateUsers=, ProtectClock=,
+          ProtectKernelTunables=, ProtectKernelModules=, ProtectKernelLogs=,
+          MountFlags= service settings now also work in unprivileged user
+          services, i.e. those run by the user's --user service manager, as long
+          as user namespaces are enabled on the system.
 
         * The --make-machine-id-directory= switch to bootctl has been replaced
           by --make-entry-directory=, given that the entry directory is not
