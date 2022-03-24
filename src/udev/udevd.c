@@ -376,6 +376,53 @@ static int worker_send_result(Manager *manager, EventResult result) {
         return loop_write(manager->worker_watch[WRITE_END], &result, sizeof(result), false);
 }
 
+static int device_get_block_device(sd_device *dev, const char **ret) {
+        const char *val;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        if (device_for_action(dev, SD_DEVICE_REMOVE))
+                goto irrelevant;
+
+        r = sd_device_get_subsystem(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
+
+        if (!streq(val, "block"))
+                goto irrelevant;
+
+        r = sd_device_get_sysname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
+                goto irrelevant;
+
+        r = sd_device_get_devtype(dev, &val);
+        if (r < 0 && r != -ENOENT)
+                return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
+        if (r >= 0 && streq(val, "partition")) {
+                r = sd_device_get_parent(dev, &dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
+        }
+
+        r = sd_device_get_devname(dev, &val);
+        if (r == -ENOENT)
+                goto irrelevant;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        *ret = val;
+        return 1;
+
+irrelevant:
+        *ret = NULL;
+        return 0;
+}
+
 static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -1;
         const char *val;
@@ -389,44 +436,21 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
          * event handling; in the case udev acquired the lock, the external process can block until udev has
          * finished its event handling. */
 
-        if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return 0;
-
-        r = sd_device_get_subsystem(dev, &val);
+        r = device_get_block_device(dev, &val);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
-
-        if (!streq(val, "block"))
-                return 0;
-
-        r = sd_device_get_sysname(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
-
-        if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
-                return 0;
-
-        r = sd_device_get_devtype(dev, &val);
-        if (r < 0 && r != -ENOENT)
-                return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
-        if (r >= 0 && streq(val, "partition")) {
-                r = sd_device_get_parent(dev, &dev);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
-        }
-
-        r = sd_device_get_devname(dev, &val);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+                return r;
+        if (r == 0)
+                goto nolock;
 
         fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
 
                 log_device_debug_errno(dev, errno, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                if (!ignore)
+                        return -errno;
+
+                goto nolock;
         }
 
         if (flock(fd, LOCK_SH|LOCK_NB) < 0)
@@ -434,6 +458,10 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 
         *ret_fd = TAKE_FD(fd);
         return 1;
+
+nolock:
+        *ret_fd = -1;
+        return 0;
 }
 
 static int worker_mark_block_device_read_only(sd_device *dev) {
