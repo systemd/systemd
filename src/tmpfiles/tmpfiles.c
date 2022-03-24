@@ -204,31 +204,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 static int specifier_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 
-static const Specifier specifier_table[] = {
-        { 'a', specifier_architecture,    NULL },
-        { 'b', specifier_boot_id,         NULL },
-        { 'B', specifier_os_build_id,     NULL },
-        { 'H', specifier_host_name,       NULL },
-        { 'l', specifier_short_host_name, NULL },
-        { 'm', specifier_machine_id_safe, NULL },
-        { 'o', specifier_os_id,           NULL },
-        { 'v', specifier_kernel_release,  NULL },
-        { 'w', specifier_os_version_id,   NULL },
-        { 'W', specifier_os_variant_id,   NULL },
-
-        { 'h', specifier_user_home,       NULL },
-
-        { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
-        { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
-        { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
-        { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
-
-        COMMON_CREDS_SPECIFIERS,
-
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
-
 static int specifier_machine_id_safe(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         int r;
 
@@ -2737,7 +2712,7 @@ static bool should_include_path(const char *path) {
         return false;
 }
 
-static int specifier_expansion_from_arg(Item *i) {
+static int specifier_expansion_from_arg(const Specifier *specifier_table, Item *i) {
         int r;
 
         assert(i);
@@ -2944,6 +2919,30 @@ static int parse_line(
         assert(line >= 1);
         assert(buffer);
 
+        const Specifier specifier_table[] = {
+                { 'a', specifier_architecture,    NULL },
+                { 'b', specifier_boot_id,         NULL },
+                { 'B', specifier_os_build_id,     NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'l', specifier_short_host_name, NULL },
+                { 'm', specifier_machine_id_safe, NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                { 'w', specifier_os_version_id,   NULL },
+                { 'W', specifier_os_variant_id,   NULL },
+
+                { 'h', specifier_user_home,       NULL },
+
+                { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE)   },
+                { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS)    },
+                { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
+                { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
+
+                COMMON_CREDS_SPECIFIERS(arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM),
+                COMMON_TMP_SPECIFIERS,
+                {}
+        };
+
         r = extract_many_words(
                         &buffer,
                         NULL,
@@ -3148,7 +3147,7 @@ static int parse_line(
         if (!should_include_path(i.path))
                 return 0;
 
-        r = specifier_expansion_from_arg(&i);
+        r = specifier_expansion_from_arg(specifier_table, &i);
         if (r == -ENXIO)
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
