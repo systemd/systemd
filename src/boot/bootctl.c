@@ -709,7 +709,7 @@ static int status_entries(
                        SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         printf("\n\n");
 
-        r = boot_entries_load_config(esp_path, xbootldr_path, &config);
+        r = boot_config_load(&config, esp_path, xbootldr_path);
         if (r < 0)
                 return r;
 
@@ -1816,7 +1816,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
         bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
 
-        r = boot_entries_load_config(arg_esp_path, same ? NULL : arg_xbootldr_path, &config);
+        r = boot_config_load(&config, arg_esp_path, same ? NULL : arg_xbootldr_path);
         if (r < 0)
                 return r;
 
@@ -1826,7 +1826,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else if (r < 0)
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
-                (void) boot_entries_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
+                (void) boot_config_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
 
         r = boot_config_select_special_entries(&config);
         if (r < 0)
