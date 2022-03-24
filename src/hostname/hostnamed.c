@@ -128,7 +128,9 @@ static void context_read_machine_info(Context *c) {
                       (UINT64_C(1) << PROP_ICON_NAME) |
                       (UINT64_C(1) << PROP_CHASSIS) |
                       (UINT64_C(1) << PROP_DEPLOYMENT) |
-                      (UINT64_C(1) << PROP_LOCATION));
+                      (UINT64_C(1) << PROP_LOCATION) |
+                      (UINT64_C(1) << PROP_HARDWARE_VENDOR) |
+                      (UINT64_C(1) << PROP_HARDWARE_MODEL));
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
