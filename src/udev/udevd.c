@@ -344,6 +344,21 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
+static void device_broadcast(sd_device_monitor *monitor, sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        /* On exit, manager->monitor is already NULL. */
+        if (!monitor)
+                return;
+
+        r = device_monitor_send_device(monitor, NULL, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r,
+                                         "Failed to broadcast event to libudev listeners, ignoring: %m");
+}
+
 static int worker_send_message(int fd) {
         WorkerMessage message = {};
 
@@ -558,9 +573,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                         log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
                 /* send processed event back to libudev listeners */
-                r = device_monitor_send_device(monitor, NULL, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+                device_broadcast(monitor, dev);
         }
 
         /* send udevd the result of the event execution */
@@ -1426,13 +1439,8 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_delete_db(worker->event->dev);
                         device_tag_index(worker->event->dev, NULL, false);
 
-                        if (manager->monitor) {
-                                /* Forward kernel event to libudev listeners */
-                                r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev);
-                                if (r < 0)
-                                        log_device_warning_errno(worker->event->dev, r,
-                                                                 "Failed to broadcast failed event to libudev listeners, ignoring: %m");
-                        }
+                        /* Forward kernel event to libudev listeners */
+                        device_broadcast(manager->monitor, worker->event->dev);
                 }
 
                 worker_free(worker);
