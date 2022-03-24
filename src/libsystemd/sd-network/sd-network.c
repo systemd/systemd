@@ -469,7 +469,6 @@ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
 
 int sd_network_monitor_flush(sd_network_monitor *m) {
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
         int fd, k;
 

@@ -432,7 +432,6 @@ int acquire_terminal(
 
                 for (;;) {
                         union inotify_event_buffer buffer;
-                        struct inotify_event *e;
                         ssize_t l;
 
                         if (timeout != USEC_INFINITY) {

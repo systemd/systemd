@@ -1334,7 +1334,6 @@ static int synthesize_change(sd_device *dev) {
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = userdata;
         union inotify_event_buffer buffer;
-        struct inotify_event *e;
         ssize_t l;
         int r;
 
@@ -1352,7 +1351,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 return log_error_errno(errno, "Failed to read inotify fd: %m");
         }
 
-        FOREACH_INOTIFY_EVENT(e, buffer, l) {
+        FOREACH_INOTIFY_EVENT_WARN(e, buffer, l) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *devnode;
 
