@@ -1039,6 +1039,39 @@ static int event_requeue(Event *event) {
         return 0;
 }
 
+static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
+        const char *devname;
+        int r;
+
+        /* When a new event for a block device is queued or we get an inotify event, assume that the
+         * device is not locked anymore. The assumption may not be true, but that should not cause any
+         * issues, as in that case events will be requeued soon. */
+
+        r = device_get_block_device(dev, &devname);
+        if (r <= 0)
+                return r;
+
+        LIST_FOREACH(event, event, manager->events) {
+                const char *event_devname;
+
+                if (event->state != EVENT_QUEUED)
+                        continue;
+
+                if (event->retry_again_next_usec == 0)
+                        continue;
+
+                if (device_get_block_device(event->dev, &event_devname) <= 0)
+                        continue;
+
+                if (!streq(devname, event_devname))
+                        continue;
+
+                event->retry_again_next_usec = 0;
+        }
+
+        return 0;
+}
+
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         sd_device_action_t action;
         uint64_t seqnum;
@@ -1100,6 +1133,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
                 log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
                 return 1;
         }
+
+        (void) event_queue_assume_block_device_unlocked(manager, dev);
 
         /* we have fresh events, try to schedule them */
         event_queue_start(manager);
@@ -1429,8 +1464,10 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                         continue;
 
                 log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
-                if (e->mask & IN_CLOSE_WRITE)
+                if (e->mask & IN_CLOSE_WRITE) {
+                        (void) event_queue_assume_block_device_unlocked(manager, dev);
                         (void) synthesize_change(dev);
+                }
 
                 /* Do not handle IN_IGNORED here. It should be handled by worker in 'remove' uevent;
                  * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
