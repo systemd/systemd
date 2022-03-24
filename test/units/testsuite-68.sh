@@ -102,6 +102,9 @@ ExecStartPre=/tmp/check_on_success.sh
 ExecStart=/tmp/check_on_success.sh
 EOF
 
+cp /run/systemd/system/testservice-success-exit-handler-68.service \
+   /run/systemd/system/testservice-transient-success-exit-handler-68.service
+
 # Template version.
 cat >/run/systemd/system/testservice-success-exit-handler-68-template@.service <<EOF
 [Service]
@@ -161,6 +164,9 @@ ExecStart=/tmp/check_on_failure.sh
 ExecStartPost=test -z '$MONITOR_SERVICE_RESULT'
 EOF
 
+cp /run/systemd/system/testservice-failure-exit-handler-68.service \
+   /run/systemd/system/testservice-transient-failure-exit-handler-68.service
+
 # Template version.
 cat >/run/systemd/system/testservice-failure-exit-handler-68-template@.service <<EOF
 [Service]
@@ -183,22 +189,18 @@ wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "
 systemctl start testservice-success-68.service
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
-# Let's get rid of the failed units so the tests below don't fail, and daemon-reload
-# to force garbace collection of the units.
-systemctl reset-failed
-systemctl daemon-reload
-
 # Test some transient units since these exit very quickly.
 : "-------III--------------------------------------------------"
-systemd-run --unit=testservice-transient-success-68 --property=OnSuccess=testservice-success-exit-handler-68.service sh -c "exit 0"
+systemd-run --unit=testservice-transient-success-68 \
+            --property=OnSuccess=testservice-transient-success-exit-handler-68.service \
+            sh -c "exit 0"
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
 
 : "-------IIII-------------------------------------------------"
-systemd-run --unit=testservice-transient-failure-68 --property=OnFailure=testservice-failure-exit-handler-68.service sh -c "exit 1"
+systemd-run --unit=testservice-transient-failure-68 \
+            --property=OnFailure=testservice-transient-failure-exit-handler-68.service \
+            sh -c "exit 1"
 wait_on_state_or_fail "testservice-failure-exit-handler-68.service" "inactive" "10"
-
-systemctl reset-failed
-systemctl daemon-reload
 
 # Test template handlers too
 : "-------V---------------------------------------------------"
