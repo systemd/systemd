@@ -70,7 +70,8 @@ struct UnitFileList {
 
 enum UnitFileType {
         UNIT_FILE_TYPE_REGULAR,
-        UNIT_FILE_TYPE_SYMLINK,
+        UNIT_FILE_TYPE_LINKED,
+        UNIT_FILE_TYPE_ALIAS,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
         _UNIT_FILE_TYPE_INVALID = -EINVAL,
@@ -111,7 +112,7 @@ int unit_file_reenable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset(
@@ -193,7 +194,12 @@ int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, int type,
 void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
 
-int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst);
+int unit_file_verify_alias(
+                const UnitFileInstallInfo *info,
+                const char *dst,
+                char **ret_dst,
+                UnitFileChange **changes,
+                size_t *n_changes);
 
 typedef struct UnitFilePresetRule UnitFilePresetRule;
 
