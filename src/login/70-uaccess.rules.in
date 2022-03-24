@@ -63,7 +63,9 @@ ENV{ID_PDA}=="?*", TAG+="uaccess"
 # Programmable remote control
 ENV{ID_REMOTE_CONTROL}=="1", TAG+="uaccess"
 
-# joysticks
+# Gaming devices
+SUBSYSTEM=="input", ENV{ID_GAME_CONTROLLER}=="?*", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ENV{ID_GAME_CONTROLLER}=="?*", TAG+="uaccess"
 SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="uaccess"
 
 # color measurement devices

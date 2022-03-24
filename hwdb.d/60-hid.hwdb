@@ -1,0 +1,205 @@
+# This file is part of systemd.
+#
+# The lookup keys are composed in:
+#   60-input-id.rules
+#
+# Note: The format of the "hid:" prefix match key is a contract between
+# the rules file and the hardware data, it might change in later revisions to
+# support more or better matches, it is not necessarily expected to be a stable
+# ABI.
+#
+# Match string formats:
+# hid:<modalias>
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-hid-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/hidrawXX
+#   udevadm trigger /dev/input/eventYY
+# where /dev/hidrawXX, /dev/input/eventYY are the devices in question. If in
+# doubt, simply use /dev/hidraw* and /dev/input/event* to reload all
+# input rules.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/hidrawXX.
+
+# Sort by USB vendor ID (vXXXXXXXX), then by product ID (pXXXXXXXX)
+
+#######################################
+# Invalid (0000)
+#######################################
+
+# PowerA Wireless Controller for Nintendo Switch:
+# cannot be matched here since VID/PID are reported as zeroes,
+# but its name is "Lic Pro Controller"
+
+###########################################################
+# Thrustmaster (044F)
+###########################################################
+
+# Thrustmaster eSwap Pro
+hid:b0003g0000v0000044Fp0000D00E
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Sony (054C)
+###########################################################
+
+# Playstation 3 controller (aka Dualshock 3, Batoh Device)
+hid:b000[35]g0000v0000054Cp00000268
+# Playstation 4 controller (Dualshock 4)
+hid:b000[35]g0000v0000054Cp000005C4
+# STRIKEPAD PS4 Grip Add-on
+hid:b0003g0000v0000054Cp000005C5
+# Playstation 4 controller (Dualshock 4 Slim)
+hid:b000[35]g0000v0000054Cp000009CC
+# Playstation 4 (Dualshock 4) wireless adapter
+hid:b0003g0000v0000054Cp00000BA0
+# Playstation 5 controller (aka Dualsense)
+hid:b000[35]g0000v0000054Cp00000CE6
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Nintendo (057E)
+###########################################################
+
+# Switch Pro Controller
+hid:b000[35]g0000v0000057Ep00002009
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Mad Catz (0738)
+###########################################################
+
+# Street Fighter V Arcade FightPad PRO
+hid:b0003g0000v00000738p00008250
+# Street Fighter V Arcade FightStick TE S+
+hid:b0003g0000v00000738p00008384
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# NVIDIA (0955)
+###########################################################
+
+# NVIDIA Shield Portable (2013 - NVIDIA_Controller_v01.01 - In-Home Streaming only)
+hid:b0003g0000v00000955p00007203
+# NVIDIA Shield Controller (2015 - NVIDIA_Controller_v01.03 over USB hidraw)
+hid:b0003g0000v00000955p00007210
+ ID_GAME_CONTROLLER=1
+ ID_INPUT_JOYSTICK=1
+ ID_INPUT_MOUSE=
+
+# NVIDIA Shield Controller (2017 - NVIDIA_Controller_v01.04 over bluetooth hidraw)
+hid:b0005g0000v00000955p00007214
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# ZeroPlus (0C12)
+###########################################################
+
+# Brooks Universal Fighting Board
+hid:b0003g0000v00000C12p00000C30
+# Armor Armor 3 Pad PS4
+hid:b0003g0000v00000C12p00000E10
+# ZeroPlus P4 (hitbox)
+hid:b0003g0000v00000C12p00000EF6
+# EMiO Elite Controller for PS4
+hid:b0003g0000v00000C12p00001CF6
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Logic3 (0E6F)
+###########################################################
+
+# Faceoff Wired Pro Controller for Nintendo Switch
+hid:b0003g0000v00000E6Fp00000180
+# PDP Wired Fight Pad Pro for Nintendo Switch
+hid:b0003g0000v00000E6Fp00000185
+# Afterglow Deluxe+ Wired Controller for Nintendo Switch
+hid:b0003g0000v00000E6Fp00000188
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# HORI (0F0D)
+###########################################################
+
+# HORIPAD 4 FPS
+hid:b0003g0000v00000F0Dp00000055
+# HORIPAD 4 FPS Plus
+hid:b0003g0000v00000F0Dp00000066
+# HORI RAP4
+hid:b0003g0000v00000F0Dp0000008A
+# HORIPAD for Nintendo Switch
+hid:b0003g0000v00000F0Dp000000C1
+# HORIPAD mini 4
+hid:b0003g0000v00000F0Dp000000EE
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# BigBen Interactive (146B)
+###########################################################
+
+# Nacon PS4 Revolution Pro Controller
+hid:b0003g0000v0000146Bp00000D01
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Razer (1532)
+###########################################################
+
+# Razer Panthera Arcade Stick
+hid:b0005g0000v00001532p00000401
+# Razer Raiju PS4 Controller
+hid:b0003g0000v00001532p00001000
+# Razer Raiju 2 Tournament Edition
+hid:b0003g0000v00001532p00001007
+# Razer Panthera EVO Arcade Stick
+hid:b0003g0000v00001532p00001008
+# Razer Raiju PS4 Controller Tournament Edition over bluetooth hidraw
+hid:b0005g0000v00001532p0000100A
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# PowerA (20D6)
+###########################################################
+
+# PowerA Wired Controller for Nintendo Switch
+hid:b0003g0000v000020D6p0000A71[13]
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Valve (28DE)
+###########################################################
+
+# Valve Legacy Steam Controller (CHELL) from SDL
+#hid:bXXXXg0000v000028DEp00001101
+# Steam Controller (D0G) via USB
+hid:b0003g0000v000028DEp00001102
+# Unknown device (ELI) from SDL
+#hid:bXXXXg0000v000028DEp00001103
+# Unknown device (FREEMAN) from SDL
+#hid:b0003g0000v000028DEp00001104
+# Steam Controller (D0G) via BLE/BLE2
+hid:b0005g0000v000028DEp0000110[56]
+# Steam Controller via proprietary wireless link to USB dongle (D0GGLE)
+hid:b0003g0000v000028DEp00001142
+# Unknown device (BASTILLE) from SDL
+#hid:bXXXXg0000v000028DEp00002202
+# Unknown wired device described as Steam Controller v2 (HEADCRAB) in SDL
+#hid:b0003g0000v000028DEp00001201
+# Unknown Bluetooth device described as Steam Controller v2 (HEADCRAB) in SDL
+#hid:b0005g0000v000028DEp00001202
+ ID_GAME_CONTROLLER=1
+
+###########################################################
+# Astro (9886)
+###########################################################
+
+# Astro C40
+hid:b0003g0000v00009886p00000025
+ ID_GAME_CONTROLLER=1
