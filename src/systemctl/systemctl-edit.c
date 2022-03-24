@@ -37,9 +37,9 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
-        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
+        r = lookup_paths_init_or_warn(&lp, arg_scope, 0, arg_root);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine unit paths: %m");
+                return r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -507,9 +507,9 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");
 
-        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
+        r = lookup_paths_init_or_warn(&lp, arg_scope, 0, arg_root);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine unit paths: %m");
+                return r;
 
         r = mac_selinux_init();
         if (r < 0)
