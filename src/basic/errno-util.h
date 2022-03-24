@@ -138,10 +138,18 @@ static inline bool ERRNO_IS_PRIVILEGE(int r) {
                       EPERM);
 }
 
-/* Three difference errors for "not enough disk space" */
+/* Three different errors for "not enough disk space" */
 static inline bool ERRNO_IS_DISK_SPACE(int r) {
         return IN_SET(abs(r),
                       ENOSPC,
                       EDQUOT,
                       EFBIG);
+}
+
+/* Three different errors for "this device does not quite exist" */
+static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
+        return IN_SET(abs(r),
+                      ENODEV,
+                      ENXIO,
+                      ENOENT);
 }
