@@ -18,7 +18,7 @@
 #include "time-util.h"
 
 typedef struct JournalMetrics {
-        /* For all these: -1 means "pick automatically", and 0 means "no limit enforced" */
+        /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */
         uint64_t max_size;     /* how large journal files grow at max */
         uint64_t min_size;     /* how large journal files grow at least */
         uint64_t max_use;      /* how much disk space to use in total at max, keep_free permitting */
@@ -62,7 +62,7 @@ typedef struct JournalFile {
 
         mode_t mode;
 
-        int flags;
+        int open_flags;
         bool writable:1;
         bool compress_xz:1;
         bool compress_lz4:1;
@@ -126,14 +126,18 @@ typedef struct JournalFile {
 #endif
 } JournalFile;
 
+typedef enum JournalFileFlags {
+        JOURNAL_COMPRESS = 1 << 0,
+        JOURNAL_SEAL     = 1 << 1,
+} JournalFileFlags;
+
 int journal_file_open(
                 int fd,
                 const char *fname,
-                int flags,
+                int open_flags,
+                JournalFileFlags file_flags,
                 mode_t mode,
-                bool compress,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,

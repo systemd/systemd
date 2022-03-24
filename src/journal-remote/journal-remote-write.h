@@ -26,11 +26,10 @@ Writer* writer_unref(Writer *w);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 
 int writer_write(Writer *s,
-                 struct iovec_wrapper *iovw,
-                 dual_timestamp *ts,
-                 sd_id128_t *boot_id,
-                 bool compress,
-                 bool seal);
+                 const struct iovec_wrapper *iovw,
+                 const dual_timestamp *ts,
+                 const sd_id128_t *boot_id,
+                 JournalFileFlags file_flags);
 
 typedef enum JournalWriteSplitMode {
         JOURNAL_WRITE_SPLIT_NONE,

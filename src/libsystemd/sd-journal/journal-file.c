@@ -3314,11 +3314,10 @@ static int journal_file_warn_btrfs(JournalFile *f) {
 int journal_file_open(
                 int fd,
                 const char *fname,
-                int flags,
+                int open_flags,
+                JournalFileFlags file_flags,
                 mode_t mode,
-                bool compress,
                 uint64_t compress_threshold_bytes,
-                bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
@@ -3333,13 +3332,13 @@ int journal_file_open(
         assert(fd >= 0 || fname);
         assert(mmap_cache);
 
-        if (!IN_SET((flags & O_ACCMODE), O_RDONLY, O_RDWR))
+        if (!IN_SET((open_flags & O_ACCMODE), O_RDONLY, O_RDWR))
                 return -EINVAL;
 
-        if ((flags & O_ACCMODE) == O_RDONLY && FLAGS_SET(flags, O_CREAT))
+        if ((open_flags & O_ACCMODE) == O_RDONLY && FLAGS_SET(open_flags, O_CREAT))
                 return -EINVAL;
 
-        if (fname && (flags & O_CREAT) && !endswith(fname, ".journal"))
+        if (fname && (open_flags & O_CREAT) && !endswith(fname, ".journal"))
                 return -EINVAL;
 
         f = new(JournalFile, 1);
@@ -3350,21 +3349,21 @@ int journal_file_open(
                 .fd = fd,
                 .mode = mode,
 
-                .flags = flags,
-                .writable = (flags & O_ACCMODE) != O_RDONLY,
+                .open_flags = open_flags,
+                .writable = (open_flags & O_ACCMODE) != O_RDONLY,
 
 #if HAVE_ZSTD
-                .compress_zstd = compress,
+                .compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
 #elif HAVE_LZ4
-                .compress_lz4 = compress,
+                .compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
 #elif HAVE_XZ
-                .compress_xz = compress,
+                .compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
 #endif
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
 #if HAVE_GCRYPT
-                .seal = seal,
+                .seal = FLAGS_SET(file_flags, JOURNAL_SEAL),
 #endif
         };
 
@@ -3424,7 +3423,7 @@ int journal_file_open(
                  * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
                  * it doesn't hurt in that case. */
 
-                f->fd = openat_report_new(AT_FDCWD, f->path, f->flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
+                f->fd = openat_report_new(AT_FDCWD, f->path, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
                 if (f->fd < 0) {
                         r = f->fd;
                         goto fail;
@@ -3451,7 +3450,7 @@ int journal_file_open(
                 newly_created = f->last_stat.st_size == 0 && f->writable;
         }
 
-        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(flags));
+        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(open_flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;

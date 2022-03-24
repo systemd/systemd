@@ -260,26 +260,46 @@ static int open_journal(
                 Server *s,
                 bool reliably,
                 const char *fname,
-                int flags,
+                int open_flags,
                 bool seal,
                 JournalMetrics *metrics,
                 ManagedJournalFile **ret) {
 
         _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
+        JournalFileFlags file_flags;
         int r;
 
         assert(s);
         assert(fname);
         assert(ret);
 
+        file_flags = (s->compress.enabled ? JOURNAL_COMPRESS : 0) | (seal ? JOURNAL_SEAL : 0);
+
         if (reliably)
-                r = managed_journal_file_open_reliably(fname, flags, 0640, s->compress.enabled,
-                                                s->compress.threshold_bytes, seal, metrics, s->mmap,
-                                                s->deferred_closes, NULL, &f);
+                r = managed_journal_file_open_reliably(
+                                fname,
+                                open_flags,
+                                file_flags,
+                                0640,
+                                s->compress.threshold_bytes,
+                                metrics,
+                                s->mmap,
+                                s->deferred_closes,
+                                NULL,
+                                &f);
         else
-                r = managed_journal_file_open(-1, fname, flags, 0640, s->compress.enabled,
-                                       s->compress.threshold_bytes, seal, metrics, s->mmap,
-                                       s->deferred_closes, NULL, &f);
+                r = managed_journal_file_open(
+                                -1,
+                                fname,
+                                open_flags,
+                                file_flags,
+                                0640,
+                                s->compress.threshold_bytes,
+                                metrics,
+                                s->mmap,
+                                s->deferred_closes,
+                                NULL,
+                                &f);
 
         if (r < 0)
                 return r;
@@ -457,13 +477,19 @@ static int do_rotate(
                 bool seal,
                 uint32_t uid) {
 
+        JournalFileFlags file_flags;
         int r;
+
         assert(s);
 
         if (!*f)
                 return -EINVAL;
 
-        r = managed_journal_file_rotate(f, s->mmap, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
+        file_flags =
+                (s->compress.enabled ? JOURNAL_COMPRESS : 0)|
+                (seal ? JOURNAL_SEAL : 0);
+
+        r = managed_journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_error_errno(r, "Failed to rotate %s: %m", (*f)->file->path);
@@ -574,18 +600,19 @@ static int vacuum_offline_user_journals(Server *s) {
                 server_vacuum_deferred_closes(s);
 
                 /* Open the file briefly, so that we can archive it */
-                r = managed_journal_file_open(fd,
-                                       full,
-                                       O_RDWR,
-                                       0640,
-                                       s->compress.enabled,
-                                       s->compress.threshold_bytes,
-                                       s->seal,
-                                       &s->system_storage.metrics,
-                                       s->mmap,
-                                       s->deferred_closes,
-                                       NULL,
-                                       &f);
+                r = managed_journal_file_open(
+                                fd,
+                                full,
+                                O_RDWR,
+                                (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
+                                (s->seal ? JOURNAL_SEAL : 0),
+                                0640,
+                                s->compress.threshold_bytes,
+                                &s->system_storage.metrics,
+                                s->mmap,
+                                s->deferred_closes,
+                                NULL,
+                                &f);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
 
