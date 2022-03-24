@@ -13,6 +13,7 @@
 #include "find-esp.h"
 #include "path-util.h"
 #include "pe-header.h"
+#include "recurse-dir.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -39,50 +40,51 @@ static void boot_entry_free(BootEntry *entry) {
         strv_free(entry->device_tree_overlay);
 }
 
-static int boot_entry_load(
+static int boot_entry_load_type1(
+                FILE *f,
                 const char *root,
-                const char *path,
+                const char *dir,
+                const char *id,
                 BootEntry *entry) {
 
         _cleanup_(boot_entry_free) BootEntry tmp = {
                 .type = BOOT_ENTRY_CONF,
         };
 
-        _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         char *c;
         int r;
 
+        assert(f);
         assert(root);
-        assert(path);
+        assert(dir);
+        assert(id);
         assert(entry);
 
-        r = path_extract_filename(path, &tmp.id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from path '%s': %m", path);
+        /* Loads a Type #1 boot menu entry from the specified FILE* object */
 
-        c = endswith_no_case(tmp.id, ".conf");
+        if (!efi_loader_entry_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", id);
+
+        c = endswith_no_case(id, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", id);
 
-        if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
+        tmp.id = strdup(id);
+        if (!tmp.id)
+                return log_oom();
 
-        tmp.id_old = strndup(tmp.id, c - tmp.id);
+        tmp.id_old = strndup(id, c - id); /* Without .conf suffix */
         if (!tmp.id_old)
                 return log_oom();
 
-        tmp.path = strdup(path);
+        tmp.path = path_join(dir, id);
         if (!tmp.path)
                 return log_oom();
 
         tmp.root = strdup(root);
         if (!tmp.root)
                 return log_oom();
-
-        f = fopen(path, "re");
-        if (!f)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
@@ -92,9 +94,9 @@ static int boot_entry_load(
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
-                        return log_error_errno(r, "%s:%u: Line too long", path, line);
+                        return log_error_errno(r, "%s:%u: Line too long", tmp.path, line);
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
 
                 line++;
 
@@ -104,11 +106,11 @@ static int boot_entry_load(
                 p = buf;
                 r = extract_first_word(&p, &field, " \t", 0);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", tmp.path, line);
                         continue;
                 }
                 if (r == 0) {
-                        log_warning("%s:%u: Bad syntax", path, line);
+                        log_warning("%s:%u: Bad syntax", tmp.path, line);
                         continue;
                 }
 
@@ -141,11 +143,11 @@ static int boot_entry_load(
 
                         r = strv_extend_strv(&tmp.device_tree_overlay, l, false);
                 } else {
-                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
+                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", tmp.path, line, field);
                         continue;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
+                        return log_error_errno(r, "%s:%u: Error while reading: %m", tmp.path, line);
         }
 
         *entry = tmp;
@@ -172,6 +174,8 @@ void boot_config_free(BootConfig *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+
+        set_free(config->inodes_seen);
 }
 
 static int boot_loader_read_conf(const char *path, BootConfig *config) {
@@ -272,33 +276,113 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return -strverscmp_improved(a->id, b->id);
 }
 
-static int boot_entries_find(
-                const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
+static void inode_hash_func(const struct stat *q, struct siphash *state) {
+        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
+        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
+}
 
-        _cleanup_strv_free_ char **files = NULL;
+static int inode_compare_func(const struct stat *a, const struct stat *b) {
         int r;
 
+        r = CMP(a->st_dev, b->st_dev);
+        if (r != 0)
+                return r;
+
+        return CMP(a->st_ino, b->st_ino);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+
+static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
+        _cleanup_free_ char *d = NULL;
+        struct stat st;
+
+        assert(config);
+        assert(fd >= 0);
+        assert(fname);
+
+        /* So, here's the thing: because of the mess around /efi/ vs. /boot/ vs. /boot/efi/ it might be that
+         * people have these dirs, or subdirs of them symlinked or bind mounted, and we might end up
+         * iterating though some dirs multiple times. Let's thus rather be safe than sorry, and track the
+         * inodes we already processed: let's ignore inodes we have seen already. This should be robust
+         * against any form of symlinking or bind mounting, and effectively suppress any such duplicates. */
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat('%s'): %m", fname);
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("File '%s' is not a reguar file, ignoring.", fname);
+                return false;
+        }
+
+        if (set_contains(config->inodes_seen, &st)) {
+                log_debug("Inode '%s' already seen before, ignoring.", fname);
+                return false;
+        }
+        d = memdup(&st, sizeof(st));
+        if (!d)
+                return log_oom();
+        if (set_ensure_put(&config->inodes_seen, &inode_hash_ops, d) < 0)
+                return log_oom();
+
+        TAKE_PTR(d);
+        return true;
+}
+
+static int boot_entries_find_type1(
+                BootConfig *config,
+                const char *root,
+                const char *dir) {
+
+        _cleanup_free_ DirectoryEntries *dentries = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int r;
+
+        assert(config);
         assert(root);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
-        r = conf_files_list(&files, ".conf", NULL, 0, dir);
+        dir_fd = open(dir, O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open '%s': %m", dir);
+        }
+
+        r = readdir_all(dir_fd, RECURSE_DIR_IGNORE_DOT, &dentries);
         if (r < 0)
-                return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
+                return log_error_errno(r, "Failed to read directory '%s': %m", dir);
 
-        STRV_FOREACH(f, files) {
-                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
+        for (size_t i = 0; i < dentries->n_entries; i++) {
+                const struct dirent *de = dentries->entries[i];
+                _cleanup_fclose_ FILE *f = NULL;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".conf"))
+                        continue;
+
+                r = xfopenat(dir_fd, de->d_name, "re", 0, &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = config_check_inode_relevant_and_unseen(config, fileno(f), de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
-                r = boot_entry_load(root, *f, *entries + *n_entries);
+                r = boot_entry_load_type1(f, root, dir, de->d_name, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
-                (*n_entries) ++;
+                config->n_entries++;
         }
 
         return 0;
@@ -508,18 +592,15 @@ static int find_sections(
 }
 
 static int boot_entries_find_unified(
+                BootConfig *config,
                 const char *root,
-                const char *dir,
-                BootEntry **entries,
-                size_t *n_entries) {
+                const char *dir) {
 
         _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
-        assert(root);
+        assert(config);
         assert(dir);
-        assert(entries);
-        assert(n_entries);
 
         d = opendir(dir);
         if (!d) {
@@ -539,7 +620,7 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!GREEDY_REALLOC0(*entries, *n_entries + 1))
+                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
                         return log_oom();
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -548,25 +629,24 @@ static int boot_entries_find_unified(
                         continue;
                 }
 
-                r = fd_verify_regular(fd);
-                if (r < 0) {
-                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
-                        continue;
-                }
-
-                r = find_sections(fd, &osrelease, &cmdline);
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
                 if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                if (find_sections(fd, &osrelease, &cmdline) < 0)
                         continue;
 
                 j = path_join(dir, de->d_name);
                 if (!j)
                         return log_oom();
 
-                r = boot_entry_load_unified(root, j, osrelease, cmdline, *entries + *n_entries);
+                r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
-                (*n_entries) ++;
+                config->n_entries++;
         }
 
         return 0;
@@ -719,33 +799,45 @@ static int boot_load_efi_entry_pointers(BootConfig *config) {
         /* Loads the three "pointers" to boot loader entries from their EFI variables */
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryOneShot), &config->entry_oneshot);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntryDefault), &config->entry_default);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(LoaderEntrySelected), &config->entry_selected);
-        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
-                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\": %m");
-                if (r == -ENOMEM)
-                        return r;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntrySelected\", ignoring: %m");
 
         return 1;
 }
 
-int boot_entries_load_config(
+int boot_config_select_special_entries(BootConfig *config) {
+        int r;
+
+        assert(config);
+
+        r = boot_load_efi_entry_pointers(config);
+        if (r < 0)
+                return r;
+
+        config->default_entry = boot_entries_select_default(config);
+        config->selected_entry = boot_entries_select_selected(config);
+
+        return 0;
+}
+
+int boot_config_load(
+                BootConfig *config,
                 const char *esp_path,
-                const char *xbootldr_path,
-                BootConfig *config) {
+                const char *xbootldr_path) {
 
         const char *p;
         int r;
@@ -759,24 +851,24 @@ int boot_entries_load_config(
                         return r;
 
                 p = strjoina(esp_path, "/loader/entries");
-                r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_type1(config, esp_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(esp_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(esp_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, esp_path, p);
                 if (r < 0)
                         return r;
         }
 
         if (xbootldr_path) {
                 p = strjoina(xbootldr_path, "/loader/entries");
-                r = boot_entries_find(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_type1(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
 
                 p = strjoina(xbootldr_path, "/EFI/Linux/");
-                r = boot_entries_find_unified(xbootldr_path, p, &config->entries, &config->n_entries);
+                r = boot_entries_find_unified(config, xbootldr_path, p);
                 if (r < 0)
                         return r;
         }
@@ -787,20 +879,13 @@ int boot_entries_load_config(
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
-        r = boot_load_efi_entry_pointers(config);
-        if (r < 0)
-                return r;
-
-        config->default_entry = boot_entries_select_default(config);
-        config->selected_entry = boot_entries_select_selected(config);
-
         return 0;
 }
 
-int boot_entries_load_config_auto(
+int boot_config_load_auto(
+                BootConfig *config,
                 const char *override_esp_path,
-                const char *override_xbootldr_path,
-                BootConfig *config) {
+                const char *override_xbootldr_path) {
 
         _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -817,7 +902,7 @@ int boot_entries_load_config_auto(
 
         if (!override_esp_path && !override_xbootldr_path) {
                 if (access("/run/boot-loader-entries/", F_OK) >= 0)
-                        return boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
+                        return boot_config_load(config, "/run/boot-loader-entries/", NULL);
 
                 if (errno != ENOENT)
                         return log_error_errno(errno,
@@ -836,10 +921,10 @@ int boot_entries_load_config_auto(
         if (esp_where && xbootldr_where && devid_set_and_equal(esp_devid, xbootldr_devid))
                 xbootldr_where = mfree(xbootldr_where);
 
-        return boot_entries_load_config(esp_where, xbootldr_where, config);
+        return boot_config_load(config, esp_where, xbootldr_where);
 }
 
-int boot_entries_augment_from_loader(
+int boot_config_augment_from_loader(
                 BootConfig *config,
                 char **found_by_loader,
                 bool only_auto) {
@@ -900,4 +985,16 @@ int boot_entries_augment_from_loader(
         }
 
         return 0;
+}
+
+BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
+        assert(config);
+        assert(id);
+
+        for (size_t j = 0; j < config->n_entries; j++)
+                if (streq_ptr(config->entries[j].id, id) ||
+                    streq_ptr(config->entries[j].id_old, id))
+                        return config->entries + j;
+
+        return NULL;
 }

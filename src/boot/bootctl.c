@@ -70,6 +70,7 @@ static enum {
         ARG_ENTRY_TOKEN_AUTO,
 } arg_entry_token_type = ARG_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -686,7 +687,7 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         sd_id128_t dollar_boot_partition_uuid;
         const char *dollar_boot_path;
         int r;
@@ -708,7 +709,11 @@ static int status_entries(
                        SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         printf("\n\n");
 
-        r = boot_entries_load_config(esp_path, xbootldr_path, &config);
+        r = boot_config_load(&config, esp_path, xbootldr_path);
+        if (r < 0)
+                return r;
+
+        r = boot_config_select_special_entries(&config);
         if (r < 0)
                 return r;
 
@@ -718,7 +723,7 @@ static int status_entries(
                 printf("Default Boot Loader Entry:\n");
 
                 r = boot_entry_show(
-                                config.entries + config.default_entry,
+                                boot_config_default_entry(&config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
@@ -1420,6 +1425,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                       Entry token to use for this installation\n"
+               "     --json=pretty|short|off\n"
+               "                       Generate JSON output\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1441,6 +1448,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -1458,6 +1466,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "make-entry-directory",      required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      },
                 { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      }, /* Compatibility alias */
                 { "entry-token",               required_argument, NULL, ARG_ENTRY_TOKEN               },
+                { "json",                      required_argument, NULL, ARG_JSON                      },
                 {}
         };
 
@@ -1550,6 +1559,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 arg_make_entry_directory = b;
                         }
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
@@ -1776,7 +1792,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_strv_free_ char **efi_entries = NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
@@ -1800,7 +1816,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
         bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
 
-        r = boot_entries_load_config(arg_esp_path, same ? NULL : arg_xbootldr_path, &config);
+        r = boot_config_load(&config, arg_esp_path, same ? NULL : arg_xbootldr_path);
         if (r < 0)
                 return r;
 
@@ -1810,9 +1826,50 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         else if (r < 0)
                 log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
         else
-                (void) boot_entries_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
+                (void) boot_config_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
 
-        if (config.n_entries == 0)
+        r = boot_config_select_special_entries(&config);
+        if (r < 0)
+                return r;
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+
+                pager_open(arg_pager_flags);
+
+                for (size_t i = 0; i < config.n_entries; i++) {
+                        _cleanup_free_ char *opts = NULL;
+                        BootEntry *e = config.entries + i;
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        if (!strv_isempty(e->options)) {
+                                opts = strv_join(e->options, " ");
+                                if (!opts)
+                                        return log_oom();
+                        }
+
+                        r = json_build(&v, JSON_BUILD_OBJECT(
+                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                }
+
+        } else if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
         else {
                 pager_open(arg_pager_flags);
