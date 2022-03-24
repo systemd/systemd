@@ -184,8 +184,8 @@ CHANGES WITH 251 in spe:
 
           'portablectl attach --extension=' now also accepts directory paths.
 
-        * VENDOR= and MODEL= can be set in /etc/machine-info to override the
-          values gleaned from the hwdb.
+        * HARDWARE_VENDOR= and HARDWARE_MODEL= can be set in /etc/machine-info
+          to override the values gleaned from the hwdb.
 
         * A ID_CHASSIS property can be set in the hwdb (for the DMI device
           /sys/class/dmi/id) to override the chassis that is reported by
