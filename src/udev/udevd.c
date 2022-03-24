@@ -359,18 +359,12 @@ static int worker_send_result(Manager *manager, EventResult result) {
         return loop_write(manager->worker_watch[WRITE_END], &result, sizeof(result), false);
 }
 
-static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
-        _cleanup_close_ int fd = -1;
+static int device_get_block_device(sd_device *dev, const char **ret) {
         const char *val;
         int r;
 
         assert(dev);
-        assert(ret_fd);
-
-        /* Take a shared lock on the device node; this establishes a concept of device "ownership" to
-         * serialize device access. External processes holding an exclusive lock will cause udev to skip the
-         * event handling; in the case udev acquired the lock, the external process can block until udev has
-         * finished its event handling. */
+        assert(ret);
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return 0;
@@ -403,6 +397,27 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
                 return 0;
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        *ret = val;
+        return 1;
+}
+
+static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
+        _cleanup_close_ int fd = -1;
+        const char *val;
+        int r;
+
+        assert(dev);
+        assert(ret_fd);
+
+        /* Take a shared lock on the device node; this establishes a concept of device "ownership" to
+         * serialize device access. External processes holding an exclusive lock will cause udev to skip the
+         * event handling; in the case udev acquired the lock, the external process can block until udev has
+         * finished its event handling. */
+
+        r = device_get_block_device(dev, &val);
+        if (r <= 0)
+                return r;
 
         fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
         if (fd < 0) {
@@ -988,6 +1003,39 @@ static int event_requeue(Event *event) {
         return 0;
 }
 
+static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev) {
+        const char *devname;
+        int r;
+
+        /* When a new event for a block device is queued, assume that the device is not locked anymore.
+         * The assumption may not be true, but that should not cause any issues, as in that case events
+         * will be requeued soon. */
+
+        r = device_get_block_device(dev, &devname);
+        if (r <= 0)
+                return r;
+
+        LIST_FOREACH(event, event, manager->events) {
+                const char *event_devname;
+
+                if (event->state != EVENT_QUEUED)
+                        continue;
+
+                if (event->wait_until == 0)
+                        continue;
+
+                if (device_get_block_device(event->dev, &event_devname) <= 0)
+                        continue;
+
+                if (!streq(devname, event_devname))
+                        continue;
+
+                event->wait_until = 0;
+        }
+
+        return 0;
+}
+
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         Event *event;
@@ -1054,6 +1102,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
                 log_device_error_errno(dev, r, "Failed to insert device into event queue: %m");
                 return 1;
         }
+
+        (void) event_queue_assume_block_device_unlocked(manager, dev);
 
         /* we have fresh events, try to schedule them */
         event_queue_start(manager);
