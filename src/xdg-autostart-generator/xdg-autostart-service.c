@@ -396,7 +396,7 @@ int xdg_autostart_format_exec_start(
 
         first_arg = true;
         for (i = n = 0; exec_split[i]; i++) {
-                _cleanup_free_ char *c = NULL, *raw = NULL, *p = NULL, *escaped = NULL, *quoted = NULL;
+                _cleanup_free_ char *c = NULL, *raw = NULL, *percent = NULL;
                 ssize_t l;
 
                 l = cunescape(exec_split[i], 0, &c);
@@ -412,11 +412,7 @@ int xdg_autostart_format_exec_start(
                         if (r < 0)
                                 return log_info_errno(r, "Exec binary '%s' does not exist: %m", c);
 
-                        escaped = cescape(executable);
-                        if (!escaped)
-                                return log_oom();
-
-                        free_and_replace(exec_split[n++], escaped);
+                        free_and_replace(exec_split[n++], executable);
                         continue;
                 }
 
@@ -445,23 +441,16 @@ int xdg_autostart_format_exec_start(
                 raw = strreplace(c, "%%", "%");
                 if (!raw)
                         return log_oom();
-                p = strreplace(raw, "%", "%%");
-                if (!p)
-                        return log_oom();
-                escaped = cescape(p);
-                if (!escaped)
+                percent = strreplace(raw, "%", "%%");
+                if (!percent)
                         return log_oom();
 
-                quoted = strjoin("\"", escaped, "\"");
-                if (!quoted)
-                        return log_oom();
-
-                free_and_replace(exec_split[n++], quoted);
+                free_and_replace(exec_split[n++], percent);
         }
         for (; exec_split[n]; n++)
                 exec_split[n] = mfree(exec_split[n]);
 
-        res = strv_join(exec_split, " ");
+        res = quote_command_line(exec_split, SHELL_ESCAPE_EMPTY);
         if (!res)
                 return log_oom();
 
