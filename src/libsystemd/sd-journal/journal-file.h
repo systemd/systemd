@@ -137,6 +137,7 @@ typedef struct {
         uint64_t hash;
         /* The hash used to calculate the Entry object's XOR hash field. */
         uint64_t xor_hash;
+        bool indexed;
 } EntryItemEx;
 
 int journal_file_open(
