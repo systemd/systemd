@@ -329,6 +329,14 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         url="https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/">IAB
         Statement</ulink>, and may create a privacy and security risk.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SearchHostDomain=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>no</literal> (the default), <command>systemd-resolved</command> will add
+        the line <emphasis>search .</emphasis> to <filename>/etc/systemd/resolved.conf</filename>. If <literal>yes</literal>, a search
+        domain that is derived from the hostname is added instead.
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
