@@ -20,6 +20,7 @@ typedef enum {
         ARCHITECTURE_ARM_BE,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_IA64,
+        ARCHITECTURE_LOONGARCH32,
         ARCHITECTURE_LOONGARCH64,
         ARCHITECTURE_M68K,
         ARCHITECTURE_MIPS,
@@ -198,10 +199,30 @@ int uname_architecture(void);
 #  elif defined(__SH4A__)
 #    define LIB_ARCH_TUPLE "sh4a-linux-gnu"
 #  endif
-#elif defined(__loongarch64)
-#    pragma message "Please update the Arch tuple of loongarch64 after psABI is stable"
+#elif defined(__loongarch__)
+#  if defined(__loongarch64)
 #    define native_architecture() ARCHITECTURE_LOONGARCH64
-#    define LIB_ARCH_TUPLE "loongarch64-linux-gnu"
+#    if defined(__loongarch_double_float)
+#      define LIB_ARCH_TUPLE "loongarch64-linux-gnuf64"
+#    elif defined(__loongarch_single_float)
+#      define LIB_ARCH_TUPLE "loongarch64-linux-gnuf32"
+#    elif defined(__loongarch_soft_float)
+#      define LIB_ARCH_TUPLE "loongarch64-linux-gnusf"
+#    else
+#      error "Unrecognized loongarch architecture variant"
+#    endif
+#  else
+#    define native_architecture() ARCHITECTURE_LOONGARCH32
+#    if defined(__loongarch_double_float)
+#      define LIB_ARCH_TUPLE "loongarch32-linux-gnuf64"
+#    elif defined(__loongarch_single_float)
+#      define LIB_ARCH_TUPLE "loongarch32-linux-gnuf32"
+#    elif defined(__loongarch_soft_float)
+#      define LIB_ARCH_TUPLE "loongarch32-linux-gnusf"
+#    else
+#      error "Unrecognized loongarch architecture variant"
+#    endif
+#  endif
 #elif defined(__m68k__)
 #  define native_architecture() ARCHITECTURE_M68K
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
