@@ -88,6 +88,14 @@ systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
+# Ensure that adding or removing a version to the image doesn't break reattaching
+cp /usr/share/app1.raw /tmp/app1_2.raw
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
+
+systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1_2 minimal_1)"
+[[ "${status}" == "running-runtime" ]]
+
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
 
 systemctl is-active app1.service

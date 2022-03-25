@@ -1425,21 +1425,32 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         if(!(e[strspn(e, "/")] == 0 || streq(e, ".raw")))
                                 return false;
                 } else {
-                        const char *b, *underscore;
+                        const char *b, *e, *underscore;
                         size_t l;
 
                         /* We shall match against a path. Let's ignore any prefix here though, as often there are many ways to
-                        * reach the same file. However, in this mode, let's validate any file suffix. */
+                         * reach the same file. However, in this mode, let's validate any file suffix. But also ensure that we
+                         * don't fail if both components don't have a '/' at all (strcspn returns the full length of the string
+                         * in that case, which might not match as the versions might differ). */
 
-                        l = strcspn(a, "/");
+                        e = strchr(a, '/');
+                        l = e ? (size_t)(e - a) : strlen(a);
                         b = last_path_component(*image_name_or_path);
 
-                        if (strcspn(b, "/") != l)
+                        if ((a[l] != '/') != !strchr(b, '/')) /* One is a directory, the other is not */
+                                return false;
+
+                        if (e && strcspn(b, "/") != l)
                                 return false;
 
                         underscore = strchr(b, '_');
                         if (underscore)
                                 l = underscore - b;
+                        else { /* Either component could be versioned */
+                                underscore = strchr(a, '_');
+                                if (underscore)
+                                        l = underscore - a;
+                        }
 
                         if (!strneq(a, b, l))
                                 return false;
