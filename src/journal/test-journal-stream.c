@@ -77,9 +77,9 @@ static void run_test(void) {
         assert_se(chdir(t) >= 0);
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &one) == 0);
-        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &two) == 0);
-        assert_se(managed_journal_file_open(-1, "three.journal", O_RDWR|O_CREAT, 0666, true, UINT64_MAX, false, NULL, m, NULL, NULL, &three) == 0);
+        assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, NULL, &one) == 0);
+        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, NULL, &two) == 0);
+        assert_se(managed_journal_file_open(-1, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, NULL, &three) == 0);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
