@@ -48,6 +48,9 @@
     <cmdsynopsis>
       <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
@@ -405,15 +408,9 @@
             <para>When <option>--initialized-nomatch</option> is specified, trigger events for devices
             that are not initialized by <command>systemd-udevd</command> yet, and skip devices that
             are already initialized.</para>
-            <para>Here, initialized devices are those for which at least one udev rule already
-            completed execution – for any action but <literal>remove</literal> — that set a property
-            or other device setting (and thus has an entry in the udev device database). Devices are
-            no longer considered initialized if a <literal>remove</literal> action is seen for them
-            (which removes their entry in the udev device database). Note that devices that have no
-            udev rules are never considered initialized, but might still be announced via the sd-device
-            API (or similar). Typically, it is thus essential that applications which intend to use
-            such a match, make sure a suitable udev rule is installed that sets at least one property
-            on devices that shall be matched.</para>
+            <para>Typically, it is essential that applications which intend to use such a match, make
+            sure a suitable udev rule is installed that sets at least one property on devices that
+            shall be matched. See also Initialized Devices section below for more details.</para>
             <para>WARNING: <option>--initialized-nomatch</option> can potentially save a significant
             amount of time compared to re-triggering all devices in the system and e.g. can be used to
             optimize boot time. However, this is not safe to be used in a boot sequence in general.
@@ -694,6 +691,73 @@
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
+
+    <refsect2>
+      <title>udevadm wait
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt"><replaceable>device|syspath</replaceable></arg>
+      …
+      </title>
+
+      <para>Wait for devices or device symlinks being created and initialized by
+      <command>systemd-udevd</command>. Each device path must start with
+      <literal>/dev/</literal> or <literal>/sys/</literal>, e.g. <literal>/dev/sda</literal>,
+      <literal>/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part1</literal>,
+      <literal>/sys/devices/pci0000:00/0000:00:1f.6/net/eth0</literal>, or
+      <literal>/sys/class/net/eth0</literal>. This can take multiple devices. This may be useful for
+      waiting for devices being processed by <command>systemd-udevd</command> after e.g. partitioning
+      or formatting the devices.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-t</option></term>
+          <term><option>--timeout=<replaceable>SECONDS</replaceable></option></term>
+          <listitem>
+            <para>Maximum number of seconds to wait for the specified devices or device symlinks being
+            created, initialized, or removed. The default value is <literal>infinity</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--initialized=<replaceable>BOOL</replaceable></option></term>
+          <listitem>
+            <para>Check if <command>systemd-udevd</command> initialized devices. Defaults to true. When
+            false, the command only checks if the specified devices exist. Set false to this setting if
+            there is no udev rules for the specified devices, as the devices will never be considered
+            as initialized in that case. See Initialized Devices section below for more details.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--removed</option></term>
+          <listitem>
+            <para>When specified, the command wait for devices being removed instead of created or
+            initialized. If this is specified, <option>--initialized=</option> will be ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--settle</option></term>
+          <listitem>
+            <para>When specified, also watches the udev event queue, and wait for all queued events
+            being processed by <command>systemd-udevd</command>.</para>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Initialized Devices</title>
+
+    <para>Initialized devices are those for which at least one udev rule already completed execution
+    – for any action but <literal>remove</literal> — that set a property or other device setting (and
+    thus has an entry in the udev device database). Devices are no longer considered initialized if a
+    <literal>remove</literal> action is seen for them (which removes their entry in the udev device
+    database). Note that devices that have no udev rules are never considered initialized, but might
+    still be announced via the sd-device API (or similar).</para>
   </refsect1>
 
   <refsect1>
