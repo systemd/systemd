@@ -340,10 +340,8 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected);
 
 const char* journal_object_type_to_string(ObjectType type) _const_;
 
-static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
-        assert(o);
-
-        switch (o->object.flags & _OBJECT_COMPRESSED_MASK) {
+static inline Compression COMPRESSION_FROM_OBJECT_FLAGS(uint8_t flags) {
+        switch (flags & _OBJECT_COMPRESSED_MASK) {
         case 0:
                 return COMPRESSION_NONE;
         case OBJECT_COMPRESSED_XZ:
@@ -357,7 +355,7 @@ static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
         }
 }
 
-static inline uint8_t COMPRESSION_TO_OBJECT_FLAG(Compression c) {
+static inline uint8_t COMPRESSION_TO_OBJECT_FLAGS(Compression c) {
         switch (c) {
         case COMPRESSION_XZ:
                 return OBJECT_COMPRESSED_XZ;
@@ -370,7 +368,7 @@ static inline uint8_t COMPRESSION_TO_OBJECT_FLAG(Compression c) {
         }
 }
 
-static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(Compression c) {
+static inline uint32_t COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAGS(Compression c) {
         switch (c) {
         case COMPRESSION_XZ:
                 return HEADER_INCOMPATIBLE_COMPRESSED_XZ;
