@@ -20,7 +20,7 @@ islink() {
 }
 
 : '------enable nonexistent------------------------------------'
-"$systemctl" --root="$root" enable test1.service && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable test1.service )
 
 : '------basic enablement--------------------------------------'
 mkdir -p "$root/etc/systemd/system"
@@ -86,7 +86,7 @@ Alias=test1-badalias.socket
 Alias=test1-goodalias2.service
 EOF
 
-"$systemctl" --root="$root" enable test1 && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable test1 )
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test -e "$root/etc/systemd/system/test1-goodalias.service"
@@ -98,7 +98,7 @@ test -e "$root/etc/systemd/system/test1-goodalias2.service"
 test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
 : '-------aliases in reeanble----------------------------------'
-"$systemctl" --root="$root" reenable test1 && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" reenable test1 )
 islink "$root/etc/systemd/system/default.target.wants/test1.service" "../test1.service"
 islink "$root/etc/systemd/system/test1-goodalias.service" "test1.service"
 
@@ -154,7 +154,7 @@ test ! -e "$root/etc/systemd/system/sockets.target.wants/test2.socket"
 : '-------link-------------------------------------------------'
 # File doesn't exist yet
 test ! -e "$root/link1.path"
-"$systemctl" --root="$root" link '/link1.path' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" link '/link1.path' )
 test ! -e "$root/etc/systemd/system/link1.path"
 
 cat >"$root/link1.path" <<EOF
@@ -172,12 +172,12 @@ islink "$root/etc/systemd/system/link1.path" "/link1.path"
 : '-------link already linked different path-------------------'
 mkdir "$root/subdir"
 cp "$root/link1.path" "$root/subdir/"
-"$systemctl" --root="$root" link '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" link '/subdir/link1.path' )
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 
 : '-------link bad suffix--------------------------------------'
 cp "$root/link1.path" "$root/subdir/link1.suffix"
-"$systemctl" --root="$root" link '/subdir/link1.suffix' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" link '/subdir/link1.suffix' )
 test ! -e "$root/etc/systemd/system/link1.suffix"
 
 : '-------unlink by unit name----------------------------------'
@@ -208,13 +208,13 @@ islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : '-------enable already linked different path-----------------'
-"$systemctl" --root="$root" enable '/subdir/link1.path' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable '/subdir/link1.path' )
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "../link1.path"
 
 : '-------enable bad suffix------------------------------------'
 cp "$root/link1.path" "$root/subdir/link1.suffix"
-"$systemctl" --root="$root" enable '/subdir/link1.suffix' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable '/subdir/link1.suffix' )
 test ! -e "$root/etc/systemd/system/link1.suffix"
 test ! -e "$root/etc/systemd/system/paths.target.wants/link1.suffix"
 
@@ -264,14 +264,14 @@ test ! -h "$root/etc/systemd/system/services.target.wants/link3.service"
 
 : '-------enable on masked-------------------------------------'
 ln -s "/dev/null" "$root/etc/systemd/system/masked.service"
-"$systemctl" --root="$root" enable 'masked.service' && { echo "Expected failure" >&2; exit 1; }
-"$systemctl" --root="$root" enable '/etc/systemd/system/masked.service' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable 'masked.service' )
+( ! "$systemctl" --root="$root" enable '/etc/systemd/system/masked.service' )
 
 : '-------enable on masked alias-------------------------------'
 test -h "$root/etc/systemd/system/masked.service"
 ln -s "masked.service" "$root/etc/systemd/system/masked-alias.service"
-"$systemctl" --root="$root" enable 'masked-alias.service' && { echo "Expected failure" >&2; exit 1; }
-"$systemctl" --root="$root" enable '/etc/systemd/system/masked-alias.service' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable 'masked-alias.service' )
+( ! "$systemctl" --root="$root" enable '/etc/systemd/system/masked-alias.service' )
 
 : '-------issue 22000: link in subdirectory--------------------'
 mkdir -p "$root/etc/systemd/system/myown.d"
@@ -286,7 +286,7 @@ WantedBy=services.target
 Also=link5-also.service
 EOF
 
-"$systemctl" --root="$root" enable 'link5.service' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable 'link5.service' )
 test ! -h "$root/etc/systemd/system/services.target.wants/link5.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/link5-also.service"
 
@@ -301,7 +301,7 @@ WantedBy=services.target
 EOF
 
 # No instance here — this can't succeed.
-"$systemctl" --root="$root" enable 'templ1@.service' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable 'templ1@.service' )
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@one.service'
@@ -428,7 +428,7 @@ Alias=link4alias.service
 Alias=link4alias2.service
 EOF
 
-"$systemctl" --root="$root" enable 'link4.service' && { echo "Expected failure" >&2; exit 1; }
+( ! "$systemctl" --root="$root" enable 'link4.service' )
 test ! -h "$root/etc/systemd/system/link4.service"  # this is our file
 test ! -h "$root/etc/systemd/system/link4@.service"
 test ! -h "$root/etc/systemd/system/link4@inst.service"
@@ -571,12 +571,12 @@ check_alias a "$(uname -m | tr '_' '-')"
 test ! -e "$root/etc/os-release"
 test ! -e "$root/usr/lib/os-release"
 
-check_alias A '' && { echo "Expected failure" >&2; exit 1; }
-check_alias B '' && { echo "Expected failure" >&2; exit 1; }
-check_alias M '' && { echo "Expected failure" >&2; exit 1; }
-check_alias o '' && { echo "Expected failure" >&2; exit 1; }
-check_alias w '' && { echo "Expected failure" >&2; exit 1; }
-check_alias W '' && { echo "Expected failure" >&2; exit 1; }
+( ! check_alias A '' )
+( ! check_alias B '' )
+( ! check_alias M '' )
+( ! check_alias o '' )
+( ! check_alias w '' )
+( ! check_alias W '' )
 
 cat >"$root/etc/os-release" <<EOF
 # empty
@@ -609,19 +609,19 @@ check_alias W 'right'
 check_alias b "$(systemd-id128 boot-id)"
 
 # Specifiers not available for [Install]
-check_alias C '' && { echo "Expected failure" >&2; exit 1; }
-check_alias E '' && { echo "Expected failure" >&2; exit 1; }
-check_alias f '' && { echo "Expected failure" >&2; exit 1; }
-check_alias h '' && { echo "Expected failure" >&2; exit 1; }
-check_alias I '' && { echo "Expected failure" >&2; exit 1; }
-check_alias J '' && { echo "Expected failure" >&2; exit 1; }
-check_alias L '' && { echo "Expected failure" >&2; exit 1; }
-check_alias P '' && { echo "Expected failure" >&2; exit 1; }
-check_alias s '' && { echo "Expected failure" >&2; exit 1; }
-check_alias S '' && { echo "Expected failure" >&2; exit 1; }
-check_alias t '' && { echo "Expected failure" >&2; exit 1; }
-check_alias T '' && { echo "Expected failure" >&2; exit 1; }
-check_alias V '' && { echo "Expected failure" >&2; exit 1; }
+( ! check_alias C '' )
+( ! check_alias E '' )
+( ! check_alias f '' )
+( ! check_alias h '' )
+( ! check_alias I '' )
+( ! check_alias J '' )
+( ! check_alias L '' )
+( ! check_alias P '' )
+( ! check_alias s '' )
+( ! check_alias S '' )
+( ! check_alias t '' )
+( ! check_alias T '' )
+( ! check_alias V '' )
 
 check_alias g root
 check_alias G 0
@@ -635,7 +635,7 @@ check_alias j 'link6'
 check_alias l "$(uname -n | sed 's/\..*//')"
 
 test ! -e "$root/etc/machine-id"
-check_alias m '' && { echo "Expected failure" >&2; exit 1; }
+( ! check_alias m '' )
 
 systemd-id128 new >"$root/etc/machine-id"
 check_alias m "$(cat "$root/etc/machine-id")"
@@ -647,9 +647,11 @@ check_alias p 'some-some-link6'
 
 check_alias v "$(uname -r)"
 
-check_alias % '%' && { echo "Expected failure because % is not legal in unit name" >&2; exit 1; }
+# % is not legal in unit name
+( ! check_alias % '%' )
 
-check_alias z 'z' && { echo "Expected failure because %z is not known" >&2; exit 1; }
+# %z is not defined
+( ! check_alias z 'z' )
 
 : '-------specifiers in WantedBy-------------------------------'
 # We don't need to repeat all the tests. Let's do a basic check that specifier
