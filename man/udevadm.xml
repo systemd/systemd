@@ -48,6 +48,9 @@
     <cmdsynopsis>
       <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm wait <optional>options</optional> <replaceable>device</replaceable></command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
@@ -688,6 +691,40 @@
             <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>add</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>udevadm wait
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt"><replaceable>device</replaceable></arg>
+      …
+      </title>
+
+      <para>Wait for devices or device symlinks being created. Each device path must start with
+      <literal>/dev/</literal>, e.g. <literal>/dev/sda</literal> or
+      <literal>/dev/disk/by-path/pci-0000:3c:00.0-nvme-1-part1</literal>. This can take multiple
+      devices. This may be useful for waiting for devices being processed by udevd after e.g.
+      partitioning or formatting the devices.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-t</option></term>
+          <term><option>--timeout=<replaceable>SECONDS</replaceable></option></term>
+          <listitem>
+            <para>Maximum number of seconds to wait for the specified devices or device symlinks being
+            created. The default value is <literal>infinity</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--settle</option></term>
+          <listitem>
+            <para>Also watches the udev event queue, and exits if all current events are handled.</para>
           </listitem>
         </varlistentry>
 
