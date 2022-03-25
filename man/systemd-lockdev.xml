@@ -1,0 +1,139 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-lockdev"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-lockdev</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-lockdev</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-lockdev</refname>
+    <refpurpose>Lock a block device</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-lockdev <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>DEVICE</arg> <arg>COMMAND</arg></command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-lockdev <option>--print</option> <arg>DEVICE</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-lockdev</command> takes an (advisory) exclusive lock on a block device, as per
+    <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device Access</ulink> and invokes a
+    program with the lock taken. When the invoked program exits the lock is automatically released.</para>
+
+    <para>This tool is in particular useful to ensure that
+    <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    does not probe the block device while changes are made to it, for example partitions created or file
+    systems formatted. Note that various tools that interface with block devices support natively to take
+    relevant locks, see for example
+    <citerefentry><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    <option>--lock</option> switch.</para>
+
+    <para>The command expects a block device node to lock, followed by a command line to execute as
+    arguments.</para>
+
+    <para>If a partition block device node is specified the containing "whole" block device is automatically
+    determined and used for the lock, as per the specification.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--timeout=</option><arg>SECS</arg></term>
+        <term><option>-t</option> <arg>SECS</arg></term>
+
+        <listitem><para>Specifies how long to wait at most until the lock can be taken. Takes a value in
+        seconds, or in the usual supported time units, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. If
+        specified as zero the lock is attempted and if not successful the invocation will immediately
+        fail. If passed as <literal>infinity</literal> (the default) the invocation will wait indefinitely
+        until the lock can be acquired. If the lock cannot be taken in the specified time the specified
+        command will not be executed and the invocation will fail.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--print</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Instead of locking the device and executing a command, just print the device path
+        that would be locked, and execute no command. This command is useful to determine the "whole" block
+        device in case a partition block device is specified. This option may be combined with
+        <option>--find=yes</option> to find the backing "whole" block device for a specific file or
+        directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--find=</option><arg>BOOL</arg></term>
+        <term><option>-f</option></term>
+
+        <listitem><para>If specified also accept a regular file or directory path in place of the device node
+        path. The backing block device of the file or directory is automatically determined and used for the
+        lock.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, the return code of the invoked command is returned, or a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Format a File System</title>
+
+      <para>Take a lock on the backing block device while creating a file system, to ensure that
+      <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is
+      comprehensively written:</para>
+
+      <programlisting># systemd-lockdev /dev/sda1 mkfs.btrfs /dev/sda1</programlisting>
+    </example>
+
+    <example>
+      <title>Copy in a File System</title>
+
+      <para>Take a lock on the backing block device while copying in a prepared file system image, to ensure that
+      <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is
+      fully written:</para>
+
+      <programlisting># systemd-lockdev /dev/sda1 dd if=fs.raw of=/dev/sda1</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device Access</ulink>
+    </para>
+  </refsect1>
+
+</refentry>
