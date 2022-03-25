@@ -162,7 +162,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 uint64_t h1, h2;
                 int r;
 
-                if (le64toh(o->data.entry_offset) == 0)
+                if (!JOURNAL_HEADER_COMPACT(f->header) && le64toh(o->data.entry_offset) == 0)
                         warning(offset, "Unused data (entry_offset==0)");
 
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {

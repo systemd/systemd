@@ -2057,6 +2057,9 @@ static int journal_file_entry_item_next_compact(
         if (sz < offsetof(Object, entry.compact.payload))
                 return -EBADMSG;
 
+        if (sz > UINT64_MAX - offset)
+                return -EOVERFLOW;
+
         p = *i == 0 ? le32toh(READ_NOW(e->entry.compact.trie_offset)) : *i;
 
         /* All of an entry's trie and data nodes are located before the entry object in the journal file. */
@@ -2483,6 +2486,9 @@ static int journal_file_link_entry(
         for (uint64_t i = 0; i < n_items; i++) {
                 int k;
 
+                if (!items[i].indexed)
+                        continue;
+
                 /* If we fail to link an entry item because we can't allocate a new entry array, don't fail
                  * immediately but try to link the other entry items since it might still be possible to link
                  * those if they don't require a new entry array to be allocated. */
@@ -2783,12 +2789,21 @@ static int journal_file_append_field_from_data(
                 Object **ret,
                 uint64_t *ret_offset) {
         const void *eq;
+        int r;
 
         eq = memchr(data, '=', size);
         if (!eq)
                 return -EINVAL;
 
-        return journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, ret, ret_offset);
+        r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, ret, ret_offset);
+        if (r < 0)
+                return r;
+
+        /* In compact mode, only index newly added fields. */
+        if (JOURNAL_HEADER_COMPACT(f->header) && r > 0)
+                (*ret)->object.flags |= OBJECT_FIELD_INDEXED;
+
+        return r;
 }
 
 int journal_file_append_entry(
@@ -2870,6 +2885,8 @@ int journal_file_append_entry(
                         .xor_hash = JOURNAL_HEADER_KEYED_HASH(f->header)
                                 ? jenkins_hash64(iovec[i].iov_base, iovec[i].iov_len)
                                 : le64toh(o->data.hash),
+                        .indexed = !JOURNAL_HEADER_COMPACT(f->header) ||
+                                FLAGS_SET(fo->object.flags, OBJECT_FIELD_INDEXED),
                 };
         }
 
@@ -4266,6 +4283,43 @@ static int add_unique_fields(JournalFile *f) {
         return 0;
 }
 
+static int add_non_indexed_fields(JournalFile *f) {
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_JOURNAL_NON_INDEXED_FIELDS");
+        if (!e)
+                return 0;
+
+        for (const char *p = e;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNALD_NON_INDEXED_FIELDS environment variable, ignoring: %m");
+                        return 0;
+                }
+
+                if (!journal_field_valid(word, strlen(word), true)) {
+                        log_debug("Invalid field name in $SYSTEMD_JOURNALD_NON_INDEXED_FIELDS environment variable, ignoring: %s", word);
+                        continue;
+                }
+
+                /* By default, all fields are created with the OBJECT_FIELD_INDEXED flag, indicating they should be
+                 * indexed. By creating the fields here but not setting the OBJECT_FIELD_INDEXED flag, we make sure
+                 * they aren't indexed. */
+                r = journal_file_append_field(f, word, strlen(word), NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int journal_file_open(
                 int fd,
                 const char *fname,
@@ -4453,6 +4507,10 @@ int journal_file_open(
                                 goto fail;
 
                         r = add_unique_fields(f);
+                        if (r < 0)
+                                goto fail;
+
+                        r = add_non_indexed_fields(f);
                         if (r < 0)
                                 goto fail;
                 }
@@ -4674,6 +4732,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         .hash = le64toh(u->data.hash),
                         .xor_hash = JOURNAL_HEADER_KEYED_HASH(to->header) ? jenkins_hash64(data, l)
                                                                           : le64toh(u->data.hash),
+                        .indexed = !JOURNAL_HEADER_COMPACT(to->header) ||
+                                FLAGS_SET(fo->object.flags, OBJECT_FIELD_INDEXED),
                 };
         }
 
