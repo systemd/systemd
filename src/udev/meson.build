@@ -13,6 +13,7 @@ udevadm_sources = files(
         'udevadm-trigger.c',
         'udevadm-util.c',
         'udevadm-util.h',
+        'udevadm-wait.c',
         'udevd.c',
 )
 
