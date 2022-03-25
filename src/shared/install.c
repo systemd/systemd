@@ -423,21 +423,54 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
 }
 
 /**
- * Checks if two paths or symlinks from wd are the same, when root is the root of the filesystem.
- * wc should be the full path in the host file system.
+ * Checks if two symlink targets (starting from src) are equivalent as far as the unit enablement logic is
+ * concerned. If the target is in the unit search path, then anything with the same name is equivalent.
+ * If outside the unit search path, paths must be identical.
  */
-static bool chroot_symlinks_same(const char *root, const char *wd, const char *a, const char *b) {
-        assert(path_is_absolute(wd));
+static int chroot_unit_symlinks_equivalent(
+                const LookupPaths *lp,
+                const char *src,
+                const char *target_a,
+                const char *target_b) {
+
+        assert(lp);
+        assert(src);
+        assert(target_a);
+        assert(target_b);
 
         /* This will give incorrect results if the paths are relative and go outside
          * of the chroot. False negatives are possible. */
 
-        if (!root)
-                root = "/";
+        const char *root = lp->root_dir ?: "/";
+        _cleanup_free_ char *dirname = NULL;
+        int r;
 
-        a = strjoina(path_is_absolute(a) ? root : wd, "/", a);
-        b = strjoina(path_is_absolute(b) ? root : wd, "/", b);
-        return path_equal_or_files_same(a, b, 0);
+        if (!path_is_absolute(target_a) || !path_is_absolute(target_b)) {
+                r = path_extract_directory(src, &dirname);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *a = path_join(path_is_absolute(target_a) ? root : dirname, target_a);
+        _cleanup_free_ char *b = path_join(path_is_absolute(target_b) ? root : dirname, target_b);
+        if (!a || !b)
+                return log_oom();
+
+        r = path_equal_or_files_same(a, b, 0);
+        if (r != 0)
+                return r;
+
+        _cleanup_free_ char *a_name = NULL, *b_name = NULL;
+        r = path_extract_filename(a, &a_name);
+        if (r < 0)
+                return r;
+        r = path_extract_filename(b, &b_name);
+        if (r < 0)
+                return r;
+
+        return streq(a_name, b_name) &&
+               path_startswith_strv(a, lp->search_path) &&
+               path_startswith_strv(b, lp->search_path);
 }
 
 static int create_symlink(
@@ -448,7 +481,7 @@ static int create_symlink(
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *dest = NULL, *dirname = NULL;
+        _cleanup_free_ char *dest = NULL;
         const char *rp;
         int r;
 
@@ -488,11 +521,7 @@ static int create_symlink(
                 return r;
         }
 
-        dirname = dirname_malloc(new_path);
-        if (!dirname)
-                return -ENOMEM;
-
-        if (chroot_symlinks_same(lp->root_dir, dirname, dest, old_path)) {
+        if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
                 log_debug("Symlink %s → %s already exists", new_path, dest);
                 return 1;
         }
