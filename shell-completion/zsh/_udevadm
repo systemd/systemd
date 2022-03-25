@@ -104,6 +104,15 @@ _udevadm_test-builtin(){
     fi
 }
 
+(( $+functions[_udevadm_wait] )) ||
+_udevadm_wait(){
+    _arguments \
+        '--timeout=[Maximum number of seconds to wait for the devices being created.]' \
+        '--settle[Also wait for udev queue being empty.]' \
+        '--help[Print help text.]' \
+        '*::devpath:_files -P /dev/ -W /dev'
+}
+
 (( $+functions[_udevadm_mounts] )) ||
 _udevadm_mounts(){
     local dev_tmp dpath_tmp mp_tmp mline
