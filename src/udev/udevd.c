@@ -35,6 +35,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-list.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -157,11 +158,15 @@ typedef struct Worker {
 
 /* passed from worker to main process */
 typedef enum EventResult {
-        EVENT_RESULT_SUCCESS,
-        EVENT_RESULT_FAILED,
-        EVENT_RESULT_TRY_AGAIN, /* when the block device is locked by another process. */
+        EVENT_RESULT_NERRNO_MIN       = -ERRNO_MAX,
+        EVENT_RESULT_NERRNO_MAX       = -1,
+        EVENT_RESULT_EXIT_STATUS_BASE = 0,
+        EVENT_RESULT_EXIT_STATUS_MAX  = 255,
+        EVENT_RESULT_TRY_AGAIN        = 256, /* when the block device is locked by another process. */
+        EVENT_RESULT_SIGNAL_BASE      = 257,
+        EVENT_RESULT_SIGNAL_MAX       = EVENT_RESULT_SIGNAL_BASE + _NSIG,
         _EVENT_RESULT_MAX,
-        _EVENT_RESULT_INVALID = -EINVAL,
+        _EVENT_RESULT_INVALID         = -EINVAL,
 } EventResult;
 
 static Event *event_free(Event *event) {
@@ -356,7 +361,7 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
-static void device_broadcast(sd_device_monitor *monitor, sd_device *dev) {
+static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int result) {
         int r;
 
         assert(dev);
@@ -365,13 +370,40 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev) {
         if (!monitor)
                 return;
 
+        if (result != 0) {
+                (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
+
+                switch (result) {
+                case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX:
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", -result);
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO_NAME", "%s", strna(errno_to_name(result)));
+                        break;
+
+                case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
+                        break;
+
+                case EVENT_RESULT_TRY_AGAIN:
+                        assert_not_reached();
+                        break;
+
+                case EVENT_RESULT_SIGNAL_BASE ... EVENT_RESULT_SIGNAL_MAX:
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL", "%i", result - EVENT_RESULT_SIGNAL_BASE);
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL_NAME", "%s", strna(signal_to_string(result - EVENT_RESULT_SIGNAL_BASE)));
+                        break;
+
+                default:
+                        log_device_warning(dev, "Unknown event result \"%i\", ignoring.", result);
+                }
+        }
+
         r = device_monitor_send_device(monitor, NULL, dev);
         if (r < 0)
                 log_device_warning_errno(dev, r,
                                          "Failed to broadcast event to libudev listeners, ignoring: %m");
 }
 
-static int worker_send_result(Manager *manager, EventResult result) {
+static int worker_send_result(Manager *manager, int result) {
         assert(manager);
         assert(manager->worker_watch[WRITE_END] >= 0);
 
@@ -536,6 +568,8 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
         r = worker_lock_block_device(dev, &fd_lock);
+        if (r == -EAGAIN)
+                return EVENT_RESULT_TRY_AGAIN;
         if (r < 0)
                 return r;
 
@@ -568,29 +602,25 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *manager = userdata;
-        EventResult result;
         int r;
 
         assert(dev);
         assert(manager);
 
         r = worker_process_device(manager, dev);
-        if (r == -EAGAIN) {
+        if (r == EVENT_RESULT_TRY_AGAIN)
                 /* if we couldn't acquire the flock(), then requeue the event */
-                result = EVENT_RESULT_TRY_AGAIN;
-                log_device_debug_errno(dev, r, "Block device is currently locked, requeueing the event.");
-        } else if (r < 0) {
-                result = EVENT_RESULT_FAILED;
-                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
-        } else
-                result = EVENT_RESULT_SUCCESS;
+                log_device_debug(dev, "Block device is currently locked, requeueing the event.");
+        else {
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
-        if (result != EVENT_RESULT_TRY_AGAIN)
                 /* send processed event back to libudev listeners */
-                device_broadcast(monitor, dev);
+                device_broadcast(monitor, dev, r);
+        }
 
         /* send udevd the result of the event execution */
-        r = worker_send_result(manager, result);
+        r = worker_send_result(manager, r);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
 
@@ -1150,7 +1180,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(manager);
 
         for (;;) {
-                EventResult result;
+                int result;
                 struct iovec iovec = IOVEC_MAKE(&result, sizeof(result));
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
@@ -1174,7 +1204,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 cmsg_close_all(&msghdr);
 
-                if (size != sizeof(EventResult)) {
+                if (size != sizeof(result)) {
                         log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
@@ -1201,7 +1231,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 /* worker returned */
                 if (result == EVENT_RESULT_TRY_AGAIN &&
                     event_requeue(worker->event) < 0)
-                        device_broadcast(manager->monitor, worker->event->dev);
+                        device_broadcast(manager->monitor, worker->event->dev, -ETIMEDOUT);
 
                 /* When event_requeue() succeeds, worker->event is NULL, and event_free() handles NULL gracefully. */
                 event_free(worker->event);
@@ -1543,7 +1573,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         device_tag_index(worker->event->dev, NULL, false);
 
                         /* Forward kernel event to libudev listeners */
-                        device_broadcast(manager->monitor, worker->event->dev);
+                        device_broadcast(manager->monitor, worker->event->dev,
+                                         WIFEXITED(status) ? EVENT_RESULT_EXIT_STATUS_BASE + WEXITSTATUS(status):
+                                         WIFSIGNALED(status) ? EVENT_RESULT_SIGNAL_BASE + WTERMSIG(status) : 0);
                 }
 
                 worker_free(worker);
