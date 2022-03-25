@@ -39,8 +39,29 @@ test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
 "$systemctl" --root="$root" disable test1.service
-test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
-test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+: '------enable when link already exists-----------------------'
+# We don't read the symlink target, so it's OK for the symlink to point
+# to something else. We should just silently accept this.
+
+mkdir -p "$root/etc/systemd/system/default.target.wants"
+mkdir -p "$root/etc/systemd/system/special.target.requires"
+ln -s /usr/lib/systemd/system/test1.service "$root/etc/systemd/system/default.target.wants/test1.service"
+ln -s /usr/lib/systemd/system/test1.service "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" enable test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" reenable test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" disable test1.service
+test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
 : '------suffix guessing---------------------------------------'
 "$systemctl" --root="$root" enable test1
@@ -89,6 +110,20 @@ test ! -h "$root/etc/systemd/system/test1-badalias.socket"
 test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -h "$root/etc/systemd/system/test1-goodalias.service"
+
+: '-------aliases when link already exists---------------------'
+cat >"$root/etc/systemd/system/test1a.service" <<EOF
+[Install]
+Alias=test1a-alias.service
+EOF
+
+ln -s /usr/lib/systemd/system/test1a.service "$root/etc/systemd/system/test1a-alias.service"
+
+"$systemctl" --root="$root" enable test1a.service
+test -h "$root/etc/systemd/system/test1a-alias.service"
+
+"$systemctl" --root="$root" disable test1a.service
+test ! -h "$root/etc/systemd/system/test1a-alias.service"
 
 : '-------also units-------------------------------------------'
 cat >"$root/etc/systemd/system/test2.socket" <<EOF
