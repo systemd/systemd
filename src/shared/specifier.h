@@ -84,11 +84,11 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
         { 'w', specifier_os_version_id,   NULL }, \
         { 'W', specifier_os_variant_id,   NULL }
 
-#define COMMON_CREDS_SPECIFIERS                   \
-        { 'g', specifier_group_name,      NULL }, \
-        { 'G', specifier_group_id,        NULL }, \
-        { 'u', specifier_user_name,       NULL }, \
-        { 'U', specifier_user_id,         NULL }
+#define COMMON_CREDS_SPECIFIERS(scope)                          \
+        { 'g', specifier_group_name,      INT_TO_PTR(scope) },  \
+        { 'G', specifier_group_id,        INT_TO_PTR(scope) },  \
+        { 'u', specifier_user_name,       INT_TO_PTR(scope) },  \
+        { 'U', specifier_user_id,         INT_TO_PTR(scope) }
 
 #define COMMON_TMP_SPECIFIERS                     \
         { 'T', specifier_tmp_dir,         NULL }, \

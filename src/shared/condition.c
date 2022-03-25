@@ -785,7 +785,8 @@ static int condition_test_needs_update(Condition *c, char **env) {
         if (r < 0) {
                 log_debug_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
                 return true;
-        } else if (r == 0) {
+        }
+        if (isempty(timestamp_str)) {
                 log_debug("No data in timestamp file '%s', using mtime.", p);
                 return true;
         }
