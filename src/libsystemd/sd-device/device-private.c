@@ -47,6 +47,27 @@ int device_add_property(sd_device *device, const char *key, const char *value) {
         return 0;
 }
 
+int device_add_propertyf(sd_device *device, const char *key, const char *format, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(device);
+        assert(key);
+
+        if (!format)
+                return device_add_property(device, key, NULL);
+
+        va_start(ap, format);
+        r = vasprintf(&value, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return device_add_property(device, key, value);
+}
+
 void device_set_devlink_priority(sd_device *device, int priority) {
         assert(device);
 
