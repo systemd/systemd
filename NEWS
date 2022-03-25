@@ -192,7 +192,7 @@ CHANGES WITH 251 in spe:
           hostnamed.
 
         * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
-          for reading the hardware serial, as reportd by DMI.
+          for reading the hardware serial number, as reportd by DMI.
 
         * Two new hwdb files have been added. One lists "handhelds" (PDAs,
           calculators, etc.), the other AV production devices (DJ tables,
@@ -273,7 +273,7 @@ CHANGES WITH 251 in spe:
           the option is still understood to maximize compatibility.
 
         * 'bootctl list' gained support for a new --json= switch to output boot
-          menu entries in a simply JSON format.
+          menu entries in JSON format.
 
         * Services with Restart=always and a failing ExecCondition= will no
           longer be restarted, to bring ExecCondition= behaviour in line with
@@ -284,7 +284,7 @@ CHANGES WITH 251 in spe:
 
         * A new D-Bus property ControlGroupId is now exposed on service units,
           that encapsulates the service's numeric cgroup ID that newer kernels
-          maintain for each cgroup.
+          assign to each cgroup.
 
         * systemd-networkd gained a new [Bridge] Isolated=true|false setting
           that configures the eponymous kernel attribute on the bridge.
