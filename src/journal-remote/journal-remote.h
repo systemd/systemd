@@ -38,8 +38,7 @@ struct RemoteServer {
         const char *output;                    /* either the output file or directory */
 
         JournalWriteSplitMode split_mode;
-        bool compress;
-        bool seal;
+        JournalFileFlags file_flags;
         bool check_trust;
 };
 extern RemoteServer *journal_remote_server_global;
@@ -48,8 +47,7 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                bool compress,
-                bool seal);
+                JournalFileFlags file_flags);
 
 int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer);
 
