@@ -41,23 +41,6 @@ helper_check_device_symlinks() {(
     done < <(find "${paths[@]}" -type l)
 )}
 
-# Wait for a specific device link to appear
-# Arguments:
-#   $1 - device path
-#   $2 - number of retries (default: 10)
-helper_wait_for_dev() {
-    local dev="${1:?}"
-    local ntries="${2:-10}"
-    local i
-
-    for ((i = 0; i < ntries; i++)); do
-        test ! -e "$dev" || return 0
-        sleep .2
-    done
-
-    return 1
-}
-
 # Wrapper around `helper_wait_for_lvm_activate()` and `helper_wait_for_pvscan()`
 # functions to cover differences between pre and post lvm 2.03.14, which introduced
 # a new way of vgroup autoactivation
@@ -583,15 +566,7 @@ testcase_iscsi_lvm() {
     # Configure the iSCSI initiator
     iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
     iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
-    udevadm settle
-    # Check if all device symlinks are valid and if all expected device symlinks exist
-    for link in "${expected_symlinks[@]}"; do
-        # We need to do some active waiting anyway, as it may take kernel a bit
-        # to attach the newly connected SCSI devices
-        helper_wait_for_dev "$link"
-        test -e "$link"
-    done
-    udevadm settle
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
     # Cleanup
     iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --logout
@@ -626,15 +601,7 @@ testcase_iscsi_lvm() {
     # Configure the iSCSI initiator
     iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
     iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
-    udevadm settle
-    # Check if all device symlinks are valid and if all expected device symlinks exist
-    for link in "${expected_symlinks[@]}"; do
-        # We need to do some active waiting anyway, as it may take kernel a bit
-        # to attach the newly connected SCSI devices
-        helper_wait_for_dev "$link"
-        test -e "$link"
-    done
-    udevadm settle
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
     # Add all iSCSI devices into a LVM volume group, create two logical volumes,
     # and check if necessary symlinks exist (and are valid)
@@ -658,24 +625,16 @@ testcase_iscsi_lvm() {
     # "Reset" the DM state, since we yanked the backing storage from under the LVM,
     # so the currently active VGs/LVs are invalid
     dmsetup remove_all --deferred
-    udevadm settle
     # The LVM and iSCSI related symlinks should be gone
-    test ! -e "/dev/$vgroup"
-    test ! -e "/dev/disk/by-label/mylvpart1"
-    for link in "${expected_symlinks[@]}"; do
-        test ! -e "$link"
-    done
+    udevadm wait --settle --timeout=30 --removed "/dev/$vgroup" "/dev/disk/by-label/mylvpart1" "${expected_symlinks[@]}"
     helper_check_device_symlinks "/dev/disk"
     # Reconnect the iSCSI devices and check if everything get detected correctly
     iscsiadm --mode discoverydb --type sendtargets --portal "$target_ip" --discover
     iscsiadm --mode node --targetname "$target_name" --portal "$target_ip:$target_port" --login
-    udevadm settle
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     for link in "${expected_symlinks[@]}"; do
-        helper_wait_for_dev "$link"
         helper_wait_for_vgroup "$link" "$vgroup"
-        test -e "$link"
     done
-    udevadm settle
     test -e "/dev/$vgroup/mypart1"
     test -e "/dev/$vgroup/mypart2"
     test -e "/dev/disk/by-label/mylvpart1"
