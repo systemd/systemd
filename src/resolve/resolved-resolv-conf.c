@@ -253,7 +253,7 @@ static void write_resolv_conf_search(
         fputs("\n", f);
 }
 
-static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
+static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains, bool search_host_domain) {
 
         fputs("# This is "PRIVATE_UPLINK_RESOLV_CONF" managed by man:systemd-resolved(8).\n"
               "# Do not edit.\n"
@@ -282,16 +282,19 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
                         write_resolv_conf_server(s, f, &count);
         }
 
-        if (ordered_set_isempty(domains))
-                fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
-                                         * imply a search domain */
+        if (ordered_set_isempty(domains)) {
+                if (!search_host_domain) {
+                        fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
+                                                 * imply a search domain unless explicitly configured */
+                }
+        }
         else
                 write_resolv_conf_search(domains, f);
 
         return fflush_and_check(f);
 }
 
-static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
+static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains, bool search_host_domain) {
         fputs("# This is "PRIVATE_STUB_RESOLV_CONF" managed by man:systemd-resolved(8).\n"
               "# Do not edit.\n"
               "#\n"
@@ -315,9 +318,12 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
               "nameserver 127.0.0.53\n"
               "options edns0 trust-ad\n", f);
 
-        if (ordered_set_isempty(domains))
-                fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
-                                         * imply a search domain */
+        if (ordered_set_isempty(domains)) {
+                if (!search_host_domain) {
+                        fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
+                                                 * imply a search domain unless explicitly configured */
+                }
+        }
         else
                 write_resolv_conf_search(domains, f);
 
@@ -328,12 +334,16 @@ int manager_write_resolv_conf(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_(unlink_and_freep) char *temp_path_uplink = NULL, *temp_path_stub = NULL;
         _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;
+        bool search_host_domain = false;
         int r;
 
         assert(m);
 
         /* Read the system /etc/resolv.conf first */
         (void) manager_read_resolv_conf(m);
+
+        if (m->search_host_domain)
+                search_host_domain = true;
 
         /* Add the full list to a set, to filter out duplicates */
         r = manager_compile_dns_servers(m, &dns);
@@ -350,7 +360,7 @@ int manager_write_resolv_conf(Manager *m) {
 
         (void) fchmod(fileno(f_uplink), 0644);
 
-        r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);
+        r = write_uplink_resolv_conf_contents(f_uplink, dns, domains, search_host_domain);
         if (r < 0)
                 return log_warning_errno(r, "Failed to write new %s, ignoring: %m", PRIVATE_UPLINK_RESOLV_CONF);
 
@@ -361,7 +371,7 @@ int manager_write_resolv_conf(Manager *m) {
 
                 (void) fchmod(fileno(f_stub), 0644);
 
-                r = write_stub_resolv_conf_contents(f_stub, dns, domains);
+                r = write_stub_resolv_conf_contents(f_stub, dns, domains, search_host_domain);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to write new %s, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
 
