@@ -118,7 +118,7 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
         assert(src);
         assert(res_hash);
 
-        c = COMPRESSION_FROM_OBJECT(o);
+        c = COMPRESSION_FROM_OBJECT_FLAGS(o->object.flags);
         if (c < 0)
                 return -EBADMSG;
         if (c != COMPRESSION_NONE) {
@@ -241,17 +241,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_ENTRY:
                 if (JOURNAL_HEADER_COMPACT(f->header)) {
-                        if (le64toh(o->object.size) != offsetof(Object, entry.compact.payload)) {
+                        if (le64toh(o->object.size) < offsetof(Object, entry.compact.payload)) {
                                 error(offset,
                                       "Bad entry size (<= %zu): %" PRIu64 ": %" PRIu64,
                                       offsetof(Object, entry.compact.payload),
                                       le64toh(o->object.size),
                                       offset);
-                                return -EBADMSG;
-                        }
-
-                        if (o->entry.compact.trie_offset == 0) {
-                                error(offset, "Bad entry trie offset (== 0): %" PRIu64, offset);
                                 return -EBADMSG;
                         }
                 } else {
@@ -304,7 +299,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                         if (r == 0)
                                 break;
 
-                        if (p == 0 || !VALID64(p)) {
+                        if (!VALID64(p)) {
                                 error(offset, "Invalid entry item (%"PRIu64" offset: "OFSfmt, i, p);
                                 return -EBADMSG;
                         }
@@ -697,7 +692,7 @@ static int verify_entry(
                         error_errno(p, r, "Invalid entry item of entry");
                         return r;
                 }
-                if (r == 0)
+                if (r == 0 || q == 0)
                         break;
 
                 if (!contains_uint64(cache_data_fd, n_data, q)) {
