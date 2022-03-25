@@ -77,6 +77,7 @@ struct Manager {
         bool need_builtin_fallbacks;
         bool read_resolv_conf;
         bool resolve_unicast_single_label;
+        bool search_host_domain;
 
         struct stat resolv_conf_stat;
 
