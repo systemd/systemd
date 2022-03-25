@@ -32,7 +32,7 @@ __get_all_sysdevs() {
 
 __get_all_devs() {
     local i
-    for i in /dev/* /dev/*/*; do
+    for i in /dev/* /dev/*/* /dev/*/*/*; do
         echo $i
     done
 }
@@ -64,9 +64,10 @@ _udevadm() {
         [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
         [TEST]='-a --action -N --resolve-names'
         [TEST_BUILTIN]='-a --action'
+        [WAIT]='-t --timeout --initialized=no --removed --settle'
     )
 
-    local verbs=(info trigger settle control monitor test-builtin test)
+    local verbs=(info trigger settle control monitor test-builtin test wait)
     local builtins=(blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess)
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -241,6 +242,25 @@ _udevadm() {
                 comps="${OPTS[COMMON]} ${OPTS[TEST_BUILTIN]}"
             else
                 comps=$( __get_all_sysdevs )
+                local IFS=$'\n'
+            fi
+            ;;
+
+        'wait')
+            if __contains_word "$prev" ${OPTS[WAIT]}; then
+                case $prev in
+                    *)
+                        comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
+            if [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[WAIT]}"
+            else
+                comps=$( __get_all_devs )
                 local IFS=$'\n'
             fi
             ;;
