@@ -12,15 +12,12 @@
 
 #define _FOREACH_INOTIFY_EVENT(e, buffer, sz, log_level, start, end)    \
         for (struct inotify_event                                       \
-                            *start = &((buffer).ev),                    \
+                     *start = &((buffer).ev),                           \
                      *end = (struct inotify_event*) ((uint8_t*) start + (sz)), \
                      *e = start;                                        \
-             (uint8_t*) e + sizeof(struct inotify_event) <= (uint8_t*) end && \
-             (uint8_t*) e + sizeof(struct inotify_event) + e->len <= (uint8_t*) end ? true : \
-                     ({                                                 \
-                             log_full(log_level, "Received invalid inotify event, ignoring."); \
-                             false;                                     \
-                     });                                                \
+             (size_t) ((uint8_t*) end - (uint8_t*) e) >= sizeof(struct inotify_event) && \
+             ((size_t) ((uint8_t*) end - (uint8_t*) e) >= sizeof(struct inotify_event) + e->len || \
+              (log_full(log_level, "Received invalid inotify event, ignoring."), false)); \
              e = (struct inotify_event*) ((uint8_t*) e + sizeof(struct inotify_event) + e->len))
 
 #define _FOREACH_INOTIFY_EVENT_FULL(e, buffer, sz, log_level)           \
