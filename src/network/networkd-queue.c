@@ -295,6 +295,7 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_SET_LINK_MAC]                     = "MAC address",
         [REQUEST_TYPE_SET_LINK_MASTER]                  = "master interface",
         [REQUEST_TYPE_SET_LINK_MTU]                     = "MTU",
+        [REQUEST_TYPE_SRIOV]                            = "SR-IOV",
         [REQUEST_TYPE_TC_QDISC]                         = "QDisc",
         [REQUEST_TYPE_TC_CLASS]                         = "TClass",
         [REQUEST_TYPE_UP_DOWN]                          = "bring link up or down",

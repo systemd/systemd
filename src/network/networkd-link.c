@@ -1045,7 +1045,7 @@ static int link_configure(Link *link) {
                 return link_request_to_activate(link);
         }
 
-        r = link_configure_sr_iov(link);
+        r = link_request_sr_iov_vfs(link);
         if (r < 0)
                 return r;
 
