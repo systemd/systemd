@@ -419,6 +419,31 @@ _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st
         return sd_device_new_from_devnum(ret, type, st->st_rdev);
 }
 
+_public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
+        struct stat st;
+
+        assert_return(ret, -EINVAL);
+        assert_return(devname, -EINVAL);
+
+        if (!path_startswith(devname, "/dev"))
+                return -EINVAL;
+
+        if (stat(devname, &st) < 0)
+                return errno == ENOENT ? -ENODEV : -errno;
+
+        return sd_device_new_from_stat_rdev(ret, &st);
+}
+
+_public_ int sd_device_new_from_syspath_or_devname(sd_device **ret, const char *path) {
+        assert_return(ret, -EINVAL);
+        assert_return(path, -EINVAL);
+
+        if (path_startswith(path, "/sys"))
+                return sd_device_new_from_syspath(ret, path);
+
+        return sd_device_new_from_devname(ret, path);
+}
+
 int device_set_devtype(sd_device *device, const char *devtype) {
         _cleanup_free_ char *t = NULL;
         int r;
