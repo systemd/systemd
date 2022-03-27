@@ -348,7 +348,25 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+                static int legacy_signal = -1;
+
+                if (legacy_signal == -1) {
+                        bool available = false;
+
+                        r = bus_jobremoved2_signal_available(bus, &available);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to determine whether Subscribe2 method is available, falling back to legacy Subscribe: %m");
+
+                        if (available)
+                                legacy_signal = 0;
+                        else
+                                legacy_signal = 1;
+                }
+
+                if (legacy_signal)
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+                else
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "SubscribeWithFlags", NULL, NULL, "t", 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
 

@@ -12,5 +12,6 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args);
 int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet, const char* const* extra_args);
+int bus_jobremoved2_signal_available(sd_bus *bus, bool *ret_available);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
