@@ -62,6 +62,8 @@ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum);
 int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *subsystem, const char *sysname);
 int sd_device_new_from_device_id(sd_device **ret, const char *id);
 int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st);
+int sd_device_new_from_devname(sd_device **ret, const char *devname);
+int sd_device_new_from_path(sd_device **ret, const char *path);
 int sd_device_new_from_ifname(sd_device **ret, const char *ifname);
 int sd_device_new_from_ifindex(sd_device **ret, int ifindex);
 
