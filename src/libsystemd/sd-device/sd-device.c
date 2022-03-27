@@ -415,6 +415,46 @@ _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st
         return sd_device_new_from_devnum(ret, type, st->st_rdev);
 }
 
+_public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
+        struct stat st;
+
+        assert_return(ret, -EINVAL);
+        assert_return(devname, -EINVAL);
+
+        /* This function actually accepts both devlinks and devnames, i.e. both symlinks and device
+         * nodes below /dev/. */
+
+        /* Also ignore when the specified path is "/dev". */
+        if (isempty(path_startswith(devname, "/dev")))
+                return -EINVAL;
+
+        if (device_path_parse_major_minor(devname, NULL, NULL) >= 0) {
+                _cleanup_free_ char *syspath = NULL;
+
+                /* Let's shortcut when "/dev/block/maj:min" or "/dev/char/maj:min" is specified.
+                 * In that case, we directly convert the path to syspath, hence it is not necessary
+                 * that the specified path exists. So, this works fine without udevd being running. */
+
+                syspath = path_join("/sys", devname);
+                return sd_device_new_from_syspath(ret, syspath);
+        }
+
+        if (stat(devname, &st) < 0)
+                return ERRNO_IS_DEVICE_ABSENT(errno) ? -ENODEV : -errno;
+
+        return sd_device_new_from_stat_rdev(ret, &st);
+}
+
+_public_ int sd_device_new_from_path(sd_device **ret, const char *path) {
+        assert_return(ret, -EINVAL);
+        assert_return(path, -EINVAL);
+
+        if (path_startswith(path, "/dev"))
+                return sd_device_new_from_devname(ret, path);
+
+        return sd_device_new_from_syspath(ret, path);
+}
+
 int device_set_devtype(sd_device *device, const char *devtype) {
         _cleanup_free_ char *t = NULL;
         int r;
