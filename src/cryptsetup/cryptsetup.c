@@ -1323,7 +1323,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
-                                return r;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "TPM2 operation failed, falling back to traditional unlocking.");
                 } else {
                         r = attach_luks2_by_tpm2(cd, name, flags);
                         /* EAGAIN     means: no tpm2 chip found
@@ -1335,7 +1336,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "No TPM2 metadata enrolled in LUKS2 header or TPM2 support not available, falling back to traditional unlocking.");
                         if (!IN_SET(r, -EOPNOTSUPP, -EAGAIN))
-                                return r;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "TPM2 operation failed, falling back to traditional unlocking.");
                 }
 
                 if (r == -EOPNOTSUPP) {
@@ -1403,7 +1405,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
-                                return r;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "TPM2 operation failed, falling back to traditional unlocking.");
                 }
 
                 if (!monitor) {
