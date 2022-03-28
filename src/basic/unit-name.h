@@ -44,6 +44,9 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret);
 
 int unit_name_template(const char *f, char **ret);
 
+int unit_name_hash_long(const char *name, char **ret);
+bool unit_name_is_hashed(const char *name);
+
 int unit_name_from_path(const char *path, const char *suffix, char **ret);
 int unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix, char **ret);
 int unit_name_to_path(const char *name, char **ret);
