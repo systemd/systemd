@@ -6,6 +6,7 @@ set -ex
 export SYSTEMD_IGNORE_CHROOT=1
 
 systemctl=${1:-systemctl}
+systemd_id128=${2:-systemd-id128}
 
 unset root
 cleanup() {
@@ -606,7 +607,7 @@ check_alias o 'the-id'
 check_alias w '39a'
 check_alias W 'right'
 
-check_alias b "$(systemd-id128 boot-id)"
+check_alias b "$("$systemd_id128" boot-id)"
 
 # Specifiers not available for [Install]
 ( ! check_alias C '' )
@@ -637,7 +638,7 @@ check_alias l "$(uname -n | sed 's/\..*//')"
 test ! -e "$root/etc/machine-id"
 ( ! check_alias m '' )
 
-systemd-id128 new >"$root/etc/machine-id"
+"$systemd_id128" new >"$root/etc/machine-id"
 check_alias m "$(cat "$root/etc/machine-id")"
 
 check_alias n 'some-some-link6@.socket'
