@@ -92,9 +92,9 @@ $ ./generate-package-notes.py --rpm systemd-248~rc2-1.fc33.arm32 --cpe cpe:/o:fe
 SECTIONS
 {
     .note.package (READONLY) : ALIGN(4) {
-        BYTE(0x04) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Owner including NUL */
-        BYTE(0x7b) BYTE(0x00) BYTE(0x00) BYTE(0x00) /* Length of Value including NUL */
-        BYTE(0x7e) BYTE(0x1a) BYTE(0xfe) BYTE(0xca) /* Note ID */
+        LONG(0x0004)                                /* Length of Owner including NUL */
+        LONG(0x007b)                                /* Length of Value including NUL */
+        LONG(0xcafe1a7e)                            /* Note ID */
         BYTE(0x46) BYTE(0x44) BYTE(0x4f) BYTE(0x00) /* Owner: 'FDO\x00' */
         BYTE(0x7b) BYTE(0x22) BYTE(0x74) BYTE(0x79) /* Value: '{"type":"rpm","name":"systemd","version":"248~rc2-1.fc33","architecture":"arm32","osCpe":"cpe:/o:fedoraproject:fedora:33"}\x00\x00' */
         BYTE(0x70) BYTE(0x65) BYTE(0x22) BYTE(0x3a)
