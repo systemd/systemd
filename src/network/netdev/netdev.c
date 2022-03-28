@@ -128,7 +128,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VXCAN]     = "vxcan",
         [NETDEV_KIND_VXLAN]     = "vxlan",
         [NETDEV_KIND_WIREGUARD] = "wireguard",
-        [NETDEV_KIND_WLAN]      = "virtual-wlan",
+        [NETDEV_KIND_WLAN]      = "wlan",
         [NETDEV_KIND_XFRM]      = "xfrm",
 };
 
