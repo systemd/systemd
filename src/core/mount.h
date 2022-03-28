@@ -89,6 +89,11 @@ struct Mount {
 
         unsigned n_retry_umount;
 
+        bool replicate_underlying;
+        uid_t underlying_uid;
+        gid_t underlying_gid;
+        mode_t underlying_mode;
+
         char *set_user;
         char *set_group;
         mode_t set_mode;

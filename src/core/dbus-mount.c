@@ -52,6 +52,7 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_PROPERTY("LazyUnmount", "b", bus_property_get_bool, offsetof(Mount, lazy_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ForceUnmount", "b", bus_property_get_bool, offsetof(Mount, force_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWriteOnly", "b", bus_property_get_bool, offsetof(Mount, read_write_only), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReplicateUnderlying", "b", bus_property_get_bool, offsetof(Mount, replicate_underlying), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetUser", "u", bus_property_get_uid, offsetof(Mount, set_user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetGroup", "u", bus_property_get_gid, offsetof(Mount, set_group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetMode", "u", bus_property_get_mode, offsetof(Mount, set_mode), SD_BUS_VTABLE_PROPERTY_CONST),

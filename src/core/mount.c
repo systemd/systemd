@@ -197,6 +197,10 @@ static void mount_init(Unit *u) {
 
         u->ignore_on_isolate = true;
 
+        m->underlying_uid = UID_INVALID;
+        m->underlying_gid = GID_INVALID;
+        m->underlying_mode = MODE_INVALID;
+
         m->set_mode = MODE_INVALID;
 }
 
@@ -797,7 +801,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sLazyUnmount: %s\n"
                 "%sForceUnmount: %s\n"
                 "%sReadWriteOnly: %s\n"
-                "%sTimeoutSec: %s\n",
+                "%sTimeoutSec: %s\n"
+                "%sReplicateUnderlying: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, mount_result_to_string(m->clean_result),
@@ -813,7 +818,17 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->lazy_unmount),
                 prefix, yes_no(m->force_unmount),
                 prefix, yes_no(m->read_write_only),
-                prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC),
+                prefix, yes_no(m->replicate_underlying));
+
+        if (m->replicate_underlying)
+                fprintf(f,
+                        "%sUnderlying UID: "UID_FMT"\n"
+                        "%sUnderlying GID: "GID_FMT"\n"
+                        "%sUnderlying Mode: %04o\n",
+                        prefix, m->underlying_uid,
+                        prefix, m->underlying_gid,
+                        prefix, m->underlying_mode);
 
         if (!isempty(m->set_user) || !isempty(m->set_group))
                 fprintf(f,
@@ -913,8 +928,16 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
         if (m->result == MOUNT_SUCCESS)
                 m->result = f;
 
-        if (m->set_mode != MODE_INVALID && chmod(m->where, m->set_mode) == -1) {
-                log_unit_warning_errno(UNIT(m), errno, "Failed to chmod(%04o): %m", m->set_mode);
+        if (isempty(m->set_user) && isempty(m->set_group) && (m->underlying_uid != UID_INVALID || m->underlying_gid != GID_INVALID) &&
+            chown(m->where, m->underlying_uid, m->underlying_gid) == -1) {
+                log_unit_warning_errno(UNIT(m), errno, "Failed to chown("UID_FMT", "GID_FMT"): %m", m->underlying_uid, m->underlying_gid);
+                if (m->result == MOUNT_SUCCESS)
+                        m->result = MOUNT_FAILURE_RESOURCES;
+        }
+
+        mode_t new_mode = m->set_mode != MODE_INVALID ? m->set_mode : m->underlying_mode;
+        if (new_mode != MODE_INVALID && chmod(m->where, new_mode) == -1) {
+                log_unit_warning_errno(UNIT(m), errno, "Failed to chmod(%04o): %m", new_mode);
                 if (m->result == MOUNT_SUCCESS)
                         m->result = MOUNT_FAILURE_RESOURCES;
         }
@@ -972,6 +995,11 @@ static int mount_chown(Mount *m, pid_t *_pid) {
                                 _exit(EXIT_GROUP);
                         }
                 }
+
+                if (uid == UID_INVALID)
+                        uid = m->underlying_uid;
+                if (gid == GID_INVALID)
+                        gid = m->underlying_gid;
 
                 if (chown(m->where, uid, gid) == -1) {
                         log_unit_warning_errno(UNIT(m), errno, "Failed to chown("UID_FMT", "GID_FMT"): %m", uid, gid);
@@ -1121,6 +1149,20 @@ static void mount_enter_mounting(Mount *m) {
                 goto fail;
 
         (void) mkdir_p_label(m->where, m->directory_mode);
+
+        if (m->replicate_underlying) {
+                struct stat sb;
+                if (stat(m->where, &sb) == -1) {
+                        log_unit_warning_errno(UNIT(m), errno, "Failed to stat: %m");
+                        m->underlying_uid = UID_INVALID;
+                        m->underlying_gid = GID_INVALID;
+                        m->underlying_mode = MODE_INVALID;
+                } else {
+                        m->underlying_uid = sb.st_uid;
+                        m->underlying_gid = sb.st_gid;
+                        m->underlying_mode = sb.st_mode & 07777;
+                }
+        }
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);

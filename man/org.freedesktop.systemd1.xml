@@ -6127,6 +6127,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b ForceUnmount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ReadWriteOnly = ...;
+      readonly b ReplicateUnderlying = ...;
       readonly u SetUser = ...;
       readonly u SetGroup = ...;
       readonly u SetMode = ...;
@@ -6659,6 +6660,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ReadWriteOnly is not documented!-->
 
+    <!--property ReplicateUnderlying is not documented!-->
+
     <!--property SetUser is not documented!-->
 
     <!--property SetGroup is not documented!-->
@@ -7148,6 +7151,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ForceUnmount"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReadWriteOnly"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ReplicateUnderlying"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SetUser"/>
 
