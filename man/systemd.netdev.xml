@@ -193,8 +193,8 @@
           <row><entry><varname>ipoib</varname></entry>
           <entry>An IP over Infiniband subinterface.</entry></row>
 
-          <row><entry><varname>virtual-wlan</varname></entry>
-          <entry>A virtual local wireless network (WLAN) interface.</entry></row>
+          <row><entry><varname>wlan</varname></entry>
+          <entry>A virtual wireless network (WLAN) interface.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -2186,17 +2186,16 @@
   </refsect1>
 
   <refsect1>
-    <title>[VirtualWLAN] Section Options</title>
-    <para>The [VirtualWLAN] section only applies to virtual WLAN interfaces, and accepts the following
-    keys:</para>
+    <title>[WLAN] Section Options</title>
+    <para>The [WLAN] section only applies to WLAN interfaces, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>PhysicalDevice=</varname></term>
         <listitem>
-          <para>Specifies the name or index of the WLAN physical WLAN device (e.g. <literal>0</literal>
-          or <literal>phy0</literal>). The list of the physical WLAN devices that exist os the host can
-          be obtained by <command>iw phy</command> command. This option is mandatory.</para>
+          <para>Specifies the name or index of the physical WLAN device (e.g. <literal>0</literal> or
+          <literal>phy0</literal>). The list of the physical WLAN devices that exist os the host can be
+          obtained by <command>iw phy</command> command. This option is mandatory.</para>
         </listitem>
       </varlistentry>
 
