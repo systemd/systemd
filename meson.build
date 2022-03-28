@@ -2450,7 +2450,7 @@ public_programs += executable(
         install_rpath : rootlibexecdir,
         install : true)
 
-exe = executable(
+systemctl = executable(
         'systemctl',
         systemctl_sources,
         include_directories : includes,
@@ -2464,13 +2464,7 @@ exe = executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)
-public_programs += exe
-if want_tests != 'false'
-        test('test-systemctl-enable',
-             test_systemctl_enable_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path())
-endif
+public_programs += systemctl
 
 if conf.get('ENABLE_PORTABLED') == 1
         dbus_programs += executable(
@@ -3289,13 +3283,22 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-public_programs += executable(
+systemd_id128 = executable(
         'systemd-id128',
         'src/id128/id128.c',
         include_directories : includes,
         link_with : [libshared],
         install_rpath : rootlibexecdir,
         install : true)
+public_programs += systemd_id128
+
+if want_tests != 'false'
+        test('test-systemctl-enable',
+             test_systemctl_enable_sh,
+             # https://github.com/mesonbuild/meson/issues/2681
+             args : [systemctl.full_path(),
+                     systemd_id128.full_path()])
+endif
 
 public_programs += executable(
         'systemd-path',
