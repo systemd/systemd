@@ -965,7 +965,7 @@ TEST(dhcp6_client) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
-        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 

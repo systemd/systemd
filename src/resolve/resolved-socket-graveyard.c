@@ -53,7 +53,7 @@ void manager_socket_graveyard_process(Manager *m) {
                 SocketGraveyard *g = m->socket_graveyard_oldest;
 
                 if (n == USEC_INFINITY)
-                        assert_se(sd_event_now(m->event, clock_boottime_or_monotonic(), &n) >= 0);
+                        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &n) >= 0);
 
                 if (g->deadline > n)
                         break;
@@ -113,7 +113,7 @@ int manager_add_socket_to_graveyard(Manager *m, int fd) {
 
         m->n_socket_graveyard++;
 
-        assert_se(sd_event_now(m->event, clock_boottime_or_monotonic(), &g->deadline) >= 0);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &g->deadline) >= 0);
         g->deadline += SOCKET_GRAVEYARD_USEC;
 
         r = sd_event_add_io(m->event, &g->io_event_source, fd, EPOLLIN, on_io_event, g);

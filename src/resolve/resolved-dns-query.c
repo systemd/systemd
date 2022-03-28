@@ -777,7 +777,7 @@ int dns_query_go(DnsQuery *q) {
         r = event_reset_time_relative(
                         q->manager->event,
                         &q->timeout_event_source,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         SD_RESOLVED_QUERY_TIMEOUT_USEC,
                         0, on_query_timeout, q,
                         0, "query-timeout", true);

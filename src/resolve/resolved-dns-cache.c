@@ -214,7 +214,7 @@ void dns_cache_prune(DnsCache *c) {
                         break;
 
                 if (t <= 0)
-                        t = now(clock_boottime_or_monotonic());
+                        t = now(CLOCK_BOOTTIME);
 
                 if (i->until > t)
                         break;
@@ -735,7 +735,7 @@ int dns_cache_put(
         /* Make some space for our new entries */
         dns_cache_make_space(c, cache_keys);
 
-        timestamp = now(clock_boottime_or_monotonic());
+        timestamp = now(CLOCK_BOOTTIME);
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
@@ -1016,7 +1016,7 @@ int dns_cache_lookup(
         if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
                 /* 'current' is always passed to answer_add_clamp_ttl(), but is only used conditionally.
                  * We'll do the same assert there to make sure that it was initialized properly. */
-                current = now(clock_boottime_or_monotonic());
+                current = now(CLOCK_BOOTTIME);
                 assert(current > 0);
         }
 

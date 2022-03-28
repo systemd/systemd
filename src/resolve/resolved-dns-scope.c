@@ -1239,7 +1239,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         r = sd_event_add_time_relative(
                         scope->manager->event,
                         &scope->conflict_event_source,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         jitter,
                         LLMNR_JITTER_INTERVAL_USEC,
                         on_conflict_dispatch, scope);
@@ -1509,7 +1509,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 r = sd_event_add_time_relative(
                                 scope->manager->event,
                                 &scope->announce_event_source,
-                                clock_boottime_or_monotonic(),
+                                CLOCK_BOOTTIME,
                                 MDNS_ANNOUNCE_DELAY,
                                 MDNS_JITTER_RANGE_USEC,
                                 on_announcement_timeout, scope);

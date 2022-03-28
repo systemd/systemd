@@ -1659,7 +1659,7 @@ static int link_carrier_lost(Link *link) {
 
         return event_reset_time_relative(link->manager->event,
                                          &link->carrier_lost_timer,
-                                         clock_boottime_or_monotonic(),
+                                         CLOCK_BOOTTIME,
                                          link->network->ignore_carrier_loss_usec,
                                          0,
                                          link_carrier_lost_handler,

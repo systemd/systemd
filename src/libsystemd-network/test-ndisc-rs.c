@@ -274,7 +274,7 @@ TEST(rs) {
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
@@ -362,7 +362,7 @@ TEST(timeout) {
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 

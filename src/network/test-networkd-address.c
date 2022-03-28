@@ -14,7 +14,7 @@ static void test_FORMAT_LIFETIME_one(usec_t lifetime, const char *expected) {
 TEST(FORMAT_LIFETIME) {
         usec_t now_usec;
 
-        now_usec = now(clock_boottime_or_monotonic());
+        now_usec = now(CLOCK_BOOTTIME);
 
         test_FORMAT_LIFETIME_one(now_usec, "for 0");
         test_FORMAT_LIFETIME_one(usec_add(now_usec, 2 * USEC_PER_SEC - 1), "for 1s");

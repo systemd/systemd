@@ -218,7 +218,7 @@ static struct ifa_cacheinfo *address_set_cinfo(const Address *a, struct ifa_cach
         assert(a);
         assert(cinfo);
 
-        now_usec = now(clock_boottime_or_monotonic());
+        now_usec = now(CLOCK_BOOTTIME);
 
         *cinfo = (struct ifa_cacheinfo) {
                 .ifa_valid = MIN(usec_sub_unsigned(a->lifetime_valid_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
@@ -234,7 +234,7 @@ static void address_set_lifetime(Address *a, const struct ifa_cacheinfo *cinfo) 
         assert(a);
         assert(cinfo);
 
-        now_usec = now(clock_boottime_or_monotonic());
+        now_usec = now(CLOCK_BOOTTIME);
 
         if (cinfo->ifa_valid == UINT32_MAX)
                 a->lifetime_valid_usec = USEC_INFINITY;
@@ -643,7 +643,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 
         sprintf(buf, "for ");
         /* format_timespan() never fails */
-        assert_se(format_timespan(buf + 4, l - 4, usec_sub_unsigned(lifetime_usec, now(clock_boottime_or_monotonic())), USEC_PER_SEC));
+        assert_se(format_timespan(buf + 4, l - 4, usec_sub_unsigned(lifetime_usec, now(CLOCK_BOOTTIME)), USEC_PER_SEC));
         return buf;
 }
 

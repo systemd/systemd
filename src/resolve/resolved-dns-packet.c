@@ -2502,7 +2502,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
         usec_t k;
         int r;
 
-        k = now(clock_boottime_or_monotonic());
+        k = now(CLOCK_BOOTTIME);
         assert(k >= timestamp);
         k -= timestamp;
 

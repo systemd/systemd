@@ -821,7 +821,7 @@ static int client_message_init(
 
         /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
            refuse to issue an DHCP lease if 'secs' is set to zero */
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
         assert(time_now >= client->start_time);
@@ -1246,7 +1246,7 @@ static int client_timeout_resend(
         assert(client);
         assert(client->event);
 
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 goto error;
 
@@ -1294,7 +1294,7 @@ static int client_timeout_resend(
         }
 
         r = event_reset_time(client->event, &client->timeout_resend,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              next_timeout, 10 * USEC_PER_MSEC,
                              client_timeout_resend, client,
                              client->event_priority, "dhcp4-resend-timer", true);
@@ -1394,12 +1394,12 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
         assert(client->event);
 
         if (client->start_delay > 0) {
-                assert_se(sd_event_now(client->event, clock_boottime_or_monotonic(), &usec) >= 0);
+                assert_se(sd_event_now(client->event, CLOCK_BOOTTIME, &usec) >= 0);
                 usec += client->start_delay;
         }
 
         r = event_reset_time(client->event, &client->timeout_resend,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              usec, 0,
                              client_timeout_resend, client,
                              client->event_priority, "dhcp4-resend-timer", true);
@@ -1440,7 +1440,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
         client->fd = r;
 
         if (IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT))
-                client->start_time = now(clock_boottime_or_monotonic());
+                client->start_time = now(CLOCK_BOOTTIME);
 
         return client_initialize_events(client, client_receive_message_raw);
 }
@@ -1684,7 +1684,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return 0;
         }
 
-        r = sd_event_now(client->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
         assert(client->request_sent <= time_now);
@@ -1717,7 +1717,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         /* arm lifetime timeout */
         r = event_reset_time(client->event, &client->timeout_expire,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              client->expire_time, 10 * USEC_PER_MSEC,
                              client_timeout_expire, client,
                              client->event_priority, "dhcp4-lifetime", true);
@@ -1733,7 +1733,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         /* arm T2 timeout */
         r = event_reset_time(client->event, &client->timeout_t2,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              client->t2_time, 10 * USEC_PER_MSEC,
                              client_timeout_t2, client,
                              client->event_priority, "dhcp4-t2-timeout", true);
@@ -1749,7 +1749,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
 
         /* arm T1 timeout */
         r = event_reset_time(client->event, &client->timeout_t1,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              client->t1_time, 10 * USEC_PER_MSEC,
                              client_timeout_t1, client,
                              client->event_priority, "dhcp4-t1-timer", true);
@@ -1784,7 +1784,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 client->attempt = 0;
 
                 r = event_reset_time(client->event, &client->timeout_resend,
-                                     clock_boottime_or_monotonic(),
+                                     CLOCK_BOOTTIME,
                                      0, 0,
                                      client_timeout_resend, client,
                                      client->event_priority, "dhcp4-resend-timer", true);

@@ -1422,7 +1422,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                  * next recvmsg(). Treat this like a lost packet. */
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
-                assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
+                assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
 
                 dns_transaction_close_connection(t, /* use_graveyard = */ false);
@@ -1797,7 +1797,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
          * in our current scope, and see whether their timing constraints allow them to be sent.
          */
 
-        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+        assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
 
         LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
 
@@ -1835,7 +1835,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 r = sd_event_add_time(
                                 other->scope->manager->event,
                                 &other->timeout_event_source,
-                                clock_boottime_or_monotonic(),
+                                CLOCK_BOOTTIME,
                                 ts, 0,
                                 on_transaction_timeout, other);
                 if (r < 0)
@@ -1937,7 +1937,7 @@ int dns_transaction_go(DnsTransaction *t) {
          * finished now. In the latter case, the transaction and query candidate objects must not be accessed.
          */
 
-        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
+        assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
 
         r = dns_transaction_prepare(t, ts);
         if (r <= 0)
@@ -1981,7 +1981,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = sd_event_add_time_relative(
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
-                                clock_boottime_or_monotonic(),
+                                CLOCK_BOOTTIME,
                                 jitter, accuracy,
                                 on_transaction_timeout, t);
                 if (r < 0)
@@ -2071,7 +2071,7 @@ int dns_transaction_go(DnsTransaction *t) {
         r = sd_event_add_time(
                         t->scope->manager->event,
                         &t->timeout_event_source,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         ts, 0,
                         on_transaction_timeout, t);
         if (r < 0)

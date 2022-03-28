@@ -127,7 +127,7 @@ static int manager_add_host_machine(Manager *m) {
         t->root_directory = TAKE_PTR(rd);
         t->unit = TAKE_PTR(unit);
 
-        dual_timestamp_from_boottime_or_monotonic(&t->timestamp, 0);
+        dual_timestamp_from_boottime(&t->timestamp, 0);
 
         m->host_machine = t;
 

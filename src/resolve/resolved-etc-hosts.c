@@ -294,7 +294,7 @@ static int manager_etc_hosts_read(Manager *m) {
         usec_t ts;
         int r;
 
-        assert_se(sd_event_now(m->event, clock_boottime_or_monotonic(), &ts) >= 0);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &ts) >= 0);
 
         /* See if we checked /etc/hosts recently already */
         if (m->etc_hosts_last != USEC_INFINITY && m->etc_hosts_last + ETC_HOSTS_RECHECK_USEC > ts)

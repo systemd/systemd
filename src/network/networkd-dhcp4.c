@@ -871,7 +871,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
 
-                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
         } else
                 lifetime_usec = USEC_INFINITY;
 

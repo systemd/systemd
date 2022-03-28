@@ -258,7 +258,7 @@ static int dhcp6_address_acquired(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get server address of DHCPv6 lease: %m");
 
-        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get timestamp of DHCPv6 lease: %m");
 

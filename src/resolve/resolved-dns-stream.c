@@ -390,7 +390,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         s->read_packet->family = s->peer.sa.sa_family;
                                         s->read_packet->ttl = s->ttl;
                                         s->read_packet->ifindex = s->ifindex;
-                                        s->read_packet->timestamp = now(clock_boottime_or_monotonic());
+                                        s->read_packet->timestamp = now(CLOCK_BOOTTIME);
 
                                         if (s->read_packet->family == AF_INET) {
                                                 s->read_packet->sender.in = s->peer.in.sin_addr;
@@ -543,7 +543,7 @@ int dns_stream_new(
         r = sd_event_add_time_relative(
                         m->event,
                         &s->timeout_event_source,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         connect_timeout_usec, 0,
                         on_stream_timeout, s);
         if (r < 0)

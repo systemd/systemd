@@ -333,9 +333,9 @@ void lldp_neighbor_start_ttl(sd_lldp_neighbor *n) {
                 usec_t base;
 
                 /* Use the packet's timestamp if there is one known */
-                base = triple_timestamp_by_clock(&n->timestamp, clock_boottime_or_monotonic());
+                base = triple_timestamp_by_clock(&n->timestamp, CLOCK_BOOTTIME);
                 if (!timestamp_is_set(base))
-                        base = now(clock_boottime_or_monotonic()); /* Otherwise, take the current time */
+                        base = now(CLOCK_BOOTTIME); /* Otherwise, take the current time */
 
                 n->until = usec_add(base, n->ttl * USEC_PER_SEC);
         } else

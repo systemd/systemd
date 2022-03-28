@@ -886,7 +886,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
-        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
 
         r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
@@ -958,7 +958,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
-        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(clock_boottime_or_monotonic()));
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
 
         r = sd_dhcp_lease_get_server_identifier(uplink->dhcp_lease, &server_address.in);
         if (r < 0)
@@ -1045,7 +1045,7 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
         if (r <= 0)
                 return r;
 
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
                 return r;
 
@@ -1094,7 +1094,7 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv6 lease: %m");
 
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, clock_boottime_or_monotonic(), &timestamp_usec);
+        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get timestamp of DHCPv6 lease: %m");
 

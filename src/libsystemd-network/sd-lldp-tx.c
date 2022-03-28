@@ -609,7 +609,7 @@ int sd_lldp_tx_start(sd_lldp_tx *lldp_tx) {
         delay = lldp_tx_get_delay(lldp_tx);
 
         r = sd_event_add_time_relative(lldp_tx->event, &lldp_tx->timer_event_source,
-                                       clock_boottime_or_monotonic(), delay, 0,
+                                       CLOCK_BOOTTIME, delay, 0,
                                        on_timer_event, lldp_tx);
         if (r < 0)
                 return r;

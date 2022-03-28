@@ -327,7 +327,7 @@ TEST(ra) {
         assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0],
                                   EPOLLIN, radv_recv, ra) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
