@@ -987,7 +987,7 @@ static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, DHCPLeas
         assert(req);
         assert(address != 0);
 
-        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(server->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
 
@@ -1039,7 +1039,7 @@ static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
 
         assert(server);
 
-        r = sd_event_now(server->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(server->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
 

@@ -77,7 +77,7 @@ triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
-        ts->boottime = clock_boottime_supported() ? now(CLOCK_BOOTTIME) : USEC_INFINITY;
+        ts->boottime = now(CLOCK_BOOTTIME);
 
         return ts;
 }
@@ -150,9 +150,7 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
 
         ts->realtime = u;
         ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
-        ts->boottime = clock_boottime_supported() ?
-                map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME)) :
-                USEC_INFINITY;
+        ts->boottime = map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME));
 
         return ts;
 }
@@ -170,8 +168,7 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         return ts;
 }
 
-dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
-        clockid_t cid;
+dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
         usec_t nowm;
 
         if (u == USEC_INFINITY) {
@@ -179,14 +176,8 @@ dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, us
                 return ts;
         }
 
-        cid = clock_boottime_or_monotonic();
-        nowm = now(cid);
-
-        if (cid == CLOCK_MONOTONIC)
-                ts->monotonic = u;
-        else
-                ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
-
+        nowm = now(CLOCK_BOOTTIME);
+        ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
         ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
         return ts;
 }
@@ -1461,33 +1452,6 @@ int verify_timezone(const char *name, int log_level) {
         return 0;
 }
 
-bool clock_boottime_supported(void) {
-        static int supported = -1;
-
-        /* Note that this checks whether CLOCK_BOOTTIME is available in general as well as available for timerfds()! */
-
-        if (supported < 0) {
-                int fd;
-
-                fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
-                if (fd < 0)
-                        supported = false;
-                else {
-                        safe_close(fd);
-                        supported = true;
-                }
-        }
-
-        return supported;
-}
-
-clockid_t clock_boottime_or_monotonic(void) {
-        if (clock_boottime_supported())
-                return CLOCK_BOOTTIME;
-        else
-                return CLOCK_MONOTONIC;
-}
-
 bool clock_supported(clockid_t clock) {
         struct timespec ts;
 
@@ -1495,16 +1459,10 @@ bool clock_supported(clockid_t clock) {
 
         case CLOCK_MONOTONIC:
         case CLOCK_REALTIME:
+        case CLOCK_BOOTTIME:
+                /* These three are always available in our baseline, and work in timerfd, as of kernel 3.15 */
                 return true;
 
-        case CLOCK_BOOTTIME:
-                return clock_boottime_supported();
-
-        case CLOCK_BOOTTIME_ALARM:
-                if (!clock_boottime_supported())
-                        return false;
-
-                _fallthrough_;
         default:
                 /* For everything else, check properly */
                 return clock_gettime(clock, &ts) >= 0;
