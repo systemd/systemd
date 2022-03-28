@@ -398,18 +398,12 @@ int rename_process(const char name[]) {
         return !truncated;
 }
 
-int is_kernel_thread(pid_t pid) {
+static int get_process_flags(pid_t pid, unsigned long long *ret_flags) {
         _cleanup_free_ char *line = NULL;
-        unsigned long long flags;
         size_t l, i;
         const char *p;
         char *q;
         int r;
-
-        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
-                return 0;
-        if (!pid_is_valid(pid))
-                return -EINVAL;
 
         p = procfs_file_alloca(pid, "stat");
         r = read_one_line_file(p, &line);
@@ -449,11 +443,59 @@ int is_kernel_thread(pid_t pid) {
                 return -EINVAL;
         q[l] = 0;
 
-        r = safe_atollu(q, &flags);
+        return safe_atollu(q, ret_flags);
+}
+
+int is_kernel_thread(pid_t pid) {
+        unsigned long long flags;
+        int r;
+
+        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
+                return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
+
+        r = get_process_flags(pid, &flags);
         if (r < 0)
                 return r;
 
-        return !!(flags & PF_KTHREAD);
+        return FLAGS_SET(flags, PF_KTHREAD);
+}
+
+int is_usermode_helper(pid_t pid) {
+
+        /* Usermode helpers are special processes spawned by the kernel (kthreadd more
+         * precisely). A few drivers rely on them for being loaded asynchronously for
+         * example. Hence it's usually not a good idea to kill them except during shutdown. These
+         * processes don't have PF_KTHREAD set but its parent (kthreadd) does. */
+
+        /* pid 1, and we ourselves certainly aren't an usermode helper */
+        if (IN_SET(pid, 0, 1) || pid == getpid_cached())
+                return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
+
+        for (;;) {
+                unsigned long long flags;
+                pid_t ppid;
+                int r;
+
+                r = get_process_ppid(pid, &ppid);
+                if (r < 0)
+                        return r;
+                if (ppid == 1)          /* our child can't be a kernel thread */
+                        return 0;
+                if (!pid_is_valid(ppid))
+                        return -EINVAL;
+
+                r = get_process_flags(ppid, &flags);
+                if (r < 0)
+                        return r;
+                if (FLAGS_SET(flags, PF_KTHREAD)) /* if one of our ancestor is a kthread then we are */
+                        return true;
+
+                pid = ppid;
+        }
 }
 
 int get_process_capeff(pid_t pid, char **ret) {

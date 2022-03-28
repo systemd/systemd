@@ -22,7 +22,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static bool ignore_proc(pid_t pid, bool warn_rootfs) {
+static bool ignore_proc(pid_t pid, bool warn_rootfs, bool ignore_umh) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         char c = 0;
@@ -34,9 +34,11 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
                 return true;
 
         /* Ignore kernel threads */
-        r = is_kernel_thread(pid);
-        if (r != 0)
+        if (is_kernel_thread(pid) != 0)
                 return true; /* also ignore processes where we can't determine this */
+
+        if (ignore_umh && is_usermode_helper(pid) != 0)
+                return true;
 
         r = get_process_uid(pid, &uid);
         if (r < 0)
@@ -187,7 +189,7 @@ static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
         }
 }
 
-static int killall(int sig, Set *pids, bool send_sighup) {
+static int killall(int sig, Set *pids, bool send_sighup, bool ignore_umh) {
         _cleanup_closedir_ DIR *dir = NULL;
         int n_killed = 0;
 
@@ -208,7 +210,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 if (parse_pid(de->d_name, &pid) < 0)
                         continue;
 
-                if (ignore_proc(pid, sig == SIGKILL && !in_initrd()))
+                if (ignore_proc(pid, sig == SIGKILL && !in_initrd(), ignore_umh))
                         continue;
 
                 if (sig == SIGKILL) {
@@ -248,7 +250,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
         return n_killed;
 }
 
-int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
+int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout, bool ignore_umh) {
         int n_children_left;
         sigset_t mask, oldmask;
         _cleanup_set_free_ Set *pids = NULL;
@@ -269,7 +271,7 @@ int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeo
         if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning_errno(errno, "kill(-1, SIGSTOP) failed: %m");
 
-        n_children_left = killall(sig, pids, send_sighup);
+        n_children_left = killall(sig, pids, send_sighup, ignore_umh);
 
         if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
                 log_warning_errno(errno, "kill(-1, SIGCONT) failed: %m");

@@ -1762,9 +1762,11 @@ static int do_reexecute(
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         if (switch_root_dir) {
-                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can
-                 * handle the SIGCHLD for them after deserializing. */
-                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
+                /* Kill all remaining processes from the initrd, but don't wait for them, so that
+                 * we can handle the SIGCHLD for them after deserializing. If there's a usermode
+                 * helper, we're skipping it as it is likely in the process of initializing a
+                 * driver, which leaves the hw half initialized if the process is interrupted. */
+                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec, true);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                 r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);

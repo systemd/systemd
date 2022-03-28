@@ -71,6 +71,7 @@ int kill_and_sigcont(pid_t pid, int sig);
 
 int rename_process(const char name[]);
 int is_kernel_thread(pid_t pid);
+int is_usermode_helper(pid_t pid);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
