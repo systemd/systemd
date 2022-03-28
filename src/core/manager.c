@@ -2644,7 +2644,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                          * We only do this for the cgroup the PID belonged to. */
                         (void) unit_check_oom(u1);
 
-                        /* We check if systemd-oomd perfomed a kill so that we log and notify appropriately */
+                        /* We check if systemd-oomd performed a kill so that we log and notify appropriately */
                         (void) unit_check_oomd_kill(u1);
 
                         manager_invoke_sigchld_event(m, u1, &si);
