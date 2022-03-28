@@ -138,7 +138,7 @@
     a symlink, so when <command>systemd</command> is asked through D-Bus to load
     <filename>dbus-org.freedesktop.network1.service</filename>, it'll load
     <filename>systemd-networkd.service</filename>. As another example, <filename>default.target</filename> —
-    the default system target started at boot — is commonly symlinked (aliased) to either
+    the default system target started at boot — is commonly aliased to either
     <filename>multi-user.target</filename> or <filename>graphical.target</filename> to select what is started
     by default. Alias names may be used in commands like <command>disable</command>,
     <command>start</command>, <command>stop</command>, <command>status</command>, and similar, and in all
@@ -154,8 +154,12 @@
     template instance (e.g. <literal>alias@inst.service</literal>) may be a symlink to different template
     (e.g. <literal>template@inst.service</literal>). In that case, just this specific instance is aliased,
     while other instances of the template (e.g. <literal>alias@foo.service</literal>,
-    <literal>alias@bar.service</literal>) are not aliased. Those rule preserve the requirement that the
-    instance (if any) is always uniquely defined for a given unit and all its aliases.</para>
+    <literal>alias@bar.service</literal>) are not aliased. Those rules preserve the requirement that the
+    instance (if any) is always uniquely defined for a given unit and all its aliases. The target of alias
+    symlink must point to a valid unit file location, i.e. the symlink target name must match the symlink
+    source name as described, and the destination path must be in one of the unit search paths, see UNIT FILE
+    LOAD PATH section below for more details. Note that the target file may not exist, i.e. the symlink may
+    be dangling.</para>
 
     <para>Unit files may specify aliases through the <varname>Alias=</varname> directive in the [Install]
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
@@ -175,11 +179,18 @@
     exists for <varname>Requires=</varname> type dependencies as well, the directory suffix is
     <filename>.requires/</filename> in this case. This functionality is useful to hook units into the
     start-up of other units, without having to modify their unit files. For details about the semantics of
-    <varname>Wants=</varname>, see below. The preferred way to create symlinks in the
-    <filename>.wants/</filename> or <filename>.requires/</filename> directory of a unit file is by embedding
-    the dependency in [Install] section of the target unit, and creating the symlink in the file system with
-    the <command>enable</command> or <command>preset</command> commands of
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    <varname>Wants=</varname> and <varname>Requires=</varname>, see below. The preferred way to create
+    symlinks in the <filename>.wants/</filename> or <filename>.requires/</filename> directories is by
+    specifying the dependency in [Install] section of the target unit, and creating the symlink in the file
+    system with the <command>enable</command> or <command>preset</command> commands of
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  The
+    target can be a normal unit (either plain or a specific instance of a template unit). In case when the
+    source unit is a template, the target can also be a template, in which case the instance will be
+    "propagated" to the target unit to form a valid unit instance. The target of symlinks in
+    <filename>.wants/</filename> or <filename>.requires/</filename> must thus point to a valid unit file
+    location, i.e. the symlink target name must satisfy the described requirements, and the destination path
+    must be in one of the unit search paths, see UNIT FILE LOAD PATH section below for more details. Note
+    that the target file may not exist, i.e. the symlink may be dangling.</para>
 
     <para>Along with a unit file <filename>foo.service</filename>, a "drop-in" directory
     <filename>foo.service.d/</filename> may exist. All files with the suffix
@@ -501,13 +512,30 @@
     <programlisting>systemd-analyze --user unit-paths</programlisting>
     </para>
 
-    <para>Moreover, additional units might be loaded into systemd from
-    directories not on the unit load path by creating a symlink pointing to a
-    unit file in the directories. You can use <command>systemctl link</command>
-    for this operation. See
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for its usage and precaution.
-    </para>
+    <para>Moreover, additional units might be loaded into systemd from directories not on the unit load path
+    by creating a symlink pointing to a unit file in the directories. You can use <command>systemctl
+    link</command> for this; see
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The file
+    system where the linked unit files are located must be accessible when systemd is started (e.g. anything
+    underneath <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless those
+    directories are located on the root file system).</para>
+
+    <para>It is important to distinguish "linked unit files" from "unit file aliases": any symlink where the
+    symlink <emphasis>target</emphasis> is within the unit load path becomes an alias: the source name and
+    the target file name must satisfy specific constraints listed above in the discussion of aliases, but the
+    symlink target doesn't have to exist, and in fact the symlink target path is not used, except to check
+    whether the target is within the unit load path. In constrast, a symlink which goes outside of the unit
+    load path signifies a linked unit file. The symlink is followed when loading the file, but the
+    destination name is otherwise unused (and may even not be a valid unit file name). For example, symlinks
+    <filename index='false'>/etc/systemd/system/alias1.service</filename> → <filename index='false'>service1.service</filename>,
+    <filename index='false'>/etc/systemd/system/alias2.service</filename> → <filename index='false'>/usr/lib/systemd/service1.service</filename>,
+    <filename index='false'>/etc/systemd/system/alias3.service</filename> → <filename index='false'>/etc/systemd/system/service1.service</filename>
+    are all valid aliases and <filename index='false'>service1.service</filename> will have
+    four names, even if the unit file is located at
+    <filename index='false'>/run/systemd/system/service1.service</filename>. In contrast,
+    a symlink <filename index='false'>/etc/systemd/system/link1.service</filename> → <filename index='false'>../link1_service_file</filename>
+    means that <filename index='false'>link1.service</filename> is a "linked unit" and the contents of
+    <filename index='false'>/etc/systemd/link1_service_file</filename> provide its configuration.</para>
   </refsect1>
 
   <refsect1>
