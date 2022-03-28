@@ -11,6 +11,7 @@ typedef enum MountExecCommand {
         MOUNT_EXEC_MOUNT,
         MOUNT_EXEC_UNMOUNT,
         MOUNT_EXEC_REMOUNT,
+        MOUNT_EXEC_CHOWN,
         _MOUNT_EXEC_COMMAND_MAX,
         _MOUNT_EXEC_COMMAND_INVALID = -EINVAL,
 } MountExecCommand;
@@ -87,6 +88,15 @@ struct Mount {
         sd_event_source *timer_event_source;
 
         unsigned n_retry_umount;
+
+        bool replicate_underlying;
+        uid_t underlying_uid;
+        gid_t underlying_gid;
+        mode_t underlying_mode;
+
+        char *set_user;
+        char *set_group;
+        mode_t set_mode;
 };
 
 extern const UnitVTable mount_vtable;

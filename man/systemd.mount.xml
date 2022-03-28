@@ -52,7 +52,7 @@
     <para>Note that the options <varname>User=</varname> and
     <varname>Group=</varname> are not useful for mount units.
     systemd passes two parameters to
-    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>;
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
     the values of <varname>What=</varname> and <varname>Where=</varname>.
     When invoked in this way,
     <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -569,6 +569,35 @@
         as "5min 20s". Pass 0 to disable the timeout logic. The
         default value is set from <varname>DefaultTimeoutStartSec=</varname> option in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReplicateUnderlying=</varname></term>
+        <listitem><para>Takes a boolean argument. If true,
+        set ownership and mode of mountpoint after mounting to that of the underlying file.
+        This mimics the default
+        <citerefentry project='man-pages'><refentrytitle>tmpfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        behaviour.
+        <option>Set*=</option> directives take priority.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SetUser=</varname></term>
+        <term><varname>SetGroup=</varname></term>
+        <listitem><para>Set ownership of the mountpoint after mounting, before becoming ready;
+        take a username and group name.
+        If a user is specified, its primary group is used as the group, unless specified otherwise.
+        Failures will not fault the unit.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SetMode=</varname></term>
+        <listitem><para>Set mode of the mountpoint after mounting, before becoming ready;
+        takes an access mode in octal notation.
+        Failure will not fault the unit.
         </para></listitem>
       </varlistentry>
     </variablelist>

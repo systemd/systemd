@@ -2070,19 +2070,23 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
         if (STR_IN_SET(field, "What",
                               "Where",
                               "Options",
-                              "Type"))
+                              "Type",
+                              "SetUser",
+                              "SetGroup"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "TimeoutSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (streq(field, "DirectoryMode"))
+        if (STR_IN_SET(field, "DirectoryMode",
+                              "SetMode"))
                 return bus_append_parse_mode(m, field, eq);
 
         if (STR_IN_SET(field, "SloppyOptions",
                               "LazyUnmount",
                               "ForceUnmount",
-                              "ReadwriteOnly"))
+                              "ReadwriteOnly",
+                              "ReplicateUnderlying"))
                 return bus_append_parse_boolean(m, field, eq);
 
         return 0;
