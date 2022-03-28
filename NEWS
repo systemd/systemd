@@ -65,7 +65,7 @@ CHANGES WITH 251 in spe:
           (as exposed via the SystemCallFilter= setting in service unit files).
           It is apparently used by the linker now.
 
-        New functionality and other changes:
+        Changes for Boot Loader Specification, kernel-install and sd-boot:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
           entry generation logic has been reworked. The user may now pick
@@ -113,6 +113,31 @@ CHANGES WITH 251 in spe:
           location. kernel-install will move them when all files have been
           prepared successfully.
 
+        * New option sort-key= has been added to the Boot Loader Specification
+          to override the sorting order of the entries in the boot menu. It is
+          read by sd-boot and bootctl, and will be written by kernel-install,
+          with the default value of IMAGE_ID= or ID= fields from
+          os-release. Together, this means that on multiboot installations,
+          entries should be grouped and sorted in a predictable way.
+
+        * The kernel-install tool gained a new 'inspect' verb which shows the
+          paths and other settings used.
+
+        * sd-boot can now optionally beep when the menu is shown and menu
+          entries are selected, which can be useful on machines without a
+          working display. (Controllable via a loader.conf setting.)
+
+        * The --make-machine-id-directory= switch to bootctl has been replaced
+          by --make-entry-directory=, given that the entry directory is not
+          necessarily named after the machine ID, but after some other suitable
+          ID as selected via --entry-token= described above. The old name of
+          the option is still understood to maximize compatibility.
+
+        * 'bootctl list' gained support for a new --json= switch to output boot
+          menu entries in JSON format.
+
+        Changes for homed:
+
         * Starting with v250 systemd-homed uses UID/GID mapping on the mounts
           of activated home directories it manages (if the kernel and selected
           file systems support it). So far it mapped three UID ranges: the
@@ -147,14 +172,7 @@ CHANGES WITH 251 in spe:
           handling, and improving compatibility with home directories intended
           to be portable like the ones managed by systemd-homed.
 
-        * The journal JSON export format has been added to listed of stable
-          interfaces (https://systemd.io/PORTABILITY_AND_STABILITY/).
-
-        * /etc/locale.conf is now populated through tmpfiles.d factory /etc/
-          handling with the values that were configured during systemd build
-          (if /etc/locale.conf has not been created through some other
-          mechanism). This means that /etc/locale.conf should always have
-          reasonable contents and we avoid a potential mismatch in defaults.
+        Changes for shared libraries:
 
         * A new libsystemd-core-<version>.so private shared library is
           installed under /usr/lib/systemd/system, mirroring the existing
@@ -170,6 +188,12 @@ CHANGES WITH 251 in spe:
           fail to execute because they were installed earlier or later than the
           appropriate version of the library.
 
+        * The sd-id128 API gained a new call sd_id128_to_uuid_string() that is
+          similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
+          format instead of simple series of hex characters.
+
+        Changes for PID1 and systemctl:
+
         * A new set of service monitor environment variables will be passed to
           OnFailure=/OnSuccess= handlers, but only if exactly one unit lists the
           handler unit as OnFailure=/OnSuccess=. The variables are:
@@ -184,50 +208,6 @@ CHANGES WITH 251 in spe:
 
           'portablectl attach --extension=' now also accepts directory paths.
 
-        * HARDWARE_VENDOR= and HARDWARE_MODEL= can be set in /etc/machine-info
-          to override the values gleaned from the hwdb.
-
-        * A ID_CHASSIS property can be set in the hwdb (for the DMI device
-          /sys/class/dmi/id) to override the chassis that is reported by
-          hostnamed.
-
-        * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
-          for reading the hardware serial number, as reportd by DMI.
-
-        * Two new hwdb files have been added. One lists "handhelds" (PDAs,
-          calculators, etc.), the other AV production devices (DJ tables,
-          keypads, etc.) that should accessible to the seat owner user by
-          default.
-
-        * A new unit systemd-networkd-wait-online@<interface>.service has been
-          added that can be used to wait for a specific network interface to be
-          up.
-
-        * systemd-resolved is started earlier (in sysinit.target), so it
-          available earlier and will also be started in the initrd if installed
-          there.
-
-        * udevadm trigger gained a new --prioritized-subsystem= option to
-          process certain subsystems (and all their parent devices) earlier.
-
-          systemd-udev-trigger.service now uses this new option to trigger
-          block and TPM devices first, hopefully making the boot a bit faster.
-
-        * udevadm trigger now implements --type=all, --initialized-match,
-          --initialized-nomatch to trigger both subsystems and devices, only
-          already-initialized devices, and only devices which haven't been
-          initialized yet, respectively.
-
-        * systemd-cryptenroll can now control whether to require the user to
-          enter a PIN when using TPM-based unlocking of a volume via the new
-          --tpm2-with-pin= option.
-
-          Option tpm2-pin= can be used in /etc/crypttab.
-
-        * When unlocking devices via TPM, TPM2 parameter encryption is now
-          used, to ensure that communication between CPU and discrete TPM chips
-          cannot be eavesdropped to acquire disk encryption keys.
-
         * The user.delegate and user.invocation_id extended attributes on
           cgroups are used in addition to trusted.delegate and
           trusted.invocation_id. The latter pair requires privileges to set,
@@ -235,17 +215,6 @@ CHANGES WITH 251 in spe:
           manager.
 
           (Only supported on kernels ≥5.6.)
-
-        * New option sort-key= has been added to the Boot Loader Specification
-          to override the sorting order of the entries in the boot menu. It is
-          read by sd-boot and bootctl, and will be written by kernel-install,
-          with the default value of IMAGE_ID= or ID= fields from
-          os-release. Together, this means that on multiboot installations,
-          entries should be grouped and sorted in a predictable way.
-
-        * sd-boot can now optionally beep when the menu is shown and menu
-          entries are selected, which can be useful on machines without a
-          working display. (Controllable via a loader.conf setting.)
 
         * In unit files the new %y/%Y specifiers can be used to refer to
           normalized unit file path, which is particularly useful for symlinked
@@ -266,15 +235,6 @@ CHANGES WITH 251 in spe:
           services, i.e. those run by the user's --user service manager, as long
           as user namespaces are enabled on the system.
 
-        * The --make-machine-id-directory= switch to bootctl has been replaced
-          by --make-entry-directory=, given that the entry directory is not
-          necessarily named after the machine ID, but after some other suitable
-          ID as selected via --entry-token= described above. The old name of
-          the option is still understood to maximize compatibility.
-
-        * 'bootctl list' gained support for a new --json= switch to output boot
-          menu entries in JSON format.
-
         * Services with Restart=always and a failing ExecCondition= will no
           longer be restarted, to bring ExecCondition= behaviour in line with
           Condition*= settings.
@@ -286,31 +246,18 @@ CHANGES WITH 251 in spe:
           that encapsulates the service's numeric cgroup ID that newer kernels
           assign to each cgroup.
 
-        * systemd-networkd gained a new [Bridge] Isolated=true|false setting
-          that configures the eponymous kernel attribute on the bridge.
+        * PID 1 gained support for configuring the "pre-timeout" of watchdog
+          devices and the associated governor, via the new
+          RuntimeWatchdogPreSec= and RuntimeWatchdogPreGovernor= configuration
+          options in /etc/systemd/system.conf.
 
-        * .netdev files now can be used to create virtual WLAN devices, and
-          configure various settings on them, via the [VirtualWLAN] section.
+        * systemctl's --timestamp= option gained a new choice "unix", to show
+          timestamp as unix times, i.e. seconds since 1970, Jan 1st.
 
-        * .link files gained support for [Match] Firmware= setting to match on
-          the device firmware description string. By mistake, it was previously
-          only supported in .network files.
+        Changes for journald:
 
-        * .link/.network files gained support for [Match] Kind= setting to match
-          on device kind ("bond", "bridge", "gre", "tun", "veth", etc.)
-
-          This value is also shown by 'networkctl status'.
-
-        * .link files gained support for setting MDI/MID-X on a link.
-
-        * The Local= setting for various virtual network devices gained support
-          for specifying, in addition to the network address, the name of a
-          local interface which must have the specified address.
-
-        * New [DHCPServer] BootServerName=, BootServerAddress=, and
-          BootFilename= settings can be used to configure the server address,
-          server name, and file name sent in the DHCP packet (e.g. to configure
-          PXE boot).
+        * The journal JSON export format has been added to listed of stable
+          interfaces (https://systemd.io/PORTABILITY_AND_STABILITY/).
 
         * journalctl --list-boots now supports JSON output and the --reverse option.
 
@@ -320,23 +267,112 @@ CHANGES WITH 251 in spe:
           https://systemd.io/JOURNAL_EXPORT_FORMATS
           https://systemd.io/BUILDING_IMAGES
 
-        * The sd-id128 API gained a new call sd_id128_to_uuid_string() that is
-          similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
-          format instead of simple series of hex characters.
+        Changes for udev:
+
+        * Two new hwdb files have been added. One lists "handhelds" (PDAs,
+          calculators, etc.), the other AV production devices (DJ tables,
+          keypads, etc.) that should accessible to the seat owner user by
+          default.
+
+        * udevadm trigger gained a new --prioritized-subsystem= option to
+          process certain subsystems (and all their parent devices) earlier.
+
+          systemd-udev-trigger.service now uses this new option to trigger
+          block and TPM devices first, hopefully making the boot a bit faster.
+
+        * udevadm trigger now implements --type=all, --initialized-match,
+          --initialized-nomatch to trigger both subsystems and devices, only
+          already-initialized devices, and only devices which haven't been
+          initialized yet, respectively.
+
+        * .link files gained support for setting MDI/MID-X on a link.
+
+        * .link files gained support for [Match] Firmware= setting to match on
+          the device firmware description string. By mistake, it was previously
+          only supported in .network files.
+
+        * .link files gained support for [Link] SR-IOVVirtualFunctions= setting
+          and [SR-IOV] section to configure SR-IOV virtual functions.
+
+        Changes for networkd:
+
+        * The default scope for unicast routes configured through [Route]
+          section is changed to "link", to make the behavior consistent with
+          "ip route" command. The manual configuration of [Route] Scope= is
+          still honored.
+
+        * A new unit systemd-networkd-wait-online@<interface>.service has been
+          added that can be used to wait for a specific network interface to be
+          up.
+
+        * systemd-networkd gained a new [Bridge] Isolated=true|false setting
+          that configures the eponymous kernel attribute on the bridge.
+
+        * .netdev files now can be used to create virtual WLAN devices, and
+          configure various settings on them, via the [WLAN] section.
+
+        * .link/.network files gained support for [Match] Kind= setting to match
+          on device kind ("bond", "bridge", "gre", "tun", "veth", etc.)
+
+          This value is also shown by 'networkctl status'.
+
+        * The Local= setting in .netdev files for various virtual network
+          devices gained support for specifying, in addition to the network
+          address, the name of a local interface which must have the specified
+          address.
+
+        * systemd-networkd gained a new [Tunnel] External= setting in .netdev
+          files, to configure tunnels in external mode (a.k.a. collect metadata
+          mode).
+
+        * [Network] L2TP= setting was removed. Please use interface specifier in
+          Local= setting in .netdev files of corresponding L2TP interface.
+
+        * New [DHCPServer] BootServerName=, BootServerAddress=, and
+          BootFilename= settings can be used to configure the server address,
+          server name, and file name sent in the DHCP packet (e.g. to configure
+          PXE boot).
+
+        Changes for resolved:
+
+        * systemd-resolved is started earlier (in sysinit.target), so it
+          available earlier and will also be started in the initrd if installed
+          there.
+
+        Changes for disk encryption:
+
+        * systemd-cryptenroll can now control whether to require the user to
+          enter a PIN when using TPM-based unlocking of a volume via the new
+          --tpm2-with-pin= option.
+
+          Option tpm2-pin= can be used in /etc/crypttab.
+
+        * When unlocking devices via TPM, TPM2 parameter encryption is now
+          used, to ensure that communication between CPU and discrete TPM chips
+          cannot be eavesdropped to acquire disk encryption keys.
+
+        Changes for hostnamed:
+
+        * HARDWARE_VENDOR= and HARDWARE_MODEL= can be set in /etc/machine-info
+          to override the values gleaned from the hwdb.
+
+        * A ID_CHASSIS property can be set in the hwdb (for the DMI device
+          /sys/class/dmi/id) to override the chassis that is reported by
+          hostnamed.
+
+        * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
+          for reading the hardware serial number, as reportd by DMI.
+
+        Changes for other components:
+
+        * /etc/locale.conf is now populated through tmpfiles.d factory /etc/
+          handling with the values that were configured during systemd build
+          (if /etc/locale.conf has not been created through some other
+          mechanism). This means that /etc/locale.conf should always have
+          reasonable contents and we avoid a potential mismatch in defaults.
 
         * The userdbctl tool will now show UID range information as part of the
           list of known users.
-
-        * systemctl's --timestamp= option gained a new choice "unix", to show
-          timestamp as unix times, i.e. seconds since 1970, Jan 1st.
-
-        * PID 1 gained support for configuring the "pre-timeout" of watchdog
-          devices and the associated governor, via the new
-          RuntimeWatchdogPreSec= and RuntimeWatchdogPreGovernor= configuration
-          options in /etc/systemd/system.conf.
-
-        * The kernel-install tool gained a new 'inspect' verb which shows the
-          paths and other settings used.
 
         Experimental features:
 
