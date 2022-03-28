@@ -1041,7 +1041,7 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
                 /* Assume that non-zero rta_expires means kernel will handle the route expiration. */
                 return 0;
 
-        r = event_reset_time(manager->event, &route->expire, clock_boottime_or_monotonic(),
+        r = event_reset_time(manager->event, &route->expire, CLOCK_BOOTTIME,
                              route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
         if (r < 0)
                 return r;
@@ -1179,7 +1179,7 @@ static int route_configure(const Route *route, Link *link, Request *req) {
 
         if (route->lifetime_usec != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(m, RTA_EXPIRES,
-                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(clock_boottime_or_monotonic())), USEC_PER_SEC), UINT32_MAX));
+                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(CLOCK_BOOTTIME)), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
                         return r;
         }

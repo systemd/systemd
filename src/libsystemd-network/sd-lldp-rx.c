@@ -69,7 +69,7 @@ static int lldp_rx_make_space(sd_lldp_rx *lldp_rx, size_t extra) {
                         goto remove_one;
 
                 if (t == USEC_INFINITY)
-                        t = now(clock_boottime_or_monotonic());
+                        t = now(CLOCK_BOOTTIME);
 
                 if (n->until > t)
                         break;
@@ -448,7 +448,7 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
                 return event_source_disable(lldp_rx->timer_event_source);
 
         return event_reset_time(lldp_rx->event, &lldp_rx->timer_event_source,
-                                clock_boottime_or_monotonic(),
+                                CLOCK_BOOTTIME,
                                 n->until, 0,
                                 on_timer_event, lldp_rx,
                                 lldp_rx->event_priority, "lldp-rx-timer", true);

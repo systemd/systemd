@@ -30,7 +30,7 @@ LICENSE:
         LGPL-2.1-or-later for all code, exceptions noted in LICENSES/README.md
 
 REQUIREMENTS:
-        Linux kernel >= 3.13
+        Linux kernel >= 3.15
         Linux kernel >= 4.2 for unified cgroup hierarchy support
         Linux kernel >= 4.10 for cgroup-bpf egress and ingress hooks
         Linux kernel >= 4.15 for cgroup-bpf device hook

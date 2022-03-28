@@ -181,7 +181,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
         assert(ra);
         assert(router_lifetime_is_valid(lifetime_usec));
 
-        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
 
@@ -321,7 +321,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(ra->event);
         assert(router_lifetime_is_valid(ra->lifetime_usec));
 
-        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 goto fail;
 
@@ -357,7 +357,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         log_radv(ra, "Next Router Advertisement in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              usec_add(time_now, timeout), MSEC_PER_SEC,
                              radv_timeout, ra,
                              ra->event_priority, "radv-timeout", true);
@@ -409,7 +409,7 @@ int sd_radv_start(sd_radv *ra) {
                 return 0;
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
-                             clock_boottime_or_monotonic(),
+                             CLOCK_BOOTTIME,
                              0, 0,
                              radv_timeout, ra,
                              ra->event_priority, "radv-timeout", true);

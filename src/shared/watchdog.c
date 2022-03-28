@@ -195,7 +195,7 @@ static int watchdog_ping_now(void) {
         if (ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0) < 0)
                 return log_warning_errno(errno, "Failed to ping hardware watchdog, ignoring: %m");
 
-        watchdog_last_ping = now(clock_boottime_or_monotonic());
+        watchdog_last_ping = now(CLOCK_BOOTTIME);
 
         return 0;
 }
@@ -411,7 +411,7 @@ usec_t watchdog_runtime_wait(void) {
 
         /* Sleep half the watchdog timeout since the last successful ping at most */
         if (timestamp_is_set(watchdog_last_ping)) {
-                usec_t ntime = now(clock_boottime_or_monotonic());
+                usec_t ntime = now(CLOCK_BOOTTIME);
 
                 assert(ntime >= watchdog_last_ping);
                 return usec_sub_unsigned(watchdog_last_ping + (timeout / 2), ntime);
@@ -430,7 +430,7 @@ int watchdog_ping(void) {
                 /* open_watchdog() will automatically ping the device for us if necessary */
                 return open_watchdog();
 
-        ntime = now(clock_boottime_or_monotonic());
+        ntime = now(CLOCK_BOOTTIME);
         timeout = calc_timeout();
 
         /* Never ping earlier than watchdog_timeout/4 and try to ping
