@@ -127,13 +127,16 @@ bool null_or_empty(struct stat *st) {
         return false;
 }
 
-int null_or_empty_path(const char *fn) {
+int null_or_empty_path_with_root(const char *fn, const char *root) {
         struct stat st;
 
         assert(fn);
 
-        /* If we have the path, let's do an easy text comparison first. */
-        if (path_equal(fn, "/dev/null"))
+        /* A symlink to /dev/null or an empty file?
+         * When looking under root_dir, we can't expect /dev/ to be mounted,
+         * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
+
+        if (path_equal_ptr(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
         if (stat(fn, &st) < 0)
