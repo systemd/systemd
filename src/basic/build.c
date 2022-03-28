@@ -160,6 +160,12 @@ const char* const systemd_features =
         " -QRENCODE"
 #endif
 
+#if HAVE_TPM2
+        " +TPM2"
+#else
+        " -TPM2"
+#endif
+
         /* compressors */
 
 #if HAVE_BZIP2
