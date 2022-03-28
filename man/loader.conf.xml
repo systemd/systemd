@@ -216,6 +216,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term>auto-enroll-keys</term>
+
+        <listitem><para>Takes a boolean argument. Enable or disable (the default) the auto enrollement
+        of secure boot keys. If this is enabled, the UEFI firmware is in setup-mode and a directory named
+        'auto' exists on the ESP under <filename>/loader/keys</filename> then the db, KEK and PK secure boot
+        variables are automatically loaded.
+
+        Note that even if it disabled, the bootloader will show entries allowing the user to manually load
+        secure boot variables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its

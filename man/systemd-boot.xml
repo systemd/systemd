@@ -55,6 +55,8 @@
       <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
+
+      <listitem><para>One or multiple options allowing for secure boot variables enrollement if the UEFI firmware is in setup-mode and files are provided on the ESP.</para></listitem>
     </itemizedlist>
 
     <para><command>systemd-boot</command> supports the following features:</para>
@@ -91,6 +93,9 @@
       <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
       with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
+
+      <listitem><para>The boot manager allows for secure boot variables to be enrolled if the UEFI firmware is
+      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
