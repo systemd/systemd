@@ -807,7 +807,7 @@ static int event_is_blocked(Event *event) {
         if (event->retry_again_next_usec > 0) {
                 usec_t now_usec;
 
-                r = sd_event_now(event->manager->event, clock_boottime_or_monotonic(), &now_usec);
+                r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
                 if (r < 0)
                         return r;
 
@@ -1013,7 +1013,7 @@ static int event_requeue(Event *event) {
         event->timeout_event = sd_event_source_disable_unref(event->timeout_event);
 
         /* add a short delay to suppress busy loop */
-        r = sd_event_now(event->manager->event, clock_boottime_or_monotonic(), &now_usec);
+        r = sd_event_now(event->manager->event, CLOCK_BOOTTIME, &now_usec);
         if (r < 0)
                 return log_device_warning_errno(event->dev, r,
                                                 "Failed to get current time, "

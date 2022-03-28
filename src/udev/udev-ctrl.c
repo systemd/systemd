@@ -356,7 +356,7 @@ int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout) {
 
         if (timeout != USEC_INFINITY) {
                 r = sd_event_add_time_relative(
-                                uctrl->event, &source_timeout, clock_boottime_or_monotonic(),
+                                uctrl->event, &source_timeout, CLOCK_BOOTTIME,
                                 timeout,
                                 0, NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)

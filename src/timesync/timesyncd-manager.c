@@ -130,7 +130,7 @@ static int manager_send_request(Manager *m) {
          * The actual value does not matter, We do not care about the correct
          * NTP UINT_MAX fraction; we just pass the plain nanosecond value.
          */
-        assert_se(clock_gettime(clock_boottime_or_monotonic(), &m->trans_time_mon) >= 0);
+        assert_se(clock_gettime(CLOCK_BOOTTIME, &m->trans_time_mon) >= 0);
         assert_se(clock_gettime(CLOCK_REALTIME, &m->trans_time) >= 0);
         ntpmsg.trans_time.sec = htobe32(graceful_add_offset_1900_1970(m->trans_time.tv_sec));
         ntpmsg.trans_time.frac = htobe32(m->trans_time.tv_nsec);
@@ -161,8 +161,8 @@ static int manager_send_request(Manager *m) {
                 r = sd_event_add_time(
                                 m->event,
                                 &m->event_timeout,
-                                clock_boottime_or_monotonic(),
-                                now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
+                                CLOCK_BOOTTIME,
+                                now(CLOCK_BOOTTIME) + TIMEOUT_USEC, 0,
                                 manager_timeout, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to arm timeout timer: %m");
@@ -200,7 +200,7 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         return sd_event_add_time_relative(
                         m->event,
                         &m->event_timer,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         next, 0,
                         manager_timer, m);
 }
@@ -799,7 +799,7 @@ int manager_connect(Manager *m) {
         if (!ratelimit_below(&m->ratelimit)) {
                 log_debug("Delaying attempts to contact servers.");
 
-                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), m->connection_retry_usec,
+                r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->connection_retry_usec,
                                                0, manager_retry_connect, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create retry timer: %m");
@@ -854,7 +854,7 @@ int manager_connect(Manager *m) {
 
                         if (restart && !m->exhausted_servers && m->poll_interval_usec) {
                                 log_debug("Waiting after exhausting servers.");
-                                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), m->poll_interval_usec, 0, manager_retry_connect, m);
+                                r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->poll_interval_usec, 0, manager_retry_connect, m);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -1165,7 +1165,7 @@ int manager_setup_save_time_event(Manager *m) {
         /* NB: we'll accumulate scheduling latencies here, but this doesn't matter */
         r = sd_event_add_time_relative(
                         m->event, &m->event_save_time,
-                        clock_boottime_or_monotonic(),
+                        CLOCK_BOOTTIME,
                         m->save_time_interval_usec,
                         10 * USEC_PER_SEC,
                         manager_save_time_handler, m);

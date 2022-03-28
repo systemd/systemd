@@ -375,7 +375,7 @@ static int wireguard_peer_resolve_handler(
         if (peer->n_retries > 0) {
                 r = event_reset_time_relative(netdev->manager->event,
                                               &peer->resolve_retry_event_source,
-                                              clock_boottime_or_monotonic(),
+                                              CLOCK_BOOTTIME,
                                               peer_next_resolve_usec(peer), 0,
                                               on_resolve_retry, peer, 0, "wireguard-resolve-retry", true);
                 if (r < 0)

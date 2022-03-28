@@ -4313,12 +4313,6 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
         if (!TRIPLE_TIMESTAMP_HAS_CLOCK(clock))
                 return -EOPNOTSUPP;
 
-        /* Generate a clean error in case CLOCK_BOOTTIME is not available. Note that don't use clock_supported() here,
-         * for a reason: there are systems where CLOCK_BOOTTIME is supported, but CLOCK_BOOTTIME_ALARM is not, but for
-         * the purpose of getting the time this doesn't matter. */
-        if (IN_SET(clock, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM) && !clock_boottime_supported())
-                return -EOPNOTSUPP;
-
         if (!triple_timestamp_is_set(&e->timestamp)) {
                 /* Implicitly fall back to now() if we never ran before and thus have no cached time. */
                 *usec = now(clock);

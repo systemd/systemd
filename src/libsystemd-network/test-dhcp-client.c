@@ -507,7 +507,7 @@ static void test_addr_acq(sd_event *e) {
 
         callback_recv = test_addr_acq_recv_discover;
 
-        assert_se(sd_event_add_time_relative(e, NULL, clock_boottime_or_monotonic(),
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
                                              NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
 
