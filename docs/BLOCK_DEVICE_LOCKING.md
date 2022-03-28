@@ -75,6 +75,13 @@ And please keep in mind: BSD file locks (`flock()`) and POSIX file locks
 orthogonal. The scheme discussed above uses the former and not the latter,
 because these types of locks more closely match the required semantics.
 
+A tool
+[`systemd-lockdev`](https://www.freedesktop.org/software/systemd/man/systemd-lockdev.html)
+is provided to lock block devices following this scheme from the command line,
+for the use in scripts and similar. (Note though that it's typically preferable
+to use native support for block device locking in tools where that's
+available.)
+
 Summarizing: it is recommended to take `LOCK_EX` BSD file locks when
 manipulating block devices in all tools that change file system block devices
 (`mkfs`, `fsck`, …) or partition tables (`fdisk`, `parted`, …), right after

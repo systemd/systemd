@@ -3254,6 +3254,15 @@ public_programs += executable(
         install_dir : rootbindir)
 
 public_programs += executable(
+        'systemd-lockdev',
+        'src/lockdev/lockdev.c',
+        include_directories : includes,
+        link_with : [libshared],
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootbindir)
+
+public_programs += executable(
         'systemd-creds',
         'src/creds/creds.c',
         include_directories : includes,
