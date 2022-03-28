@@ -246,7 +246,7 @@ RoutingAlgorithm=
 PartitionKey=
 Mode=
 IgnoreUserspaceMulticastGroups=
-[VirtualWLAN]
+[WLAN]
 PhysicalDevice=
 Type=
 WDS=

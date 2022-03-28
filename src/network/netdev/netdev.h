@@ -41,9 +41,9 @@
         "-VRF\0"                                  \
         "-VXCAN\0"                                \
         "-VXLAN\0"                                \
+        "-WLAN\0"                                 \
         "-WireGuard\0"                            \
         "-WireGuardPeer\0"                        \
-        "-VirtualWLAN\0"                          \
         "-Xfrm\0"
 
 typedef enum NetDevKind {
