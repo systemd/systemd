@@ -340,7 +340,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
         assert_return(path_is_normalized(sysname), -EINVAL);
 
         if (streq(subsystem, "subsystem")) {
-                FOREACH_STRING(s, "/sys/subsystem/", "/sys/bus/", "/sys/class/") {
+                FOREACH_STRING(s, "/sys/bus/", "/sys/class/") {
                         r = device_strjoin_new(s, sysname, NULL, NULL, ret);
                         if (r < 0)
                                 return r;
@@ -364,13 +364,11 @@ _public_ int sd_device_new_from_subsystem_sysname(
                         const char *subsys = memdupa_suffix0(sysname, sep - sysname);
                         sep++;
 
-                        FOREACH_STRING(s, "/sys/subsystem/", "/sys/bus/") {
-                                r = device_strjoin_new(s, subsys, "/drivers/", sep, ret);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        return 0;
-                        }
+                        r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
                 }
         }
 
@@ -380,13 +378,11 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 if (name[i] == '/')
                         name[i] = '!';
 
-        FOREACH_STRING(s, "/sys/subsystem/", "/sys/bus/") {
-                r = device_strjoin_new(s, subsystem, "/devices/", name, ret);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0;
-        }
+        r = device_strjoin_new("/sys/bus/", subsystem, "/devices/", name, ret);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
 
         r = device_strjoin_new("/sys/class/", subsystem, "/", name, ret);
         if (r < 0)
@@ -869,9 +865,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                         r = device_set_subsystem(device, "module");
                 else if (strstr(syspath, "/drivers/"))
                         r = device_set_drivers_subsystem(device);
-                else if (PATH_STARTSWITH_SET(device->devpath, "/subsystem/",
-                                                              "/class/",
-                                                              "/bus/"))
+                else if (PATH_STARTSWITH_SET(device->devpath, "/class/", "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
                 else {
                         device->subsystem_set = true;
