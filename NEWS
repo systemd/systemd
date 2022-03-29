@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 251 in spe:
+CHANGES WITH 251:
 
         Backwards-incompatible changes:
 
@@ -410,6 +410,34 @@ CHANGES WITH 251 in spe:
           installation itself, or container images, portable service images,
           and other assets. See the new systemd-sysupdate man page for updates.
 
+        Contributions from: 4piu, Adam Williamson, adrian5, Albert Brox,
+        AlexCatze, Alfonso Sánchez-Beato, Alvin Šipraga, Andrea Pappacoda,
+        Andy Chi, Anita Zhang, Antonio Alvarez Feijoo,
+        Arfrever Frehtes Taifersar Arahesis, ash, Bastien Nocera, Be,
+        bearhoney, Benjamin Berg, Christian Brauner, Clyde Byrd III,
+        Curtis Klein, Daan De Meyer, Danilo Krummrich, David, David Bond,
+        Davide Cavalca, David Tardon, dependabot[bot], Donald Chan,
+        Dorian Clay, Eduard Tolosa, Erik Sjölund, Evgeny Vereshchagin,
+        Federico Ceratto, Franck Bui, Frantisek Sumsal, Gaël PORTAY,
+        Georges Basile Stavracas Neto, Goffredo Baroncelli, Grigori Goronzy,
+        Hans de Goede, Heiko Becker, Hugo Carvalho, James Hilliard,
+        Jan Janssen, Jason A. Donenfeld, Joan Bruguera, Joerie de Gram,
+        Josh Triplett, Julia Kartseva, ksa678491784, Lan Tian, Laura Barcziova,
+        Lennart Poettering, Leviticoh, licunlong, Lidong Zhong, lincoln auster,
+        Lubomir Rintel, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
+        Marcel Hellwig, march1993, Marco Scardovi, Markus Weippert,
+        Martin Wilck, Matija Skala, Matthias Lisin, Matt Walton, Max Gautier,
+        Michael Biebl, Michael Olbrich, Michal Koutný, Mike Gilbert,
+        Morten Linderud, Nishal Kulkarni, Noel Kuntze, Peter Hutterer,
+        Peter Morrow, Pigmy-penguin, prumian, Richard Neill,
+        Rike-Benjamin Schuppner, Romain Naour, Ruben Kerkhof, Ryan Hendrickson,
+        Santa Wiryaman, Seth Falco, Stephen Hemminger, tawefogo,
+        Temuri Doghonadze, Thomas Batten, Thomas Haller, Tobias Stoeckmann,
+        Tyson Whitehead, Vishal Chillara Srinivas, Vivien Didelot, Weblate,
+        Xiaotian Wu, yangmingtai, YmrDtnJu, Yonathan Randolph, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, наб
+
+        — Warsaw, 2022-03---
 
 CHANGES WITH 250:
 
