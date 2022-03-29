@@ -5,7 +5,7 @@ import sys
 from pyparsing import (Word, White, Literal, Regex,
                        LineEnd, SkipTo,
                        ZeroOrMore, OneOrMore, Combine, Optional, Suppress,
-                       Group,
+                       Group, ParserElement,
                        stringEnd, pythonStyleComment)
 
 EOL = LineEnd().suppress()
@@ -18,6 +18,8 @@ TAB = White('\t', exact=1).suppress()
 COMMENTLINE = pythonStyleComment + EOL
 EMPTYLINE = LineEnd()
 text_eol = lambda name: Regex(r'[^\n]+')(name) + EOL
+
+ParserElement.set_default_whitespace_chars(' \n')
 
 def klass_grammar():
     klass_line = Literal('C ').suppress() + NUM2('klass') + text_eol('text')
@@ -34,8 +36,12 @@ def klass_grammar():
 def usb_ids_grammar():
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
+    interface_line = TAB + TAB + NUM4('interface') + NUM4('interface2') + text_eol('text')
+    device = (device_line +
+              ZeroOrMore(Group(interface_line)
+                         ^ COMMENTLINE.suppress()))
     vendor = (vendor_line('VENDOR') +
-              ZeroOrMore(Group(device_line)('VENDOR_DEV*') ^ COMMENTLINE.suppress()))
+              ZeroOrMore(Group(device)('VENDOR_DEV*') ^ COMMENTLINE.suppress()))
 
     klass = klass_grammar()
 
