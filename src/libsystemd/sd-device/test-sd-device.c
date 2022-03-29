@@ -38,8 +38,10 @@ static void test_sd_device_one(sd_device *d) {
                         assert_se(sd_device_get_syspath(dev, &val) >= 0);
                         assert_se(streq(syspath, val));
                         dev = sd_device_unref(dev);
-                } else
+                } else {
+                        log_device_warning_errno(d, r, "Failed to create sd-device object from '%s': %m", devname);
                         assert_se(ERRNO_IS_PRIVILEGE(r));
+                }
 
                 r = sd_device_new_from_path(&dev, devname);
                 if (r >= 0) {
