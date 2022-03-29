@@ -89,7 +89,7 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
-UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+LookupScope arg_scope = LOOKUP_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = RECURSIVE_ERRORS_YES;
 bool arg_man = true;
 bool arg_generators = false;
@@ -114,7 +114,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
-        bool user = arg_scope != UNIT_FILE_SYSTEM;
+        bool user = arg_scope != LOOKUP_SCOPE_SYSTEM;
         int r;
 
         if (use_full_bus && *use_full_bus) {
@@ -351,15 +351,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SYSTEM:
-                        arg_scope = UNIT_FILE_SYSTEM;
+                        arg_scope = LOOKUP_SCOPE_SYSTEM;
                         break;
 
                 case ARG_USER:
-                        arg_scope = UNIT_FILE_USER;
+                        arg_scope = LOOKUP_SCOPE_USER;
                         break;
 
                 case ARG_GLOBAL:
-                        arg_scope = UNIT_FILE_GLOBAL;
+                        arg_scope = LOOKUP_SCOPE_GLOBAL;
                         break;
 
                 case ARG_ORDER:
@@ -500,12 +500,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
 
-        if (arg_scope == UNIT_FILE_GLOBAL &&
+        if (arg_scope == LOOKUP_SCOPE_GLOBAL &&
             !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --global only makes sense with verbs dot, unit-paths, verify.");
 
-        if (streq_ptr(argv[optind], "cat-config") && arg_scope == UNIT_FILE_USER)
+        if (streq_ptr(argv[optind], "cat-config") && arg_scope == LOOKUP_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
 

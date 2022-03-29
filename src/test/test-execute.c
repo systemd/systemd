@@ -1117,7 +1117,7 @@ typedef struct test_entry {
 
 #define entry(x) {x, #x}
 
-static int run_tests(UnitFileScope scope, const test_entry tests[], char **patterns) {
+static int run_tests(LookupScope scope, const test_entry tests[], char **patterns) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -1239,11 +1239,11 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
 
-        r = run_tests(UNIT_FILE_USER, user_tests, argv + 1);
+        r = run_tests(LOOKUP_SCOPE_USER, user_tests, argv + 1);
         if (r != 0)
                 return r;
 
-        r = run_tests(UNIT_FILE_SYSTEM, system_tests, argv + 1);
+        r = run_tests(LOOKUP_SCOPE_SYSTEM, system_tests, argv + 1);
         if (r != 0)
                 return r;
 
@@ -1265,11 +1265,11 @@ int main(int argc, char *argv[]) {
 
         can_unshare = false;
 
-        r = run_tests(UNIT_FILE_USER, user_tests, argv + 1);
+        r = run_tests(LOOKUP_SCOPE_USER, user_tests, argv + 1);
         if (r != 0)
                 return r;
 
-        return run_tests(UNIT_FILE_SYSTEM, system_tests, argv + 1);
+        return run_tests(LOOKUP_SCOPE_SYSTEM, system_tests, argv + 1);
 #else
         return 0;
 #endif
