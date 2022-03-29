@@ -210,8 +210,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash
 static void manager_clear_for_worker(Manager *manager) {
         assert(manager);
 
-        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
-        manager->kill_workers_event = sd_event_source_disable_unref(manager->kill_workers_event);
+        /* Do not use sd_event_source_disable_unref() here, as this is called by both workers and the
+         * main process. */
+        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
+        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
 
         manager->event = sd_event_unref(manager->event);
 
