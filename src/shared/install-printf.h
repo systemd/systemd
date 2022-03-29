@@ -5,7 +5,7 @@
 #include "unit-name.h"
 
 int install_name_printf(
-                UnitFileScope scope,
+                LookupScope scope,
                 const UnitFileInstallInfo *info,
                 const char *format,
                 char **ret);

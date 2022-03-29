@@ -66,7 +66,7 @@ char **arg_properties = NULL;
 bool arg_all = false;
 enum dependency arg_dependency = DEPENDENCY_FORWARD;
 const char *_arg_job_mode = NULL;
-UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
+LookupScope arg_scope = LOOKUP_SCOPE_SYSTEM;
 bool arg_wait = false;
 bool arg_no_block = false;
 int arg_legend = -1; /* -1: true, unless --quiet is passed, 1: true */
@@ -616,15 +616,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_scope = UNIT_FILE_USER;
+                        arg_scope = LOOKUP_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_scope = UNIT_FILE_SYSTEM;
+                        arg_scope = LOOKUP_SCOPE_SYSTEM;
                         break;
 
                 case ARG_GLOBAL:
-                        arg_scope = UNIT_FILE_GLOBAL;
+                        arg_scope = LOOKUP_SCOPE_GLOBAL;
                         break;
 
                 case ARG_WAIT:
@@ -924,10 +924,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
          * passwords */
-        if (arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
                 arg_ask_password = false;
 
-        if (arg_transport == BUS_TRANSPORT_REMOTE && arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_transport == BUS_TRANSPORT_REMOTE && arg_scope != LOOKUP_SCOPE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot access user instance remotely.");
 

@@ -18,11 +18,11 @@
 #include "id128-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-file.h"
 #include "user-util.h"
 
 /*
@@ -310,15 +310,15 @@ int specifier_os_image_version(char specifier, const void *data, const char *roo
 }
 
 int specifier_group_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        UnitFileScope scope = PTR_TO_INT(data);
+        LookupScope scope = PTR_TO_INT(data);
         char *t;
 
         assert(ret);
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EINVAL;
 
-        t = gid_to_name(scope == UNIT_FILE_USER ? getgid() : 0);
+        t = gid_to_name(scope == LOOKUP_SCOPE_USER ? getgid() : 0);
         if (!t)
                 return -ENOMEM;
 
@@ -327,15 +327,15 @@ int specifier_group_name(char specifier, const void *data, const char *root, con
 }
 
 int specifier_group_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        UnitFileScope scope = PTR_TO_INT(data);
+        LookupScope scope = PTR_TO_INT(data);
         gid_t gid;
 
         assert(ret);
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EINVAL;
 
-        gid = scope == UNIT_FILE_USER ? getgid() : 0;
+        gid = scope == LOOKUP_SCOPE_USER ? getgid() : 0;
 
         if (asprintf(ret, UID_FMT, gid) < 0)
                 return -ENOMEM;
@@ -344,16 +344,16 @@ int specifier_group_id(char specifier, const void *data, const char *root, const
 }
 
 int specifier_user_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        UnitFileScope scope = PTR_TO_INT(data);
+        LookupScope scope = PTR_TO_INT(data);
         uid_t uid;
         char *t;
 
         assert(ret);
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EINVAL;
 
-        uid = scope == UNIT_FILE_USER ? getuid() : 0;
+        uid = scope == LOOKUP_SCOPE_USER ? getuid() : 0;
 
         /* If we are UID 0 (root), this will not result in NSS, otherwise it might. This is good, as we want
          * to be able to run this in PID 1, where our user ID is 0, but where NSS lookups are not allowed.
@@ -371,15 +371,15 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
 }
 
 int specifier_user_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        UnitFileScope scope = PTR_TO_INT(data);
+        LookupScope scope = PTR_TO_INT(data);
         uid_t uid;
 
         assert(ret);
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EINVAL;
 
-        uid = scope == UNIT_FILE_USER ? getuid() : 0;
+        uid = scope == LOOKUP_SCOPE_USER ? getuid() : 0;
 
         if (asprintf(ret, UID_FMT, uid) < 0)
                 return -ENOMEM;

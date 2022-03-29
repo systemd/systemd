@@ -4,12 +4,11 @@
 #include <stdbool.h>
 
 #include "hashmap.h"
+#include "path-lookup.h"
 #include "time-util.h"
 #include "unit-name.h"
 
 typedef enum UnitFileState UnitFileState;
-typedef enum UnitFileScope UnitFileScope;
-typedef struct LookupPaths LookupPaths;
 
 enum UnitFileState {
         UNIT_FILE_ENABLED,
@@ -27,14 +26,6 @@ enum UnitFileState {
         UNIT_FILE_BAD,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -EINVAL,
-};
-
-enum UnitFileScope {
-        UNIT_FILE_SYSTEM,
-        UNIT_FILE_GLOBAL,
-        UNIT_FILE_USER,
-        _UNIT_FILE_SCOPE_MAX,
-        _UNIT_FILE_SCOPE_INVALID = -EINVAL,
 };
 
 bool unit_type_may_alias(UnitType type) _const_;

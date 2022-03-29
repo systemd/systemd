@@ -74,7 +74,7 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         return r;
 }
 
-static int verify_conditions(char **lines, UnitFileScope scope, const char *unit, const char *root) {
+static int verify_conditions(char **lines, LookupScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r, q = 1;

@@ -232,7 +232,7 @@ bool path_is_user_config_dir(const char *path) {
 }
 
 static int acquire_generator_dirs(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *tempdir,
                 char **generator,
                 char **generator_early,
@@ -244,17 +244,17 @@ static int acquire_generator_dirs(
         assert(generator);
         assert(generator_early);
         assert(generator_late);
-        assert(IN_SET(scope, UNIT_FILE_SYSTEM, UNIT_FILE_USER, UNIT_FILE_GLOBAL));
+        assert(IN_SET(scope, LOOKUP_SCOPE_SYSTEM, LOOKUP_SCOPE_USER, LOOKUP_SCOPE_GLOBAL));
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EOPNOTSUPP;
 
         if (tempdir)
                 prefix = tempdir;
-        else if (scope == UNIT_FILE_SYSTEM)
+        else if (scope == LOOKUP_SCOPE_SYSTEM)
                 prefix = "/run/systemd";
         else {
-                /* UNIT_FILE_USER */
+                /* LOOKUP_SCOPE_USER */
                 const char *e;
 
                 e = getenv("XDG_RUNTIME_DIR");
@@ -288,21 +288,21 @@ static int acquire_generator_dirs(
 }
 
 static int acquire_transient_dir(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *tempdir,
                 char **ret) {
 
         char *transient;
 
         assert(ret);
-        assert(IN_SET(scope, UNIT_FILE_SYSTEM, UNIT_FILE_USER, UNIT_FILE_GLOBAL));
+        assert(IN_SET(scope, LOOKUP_SCOPE_SYSTEM, LOOKUP_SCOPE_USER, LOOKUP_SCOPE_GLOBAL));
 
-        if (scope == UNIT_FILE_GLOBAL)
+        if (scope == LOOKUP_SCOPE_GLOBAL)
                 return -EOPNOTSUPP;
 
         if (tempdir)
                 transient = path_join(tempdir, "transient");
-        else if (scope == UNIT_FILE_SYSTEM)
+        else if (scope == LOOKUP_SCOPE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
         else
                 return xdg_user_runtime_dir(ret, "/systemd/transient");
@@ -313,7 +313,7 @@ static int acquire_transient_dir(
         return 0;
 }
 
-static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **runtime) {
+static int acquire_config_dirs(LookupScope scope, char **persistent, char **runtime) {
         _cleanup_free_ char *a = NULL, *b = NULL;
         int r;
 
@@ -322,17 +322,17 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
 
         switch (scope) {
 
-        case UNIT_FILE_SYSTEM:
+        case LOOKUP_SCOPE_SYSTEM:
                 a = strdup(SYSTEM_CONFIG_UNIT_DIR);
                 b = strdup("/run/systemd/system");
                 break;
 
-        case UNIT_FILE_GLOBAL:
+        case LOOKUP_SCOPE_GLOBAL:
                 a = strdup(USER_CONFIG_UNIT_DIR);
                 b = strdup("/run/systemd/user");
                 break;
 
-        case UNIT_FILE_USER:
+        case LOOKUP_SCOPE_USER:
                 r = xdg_user_config_dir(&a, "/systemd/user");
                 if (r < 0 && r != -ENXIO)
                         return r;
@@ -364,7 +364,7 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
         return 0;
 }
 
-static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **runtime) {
+static int acquire_control_dirs(LookupScope scope, char **persistent, char **runtime) {
         _cleanup_free_ char *a = NULL;
         int r;
 
@@ -373,7 +373,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
 
         switch (scope) {
 
-        case UNIT_FILE_SYSTEM:  {
+        case LOOKUP_SCOPE_SYSTEM:  {
                 _cleanup_free_ char *b = NULL;
 
                 a = strdup("/etc/systemd/system.control");
@@ -389,7 +389,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 break;
         }
 
-        case UNIT_FILE_USER:
+        case LOOKUP_SCOPE_USER:
                 r = xdg_user_config_dir(&a, "/systemd/user.control");
                 if (r < 0 && r != -ENXIO)
                         return r;
@@ -406,7 +406,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
 
                 break;
 
-        case UNIT_FILE_GLOBAL:
+        case LOOKUP_SCOPE_GLOBAL:
                 return -EOPNOTSUPP;
 
         default:
@@ -419,7 +419,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
 }
 
 static int acquire_attached_dirs(
-                UnitFileScope scope,
+                LookupScope scope,
                 char **ret_persistent,
                 char **ret_runtime) {
 
@@ -429,7 +429,7 @@ static int acquire_attached_dirs(
         assert(ret_runtime);
 
         /* Portable services are not available to regular users for now. */
-        if (scope != UNIT_FILE_SYSTEM)
+        if (scope != LOOKUP_SCOPE_SYSTEM)
                 return -EOPNOTSUPP;
 
         a = strdup("/etc/systemd/system.attached");
@@ -509,7 +509,7 @@ static int get_paths_from_environ(const char *var, char ***paths, bool *append) 
 
 int lookup_paths_init(
                 LookupPaths *lp,
-                UnitFileScope scope,
+                LookupScope scope,
                 LookupPathsFlags flags,
                 const char *root_dir) {
 
@@ -528,14 +528,14 @@ int lookup_paths_init(
 
         assert(lp);
         assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(scope < _LOOKUP_SCOPE_MAX);
 
 #if HAVE_SPLIT_USR
         flags |= LOOKUP_PATHS_SPLIT_USR;
 #endif
 
         if (!empty_or_root(root_dir)) {
-                if (scope == UNIT_FILE_USER)
+                if (scope == LOOKUP_SCOPE_USER)
                         return -EINVAL;
 
                 r = is_dir(root_dir, true);
@@ -560,8 +560,8 @@ int lookup_paths_init(
         if (r < 0)
                 return r;
 
-        if (scope == UNIT_FILE_USER) {
-                r = acquire_config_dirs(UNIT_FILE_GLOBAL, &global_persistent_config, &global_runtime_config);
+        if (scope == LOOKUP_SCOPE_USER) {
+                r = acquire_config_dirs(LOOKUP_SCOPE_GLOBAL, &global_persistent_config, &global_runtime_config);
                 if (r < 0)
                         return r;
         }
@@ -606,7 +606,7 @@ int lookup_paths_init(
 
                 switch (scope) {
 
-                case UNIT_FILE_SYSTEM:
+                case LOOKUP_SCOPE_SYSTEM:
                         add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemdsystemunitpath= in systemd.pc.in! */
@@ -629,7 +629,7 @@ int lookup_paths_init(
                                         STRV_IFNOTNULL(generator_late));
                         break;
 
-                case UNIT_FILE_GLOBAL:
+                case LOOKUP_SCOPE_GLOBAL:
                         add = strv_new(
                                         /* If you modify this you also want to modify
                                          * systemduserunitpath= in systemd.pc.in, and
@@ -652,7 +652,7 @@ int lookup_paths_init(
                                         STRV_IFNOTNULL(generator_late));
                         break;
 
-                case UNIT_FILE_USER:
+                case LOOKUP_SCOPE_USER:
                         add = user_dirs(persistent_config, runtime_config,
                                         global_persistent_config, global_runtime_config,
                                         generator, generator_early, generator_late,
@@ -741,7 +741,7 @@ int lookup_paths_init(
         return 0;
 }
 
-int lookup_paths_init_or_warn(LookupPaths *lp, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir) {
+int lookup_paths_init_or_warn(LookupPaths *lp, LookupScope scope, LookupPathsFlags flags, const char *root_dir) {
         int r;
 
         r = lookup_paths_init(lp, scope, flags, root_dir);
@@ -790,7 +790,7 @@ void lookup_paths_log(LookupPaths *lp) {
         }
 }
 
-char **generator_binary_paths(UnitFileScope scope) {
+char **generator_binary_paths(LookupScope scope) {
         bool append = false; /* Add items from SYSTEMD_GENERATOR_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         int r;
@@ -805,15 +805,15 @@ char **generator_binary_paths(UnitFileScope scope) {
 
                 switch (scope) {
 
-                case UNIT_FILE_SYSTEM:
+                case LOOKUP_SCOPE_SYSTEM:
                         add = strv_new("/run/systemd/system-generators",
                                        "/etc/systemd/system-generators",
                                        "/usr/local/lib/systemd/system-generators",
                                        SYSTEM_GENERATOR_DIR);
                         break;
 
-                case UNIT_FILE_GLOBAL:
-                case UNIT_FILE_USER:
+                case LOOKUP_SCOPE_GLOBAL:
+                case LOOKUP_SCOPE_USER:
                         add = strv_new("/run/systemd/user-generators",
                                        "/etc/systemd/user-generators",
                                        "/usr/local/lib/systemd/user-generators",

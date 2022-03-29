@@ -2938,7 +2938,7 @@ static int parse_line(
                 { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
                 { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
 
-                COMMON_CREDS_SPECIFIERS(arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM),
+                COMMON_CREDS_SPECIFIERS(arg_user ? LOOKUP_SCOPE_USER : LOOKUP_SCOPE_SYSTEM),
                 COMMON_TMP_SPECIFIERS,
                 {}
         };

@@ -246,10 +246,10 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
 int verb_start_system_special(int argc, char *argv[], void *userdata) {
         /* Like start_special above, but raises an error when running in user mode */
 
-        if (arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Bad action for %s mode.",
-                                       arg_scope == UNIT_FILE_GLOBAL ? "--global" : "--user");
+                                       arg_scope == LOOKUP_SCOPE_GLOBAL ? "--global" : "--user");
 
         return verb_start_special(argc, argv, userdata);
 }

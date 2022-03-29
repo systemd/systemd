@@ -116,7 +116,7 @@ int enable_sysv_units(const char *verb, char **args) {
 
         /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
 
-        if (arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
                 return 0;
 
         if (getenv_bool("SYSTEMCTL_SKIP_SYSV") > 0)

@@ -762,7 +762,7 @@ static void print_status_info(
                                 getuid(),
                                 get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                 SD_JOURNAL_LOCAL_ONLY,
-                                arg_scope == UNIT_FILE_SYSTEM,
+                                arg_scope == LOOKUP_SCOPE_SYSTEM,
                                 ellipsized);
 
         if (i->need_daemon_reload)
