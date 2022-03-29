@@ -46,7 +46,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
         if (!buses[focus]) {
                 bool user;
 
-                user = arg_scope != UNIT_FILE_SYSTEM;
+                user = arg_scope != LOOKUP_SCOPE_SYSTEM;
 
                 if (focus == BUS_MANAGER)
                         r = bus_connect_transport_systemd(arg_transport, arg_host, user, &buses[focus]);
@@ -73,7 +73,7 @@ void ask_password_agent_open_maybe(void) {
         if (arg_dry_run)
                 return;
 
-        if (arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
                 return;
 
         ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -82,7 +82,7 @@ void ask_password_agent_open_maybe(void) {
 void polkit_agent_open_maybe(void) {
         /* Open the polkit agent as a child process if necessary */
 
-        if (arg_scope != UNIT_FILE_SYSTEM)
+        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
                 return;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -380,7 +380,7 @@ void warn_unit_file_changed(const char *unit) {
                     ansi_highlight_red(),
                     ansi_normal(),
                     unit,
-                    arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+                    arg_scope == LOOKUP_SCOPE_SYSTEM ? "" : " --user");
 }
 
 int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
@@ -814,7 +814,7 @@ bool install_client_side(void) {
         if (!isempty(arg_root))
                 return true;
 
-        if (arg_scope == UNIT_FILE_GLOBAL)
+        if (arg_scope == LOOKUP_SCOPE_GLOBAL)
                 return true;
 
         /* Unsupported environment variable, mostly for debugging purposes */
