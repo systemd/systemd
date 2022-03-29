@@ -648,7 +648,8 @@ check_alias N 'some-some-link6@'
 
 check_alias p 'some-some-link6'
 
-check_alias v "$(uname -r)"
+uname -r | grep -q '[^a-zA-Z0-9_.\\-]' || \
+    check_alias v "$(uname -r)"
 
 # % is not legal in unit name
 ( ! check_alias % '%' )
