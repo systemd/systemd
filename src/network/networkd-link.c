@@ -1636,6 +1636,8 @@ static int link_carrier_lost_handler(sd_event_source *s, uint64_t usec, void *us
 }
 
 static int link_carrier_lost(Link *link) {
+        uint16_t dhcp_mtu;
+        usec_t usec;
         int r;
 
         assert(link);
@@ -1651,16 +1653,38 @@ static int link_carrier_lost(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->ignore_carrier_loss_usec == USEC_INFINITY)
+        if (link->network->ignore_carrier_loss_set)
+                /* If IgnoreCarrierLoss= is explicitly specified, then use the specified value. */
+                usec = link->network->ignore_carrier_loss_usec;
+
+        else if (link->network->bond && link->wlan_iftype > 0)
+                /* Enslaving wlan interface to a bond disconnects from the connected AP, and causes its
+                 * carrier to be lost. See #19832. */
+                usec = 3 * USEC_PER_SEC;
+
+        else if (link->network->dhcp_use_mtu &&
+                 link->dhcp_lease &&
+                 sd_dhcp_lease_get_mtu(link->dhcp_lease, &dhcp_mtu) >= 0 &&
+                 dhcp_mtu != link->original_mtu)
+                /* Some drivers reset interfaces when changing MTU. Resetting interfaces by the static
+                 * MTU should not cause any issues, as MTU is changed only once. However, setting MTU
+                 * through DHCP lease causes an infinite loop of resetting the interface. See #18738. */
+                usec = 5 * USEC_PER_SEC;
+
+        else
+                /* Otherwise, use the currently set value. */
+                usec = link->network->ignore_carrier_loss_usec;
+
+        if (usec == USEC_INFINITY)
                 return 0;
 
-        if (link->network->ignore_carrier_loss_usec == 0)
+        if (usec == 0)
                 return link_carrier_lost_impl(link);
 
         return event_reset_time_relative(link->manager->event,
                                          &link->carrier_lost_timer,
                                          CLOCK_BOOTTIME,
-                                         link->network->ignore_carrier_loss_usec,
+                                         usec,
                                          0,
                                          link_carrier_lost_handler,
                                          link,

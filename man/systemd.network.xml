@@ -917,17 +917,36 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IgnoreCarrierLoss=</varname></term>
         <listitem>
-          <para>Takes a boolean or a timespan. When true, networkd retains both the static and dynamic
-          configuration of the interface even if its carrier is lost. When a timespan is specified,
-          networkd waits for the specified timespan, and ignores the carrier loss if the link regain
-          its carrier within the timespan. Setting a finite timespan may be useful for a wireless
-          interface connecting to a network which has multiple access points with the same SSID, or an
-          interface which is reset on changing MTU. When unset, the value specified with
-          <varname>ConfigureWithoutCarrier=</varname> is used.</para>
+          <para>Takes a boolean or a timespan. When true, <command>systemd-networkd</command> retains
+          both the static and dynamic configuration of the interface even if its carrier is lost. When
+          false, <command>systemd-networkd</command> drops both the static and dynamic configuration of
+          the interface. When a timespan is specified, <command>systemd-networkd</command> waits for
+          the specified timespan, and ignores the carrier loss if the link regain its carrier within
+          the timespan. Setting 0 seconds is equivalent to <literal>no</literal>, and
+          <literal>infinite</literal> is equivalent to <literal>yes</literal>.</para>
 
-          <para>When <varname>ActivationPolicy=</varname> is set to <literal>always-up</literal>, this
-          is forced to <literal>true</literal>.
+          <para>Setting a finite timespan may be useful when e.g. in the following cases:
+          <itemizedlist>
+            <listitem>
+              <para>A wireless interface connecting to a network which has multiple access points with
+              the same SSID.</para>
+            </listitem>
+            <listitem>
+              <para>Enslaving a wireless interface to a bond interface, which may disconnect from the
+              connected access point and causes its carrier to be lost.</para>
+            </listitem>
+            <listitem>
+              <para>The driver of the interface resets when the MTU is changed.</para>
+            </listitem>
+          </itemizedlist>
           </para>
+
+          <para>When <varname>Bond=</varname> is specified to a wireless interface, defaults to 3
+          seconds. When the DHCPv4 client is enabled and <varname>UseMTU=</varname> in the [DHCPv4]
+          sectionis enabled, defaults to 5 seconds. Otherwise, defaults to the value specified with
+          <varname>ConfigureWithoutCarrier=</varname>. When <varname>ActivationPolicy=</varname> is set
+          to <literal>always-up</literal>, this is forced to <literal>yes</literal>, and ignored any
+          user specified values.</para>
         </listitem>
       </varlistentry>
 
