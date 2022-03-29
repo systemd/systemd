@@ -1064,6 +1064,12 @@ static uint64_t cgroup_weight_io_to_blkio(uint64_t io_weight) {
 }
 
 static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t io_weight) {
+        static const char * const prop_names[] = {
+                "IOWeight",
+                "BlockIOWeight",
+                "IODeviceWeight",
+                "BlockIODeviceWeight",
+        };
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+STRLEN("\n")];
         const char *p;
         uint64_t bfq_weight;
@@ -1081,9 +1087,8 @@ static void set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t 
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
         if (set_attribute_and_warn(u, controller, p, buf) >= 0 && io_weight != bfq_weight)
-                log_unit_debug(u, "%sIO%sWeight=%" PRIu64 " scaled to %s=%" PRIu64,
-                               streq(controller, "blkio") ? "Block" : "",
-                               major(dev) > 0 ? "Device" : "",
+                log_unit_debug(u, "%s=%" PRIu64 " scaled to %s=%" PRIu64,
+                               prop_names[2*(major(dev) > 0) + streq(controller, "blkio")],
                                io_weight, p, bfq_weight);
 }
 
