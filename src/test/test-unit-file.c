@@ -35,7 +35,7 @@ TEST(unit_file_build_name_map) {
 
         ids = strv_skip(saved_argv, 1);
 
-        assert_se(lookup_paths_init(&lp, UNIT_FILE_SYSTEM, 0, NULL) >= 0);
+        assert_se(lookup_paths_init(&lp, LOOKUP_SCOPE_SYSTEM, 0, NULL) >= 0);
 
         assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL) == 1);
 
