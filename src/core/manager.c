@@ -775,13 +775,13 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         return 0;
 }
 
-int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
+int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         const char *e;
         int r;
 
         assert(_m);
-        assert(IN_SET(scope, UNIT_FILE_SYSTEM, UNIT_FILE_USER));
+        assert(IN_SET(scope, LOOKUP_SCOPE_SYSTEM, LOOKUP_SCOPE_USER));
 
         m = new(Manager, 1);
         if (!m)
@@ -1700,7 +1700,7 @@ static void manager_preset_all(Manager *m) {
                 return;
 
         /* If this is the first boot, and we are in the host system, then preset everything */
-        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        r = unit_file_preset_all(LOOKUP_SCOPE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -1751,11 +1751,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
-        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope,
-                              MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
-                              root);
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope,
+                                      MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
+                                      root);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize path lookup table: %m");
+                return r;
 
         dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_START));
         r = manager_run_environment_generators(m);
@@ -3343,9 +3343,9 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope, 0, NULL);
         if (r < 0)
-                log_warning_errno(r, "Failed to initialize path lookup table, ignoring: %m");
+                return r;
 
         (void) manager_run_environment_generators(m);
         (void) manager_run_generators(m);

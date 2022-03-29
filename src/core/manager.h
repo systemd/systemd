@@ -235,7 +235,7 @@ struct Manager {
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
 
-        UnitFileScope unit_file_scope;
+        LookupScope unit_file_scope;
         LookupPaths lookup_paths;
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
@@ -463,8 +463,8 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         return m->default_timeout_abort_set ? m->default_timeout_abort_usec : m->default_timeout_stop_usec;
 }
 
-#define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
-#define MANAGER_IS_USER(m) ((m)->unit_file_scope != UNIT_FILE_SYSTEM)
+#define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == LOOKUP_SCOPE_SYSTEM)
+#define MANAGER_IS_USER(m) ((m)->unit_file_scope != LOOKUP_SCOPE_SYSTEM)
 
 #define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
 
@@ -475,7 +475,7 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 #define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
 
-int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
+int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

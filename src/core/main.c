@@ -2885,7 +2885,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+        r = manager_new(arg_system ? LOOKUP_SCOPE_SYSTEM : LOOKUP_SCOPE_USER,
                         arg_action == ACTION_TEST ? MANAGER_TEST_FULL : 0,
                         &m);
         if (r < 0) {
