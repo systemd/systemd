@@ -3784,6 +3784,12 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
+        if (sd_bus_message_is_signal(message, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(message, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
         if (m->action_job && streq(m->action_job, path)) {
                 assert(m->delayed_action);
                 log_info("Operation '%s' finished.", inhibit_what_to_string(m->delayed_action->inhibit_what));

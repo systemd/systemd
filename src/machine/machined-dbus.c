@@ -1346,6 +1346,12 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
+        if (sd_bus_message_is_signal(message, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(message, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
         machine = hashmap_get(m->machine_units, unit);
         if (!machine)
                 return 0;
