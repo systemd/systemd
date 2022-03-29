@@ -68,7 +68,7 @@ CHANGES WITH 251 in spe:
           (as exposed via the SystemCallFilter= setting in service unit files).
           It is apparently used by the linker now.
 
-        Changes for Boot Loader Specification, kernel-install and sd-boot:
+        Changes in the Boot Loader Specification, kernel-install and sd-boot:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
           entry generation logic has been reworked. The user may now pick
@@ -123,6 +123,11 @@ CHANGES WITH 251 in spe:
           os-release. Together, this means that on multiboot installations,
           entries should be grouped and sorted in a predictable way.
 
+        * The sort order of boot entries has been updated: entries which have
+          the new field sort-key= are sorted by it first, and all entries
+          without it are ordered later. After that, entries are sorted by
+          version so that newest entries are towards the beginning of the list.
+
         * The kernel-install tool gained a new 'inspect' verb which shows the
           paths and other settings used.
 
@@ -139,7 +144,7 @@ CHANGES WITH 251 in spe:
         * 'bootctl list' gained support for a new --json= switch to output boot
           menu entries in JSON format.
 
-        Changes for homed:
+        Changes in systemd-homed:
 
         * Starting with v250 systemd-homed uses UID/GID mapping on the mounts
           of activated home directories it manages (if the kernel and selected
@@ -175,7 +180,7 @@ CHANGES WITH 251 in spe:
           handling, and improving compatibility with home directories intended
           to be portable like the ones managed by systemd-homed.
 
-        Changes for shared libraries:
+        Changes in shared libraries:
 
         * A new libsystemd-core-<version>.so private shared library is
           installed under /usr/lib/systemd/system, mirroring the existing
@@ -195,7 +200,7 @@ CHANGES WITH 251 in spe:
           similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
           format instead of simple series of hex characters.
 
-        Changes for PID1 and systemctl:
+        Changes in PID1, systemctl, and systemd-oomd:
 
         * A new set of service monitor environment variables will be passed to
           OnFailure=/OnSuccess= handlers, but only if exactly one unit lists the
@@ -218,6 +223,13 @@ CHANGES WITH 251 in spe:
           manager.
 
           (Only supported on kernels ≥5.6.)
+
+        * Units that were killed by systemd-oomd will now have a service result
+          of 'oom-kill'. The number of times a service was killed is tallied
+          in the 'user.oomd_ooms' extended attribute.
+
+          The OOMPolicy= unit file setting is now also honoured by
+          systemd-oomd.
 
         * In unit files the new %y/%Y specifiers can be used to refer to
           normalized unit file path, which is particularly useful for symlinked
@@ -257,7 +269,7 @@ CHANGES WITH 251 in spe:
         * systemctl's --timestamp= option gained a new choice "unix", to show
           timestamp as unix times, i.e. seconds since 1970, Jan 1st.
 
-        Changes for journald:
+        Changes in systemd-journald:
 
         * The journal JSON export format has been added to listed of stable
           interfaces (https://systemd.io/PORTABILITY_AND_STABILITY/).
@@ -270,7 +282,7 @@ CHANGES WITH 251 in spe:
           https://systemd.io/JOURNAL_EXPORT_FORMATS
           https://systemd.io/BUILDING_IMAGES
 
-        Changes for udev:
+        Changes in udev:
 
         * Two new hwdb files have been added. One lists "handhelds" (PDAs,
           calculators, etc.), the other AV production devices (DJ tables,
@@ -297,7 +309,7 @@ CHANGES WITH 251 in spe:
         * .link files gained support for [Link] SR-IOVVirtualFunctions= setting
           and [SR-IOV] section to configure SR-IOV virtual functions.
 
-        Changes for networkd:
+        Changes in systemd-networkd:
 
         * The default scope for unicast routes configured through [Route]
           section is changed to "link", to make the behavior consistent with
@@ -336,13 +348,13 @@ CHANGES WITH 251 in spe:
           server name, and file name sent in the DHCP packet (e.g. to configure
           PXE boot).
 
-        Changes for resolved:
+        Changes in systemd-resolved:
 
         * systemd-resolved is started earlier (in sysinit.target), so it
           available earlier and will also be started in the initrd if installed
           there.
 
-        Changes for disk encryption:
+        Changes in disk encryption:
 
         * systemd-cryptenroll can now control whether to require the user to
           enter a PIN when using TPM-based unlocking of a volume via the new
@@ -354,7 +366,7 @@ CHANGES WITH 251 in spe:
           used, to ensure that communication between CPU and discrete TPM chips
           cannot be eavesdropped to acquire disk encryption keys.
 
-        Changes for hostnamed:
+        Changes in systemd-hostnamed:
 
         * HARDWARE_VENDOR= and HARDWARE_MODEL= can be set in /etc/machine-info
           to override the values gleaned from the hwdb.
@@ -366,7 +378,7 @@ CHANGES WITH 251 in spe:
         * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
           for reading the hardware serial number, as reportd by DMI.
 
-        Changes for other components:
+        Changes in other components:
 
         * /etc/locale.conf is now populated through tmpfiles.d factory /etc/
           handling with the values that were configured during systemd build
@@ -376,6 +388,10 @@ CHANGES WITH 251 in spe:
 
         * The userdbctl tool will now show UID range information as part of the
           list of known users.
+
+        * A new build-time configuration setting default-user-shell= can be
+          used to set the default shell for user records and nspawn shell
+          invocations (instead of of the default /bin/bash).
 
         Experimental features:
 
@@ -495,9 +511,9 @@ CHANGES WITH 250:
           time-out for the boot.
 
         * A new setting DefaultOOMScoreAdjust= is now supported in
-          /etc/systemd/system.conf + /etc/systemd/user.conf that may be used to
-          set the default process OOM score adjustment value for processes
-          forked off the service manager. For per-user service managers this
+          /etc/systemd/system.conf and /etc/systemd/user.conf. It may be used
+          to set the default process OOM score adjustment value for processes
+          started by the service manager. For per-user service managers this
           now defaults to 100, but for per-system service managers is left as
           is. This means that by default now services forked off the user
           service manager are more likely to be killed by the OOM killer than
