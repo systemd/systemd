@@ -13,6 +13,7 @@ int monitor_main(int argc, char *argv[], void *userdata);
 int hwdb_main(int argc, char *argv[], void *userdata);
 int test_main(int argc, char *argv[], void *userdata);
 int builtin_main(int argc, char *argv[], void *userdata);
+int wait_main(int argc, char *argv[], void *userdata);
 
 static inline int print_version(void) {
         /* Dracut relies on the version being a single integer */
