@@ -736,7 +736,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 
         r = unit_clean(u, mask);
         if (r == -EOPNOTSUPP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not supporting cleaning.", u->id);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not support cleaning.", u->id);
         if (r == -EUNATCH)
                 return sd_bus_error_set(error, BUS_ERROR_NOTHING_TO_CLEAN, "No matching resources found.");
         if (r == -EBUSY)
