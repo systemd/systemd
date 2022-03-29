@@ -22,7 +22,7 @@ extern usec_t arg_fuzz;
 extern PagerFlags arg_pager_flags;
 extern BusTransport arg_transport;
 extern const char *arg_host;
-extern UnitFileScope arg_scope;
+extern LookupScope arg_scope;
 extern RecursiveErrors arg_recursive_errors;
 extern bool arg_man;
 extern bool arg_generators;

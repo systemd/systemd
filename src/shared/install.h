@@ -15,6 +15,7 @@ typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 #include "macro.h"
 #include "path-lookup.h"
 #include "strv.h"
+#include "unit-file.h"
 #include "unit-name.h"
 
 enum UnitFilePresetMode {
@@ -70,7 +71,8 @@ struct UnitFileList {
 
 enum UnitFileType {
         UNIT_FILE_TYPE_REGULAR,
-        UNIT_FILE_TYPE_SYMLINK,
+        UNIT_FILE_TYPE_LINKED,
+        UNIT_FILE_TYPE_ALIAS,
         UNIT_FILE_TYPE_MASKED,
         _UNIT_FILE_TYPE_MAX,
         _UNIT_FILE_TYPE_INVALID = -EINVAL,
@@ -94,28 +96,28 @@ struct UnitFileInstallInfo {
 };
 
 int unit_file_enable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_disable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char **names_or_paths,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -123,52 +125,52 @@ int unit_file_preset(
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_mask(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_unmask(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_link(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_revert(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_set_default(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *file,
                 UnitFileChange **changes,
                 size_t *n_changes);
 int unit_file_get_default(
-                UnitFileScope scope,
+                LookupScope scope,
                 const char *root_dir,
                 char **name);
 int unit_file_add_dependency(
-                UnitFileScope scope,
+                LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -178,22 +180,27 @@ int unit_file_add_dependency(
                 size_t *n_changes);
 
 int unit_file_lookup_state(
-                UnitFileScope scope,
+                LookupScope scope,
                 const LookupPaths *paths,
                 const char *name,
                 UnitFileState *ret);
 
-int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
-int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
+int unit_file_get_state(LookupScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
+int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *name);
 
-int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
+int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
 int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, int type, const char *path, const char *source);
 void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
 
-int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst);
+int unit_file_verify_alias(
+                const UnitFileInstallInfo *info,
+                const char *dst,
+                char **ret_dst,
+                UnitFileChange **changes,
+                size_t *n_changes);
 
 typedef struct UnitFilePresetRule UnitFilePresetRule;
 
@@ -204,7 +211,7 @@ typedef struct {
 } UnitFilePresets;
 
 void unit_file_presets_freep(UnitFilePresets *p);
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+int unit_file_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
