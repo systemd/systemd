@@ -46,7 +46,7 @@ CHANGES WITH 251:
           commands its executes into PCR 8, which makes it very hard to use
           reasonably, hence separate ourselves from that and use PCR 12
           instead, which is what certain Ubuntu editions already do. To retain
-          compatibility with systems running older systemd systems a new Meson
+          compatibility with systems running older systemd systems a new meson
           option 'efi-tpm-pcr-compat' has been added (which defaults to false).
           If enabled, the measurement is done twice: into the new-style PCR 12
           *and* the old-style PCR 8. It's strongly advised to migrate all users
@@ -188,13 +188,14 @@ CHANGES WITH 251:
           installation size to be reduced by binary code reuse.
 
         * The <version> tag used in the name of libsystemd-shared.so and
-          libsystemd-core.so can be configured. Distributions may build
-          subsequent versions of the systemd package with unique tags (e.g. the
-          full package version), thus allowing multiple installations of those
-          shared libraries to be available at the same time. This is intended
-          to fix an issue where programs that link to those libraries would
-          fail to execute because they were installed earlier or later than the
-          appropriate version of the library.
+          libsystemd-core.so can be configured via the meson option
+          'shared-lib-tag'. Distributions may build subsequent versions of the
+          systemd package with unique tags (e.g. the full package version),
+          thus allowing multiple installations of those shared libraries to be
+          available at the same time. This is intended to fix an issue where
+          programs that link to those libraries would fail to execute because
+          they were installed earlier or later than the appropriate version of
+          the library.
 
         * The sd-id128 API gained a new call sd_id128_to_uuid_string() that is
           similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
@@ -268,6 +269,13 @@ CHANGES WITH 251:
 
         * systemctl's --timestamp= option gained a new choice "unix", to show
           timestamp as unix times, i.e. seconds since 1970, Jan 1st.
+
+        * 'systemctl enable' and similar commands will now create relative
+          symlinks in .wants/ and .requires/ and for aliases. Most of the time
+          systemd itself doesn't care, but absolute symlinks were causing wrong
+          behaviour in case of aliases to linked unit files. The change was
+          necessary to fix this aspect. Absolute links are interpreted as
+          before, and it is still possible to create them via other means.
 
         Changes in systemd-journald:
 
