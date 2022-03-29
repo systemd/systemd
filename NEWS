@@ -7,6 +7,9 @@ CHANGES WITH 251:
         * The minimum kernel version required has been bumped from 3.13 to 3.15,
           and CLOCK_BOOTTIME is now assumed to always exist.
 
+        * C11 with GNU extensions (aka "gnu11") is now used to build our
+          components.
+
         * In v250, a systemd-networkd feature that automatically configures
           routes to addresses specified in AllowedIPs= was added and enabled by
           default. However, this causes network connectivity issues in many
