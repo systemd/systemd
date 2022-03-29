@@ -735,7 +735,6 @@ static int dhcp4_request_routes(Link *link) {
 }
 
 static int dhcp_reset_mtu(Link *link) {
-        uint16_t mtu;
         int r;
 
         assert(link);
@@ -743,18 +742,9 @@ static int dhcp_reset_mtu(Link *link) {
         if (!link->network->dhcp_use_mtu)
                 return 0;
 
-        r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
-        if (r == -ENODATA)
-                return 0;
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP error: failed to get MTU from lease: %m");
-
-        if (link->original_mtu == mtu)
-                return 0;
-
         r = link_request_to_set_mtu(link, link->original_mtu);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
+                return log_link_error_errno(link, r, "DHCP error: Could not queue request to reset MTU: %m");
 
         return 0;
 }
