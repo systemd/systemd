@@ -16,6 +16,7 @@
 #include <linux/if.h>
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -735,6 +736,12 @@ int fd_set_sndbuf(int fd, size_t n, bool increase) {
         if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
                 return 1;
 
+        /* Setting the buffer size beyond the kernel limit needs net_admin capability. If we know
+         * this cap is missing don't even try SO_SNDBUFFORCE to avoid audit records reporting this
+         * unauthorized attempt.  */
+        if (!have_effective_cap(CAP_NET_ADMIN))
+                return -EPERM;
+
         /* If we have the privileges we will ignore the kernel limit. */
         r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, n);
         if (r < 0)
@@ -765,6 +772,12 @@ int fd_set_rcvbuf(int fd, size_t n, bool increase) {
         r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
         if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
                 return 1;
+
+        /* Setting the buffer size beyond the kernel limit needs net_admin capability. If we know
+         * this cap is missing don't even try SO_SNDBUFFORCE to avoid audit records reporting this
+         * unauthorized attempt.  */
+        if (!have_effective_cap(CAP_NET_ADMIN))
+                return -EPERM;
 
         /* If we have the privileges we will ignore the kernel limit. */
         r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, n);
