@@ -8,7 +8,7 @@ CHANGES WITH 251:
           and CLOCK_BOOTTIME is now assumed to always exist.
 
         * C11 with GNU extensions (aka "gnu11") is now used to build our
-          components.
+          components. Public API headers are still restricted to ISO C89.
 
         * In v250, a systemd-networkd feature that automatically configures
           routes to addresses specified in AllowedIPs= was added and enabled by
