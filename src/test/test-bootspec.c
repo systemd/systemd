@@ -61,7 +61,7 @@ TEST_RET(bootspec_sort) {
         };
 
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
 
         assert_se(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d) >= 0);
 
@@ -74,7 +74,7 @@ TEST_RET(bootspec_sort) {
                 assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
-        assert_se(boot_entries_load_config(d, NULL, &config) >= 0);
+        assert_se(boot_config_load(&config, d, NULL) >= 0);
 
         assert_se(config.n_entries == 6);
 
