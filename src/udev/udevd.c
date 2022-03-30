@@ -374,11 +374,16 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int res
                 (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
 
                 switch (result) {
-                case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX:
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", -result);
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO_NAME", "%s", strna(errno_to_name(result)));
-                        break;
+                case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX: {
+                        const char *str;
 
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", -result);
+
+                        str = errno_to_name(result);
+                        if (str)
+                                (void) device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str);
+                        break;
+                }
                 case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
                         (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
                         break;
@@ -387,11 +392,16 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int res
                         assert_not_reached();
                         break;
 
-                case EVENT_RESULT_SIGNAL_BASE ... EVENT_RESULT_SIGNAL_MAX:
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL", "%i", result - EVENT_RESULT_SIGNAL_BASE);
-                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL_NAME", "%s", strna(signal_to_string(result - EVENT_RESULT_SIGNAL_BASE)));
-                        break;
+                case EVENT_RESULT_SIGNAL_BASE ... EVENT_RESULT_SIGNAL_MAX: {
+                        const char *str;
 
+                        (void) device_add_propertyf(dev, "UDEV_WORKER_SIGNAL", "%i", result - EVENT_RESULT_SIGNAL_BASE);
+
+                        str = signal_to_string(result - EVENT_RESULT_SIGNAL_BASE);
+                        if (str)
+                                (void) device_add_property(dev, "UDEV_WORKER_SIGNAL_NAME", str);
+                        break;
+                }
                 default:
                         log_device_warning(dev, "Unknown event result \"%i\", ignoring.", result);
                 }
