@@ -78,6 +78,39 @@ Janitorial Clean-ups:
 
 Features:
 
+* initialize machine ID from systemd credential picked up from the ESP via
+  sd-stub, so that machine ID is stable even on systems where unified kernels
+  are used, and hence kernel cmdline cannot be modified locally
+
+* in gpt-auto-generator: check partition uuids against such uuids supplied via
+  sd-stub credentials. That way, we can support parallel OS installations with
+  pre-built kernels.
+
+* sysext: measure all activated sysext into a TPM PCR
+
+* maybe add a "syscfg" concept, that is almost entirely identical to "sysext",
+  but operates on /etc/ instead of /usr/ and /opt/. Use case would be: trusted,
+  authenticated, atomic, additive configuration management primitive: drop in a
+  configuration bundle, and activate it, so that it is instantly visible,
+  comprehensively.
+
+* systemd-dissect: show available versions inside of a disk image, i.e. if
+  multiple versions are around of the same resource, show which ones. (in other
+  words: show partition labels).
+
+* systemd-nspawn: make boot assessment do something sensible in a
+  container. i.e send an sd_notify() from payload to container manager once
+  boot-up is completed successfully, and use that in nspawn for dealing with
+  boot counting, implemented in the partition table labels and directory names.
+
+* maybe add a generator that reads /proc/cmdline, looks for
+  systemd.pull-raw-portable=, systemd-pull-raw-sysext= and similar switches
+  that take an URL as parameter. It then generates service units for
+  systemd-pull calls thta download these URLs if not installed yet. usecase:
+  invoke a VM or nspawn container in a way it automatically deploys/runs these
+  images as OS payloads. i.e. have a generic OS image you can point to any
+  payload you like, which is then downloaded, securely verified and run.
+
 * improve scope units to support creation by pidfd instead of by PID
 
 * deprecate cgroupsv1 (i.e. taint system with it, print log message at boot)
