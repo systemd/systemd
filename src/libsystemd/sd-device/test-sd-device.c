@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "device-enumerator-private.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "hashmap.h"
 #include "nulstr-util.h"
 #include "path-util.h"
@@ -65,6 +68,10 @@ static void test_sd_device_one(sd_device *d) {
                         assert_se(sd_device_get_syspath(dev, &val) >= 0);
                         assert_se(streq(syspath, val));
                         dev = sd_device_unref(dev);
+
+                        _cleanup_close_ int fd = -1;
+                        fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
+                        assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
                 } else
                         assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
         } else
