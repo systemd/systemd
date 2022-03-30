@@ -764,12 +764,16 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
 }
 
 _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
+        int r;
+
         assert_return(child, -EINVAL);
 
         if (!child->parent_set) {
-                child->parent_set = true;
+                r = device_new_from_child(&child->parent, child);
+                if (r < 0 && r != -ENODEV)
+                        return r;
 
-                (void) device_new_from_child(&child->parent, child);
+                child->parent_set = true;
         }
 
         if (!child->parent)
