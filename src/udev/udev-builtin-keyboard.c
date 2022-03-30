@@ -195,9 +195,9 @@ static int builtin_keyboard(sd_device *dev, sd_netlink **rtnl, int argc, char *a
                         }
 
                         if (fd < 0) {
-                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0)
-                                        return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
+                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
                         }
 
                         (void) map_keycode(dev, fd, scancode, keycode);
@@ -212,9 +212,9 @@ static int builtin_keyboard(sd_device *dev, sd_netlink **rtnl, int argc, char *a
                         }
 
                         if (fd < 0) {
-                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0)
-                                        return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
+                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
                         }
 
                         if (has_abs == -1) {
