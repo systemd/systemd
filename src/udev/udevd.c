@@ -451,6 +451,8 @@ static int device_get_block_device(sd_device *dev, const char **ret) {
                 return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
         if (r >= 0 && streq(val, "partition")) {
                 r = sd_device_get_parent(dev, &dev);
+                if (r == -ENOENT) /* The device may be already removed. */
+                        goto irrelevant;
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
         }
