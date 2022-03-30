@@ -23,7 +23,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
-#include "missing_fs.h"
 #include "missing_loop.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -125,27 +124,6 @@ static int device_has_block_children(sd_device *d) {
 
                 return 1; /* we have block device children */
         }
-
-        return 0;
-}
-
-static int loop_get_diskseq(int fd, uint64_t *ret_diskseq) {
-        uint64_t diskseq;
-
-        assert(fd >= 0);
-        assert(ret_diskseq);
-
-        if (ioctl(fd, BLKGETDISKSEQ, &diskseq) < 0) {
-                /* Note that the kernel is weird: non-existing ioctls currently return EINVAL
-                 * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
-                 * but in the meantime we accept both here. */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                        return -errno;
-
-                return -EOPNOTSUPP;
-        }
-
-        *ret_diskseq = diskseq;
 
         return 0;
 }
@@ -454,7 +432,7 @@ static int loop_device_make_internal(
                         if (copy < 0)
                                 return copy;
 
-                        r = loop_get_diskseq(copy, &diskseq);
+                        r = fd_get_diskseq(copy, &diskseq);
                         if (r < 0 && r != -EOPNOTSUPP)
                                 return r;
 
@@ -593,7 +571,7 @@ static int loop_device_make_internal(
         assert(S_ISBLK(st.st_mode));
 
         uint64_t diskseq = 0;
-        r = loop_get_diskseq(loop_with_fd, &diskseq);
+        r = fd_get_diskseq(loop_with_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
