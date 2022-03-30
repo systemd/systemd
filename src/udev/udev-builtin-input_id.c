@@ -45,12 +45,12 @@ static int abs_size_mm(const struct input_absinfo *absinfo) {
         return (absinfo->maximum - absinfo->minimum) / absinfo->resolution;
 }
 
-static void extract_info(sd_device *dev, const char *devpath, bool test) {
+static void extract_info(sd_device *dev, bool test) {
         char width[DECIMAL_STR_MAX(int)], height[DECIMAL_STR_MAX(int)];
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
         _cleanup_close_ int fd = -1;
 
-        fd = open(devpath, O_RDONLY|O_CLOEXEC);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return;
 
@@ -330,7 +330,7 @@ static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *a
         unsigned long bitmask_key[NBITS(KEY_MAX)];
         unsigned long bitmask_rel[NBITS(REL_MAX)];
         unsigned long bitmask_props[NBITS(INPUT_PROP_MAX)];
-        const char *sysname, *devnode;
+        const char *sysname;
         bool is_pointer;
         bool is_key;
 
@@ -375,10 +375,9 @@ static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *a
 
         }
 
-        if (sd_device_get_devname(dev, &devnode) >= 0 &&
-            sd_device_get_sysname(dev, &sysname) >= 0 &&
+        if (sd_device_get_sysname(dev, &sysname) >= 0 &&
             startswith(sysname, "event"))
-                extract_info(dev, devnode, test);
+                extract_info(dev, test);
 
         return 0;
 }

@@ -422,12 +422,11 @@ static int worker_send_result(Manager *manager, int result) {
         return loop_write(manager->worker_watch[WRITE_END], &result, sizeof(result), false);
 }
 
-static int device_get_whole_disk(sd_device *dev, const char **ret) {
+static int device_get_whole_disk(sd_device *dev, sd_device **ret_device, const char **ret_devname) {
         const char *val;
         int r;
 
         assert(dev);
-        assert(ret);
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 goto irrelevant;
@@ -463,16 +462,23 @@ static int device_get_whole_disk(sd_device *dev, const char **ret) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
-        *ret = val;
+        if (ret_device)
+                *ret_device = dev;
+        if (ret_devname)
+                *ret_devname = val;
         return 1;
 
 irrelevant:
-        *ret = NULL;
+        if (ret_device)
+                *ret_device = NULL;
+        if (ret_devname)
+                *ret_devname = NULL;
         return 0;
 }
 
 static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -1;
+        sd_device *dev_whole_disk;
         const char *val;
         int r;
 
@@ -484,19 +490,19 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
          * event handling; in the case udev acquired the lock, the external process can block until udev has
          * finished its event handling. */
 
-        r = device_get_whole_disk(dev, &val);
+        r = device_get_whole_disk(dev, &dev_whole_disk, &val);
         if (r < 0)
                 return r;
         if (r == 0)
                 goto nolock;
 
-        fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(errno);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
 
-                log_device_debug_errno(dev, errno, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
                 if (!ignore)
-                        return -errno;
+                        return fd;
 
                 goto nolock;
         }
@@ -545,15 +551,9 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (STARTSWITH_SET(val, "dm-", "md", "drbd", "loop", "nbd", "zram"))
                 return 0;
 
-        r = sd_device_get_devname(dev, &val);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
-
-        fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
-                return log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
+                return log_device_debug_errno(dev, fd, "Failed to open '%s', ignoring: %m", val);
 
         if (ioctl(fd, BLKROSET, &state) < 0)
                 return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", val);
@@ -1093,7 +1093,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
          * device is not locked anymore. The assumption may not be true, but that should not cause any
          * issues, as in that case events will be requeued soon. */
 
-        r = device_get_whole_disk(dev, &devname);
+        r = device_get_whole_disk(dev, NULL, &devname);
         if (r <= 0)
                 return r;
 
@@ -1106,7 +1106,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
                 if (event->retry_again_next_usec == 0)
                         continue;
 
-                if (device_get_whole_disk(event->dev, &event_devname) <= 0)
+                if (device_get_whole_disk(event->dev, NULL, &event_devname) <= 0)
                         continue;
 
                 if (!streq(devname, event_devname))
@@ -1403,18 +1403,13 @@ static int synthesize_change(sd_device *dev) {
             !startswith(sysname, "dm-")) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
                 bool part_table_read = false, has_partitions = false;
-                const char *devname;
                 sd_device *d;
                 int fd;
-
-                r = sd_device_get_devname(dev, &devname);
-                if (r < 0)
-                        return r;
 
                 /* Try to re-read the partition table. This only succeeds if none of the devices is
                  * busy. The kernel returns 0 if no partition table is found, and we will not get an
                  * event for the disk. */
-                fd = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (fd >= 0) {
                         r = flock(fd, LOCK_EX|LOCK_NB);
                         if (r >= 0)
