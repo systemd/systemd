@@ -109,6 +109,10 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
+/* Default delegated cgroup suffices */
+#define DELEGATE_CGROUP_CONTROL ".control"
+#define DELEGATE_CGROUP_PAYLOAD ""
+
 static int shift_fds(int fds[], size_t n_fds) {
         if (n_fds <= 0)
                 return 0;
@@ -3994,9 +3998,10 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
         return 0;
 }
 
-static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **ret) {
-        bool using_subcgroup;
+static int exec_parameters_get_cgroup_path(Unit *u, const ExecParameters *params, char **ret) {
+        const char *subcgroup;
         char *p;
+        CGroupContext *c;
 
         assert(params);
         assert(ret);
@@ -4004,26 +4009,33 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
         if (!params->cgroup_path)
                 return -EINVAL;
 
-        /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
-         * subcgroup (which we expect it to do, after all it asked for delegation), then we cannot place the control
-         * processes started after the main unit's process in the unit's main cgroup because it is now an inner one,
-         * and inner cgroups may not contain processes. Hence, if delegation is on, and this is a control process,
-         * let's use ".control" as subcgroup instead. Note that we do so only for ExecStartPost=, ExecReload=,
-         * ExecStop=, ExecStopPost=, i.e. for the commands where the main process is already forked. For ExecStartPre=
-         * this is not necessary, the cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP
-         * flag, which is only passed for the former statements, not for the latter. */
+        if (!(c = unit_get_cgroup_context(u)))
+                return -EOPNOTSUPP;
 
-        using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
-        using_subcgroup &= cg_all_unified() > 0;
-        if (using_subcgroup)
-                p = path_join(params->cgroup_path, ".control");
+        /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
+         * subcgroup, then we cannot place the control processes started after the main unit's process in the
+         * unit's main cgroup because it is now an inner one, and inner cgroups may not contain processes.
+         * Hence, if delegation is on, use a subcgroup per configuration.
+         * Note that we do so only for ExecStartPost=, ExecReload=, ExecStop=, ExecStopPost=, i.e. for the
+         * commands where the main process is already forked. For ExecStartPre= this is not necessary, the
+         * cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP flag, which is only
+         * passed for the former statements, not for the latter. */
+
+        if (cg_all_unified() <= 0)
+                subcgroup = NULL;
+        else if (!FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE))
+                subcgroup = NULL;
+        else if (FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                subcgroup = c->delegate_suffix ?: DELEGATE_CGROUP_CONTROL;
         else
-                p = strdup(params->cgroup_path);
+                subcgroup = c->delegate_suffix ?: DELEGATE_CGROUP_PAYLOAD;
+
+        p = path_join(params->cgroup_path, subcgroup);
         if (!p)
                 return -ENOMEM;
 
         *ret = p;
-        return using_subcgroup;
+        return !isempty(subcgroup);
 }
 
 static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
@@ -4102,6 +4114,7 @@ static int exec_child(
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL;
         _cleanup_free_ char *home_buffer = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
@@ -4327,18 +4340,16 @@ static int exec_child(
         /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
          * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
         if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
-
-                r = exec_parameters_get_cgroup_path(params, &p);
+                r = exec_parameters_get_cgroup_path(unit, params, &subcgroup_path);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
                 }
 
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
+                r = cg_attach_everywhere(params->cgroup_supported, subcgroup_path, 0, NULL, NULL);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
+                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", subcgroup_path);
                 }
         }
 
@@ -4489,12 +4500,12 @@ static int exec_child(
                 }
         }
 
-        /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
+        /* If delegation is enabled we'll pass ownership of the payload cgroup to the user of the new process. On cgroup v1
          * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
          * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
          * touch a single hierarchy too. */
-        if (params->cgroup_path && context->user && (params->flags & EXEC_CGROUP_DELEGATE)) {
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
+        if (params->cgroup_path && context->user && (params->flags & EXEC_CGROUP_DELEGATE) && !(params->flags & EXEC_IS_CONTROL)) {
+                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, uid, gid);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
@@ -5214,7 +5225,7 @@ int exec_spawn(Unit *unit,
                         LOG_UNIT_INVOCATION_ID(unit));
 
         if (params->cgroup_path) {
-                r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
+                r = exec_parameters_get_cgroup_path(unit, params, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
                 if (r > 0) { /* We are using a child cgroup */
@@ -5222,10 +5233,12 @@ int exec_spawn(Unit *unit,
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
 
-                        r = cg_adjust_threaded(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
-                        if (r < 0)
-                                return log_unit_error_errno(unit, r, "Failed to switch control group '%s' to threaded mode: %m",
-                                                            subcgroup_path);
+                        if (FLAGS_SET(params->flags, EXEC_IS_CONTROL)) {
+                                r = cg_adjust_threaded(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
+                                if (r < 0)
+                                        return log_unit_error_errno(unit, r, "Failed to switch control group '%s' to threaded mode: %m",
+                                                                    subcgroup_path);
+                        }
 
                         /* Normally we would not propagate the oomd xattrs to children but since we created this
                          * sub-cgroup internally we should do it. */
