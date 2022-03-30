@@ -2237,3 +2237,68 @@ _public_ int sd_device_trigger_with_uuid(
         *ret_uuid = u;
         return 0;
 }
+
+_public_ int sd_device_open(sd_device *device, int flags) {
+        _cleanup_close_ int fd = -1, fd2 = -1;
+        const char *devname, *subsystem = NULL;
+        uint64_t q, diskseq = 0;
+        struct stat st;
+        dev_t devnum;
+        int r;
+
+        assert_return(device, -EINVAL);
+        assert_return(FLAGS_SET(flags, O_PATH) || !FLAGS_SET(flags, O_NOFOLLOW), -EINVAL);
+
+        r = sd_device_get_devname(device, &devname);
+        if (r == -ENOENT)
+                return -ENOEXEC;
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(device, &devnum);
+        if (r == -ENOENT)
+                return -ENOEXEC;
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(device, &subsystem);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = sd_device_get_diskseq(device, &diskseq);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_rdev != devnum)
+                return -ENXIO;
+
+        if (streq_ptr(subsystem, "block") ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode))
+                return -ENXIO;
+
+        /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
+        if (FLAGS_SET(flags, O_PATH))
+                return TAKE_FD(fd);
+
+        fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
+        if (fd2 < 0)
+                return -errno;
+
+        if (diskseq == 0)
+                return TAKE_FD(fd2);
+
+        r = fd_get_diskseq(fd2, &q);
+        if (r < 0)
+                return r;
+
+        if (q != diskseq)
+                return -ENXIO;
+
+        return TAKE_FD(fd2);
+}
