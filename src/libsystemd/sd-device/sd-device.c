@@ -1138,7 +1138,13 @@ _public_ int sd_device_get_seqnum(sd_device *device, uint64_t *ret) {
 }
 
 _public_ int sd_device_get_diskseq(sd_device *device, uint64_t *ret) {
+        int r;
+
         assert_return(device, -EINVAL);
+
+        r = device_read_uevent_file(device);
+        if (r < 0)
+                return r;
 
         if (device->diskseq == 0)
                 return -ENOENT;
