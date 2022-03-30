@@ -101,7 +101,7 @@ static void udev_ctrl_disconnect(UdevCtrl *uctrl) {
         if (!uctrl)
                 return;
 
-        uctrl->event_source_connect = sd_event_source_disable_unref(uctrl->event_source_connect);
+        uctrl->event_source_connect = sd_event_source_unref(uctrl->event_source_connect);
         uctrl->sock_connect = safe_close(uctrl->sock_connect);
 }
 
@@ -110,7 +110,7 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
 
         udev_ctrl_disconnect(uctrl);
 
-        sd_event_source_disable_unref(uctrl->event_source);
+        sd_event_source_unref(uctrl->event_source);
         safe_close(uctrl->sock);
 
         sd_event_unref(uctrl->event);
