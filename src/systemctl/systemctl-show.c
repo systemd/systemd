@@ -2129,12 +2129,18 @@ static int show_system_status(sd_bus *bus) {
         printf("    State: %s%s%s\n",
                on, strna(mi.state), off);
 
+        printf("    Units: %" PRIu32 " loaded (incl. loaded aliases)\n", mi.n_names);
         printf("     Jobs: %" PRIu32 " queued\n", mi.n_jobs);
         printf("   Failed: %" PRIu32 " units\n", mi.n_failed_units);
 
         printf("    Since: %s; %s\n",
                FORMAT_TIMESTAMP_STYLE(mi.timestamp, arg_timestamp_style),
                FORMAT_TIMESTAMP_RELATIVE(mi.timestamp));
+
+        printf("  systemd: %s\n", mi.version);
+
+        if (!isempty(mi.tainted))
+                printf("  Tainted: %s%s%s\n", ansi_highlight_yellow(), mi.tainted, ansi_normal());
 
         printf("   CGroup: %s\n", empty_to_root(mi.control_group));
 
