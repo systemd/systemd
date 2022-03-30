@@ -735,7 +735,7 @@ _public_ int sd_device_get_syspath(sd_device *device, const char **ret) {
 
 static int device_new_from_child(sd_device **ret, sd_device *child) {
         _cleanup_free_ char *path = NULL;
-        const char *subdir, *syspath;
+        const char *syspath;
         int r;
 
         assert(ret);
@@ -745,25 +745,21 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
         if (r < 0)
                 return r;
 
-        path = strdup(syspath);
-        if (!path)
-                return -ENOMEM;
-        subdir = path + STRLEN("/sys");
-
         for (;;) {
-                char *pos;
+                _cleanup_free_ char *p = NULL;
 
-                pos = strrchr(subdir, '/');
-                if (!pos || pos < subdir + 2)
+                r = path_extract_directory(path ?: syspath, &p);
+                if (r < 0)
+                        return r;
+
+                if (path_equal(p, "/sys"))
                         return -ENODEV;
 
-                *pos = '\0';
+                r = sd_device_new_from_syspath(ret, p);
+                if (r != -ENODEV)
+                        return r;
 
-                r = sd_device_new_from_syspath(ret, path);
-                if (r < 0)
-                        continue;
-
-                return 0;
+                free_and_replace(path, p);
         }
 }
 
