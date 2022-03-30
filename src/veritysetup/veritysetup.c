@@ -16,9 +16,7 @@
 #include "terminal-util.h"
 
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
-static char *arg_root_hash_signature = NULL;
-
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
+static const char *arg_root_hash_signature = NULL;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -39,37 +37,29 @@ static int help(void) {
         return 0;
 }
 
-static int looks_like_roothashsig(const char *option) {
-        const char *val;
-        int r;
+static int save_roothashsig_option(const char *option, bool strict) {
 
-        if (path_is_absolute(option)) {
+        if (path_is_absolute(option) || startswith(option, "base64:")) {
+                if (!HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Activation of verity device with signature requested, but cryptsetup does not support crypt_activate_by_signed_key().");
 
-                r = free_and_strdup(&arg_root_hash_signature, option);
-                if (r < 0)
-                        return log_oom();
-
-                return 1;
+                arg_root_hash_signature = option;
+                return true;
         }
 
-        val = startswith(option, "base64:");
-        if (val) {
-
-                r = free_and_strdup(&arg_root_hash_signature, val);
-                if (r < 0)
-                        return log_oom();
-
-                return 1;
-        }
-
-        return 0;
+        if (!strict)
+                return false;
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "root-hash-signature= expects either full path to signature file or "
+                               "base64 string encoding signature prefixed by base64:.");
 }
 
 static int parse_options(const char *options) {
         int r;
 
         /* backward compatibility with the obsolete ROOTHASHSIG positional argument */
-        r = looks_like_roothashsig(options);
+        r = save_roothashsig_option(options, false);
         if (r < 0)
                 return r;
         if (r == 1) {
@@ -108,17 +98,10 @@ static int parse_options(const char *options) {
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
 #endif
                 else if ((val = startswith(word, "root-hash-signature="))) {
-
-                        r = looks_like_roothashsig(val);
+                        r = save_roothashsig_option(val, true);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "root-hash-signature expects either full path to signature file or "
-                                                                                "base64 string encoding signature prefixed by base64:.");
 
-                        r = free_and_strdup(&arg_root_hash_signature, val);
-                        if (r < 0)
-                                return log_oom();
                 } else
                         log_warning("Encountered unknown option '%s', ignoring.", word);
         }
@@ -183,7 +166,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to configure data device: %m");
 
-                if (arg_root_hash_signature && *arg_root_hash_signature) {
+                if (arg_root_hash_signature) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                         _cleanup_free_ char *hash_sig = NULL;
                         size_t hash_sig_size;
@@ -205,7 +188,7 @@ static int run(int argc, char *argv[]) {
 
                         r = crypt_activate_by_signed_key(cd, argv[2], m, l, hash_sig, hash_sig_size, arg_activate_flags);
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature %s requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()", argv[6]);
+                        assert_not_reached();
 #endif
                 } else
                         r = crypt_activate_by_volume_key(cd, argv[2], m, l, arg_activate_flags);
