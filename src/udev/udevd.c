@@ -178,8 +178,10 @@ static Event *event_free(Event *event) {
         LIST_REMOVE(event, event->manager->events, event);
         sd_device_unref(event->dev);
 
-        sd_event_source_disable_unref(event->timeout_warning_event);
-        sd_event_source_disable_unref(event->timeout_event);
+        /* Do not use sd_event_source_disable_unref() here, as this is called by both workers and the
+         * main process. */
+        sd_event_source_unref(event->timeout_warning_event);
+        sd_event_source_unref(event->timeout_event);
 
         if (event->worker)
                 event->worker->event = NULL;
