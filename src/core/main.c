@@ -6,6 +6,7 @@
 #include <linux/oom.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #if HAVE_SECCOMP
 #include <seccomp.h>
@@ -2009,6 +2010,7 @@ static void log_execution_mode(bool *ret_first_boot) {
         assert(ret_first_boot);
 
         if (arg_system) {
+                struct utsname uts;
                 int v;
 
                 log_info("systemd " GIT_VERSION " running in %ssystem mode (%s)",
@@ -2046,6 +2048,14 @@ static void log_execution_mode(bool *ret_first_boot) {
                                 log_debug("Detected initialized system, this is not the first boot.");
                         }
                 }
+
+                assert(uname(&uts) >= 0);
+
+                if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
+                        log_warning("Warning! Reported kernel version %s is older than systemd's required baseline kernel version %s. "
+                                    "Your mileage may vary.", uts.release, KERNEL_BASELINE_VERSION);
+                else
+                        log_debug("Kernel version %s, our baseline is %s", uts.release, KERNEL_BASELINE_VERSION);
         } else {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *t = NULL;

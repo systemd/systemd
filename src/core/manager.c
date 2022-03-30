@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/timerfd.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -4351,6 +4352,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
 char *manager_taint_string(Manager *m) {
         _cleanup_free_ char *destination = NULL, *overflowuid = NULL, *overflowgid = NULL;
+        struct utsname uts;
         char *buf, *e;
         int r;
 
@@ -4367,7 +4369,8 @@ char *manager_taint_string(Manager *m) {
                                "local-hwclock:"
                                "var-run-bad:"
                                "overflowuid-not-65534:"
-                               "overflowgid-not-65534:"));
+                               "overflowgid-not-65534:"
+                               "old-kernel:"));
         if (!buf)
                 return NULL;
 
@@ -4397,6 +4400,10 @@ char *manager_taint_string(Manager *m) {
         r = read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid);
         if (r >= 0 && !streq(overflowgid, "65534"))
                 e = stpcpy(e, "overflowgid-not-65534:");
+
+        assert_se(uname(&uts) >= 0);
+        if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
+                e = stpcpy(e, "old-kernel:");
 
         /* remove the last ':' */
         if (e != buf)
