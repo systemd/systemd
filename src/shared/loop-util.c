@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
+#include "missing_fs.h"
 #include "missing_loop.h"
 #include "parse-util.h"
 #include "random-util.h"
