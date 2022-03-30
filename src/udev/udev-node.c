@@ -623,7 +623,7 @@ int udev_node_apply_permissions(
         else
                 mode |= S_IFCHR;
 
-        node_fd = open(devnode, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+        node_fd = sd_device_open(dev, O_PATH|O_NOFOLLOW|O_CLOEXEC);
         if (node_fd < 0) {
                 if (errno == ENOENT) {
                         log_device_debug_errno(dev, errno, "Device node %s is missing, skipping handling.", devnode);
@@ -636,7 +636,7 @@ int udev_node_apply_permissions(
         if (fstat(node_fd, &stats) < 0)
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
 
-        if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum) {
+        if (mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) {
                 log_device_debug(dev, "Found node '%s' with non-matching devnum %s, skipping handling.",
                                  devnode, strna(id));
                 return 0; /* We might process a device that already got replaced by the time we have a look
