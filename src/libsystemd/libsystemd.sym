@@ -775,4 +775,5 @@ global:
         sd_id128_to_uuid_string;
         sd_device_new_from_devname;
         sd_device_new_from_path;
+        sd_device_open;
 } LIBSYSTEMD_250;
