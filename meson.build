@@ -2765,15 +2765,16 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'hostnamectl',
-                'src/hostname/hostnamectl.c',
-                include_directories : includes,
-                link_with : [libshared],
-                install_rpath : rootlibexecdir,
-                install : true)
 endif
+
+hostnamectl = executable(
+        'hostnamectl',
+        'src/hostname/hostnamectl.c',
+        include_directories : includes,
+        link_with : [libshared],
+        install_rpath : rootlibexecdir,
+        install : conf.get('ENABLE_HOSTNAMED') == 1)
+public_programs += hostnamectl
 
 if conf.get('ENABLE_LOCALED') == 1
         if conf.get('HAVE_XKBCOMMON') == 1
@@ -3297,7 +3298,8 @@ if want_tests != 'false'
              test_systemctl_enable_sh,
              # https://github.com/mesonbuild/meson/issues/2681
              args : [systemctl.full_path(),
-                     systemd_id128.full_path()])
+                     systemd_id128.full_path(),
+                     hostnamectl.full_path()])
 endif
 
 public_programs += executable(
