@@ -12,11 +12,14 @@ int verb_list_machines(int argc, char *argv[], void *userdata);
 struct machine_info {
         bool is_host;
         char *name;
-        char *state;
-        char *control_group;
+        char *version;
+        char *tainted;
+        uint64_t timestamp;
+        uint32_t n_names;
         uint32_t n_failed_units;
         uint32_t n_jobs;
-        usec_t timestamp;
+        char *control_group;
+        char *state;
 };
 
 void machine_info_clear(struct machine_info *info);
