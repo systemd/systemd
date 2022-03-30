@@ -238,6 +238,7 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
 int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
 
 int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid);
+int cg_set_access_parents(const char *controller, const char *top, const char *path, uid_t uid, gid_t gid);
 int cg_get_owner(const char *controller, const char *path, uid_t *ret_uid);
 
 int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags);
