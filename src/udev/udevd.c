@@ -422,7 +422,7 @@ static int worker_send_result(Manager *manager, int result) {
         return loop_write(manager->worker_watch[WRITE_END], &result, sizeof(result), false);
 }
 
-static int device_get_block_device(sd_device *dev, const char **ret) {
+static int device_get_whole_disk(sd_device *dev, const char **ret) {
         const char *val;
         int r;
 
@@ -451,6 +451,8 @@ static int device_get_block_device(sd_device *dev, const char **ret) {
                 return log_device_debug_errno(dev, r, "Failed to get devtype: %m");
         if (r >= 0 && streq(val, "partition")) {
                 r = sd_device_get_parent(dev, &dev);
+                if (r == -ENODEV) /* The device may be already removed. */
+                        goto irrelevant;
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
         }
@@ -469,7 +471,7 @@ irrelevant:
         return 0;
 }
 
-static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
+static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         _cleanup_close_ int fd = -1;
         const char *val;
         int r;
@@ -482,7 +484,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
          * event handling; in the case udev acquired the lock, the external process can block until udev has
          * finished its event handling. */
 
-        r = device_get_block_device(dev, &val);
+        r = device_get_whole_disk(dev, &val);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -579,7 +581,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
          * Instead of processing the event, we requeue the event and will try again after a delay.
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
-        r = worker_lock_block_device(dev, &fd_lock);
+        r = worker_lock_whole_disk(dev, &fd_lock);
         if (r == -EAGAIN)
                 return EVENT_RESULT_TRY_AGAIN;
         if (r < 0)
@@ -1091,7 +1093,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
          * device is not locked anymore. The assumption may not be true, but that should not cause any
          * issues, as in that case events will be requeued soon. */
 
-        r = device_get_block_device(dev, &devname);
+        r = device_get_whole_disk(dev, &devname);
         if (r <= 0)
                 return r;
 
@@ -1104,7 +1106,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
                 if (event->retry_again_next_usec == 0)
                         continue;
 
-                if (device_get_block_device(event->dev, &event_devname) <= 0)
+                if (device_get_whole_disk(event->dev, &event_devname) <= 0)
                         continue;
 
                 if (!streq(devname, event_devname))
