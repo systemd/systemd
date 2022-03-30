@@ -2222,3 +2222,63 @@ _public_ int sd_device_trigger_with_uuid(
         *ret_uuid = u;
         return 0;
 }
+
+_public_ int sd_device_open(sd_device *device, int flags) {
+        _cleanup_close_ int fd = -1, fd2 = -1;
+        const char *devname;
+        dev_t devnum;
+        uint64_t diskseq = 0;
+        struct stat st;
+        int r;
+
+        assert_return(device, -EINVAL);
+        assert_return((flags & O_NOFOLLOW) == 0, -EINVAL);
+
+        r = sd_device_get_devname(device, &devname);
+        if (r == -ENOENT)
+                return -EOPNOTSUPP;
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(device, &devnum);
+        if (r == -ENOENT)
+                return -EOPNOTSUPP;
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_diskseq(device, &diskseq);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        fd = open(devname, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_rdev != devnum)
+                return -ENXIO;
+
+        if (diskseq != 0) {
+                _cleanup_close_ int fd3 = -1;
+                uint64_t seq;
+
+                fd3 = open(FORMAT_PROC_FD_PATH(fd), O_CLOEXEC|O_NONBLOCK|O_RDONLY);
+                if (fd3 < 0)
+                        return -errno;
+
+                r = fd_get_diskseq(fd3, &seq);
+                if (r < 0)
+                        return r;
+
+                if (seq != diskseq)
+                        return -ENXIO;
+        }
+
+        fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
+        if (fd2 < 0)
+                return -errno;
+
+        return TAKE_FD(fd2);
+}
