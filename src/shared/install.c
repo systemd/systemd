@@ -2797,7 +2797,7 @@ static int normalize_linked_files(
 
         /* This is similar to normalize_filenames()/normalize_names() in src/systemctl/,
          * but operates on real unit names. For each argument we we look up the actual path
-         * where the unit is found. This way linked units can be reenabled successfully. */
+         * where the unit is found. This way linked units can be re-enabled successfully. */
 
         _cleanup_free_ char **files = NULL, **names = NULL;
         int r;
