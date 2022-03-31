@@ -121,8 +121,8 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach has a maximum of five arguments.");
 
                 device = argv[3];
-                key_file = (argc > 4) ? empty_or_dash_to_null(argv[4]) : NULL;
-                options = (argc > 5) ? empty_or_dash_to_null(argv[5]) : NULL;
+                key_file = mangle_none(argc > 4 ? argv[4] : NULL);
+                options = mangle_none(argc > 5 ? argv[5] : NULL);
 
                 if (key_file) {
                         r = load_key_file(key_file, &key_buf, &key_buf_size);
