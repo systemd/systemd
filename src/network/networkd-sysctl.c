@@ -284,7 +284,7 @@ int link_set_sysctl(Link *link) {
 
         r = link_set_ipv6ll_stable_secret(link);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set stable secret address for IPv6 link local address: %m");
+                log_link_warning_errno(link, r, "Cannot set stable secret address for IPv6 link-local address: %m");
 
         r = link_set_ipv4_accept_local(link);
         if (r < 0)
