@@ -14,10 +14,11 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "terminal-util.h"
+#include "process-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static int help(void) {
@@ -368,7 +369,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (strv_contains(strv_skip(argv, 1), "--help"))
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc != 3)

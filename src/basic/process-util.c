@@ -1615,6 +1615,30 @@ _noreturn_ void freeze(void) {
                 pause();
 }
 
+bool argv_looks_like_help(int argc, char **argv) {
+        char **l;
+
+        /* Scans the command line for indications the user asks for help. This is supposed to be called by
+         * tools that do not implement getopt() style command line parsing because they are not primarily
+         * user-facing. Detects four ways of asking for help:
+         *
+         * 1. Passing zero arguments
+         * 2. Passing "help" as first argument
+         * 3. Passing --help as any argument
+         * 4. Passing -h as any argument
+         */
+
+        if (argc <= 1)
+                return true;
+
+        if (streq_ptr(argv[1], "help"))
+                return true;
+
+        l = strv_skip(argv, 1);
+
+        return strv_contains(l, "--help") ||
+                strv_contains(l, "-h");
+}
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",

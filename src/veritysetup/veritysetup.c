@@ -12,6 +12,7 @@
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 
@@ -111,12 +112,10 @@ static int parse_options(const char *options) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        const char *verb;
         int r;
 
-        if (argc <= 1 ||
-            strv_contains(strv_skip(argv, 1), "--help") ||
-            strv_contains(strv_skip(argv, 1), "-h") ||
-            streq(argv[1], "help"))
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc < 3)
@@ -128,7 +127,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (streq(argv[1], "attach")) {
+        verb = argv[1];
+
+        if (streq(verb, "attach")) {
+                const char *volume, *data_device, *verity_device, *root_hash, *options;
                 _cleanup_free_ void *m = NULL;
                 crypt_status_info status;
                 size_t l;
@@ -136,24 +138,33 @@ static int run(int argc, char *argv[]) {
                 if (argc < 6)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least four arguments.");
 
-                r = unhexmem(argv[5], strlen(argv[5]), &m, &l);
+                volume = argv[2];
+                data_device = argv[3];
+                verity_device = argv[4];
+                root_hash = argv[5];
+                options = mangle_none(argc > 6 ? argv[6] : NULL);
+
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                r = unhexmem(root_hash, SIZE_MAX, &m, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash: %m");
 
-                r = crypt_init(&cd, argv[4]);
+                r = crypt_init(&cd, verity_device);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open verity device %s: %m", argv[4]);
+                        return log_error_errno(r, "Failed to open verity device %s: %m", verity_device);
 
                 cryptsetup_enable_logging(cd);
 
-                status = crypt_status(cd, argv[2]);
+                status = crypt_status(cd, volume);
                 if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
-                        log_info("Volume %s already active.", argv[2]);
+                        log_info("Volume %s already active.", volume);
                         return 0;
                 }
 
-                if (argc > 6) {
-                        r = parse_options(argv[6]);
+                if (options) {
+                        r = parse_options(options);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse options: %m");
                 }
@@ -162,7 +173,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verity superblock: %m");
 
-                r = crypt_set_data_device(cd, argv[3]);
+                r = crypt_set_data_device(cd, data_device);
                 if (r < 0)
                         return log_error_errno(r, "Failed to configure data device: %m");
 
@@ -186,20 +197,26 @@ static int run(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to read root hash signature: %m");
                         }
 
-                        r = crypt_activate_by_signed_key(cd, argv[2], m, l, hash_sig, hash_sig_size, arg_activate_flags);
+                        r = crypt_activate_by_signed_key(cd, volume, m, l, hash_sig, hash_sig_size, arg_activate_flags);
 #else
                         assert_not_reached();
 #endif
                 } else
-                        r = crypt_activate_by_volume_key(cd, argv[2], m, l, arg_activate_flags);
+                        r = crypt_activate_by_volume_key(cd, volume, m, l, arg_activate_flags);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up verity device: %m");
 
-        } else if (streq(argv[1], "detach")) {
+        } else if (streq(verb, "detach")) {
+                const char *volume;
 
-                r = crypt_init_by_name(&cd, argv[2]);
+                volume = argv[2];
+
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
-                        log_info("Volume %s already inactive.", argv[2]);
+                        log_info("Volume %s already inactive.", volume);
                         return 0;
                 }
                 if (r < 0)
@@ -207,12 +224,12 @@ static int run(int argc, char *argv[]) {
 
                 cryptsetup_enable_logging(cd);
 
-                r = crypt_deactivate(cd, argv[2]);
+                r = crypt_deactivate(cd, volume);
                 if (r < 0)
                         return log_error_errno(r, "Failed to deactivate: %m");
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
 
         return 0;
 }
