@@ -5,8 +5,13 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "format-util.h"
 #include "macro.h"
+#include "path-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "uid-range.h"
 #include "user-util.h"
 
@@ -177,4 +182,48 @@ bool uid_range_contains(const UidRange *p, size_t n, uid_t uid) {
                         return true;
 
         return false;
+}
+
+int uid_range_load_userns(UidRange **p, size_t *n, const char *path) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* If 'path' is NULL loads the UID range of the userns namespace we run. Otherwise load the data from
+         * the specified file (which can be either uid_map or gid_map, in case caller needs to deal with GID
+         * maps).
+         *
+         * To simplify things this will modify the passed array in case of later failure. */
+
+        if (!path)
+                path = "/proc/self/uid_map";
+
+        f = fopen(path, "re");
+        if (!f) {
+                r = -errno;
+
+                if (r == -ENOENT && path_startswith(path, "/proc/") && proc_mounted() > 0)
+                        return -EOPNOTSUPP;
+
+                return r;
+        }
+
+        for (;;) {
+                uid_t uid_base, uid_shift, uid_range;
+                int k;
+
+                errno = 0;
+                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+                if (k == EOF) {
+                        if (ferror(f))
+                                return errno_or_else(EIO);
+
+                        return 0;
+                }
+                if (k != 3)
+                        return -EBADMSG;
+
+                r = uid_range_add(p, n, uid_base, uid_range);
+                if (r < 0)
+                        return r;
+        }
 }
