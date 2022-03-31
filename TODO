@@ -761,8 +761,6 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
-* taint systemd if there are fewer than 65536 users assigned (userns) to the system.
-
 * deprecate RootDirectoryStartOnly= in favour of a new ExecStart= prefix char
 
 * add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
