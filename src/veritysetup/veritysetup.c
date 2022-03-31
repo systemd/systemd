@@ -146,6 +146,9 @@ static int run(int argc, char *argv[]) {
                 root_hash = argv[5];
                 options = mangle_none(argc > 6 ? argv[6] : NULL);
 
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
                 r = unhexmem(root_hash, SIZE_MAX, &m, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash: %m");
@@ -209,6 +212,9 @@ static int run(int argc, char *argv[]) {
                 const char *volume;
 
                 volume = argv[2];
+
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
                 r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
