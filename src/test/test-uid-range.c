@@ -7,6 +7,8 @@
 #include "uid-range.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
+#include "errno-util.h"
 
 TEST(uid_range) {
         _cleanup_free_ UidRange *p = NULL;
@@ -70,6 +72,26 @@ TEST(uid_range) {
         assert_se(n == 1);
         assert_se(p[0].start == 20);
         assert_se(p[0].nr == 1983);
+}
+
+TEST(load_userns) {
+        _cleanup_free_ UidRange *p = NULL;
+        size_t n = 0;
+        int r;
+
+        r = uid_range_load_userns(&p, &n, NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return;
+
+        assert_se(r >= 0);
+        assert_se(uid_range_contains(p, n, getuid()));
+
+        r = running_in_userns();
+        if (r == 0) {
+                assert_se(n == 1);
+                assert_se(p[0].start == 0);
+                assert_se(p[0].nr == UINT32_MAX);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
