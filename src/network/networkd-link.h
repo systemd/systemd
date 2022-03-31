@@ -69,7 +69,7 @@ typedef struct Link {
         sd_device *sd_device;
         char *driver;
 
-        /* link local addressing */
+        /* link-local addressing */
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
 
         /* wlan */

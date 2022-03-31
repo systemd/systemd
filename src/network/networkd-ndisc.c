@@ -59,7 +59,7 @@ void network_adjust_ipv6_accept_ra(Network *network) {
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
                 if (network->ipv6_accept_ra > 0)
-                        log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link local addressing is disabled or not supported. "
+                        log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link-local addressing is disabled or not supported. "
                                     "Disabling IPv6AcceptRA=.", network->filename);
                 network->ipv6_accept_ra = false;
         }
