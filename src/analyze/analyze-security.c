@@ -537,16 +537,19 @@ static int assess_system_call_architectures(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
+        uint32_t native;
         char *d;
         uint64_t b;
 
         assert(ret_badness);
         assert(ret_description);
 
+        assert(seccomp_arch_from_string("native", &native) == 0);
+
         if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (set_contains(info->system_call_architectures, "native") &&
+        } else if (set_contains(info->system_call_architectures, UINT32_TO_PTR(native + 1)) &&
                    set_size(info->system_call_architectures) == 1) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
@@ -587,7 +590,7 @@ static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFi
                 if (id < 0)
                         continue;
 
-                if (hashmap_contains(s, syscall) == allow_list) {
+                if (hashmap_contains(s, syscall) != allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         if (ret_offending_syscall)
                                 *ret_offending_syscall = syscall;
