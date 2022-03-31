@@ -245,4 +245,4 @@ DEFINE_CONFIG_PARSE_ENUM(
         config_parse_ipv6_link_local_address_gen_mode,
         ipv6_link_local_address_gen_mode,
         IPv6LinkLocalAddressGenMode,
-        "Failed to parse IPv6 link local address generation mode");
+        "Failed to parse IPv6 link-local address generation mode");
