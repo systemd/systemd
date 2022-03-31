@@ -590,7 +590,7 @@ static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFi
                 if (id < 0)
                         continue;
 
-                if (hashmap_contains(s, syscall) == allow_list) {
+                if (hashmap_contains(s, syscall) != allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         if (ret_offending_syscall)
                                 *ret_offending_syscall = syscall;
