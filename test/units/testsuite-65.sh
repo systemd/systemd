@@ -575,14 +575,14 @@ systemd-analyze security --threshold=90 --offline=true \
                            --root=/tmp/img/ testfile.service
 
 # The strict profile adds a lot of sanboxing options
-systemd-analyze security --threshold=20 --offline=true \
+systemd-analyze security --threshold=25 --offline=true \
                            --security-policy=/tmp/testfile.json \
                            --profile=strict \
                            --root=/tmp/img/ testfile.service
 
 set +e
 # The trusted profile doesn't add any sanboxing options
-systemd-analyze security --threshold=20 --offline=true \
+systemd-analyze security --threshold=25 --offline=true \
                            --security-policy=/tmp/testfile.json \
                            --profile=/usr/lib/systemd/portable/profile/trusted/service.conf \
                            --root=/tmp/img/ testfile.service \
