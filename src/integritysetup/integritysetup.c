@@ -175,8 +175,10 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach has a maximum of two arguments.");
 
                 r = crypt_init_by_name(&cd, volume);
-                if (r == -ENODEV)
+                if (r == -ENODEV) {
+                        log_info("Volume %s already inactive.", volume);
                         return 0;
+                }
                 if (r < 0)
                         return log_error_errno(r, "crypt_init_by_name() failed: %m");
 
