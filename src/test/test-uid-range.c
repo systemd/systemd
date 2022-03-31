@@ -3,11 +3,12 @@
 #include <stddef.h>
 
 #include "alloc-util.h"
+#include "tests.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "util.h"
 
-int main(int argc, char *argv[]) {
+TEST(uid_range) {
         _cleanup_free_ UidRange *p = NULL;
         size_t n = 0;
         uid_t search;
@@ -69,6 +70,6 @@ int main(int argc, char *argv[]) {
         assert_se(n == 1);
         assert_se(p[0].start == 20);
         assert_se(p[0].nr == 1983);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
