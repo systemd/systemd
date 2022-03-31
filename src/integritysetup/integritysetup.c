@@ -124,6 +124,9 @@ static int run(int argc, char *argv[]) {
                 key_file = mangle_none(argc > 4 ? argv[4] : NULL);
                 options = mangle_none(argc > 5 ? argv[5] : NULL);
 
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
                 if (key_file) {
                         r = load_key_file(key_file, &key_buf, &key_buf_size);
                         if (r < 0)
@@ -173,6 +176,9 @@ static int run(int argc, char *argv[]) {
 
                 if (argc > 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach has a maximum of two arguments.");
+
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
                 r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
