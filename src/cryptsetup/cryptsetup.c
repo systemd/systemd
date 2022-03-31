@@ -850,7 +850,7 @@ static int acquire_pins_from_env_variable(char ***ret_pins) {
 }
 #endif
 
-static int attach_luks2_by_fido2(
+static int attach_luks2_by_fido2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 usec_t until,
@@ -980,7 +980,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && !arg_fido2_cid) {
-                        r = attach_luks2_by_fido2(cd, name, until, arg_headless, arg_fido2_device, flags);
+                        r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_headless, arg_fido2_device, flags);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1053,7 +1053,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         return 0;
 }
 
-static int attach_luks2_by_pkcs11(
+static int attach_luks2_by_pkcs11_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 const char *friendly_name,
@@ -1133,7 +1133,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
-                        r = attach_luks2_by_pkcs11(cd, name, friendly, until, arg_headless, flags);
+                        r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
                 else {
                         r = decrypt_pkcs11_key(
                                         name,
@@ -1246,7 +1246,7 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
-static int attach_luks2_by_tpm2(
+static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 uint32_t flags) {
@@ -1328,7 +1328,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
                         }
                 } else {
-                        r = attach_luks2_by_tpm2(cd, name, flags);
+                        r = attach_luks2_by_tpm2_via_plugin(cd, name, flags);
                         /* EAGAIN     means: no tpm2 chip found
                          * EOPNOTSUPP means: no libcryptsetup plugins support */
                         if (r == -ENXIO)
@@ -1343,7 +1343,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         }
                 }
 
-                if (r == -EOPNOTSUPP) {
+                if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
                         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
                         size_t blob_size, policy_hash_size;
                         bool found_some = false;
