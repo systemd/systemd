@@ -537,16 +537,19 @@ static int assess_system_call_architectures(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
+        uint32_t native;
         char *d;
         uint64_t b;
 
         assert(ret_badness);
         assert(ret_description);
 
+        assert(seccomp_arch_from_string("native", &native) == 0);
+
         if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (set_contains(info->system_call_architectures, "native") &&
+        } else if (set_contains(info->system_call_architectures, UINT32_TO_PTR(native + 1)) &&
                    set_size(info->system_call_architectures) == 1) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
