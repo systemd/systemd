@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1727,7 +1728,7 @@ static int run(int argc, char *argv[]) {
         const char *verb;
         int r;
 
-        if (argc <= 1)
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc < 3)
