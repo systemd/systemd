@@ -72,6 +72,42 @@ EOF
     rm -f "$SERVICE_PATH"
 }
 
+function test_suffix() {
+    local SERVICE_PATH SERVICE_NAME pid directive
+    local config="$1"
+    local exp_payload="${2:+/}$2"
+    local exp_control="${3:+/}$3"
+    SERVICE_PATH="$(mktemp /run/systemd/system/test-delegate-wrap-XXX.service)"
+    SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Slice=system.slice
+Delegate=true
+DelegateControlGroupSuffix=$config
+DynamicUser=1
+ExecStart=/bin/sleep inf
+ExecStartPost=/bin/mkdir /sys/fs/cgroup/system.slice/$SERVICE_NAME/subcgroup
+ExecStartPost=/bin/bash -c "echo 0>/sys/fs/cgroup/system.slice/$SERVICE_NAME/subcgroup/cgroup.procs"
+ExecReload=/bin/sh -c "grep 0:: /proc/self/cgroup"
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    trap 'systemctl stop "$SERVICE_NAME"' RETURN
+    pid="$(systemctl show -P MainPID "$SERVICE_NAME")"
+    if ! grep -q "0::/system.slice/$SERVICE_NAME$exp_payload\\>" "/proc/$pid/cgroup" ; then
+        echo "Wrong payload cgroup: $(cat "/proc/$pid/cgroup")"
+        return 1
+    fi
+
+    systemctl reload "$SERVICE_NAME"
+    if ! journalctl -b -u "$SERVICE_NAME" | grep -q "0::/system.slice/$SERVICE_NAME$exp_control\\>" ; then
+        echo "Wrong control cgroup: $(journalctl -b -u "$SERVICE_NAME" | grep 0::)"
+        return 1
+    fi
+}
+
 if ! grep -q cgroup2 /proc/filesystems ; then
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
     exit 0
@@ -80,6 +116,9 @@ fi
 test_controllers
 test_scope_unpriv_delegation
 test_threaded
+test_suffix "."       ""        ""
+test_suffix "my/path" "my/path" "my/path"
+test_suffix ""        ""        ".control"
 
 echo OK >/testok
 
