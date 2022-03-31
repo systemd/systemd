@@ -32,6 +32,7 @@ enum {
 static const char *const vm_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_XEN]       = "XenVMMXenVMM",
         [VIRTUALIZATION_KVM]       = "KVMKVMKVM",
+        [VIRTUALIZATION_HV_KVM]    = "Linux KVM Hv",
         [VIRTUALIZATION_QEMU]      = "TCGTCGTCGTCG",
         /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
         [VIRTUALIZATION_VMWARE]    = "VMwareVMware",
@@ -995,6 +996,7 @@ bool has_cpu_with_flag(const char *flag) {
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_NONE] = "none",
         [VIRTUALIZATION_KVM] = "kvm",
+        [VIRTUALIZATION_HV_KVM] = "kvm",
         [VIRTUALIZATION_AMAZON] = "amazon",
         [VIRTUALIZATION_QEMU] = "qemu",
         [VIRTUALIZATION_BOCHS] = "bochs",
