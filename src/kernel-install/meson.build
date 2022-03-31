@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-want_kernel_install = get_option('kernel-install')
-
 if want_kernel_install
         install_data('kernel-install',
                      install_mode : 'rwxr-xr-x',
