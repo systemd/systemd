@@ -12,6 +12,7 @@
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 
@@ -114,10 +115,7 @@ static int run(int argc, char *argv[]) {
         const char *verb;
         int r;
 
-        if (argc <= 1 ||
-            strv_contains(strv_skip(argv, 1), "--help") ||
-            strv_contains(strv_skip(argv, 1), "-h") ||
-            streq(argv[1], "help"))
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc < 3)
