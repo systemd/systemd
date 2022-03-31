@@ -17,6 +17,7 @@
 #include "socket-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "uid-range.h"
 #include "user-record-show.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -167,13 +168,21 @@ static const struct {
         },
 };
 
-static int table_add_uid_boundaries(Table *table) {
+static int table_add_uid_boundaries(
+                Table *table,
+                const UidRange *p,
+                size_t n) {
         int r;
 
         assert(table);
+        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                if (n > 0 &&
+                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                        continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
                                " begin ", uid_range_table[i].name, " users ",
@@ -199,7 +208,7 @@ static int table_add_uid_boundaries(Table *table) {
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
-                                TABLE_INT, -1); /* sort before an other entry with the same UID */
+                                TABLE_INT, -1); /* sort before any other entry with the same UID */
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -229,12 +238,110 @@ static int table_add_uid_boundaries(Table *table) {
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
-                                TABLE_INT, 1); /* sort after an other entry with the same UID */
+                                TABLE_INT, 1); /* sort after any other entry with the same UID */
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         return ELEMENTSOF(uid_range_table) * 2;
+}
+
+static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(table);
+        assert(start <= end);
+
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " begin unavailable users ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_UID, start,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_STRING, "First unavailable user",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_EMPTY,
+                        TABLE_INT, -1); /* sort before an other entry with the same UID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        free(name);
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " end unavailable users ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_UID, end,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_STRING, "Last unavailable user",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_EMPTY,
+                        TABLE_INT, 1); /* sort after any other entry with the same UID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 2;
+}
+
+static int table_add_uid_map(
+                Table *table,
+                const UidRange *p,
+                size_t n,
+                int (*add_unavailable)(Table *t, uid_t start, uid_t end)) {
+
+        uid_t focus = 0;
+        int n_added = 0, r;
+
+        assert(table);
+        assert(p || n == 0);
+        assert(add_unavailable);
+
+        for (size_t i = 0; i < n; i++) {
+                if (focus < p[i].start) {
+                        r = add_unavailable(table, focus, p[i].start-1);
+                        if (r < 0)
+                                return r;
+
+                        n_added += r;
+                }
+
+                if (p[i].start > UINT32_MAX - p[i].nr) { /* overflow check */
+                        focus = UINT32_MAX;
+                        break;
+                }
+
+                focus = p[i].start + p[i].nr;
+        }
+
+        if (focus < UINT32_MAX-1) {
+                r = add_unavailable(table, focus, UINT32_MAX-1);
+                if (r < 0)
+                        return r;
+
+                n_added += r;
+        }
+
+        return n_added;
 }
 
 static int display_user(int argc, char *argv[], void *userdata) {
@@ -322,11 +429,21 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                int boundary_lines;
+                _cleanup_free_ UidRange *uid_range = NULL;
+                int boundary_lines, uid_map_lines;
+                size_t n_uid_range;
 
-                boundary_lines = table_add_uid_boundaries(table);
+                r = uid_range_load_userns(&uid_range, &n_uid_range, "/proc/self/uid_map");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
+
+                boundary_lines = table_add_uid_boundaries(table, uid_range, n_uid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
+
+                uid_map_lines = table_add_uid_map(table, uid_range, n_uid_range, add_unavailable_uid);
+                if (uid_map_lines < 0)
+                        return uid_map_lines;
 
                 if (table_get_rows(table) > 1) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
@@ -335,8 +452,11 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 }
 
                 if (arg_legend) {
-                        if (table_get_rows(table) > 1)
-                                printf("\n%zu users listed.\n", table_get_rows(table) - 1 - boundary_lines);
+                        size_t k;
+
+                        k = table_get_rows(table) - 1 - boundary_lines - uid_map_lines;
+                        if (k > 0)
+                                printf("\n%zu users listed.\n", k);
                         else
                                 printf("No users.\n");
                 }
@@ -411,13 +531,21 @@ static int show_group(GroupRecord *gr, Table *table) {
         return 0;
 }
 
-static int table_add_gid_boundaries(Table *table) {
+static int table_add_gid_boundaries(
+                Table *table,
+                const UidRange *p,
+                size_t n) {
         int r;
 
         assert(table);
+        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
+
+                if (n > 0 &&
+                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
+                        continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
                                " begin ", uid_range_table[i].name, " groups ",
@@ -440,7 +568,7 @@ static int table_add_gid_boundaries(Table *table) {
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_INT, -1); /* sort before an other entry with the same GID */
+                                TABLE_INT, -1); /* sort before any other entry with the same GID */
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -467,12 +595,63 @@ static int table_add_gid_boundaries(Table *table) {
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_INT, 1); /* sort after an other entry with the same GID */
+                                TABLE_INT, 1); /* sort after any other entry with the same GID */
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         return ELEMENTSOF(uid_range_table) * 2;
+}
+
+static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(table);
+        assert(start <= end);
+
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " begin unavailable groups ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_GID, start,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_STRING, "First unavailable group",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_INT, -1); /* sort before any other entry with the same GID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        free(name);
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                       " end unavailable groups ",
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+        if (!name)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, name,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_EMPTY,
+                        TABLE_GID, end,
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_STRING, "Last unavailable group",
+                        TABLE_SET_COLOR, ansi_grey(),
+                        TABLE_INT, 1); /* sort after any other entry with the same GID */
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 2;
 }
 
 static int display_group(int argc, char *argv[], void *userdata) {
@@ -559,11 +738,21 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                int boundary_lines;
+                _cleanup_free_ UidRange *gid_range = NULL;
+                int boundary_lines, gid_map_lines;
+                size_t n_gid_range;
 
-                boundary_lines = table_add_gid_boundaries(table);
+                r = uid_range_load_userns(&gid_range, &n_gid_range, "/proc/self/gid_map");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
+
+                boundary_lines = table_add_gid_boundaries(table, gid_range, n_gid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
+
+                gid_map_lines = table_add_uid_map(table, gid_range, n_gid_range, add_unavailable_gid);
+                if (gid_map_lines < 0)
+                        return gid_map_lines;
 
                 if (table_get_rows(table) > 1) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
@@ -572,8 +761,11 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 }
 
                 if (arg_legend) {
-                        if (table_get_rows(table) > 1)
-                                printf("\n%zu groups listed.\n", table_get_rows(table) - 1 - boundary_lines);
+                        size_t k;
+
+                        k = table_get_rows(table) - 1 - boundary_lines - gid_map_lines;
+                        if (k > 0)
+                                printf("\n%zu groups listed.\n", k);
                         else
                                 printf("No groups.\n");
                 }
