@@ -104,7 +104,7 @@ static Set *database_users = NULL, *database_groups = NULL;
 
 static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
-static unsigned n_uid_range = 0;
+static size_t n_uid_range = 0;
 
 static UGIDAllocationRange login_defs = {};
 static bool login_defs_need_warning = false;
