@@ -144,7 +144,7 @@ static int run(int argc, char *argv[]) {
                 data_device = argv[3];
                 verity_device = argv[4];
                 root_hash = argv[5];
-                options = argv[6];
+                options = mangle_none(argc > 6 ? argv[6] : NULL);
 
                 r = unhexmem(root_hash, SIZE_MAX, &m, &l);
                 if (r < 0)
@@ -162,7 +162,7 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
-                if (argc > 6) {
+                if (options) {
                         r = parse_options(options);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse options: %m");
