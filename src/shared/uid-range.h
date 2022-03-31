@@ -13,3 +13,5 @@ int uid_range_add_str(UidRange **p, size_t *n, const char *s);
 
 int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid);
 bool uid_range_contains(const UidRange *p, size_t n, uid_t uid);
+
+int uid_range_load_userns(UidRange **p, size_t *n, const char *path);
