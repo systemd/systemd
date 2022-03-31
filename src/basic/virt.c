@@ -12,6 +12,7 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
@@ -791,10 +792,7 @@ int detect_virtualization(void) {
 
 static int userns_has_mapping(const char *name) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *buf = NULL;
-        size_t n_allocated = 0;
-        ssize_t n;
-        uint32_t a, b, c;
+        uid_t a, b, c;
         int r;
 
         f = fopen(name, "re");
@@ -803,19 +801,17 @@ static int userns_has_mapping(const char *name) {
                 return errno == ENOENT ? false : -errno;
         }
 
-        n = getline(&buf, &n_allocated, f);
-        if (n < 0) {
-                if (feof(f)) {
-                        log_debug("%s is empty, we're in an uninitialized user namespace", name);
-                        return true;
-                }
+        errno = 0;
+        r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &a, &b, &c);
+        if (r == EOF) {
+                if (ferror(f))
+                        return log_debug_errno(errno_or_else(EIO), "Failed to read %s: %m", name);
 
-                return log_debug_errno(errno, "Failed to read %s: %m", name);
+                log_debug("%s is empty, we're in an uninitialized user namespace", name);
+                return true;
         }
-
-        r = sscanf(buf, "%"PRIu32" %"PRIu32" %"PRIu32, &a, &b, &c);
-        if (r < 3)
-                return log_debug_errno(errno, "Failed to parse %s: %m", name);
+        if (r != 3)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse %s: %m", name);
 
         if (a == 0 && b == 0 && c == UINT32_MAX) {
                 /* The kernel calls mappings_overlap() and does not allow overlaps */
