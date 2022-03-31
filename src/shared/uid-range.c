@@ -69,6 +69,9 @@ int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
         if (nr <= 0)
                 return 0;
 
+        if (start > UINT32_MAX - nr) /* overflow check */
+                return -ERANGE;
+
         for (size_t i = 0; i < *n; i++) {
                 x = (*p) + i;
                 if (uid_range_intersect(x, start, nr)) {
@@ -148,6 +151,9 @@ int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
 
         assert(p);
         assert(uid);
+
+        if (*uid == 0)
+                return -EBUSY;
 
         candidate = *uid - 1;
 
