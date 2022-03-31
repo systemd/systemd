@@ -72,6 +72,42 @@ EOF
     rm -f "$SERVICE_PATH"
 }
 
+function test_wrappers() {
+    local SERVICE_PATH SERVICE_NAME pid
+    SERVICE_PATH="$(mktemp /etc/systemd/system/test-delegate-wrap-XXX.service)"
+    SERVICE_NAME="${SERVICE_PATH##*/}"
+
+    cat >"$SERVICE_PATH" <<EOF
+[Service]
+Slice=system.slice
+Delegate=true
+DelegateControlControlGroup=mycontrol:mypayload
+DynamicUser=1
+ExecStart=/bin/sleep inf
+ExecReload=/bin/sh -c "grep 0:: /proc/self/cgroup"
+EOF
+
+    systemctl daemon-reload
+    systemctl start "$SERVICE_NAME"
+    pid="$(systemctl show -P MainPID "$SERVICE_NAME")"
+    if ! grep -q "0::/system.slice/$SERVICE_NAME/mypayload" "/proc/$pid/cgroup" ; then
+        echo "Wrong payload cgroup: $(cat "/proc/$pid/cgroup")"
+        exit 1
+    fi
+    cmp "/sys/fs/cgroup/system.slice/$SERVICE_NAME/mypayload/cgroup.controllers" \
+        "/sys/fs/cgroup/system.slice/$SERVICE_NAME/cgroup.controllers"
+
+    systemctl reload "$SERVICE_NAME"
+    if ! journalctl -b -u "$SERVICE_NAME" | grep -q "0::/system.slice/$SERVICE_NAME/mycontrol" ; then
+        echo "Wrong control cgroup: $(journalctl -b -u "$SERVICE_NAME" | grep 0::)"
+        exit 1
+    fi
+
+    systemctl stop "$SERVICE_NAME"
+
+    rm -f "$SERVICE_PATH"
+}
+
 if ! grep -q cgroup2 /proc/filesystems ; then
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
     exit 0
@@ -80,6 +116,7 @@ fi
 test_controllers
 test_scope_unpriv_delegation
 test_threaded
+test_wrappers
 
 echo OK >/testok
 
