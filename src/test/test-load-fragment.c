@@ -30,6 +30,7 @@
 
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */
 #define CGROUP_LIMIT_DUMMY      3
+#define DELEGATE_CG_DUMMY       "dummy"
 
 static char *runtime_dir = NULL;
 
@@ -925,6 +926,56 @@ TEST(config_parse_memory_limit) {
                          *limit_tests[i].result, limit_tests[i].expected);
                 assert_se(r >= 0);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
+        }
+        cgroup_context_done(&c);
+}
+
+TEST(config_parse_delegate_suffix) {
+        /* int config_parse_delegate_suffix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) */
+        CGroupContext c;
+        struct limit_test {
+                const char *value;
+                const char *exp_suffix;
+        } tests[]= {
+                { "",                    NULL},
+                { ".",                   ""},
+                { "plain",               "plain"},
+                { "nest/ed/path",        "nest/ed/path"},
+                { "trail/",              "trail"},
+                { "./here",              "here"},
+
+                { "/abs",                DELEGATE_CG_DUMMY},
+                { "/abs/nested",         DELEGATE_CG_DUMMY},
+                { ":weird",              ":weird"},
+                { "weird:down/here",     "weird:down/here"},
+                { "../upper",            DELEGATE_CG_DUMMY},
+                { "abc/../../ctrl",      DELEGATE_CG_DUMMY},
+        };
+        size_t i;
+        int r;
+
+        memset(&c, 0, sizeof(c));
+        for (i = 0; i < ELEMENTSOF(tests); i++) {
+                free_and_strdup(&c.delegate_suffix, DELEGATE_CG_DUMMY);
+
+                r = config_parse_delegate_suffix("unit.service", "fake", 1, "section", 1,
+                                                 "lvalue", 0,
+                                                 tests[i].value, &c, NULL);
+                log_info("rvalue=\"%s\", %s==%s\n",
+                         tests[i].value,
+                         c.delegate_suffix, tests[i].exp_suffix);
+                assert_se(r >= 0);
+                assert_se(streq_ptr(c.delegate_suffix, tests[i].exp_suffix));
         }
         cgroup_context_done(&c);
 }
