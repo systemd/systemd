@@ -3,10 +3,16 @@
 #include <stddef.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
 
 TEST(uid_range) {
         _cleanup_free_ UidRange *p = NULL;
@@ -70,6 +76,47 @@ TEST(uid_range) {
         assert_se(n == 1);
         assert_se(p[0].start == 20);
         assert_se(p[0].nr == 1983);
+}
+
+TEST(load_userns) {
+        _cleanup_(unlink_and_freep) char *fn = NULL;
+        _cleanup_free_ UidRange *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t n = 0;
+        int r;
+
+        r = uid_range_load_userns(&p, &n, NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return;
+
+        assert_se(r >= 0);
+        assert_se(uid_range_contains(p, n, getuid()));
+
+        r = running_in_userns();
+        if (r == 0) {
+                assert_se(n == 1);
+                assert_se(p[0].start == 0);
+                assert_se(p[0].nr == UINT32_MAX);
+        }
+
+        assert_se(fopen_temporary(NULL, &f, &fn) >= 0);
+        fputs("0 0 20\n"
+              "100 0 20\n", f);
+        assert_se(fflush_and_check(f) >= 0);
+
+        p = mfree(p);
+        n = 0;
+
+        assert_se(uid_range_load_userns(&p, &n, fn) >= 0);
+
+        assert_se(uid_range_contains(p, n, 0));
+        assert_se(uid_range_contains(p, n, 19));
+        assert_se(!uid_range_contains(p, n, 20));
+
+        assert_se(!uid_range_contains(p, n, 99));
+        assert_se(uid_range_contains(p, n, 100));
+        assert_se(uid_range_contains(p, n, 119));
+        assert_se(!uid_range_contains(p, n, 120));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
