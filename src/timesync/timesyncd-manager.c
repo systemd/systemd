@@ -856,7 +856,7 @@ int manager_connect(Manager *m) {
                                 return 0;
                         }
 
-                        if (restart && !m->exhausted_servers && m->poll_interval_usec) {
+                        if (restart && !m->exhausted_servers && m->poll_interval_usec > 0) {
                                 log_debug("Waiting after exhausting servers.");
                                 r = sd_event_add_time_relative(m->event, &m->event_retry, CLOCK_BOOTTIME, m->poll_interval_usec, 0, manager_retry_connect, m);
                                 if (r < 0)
