@@ -277,6 +277,9 @@ struct Manager {
         and it is much simpler that way. */
         sd_bus_track *subscribed;
         char **deserialized_subscribed;
+        /* We'll send out legacy JobRemoved signals only if at least one subscriber asks for it by calling
+         * the legacy Subscribe() method. */
+        size_t n_legacy_subscribers;
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */

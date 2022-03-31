@@ -348,7 +348,18 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+                bool new_signal_available = false;
+
+                r = bus_subscribe_with_flags_cached(bus);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether JobRemovedEx signal is available, falling back to legacy JobRemoved: %m");
+                else
+                        new_signal_available = r > 0;
+
+                if (new_signal_available)
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "SubscribeWithFlags", NULL, NULL, "t", 0);
+                else
+                        r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
 

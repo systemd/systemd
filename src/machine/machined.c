@@ -11,6 +11,7 @@
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-wait-for-jobs.h"
 #include "cgroup-util.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
@@ -184,6 +185,7 @@ static int manager_enumerate_machines(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
+        bool new_signal_available = false;
         int r;
 
         assert(m);
@@ -193,13 +195,19 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
+        r = bus_subscribe_with_flags_cached(m->bus);
+        if (r < 0)
+                log_warning_errno(r, "Failed to determine whether JobRemovedEx signal is available, falling back to legacy JobRemoved: %m");
+        else
+                new_signal_available = r > 0;
+
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
                 return r;
 
-        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "JobRemoved", match_job_removed, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, new_signal_available ? "JobRemovedEx" : "JobRemoved", match_job_removed, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for JobRemoved: %m");
+                return log_error_errno(r, "Failed to add match for JobRemoved%s: %m", new_signal_available ? "Ex" : "");
 
         r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "UnitRemoved", match_unit_removed, NULL, m);
         if (r < 0)
@@ -220,7 +228,10 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+        if (new_signal_available)
+                r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "SubscribeWithFlags", NULL, NULL, "t", 0);
+        else
+                r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 
