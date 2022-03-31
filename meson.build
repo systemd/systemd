@@ -1675,6 +1675,9 @@ else
 endif
 conf.set10('ENABLE_IMPORTD', have)
 
+want_kernel_install = get_option('kernel-install')
+conf.set10('ENABLE_KERNEL_INSTALL', want_kernel_install)
+
 want_homed = get_option('homed')
 if want_homed != 'false'
         have = (conf.get('HAVE_OPENSSL') == 1 and
@@ -4143,7 +4146,7 @@ foreach tuple : [
         ['hwdb'],
         ['importd'],
         ['initrd'],
-        ['kernel-install',        get_option('kernel-install')],
+        ['kernel-install'],
         ['localed'],
         ['logind'],
         ['machined'],
