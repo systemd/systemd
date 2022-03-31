@@ -30,7 +30,7 @@ manpages = [
  ['journalctl', '1', [], ''],
  ['journald.conf', '5', ['journald.conf.d', 'journald@.conf'], ''],
  ['kernel-command-line', '7', [], ''],
- ['kernel-install', '8', [], ''],
+ ['kernel-install', '8', [], 'ENABLE_KERNEL_INSTALL'],
  ['libudev', '3', [], ''],
  ['loader.conf', '5', [], 'HAVE_GNU_EFI'],
  ['locale.conf', '5', [], ''],
