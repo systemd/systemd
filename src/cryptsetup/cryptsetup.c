@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -850,7 +851,7 @@ static int acquire_pins_from_env_variable(char ***ret_pins) {
 }
 #endif
 
-static int attach_luks2_by_fido2(
+static int attach_luks2_by_fido2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 usec_t until,
@@ -980,7 +981,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && !arg_fido2_cid) {
-                        r = attach_luks2_by_fido2(cd, name, until, arg_headless, arg_fido2_device, flags);
+                        r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_headless, arg_fido2_device, flags);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1053,7 +1054,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         return 0;
 }
 
-static int attach_luks2_by_pkcs11(
+static int attach_luks2_by_pkcs11_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 const char *friendly_name,
@@ -1133,7 +1134,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
-                        r = attach_luks2_by_pkcs11(cd, name, friendly, until, arg_headless, flags);
+                        r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
                 else {
                         r = decrypt_pkcs11_key(
                                         name,
@@ -1246,7 +1247,7 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
-static int attach_luks2_by_tpm2(
+static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 uint32_t flags) {
@@ -1328,12 +1329,12 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
                         }
                 } else {
-                        r = attach_luks2_by_tpm2(cd, name, flags);
+                        r = attach_luks2_by_tpm2_via_plugin(cd, name, flags);
                         /* EAGAIN     means: no tpm2 chip found
                          * EOPNOTSUPP means: no libcryptsetup plugins support */
                         if (r == -ENXIO)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                        "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
                         if (r == -ENOENT)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "No TPM2 metadata enrolled in LUKS2 header or TPM2 support not available, falling back to traditional unlocking.");
@@ -1343,7 +1344,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                         }
                 }
 
-                if (r == -EOPNOTSUPP) {
+                if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
                         _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
                         size_t blob_size, policy_hash_size;
                         bool found_some = false;
@@ -1372,10 +1373,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &tpm2_flags);
                                 if (r == -ENXIO)
                                         /* No further TPM2 tokens found in the LUKS2 header. */
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                               found_some
-                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
-                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                        return log_full_errno(found_some ? LOG_NOTICE : LOG_DEBUG,
+                                                              SYNTHETIC_ERRNO(EAGAIN),
+                                                              found_some
+                                                              ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
+                                                              : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
                                 if (ERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                                 if (r < 0)
@@ -1398,7 +1400,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 arg_ask_password_flags,
                                                 &decrypted_key, &decrypted_key_size);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
+                                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 if (r != -EPERM)
                                         break;
 
@@ -1726,7 +1728,7 @@ static int run(int argc, char *argv[]) {
         const char *verb;
         int r;
 
-        if (argc <= 1)
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc < 3)
@@ -1758,8 +1760,8 @@ static int run(int argc, char *argv[]) {
 
                 volume = argv[2];
                 source = argv[3];
-                key_file = argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none") ? argv[4] : NULL;
-                options = argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none") ? argv[5] : NULL;
+                key_file = mangle_none(argc >= 5 ? argv[4] : NULL);
+                options = mangle_none(argc >= 6 ? argv[5] : NULL);
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);

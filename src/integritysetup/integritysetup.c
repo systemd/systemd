@@ -12,9 +12,10 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "path-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 
@@ -87,19 +88,16 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        char *verb, *volume;
         int r;
-        char *action, *volume;
 
-        if (argc <= 1 ||
-            strv_contains(strv_skip(argv, 1), "--help") ||
-            strv_contains(strv_skip(argv, 1), "-h") ||
-            streq(argv[1], "help"))
+        if (argv_looks_like_help(argc, argv))
                 return help();
 
         if (argc < 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires at least two arguments.");
 
-        action = argv[1];
+        verb = argv[1];
         volume = argv[2];
 
         log_setup();
@@ -108,7 +106,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (streq(action, "attach")) {
+        if (streq(verb, "attach")) {
                 /* attach name device optional_key_file optional_options */
 
                 crypt_status_info status;
@@ -123,8 +121,11 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach has a maximum of five arguments.");
 
                 device = argv[3];
-                key_file = (argc > 4) ? empty_or_dash_to_null(argv[4]) : NULL;
-                options = (argc > 5) ? empty_or_dash_to_null(argv[5]) : NULL;
+                key_file = mangle_none(argc > 4 ? argv[4] : NULL);
+                options = mangle_none(argc > 5 ? argv[5] : NULL);
+
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
                 if (key_file) {
                         r = load_key_file(key_file, &key_buf, &key_buf_size);
@@ -171,14 +172,19 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up integrity device: %m");
 
-        } else if (streq(action, "detach")) {
+        } else if (streq(verb, "detach")) {
 
                 if (argc > 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach has a maximum of two arguments.");
 
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
                 r = crypt_init_by_name(&cd, volume);
-                if (r == -ENODEV)
+                if (r == -ENODEV) {
+                        log_info("Volume %s already inactive.", volume);
                         return 0;
+                }
                 if (r < 0)
                         return log_error_errno(r, "crypt_init_by_name() failed: %m");
 
@@ -189,7 +195,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to deactivate: %m");
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", action);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
 
         return 0;
 }
