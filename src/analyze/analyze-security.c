@@ -530,6 +530,8 @@ static int assess_restrict_namespaces(
         return 0;
 }
 
+#if HAVE_SECCOMP
+
 static int assess_system_call_architectures(
                 const struct security_assessor *a,
                 const SecurityInfo *info,
@@ -537,16 +539,19 @@ static int assess_system_call_architectures(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
+        uint32_t native = 0;
         char *d;
         uint64_t b;
 
         assert(ret_badness);
         assert(ret_description);
 
+        assert_se(seccomp_arch_from_string("native", &native) >= 0);
+
         if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (set_contains(info->system_call_architectures, "native") &&
+        } else if (set_contains(info->system_call_architectures, UINT32_TO_PTR(native + 1)) &&
                    set_size(info->system_call_architectures) == 1) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
@@ -563,8 +568,6 @@ static int assess_system_call_architectures(
 
         return 0;
 }
-
-#if HAVE_SECCOMP
 
 static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
         const char *syscall;
@@ -1476,6 +1479,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_bool,
                 .offset = offsetof(SecurityInfo, restrict_address_family_other),
         },
+#if HAVE_SECCOMP
         {
                 .id = "SystemCallArchitectures=",
                 .json_field = "SystemCallArchitectures",
@@ -1484,7 +1488,6 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 10,
                 .assess = assess_system_call_architectures,
         },
-#if HAVE_SECCOMP
         {
                 .id = "SystemCallFilter=~@swap",
                 .json_field = "SystemCallFilter_swap",
