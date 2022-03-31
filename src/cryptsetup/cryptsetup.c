@@ -1758,8 +1758,8 @@ static int run(int argc, char *argv[]) {
 
                 volume = argv[2];
                 source = argv[3];
-                key_file = argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none") ? argv[4] : NULL;
-                options = argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none") ? argv[5] : NULL;
+                key_file = mangle_none(argc >= 5 ? argv[4] : NULL);
+                options = mangle_none(argc >= 6 ? argv[5] : NULL);
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);

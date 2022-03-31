@@ -86,3 +86,8 @@ static inline void sym_crypt_free(struct crypt_device* cd) {}
 static inline void sym_crypt_freep(struct crypt_device** cd) {}
 
 #endif
+
+static inline const char *mangle_none(const char *s) {
+        /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */
+        return isempty(s) || STR_IN_SET(s, "-", "none") ? NULL : s;
+}
