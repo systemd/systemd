@@ -556,7 +556,7 @@ static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilter
                 if (id < 0)
                         continue;
 
-                if (set_contains(s, syscall) == allow_list) {
+                if (set_contains(s, syscall) != allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         if (ret_offending_syscall)
                                 *ret_offending_syscall = syscall;
