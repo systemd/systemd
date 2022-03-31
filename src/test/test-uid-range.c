@@ -3,14 +3,21 @@
 #include <stddef.h>
 
 #include "alloc-util.h"
+#include "tests.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
+#include "errno-util.h"
 
-int main(int argc, char *argv[]) {
+TEST(uid_range) {
         _cleanup_free_ UidRange *p = NULL;
-        unsigned n = 0;
+        size_t n = 0;
         uid_t search;
+
+        assert_se(uid_range_covers(p, n, 0, 0));
+        assert_se(!uid_range_covers(p, n, 0, 1));
+        assert_se(!uid_range_covers(p, n, 100, UINT32_MAX));
 
         assert_se(uid_range_add_str(&p, &n, "500-999") >= 0);
         assert_se(n == 1);
@@ -21,6 +28,17 @@ int main(int argc, char *argv[]) {
         assert_se(uid_range_contains(p, n, 500));
         assert_se(uid_range_contains(p, n, 999));
         assert_se(!uid_range_contains(p, n, 1000));
+
+        assert_se(!uid_range_covers(p, n, 100, 150));
+        assert_se(!uid_range_covers(p, n, 400, 200));
+        assert_se(!uid_range_covers(p, n, 499, 1));
+        assert_se(uid_range_covers(p, n, 500, 1));
+        assert_se(uid_range_covers(p, n, 501, 10));
+        assert_se(uid_range_covers(p, n, 999, 1));
+        assert_se(!uid_range_covers(p, n, 999, 2));
+        assert_se(!uid_range_covers(p, n, 1000, 1));
+        assert_se(!uid_range_covers(p, n, 1000, 100));
+        assert_se(!uid_range_covers(p, n, 1001, 100));
 
         search = UID_INVALID;
         assert_se(uid_range_next_lower(p, n, &search));
@@ -69,6 +87,28 @@ int main(int argc, char *argv[]) {
         assert_se(n == 1);
         assert_se(p[0].start == 20);
         assert_se(p[0].nr == 1983);
-
-        return 0;
 }
+
+TEST(load_userns) {
+        _cleanup_free_ UidRange *p = NULL;
+        size_t n = 0;
+        int r;
+
+        r = uid_range_load_userns(&p, &n, NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return;
+
+        assert_se(r >= 0);
+        assert_se(uid_range_contains(p, n, getuid()));
+
+        r = running_in_userns();
+        if (r == 0) {
+                assert_se(n == 1);
+                assert_se(p[0].start == 0);
+                assert_se(p[0].nr == UINT32_MAX);
+
+                assert_se(uid_range_covers(p, n, 0, UINT32_MAX));
+        }
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

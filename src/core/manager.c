@@ -81,6 +81,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
+#include "uid-range.h"
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -4349,15 +4350,28 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
         return 0;
 }
 
+static int short_uid_range(const char *path) {
+        _cleanup_free_ UidRange *p = NULL;
+        size_t n = 0;
+        int r;
+
+        r = uid_range_load_userns(&p, &n, NULL);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load %s: %m", path);
+
+        return !uid_range_covers(p, n, 0, 65535);
+}
+
 char *manager_taint_string(Manager *m) {
         _cleanup_free_ char *destination = NULL, *overflowuid = NULL, *overflowgid = NULL;
         char *buf, *e;
         int r;
 
-        /* Returns a "taint string", e.g. "local-hwclock:var-run-bad".
-         * Only things that are detected at runtime should be tagged
-         * here. For stuff that is set during compilation, emit a warning
-         * in the configuration phase. */
+        /* Returns a "taint string", e.g. "local-hwclock:var-run-bad".  Only things that are detected at
+         * runtime should be tagged here. For stuff that is set during compilation, emit a warning in the
+         * configuration phase. */
 
         assert(m);
 
@@ -4367,7 +4381,9 @@ char *manager_taint_string(Manager *m) {
                                "local-hwclock:"
                                "var-run-bad:"
                                "overflowuid-not-65534:"
-                               "overflowgid-not-65534:"));
+                               "overflowgid-not-65534:"
+                               "short-uid-range:"
+                               "short-gid-range:"));
         if (!buf)
                 return NULL;
 
@@ -4397,6 +4413,11 @@ char *manager_taint_string(Manager *m) {
         r = read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid);
         if (r >= 0 && !streq(overflowgid, "65534"))
                 e = stpcpy(e, "overflowgid-not-65534:");
+
+        if (short_uid_range("/proc/self/uid_map") > 0)
+                e = stpcpy(e, "short-uid-range:");
+        if (short_uid_range("/proc/self/gid_map") > 0)
+                e = stpcpy(e, "short-gid-range:");
 
         /* remove the last ':' */
         if (e != buf)
