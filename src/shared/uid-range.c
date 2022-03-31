@@ -179,12 +179,17 @@ int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
         return 1;
 }
 
-bool uid_range_contains(const UidRange *p, size_t n, uid_t uid) {
-        assert(p);
-        assert(uid);
+bool uid_range_covers(const UidRange *p, size_t n, uid_t start, uid_t nr) {
+        assert(p || n == 0);
+
+        if (nr == 0) /* empty range? always covered... */
+                return true;
+
+        if (start > UINT32_MAX - nr) /* range overflows? definitely not covered... */
+                return false;
 
         for (size_t i = 0; i < n; i++)
-                if (uid >= p[i].start && uid < p[i].start + p[i].nr)
+                if (start >= p[i].start && start + nr <= p[i].start + p[i].nr)
                         return true;
 
         return false;

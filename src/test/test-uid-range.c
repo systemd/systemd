@@ -19,6 +19,10 @@ TEST(uid_range) {
         size_t n = 0;
         uid_t search;
 
+        assert_se(uid_range_covers(p, n, 0, 0));
+        assert_se(!uid_range_covers(p, n, 0, 1));
+        assert_se(!uid_range_covers(p, n, 100, UINT32_MAX));
+
         assert_se(uid_range_add_str(&p, &n, "500-999") >= 0);
         assert_se(n == 1);
         assert_se(p[0].start == 500);
@@ -28,6 +32,17 @@ TEST(uid_range) {
         assert_se(uid_range_contains(p, n, 500));
         assert_se(uid_range_contains(p, n, 999));
         assert_se(!uid_range_contains(p, n, 1000));
+
+        assert_se(!uid_range_covers(p, n, 100, 150));
+        assert_se(!uid_range_covers(p, n, 400, 200));
+        assert_se(!uid_range_covers(p, n, 499, 1));
+        assert_se(uid_range_covers(p, n, 500, 1));
+        assert_se(uid_range_covers(p, n, 501, 10));
+        assert_se(uid_range_covers(p, n, 999, 1));
+        assert_se(!uid_range_covers(p, n, 999, 2));
+        assert_se(!uid_range_covers(p, n, 1000, 1));
+        assert_se(!uid_range_covers(p, n, 1000, 100));
+        assert_se(!uid_range_covers(p, n, 1001, 100));
 
         search = UID_INVALID;
         assert_se(uid_range_next_lower(p, n, &search));
@@ -97,6 +112,8 @@ TEST(load_userns) {
                 assert_se(n == 1);
                 assert_se(p[0].start == 0);
                 assert_se(p[0].nr == UINT32_MAX);
+
+                assert_se(uid_range_covers(p, n, 0, UINT32_MAX));
         }
 
         assert_se(fopen_temporary(NULL, &f, &fn) >= 0);
