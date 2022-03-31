@@ -17,12 +17,12 @@ static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
                 range->start + range->nr >= start;
 }
 
-static void uid_range_coalesce(UidRange **p, unsigned *n) {
+static void uid_range_coalesce(UidRange **p, size_t *n) {
         assert(p);
         assert(n);
 
-        for (unsigned i = 0; i < *n; i++) {
-                for (unsigned j = i + 1; j < *n; j++) {
+        for (size_t i = 0; i < *n; i++) {
+                for (size_t j = i + 1; j < *n; j++) {
                         UidRange *x = (*p)+i, *y = (*p)+j;
 
                         if (uid_range_intersect(x, y->start, y->nr)) {
@@ -54,7 +54,7 @@ static int uid_range_compare(const UidRange *a, const UidRange *b) {
         return CMP(a->nr, b->nr);
 }
 
-int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
+int uid_range_add(UidRange **p, size_t *n, uid_t start, uid_t nr) {
         bool found = false;
         UidRange *x;
 
@@ -64,7 +64,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
         if (nr <= 0)
                 return 0;
 
-        for (unsigned i = 0; i < *n; i++) {
+        for (size_t i = 0; i < *n; i++) {
                 x = (*p) + i;
                 if (uid_range_intersect(x, start, nr)) {
                         found = true;
@@ -100,7 +100,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
         return *n;
 }
 
-int uid_range_add_str(UidRange **p, unsigned *n, const char *s) {
+int uid_range_add_str(UidRange **p, size_t *n, const char *s) {
         uid_t start, nr;
         const char *t;
         int r;
@@ -138,7 +138,7 @@ int uid_range_add_str(UidRange **p, unsigned *n, const char *s) {
         return uid_range_add(p, n, start, nr);
 }
 
-int uid_range_next_lower(const UidRange *p, unsigned n, uid_t *uid) {
+int uid_range_next_lower(const UidRange *p, size_t n, uid_t *uid) {
         uid_t closest = UID_INVALID, candidate;
 
         assert(p);
@@ -146,7 +146,7 @@ int uid_range_next_lower(const UidRange *p, unsigned n, uid_t *uid) {
 
         candidate = *uid - 1;
 
-        for (unsigned i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 uid_t begin, end;
 
                 begin = p[i].start;
@@ -168,11 +168,11 @@ int uid_range_next_lower(const UidRange *p, unsigned n, uid_t *uid) {
         return 1;
 }
 
-bool uid_range_contains(const UidRange *p, unsigned n, uid_t uid) {
+bool uid_range_contains(const UidRange *p, size_t n, uid_t uid) {
         assert(p);
         assert(uid);
 
-        for (unsigned i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 if (uid >= p[i].start && uid < p[i].start + p[i].nr)
                         return true;
 

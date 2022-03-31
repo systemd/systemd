@@ -9,7 +9,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ UidRange *p = NULL;
-        unsigned n = 0;
+        size_t n = 0;
         uid_t search;
 
         assert_se(uid_range_add_str(&p, &n, "500-999") >= 0);
