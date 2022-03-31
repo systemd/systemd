@@ -88,8 +88,8 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        char *verb, *volume;
         int r;
-        char *action, *volume;
 
         if (argv_looks_like_help(argc, argv))
                 return help();
@@ -97,7 +97,7 @@ static int run(int argc, char *argv[]) {
         if (argc < 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires at least two arguments.");
 
-        action = argv[1];
+        verb = argv[1];
         volume = argv[2];
 
         log_setup();
@@ -106,7 +106,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (streq(action, "attach")) {
+        if (streq(verb, "attach")) {
                 /* attach name device optional_key_file optional_options */
 
                 crypt_status_info status;
@@ -169,7 +169,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up integrity device: %m");
 
-        } else if (streq(action, "detach")) {
+        } else if (streq(verb, "detach")) {
 
                 if (argc > 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "detach has a maximum of two arguments.");
@@ -187,7 +187,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to deactivate: %m");
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", action);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
 
         return 0;
 }
