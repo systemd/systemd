@@ -91,7 +91,7 @@ void network_adjust_dhcp(Network *network) {
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6) &&
             FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
-                log_warning("%s: DHCPv6 client is enabled but IPv6 link local addressing is disabled. "
+                log_warning("%s: DHCPv6 client is enabled but IPv6 link-local addressing is disabled. "
                             "Disabling DHCPv6 client.", network->filename);
                 SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
         }

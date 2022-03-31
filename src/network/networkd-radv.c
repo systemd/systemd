@@ -33,7 +33,7 @@ void network_adjust_radv(Network *network) {
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
                 if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
-                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link-local addressing is disabled. "
                                     "Disabling IPv6PrefixDelegation=.", network->filename);
 
                 network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;

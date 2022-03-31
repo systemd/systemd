@@ -366,7 +366,7 @@
       <varlistentry>
         <term><varname>IPv6LinkLocalAddressGenerationMode=</varname></term>
         <listitem>
-          <para>Specifies how IPv6 link local address is generated. Takes one of
+          <para>Specifies how IPv6 link-local address is generated. Takes one of
           <literal>eui64</literal>, <literal>none</literal>, <literal>stable-privacy</literal> and
           <literal>random</literal>. When unset, <literal>stable-privacy</literal> is used if
           <varname>IPv6StableSecretAddress=</varname> is specified, and if not,
@@ -715,7 +715,7 @@ Table=1234</programlisting></para>
           may trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or
           if no routers are found on the link. The default is to disable RA reception for bridge
           devices or when IP forwarding is enabled, and to enable it otherwise. Cannot be enabled on
-          bond devices and when link local addressing is disabled.</para>
+          bond devices and when link-local addressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA]
           section, see below.</para>
@@ -2836,7 +2836,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses
         that are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is true.
         <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that case
-        the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS servers are
+        the IPv6 link-local address is distributed. If <varname>DNS=</varname> is empty, DNS servers are
         read from the [Network] section. If the [Network] section does not contain any DNS servers
         either, DNS servers from the uplink interface specified in <varname>UplinkInterface=</varname>
         will be used. When <varname>EmitDNS=</varname> is false, no DNS server information is sent in

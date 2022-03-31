@@ -204,7 +204,7 @@ struct Network {
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
 
-        /* link local addressing support */
+        /* link-local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         struct in6_addr ipv6ll_stable_secret;
