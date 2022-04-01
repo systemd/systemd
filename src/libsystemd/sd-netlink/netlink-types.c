@@ -63,7 +63,7 @@ int type_system_root_get_type_system_and_header_size(
         if (IN_SET(type, NLMSG_DONE, NLMSG_ERROR))
                 nl_type = type_system_get_type(&basic_type_system, type);
         else
-                switch(nl->protocol) {
+                switch (nl->protocol) {
                 case NETLINK_ROUTE:
                         nl_type = rtnl_get_type(type);
                         break;

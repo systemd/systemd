@@ -104,7 +104,7 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         const void *key;
         int r;
 
-        switch(s->split_mode) {
+        switch (s->split_mode) {
         case JOURNAL_WRITE_SPLIT_NONE:
                 key = "one and only";
                 break;
@@ -495,7 +495,7 @@ static int accept_connection(
                 return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
         }
 
-        switch(socket_address_family(addr)) {
+        switch (socket_address_family(addr)) {
         case AF_INET:
         case AF_INET6: {
                 _cleanup_free_ char *a = NULL;

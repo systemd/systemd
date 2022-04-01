@@ -136,7 +136,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
         arg_mode = _MODE_INVALID;
 
         while ((c = getopt_long(argc, argv, "hadxpfm:uIi:l:Rr:vV", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return resolvconf_help();

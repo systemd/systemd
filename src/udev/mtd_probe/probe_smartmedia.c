@@ -61,7 +61,7 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unexpected sector size: %i", sector_size);
 
-        switch(size_in_megs) {
+        switch (size_in_megs) {
         case 1:
         case 2:
                 spare_count = 6;

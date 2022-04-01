@@ -277,7 +277,7 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
         int r;
 
         assert_return(rtnl_message_type_is_nexthop(nlmsg_type), -EINVAL);
-        switch(nlmsg_type) {
+        switch (nlmsg_type) {
         case RTM_DELNEXTHOP:
                 assert_return(nh_family == AF_UNSPEC, -EINVAL);
                 _fallthrough_;

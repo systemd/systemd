@@ -228,7 +228,7 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
         ({                                                              \
                 const union sockaddr_union *__sa = &(sa);               \
                 size_t _len;                                            \
-                switch(__sa->sa.sa_family) {                            \
+                switch (__sa->sa.sa_family) {                           \
                 case AF_INET:                                           \
                         _len = sizeof(struct sockaddr_in);              \
                         break;                                          \

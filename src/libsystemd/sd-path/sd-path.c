@@ -516,7 +516,7 @@ static int get_search(uint64_t type, char ***list) {
 
         assert(list);
 
-        switch(type) {
+        switch (type) {
 
         case SD_PATH_SEARCH_BINARIES:
                 return search_from_environment(list,
