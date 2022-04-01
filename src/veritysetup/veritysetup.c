@@ -17,7 +17,9 @@
 #include "terminal-util.h"
 
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
-static const char *arg_root_hash_signature = NULL;
+static char *arg_root_hash_signature = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -39,13 +41,17 @@ static int help(void) {
 }
 
 static int save_roothashsig_option(const char *option, bool strict) {
+        int r;
 
         if (path_is_absolute(option) || startswith(option, "base64:")) {
                 if (!HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Activation of verity device with signature requested, but cryptsetup does not support crypt_activate_by_signed_key().");
 
-                arg_root_hash_signature = option;
+                r = free_and_strdup_warn(&arg_root_hash_signature, option);
+                if (r < 0)
+                        return r;
+
                 return true;
         }
 
@@ -60,10 +66,10 @@ static int parse_options(const char *options) {
         int r;
 
         /* backward compatibility with the obsolete ROOTHASHSIG positional argument */
-        r = save_roothashsig_option(options, false);
+        r = save_roothashsig_option(options, /* strict= */ false);
         if (r < 0)
                 return r;
-        if (r == 1) {
+        if (r > 0) {
                 log_warning("Usage of ROOTHASHSIG positional argument is deprecated. "
                             "Please use the option root-hash-signature=%s instead.", options);
                 return 0;
@@ -99,7 +105,7 @@ static int parse_options(const char *options) {
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
 #endif
                 else if ((val = startswith(word, "root-hash-signature="))) {
-                        r = save_roothashsig_option(val, true);
+                        r = save_roothashsig_option(val, /* strict= */ true);
                         if (r < 0)
                                 return r;
 
