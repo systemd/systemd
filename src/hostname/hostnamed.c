@@ -353,7 +353,7 @@ try_acpi:
          * http://www.acpi.info/DOWNLOADS/ACPIspec50.pdf
          */
 
-        switch(t) {
+        switch (t) {
 
         case 1: /* Desktop */
         case 3: /* Workstation */

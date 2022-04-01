@@ -2162,7 +2162,7 @@ static int install_error(
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch(changes[i].type_or_errno) {
+                switch (changes[i].type_or_errno) {
 
                 case 0 ... _UNIT_FILE_CHANGE_TYPE_MAX: /* not errors */
                         continue;

@@ -29,7 +29,7 @@ static void* basic_request_handler_userdata = (void*) 0xCABCAB;
 static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(userdata == basic_request_handler_userdata);
 
-        switch(event) {
+        switch (event) {
                 case SD_IPV4LL_EVENT_STOP:
                         basic_request_handler_stop = 1;
                         break;

@@ -393,7 +393,7 @@ int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw
                 if (dest != _v)                        \
                         updated = true;                \
                 dest = _v;                             \
-        } while(false)
+        } while (false)
 
 #define UPDATE_WITH_MAX(dest, max, val, updated)       \
         do {                                           \
@@ -404,7 +404,7 @@ int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw
                 if (dest != _v)                        \
                         updated = true;                \
                 dest = _v;                             \
-        } while(false)
+        } while (false)
 
 int ethtool_set_wol(
                 int *ethtool_fd,

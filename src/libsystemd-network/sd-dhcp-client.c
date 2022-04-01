@@ -247,7 +247,7 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
         assert_return(client, -EINVAL);
         assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
 
-        switch(option) {
+        switch (option) {
 
         case SD_DHCP_OPTION_PAD:
         case SD_DHCP_OPTION_OVERLOAD:
