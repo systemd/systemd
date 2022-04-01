@@ -71,7 +71,7 @@ typedef struct BootConfig {
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
-static inline BootEntry* boot_config_default_entry(BootConfig *config) {
+static inline const BootEntry* boot_config_default_entry(const BootConfig *config) {
         assert(config);
 
         if (config->default_entry < 0)
