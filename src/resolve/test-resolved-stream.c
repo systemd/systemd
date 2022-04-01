@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
@@ -330,11 +331,36 @@ static void test_dns_stream(bool tls) {
 
 static void try_isolate_network(void) {
         _cleanup_close_ int socket_fd = -1;
+        int r;
 
-        if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
-                log_warning("test-resolved-stream: Can't create user and network ns, running on host");
-                return;
+        /* First test if CLONE_NEWUSER/CLONE_NEWNET can actually work for us, i.e. we can open the namespaces
+         * and then still access the build dir we are run from. We do that in a child process since it's
+         * nasty if we have to go back from the namespace once we entered it and realized it cannot work. */
+        r = safe_fork("(usernstest)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r == 0) { /* child */
+                _cleanup_free_ char *rt = NULL, *d = NULL;
+
+                if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
+                        log_warning_errno(errno, "test-resolved-stream: Can't create user and network ns, running on host: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                assert_se(get_process_exe(0, &rt) >= 0);
+                assert_se(path_extract_directory(rt, &d) >= 0);
+
+                if (access(d, F_OK) < 0) {
+                        log_warning_errno(errno, "test-resolved-stream: Can't access /proc/self/exe from user/network ns, running on host: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
         }
+        if (r == -EPROTO) /* EPROTO means nonzero exit code of child, i.e. the tests in the child failed */
+                return;
+        assert_se(r > 0);
+
+        /* Now that we know that the unshare() is safe, let's actually do it */
+        assert_se(unshare(CLONE_NEWUSER | CLONE_NEWNET) >= 0);
 
         /* Bring up the loopback interfaceon the newly created network namespace */
         struct ifreq req = { .ifr_ifindex = 1 };
