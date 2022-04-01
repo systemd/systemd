@@ -453,8 +453,8 @@ static const uint8_t msg_information_request[] = {
         0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
         0x00, SD_DHCP6_OPTION_DNS_SERVERS,
         0x00, SD_DHCP6_OPTION_DOMAIN_LIST,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         0x00, SD_DHCP6_OPTION_SNTP_SERVERS,
+        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         /* Client ID */
         0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
         CLIENT_ID_BYTES,
@@ -493,8 +493,8 @@ static const uint8_t msg_solicit[] = {
         0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
         0x00, SD_DHCP6_OPTION_DNS_SERVERS,
         0x00, SD_DHCP6_OPTION_DOMAIN_LIST,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         0x00, SD_DHCP6_OPTION_SNTP_SERVERS,
+        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         /* Client ID */
         0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
         CLIENT_ID_BYTES,
@@ -556,8 +556,8 @@ static const uint8_t msg_request[] = {
         0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
         0x00, SD_DHCP6_OPTION_DNS_SERVERS,
         0x00, SD_DHCP6_OPTION_DOMAIN_LIST,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         0x00, SD_DHCP6_OPTION_SNTP_SERVERS,
+        0x00, SD_DHCP6_OPTION_NTP_SERVER,
         /* Client ID */
         0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
         CLIENT_ID_BYTES,
