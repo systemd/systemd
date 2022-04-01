@@ -70,7 +70,7 @@ int getxattr_at_malloc(
                 by_procfs = true; /* fgetxattr() is not going to work, go via /proc/ link right-away */
         }
 
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *v = NULL;
                 ssize_t n;
 

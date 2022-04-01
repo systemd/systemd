@@ -330,7 +330,7 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
         for (size_t i = 0; i < n_changes; i++) {
                 assert(verb || changes[i].type_or_errno >= 0);
 
-                switch(changes[i].type_or_errno) {
+                switch (changes[i].type_or_errno) {
                 case UNIT_FILE_SYMLINK:
                         if (!quiet)
                                 log_info("Created symlink %s %s %s.",

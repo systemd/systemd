@@ -163,7 +163,7 @@ TEST(auto_erase_memory) {
                 assert_se(MALLOC_SIZEOF_SAFE(f) >= sizeof(*f) * n);     \
                 assert_se(malloc_usable_size(f) >= sizeof(*f) * n);     \
                 assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n); \
-        } while(false)
+        } while (false)
 
 TEST(malloc_size_safe) {
         _cleanup_free_ uint32_t *f = NULL;

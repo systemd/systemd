@@ -304,7 +304,7 @@ int mac_smack_setup(bool *loaded_policy) {
         assert(loaded_policy);
 
         r = write_access2_rules("/etc/smack/accesses.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack is not enabled in the kernel.");
                 return 0;
@@ -336,7 +336,7 @@ int mac_smack_setup(bool *loaded_policy) {
 #endif
 
         r = write_cipso2_rules("/etc/smack/cipso.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack/CIPSO is not enabled in the kernel.");
                 return 0;
@@ -352,7 +352,7 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
         r = write_netlabel_rules("/etc/smack/netlabel.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack/CIPSO is not enabled in the kernel.");
                 return 0;
@@ -368,7 +368,7 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
         r = write_onlycap_list();
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack is not enabled in the kernel.");
                 break;

@@ -24,7 +24,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
         for (;;) {
 
-                switch(u->entry_state) {
+                switch (u->entry_state) {
                 case ENTRY_CURSOR: {
                         u->current_cursor = mfree(u->current_cursor);
 

@@ -737,7 +737,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
         assert(req);
 
-        switch(code) {
+        switch (code) {
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 if (len == 4)
                         req->lifetime = unaligned_read_be32(option);
@@ -1096,7 +1096,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         static_lease = hashmap_get(server->static_leases_by_client_id, &req->client_id);
 
-        switch(type) {
+        switch (type) {
 
         case DHCP_DISCOVER: {
                 be32_t address = INADDR_ANY;
