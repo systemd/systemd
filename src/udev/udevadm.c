@@ -27,6 +27,7 @@ static int help(void) {
                 { "test",         "Test an event run"                 },
                 { "test-builtin", "Test a built-in command"           },
                 { "wait",         "Wait for device or device symlink" },
+                { "lock",         "Lock a block device"               },
         };
 
         _cleanup_free_ char *link = NULL;
@@ -103,6 +104,7 @@ static int udevadm_main(int argc, char *argv[]) {
                 { "test",         VERB_ANY, VERB_ANY, 0, test_main    },
                 { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
                 { "wait",         VERB_ANY, VERB_ANY, 0, wait_main    },
+                { "lock",         VERB_ANY, VERB_ANY, 0, lock_main    },
                 { "version",      VERB_ANY, VERB_ANY, 0, version_main },
                 { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
                 {}
