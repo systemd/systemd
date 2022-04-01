@@ -598,7 +598,7 @@ int udev_node_apply_permissions(
                 gid_t gid,
                 OrderedHashmap *seclabel_list) {
 
-        const char *devnode, *subsystem, *id = NULL;
+        const char *devnode, *subsystem;
         bool apply_mode, apply_uid, apply_gid;
         _cleanup_close_ int node_fd = -1;
         struct stat stats;
@@ -616,32 +616,24 @@ int udev_node_apply_permissions(
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
-        (void) device_get_device_id(dev, &id);
 
         if (streq(subsystem, "block"))
                 mode |= S_IFBLK;
         else
                 mode |= S_IFCHR;
 
-        node_fd = open(devnode, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (errno == ENOENT) {
-                        log_device_debug_errno(dev, errno, "Device node %s is missing, skipping handling.", devnode);
+                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                        log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }
 
-                return log_device_debug_errno(dev, errno, "Cannot open node %s: %m", devnode);
+                return log_device_debug_errno(dev, node_fd, "Cannot open node %s: %m", devnode);
         }
 
         if (fstat(node_fd, &stats) < 0)
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
-
-        if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum) {
-                log_device_debug(dev, "Found node '%s' with non-matching devnum %s, skipping handling.",
-                                 devnode, strna(id));
-                return 0; /* We might process a device that already got replaced by the time we have a look
-                           * at it, handle this gracefully and step away. */
-        }
 
         apply_mode = mode != MODE_INVALID && (stats.st_mode & 0777) != (mode & 0777);
         apply_uid = uid_is_valid(uid) && stats.st_uid != uid;

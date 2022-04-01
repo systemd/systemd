@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/fs.h>
 #include <linux/loop.h>
 
 #ifndef LOOP_CONFIGURE
@@ -13,10 +12,6 @@ struct loop_config {
 };
 
 #define LOOP_CONFIGURE 0x4C0A
-#endif
-
-#ifndef BLKGETDISKSEQ
-#define BLKGETDISKSEQ _IOR(0x12,128,__u64)
 #endif
 
 #ifndef LOOP_SET_STATUS_SETTABLE_FLAGS
