@@ -54,7 +54,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         int r;
 
-        table = table_new("unit file", "state", "vendor preset");
+        table = table_new("unit file", "state", "preset");
         if (!table)
                 return log_oom();
 
