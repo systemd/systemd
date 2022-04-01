@@ -943,7 +943,7 @@ Table=1234</programlisting></para>
 
           <para>When <varname>Bond=</varname> is specified to a wireless interface, defaults to 3
           seconds. When the DHCPv4 client is enabled and <varname>UseMTU=</varname> in the [DHCPv4]
-          sectionis enabled, defaults to 5 seconds. Otherwise, defaults to the value specified with
+          section enabled, defaults to 5 seconds. Otherwise, defaults to the value specified with
           <varname>ConfigureWithoutCarrier=</varname>. When <varname>ActivationPolicy=</varname> is set
           to <literal>always-up</literal>, this is forced to <literal>yes</literal>, and ignored any
           user specified values.</para>

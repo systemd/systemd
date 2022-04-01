@@ -122,7 +122,7 @@ Features:
 * maybe add a generator that reads /proc/cmdline, looks for
   systemd.pull-raw-portable=, systemd-pull-raw-sysext= and similar switches
   that take an URL as parameter. It then generates service units for
-  systemd-pull calls thta download these URLs if not installed yet. usecase:
+  systemd-pull calls that download these URLs if not installed yet. usecase:
   invoke a VM or nspawn container in a way it automatically deploys/runs these
   images as OS payloads. i.e. have a generic OS image you can point to any
   payload you like, which is then downloaded, securely verified and run.
