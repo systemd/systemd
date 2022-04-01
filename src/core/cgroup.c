@@ -244,6 +244,9 @@ void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
+        c->delegate_path_control = mfree(c->delegate_path_control);
+        c->delegate_path_payload = mfree(c->delegate_path_payload);
+
         while (c->io_device_weights)
                 cgroup_context_free_io_device_weight(c, c->io_device_weights);
 
