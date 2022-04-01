@@ -3586,9 +3586,6 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
          * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
          * and MemoryMax, and also any slice the unit might be nested below. */
 
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
         if (!u->cgroup_path)
                 return -ENODATA;
 
@@ -3650,9 +3647,6 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         assert(u);
         assert(ret);
 
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
         if (!u->cgroup_path)
                 return -ENODATA;
 
@@ -3673,9 +3667,6 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         assert(u);
         assert(ret);
-
-        if (!UNIT_CGROUP_BOOL(u, tasks_accounting))
-                return -ENODATA;
 
         if (!u->cgroup_path)
                 return -ENODATA;
@@ -3742,9 +3733,6 @@ int unit_get_cpu_usage(Unit *u, nsec_t *ret) {
         /* Retrieve the current CPU usage counter. This will subtract the CPU counter taken when the unit was
          * started. If the cgroup has been removed already, returns the last cached value. To cache the value, simply
          * call this function with a NULL return value. */
-
-        if (!UNIT_CGROUP_BOOL(u, cpu_accounting))
-                return -ENODATA;
 
         r = unit_get_cpu_usage_raw(u, &ns);
         if (r == -ENODATA && u->cpu_usage_last != NSEC_INFINITY) {
@@ -3901,9 +3889,6 @@ int unit_get_io_accounting(
         int r;
 
         /* Retrieve an IO account parameter. This will subtract the counter when the unit was started. */
-
-        if (!UNIT_CGROUP_BOOL(u, io_accounting))
-                return -ENODATA;
 
         if (allow_cache && u->io_accounting_last[metric] != UINT64_MAX)
                 goto done;
