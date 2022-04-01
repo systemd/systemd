@@ -244,6 +244,8 @@ void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
+        c->delegate_suffix = mfree(c->delegate_suffix);
+
         while (c->io_device_weights)
                 cgroup_context_free_io_device_weight(c, c->io_device_weights);
 
@@ -517,9 +519,11 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
+                fprintf(f,
+                        "%sDelegateControllers: %s\n"
+                        "%sDelegateControlGroupSuffix: %s\n",
+                        prefix, strempty(t),
+                        prefix, c->delegate_suffix);
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
