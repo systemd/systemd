@@ -27,6 +27,8 @@ option('link-timesyncd-shared', type: 'boolean',
        description : 'link systemd-timesyncd and its helpers to libsystemd-shared.so')
 option('link-boot-shared', type: 'boolean',
        description : 'link bootctl and systemd-bless-boot against libsystemd-shared.so')
+option('first-boot-full-preset', type: 'boolean', value: false,
+       description : 'during first boot, do full preset-all (default will be changed to true later)')
 
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],

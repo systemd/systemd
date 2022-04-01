@@ -349,7 +349,7 @@ static void print_status_info(
                        on, strna(i->load_state), off,
                        path,
                        i->unit_file_state,
-                       show_preset ? "; vendor preset: " : "",
+                       show_preset ? "; preset: " : "",
                        show_preset ? i->unit_file_preset : "");
 
         } else if (path)

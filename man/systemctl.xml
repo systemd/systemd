@@ -221,7 +221,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
               <programlisting>$ systemctl status bluetooth
 ● bluetooth.service - Bluetooth service
-   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; preset: enabled)
    Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
      Docs: man:bluetoothd(8)
  Main PID: 930 (bluetoothd)
