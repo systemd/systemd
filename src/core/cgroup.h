@@ -123,6 +123,8 @@ struct CGroupContext {
 
         bool delegate;
         CGroupMask delegate_controllers;
+        char *delegate_path_control;
+        char *delegate_path_payload;
         CGroupMask disable_controllers;
 
         /* For unified hierarchy */
