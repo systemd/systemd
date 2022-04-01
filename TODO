@@ -78,6 +78,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-event: optionally, if per-event source rate limit is hit, downgrade
+  priority, but leave enabled, and once ratelimit window is over, upgrade
+  priority again. That way we can combat event source starvation without
+  stopping processing events from one source entirely.
+
+* sd-event: similar to existing inotify support add fanotify support
+
+* sd-event: add 1st class event source for clock changes
+
+* sd-event: add 1st class event source for timezone changes
+
 * support uefi/http boots with sd-boot: instead of looking for dropin files in
   /loader/entries/ dir, look for a file /loader/entries/SHA256SUMS and use that
   as directory manifest. The file would be a standard directory listing as
