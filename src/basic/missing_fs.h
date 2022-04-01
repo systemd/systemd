@@ -6,6 +6,10 @@
 #define RENAME_NOREPLACE (1 << 0)
 #endif
 
+#ifndef BLKGETDISKSEQ
+#define BLKGETDISKSEQ _IOR(0x12,128,__u64)
+#endif
+
 /* linux/fs.h or sys/mount.h */
 #ifndef MS_MOVE
 #define MS_MOVE 8192
