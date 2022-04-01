@@ -380,14 +380,14 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         if (!dhcp6_option_can_request(option))
                 return -EINVAL;
 
-        for (t = 0; t < client->req_opts_len; t++)
+        for (t = 0; t < client->n_req_opts; t++)
                 if (client->req_opts[t] == htobe16(option))
                         return -EEXIST;
 
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_len + 1))
+        if (!GREEDY_REALLOC(client->req_opts, client->n_req_opts + 1))
                 return -ENOMEM;
 
-        client->req_opts[client->req_opts_len++] = htobe16(option);
+        client->req_opts[client->n_req_opts++] = htobe16(option);
 
         return 0;
 }
@@ -713,7 +713,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         }
 
         r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
-                                client->req_opts_len * sizeof(be16_t),
+                                client->n_req_opts * sizeof(be16_t),
                                 client->req_opts);
         if (r < 0)
                 return r;
@@ -1414,7 +1414,6 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_fre
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         _cleanup_free_ be16_t *req_opts = NULL;
-        size_t t;
 
         assert_return(ret, -EINVAL);
 
@@ -1422,7 +1421,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         if (!req_opts)
                 return -ENOMEM;
 
-        for (t = 0; t < ELEMENTSOF(default_req_opts); t++)
+        for (size_t t = 0; t < ELEMENTSOF(default_req_opts); t++)
                 req_opts[t] = htobe16(default_req_opts[t]);
 
         client = new(sd_dhcp6_client, 1);
@@ -1436,7 +1435,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ifindex = -1,
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
-                .req_opts_len = ELEMENTSOF(default_req_opts),
+                .n_req_opts = ELEMENTSOF(default_req_opts),
                 .req_opts = TAKE_PTR(req_opts),
         };
 
