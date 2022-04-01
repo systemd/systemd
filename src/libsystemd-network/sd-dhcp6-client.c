@@ -23,14 +23,16 @@
 #include "io-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "strv.h"
 #include "web-util.h"
 
+/* Keep the list sorted. */
 static const uint16_t default_req_opts[] = {
-        SD_DHCP6_OPTION_DNS_SERVERS,
-        SD_DHCP6_OPTION_DOMAIN_LIST,
-        SD_DHCP6_OPTION_NTP_SERVER,
-        SD_DHCP6_OPTION_SNTP_SERVERS,
+        SD_DHCP6_OPTION_DNS_SERVERS,  /* 23 */
+        SD_DHCP6_OPTION_DOMAIN_LIST,  /* 24 */
+        SD_DHCP6_OPTION_SNTP_SERVERS, /* 31 */
+        SD_DHCP6_OPTION_NTP_SERVER,   /* 56 */
 };
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
@@ -371,8 +373,12 @@ int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enable
         return 0;
 }
 
+static int be16_compare_func(const be16_t *a, const be16_t *b) {
+        return CMP(be16toh(*a), be16toh(*b));
+}
+
 int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option) {
-        size_t t;
+        be16_t opt;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
@@ -380,15 +386,17 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         if (!dhcp6_option_can_request(option))
                 return -EINVAL;
 
-        for (t = 0; t < client->n_req_opts; t++)
-                if (client->req_opts[t] == htobe16(option))
-                        return -EEXIST;
+        opt = htobe16(option);
+        if (typesafe_bsearch(&opt, client->req_opts, client->n_req_opts, be16_compare_func))
+                return -EEXIST;
 
         if (!GREEDY_REALLOC(client->req_opts, client->n_req_opts + 1))
                 return -ENOMEM;
 
-        client->req_opts[client->n_req_opts++] = htobe16(option);
+        client->req_opts[client->n_req_opts++] = opt;
 
+        /* Sort immediately to make the above binary search will work for the next time. */
+        typesafe_qsort(client->req_opts, client->n_req_opts, be16_compare_func);
         return 0;
 }
 
