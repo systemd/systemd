@@ -925,7 +925,7 @@ TEST(config_parse_memory_limit) {
                 assert_se(r >= 0);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
         }
-
+        cgroup_context_done(&c);
 }
 
 TEST(contains_instance_specifier_superset) {
