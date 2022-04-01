@@ -102,10 +102,16 @@ DEFINE_HASH_OPS(uint64_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func
 void devt_hash_func(const dev_t *p, struct siphash *state) {
         siphash24_compress(p, sizeof(dev_t), state);
 }
+#endif
 
 int devt_compare_func(const dev_t *a, const dev_t *b) {
-        return CMP(*a, *b);
+        int r;
+
+        r = CMP(major(*a), major(*b));
+        if (r != 0)
+                return r;
+
+        return CMP(minor(*a), minor(*b));
 }
 
 DEFINE_HASH_OPS(devt_hash_ops, dev_t, devt_hash_func, devt_compare_func);
-#endif
