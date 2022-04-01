@@ -63,7 +63,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
 }
 
 int safe_getcwd(char **ret) {
-        char *cwd;
+        _cleanup_free_ char *cwd = NULL;
 
         cwd = get_current_dir_name();
         if (!cwd)
@@ -71,12 +71,12 @@ int safe_getcwd(char **ret) {
 
         /* Let's make sure the directory is really absolute, to protect us from the logic behind
          * CVE-2018-1000001 */
-        if (cwd[0] != '/') {
-                free(cwd);
+        if (cwd[0] != '/')
                 return -ENOMEDIUM;
-        }
 
-        *ret = cwd;
+        if (ret)
+                *ret = TAKE_PTR(cwd);
+
         return 0;
 }
 
