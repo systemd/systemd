@@ -58,7 +58,7 @@ int service_parse_argv(
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help(argv[0], service, description, bus_objects);

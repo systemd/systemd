@@ -629,7 +629,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
         assert(lease);
 
-        switch(code) {
+        switch (code) {
 
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 r = lease_parse_u32(option, len, &lease->lifetime, 1);

@@ -252,23 +252,23 @@
                                CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
                    (CASE_F,__VA_ARGS__)
 
-#define IN_SET(x, ...)                          \
-        ({                                      \
-                sd_bool _found = sd_false;      \
+#define IN_SET(x, ...)                                                  \
+        ({                                                              \
+                sd_bool _found = sd_false;                              \
                 /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
                  * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
                 static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
-                assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
-                switch(x) {                     \
-                FOR_EACH_MAKE_CASE(__VA_ARGS__) \
-                        _found = sd_true;       \
-                        break;                  \
-                default:                        \
-                        break;                  \
-                }                               \
-                _found;                         \
+                assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
+                switch (x) {                                            \
+                FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
+                        _found = sd_true;                               \
+                       break;                                           \
+                default:                                                \
+                        break;                                          \
+                }                                                       \
+                _found;                                                 \
         })
 
 /* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time

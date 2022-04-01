@@ -69,7 +69,7 @@ static int audit_callback(
 }
 
 static int callback_type_to_priority(int type) {
-        switch(type) {
+        switch (type) {
 
         case SELINUX_ERROR:
                 return LOG_ERR;

@@ -185,7 +185,7 @@ ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t 
 
         ss = gnutls_record_uncork(stream->dnstls_data.session, 0);
         if (ss < 0)
-                switch(ss) {
+                switch (ss) {
                 case GNUTLS_E_INTERRUPTED:
                         return -EINTR;
                 case GNUTLS_E_AGAIN:
@@ -209,7 +209,7 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
 
         ss = gnutls_record_recv(stream->dnstls_data.session, buf, count);
         if (ss < 0)
-                switch(ss) {
+                switch (ss) {
                 case GNUTLS_E_INTERRUPTED:
                         return -EINTR;
                 case GNUTLS_E_AGAIN:

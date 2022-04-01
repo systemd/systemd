@@ -162,7 +162,7 @@ struct _packed_ indirect_storage {
         unsigned n_buckets;                /* number of buckets */
 
         unsigned idx_lowest_entry;         /* Index below which all buckets are free.
-                                              Makes "while(hashmap_steal_first())" loops
+                                              Makes "while (hashmap_steal_first())" loops
                                               O(n) instead of O(n^2) for unordered hashmaps. */
         uint8_t  _pad[3];                  /* padding for the whole HashmapBase */
         /* The bitfields in HashmapBase complete the alignment of the whole thing. */

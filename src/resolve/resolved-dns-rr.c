@@ -403,7 +403,7 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
         assert(rr);
 
         if (rr->key) {
-                switch(rr->key->type) {
+                switch (rr->key->type) {
 
                 case DNS_TYPE_SRV:
                         free(rr->srv.name);
@@ -1166,7 +1166,7 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         assert(rr);
         assert(out);
 
-        switch(rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
         case DNS_TYPE_SRV:
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:

@@ -22,7 +22,7 @@ static int bpf_access_type(const char *acc) {
         assert(acc);
 
         for (; *acc; acc++)
-                switch(*acc) {
+                switch (*acc) {
                 case 'r':
                         r |= BPF_DEVCG_ACC_READ;
                         break;

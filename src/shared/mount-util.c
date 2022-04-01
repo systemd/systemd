@@ -531,7 +531,7 @@ int mode_to_inaccessible_node(
         if (!runtime_dir)
                 runtime_dir = "/run";
 
-        switch(mode & S_IFMT) {
+        switch (mode & S_IFMT) {
                 case S_IFREG:
                         node = "/systemd/inaccessible/reg";
                         break;

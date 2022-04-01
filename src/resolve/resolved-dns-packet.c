@@ -102,7 +102,7 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
 
         h = DNS_PACKET_HEADER(p);
 
-        switch(p->protocol) {
+        switch (p->protocol) {
         case DNS_PROTOCOL_LLMNR:
                 assert(!truncated);
 

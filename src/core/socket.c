@@ -439,7 +439,7 @@ static int peer_address_compare_func(const SocketPeer *x, const SocketPeer *y) {
         if (r != 0)
                 return r;
 
-        switch(x->peer.sa.sa_family) {
+        switch (x->peer.sa.sa_family) {
         case AF_INET:
                 return memcmp(&x->peer.in.sin_addr, &y->peer.in.sin_addr, sizeof(x->peer.in.sin_addr));
         case AF_INET6:

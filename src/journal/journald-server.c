@@ -772,7 +772,7 @@ static void server_cache_hostname(Server *s) {
 }
 
 static bool shall_try_append_again(JournalFile *f, int r) {
-        switch(r) {
+        switch (r) {
 
         case -E2BIG:           /* Hit configured limit          */
         case -EFBIG:           /* Hit fs limit                  */

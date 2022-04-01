@@ -156,7 +156,7 @@ static void test_dhcp_identifier_set_iaid(void) {
 }
 
 static int check_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
-        switch(code) {
+        switch (code) {
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
         {
                 uint32_t iaid;

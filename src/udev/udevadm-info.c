@@ -345,7 +345,7 @@ static int query_device(QueryType query, sd_device* device) {
 
         assert(device);
 
-        switch(query) {
+        switch (query) {
         case QUERY_NAME: {
                 const char *node;
 

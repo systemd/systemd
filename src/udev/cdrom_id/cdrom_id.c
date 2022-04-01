@@ -541,7 +541,7 @@ static int dvd_ram_media_update_state(Context *c) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid format capacities length.");
 
-        switch(format[8] & 3) {
+        switch (format[8] & 3) {
         case 1:
                 /* This means that last format was interrupted or failed, blank dvd-ram discs are
                  * factory formatted. Take no action here as it takes quite a while to reformat a

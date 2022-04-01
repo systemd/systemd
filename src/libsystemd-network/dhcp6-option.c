@@ -548,7 +548,7 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
 
         assert(buf || buflen == 0);
 
-        for(size_t offset = 0; offset < buflen;) {
+        for (size_t offset = 0; offset < buflen;) {
                 const uint8_t *data;
                 size_t data_len;
                 uint16_t code;
@@ -557,7 +557,7 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
                 if (r < 0)
                         return r;
 
-                switch(code) {
+                switch (code) {
                 case SD_DHCP6_OPTION_STATUS_CODE: {
                         _cleanup_free_ char *msg = NULL;
 

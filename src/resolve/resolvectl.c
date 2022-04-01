@@ -2753,7 +2753,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return compat_help();
@@ -3048,7 +3048,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return native_help();

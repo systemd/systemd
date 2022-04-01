@@ -281,7 +281,7 @@ static int process_special_field(JournalImporter *imp, char *line) {
 int journal_importer_process_data(JournalImporter *imp) {
         int r;
 
-        switch(imp->state) {
+        switch (imp->state) {
         case IMPORTER_STATE_LINE: {
                 char *line, *sep;
                 size_t n = 0;

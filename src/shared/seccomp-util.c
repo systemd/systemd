@@ -107,7 +107,7 @@ const char* seccomp_arch_to_string(uint32_t c) {
          * Names used here should be the same as those used for ConditionArchitecture=,
          * except for "subarchitectures" like x32. */
 
-        switch(c) {
+        switch (c) {
         case SCMP_ARCH_NATIVE:
                 return "native";
         case SCMP_ARCH_X86:

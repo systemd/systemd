@@ -858,7 +858,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help();

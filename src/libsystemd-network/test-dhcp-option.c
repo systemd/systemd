@@ -53,7 +53,7 @@ static struct option_desc option_tests[] = {
 };
 
 static const char *dhcp_type(int type) {
-        switch(type) {
+        switch (type) {
         case DHCP_DISCOVER:
                 return "DHCPDISCOVER";
         case DHCP_OFFER:
@@ -125,7 +125,7 @@ static void test_ignore_opts(uint8_t *descoption, int *descpos, int *desclen) {
         assert_se(*descpos >= 0);
 
         while (*descpos < *desclen) {
-                switch(descoption[*descpos]) {
+                switch (descoption[*descpos]) {
                 case SD_DHCP_OPTION_PAD:
                         *descpos += 1;
                         break;

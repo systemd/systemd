@@ -233,7 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
                         return verb_help(0, NULL, NULL);
 

@@ -1074,7 +1074,7 @@ int config_parse_warn_compat(
 
         Disabled reason = ltype;
 
-        switch(reason) {
+        switch (reason) {
 
         case DISABLED_CONFIGURATION:
                 log_syntax(unit, LOG_DEBUG, filename, line, 0,

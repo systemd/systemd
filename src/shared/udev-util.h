@@ -79,7 +79,7 @@ bool udev_available(void);
                 (void) sd_device_get_syspath(_d, &_p);                                                     \
                 (void) sd_device_get_subsystem(_d, &_s);                                                   \
                 STAP_PROBEV(udev, name, device_action_to_string(_a), _n, _p, _s __VA_OPT__(,) __VA_ARGS__);\
-        } while(false);
+        } while (false);
 #else
 #define DEVICE_TRACE_POINT(name, dev, ...) ((void) 0)
 #endif

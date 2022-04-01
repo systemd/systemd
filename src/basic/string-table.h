@@ -113,4 +113,4 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                         fputc_unlocked('\n', stdout);                   \
                 }                                                       \
                 funlockfile(stdout);                                    \
-        } while(false)
+        } while (false)
