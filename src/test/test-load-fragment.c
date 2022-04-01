@@ -917,6 +917,7 @@ TEST(config_parse_memory_limit) {
         size_t i;
         int r;
 
+        memset(&c, 0, sizeof(c));
         for (i = 0; i < ELEMENTSOF(limit_tests); i++) {
                 c.memory_min = CGROUP_LIMIT_DUMMY;
                 c.memory_low = CGROUP_LIMIT_DUMMY;
@@ -931,7 +932,7 @@ TEST(config_parse_memory_limit) {
                 assert_se(r >= 0);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
         }
-
+        cgroup_context_done(&c);
 }
 
 TEST(contains_instance_specifier_superset) {
