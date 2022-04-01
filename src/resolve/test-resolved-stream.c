@@ -365,7 +365,7 @@ static void try_isolate_network(void) {
         /* Bring up the loopback interfaceon the newly created network namespace */
         struct ifreq req = { .ifr_ifindex = 1 };
         assert_se((socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
-        assert_se(ioctl(socket_fd,SIOCGIFNAME,&req) >= 0);
+        assert_se(ioctl(socket_fd, SIOCGIFNAME, &req) >= 0);
         assert_se(ioctl(socket_fd, SIOCGIFFLAGS, &req) >= 0);
         assert_se(FLAGS_SET(req.ifr_flags, IFF_LOOPBACK));
         req.ifr_flags |= IFF_UP;
