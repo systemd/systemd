@@ -1173,6 +1173,35 @@ DeviceAllow=/dev/loop-control
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ControlGroupNFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>This setting provides a method for integrating dynamic cgroup IDs into firewall rules with
+          NFT sets. This option expects a whitespace separated list of NFT set definitions. Each definition
+          consists of a colon-separated tuple of NFT address family (one of <literal>arp</literal>,
+          <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>, <literal>ip6</literal>,
+          or <literal>netdev</literal>), table name and set name. The names of tables and sets must conform
+          to lexical restrictions of NFT table names. When a control group for a unit is realized, the cgroup
+          ID will be appended to the NFT sets and it will be be removed when the control group is
+          removed. Failures to manage the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Unit]
+ControlGroupNFTSet=inet:filter:my_service
+</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table inet filter {
+        set my_service {
+                type cgroupsv2
+        }
+        chain x {
+                socket cgroupv2 level 2 @my_service accept
+                drop
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
