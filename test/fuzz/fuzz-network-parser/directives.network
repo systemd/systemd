@@ -253,6 +253,8 @@ DHCPv6PrefixDelegation=
 DHCPPrefixDelegation=
 BatmanAdvanced=
 IPoIB=
+IPv4NFTSet=
+IPv6NFTSet=
 [IPv6Prefix]
 Prefix=
 OnLink=
