@@ -27,14 +27,6 @@
 #include "strv.h"
 #include "web-util.h"
 
-/* Keep the list sorted. */
-static const uint16_t default_req_opts[] = {
-        SD_DHCP6_OPTION_DNS_SERVER,  /* 23 */
-        SD_DHCP6_OPTION_DOMAIN,      /* 24 */
-        SD_DHCP6_OPTION_SNTP_SERVER, /* 31 */
-        SD_DHCP6_OPTION_NTP_SERVER,  /* 56 */
-};
-
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
@@ -1421,16 +1413,8 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_fre
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_free_ be16_t *req_opts = NULL;
 
         assert_return(ret, -EINVAL);
-
-        req_opts = new(be16_t, ELEMENTSOF(default_req_opts));
-        if (!req_opts)
-                return -ENOMEM;
-
-        for (size_t t = 0; t < ELEMENTSOF(default_req_opts); t++)
-                req_opts[t] = htobe16(default_req_opts[t]);
 
         client = new(sd_dhcp6_client, 1);
         if (!client)
@@ -1443,8 +1427,6 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ifindex = -1,
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
-                .n_req_opts = ELEMENTSOF(default_req_opts),
-                .req_opts = TAKE_PTR(req_opts),
         };
 
         *ret = TAKE_PTR(client);
