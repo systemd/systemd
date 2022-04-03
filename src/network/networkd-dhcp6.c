@@ -622,6 +622,29 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set MUD URL: %m");
         }
 
+        if (link->network->dhcp6_use_dns) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request DNS servers: %m");
+        }
+
+        if (link->network->dhcp6_use_domains > 0) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request domains: %m");
+        }
+
+        if (link->network->dhcp6_use_ntp) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request NTP servers: %m");
+
+                /* If the server does not provide NTP servers, then we fallback to use SNTP servers. */
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SNTP_SERVER);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request SNTP servers: %m");
+        }
+
         SET_FOREACH(request_options, link->network->dhcp6_request_options) {
                 uint32_t option = PTR_TO_UINT32(request_options);
 

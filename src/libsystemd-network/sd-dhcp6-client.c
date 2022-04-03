@@ -23,15 +23,9 @@
 #include "io-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "strv.h"
 #include "web-util.h"
-
-static const uint16_t default_req_opts[] = {
-        SD_DHCP6_OPTION_DNS_SERVERS,
-        SD_DHCP6_OPTION_DOMAIN_LIST,
-        SD_DHCP6_OPTION_NTP_SERVER,
-        SD_DHCP6_OPTION_SNTP_SERVERS,
-};
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
@@ -371,8 +365,12 @@ int sd_dhcp6_client_get_information_request(sd_dhcp6_client *client, int *enable
         return 0;
 }
 
+static int be16_compare_func(const be16_t *a, const be16_t *b) {
+        return CMP(be16toh(*a), be16toh(*b));
+}
+
 int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option) {
-        size_t t;
+        be16_t opt;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
@@ -380,15 +378,17 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         if (!dhcp6_option_can_request(option))
                 return -EINVAL;
 
-        for (t = 0; t < client->req_opts_len; t++)
-                if (client->req_opts[t] == htobe16(option))
-                        return -EEXIST;
+        opt = htobe16(option);
+        if (typesafe_bsearch(&opt, client->req_opts, client->n_req_opts, be16_compare_func))
+                return -EEXIST;
 
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_len + 1))
+        if (!GREEDY_REALLOC(client->req_opts, client->n_req_opts + 1))
                 return -ENOMEM;
 
-        client->req_opts[client->req_opts_len++] = htobe16(option);
+        client->req_opts[client->n_req_opts++] = opt;
 
+        /* Sort immediately to make the above binary search will work for the next time. */
+        typesafe_qsort(client->req_opts, client->n_req_opts, be16_compare_func);
         return 0;
 }
 
@@ -635,6 +635,51 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         }
 }
 
+static int client_append_oro(sd_dhcp6_client *client, uint8_t **opt, size_t *optlen) {
+        _cleanup_free_ be16_t *buf = NULL;
+        be16_t *req_opts;
+        size_t n;
+
+        assert(client);
+        assert(opt);
+        assert(optlen);
+
+        switch (client->state) {
+        case DHCP6_STATE_INFORMATION_REQUEST:
+                n = client->n_req_opts;
+                buf = new(be16_t, n + 2);
+                if (!buf)
+                        return -ENOMEM;
+
+                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
+                buf[n++] = htobe16(SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME); /* RFC 8415 section 21.23 */
+                buf[n++] = htobe16(SD_DHCP6_OPTION_INF_MAX_RT); /* RFC 8415 section 21.25 */
+
+                typesafe_qsort(buf, n, be16_compare_func);
+                req_opts = buf;
+                break;
+
+        case DHCP6_STATE_SOLICITATION:
+                n = client->n_req_opts;
+                buf = new(be16_t, n + 1);
+                if (!buf)
+                        return -ENOMEM;
+
+                memcpy_safe(buf, client->req_opts, n * sizeof(be16_t));
+                buf[n++] = htobe16(SD_DHCP6_OPTION_SOL_MAX_RT); /* RFC 8415 section 21.24 */
+
+                typesafe_qsort(buf, n, be16_compare_func);
+                req_opts = buf;
+                break;
+
+        default:
+                n = client->n_req_opts;
+                req_opts = client->req_opts;
+        }
+
+        return dhcp6_option_append(opt, optlen, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
+}
+
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
@@ -712,9 +757,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
                         return r;
         }
 
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO,
-                                client->req_opts_len * sizeof(be16_t),
-                                client->req_opts);
+        r = client_append_oro(client, &opt, &optlen);
         if (r < 0)
                 return r;
 
@@ -1413,17 +1456,8 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_fre
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_free_ be16_t *req_opts = NULL;
-        size_t t;
 
         assert_return(ret, -EINVAL);
-
-        req_opts = new(be16_t, ELEMENTSOF(default_req_opts));
-        if (!req_opts)
-                return -ENOMEM;
-
-        for (t = 0; t < ELEMENTSOF(default_req_opts); t++)
-                req_opts[t] = htobe16(default_req_opts[t]);
 
         client = new(sd_dhcp6_client, 1);
         if (!client)
@@ -1436,8 +1470,6 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ifindex = -1,
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
                 .fd = -1,
-                .req_opts_len = ELEMENTSOF(default_req_opts),
-                .req_opts = TAKE_PTR(req_opts),
         };
 
         *ret = TAKE_PTR(client);

@@ -51,18 +51,20 @@ bool dhcp6_option_can_request(uint16_t option) {
                 return false;
         case SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME:
         case SD_DHCP6_OPTION_SIP_SERVER_ADDRESS:
-        case SD_DHCP6_OPTION_DNS_SERVERS:
-        case SD_DHCP6_OPTION_DOMAIN_LIST:
+        case SD_DHCP6_OPTION_DNS_SERVER:
+        case SD_DHCP6_OPTION_DOMAIN:
                 return true;
         case SD_DHCP6_OPTION_IA_PD:
         case SD_DHCP6_OPTION_IA_PD_PREFIX:
                 return false;
-        case SD_DHCP6_OPTION_NIS_SERVERS:
-        case SD_DHCP6_OPTION_NISP_SERVERS:
+        case SD_DHCP6_OPTION_NIS_SERVER:
+        case SD_DHCP6_OPTION_NISP_SERVER:
         case SD_DHCP6_OPTION_NIS_DOMAIN_NAME:
         case SD_DHCP6_OPTION_NISP_DOMAIN_NAME:
-        case SD_DHCP6_OPTION_SNTP_SERVERS:
+        case SD_DHCP6_OPTION_SNTP_SERVER:
+                return true;
         case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
+                return false; /* This is automatically set when sending INFORMATION_REQUEST message. */
         case SD_DHCP6_OPTION_BCMCS_SERVER_D:
         case SD_DHCP6_OPTION_BCMCS_SERVER_A:
         case SD_DHCP6_OPTION_GEOCONF_CIVIC:
@@ -124,9 +126,9 @@ bool dhcp6_option_can_request(uint16_t option) {
         case SD_DHCP6_OPTION_CLIENT_LINKLAYER_ADDR:
         case SD_DHCP6_OPTION_LINK_ADDRESS:
         case SD_DHCP6_OPTION_RADIUS:
+        case SD_DHCP6_OPTION_SOL_MAX_RT: /* Automatically set when sending SOLICIT message. */
+        case SD_DHCP6_OPTION_INF_MAX_RT: /* Automatically set when sending INFORMATION_REQUEST message. */
                 return false;
-        case SD_DHCP6_OPTION_SOL_MAX_RT:
-        case SD_DHCP6_OPTION_INF_MAX_RT:
         case SD_DHCP6_OPTION_ADDRSEL:
         case SD_DHCP6_OPTION_ADDRSEL_TABLE:
         case SD_DHCP6_OPTION_V6_PCP_SERVER:
