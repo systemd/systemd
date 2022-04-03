@@ -29,10 +29,10 @@
 
 /* Keep the list sorted. */
 static const uint16_t default_req_opts[] = {
-        SD_DHCP6_OPTION_DNS_SERVERS,  /* 23 */
-        SD_DHCP6_OPTION_DOMAIN_LIST,  /* 24 */
-        SD_DHCP6_OPTION_SNTP_SERVERS, /* 31 */
-        SD_DHCP6_OPTION_NTP_SERVER,   /* 56 */
+        SD_DHCP6_OPTION_DNS_SERVER,  /* 23 */
+        SD_DHCP6_OPTION_DOMAIN,      /* 24 */
+        SD_DHCP6_OPTION_SNTP_SERVER, /* 31 */
+        SD_DHCP6_OPTION_NTP_SERVER,  /* 56 */
 };
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \

@@ -51,17 +51,17 @@ bool dhcp6_option_can_request(uint16_t option) {
                 return false;
         case SD_DHCP6_OPTION_SIP_SERVER_DOMAIN_NAME:
         case SD_DHCP6_OPTION_SIP_SERVER_ADDRESS:
-        case SD_DHCP6_OPTION_DNS_SERVERS:
-        case SD_DHCP6_OPTION_DOMAIN_LIST:
+        case SD_DHCP6_OPTION_DNS_SERVER:
+        case SD_DHCP6_OPTION_DOMAIN:
                 return true;
         case SD_DHCP6_OPTION_IA_PD:
         case SD_DHCP6_OPTION_IA_PD_PREFIX:
                 return false;
-        case SD_DHCP6_OPTION_NIS_SERVERS:
-        case SD_DHCP6_OPTION_NISP_SERVERS:
+        case SD_DHCP6_OPTION_NIS_SERVER:
+        case SD_DHCP6_OPTION_NISP_SERVER:
         case SD_DHCP6_OPTION_NIS_DOMAIN_NAME:
         case SD_DHCP6_OPTION_NISP_DOMAIN_NAME:
-        case SD_DHCP6_OPTION_SNTP_SERVERS:
+        case SD_DHCP6_OPTION_SNTP_SERVER:
         case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
         case SD_DHCP6_OPTION_BCMCS_SERVER_D:
         case SD_DHCP6_OPTION_BCMCS_SERVER_A:
