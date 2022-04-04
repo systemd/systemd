@@ -459,7 +459,8 @@ static int condition_test_group(Condition *c, char **env) {
 }
 
 static int condition_test_virtualization(Condition *c, char **env) {
-        int b, v;
+        Virtualization v;
+        int b;
 
         assert(c);
         assert(c->parameter);
@@ -475,7 +476,7 @@ static int condition_test_virtualization(Condition *c, char **env) {
         /* First, compare with yes/no */
         b = parse_boolean(c->parameter);
         if (b >= 0)
-                return b == !!v;
+                return b == (v != VIRTUALIZATION_NONE);
 
         /* Then, compare categorization */
         if (streq(c->parameter, "vm"))

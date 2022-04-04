@@ -3,9 +3,10 @@
 
 #include <stdbool.h>
 
+#include "errno-list.h"
 #include "macro.h"
 
-enum {
+typedef enum Virtualization {
         VIRTUALIZATION_NONE = 0,
 
         VIRTUALIZATION_VM_FIRST,
@@ -43,23 +44,24 @@ enum {
 
         _VIRTUALIZATION_MAX,
         _VIRTUALIZATION_INVALID = -EINVAL,
-};
+        _VIRTUALIZATION_ERRNO_MAX = -ERRNO_MAX, /* ensure full range of errno fits into this enum */
+} Virtualization;
 
-static inline bool VIRTUALIZATION_IS_VM(int x) {
+static inline bool VIRTUALIZATION_IS_VM(Virtualization x) {
         return x >= VIRTUALIZATION_VM_FIRST && x <= VIRTUALIZATION_VM_LAST;
 }
 
-static inline bool VIRTUALIZATION_IS_CONTAINER(int x) {
+static inline bool VIRTUALIZATION_IS_CONTAINER(Virtualization x) {
         return x >= VIRTUALIZATION_CONTAINER_FIRST && x <= VIRTUALIZATION_CONTAINER_LAST;
 }
 
-int detect_vm(void);
-int detect_container(void);
-int detect_virtualization(void);
+Virtualization detect_vm(void);
+Virtualization detect_container(void);
+Virtualization detect_virtualization(void);
 
 int running_in_userns(void);
 int running_in_chroot(void);
 
-const char *virtualization_to_string(int v) _const_;
-int virtualization_from_string(const char *s) _pure_;
+const char *virtualization_to_string(Virtualization v) _const_;
+Virtualization virtualization_from_string(const char *s) _pure_;
 bool has_cpu_with_flag(const char *flag);

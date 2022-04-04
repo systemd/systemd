@@ -28,14 +28,14 @@ enum {
       SMBIOS_VM_BIT_UNKNOWN,
 };
 
-static int detect_vm_cpuid(void) {
+static Virtualization detect_vm_cpuid(void) {
 
         /* CPUID is an x86 specific interface. */
 #if defined(__i386__) || defined(__x86_64__)
 
         static const struct {
                 const char sig[13];
-                int id;
+                Virtualization id;
         } vm_table[] = {
                 { "XenVMMXenVMM", VIRTUALIZATION_XEN       },
                 { "KVMKVMKVM",    VIRTUALIZATION_KVM       }, /* qemu with KVM */
@@ -92,7 +92,7 @@ static int detect_vm_cpuid(void) {
         return VIRTUALIZATION_NONE;
 }
 
-static int detect_vm_device_tree(void) {
+static Virtualization detect_vm_device_tree(void) {
 #if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
         _cleanup_free_ char *hvtype = NULL;
         int r;
@@ -142,7 +142,7 @@ static int detect_vm_device_tree(void) {
 }
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
-static int detect_vm_dmi_vendor(void) {
+static Virtualization detect_vm_dmi_vendor(void) {
         static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
@@ -153,7 +153,7 @@ static int detect_vm_dmi_vendor(void) {
 
         static const struct {
                 const char *vendor;
-                int id;
+                Virtualization id;
         } dmi_vendor_table[] = {
                 { "KVM",                 VIRTUALIZATION_KVM       },
                 { "Amazon EC2",          VIRTUALIZATION_AMAZON    },
@@ -230,7 +230,7 @@ static int detect_vm_smbios(void) {
 }
 #endif /* defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64) */
 
-static int detect_vm_dmi(void) {
+static Virtualization detect_vm_dmi(void) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
 
         int r;
@@ -332,7 +332,7 @@ static int detect_vm_xen_dom0(void) {
         }
 }
 
-static int detect_vm_xen(void) {
+static Virtualization detect_vm_xen(void) {
         /* The presence of /proc/xen indicates some form of a Xen domain
            The check for Dom0 is handled outside this function */
         if (access("/proc/xen", F_OK) < 0) {
@@ -343,7 +343,7 @@ static int detect_vm_xen(void) {
         return VIRTUALIZATION_XEN;
 }
 
-static int detect_vm_hypervisor(void) {
+static Virtualization detect_vm_hypervisor(void) {
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
@@ -361,7 +361,7 @@ static int detect_vm_hypervisor(void) {
                 return VIRTUALIZATION_VM_OTHER;
 }
 
-static int detect_vm_uml(void) {
+static Virtualization detect_vm_uml(void) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -400,7 +400,7 @@ static int detect_vm_uml(void) {
         return VIRTUALIZATION_NONE;
 }
 
-static int detect_vm_zvm(void) {
+static Virtualization detect_vm_zvm(void) {
 
 #if defined(__s390__)
         _cleanup_free_ char *t = NULL;
@@ -424,10 +424,11 @@ static int detect_vm_zvm(void) {
 }
 
 /* Returns a short identifier for the various VM implementations */
-int detect_vm(void) {
-        static thread_local int cached_found = _VIRTUALIZATION_INVALID;
+Virtualization detect_vm(void) {
+        static thread_local Virtualization cached_found = _VIRTUALIZATION_INVALID;
         bool other = false;
-        int r, dmi, xen_dom0 = 0;
+        int xen_dom0 = 0;
+        Virtualization v, dmi;
 
         if (cached_found >= 0)
                 return cached_found;
@@ -446,22 +447,22 @@ int detect_vm(void) {
 
         dmi = detect_vm_dmi();
         if (IN_SET(dmi, VIRTUALIZATION_ORACLE, VIRTUALIZATION_XEN, VIRTUALIZATION_AMAZON)) {
-                r = dmi;
+                v = dmi;
                 goto finish;
         }
 
         /* Detect UML */
-        r = detect_vm_uml();
-        if (r < 0)
-                return r;
-        if (r != VIRTUALIZATION_NONE)
+        v = detect_vm_uml();
+        if (v < 0)
+                return v;
+        if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
         /* Detect Xen */
-        r = detect_vm_xen();
-        if (r < 0)
-                return r;
-        if (r == VIRTUALIZATION_XEN) {
+        v = detect_vm_xen();
+        if (v < 0)
+                return v;
+        if (v == VIRTUALIZATION_XEN) {
                  /* If we are Dom0, then we expect to not report as a VM. However, as we might be nested
                   * inside another hypervisor which can be detected via the CPUID check, wait to report this
                   * until after the CPUID check. */
@@ -471,17 +472,17 @@ int detect_vm(void) {
                 if (xen_dom0 == 0)
                         goto finish;
 
-                r = VIRTUALIZATION_NONE;
-        } else if (r != VIRTUALIZATION_NONE)
+                v = VIRTUALIZATION_NONE;
+        } else if (v != VIRTUALIZATION_NONE)
                 assert_not_reached();
 
         /* Detect from CPUID */
-        r = detect_vm_cpuid();
-        if (r < 0)
-                return r;
-        if (r == VIRTUALIZATION_VM_OTHER)
+        v = detect_vm_cpuid();
+        if (v < 0)
+                return v;
+        if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
-        else if (r != VIRTUALIZATION_NONE)
+        else if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
         /* If we are in Dom0 and have not yet finished, finish with the result of detect_vm_cpuid */
@@ -494,38 +495,38 @@ int detect_vm(void) {
         if (dmi == VIRTUALIZATION_VM_OTHER)
                 other = true;
         else if (dmi != VIRTUALIZATION_NONE) {
-                r = dmi;
+                v = dmi;
                 goto finish;
         }
 
         /* Check high-level hypervisor sysfs file */
-        r = detect_vm_hypervisor();
-        if (r < 0)
-                return r;
-        if (r == VIRTUALIZATION_VM_OTHER)
+        v = detect_vm_hypervisor();
+        if (v < 0)
+                return v;
+        if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
-        else if (r != VIRTUALIZATION_NONE)
+        else if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_device_tree();
-        if (r < 0)
-                return r;
-        if (r == VIRTUALIZATION_VM_OTHER)
+        v = detect_vm_device_tree();
+        if (v < 0)
+                return v;
+        if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
-        else if (r != VIRTUALIZATION_NONE)
+        else if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
-        r = detect_vm_zvm();
-        if (r < 0)
-                return r;
+        v = detect_vm_zvm();
+        if (v < 0)
+                return v;
 
 finish:
-        if (r == VIRTUALIZATION_NONE && other)
-                r = VIRTUALIZATION_VM_OTHER;
+        if (v == VIRTUALIZATION_NONE && other)
+                v = VIRTUALIZATION_VM_OTHER;
 
-        cached_found = r;
-        log_debug("Found VM virtualization %s", virtualization_to_string(r));
-        return r;
+        cached_found = v;
+        log_debug("Found VM virtualization %s", virtualization_to_string(v));
+        return v;
 }
 
 static const char *const container_table[_VIRTUALIZATION_MAX] = {
@@ -608,12 +609,12 @@ static int running_in_cgroupns(void) {
         }
 }
 
-static int detect_container_files(void) {
+static Virtualization detect_container_files(void) {
         unsigned i;
 
         static const struct {
                 const char *file_path;
-                int id;
+                Virtualization id;
         } container_file_table[] = {
                 /* https://github.com/containers/podman/issues/6192 */
                 /* https://github.com/containers/podman/issues/3586#issuecomment-661918679 */
@@ -636,10 +637,11 @@ static int detect_container_files(void) {
         return VIRTUALIZATION_NONE;
 }
 
-int detect_container(void) {
-        static thread_local int cached_found = _VIRTUALIZATION_INVALID;
+Virtualization detect_container(void) {
+        static thread_local Virtualization cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL, *o = NULL, *p = NULL;
         const char *e = NULL;
+        Virtualization v;
         int r;
 
         if (cached_found >= 0)
@@ -651,7 +653,7 @@ int detect_container(void) {
                         log_debug_errno(errno, "Failed to check if /proc/vz exists, ignoring: %m");
         } else if (access("/proc/bc", F_OK) < 0) {
                 if (errno == ENOENT) {
-                        r = VIRTUALIZATION_OPENVZ;
+                        v = VIRTUALIZATION_OPENVZ;
                         goto finish;
                 }
 
@@ -663,7 +665,7 @@ int detect_container(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read /proc/sys/kernel/osrelease, ignoring: %m");
         else if (strstr(o, "Microsoft") || strstr(o, "WSL")) {
-                r = VIRTUALIZATION_WSL;
+                v = VIRTUALIZATION_WSL;
                 goto finish;
         }
 
@@ -688,7 +690,7 @@ int detect_container(void) {
                         if (r < 0)
                                 log_debug_errno(r, "Failed to read %s, ignoring: %m", pf);
                         else if (startswith(ptrace_comm, "proot")) {
-                                r = VIRTUALIZATION_PROOT;
+                                v = VIRTUALIZATION_PROOT;
                                 goto finish;
                         }
                 }
@@ -715,7 +717,7 @@ int detect_container(void) {
                 if (!e)
                         goto check_files;
                 if (isempty(e)) {
-                        r = VIRTUALIZATION_NONE;
+                        v = VIRTUALIZATION_NONE;
                         goto finish;
                 }
 
@@ -746,49 +748,51 @@ check_files:
          * for other specific container managers, otherwise we risk mistaking another
          * container manager for Docker: the /.dockerenv file could inadvertently end up
          * in a file system image. */
-        r = detect_container_files();
-        if (r)
+        v = detect_container_files();
+        if (v < 0)
+                return v;
+        if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
         r = running_in_cgroupns();
         if (r > 0) {
-                r = VIRTUALIZATION_CONTAINER_OTHER;
+                v = VIRTUALIZATION_CONTAINER_OTHER;
                 goto finish;
         }
         if (r < 0)
                 log_debug_errno(r, "Failed to detect cgroup namespace: %m");
 
         /* If none of that worked, give up, assume no container manager. */
-        r = VIRTUALIZATION_NONE;
+        v = VIRTUALIZATION_NONE;
         goto finish;
 
 translate_name:
         if (streq(e, "oci")) {
                 /* Some images hardcode container=oci, but OCI is not a specific container manager.
                  * Try to detect one based on well-known files. */
-                r = detect_container_files();
-                if (!r)
-                        r = VIRTUALIZATION_CONTAINER_OTHER;
+                v = detect_container_files();
+                if (v != VIRTUALIZATION_NONE)
+                        v = VIRTUALIZATION_CONTAINER_OTHER;
                 goto finish;
         }
-        r = container_from_string(e);
-        if (r < 0)
-                r = VIRTUALIZATION_CONTAINER_OTHER;
+        v = container_from_string(e);
+        if (v < 0)
+                v = VIRTUALIZATION_CONTAINER_OTHER;
 
 finish:
-        log_debug("Found container virtualization %s.", virtualization_to_string(r));
-        cached_found = r;
-        return r;
+        log_debug("Found container virtualization %s.", virtualization_to_string(v));
+        cached_found = v;
+        return v;
 }
 
-int detect_virtualization(void) {
-        int r;
+Virtualization detect_virtualization(void) {
+        int v;
 
-        r = detect_container();
-        if (r == 0)
-                r = detect_vm();
+        v = detect_container();
+        if (v != VIRTUALIZATION_NONE)
+                return v;
 
-        return r;
+        return detect_vm();
 }
 
 static int userns_has_mapping(const char *name) {
@@ -1025,4 +1029,4 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(virtualization, int);
+DEFINE_STRING_TABLE_LOOKUP(virtualization, Virtualization);

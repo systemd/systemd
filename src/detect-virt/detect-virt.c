@@ -102,7 +102,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIST:
-                        DUMP_STRING_TABLE(virtualization, int, _VIRTUALIZATION_MAX);
+                        DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
                         return 0;
 
                 case '?':
@@ -121,6 +121,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
+        Virtualization v;
         int r;
 
         /* This is mostly intended to be used for scripts which want
@@ -135,15 +136,15 @@ static int run(int argc, char *argv[]) {
 
         switch (arg_mode) {
         case ONLY_VM:
-                r = detect_vm();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for VM: %m");
+                v = detect_vm();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for VM: %m");
                 break;
 
         case ONLY_CONTAINER:
-                r = detect_container();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for container: %m");
+                v = detect_container();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for container: %m");
                 break;
 
         case ONLY_CHROOT:
@@ -160,16 +161,16 @@ static int run(int argc, char *argv[]) {
 
         case ANY_VIRTUALIZATION:
         default:
-                r = detect_virtualization();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for virtualization: %m");
+                v = detect_virtualization();
+                if (v < 0)
+                        return log_error_errno(v, "Failed to check for virtualization: %m");
                 break;
         }
 
         if (!arg_quiet)
-                puts(virtualization_to_string(r));
+                puts(virtualization_to_string(v));
 
-        return r == VIRTUALIZATION_NONE;
+        return v == VIRTUALIZATION_NONE;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

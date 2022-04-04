@@ -261,8 +261,9 @@ static bool valid_deployment(const char *deployment) {
 static const char* fallback_chassis(void) {
         const char *chassis;
         _cleanup_free_ char *type = NULL;
+        Virtualization v;
         unsigned t;
-        int v, r;
+        int r;
 
         v = detect_virtualization();
         if (v < 0)
