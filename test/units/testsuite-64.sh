@@ -131,42 +131,6 @@ helper_wait_for_pvscan() {
     return 1
 }
 
-# Generate an `flock` command line for a device list
-#
-# This is useful mainly for mkfs.btrfs, which doesn't hold the lock on each
-# device for the entire duration of mkfs.btrfs, causing weird races between udev
-# and mkfs.btrfs. This function creates an array of chained flock calls to take
-# the lock of all involved devices, which can be then used in combination with
-# mkfs.btrfs to mitigate the issue.
-#
-# For example, calling:
-#   helper_generate_flock_cmdline my_array /dev/loop1 /dev/loop2 /dev/loop3
-#
-# will result in "${my_array[@]}" containing:
-#   flock -x /dev/loop1 flock -x /dev/loop2 flock -x /dev/loop3
-#
-# Note: the array will be CLEARED before the first assignment
-#
-# Arguments:
-#   $1    - NAME of an array in which the commands/argument will be stored
-#   $2-$n - path to devices
-helper_generate_flock_cmdline() {
-    # Create a name reference to the array passed as the first argument
-    # (requires bash 4.3+)
-    local -n cmd_array="${1:?}"
-    shift
-
-    if [[ $# -eq 0 ]]; then
-        echo >&2 "Missing argument(s): device path(s)"
-        return 1
-    fi
-
-    cmd_array=()
-    for dev in "$@"; do
-        cmd_array+=("flock" "-x" "$dev")
-    done
-}
-
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -407,7 +371,6 @@ testcase_lvm_basic() {
 
 testcase_btrfs_basic() {
     local dev_stub i label mpoint uuid
-    local flock_cmd=()
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefbtrfs{0..3}
     )
@@ -417,12 +380,9 @@ testcase_btrfs_basic() {
     echo "Single device: default settings"
     uuid="deadbeef-dead-dead-beef-000000000000"
     label="btrfs_root"
-    helper_generate_flock_cmdline flock_cmd "${devices[0]}"
-    "${flock_cmd[@]}" mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
-    udevadm settle
+    udevadm lock --device="${devices[0]}" mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
+    udevadm wait --settle --timeout=30 "${devices[0]}" "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
-    test -e "/dev/disk/by-uuid/$uuid"
-    test -e "/dev/disk/by-label/$label"
     helper_check_device_symlinks
 
     echo "Multiple devices: using partitions, data: single, metadata: raid1"
@@ -436,26 +396,25 @@ name="diskpart2", size=85M
 name="diskpart3", size=85M
 name="diskpart4", size=85M
 EOF
-    udevadm settle
-    # We need to flock only the device itself, not its partitions
-    helper_generate_flock_cmdline flock_cmd "${devices[0]}"
-    "${flock_cmd[@]}" mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
-    udevadm settle
+    udevadm wait --settle --timeout=30 /dev/disk/by-partlabel/diskpart{1..4}
+    udevadm lock --device="${devices[0]}" mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
+    udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
-    test -e "/dev/disk/by-uuid/$uuid"
-    test -e "/dev/disk/by-label/$label"
     helper_check_device_symlinks
     wipefs -a -f "${devices[0]}"
+    udevadm wait --settle --timeout=30 --removed /dev/disk/by-partlabel/diskpart{1..4}
 
     echo "Multiple devices: using disks, data: raid10, metadata: raid10, mixed mode"
     uuid="deadbeef-dead-dead-beef-000000000002"
     label="btrfs_mdisk"
-    helper_generate_flock_cmdline flock_cmd "${devices[@]}"
-    "${flock_cmd[@]}" mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
-    udevadm settle
+    udevadm lock \
+            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs0 \
+            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs1 \
+            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs2 \
+            --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs3 \
+            mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
+    udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
-    test -e "/dev/disk/by-uuid/$uuid"
-    test -e "/dev/disk/by-label/$label"
     helper_check_device_symlinks
 
     echo "Multiple devices: using LUKS encrypted disks, data: raid1, metadata: raid1, mixed mode"
@@ -475,9 +434,7 @@ EOF
         cryptsetup luksFormat -q \
             --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
             --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
-        udevadm settle
-        test -e "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i"
-        test -e "/dev/disk/by-label/encdisk$i"
+        udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i" "/dev/disk/by-label/encdisk$i"
         # Add the device into /etc/crypttab, reload systemd, and then activate
         # the device so we can create a filesystem on it later
         echo "encbtrfs$i UUID=deadbeef-dead-dead-beef-11111111111$i /etc/btrfs_keyfile luks,noearly" >>/etc/crypttab
@@ -488,12 +445,14 @@ EOF
     # Check if we have all necessary DM devices
     ls -l /dev/mapper/encbtrfs{0..3}
     # Create a multi-device btrfs filesystem on the LUKS devices
-    helper_generate_flock_cmdline flock_cmd /dev/mapper/encbtrfs{0..3}
-    "${flock_cmd[@]}" mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
-    udevadm settle
+    udevadm lock \
+            --device=/dev/mapper/encbtrfs0 \
+            --device=/dev/mapper/encbtrfs1 \
+            --device=/dev/mapper/encbtrfs2 \
+            --device=/dev/mapper/encbtrfs3 \
+            mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
+    udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
-    test -e "/dev/disk/by-uuid/$uuid"
-    test -e "/dev/disk/by-label/$label"
     helper_check_device_symlinks
     # Mount it and write some data to it we can compare later
     mount -t btrfs /dev/mapper/encbtrfs0 "$mpoint"
@@ -501,7 +460,7 @@ EOF
     # "Deconstruct" the btrfs device and check if we're in a sane state (symlink-wise)
     umount "$mpoint"
     systemctl stop systemd-cryptsetup@encbtrfs{0..3}
-    test ! -e "/dev/disk/by-uuid/$uuid"
+    udevadm wait --settle --timeout=30 --removed "/dev/disk/by-uuid/$uuid"
     helper_check_device_symlinks
     # Add the mount point to /etc/fstab and check if the device can be put together
     # automagically. The source device is the DM name of the first LUKS device
@@ -516,9 +475,8 @@ EOF
     # Start the corresponding mount unit and check if the btrfs device was reconstructed
     # correctly
     systemctl start "${mpoint##*/}.mount"
+    udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
-    test -e "/dev/disk/by-uuid/$uuid"
-    test -e "/dev/disk/by-label/$label"
     helper_check_device_symlinks
     grep "hello there" "$mpoint/test"
     # Cleanup
