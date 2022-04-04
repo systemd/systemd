@@ -22,9 +22,10 @@
 #include "static-destruct.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "udev-util.h"
-#include "udevadm-util.h"
 #include "udevadm.h"
+#include "udevadm-util.h"
 
 typedef enum ActionType {
         ACTION_QUERY,
@@ -184,47 +185,59 @@ static int print_record(sd_device *device) {
          * uevents, not for those synthesized from database entries.
          *
          * We don't show sysattrs here, because they can be expensive and potentially issue expensive driver
-         * IO. */
+         * IO.
+         *
+         * Coloring: let's be conservative with coloring. Let's use it to group related fields. Right now:
+         *
+         *     • white for fields that give the device a name
+         *     • green for fields that categorize the device into subsystem/devtype and similar
+         *     • cyan for fields about associated device nodes/symlinks/network interfaces and such
+         *     • magenta for block device diskseq
+         *     • yellow for driver info
+         *     • no color for regular properties */
 
         assert_se(sd_device_get_devpath(device, &str) >= 0);
-        printf("P: %s\n", str);
+        printf("P: %s%s%s\n", ansi_highlight_white(), str, ansi_normal());
 
         if (sd_device_get_sysname(device, &str) >= 0)
-                printf("M: %s\n", str);
+                printf("M: %s%s%s\n", ansi_highlight_white(), str, ansi_normal());
 
         if (sd_device_get_sysnum(device, &str) >= 0)
-                printf("R: %s\n", str);
+                printf("R: %s%s%s\n", ansi_highlight_white(), str, ansi_normal());
 
         if (sd_device_get_subsystem(device, &subsys) >= 0)
-                printf("U: %s\n", subsys);
+                printf("U: %s%s%s\n", ansi_highlight_green(), subsys, ansi_normal());
 
         if (sd_device_get_devtype(device, &str) >= 0)
-                printf("T: %s\n", str);
+                printf("T: %s%s%s\n", ansi_highlight_green(), str, ansi_normal());
 
         if (sd_device_get_devnum(device, &devnum) >= 0)
-                printf("D: %c %u:%u\n", streq_ptr(subsys, "block") ? 'b' : 'c', major(devnum), minor(devnum));
+                printf("D: %s%c %u:%u%s\n",
+                       ansi_highlight_cyan(),
+                       streq_ptr(subsys, "block") ? 'b' : 'c', major(devnum), minor(devnum),
+                       ansi_normal());
 
         if (sd_device_get_ifindex(device, &ifi) >= 0)
-                printf("I: %i\n", ifi);
+                printf("I: %s%i%s\n", ansi_highlight_cyan(), ifi, ansi_normal());
 
         if (sd_device_get_devname(device, &str) >= 0) {
                 assert_se(val = path_startswith(str, "/dev/"));
-                printf("N: %s\n", val);
+                printf("N: %s%s%s\n", ansi_highlight_cyan(), val, ansi_normal());
 
                 if (device_get_devlink_priority(device, &i) >= 0)
-                        printf("L: %i\n", i);
+                        printf("L: %s%i%s\n", ansi_highlight_cyan(), i, ansi_normal());
 
                 FOREACH_DEVICE_DEVLINK(device, str) {
                         assert_se(val = path_startswith(str, "/dev/"));
-                        printf("S: %s\n", val);
+                        printf("S: %s%s%s\n", ansi_highlight_cyan(), val, ansi_normal());
                 }
         }
 
         if (sd_device_get_diskseq(device, &q) >= 0)
-                printf("Q: %" PRIu64 "\n", q);
+                printf("Q: %s%" PRIu64 "%s\n", ansi_highlight_magenta(), q, ansi_normal());
 
         if (sd_device_get_driver(device, &str) >= 0)
-                printf("V: %s\n", str);
+                printf("V: %s%s%s\n", ansi_highlight_yellow4(), str, ansi_normal());
 
         FOREACH_DEVICE_PROPERTY(device, str, val)
                 printf("E: %s=%s\n", str, val);
