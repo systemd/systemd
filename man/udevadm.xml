@@ -51,6 +51,9 @@
     <cmdsynopsis>
       <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>udevadm lock <optional>options</optional> <replaceable>command</replaceable></command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
@@ -747,6 +750,87 @@
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
+
+    <refsect2>
+      <title>udevadm lock
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt"><replaceable>command</replaceable></arg>
+      …
+      </title>
+
+      <para><command>udevadm lock</command> takes an (advisory) exclusive lock(s) on a block device (or
+      multiple therof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
+      Access</ulink> and invokes a program with the lock(s) taken. When the invoked program exits the lock(s)
+      are automatically released.</para>
+
+      <para>This tool is in particular useful to ensure that
+      <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      does not probe a block device while changes are made to it, for example partitions created or file
+      systems formatted. Note that many tools that interface with block devices natively support taking
+      relevant locks, see for example
+      <citerefentry><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+      <option>--lock</option> switch.</para>
+
+      <para>The command expects at least one block device specified via <option>--device=</option> or
+      <option>--backing=</option>, and a command line to execute as arguments.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--device=<replaceable>DEVICE</replaceable></option></term>
+          <term><option>-d <replaceable>DEVICE</replaceable></option></term>
+
+          <listitem><para>Takes a path to a device node of the device to lock. This switch may be used
+          multiple times (and in combination with <option>--backing=</option>) in order to lock multiple
+          devices. If a partition block device node is specified the containing "whole" block device is
+          automatically determined and used for the lock, as per the specification. If multiple devices are
+          specified, they are deduplicated, sorted by the major/minor of their device nodes and then locked
+          in order.</para>
+
+          <para>This switch must be used at least once, to specify at least one device to
+          lock. (Alternatively, use <option>--backing=</option>, see below.)</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--backing=<replaceable>PATH</replaceable></option></term>
+          <term><option>-b <replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>If a path to a device node is specified, identical to
+          <option>--device=</option>. However, this switch alternatively accepts a path to a regular file or
+          directory, in which case the block device of the file system the file/directory resides on is
+          automatically determined and used as if it was specified with
+          <option>--device=</option>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
+          <term><option>-t <replaceable>SECS</replaceable></option></term>
+
+          <listitem><para>Specifies how long to wait at most until all locks can be taken. Takes a value in
+          seconds, or in the usual supported time units, see
+          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. If
+          specified as zero the lock is attempted and if not successful the invocation will immediately
+          fail. If passed as <literal>infinity</literal> (the default) the invocation will wait indefinitely
+          until the lock can be acquired. If the lock cannot be taken in the specified time the specified
+          command will not be executed and the invocation will fail.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--print</option></term>
+          <term><option>-p</option></term>
+
+          <listitem><para>Instead of locking the specified device(s) and executing a command, just print the
+          device path(s) that would be locked, and execute no command. This command is useful to determine
+          the "whole" block device in case a partition block device is specified. The devices will be sorted
+          by their device node major number as primary ordering key and the minor number as secondary
+          ordering key (i.e. they are shown in the order they'd be locked). Note that the number of lines
+          printed here can be less than the the number of <option>--device=</option> and
+          <option>--backing=</option> switches specified in case these resolve to the same "whole"
+          devices.</para></listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -758,6 +842,38 @@
     <literal>remove</literal> action is seen for them (which removes their entry in the udev device
     database). Note that devices that have no udev rules are never considered initialized, but might
     still be announced via the sd-device API (or similar).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Format a File System</title>
+
+      <para>Take a lock on the backing block device while creating a file system, to ensure that
+      <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is
+      comprehensively written:</para>
+
+      <programlisting># udevadm lock --device=/dev/sda1 mkfs.ext4 /dev/sda1</programlisting>
+    </example>
+
+    <example>
+      <title>Format a RAID File System</title>
+
+      <para>Similar, but take locks on multiple devices at once:</para>
+
+      <programlisting># udevadm lock --device=/dev/sda1 --device=/dev/sdb1 mkfs.btrfs /dev/sda1 /dev/sdb1</programlisting>
+    </example>
+
+    <example>
+      <title>Copy in a File System</title>
+
+      <para>Take a lock on the backing block device while copying in a prepared file system image, to ensure
+      that <command>systemd-udevd</command> doesn't probe or announce the new superblock before it is fully
+      written:</para>
+
+      <programlisting># udevadm lock -d /dev/sda1 dd if=fs.raw of=/dev/sda1</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

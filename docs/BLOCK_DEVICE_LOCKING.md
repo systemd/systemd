@@ -75,6 +75,25 @@ And please keep in mind: BSD file locks (`flock()`) and POSIX file locks
 orthogonal. The scheme discussed above uses the former and not the latter,
 because these types of locks more closely match the required semantics.
 
+If multiple devices are to be locked at the same time (for example in order to
+format a RAID file system), the devices should be locked in the order of the
+the device nodes' major numbers (primary ordering key, ascending) and minor
+numbers (secondary ordering key, ditto), in order to avoid ABBA locking issues
+between subsystems.
+
+Note that the locks should only be taken while the device is repartitioned,
+file systems formatted or `dd`'ed in, and similar cases that
+apply/remove/change superblocks/partition information. It should not be held
+during normal operation, i.e. while file systems on it are mounted for
+application use.
+
+The [`udevadm
+lock`](https://www.freedesktop.org/software/systemd/man/udevadm.html) command
+is provided to lock block devices following this scheme from the command line,
+for the use in scripts and similar. (Note though that it's typically preferable
+to use native support for block device locking in tools where that's
+available.)
+
 Summarizing: it is recommended to take `LOCK_EX` BSD file locks when
 manipulating block devices in all tools that change file system block devices
 (`mkfs`, `fsck`, …) or partition tables (`fdisk`, `parted`, …), right after

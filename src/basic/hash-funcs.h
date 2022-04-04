@@ -102,10 +102,9 @@ extern const struct hash_ops uint64_hash_ops;
  * 64bit archs. Yuck! */
 #if SIZEOF_DEV_T != 8
 void devt_hash_func(const dev_t *p, struct siphash *state) _pure_;
-int devt_compare_func(const dev_t *a, const dev_t *b) _pure_;
-extern const struct hash_ops devt_hash_ops;
 #else
 #define devt_hash_func uint64_hash_func
-#define devt_compare_func uint64_compare_func
-#define devt_hash_ops uint64_hash_ops
 #endif
+
+int devt_compare_func(const dev_t *a, const dev_t *b) _pure_;
+extern const struct hash_ops devt_hash_ops;
