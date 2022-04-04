@@ -173,39 +173,54 @@ TEST(sd_device_enumerator_subsystems) {
                 test_sd_device_one(d);
 }
 
-static unsigned test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
+static void test_sd_device_enumerator_filter_subsystem_one(
+                const char *subsystem,
+                Hashmap *h,
+                unsigned *ret_n_new_dev,
+                unsigned *ret_n_removed_dev) {
+
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d, *t;
-        unsigned n_new_dev = 0;
+        unsigned n_new_dev = 0, n_removed_dev = 0;
+        sd_device *d;
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
+                sd_device *t;
 
                 assert_se(sd_device_get_syspath(d, &syspath) >= 0);
                 t = hashmap_remove(h, syspath);
-                assert_se(!sd_device_unref(t));
 
-                if (t)
-                        log_debug("Removed subsystem:%s syspath:%s", subsystem, syspath);
-                else {
+                if (!t) {
                         log_warning("New device found: subsystem:%s syspath:%s", subsystem, syspath);
                         n_new_dev++;
                 }
+
+                assert_se(!sd_device_unref(t));
         }
 
-        /* Assume no device is unplugged. */
-        assert_se(hashmap_isempty(h));
+        HASHMAP_FOREACH(d, h) {
+                const char *syspath;
 
-        return n_new_dev;
+                assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+                log_warning("Device removed: subsystem:%s syspath:%s", subsystem, syspath);
+                n_removed_dev++;
+
+                assert_se(!sd_device_unref(d));
+        }
+
+        hashmap_free(h);
+
+        *ret_n_new_dev = n_new_dev;
+        *ret_n_removed_dev = n_removed_dev;
 }
 
 TEST(sd_device_enumerator_filter_subsystem) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *subsystems;
-        unsigned n_new_dev = 0;
+        unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *d;
         Hashmap *h;
         char *s;
@@ -239,16 +254,22 @@ TEST(sd_device_enumerator_filter_subsystem) {
         }
 
         while ((h = hashmap_steal_first_key_and_value(subsystems, (void**) &s))) {
-                n_new_dev += test_sd_device_enumerator_filter_subsystem_one(s, h);
-                hashmap_free(h);
+                unsigned n, m;
+
+                test_sd_device_enumerator_filter_subsystem_one(s, TAKE_PTR(h), &n, &m);
                 free(s);
+
+                n_new_dev += n;
+                n_removed_dev += m;
         }
 
         if (n_new_dev > 0)
-                log_warning("%u new device is found in re-scan", n_new_dev);
+                log_warning("%u new devices are found in re-scan", n_new_dev);
+        if (n_removed_dev > 0)
+                log_warning("%u devices removed in re-scan", n_removed_dev);
 
-        /* Assume that not so many devices are plugged. */
-        assert_se(n_new_dev <= 10);
+        /* Assume that not so many devices are plugged or unplugged. */
+        assert_se(n_new_dev + n_removed_dev <= 10);
 }
 
 TEST(sd_device_new_from_nulstr) {
