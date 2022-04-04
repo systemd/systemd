@@ -115,7 +115,7 @@ static int acquire_esp(
         free_and_replace(arg_esp_path, np);
         log_debug("Using EFI System Partition at %s.", arg_esp_path);
 
-        return 1;
+        return 0;
 }
 
 static int acquire_xbootldr(
@@ -1593,12 +1593,8 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
                name);
 }
 
-static int are_we_installed(void) {
+static int are_we_installed(const char *esp_path) {
         int r;
-
-        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return r;
 
         /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
          * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
@@ -1614,7 +1610,7 @@ static int are_we_installed(void) {
          *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
          *    /boot/loader/entries would do). */
 
-        _cleanup_free_ char *p = path_join(arg_esp_path, "/EFI/systemd/");
+        _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd/");
         if (!p)
                 return log_oom();
 
@@ -1659,8 +1655,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (arg_print_esp_path || arg_print_dollar_boot_path)
                 return 0;
 
-        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
-                * can show */
+        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just
+                * show what we can show */
 
         pager_open(arg_pager_flags);
 
@@ -2063,7 +2059,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
-                r = are_we_installed();
+                r = are_we_installed(arg_esp_path);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2209,7 +2205,11 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = are_we_installed();
+        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = are_we_installed(arg_esp_path);
         if (r < 0)
                 return r;
 
