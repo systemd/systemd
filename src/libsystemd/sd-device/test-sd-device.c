@@ -48,6 +48,24 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(sd_device_get_syspath(dev, &val) >= 0);
                 assert_se(streq(syspath, val));
                 dev = sd_device_unref(dev);
+
+                /* The device ID depends on subsystem. */
+                assert_se(device_get_device_id(d, &id) >= 0);
+                assert_se(sd_device_new_from_device_id(&dev, id) >= 0);
+                assert_se(sd_device_get_syspath(dev, &val) >= 0);
+                assert_se(streq(syspath, val));
+                dev = sd_device_unref(dev);
+
+                /* These require udev database, and reading database requires device ID. */
+                r = sd_device_get_is_initialized(d);
+                if (r > 0) {
+                        r = sd_device_get_usec_since_initialized(d, &usec);
+                        assert_se((r >= 0 && usec > 0) || r == -ENODATA);
+                } else
+                        assert(r == 0);
+
+                r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
+                assert_se(r >= 0 || r == -ENOENT);
         } else
                 assert_se(r == -ENOENT);
 
@@ -128,23 +146,8 @@ static void test_sd_device_one(sd_device *d) {
         r = sd_device_get_sysnum(d, &val);
         assert_se(r >= 0 || r == -ENOENT);
 
-        r = sd_device_get_is_initialized(d);
-        if (r > 0) {
-                r = sd_device_get_usec_since_initialized(d, &usec);
-                assert_se((r >= 0 && usec > 0) || r == -ENODATA);
-        } else
-                assert(r == 0);
-
         r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
-
-        r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
-        assert_se(r >= 0 || r == -ENOENT);
-
-        assert_se(device_get_device_id(d, &id) >= 0);
-        assert_se(sd_device_new_from_device_id(&dev, id) >= 0);
-        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-        assert_se(streq(syspath, val));
 
         log_info("syspath:%s subsystem:%s id:%s initialized:%s", syspath, strna(subsystem), id, yes_no(i));
 }
