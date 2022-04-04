@@ -1047,14 +1047,15 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         return 0;
 }
 
-_public_ int sd_device_get_devpath(sd_device *device, const char **devpath) {
+_public_ int sd_device_get_devpath(sd_device *device, const char **ret) {
         assert_return(device, -EINVAL);
 
         assert(device->devpath);
         assert(device->devpath[0] == '/');
 
-        if (devpath)
-                *devpath = device->devpath;
+        if (ret)
+                *ret = device->devpath;
+
         return 0;
 }
 
