@@ -171,26 +171,60 @@ static int print_device_chain(sd_device *device) {
 }
 
 static int print_record(sd_device *device) {
-        const char *str, *val;
-        int i;
+        const char *str, *val, *subsys;
+        dev_t devnum;
+        uint64_t q;
+        int i, ifi;
 
         assert(device);
 
-        (void) sd_device_get_devpath(device, &str);
+        /* We don't show syspath here, because it's identical to devpath (modulo the "/sys" prefix).
+         *
+         * We don't show action/seqnum here because that only makes sense for records synthesized from
+         * uevents, not for those synthesized from database entries.
+         *
+         * We don't show sysattrs here, because they can be expensive and potentially issue expensive driver
+         * IO. */
+
+        assert_se(sd_device_get_devpath(device, &str) >= 0);
         printf("P: %s\n", str);
+
+        if (sd_device_get_sysname(device, &str) >= 0)
+                printf("M: %s\n", str);
+
+        if (sd_device_get_sysnum(device, &str) >= 0)
+                printf("R: %s\n", str);
+
+        if (sd_device_get_subsystem(device, &subsys) >= 0)
+                printf("U: %s\n", subsys);
+
+        if (sd_device_get_devtype(device, &str) >= 0)
+                printf("T: %s\n", str);
+
+        if (sd_device_get_devnum(device, &devnum) >= 0)
+                printf("D: %c %u:%u\n", streq_ptr(subsys, "block") ? 'b' : 'c', major(devnum), minor(devnum));
+
+        if (sd_device_get_ifindex(device, &ifi) >= 0)
+                printf("I: %i\n", ifi);
 
         if (sd_device_get_devname(device, &str) >= 0) {
                 assert_se(val = path_startswith(str, "/dev/"));
                 printf("N: %s\n", val);
+
+                if (device_get_devlink_priority(device, &i) >= 0)
+                        printf("L: %i\n", i);
+
+                FOREACH_DEVICE_DEVLINK(device, str) {
+                        assert_se(val = path_startswith(str, "/dev/"));
+                        printf("S: %s\n", val);
+                }
         }
 
-        if (device_get_devlink_priority(device, &i) >= 0)
-                printf("L: %i\n", i);
+        if (sd_device_get_diskseq(device, &q) >= 0)
+                printf("Q: %" PRIu64 "\n", q);
 
-        FOREACH_DEVICE_DEVLINK(device, str) {
-                assert_se(val = path_startswith(str, "/dev/"));
-                printf("S: %s\n", val);
-        }
+        if (sd_device_get_driver(device, &str) >= 0)
+                printf("V: %s\n", str);
 
         FOREACH_DEVICE_PROPERTY(device, str, val)
                 printf("E: %s=%s\n", str, val);
