@@ -41,7 +41,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND\n"
                "%s [OPTIONS...] --print\n"
-               "\n%sLock a block device and run a comand.%s\n\n"
+               "\n%sLock a block device and run a command.%s\n\n"
                "  -h --help            Print this message\n"
                "  -V --version         Print version of the program\n"
                "  -d --device=DEVICE   Block device to lock\n"
@@ -247,7 +247,7 @@ static int lock_device(
 
                         /* flock() doesn't support a time-out. Let's fake one then. The traditional way to do
                          * this is via alarm()/setitimer()/timer_create(), but that's racy, given that the
-                         * SIGALRM might aleady fire between the alarm() and the flock() in which case the
+                         * SIGALRM might already fire between the alarm() and the flock() in which case the
                          * flock() is never cancelled and we lock up (this is a short time window, but with
                          * short timeouts on a loaded machine we might run into it, who knows?). Let's
                          * instead do the lock out-of-process: fork off a child that does the locking, and
