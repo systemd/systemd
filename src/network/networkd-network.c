@@ -590,11 +590,8 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 
-        STRV_FOREACH(f, files) {
-                r = network_load_one(manager, networks, *f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load %s: %m", *f);
-        }
+        STRV_FOREACH(f, files)
+                (void) network_load_one(manager, networks, *f);
 
         return 0;
 }
