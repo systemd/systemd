@@ -791,7 +791,7 @@
       </title>
 
       <para><command>udevadm lock</command> takes an (advisory) exclusive lock(s) on a block device (or
-      multiple therof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
+      multiple thereof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
       Access</ulink> and invokes a program with the lock(s) taken. When the invoked program exits the lock(s)
       are automatically released.</para>
 
