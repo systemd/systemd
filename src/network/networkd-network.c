@@ -313,7 +313,7 @@ int network_verify(Network *network) {
 
         r = network_drop_invalid_addresses(network);
         if (r < 0)
-                return r;
+                return r; /* network_drop_invalid_addresses() logs internally. */
         network_drop_invalid_routes(network);
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
@@ -327,7 +327,7 @@ int network_verify(Network *network) {
         network_drop_invalid_tclass(network);
         r = sr_iov_drop_invalid_sections(UINT32_MAX, network->sr_iov_by_section);
         if (r < 0)
-                return r;
+                return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
 
         network_adjust_dhcp_server(network);
@@ -346,10 +346,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         assert(filename);
 
         r = null_or_empty_path(filename);
-        if (r == -ENOENT)
-                return 0;
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
         if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
@@ -365,7 +363,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
         d = strrchr(name, '.');
         if (!d)
-                return -EINVAL;
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid file name: %s", filename);
 
         *d = '\0';
 
@@ -552,7 +550,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         network,
                         &network->stats_by_path);
         if (r < 0)
-                return r;
+                return r; /* config_parse_many() logs internally. */
 
         r = network_add_ipv4ll_route(network);
         if (r < 0)
@@ -564,15 +562,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                                          network->filename);
 
         r = network_verify(network);
-        if (r == -ENOMEM)
-                return r;
         if (r < 0)
-                /* Ignore .network files that do not match the conditions. */
-                return 0;
+                return r; /* network_verify() logs internally. */
 
         r = ordered_hashmap_ensure_put(networks, &string_hash_ops, network->name, network);
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
         TAKE_PTR(network);
         return 0;
