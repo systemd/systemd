@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "architecture.h"
+#include "errno-util.h"
 #include "log.h"
 #include "tests.h"
 #include "util.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
-        int a, v;
+        Virtualization v;
         const char *p;
+        int a;
 
         test_setup_logging(LOG_INFO);
 
@@ -20,7 +22,7 @@ int main(int argc, char *argv[]) {
         assert_se(architecture_from_string(architecture_to_string(1)) == 1);
 
         v = detect_virtualization();
-        if (IN_SET(v, -EPERM, -EACCES))
+        if (v < 0 && ERRNO_IS_PRIVILEGE(v))
                 return log_tests_skipped("Cannot detect virtualization");
 
         assert_se(v >= 0);

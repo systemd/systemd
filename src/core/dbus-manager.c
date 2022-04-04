@@ -71,7 +71,7 @@ static int property_get_virtualization(
                 void *userdata,
                 sd_bus_error *error) {
 
-        int v;
+        Virtualization v;
 
         assert(bus);
         assert(reply);
