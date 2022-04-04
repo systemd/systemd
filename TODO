@@ -78,7 +78,10 @@ Janitorial Clean-ups:
 
 Features:
 
-* bootctl: show whether audit mode is available
+* udevadm: a new "tree" verb that shows tree of devices as syspath hierarchy,
+  along with their properties. uninitialized devices should be greyed out.
+
+* bootctl: show whether UEFI audit mode is available
 
 * dissect: rework how we access partitions: instead of letting the kernel probe
   partition tables asynchronously, just pass the stuff we parsed in userspace
