@@ -749,10 +749,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
         assert(filename);
 
         r = null_or_empty_path(filename);
-        if (r == -ENOENT)
-                return 0;
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
         if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
@@ -777,7 +775,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         netdev_raw,
                         NULL);
         if (r < 0)
-                return r;
+                return r; /* config_parse_many() logs internally. */
 
         /* skip out early if configuration does not match the environment */
         if (!condition_test_list(netdev_raw->conditions, environ, NULL, NULL, NULL)) {
@@ -785,15 +783,11 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev has no Kind= configured in %s. Ignoring", filename);
-                return 0;
-        }
+        if (netdev_raw->kind == _NETDEV_KIND_INVALID)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "NetDev has no Kind= configured in \"%s\", ignoring.", filename);
 
-        if (!netdev_raw->ifname) {
-                log_warning("NetDev without Name= configured in %s. Ignoring", filename);
-                return 0;
-        }
+        if (!netdev_raw->ifname)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "NetDev without Name= configured in \"%s\", ignoring.", filename);
 
         netdev = malloc0(NETDEV_VTABLE(netdev_raw)->object_size);
         if (!netdev)
@@ -815,13 +809,13 @@ int netdev_load_one(Manager *manager, const char *filename) {
                         CONFIG_PARSE_WARN,
                         netdev, NULL);
         if (r < 0)
-                return r;
+                return r; /* config_parse_many() logs internally. */
 
         /* verify configuration */
         if (NETDEV_VTABLE(netdev)->config_verify) {
                 r = NETDEV_VTABLE(netdev)->config_verify(netdev, filename);
                 if (r < 0)
-                        return 0;
+                        return r; /* config_verify() logs internally. */
         }
 
         netdev->filename = strdup(filename);
@@ -837,22 +831,21 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 assert(n);
                 if (!streq(netdev->filename, n->filename))
                         log_netdev_warning_errno(netdev, r,
-                                                 "Device was already configured by file %s, ignoring %s.",
+                                                 "Device was already configured by \"%s\", ignoring %s.",
                                                  n->filename, netdev->filename);
 
                 /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
                  * removed from the hashmap 'manager->netdevs'. */
                 netdev->ifname = mfree(netdev->ifname);
-                return 0;
+                return -EEXIST;
         }
-        if (r < 0)
-                return r;
+        assert(r > 0);
 
-        log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
+        log_netdev_debug(netdev, "loaded \"%s\"", netdev_kind_to_string(netdev->kind));
 
         r = netdev_request_to_create(netdev);
         if (r < 0)
-                return r;
+                return r; /* netdev_request_to_create() logs internally. */
 
         TAKE_PTR(netdev);
         return 0;
@@ -871,11 +864,8 @@ int netdev_load(Manager *manager, bool reload) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH(f, files) {
-                r = netdev_load_one(manager, *f);
-                if (r < 0)
-                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
-        }
+        STRV_FOREACH(f, files)
+                (void) netdev_load_one(manager, *f);
 
         return 0;
 }
