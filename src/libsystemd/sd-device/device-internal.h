@@ -109,6 +109,7 @@ int device_set_devname(sd_device *device, const char *devname);
 int device_set_devtype(sd_device *device, const char *devtype);
 int device_set_devnum(sd_device *device, const char *major, const char *minor);
 int device_set_subsystem(sd_device *device, const char *subsystem);
+int device_set_diskseq(sd_device *device, const char *str);
 int device_set_drivers_subsystem(sd_device *device);
 int device_set_driver(sd_device *device, const char *driver);
 int device_set_usec_initialized(sd_device *device, usec_t when);
