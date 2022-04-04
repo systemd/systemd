@@ -7,8 +7,9 @@
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
-        int a, v;
+        Architecture a;
         const char *p;
+        int v;
 
         test_setup_logging(LOG_INFO);
 
