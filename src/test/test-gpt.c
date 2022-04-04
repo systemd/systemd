@@ -17,7 +17,7 @@ TEST(gpt_types_against_architectures) {
          * types. Also validates whether we can properly categorize the entries. */
 
         FOREACH_STRING(prefix, "root-", "usr-")
-                for (int a = 0; a < _ARCHITECTURE_MAX; a++)
+                for (Architecture a = 0; a < _ARCHITECTURE_MAX; a++)
                         FOREACH_STRING(suffix, "", "-verity", "-verity-sig") {
                                 _cleanup_free_ char *joined = NULL;
                                 sd_id128_t id;

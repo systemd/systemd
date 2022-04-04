@@ -276,7 +276,7 @@ TEST(condition_test_host) {
 TEST(condition_test_architecture) {
         Condition *condition;
         const char *sa;
-        int a;
+        Architecture a;
 
         a = uname_architecture();
         assert_se(a >= 0);

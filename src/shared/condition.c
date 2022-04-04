@@ -490,7 +490,7 @@ static int condition_test_virtualization(Condition *c, char **env) {
 }
 
 static int condition_test_architecture(Condition *c, char **env) {
-        int a, b;
+        Architecture a, b;
 
         assert(c);
         assert(c->parameter);
