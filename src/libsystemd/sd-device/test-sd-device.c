@@ -25,6 +25,9 @@ static void test_sd_device_one(sd_device *d) {
 
         assert_se(sd_device_get_syspath(d, &syspath) >= 0);
         assert_se(path_startswith(syspath, "/sys"));
+
+        log_debug("%s(%s)", __func__, syspath);
+
         assert_se(sd_device_new_from_syspath(&dev, syspath) >= 0);
         assert_se(sd_device_get_syspath(dev, &val) >= 0);
         assert_se(streq(syspath, val));
@@ -148,8 +151,6 @@ static void test_sd_device_one(sd_device *d) {
 
         r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
-
-        log_info("syspath:%s subsystem:%s id:%s initialized:%s", syspath, strna(subsystem), id, yes_no(i));
 }
 
 TEST(sd_device_enumerator_devices) {
