@@ -46,33 +46,32 @@
       <varlistentry>
         <term><option>status</option></term>
 
-        <listitem><para>Shows brief information about the system firmware, the boot loader that was used to boot the
-        system, the boot loaders currently available in the ESP, the boot loaders listed in the firmware's list of boot
-        loaders and the current default boot loader entry. If no command is specified, this is the implied
-        default.</para></listitem>
+        <listitem><para>Shows brief information about the system firmware, the boot loader that was used to
+        boot the system, the boot loaders currently available in the ESP, the boot loaders listed in the
+        firmware's list of boot loaders and the current default boot loader entry. If no command is
+        specified, this is the implied default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>reboot-to-firmware</option> <optional><replaceable>BOOL</replaceable></optional></term>
+
+        <listitem><para>Query or set the "Reboot-Into-Firmware-Setup" flag of the EFI firmware. Takes a
+        boolean argument which controls whether to show the firmware setup on next system reboot. If the
+        argument is omitted shows the current status of the flag, or whether the flag is supported. This
+        controls the same flag as <command>systemctl reboot --firmware-setup</command>, but is more low-level
+        and allows setting the flag independently from actually requesting a reboot.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>systemd-efi-options</option> <optional><replaceable>STRING</replaceable></optional></term>
+
+        <listitem><para>When called without the optional argument, prints the current value of the
+        <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the variable to
+        that value. See
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
+        meaning of that variable.</para></listitem>
       </varlistentry>
     </variablelist>
-
-    <varlistentry>
-      <term><option>reboot-to-firmware</option> <optional><replaceable>BOOL</replaceable></optional></term>
-
-      <listitem><para>Query or set the "Reboot-Into-Firmware-Setup" flag of the EFI firmware. Takes a
-      boolean argument which controls whether to show the firmware setup on next system reboot. If the
-      argument is omitted shows the current status of the flag, or whether the flag is supported. This
-      controls the same flag as <command>systemctl reboot --firmware-setup</command>, but is more
-      low-level and allows setting the flag independently from actually requesting a
-      reboot.</para></listitem>
-    </varlistentry>
-
-    <varlistentry>
-      <term><option>systemd-efi-options</option> <optional><replaceable>STRING</replaceable></optional></term>
-
-      <listitem><para>When called without the optional argument, prints the current value of the
-      <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the
-      variable to that value. See
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      for the meaning of that variable.</para></listitem>
-    </varlistentry>
   </refsect1>
 
   <refsect1>
@@ -84,7 +83,6 @@
     <command>systemd-boot</command>.</para>
 
     <variablelist>
-
       <varlistentry>
         <term><option>list</option></term>
 
@@ -104,9 +102,9 @@
 
         <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
         pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
-        the <option>set-default</option> will set it persistently for all future boots.</para></listitem>
+        the <option>set-default</option> will set it persistently for all future boots.</para>
 
-        <listitem><para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,
+        <para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,
         <option>@oneshot</option> or <option>@current</option>, which correspond to the current default boot loader
         entry for all future boots, the current default boot loader entry for the next boot, and the currently booted
         boot loader entry. These special IDs are resolved to the current values of the EFI variables
@@ -137,7 +135,6 @@
         disables the timeout while always showing the menu. When an empty string ("") is specified the
         bootloader will revert to its default menu timeout.</para></listitem>
       </varlistentry>
-
     </variablelist>
   </refsect1>
 
