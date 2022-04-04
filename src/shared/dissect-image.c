@@ -612,7 +612,7 @@ static void dissected_partition_done(DissectedPartition *p) {
 
         *p = (DissectedPartition) {
                 .partno = -1,
-                .architecture = -1
+                .architecture = _ARCHITECTURE_INVALID,
         };
 }
 
@@ -917,7 +917,7 @@ int dissect_image(
 
                 if (is_gpt) {
                         PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
-                        int architecture = _ARCHITECTURE_INVALID;
+                        Architecture architecture = _ARCHITECTURE_INVALID;
                         const char *stype, *sid, *fstype = NULL, *label;
                         sd_id128_t type_id, id;
                         bool rw = true, growfs = false;
