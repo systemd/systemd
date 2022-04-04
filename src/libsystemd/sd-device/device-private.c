@@ -255,28 +255,6 @@ static int device_set_seqnum(sd_device *device, const char *str) {
         return 0;
 }
 
-static int device_set_diskseq(sd_device *device, const char *str) {
-        uint64_t diskseq;
-        int r;
-
-        assert(device);
-        assert(str);
-
-        r = safe_atou64(str, &diskseq);
-        if (r < 0)
-                return r;
-        if (diskseq == 0)
-                return -EINVAL;
-
-        r = device_add_property_internal(device, "DISKSEQ", str);
-        if (r < 0)
-                return r;
-
-        device->diskseq = diskseq;
-
-        return 0;
-}
-
 static int device_amend(sd_device *device, const char *key, const char *value) {
         int r;
 
