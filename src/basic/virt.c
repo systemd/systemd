@@ -28,30 +28,29 @@ enum {
       SMBIOS_VM_BIT_UNKNOWN,
 };
 
-#if defined(__i386__) || defined(__x86_64__)
-static const char *const vm_table[_VIRTUALIZATION_MAX] = {
-        [VIRTUALIZATION_XEN]       = "XenVMMXenVMM",
-        [VIRTUALIZATION_KVM]       = "KVMKVMKVM",
-        [VIRTUALIZATION_HV_KVM]    = "Linux KVM Hv",
-        [VIRTUALIZATION_QEMU]      = "TCGTCGTCGTCG",
-        /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-        [VIRTUALIZATION_VMWARE]    = "VMwareVMware",
-        /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
-        [VIRTUALIZATION_MICROSOFT] = "Microsoft Hv",
-        /* https://wiki.freebsd.org/bhyve */
-        [VIRTUALIZATION_BHYVE]     = "bhyve bhyve ",
-        [VIRTUALIZATION_QNX]       = "QNXQVMBSQG",
-        /* https://projectacrn.org */
-        [VIRTUALIZATION_ACRN]      = "ACRNACRNACRN",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(vm, int);
-#endif
-
 static int detect_vm_cpuid(void) {
 
         /* CPUID is an x86 specific interface. */
 #if defined(__i386__) || defined(__x86_64__)
+
+        static const struct {
+                const char sig[13];
+                int id;
+        } vm_table[] = {
+                { "XenVMMXenVMM", VIRTUALIZATION_XEN       },
+                { "KVMKVMKVM",    VIRTUALIZATION_KVM       }, /* qemu with KVM */
+                { "Linux KVM Hv", VIRTUALIZATION_KVM       }, /* qemu with KVM + HyperV Enlightenments */
+                { "TCGTCGTCGTCG", VIRTUALIZATION_QEMU      }, /* qemu without KVM */
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                { "VMwareVMware", VIRTUALIZATION_VMWARE    },
+                /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
+                { "Microsoft Hv", VIRTUALIZATION_MICROSOFT },
+                /* https://wiki.freebsd.org/bhyve */
+                { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
+                { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
+                /* https://projectacrn.org */
+                { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
+        };
 
         uint32_t eax, ebx, ecx, edx;
         bool hypervisor;
@@ -69,7 +68,6 @@ static int detect_vm_cpuid(void) {
                         uint32_t sig32[3];
                         char text[13];
                 } sig = {};
-                int v;
 
                 /* There is a hypervisor, see what it is */
                 __cpuid(0x40000000U, eax, ebx, ecx, edx);
@@ -80,11 +78,13 @@ static int detect_vm_cpuid(void) {
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
-                v = vm_from_string(sig.text);
-                if (v < 0)
-                        return VIRTUALIZATION_VM_OTHER;
+                for (size_t i = 0; i < ELEMENTSOF(vm_table); i++)
+                        if (memcmp_nn(sig.text, sizeof(sig.text),
+                                      vm_table[i].sig, sizeof(vm_table[i].sig)) == 0)
+                                return vm_table[i].id;
 
-                return v;
+                log_debug("Unknown virtualization with CPUID=%s. Add to vm_table[]?", sig.text);
+                return VIRTUALIZATION_VM_OTHER;
         }
 #endif
         log_debug("No virtualization found in CPUID");
@@ -996,7 +996,6 @@ bool has_cpu_with_flag(const char *flag) {
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_NONE] = "none",
         [VIRTUALIZATION_KVM] = "kvm",
-        [VIRTUALIZATION_HV_KVM] = "kvm",
         [VIRTUALIZATION_AMAZON] = "amazon",
         [VIRTUALIZATION_QEMU] = "qemu",
         [VIRTUALIZATION_BOCHS] = "bochs",
