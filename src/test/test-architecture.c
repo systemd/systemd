@@ -9,8 +9,8 @@
 
 int main(int argc, char *argv[]) {
         Virtualization v;
+        Architecture a;
         const char *p;
-        int a;
 
         test_setup_logging(LOG_INFO);
 
