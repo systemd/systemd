@@ -570,7 +570,34 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor) {
         return 0;
 }
 
-static int handle_uevent_line(sd_device *device, const char *key, const char *value, const char **major, const char **minor) {
+int device_set_diskseq(sd_device *device, const char *str) {
+        uint64_t diskseq;
+        int r;
+
+        assert(device);
+        assert(str);
+
+        r = safe_atou64(str, &diskseq);
+        if (r < 0)
+                return r;
+        if (diskseq == 0)
+                return -EINVAL;
+
+        r = device_add_property_internal(device, "DISKSEQ", str);
+        if (r < 0)
+                return r;
+
+        device->diskseq = diskseq;
+
+        return 0;
+}
+
+static int handle_uevent_line(
+                sd_device *device,
+                const char *key,
+                const char *value,
+                const char **major,
+                const char **minor) {
         int r;
 
         assert(device);
@@ -593,6 +620,10 @@ static int handle_uevent_line(sd_device *device, const char *key, const char *va
                         return r;
         } else if (streq(key, "DEVMODE")) {
                 r = device_set_devmode(device, value);
+                if (r < 0)
+                        return r;
+        } else if (streq(key, "DISKSEQ")) {
+                r = device_set_diskseq(device, value);
                 if (r < 0)
                         return r;
         } else if (streq(key, "MAJOR"))
