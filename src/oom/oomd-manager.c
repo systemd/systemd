@@ -384,8 +384,8 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
          * is only used to decide which cgroups to kill (and even then only the resource usages of its descendent
          * nodes are the ones that matter). */
 
-        /* Check amount of memory free and swap free so we don't free up swap when memory is still available. */
-        if (oomd_mem_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
+        /* Check amount of memory available and swap free so we don't free up swap when memory is still available. */
+        if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 _cleanup_free_ char *selected = NULL;
