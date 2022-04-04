@@ -78,12 +78,22 @@ Janitorial Clean-ups:
 
 Features:
 
+* bootctl: show whether audit mode is available
+
+* dissect: rework how we access partitions: instead of letting the kernel probe
+  partition tables asynchronously, just pass the stuff we parsed in userspace
+  to the kernel via BLKPG_ADD_PARTITION. Benefit: we don't have to wait for
+  kernel/netlink/udev, but can run this synchronously without chance of losing
+  events or similar.
+
 * sd-event: optionally, if per-event source rate limit is hit, downgrade
   priority, but leave enabled, and once ratelimit window is over, upgrade
   priority again. That way we can combat event source starvation without
   stopping processing events from one source entirely.
 
-* sd-event: similar to existing inotify support add fanotify support
+* sd-event: similar to existing inotify support add fanotify support (given
+  that apparently new features in this area are only going to be added to the
+  latter).
 
 * sd-event: add 1st class event source for clock changes
 
@@ -129,7 +139,7 @@ Features:
 
 * improve scope units to support creation by pidfd instead of by PID
 
-* deprecate cgroupsv1 (i.e. taint system with it, print log message at boot)
+* deprecate cgroupsv1 further (print log message at boot)
 
 * systemd-dissect: add --cat switch for dumping files such as /etc/os-release
 
