@@ -219,7 +219,7 @@ int convert_meminfo_value_to_uint64_bytes(const char *word, uint64_t *ret) {
 }
 
 int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
-        uint64_t mem_total = UINT64_MAX, mem_free = UINT64_MAX;
+        uint64_t mem_total = UINT64_MAX, mem_available = UINT64_MAX;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -242,9 +242,9 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                 if (p)
                         v = &mem_total;
                 else {
-                        p = first_word(line, "MemFree:");
+                        p = first_word(line, "MemAvailable:");
                         if (p)
-                                v = &mem_free;
+                                v = &mem_available;
                         else
                                 continue;
                 }
@@ -253,16 +253,16 @@ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
                 if (r < 0)
                         return r;
 
-                if (mem_total != UINT64_MAX && mem_free != UINT64_MAX)
+                if (mem_total != UINT64_MAX && mem_available != UINT64_MAX)
                         break;
         }
 
-        if (mem_free > mem_total)
+        if (mem_available > mem_total)
                 return -EINVAL;
 
         if (ret_total)
                 *ret_total = mem_total;
         if (ret_used)
-                *ret_used = mem_total - mem_free;
+                *ret_used = mem_total - mem_available;
         return 0;
 }
