@@ -489,7 +489,7 @@ static int help(void) {
 int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **devices = NULL;
         _cleanup_free_ char *name = NULL;
-        int c, r;
+        int c, r, ret;
 
         enum {
                 ARG_PROPERTY = 0x100,
@@ -631,14 +631,21 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "-x/--export or -P/--export-prefix cannot be used with --value");
 
+        ret = 0;
         STRV_FOREACH(p, devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
                 r = find_device(*p, NULL, &device);
-                if (r == -EINVAL)
-                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
-                if (r < 0)
-                        return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+                if (r < 0) {
+                        if (r == -EINVAL)
+                                log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/ or a unit name: %m", *p);
+                        else
+                                log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+
+                        if (ret == 0)
+                                ret = r;
+                        continue;
+                }
 
                 if (arg_wait_for_initialization_timeout > 0) {
                         sd_device *d;
@@ -665,5 +672,5 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        return 0;
+        return ret;
 }
