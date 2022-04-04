@@ -592,7 +592,7 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
 
         STRV_FOREACH(f, files) {
                 r = network_load_one(manager, networks, *f);
-                if (r < 0)
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                         return log_error_errno(r, "Failed to load %s: %m", *f);
         }
 
