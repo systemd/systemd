@@ -6,7 +6,9 @@ set -o pipefail
 [[ -e /dev/loop-control ]] || exit 77
 
 repart="${1:?}"
+udevadm="${2:?}"
 test -x "$repart"
+test -x "$udevadm"
 
 PATH=$PATH:/sbin:/usr/sbin
 
@@ -199,10 +201,7 @@ $D/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79-3D
 EOF
 
     LOOP="$(losetup -P --show --find "$D/zzz")"
-    while : ; do
-        test -e "$LOOP" && break
-        sleep .2
-    done
+    "${udevadm:?}" wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
 
     VOLUME="test-repart-$RANDOM"
 
