@@ -65,12 +65,23 @@ const GptPartitionType gpt_partition_type_table[] = {
         {}
 };
 
-const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
+static const GptPartitionType *gpt_partition_type_find_by_uuid(sd_id128_t id) {
+
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
                 if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
-                        return gpt_partition_type_table[i].name;
+                        return gpt_partition_type_table + i;
 
         return NULL;
+}
+
+const char *gpt_partition_type_uuid_to_string(sd_id128_t id) {
+        const GptPartitionType *pt;
+
+        pt = gpt_partition_type_find_by_uuid(id);
+        if (!pt)
+                return NULL;
+
+        return pt->name;
 }
 
 const char *gpt_partition_type_uuid_to_string_harder(
@@ -102,11 +113,13 @@ int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret) {
 }
 
 Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
-                        return gpt_partition_type_table[i].arch;
+        const GptPartitionType *pt;
 
-        return _ARCHITECTURE_INVALID;
+        pt = gpt_partition_type_find_by_uuid(id);
+        if (!pt)
+                return _ARCHITECTURE_INVALID;
+
+        return pt->arch;
 }
 
 int gpt_partition_label_valid(const char *s) {
@@ -120,9 +133,11 @@ int gpt_partition_label_valid(const char *s) {
 }
 
 static GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id) {
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
-                        return gpt_partition_type_table[i];
+        const GptPartitionType *pt;
+
+        pt = gpt_partition_type_find_by_uuid(id);
+        if (pt)
+                return *pt;
 
         return (GptPartitionType) { .uuid = id, .arch = _ARCHITECTURE_INVALID };
 }
