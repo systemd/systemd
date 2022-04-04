@@ -65,9 +65,10 @@ _udevadm() {
         [TEST]='-a --action -N --resolve-names'
         [TEST_BUILTIN]='-a --action'
         [WAIT]='-t --timeout --initialized=no --removed --settle'
+        [LOCK]='-t --timeout -d --device -b --backing -p --print'
     )
 
-    local verbs=(info trigger settle control monitor test-builtin test wait)
+    local verbs=(info trigger settle control monitor test-builtin test wait lock)
     local builtins=(blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess)
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -262,6 +263,24 @@ _udevadm() {
             else
                 comps=$( __get_all_devs )
                 local IFS=$'\n'
+            fi
+            ;;
+
+        'lock')
+            if __contains_word "$prev" ${OPTS[LOCK]}; then
+                case $prev in
+                    *)
+                        comps=''
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+            fi
+
+            if [[ $cur = -* ]]; then
+                comps="${OPTS[COMMON]} ${OPTS[LOCK]}"
+            else
+                comps=''
             fi
             ;;
 
