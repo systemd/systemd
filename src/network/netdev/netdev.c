@@ -873,8 +873,8 @@ int netdev_load(Manager *manager, bool reload) {
 
         STRV_FOREACH(f, files) {
                 r = netdev_load_one(manager, *f);
-                if (r < 0)
-                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                        return log_error_errno(r, "Failed to load %s: %m", *f);
         }
 
         return 0;
