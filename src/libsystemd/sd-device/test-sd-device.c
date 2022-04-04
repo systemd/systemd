@@ -14,10 +14,11 @@
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "udev-util.h"
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        const char *syspath, *sysname, *subsystem = NULL, *id, *devname, *val;
+        const char *syspath, *sysname, *subsystem = NULL, *devname, *val;
         bool is_block = false;
         dev_t devnum;
         usec_t usec;
@@ -25,6 +26,9 @@ static void test_sd_device_one(sd_device *d) {
 
         assert_se(sd_device_get_syspath(d, &syspath) >= 0);
         assert_se(path_startswith(syspath, "/sys"));
+
+        log_info("%s(%s)", __func__, syspath);
+
         assert_se(sd_device_new_from_syspath(&dev, syspath) >= 0);
         assert_se(sd_device_get_syspath(dev, &val) >= 0);
         assert_se(streq(syspath, val));
@@ -38,7 +42,7 @@ static void test_sd_device_one(sd_device *d) {
         assert_se(sd_device_get_sysname(d, &sysname) >= 0);
         r = sd_device_get_subsystem(d, &subsystem);
         if (r >= 0) {
-                const char *name;
+                const char *name, *id;
 
                 if (streq(subsystem, "drivers"))
                         name = strjoina(d->driver_subsystem, ":", sysname);
@@ -48,6 +52,24 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(sd_device_get_syspath(dev, &val) >= 0);
                 assert_se(streq(syspath, val));
                 dev = sd_device_unref(dev);
+
+                /* The device ID depends on subsystem. */
+                assert_se(device_get_device_id(d, &id) >= 0);
+                assert_se(sd_device_new_from_device_id(&dev, id) >= 0);
+                assert_se(sd_device_get_syspath(dev, &val) >= 0);
+                assert_se(streq(syspath, val));
+                dev = sd_device_unref(dev);
+
+                /* These require udev database, and reading database requires device ID. */
+                r = sd_device_get_is_initialized(d);
+                if (r > 0) {
+                        r = sd_device_get_usec_since_initialized(d, &usec);
+                        assert_se((r >= 0 && usec > 0) || r == -ENODATA);
+                } else
+                        assert(r == 0);
+
+                r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
+                assert_se(r >= 0 || r == -ENOENT);
         } else
                 assert_se(r == -ENOENT);
 
@@ -61,7 +83,7 @@ static void test_sd_device_one(sd_device *d) {
                         assert_se(streq(syspath, val));
                         dev = sd_device_unref(dev);
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(ERRNO_IS_PRIVILEGE(r));
 
                 r = sd_device_new_from_path(&dev, devname);
                 if (r >= 0) {
@@ -73,7 +95,7 @@ static void test_sd_device_one(sd_device *d) {
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(ERRNO_IS_PRIVILEGE(r));
         } else
                 assert_se(r == -ENOENT);
 
@@ -128,25 +150,8 @@ static void test_sd_device_one(sd_device *d) {
         r = sd_device_get_sysnum(d, &val);
         assert_se(r >= 0 || r == -ENOENT);
 
-        r = sd_device_get_is_initialized(d);
-        if (r > 0) {
-                r = sd_device_get_usec_since_initialized(d, &usec);
-                assert_se((r >= 0 && usec > 0) || r == -ENODATA);
-        } else
-                assert(r == 0);
-
         r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
-
-        r = sd_device_get_property_value(d, "ID_NET_DRIVER", &val);
-        assert_se(r >= 0 || r == -ENOENT);
-
-        assert_se(device_get_device_id(d, &id) >= 0);
-        assert_se(sd_device_new_from_device_id(&dev, id) >= 0);
-        assert_se(sd_device_get_syspath(dev, &val) >= 0);
-        assert_se(streq(syspath, val));
-
-        log_info("syspath:%s subsystem:%s id:%s initialized:%s", syspath, strna(subsystem), id, yes_no(i));
 }
 
 TEST(sd_device_enumerator_devices) {
@@ -169,39 +174,54 @@ TEST(sd_device_enumerator_subsystems) {
                 test_sd_device_one(d);
 }
 
-static unsigned test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
+static void test_sd_device_enumerator_filter_subsystem_one(
+                const char *subsystem,
+                Hashmap *h,
+                unsigned *ret_n_new_dev,
+                unsigned *ret_n_removed_dev) {
+
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d, *t;
-        unsigned n_new_dev = 0;
+        unsigned n_new_dev = 0, n_removed_dev = 0;
+        sd_device *d;
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
+                sd_device *t;
 
                 assert_se(sd_device_get_syspath(d, &syspath) >= 0);
                 t = hashmap_remove(h, syspath);
-                assert_se(!sd_device_unref(t));
 
-                if (t)
-                        log_debug("Removed subsystem:%s syspath:%s", subsystem, syspath);
-                else {
+                if (!t) {
                         log_warning("New device found: subsystem:%s syspath:%s", subsystem, syspath);
                         n_new_dev++;
                 }
+
+                assert_se(!sd_device_unref(t));
         }
 
-        /* Assume no device is unplugged. */
-        assert_se(hashmap_isempty(h));
+        HASHMAP_FOREACH(d, h) {
+                const char *syspath;
 
-        return n_new_dev;
+                assert_se(sd_device_get_syspath(d, &syspath) >= 0);
+                log_warning("Device removed: subsystem:%s syspath:%s", subsystem, syspath);
+                n_removed_dev++;
+
+                assert_se(!sd_device_unref(d));
+        }
+
+        hashmap_free(h);
+
+        *ret_n_new_dev = n_new_dev;
+        *ret_n_removed_dev = n_removed_dev;
 }
 
 TEST(sd_device_enumerator_filter_subsystem) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *subsystems;
-        unsigned n_new_dev = 0;
+        unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *d;
         Hashmap *h;
         char *s;
@@ -235,16 +255,22 @@ TEST(sd_device_enumerator_filter_subsystem) {
         }
 
         while ((h = hashmap_steal_first_key_and_value(subsystems, (void**) &s))) {
-                n_new_dev += test_sd_device_enumerator_filter_subsystem_one(s, h);
-                hashmap_free(h);
+                unsigned n, m;
+
+                test_sd_device_enumerator_filter_subsystem_one(s, TAKE_PTR(h), &n, &m);
                 free(s);
+
+                n_new_dev += n;
+                n_removed_dev += m;
         }
 
         if (n_new_dev > 0)
-                log_warning("%u new device is found in re-scan", n_new_dev);
+                log_warning("%u new devices are found in re-scan", n_new_dev);
+        if (n_removed_dev > 0)
+                log_warning("%u devices removed in re-scan", n_removed_dev);
 
-        /* Assume that not so many devices are plugged. */
-        assert_se(n_new_dev <= 10);
+        /* Assume that not so many devices are plugged or unplugged. */
+        assert_se(n_new_dev + n_removed_dev <= 10);
 }
 
 TEST(sd_device_new_from_nulstr) {
@@ -286,4 +312,11 @@ TEST(sd_device_new_from_nulstr) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+static int intro(void) {
+        if (!udev_available())
+                return log_tests_skipped("/sys is read-only");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
