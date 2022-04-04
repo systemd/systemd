@@ -134,7 +134,7 @@ enum {
         SD_DHCP_OPTION_NDS_SERVER                     = 85,  /* [RFC2241] */
         SD_DHCP_OPTION_NDS_TREE_NAME                  = 86,  /* [RFC2241] */
         SD_DHCP_OPTION_NDS_CONTEXT                    = 87,  /* [RFC2241] */
-        SD_DHCP_OPTION_BCMCS_CONTROLLER_DOMAIN_NAM    = 88,  /* [RFC4280] */
+        SD_DHCP_OPTION_BCMCS_CONTROLLER_DOMAIN_NAME   = 88,  /* [RFC4280] */
         SD_DHCP_OPTION_BCMCS_CONTROLLER_ADDRESS       = 89,  /* [RFC4280] */
         SD_DHCP_OPTION_AUTHENTICATION                 = 90,  /* [RFC3118] */
         SD_DHCP_OPTION_CLIENT_LAST_TRANSACTION_TIME   = 91,  /* [RFC4388] */
@@ -173,7 +173,7 @@ enum {
         SD_DHCP_OPTION_CAPWAP_AC_ADDRESS              = 138, /* [RFC5417] */
         SD_DHCP_OPTION_MOS_ADDRESS                    = 139, /* [RFC5678] */
         SD_DHCP_OPTION_MOS_FQDN                       = 140, /* [RFC5678] */
-        SD_DHCP_OPTION_SIP_SERVICE_DOMAINS            = 141, /* [RFC6011] */
+        SD_DHCP_OPTION_SIP_SERVICE_DOMAIN             = 141, /* [RFC6011] */
         SD_DHCP_OPTION_ANDSF_ADDRESS                  = 142, /* [RFC6153] */
         SD_DHCP_OPTION_SZTP_REDIRECT                  = 143, /* [RFC8572] */
         SD_DHCP_OPTION_GEOLOC                         = 144, /* [RFC6225] */
