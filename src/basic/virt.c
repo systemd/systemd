@@ -173,7 +173,6 @@ static Virtualization detect_vm_dmi_vendor(void) {
 
         for (size_t i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 _cleanup_free_ char *s = NULL;
-                unsigned j;
 
                 r = read_one_line_file(dmi_vendors[i], &s);
                 if (r < 0) {
@@ -183,7 +182,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
                         return r;
                 }
 
-                for (j = 0; j < ELEMENTSOF(dmi_vendor_table); j++)
+                for (size_t j = 0; j < ELEMENTSOF(dmi_vendor_table); j++)
                         if (startswith(s, dmi_vendor_table[j].vendor)) {
                                 log_debug("Virtualization %s found in DMI (%s)", s, dmi_vendors[i]);
                                 return dmi_vendor_table[j].id;
@@ -610,8 +609,6 @@ static int running_in_cgroupns(void) {
 }
 
 static Virtualization detect_container_files(void) {
-        unsigned i;
-
         static const struct {
                 const char *file_path;
                 Virtualization id;
@@ -624,7 +621,7 @@ static Virtualization detect_container_files(void) {
                 { "/.dockerenv",        VIRTUALIZATION_DOCKER },
         };
 
-        for (i = 0; i < ELEMENTSOF(container_file_table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(container_file_table); i++) {
                 if (access(container_file_table[i].file_path, F_OK) >= 0)
                         return container_file_table[i].id;
 
