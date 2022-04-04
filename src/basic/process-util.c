@@ -1026,7 +1026,7 @@ bool oom_score_adjust_is_valid(int oa) {
 }
 
 unsigned long personality_from_string(const char *p) {
-        int architecture;
+        Architecture architecture;
 
         if (!p)
                 return PERSONALITY_INVALID;
@@ -1050,7 +1050,7 @@ unsigned long personality_from_string(const char *p) {
 }
 
 const char* personality_to_string(unsigned long p) {
-        int architecture = _ARCHITECTURE_INVALID;
+        Architecture architecture = _ARCHITECTURE_INVALID;
 
         if (p == PER_LINUX)
                 architecture = native_architecture();

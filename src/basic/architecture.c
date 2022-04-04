@@ -7,7 +7,7 @@
 #include "string-table.h"
 #include "string-util.h"
 
-int uname_architecture(void) {
+Architecture uname_architecture(void) {
 
         /* Return a sanitized enum identifying the architecture we are running on. This
          * is based on uname(), and the user may hence control what this returns by using
@@ -22,7 +22,7 @@ int uname_architecture(void) {
 
         static const struct {
                 const char *machine;
-                int arch;
+                Architecture arch;
         } arch_map[] = {
 #if defined(__aarch64__) || defined(__arm__)
                 { "aarch64",    ARCHITECTURE_ARM64    },
@@ -122,7 +122,7 @@ int uname_architecture(void) {
 #endif
         };
 
-        static int cached = _ARCHITECTURE_INVALID;
+        static Architecture cached = _ARCHITECTURE_INVALID;
         struct utsname u;
 
         if (cached != _ARCHITECTURE_INVALID)
@@ -175,4 +175,4 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_TILEGX]      = "tilegx",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(architecture, int);
+DEFINE_STRING_TABLE_LOOKUP(architecture, Architecture);
