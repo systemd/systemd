@@ -14,6 +14,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "udev-util.h"
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -82,7 +83,7 @@ static void test_sd_device_one(sd_device *d) {
                         assert_se(streq(syspath, val));
                         dev = sd_device_unref(dev);
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(ERRNO_IS_PRIVILEGE(r));
 
                 r = sd_device_new_from_path(&dev, devname);
                 if (r >= 0) {
@@ -94,7 +95,7 @@ static void test_sd_device_one(sd_device *d) {
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(ERRNO_IS_PRIVILEGE(r));
         } else
                 assert_se(r == -ENOENT);
 
@@ -311,4 +312,11 @@ TEST(sd_device_new_from_nulstr) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+static int intro(void) {
+        if (!udev_available())
+                return log_tests_skipped("/sys is read-only");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
