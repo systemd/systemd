@@ -15,10 +15,11 @@
 #include <unistd.h>
 
 #include "barrier.h"
-#include "util.h"
+#include "errno-util.h"
 #include "tests.h"
-#include "virt.h"
 #include "time-util.h"
+#include "util.h"
+#include "virt.h"
 
 /* 20ms to test deadlocks; All timings use multiples of this constant as
  * alarm/sleep timers. If this timeout is too small for slow machines to perform
@@ -434,8 +435,8 @@ static int intro(void) {
          * false-positives in CIs.
          */
 
-        int v = detect_virtualization();
-        if (IN_SET(v, -EPERM, -EACCES))
+        Virtualization v = detect_virtualization();
+        if (v < 0 && ERRNO_IS_PRIVILEGE(v))
                 return log_tests_skipped("Cannot detect virtualization");
 
         if (v != VIRTUALIZATION_NONE)
