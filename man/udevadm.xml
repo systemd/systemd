@@ -231,6 +231,30 @@
               <entry>Device path in <filename>/sys/</filename></entry>
             </row>
             <row>
+              <entry><literal>M:</literal></entry>
+              <entry>Device name in <filename>/sys/</filename> (i.e. the last component of <literal>P:</literal>)</entry>
+            </row>
+            <row>
+              <entry><literal>R:</literal></entry>
+              <entry>Device number in <filename>/sys/</filename> (i.e. the numeric suffix of the last component of <literal>P:</literal>)</entry>
+            </row>
+            <row>
+              <entry><literal>U:</literal></entry>
+              <entry>Kernel subsystem</entry>
+            </row>
+            <row>
+              <entry><literal>T:</literal></entry>
+              <entry>Kernel device type within subsystem</entry>
+            </row>
+            <row>
+              <entry><literal>D:</literal></entry>
+              <entry>Kernel device node major/minor</entry>
+            </row>
+            <row>
+              <entry><literal>I:</literal></entry>
+              <entry>Network interface index</entry>
+            </row>
+            <row>
               <entry><literal>N:</literal></entry>
               <entry>Kernel device node name</entry>
             </row>
@@ -241,6 +265,14 @@
             <row>
               <entry><literal>S:</literal></entry>
               <entry>Device node symlink</entry>
+            </row>
+            <row>
+              <entry><literal>Q:</literal></entry>
+              <entry>Block device sequence number (DISKSEQ)</entry>
+            </row>
+            <row>
+              <entry><literal>V:</literal></entry>
+              <entry>Attached driver</entry>
             </row>
             <row>
               <entry><literal>E:</literal></entry>
