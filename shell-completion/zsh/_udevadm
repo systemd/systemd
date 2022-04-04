@@ -115,6 +115,16 @@ _udevadm_wait(){
         '*::devpath:_files -P /dev/ -W /dev'
 }
 
+(( $+functions[_udevadm_lock] )) ||
+_udevadm_lock(){
+    _arguments \
+        '--timeout=[Maximum number of seconds to wait for the devices being locked.]' \
+        '--device=[Block device to lock.]' \
+        '--backing=[File whose backing block device to lock.]' \
+        '--print[Only show which block device the lock would be taken on.]' \
+        '--help[Print help text.]'
+}
+
 (( $+functions[_udevadm_mounts] )) ||
 _udevadm_mounts(){
     local dev_tmp dpath_tmp mp_tmp mline
@@ -144,6 +154,8 @@ _udevadm_commands(){
         'monitor:listen to kernel and udev events'
         'test:test an event run'
         'test-builtin:test a built-in command'
+        'wait:wait for devices or device symlinks being created'
+        'lock:lock a block device and run a comand'
     )
 
     if ((CURRENT == 1)); then
