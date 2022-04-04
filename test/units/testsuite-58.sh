@@ -174,10 +174,7 @@ rm -r /tmp/testsuite-58.3-defs/
 mkdir -p /tmp/testsuite-58-issue-21817-defs/
 truncate -s 100m /var/tmp/testsuite-58-issue-21817.img
 LOOP=$(losetup -P --show -f /var/tmp/testsuite-58-issue-21817.img)
-while : ; do
-    test -e "$LOOP" && break
-    sleep .2
-done
+udevadm wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
 printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt "$LOOP"
 cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
 [Partition]
@@ -219,10 +216,7 @@ EOF
 
     truncate -s 100m "/tmp/testsuite-58-sector-$1.img"
     LOOP=$(losetup -b "$1" -P --show -f "/tmp/testsuite-58-sector-$1.img" )
-    while : ; do
-        test -e "$LOOP" && break
-        sleep .2
-    done
+    udevadm wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
     systemd-repart --pretty=yes --definitions=/tmp/testsuite-58-sector/ --seed=750b6cd5c4ae4012a15e7be3c29e6a47 --empty=require --dry-run=no "$LOOP"
     rm -rf /tmp/testsuite-58-sector
     sfdisk --verify "$LOOP"
