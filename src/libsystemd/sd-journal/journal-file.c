@@ -1875,9 +1875,6 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 
         /* log_debug("=> %s seqnr=%"PRIu64" n_entries=%"PRIu64, f->path, o->entry.seqnum, f->header->n_entries); */
 
-        if (f->header->head_entry_realtime == 0)
-                f->header->head_entry_realtime = htole64(journal_file_entry_realtime(f, o));
-
         f->header->tail_entry_realtime = htole64(journal_file_entry_realtime(f, o));
         f->header->tail_entry_monotonic = htole64(journal_file_entry_monotonic(f, o));
 
@@ -1927,10 +1924,16 @@ static int journal_file_append_entry_internal(
         if (boot_id)
                 f->header->boot_id = *boot_id;
 
+        if (f->header->head_entry_realtime == 0)
+                f->header->head_entry_realtime = htole64(ts->realtime);
+
         if (JOURNAL_HEADER_COMPACT(f->header)) {
+                if (f->header->head_entry_monotonic == 0)
+                        f->header->head_entry_monotonic = htole64(ts->monotonic);
+
                 o->entry.compact.seqnum = htole64(journal_file_new_entry_seqnum(f, seqnum));
-                o->entry.compact.realtime = htole64(ts->realtime);
-                o->entry.compact.monotonic = htole64(ts->monotonic);
+                o->entry.compact.realtime = htole32(ts->realtime - le64toh(f->header->head_entry_realtime));
+                o->entry.compact.monotonic = htole32(ts->monotonic - le64toh(f->header->head_entry_monotonic));
                 o->entry.compact.boot_id = f->header->boot_id;
                 o->entry.compact.xor_hash = htole64(xor_hash);
                 memcpy_safe(o->entry.compact.items, items, n_items * sizeof(EntryItem));
@@ -3351,6 +3354,11 @@ void journal_file_print_header(JournalFile *f) {
         if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth))
                 printf("Deepest data hash chain: %" PRIu64"\n",
                        f->header->data_hash_chain_depth);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, head_entry_monotonic))
+                printf("Head monotonic timestamp: %s (%"PRIx64")\n",
+                       FORMAT_TIMESPAN(le64toh(f->header->head_entry_monotonic), USEC_PER_MSEC),
+                       le64toh(f->header->head_entry_monotonic));
 
         if (fstat(f->fd, &st) >= 0)
                 printf("Disk usage: %s\n", FORMAT_BYTES((uint64_t) st.st_blocks * 512ULL));

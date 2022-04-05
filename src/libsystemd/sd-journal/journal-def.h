@@ -103,8 +103,8 @@ struct EntryItem {
                 } regular;                       \
                 struct {                         \
                         le64_t seqnum;           \
-                        le64_t realtime;         \
-                        le64_t monotonic;        \
+                        le32_t realtime;         \
+                        le32_t monotonic;        \
                         sd_id128_t boot_id;      \
                         le64_t xor_hash;         \
                         EntryItem items[];       \
@@ -232,12 +232,14 @@ enum {
         /* Added in 246 */                              \
         le64_t data_hash_chain_depth;                   \
         le64_t field_hash_chain_depth;                  \
+        /* Added in 252 */                              \
+        le64_t head_entry_monotonic;                    \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 256);
+assert_cc(sizeof(struct Header) == 264);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
