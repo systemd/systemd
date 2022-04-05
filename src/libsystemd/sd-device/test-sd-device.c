@@ -21,10 +21,11 @@ static void test_sd_device_one(sd_device *d) {
         bool is_block = false;
         dev_t devnum;
         usec_t usec;
-        int i, r;
+        int ifindex, r;
 
         assert_se(sd_device_get_syspath(d, &syspath) >= 0);
         assert_se(path_startswith(syspath, "/sys"));
+        assert_se(sd_device_get_sysname(d, &sysname) >= 0);
 
         log_info("%s(%s)", __func__, syspath);
 
@@ -38,7 +39,31 @@ static void test_sd_device_one(sd_device *d) {
         assert_se(streq(syspath, val));
         dev = sd_device_unref(dev);
 
-        assert_se(sd_device_get_sysname(d, &sysname) >= 0);
+        r = sd_device_get_ifindex(d, &ifindex);
+        if (r >= 0) {
+                assert_se(ifindex > 0);
+
+                r = sd_device_new_from_ifindex(&dev, ifindex);
+                if (r == -ENODEV)
+                        log_device_warning_errno(d, r,
+                                                 "Failed to create sd-device object from ifindex %i. "
+                                                 "Maybe running on a non-host network namespace.", ifindex);
+                else {
+                        assert_se(r >= 0);
+                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
+                        assert_se(streq(syspath, val));
+                        dev = sd_device_unref(dev);
+                }
+
+                /* This does not require the interface really exists on the network namespace.
+                 * Hence, this should always succeed. */
+                assert_se(sd_device_new_from_ifname(&dev, sysname) >= 0);
+                assert_se(sd_device_get_syspath(dev, &val) >= 0);
+                assert_se(streq(syspath, val));
+                dev = sd_device_unref(dev);
+        } else
+                assert_se(r == -ENOENT);
+
         r = sd_device_get_subsystem(d, &subsystem);
         if (r >= 0) {
                 const char *name, *id;
@@ -54,10 +79,17 @@ static void test_sd_device_one(sd_device *d) {
 
                 /* The device ID depends on subsystem. */
                 assert_se(device_get_device_id(d, &id) >= 0);
-                assert_se(sd_device_new_from_device_id(&dev, id) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
+                r = sd_device_new_from_device_id(&dev, id);
+                if (r == -ENODEV && ifindex > 0)
+                        log_device_warning_errno(d, r,
+                                                 "Failed to create sd-device object from device ID \"%s\". "
+                                                 "Maybe running on a non-host network namespace.", id);
+                else {
+                        assert_se(r >= 0);
+                        assert_se(sd_device_get_syspath(dev, &val) >= 0);
+                        assert_se(streq(syspath, val));
+                        dev = sd_device_unref(dev);
+                }
 
                 /* These require udev database, and reading database requires device ID. */
                 r = sd_device_get_is_initialized(d);
@@ -116,22 +148,6 @@ static void test_sd_device_one(sd_device *d) {
                 dev = sd_device_unref(dev);
 
                 assert_se(sd_device_new_from_path(&dev, p) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
-        } else
-                assert_se(r == -ENOENT);
-
-        r = sd_device_get_ifindex(d, &i);
-        if (r >= 0) {
-                assert_se(i > 0);
-
-                assert_se(sd_device_new_from_ifindex(&dev, i) >= 0);
-                assert_se(sd_device_get_syspath(dev, &val) >= 0);
-                assert_se(streq(syspath, val));
-                dev = sd_device_unref(dev);
-
-                assert_se(sd_device_new_from_ifname(&dev, sysname) >= 0);
                 assert_se(sd_device_get_syspath(dev, &val) >= 0);
                 assert_se(streq(syspath, val));
                 dev = sd_device_unref(dev);
