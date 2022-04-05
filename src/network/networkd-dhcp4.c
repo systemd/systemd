@@ -27,8 +27,6 @@
 #include "strv.h"
 #include "sysctl-util.h"
 
-static int dhcp4_request_address_and_routes(Link *link, bool announce);
-
 void network_adjust_dhcp4(Network *network) {
         assert(network);
 
@@ -157,26 +155,6 @@ int dhcp4_check_ready(Link *link) {
         return 0;
 }
 
-static int dhcp4_retry(Link *link) {
-        int r;
-
-        assert(link);
-
-        r = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_nexthops(link, true);
-        if (r < 0)
-                return r;
-
-        r = link_request_static_routes(link, true);
-        if (r < 0)
-                return r;
-
-        return dhcp4_request_address_and_routes(link, false);
-}
-
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
@@ -184,28 +162,9 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
         assert(link);
 
         r = sd_netlink_message_get_errno(m);
-        if (r == -ENETUNREACH && !link->dhcp4_route_retrying) {
-
-                /* It seems kernel does not support that the prefix route cannot be configured with
-                 * route table. Let's once drop the config and reconfigure them later. */
-
-                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later");
-                link->dhcp4_route_failed = true;
-                link->manager->dhcp4_prefix_root_cannot_set_table = true;
-        } else if (r < 0 && r != -EEXIST) {
+        if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route");
                 link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->dhcp4_messages == 0 && link->dhcp4_route_failed) {
-                link->dhcp4_route_failed = false;
-                link->dhcp4_route_retrying = true;
-
-                r = dhcp4_retry(link);
-                if (r < 0)
-                        link_enter_failed(link);
-
                 return 1;
         }
 
@@ -253,8 +212,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
 static bool link_prefixroute(Link *link) {
         return !link->network->dhcp_route_table_set ||
-                link->network->dhcp_route_table == RT_TABLE_MAIN ||
-                link->manager->dhcp4_prefix_root_cannot_set_table;
+                link->network->dhcp_route_table == RT_TABLE_MAIN;
 }
 
 static int dhcp4_request_prefix_route(Link *link) {
