@@ -207,10 +207,11 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 syspath = strdup(_syspath);
                 if (!syspath)
                         return log_oom_debug();
+
+                path_simplify(syspath);
         }
 
-        devpath = syspath + STRLEN("/sys");
-
+        assert_se(devpath = startswith(syspath, "/sys"));
         if (devpath[0] != '/')
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "sd-device: \"/sys\" alone is not a valid device path.");
 
