@@ -205,47 +205,34 @@
         <term><varname>HandleLidSwitchExternalPower=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
 
-        <listitem><para>Controls how logind shall handle the
-        system power, reboot and sleep keys and the lid switch to trigger
-        actions such as system power-off, reboot or suspend. Can be one of
-        <literal>ignore</literal>,
-        <literal>poweroff</literal>,
-        <literal>reboot</literal>,
-        <literal>halt</literal>,
-        <literal>kexec</literal>,
-        <literal>suspend</literal>,
-        <literal>hibernate</literal>,
-        <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>,
-        <literal>lock</literal>, and
-        <literal>factory-reset</literal>.
-        If <literal>ignore</literal>, logind will never handle these
-        keys. If <literal>lock</literal>, all running sessions will be
-        screen-locked; otherwise, the specified action will be taken
-        in the respective event. Only input devices with the
-        <literal>power-switch</literal> udev tag will be watched for
-        key/lid switch events. <varname>HandlePowerKey=</varname>
-        defaults to <literal>poweroff</literal>, <varname>HandleRebootKey=</varname>
-        defaults to <literal>reboot</literal>, <varname>HandleSuspendKey=</varname>
-        defaults to <literal>suspend</literal>, <varname>HandleHibernateKey=</varname>
-        defaults to <literal>hibernate</literal>, <varname>HandlePowerKeyLongPress=</varname>
-        defaults to <literal>ignore</literal>, <varname>HandleRebootKeyLongPress=</varname>
-        defaults to <literal>poweroff</literal>, <varname>HandleSuspendKeyLongPress=</varname>
-        defaults to <literal>hibernate</literal>, <varname>HandleHibernateKeyLongPress=</varname>
-        defaults to <literal>ignore</literal>.
-        <varname>HandleLidSwitch=</varname> defaults to
-        <literal>suspend</literal>.
-        <varname>HandleLidSwitchExternalPower=</varname> is completely
-        ignored by default (for backwards compatibility) — an explicit
-        value must be set before it will be used to determine
-        behaviour. <varname>HandleLidSwitchDocked=</varname> defaults
-        to <literal>ignore</literal>. If the system is inserted in a
-        docking station, or if more than one display is connected, the
-        action specified by <varname>HandleLidSwitchDocked=</varname>
-        occurs; if the system is on external power the action (if any)
-        specified by <varname>HandleLidSwitchExternalPower=</varname>
-        occurs; otherwise the <varname>HandleLidSwitch=</varname>
-        action occurs.</para>
+        <listitem><para>Controls how logind shall handle the system power, reboot and sleep keys and the lid
+        switch to trigger actions such as system power-off, reboot or suspend. Can be one of
+        <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>,
+        <literal>halt</literal>, <literal>kexec</literal>, <literal>suspend</literal>,
+        <literal>hibernate</literal>, <literal>hybrid-sleep</literal>,
+        <literal>suspend-then-hibernate</literal>, <literal>lock</literal>, and
+        <literal>factory-reset</literal>.  If <literal>ignore</literal>, <command>systemd-logind</command>
+        will never handle these keys. If <literal>lock</literal>, all running sessions will be screen-locked;
+        otherwise, the specified action will be taken in the respective event. Only input devices with the
+        <literal>power-switch</literal> udev tag will be watched for key/lid switch
+        events.</para>
+
+        <para><varname>HandlePowerKey=</varname> defaults to <literal>poweroff</literal>,
+        <varname>HandleRebootKey=</varname> defaults to <literal>reboot</literal>,
+        <varname>HandleSuspendKey=</varname> defaults to <literal>suspend</literal>,
+        <varname>HandleHibernateKey=</varname> defaults to <literal>hibernate</literal>,
+        <varname>HandlePowerKeyLongPress=</varname> defaults to <literal>ignore</literal>,
+        <varname>HandleRebootKeyLongPress=</varname> defaults to <literal>poweroff</literal>,
+        <varname>HandleSuspendKeyLongPress=</varname> defaults to <literal>hibernate</literal>,
+        <varname>HandleHibernateKeyLongPress=</varname> defaults to <literal>ignore</literal>.
+        <varname>HandleLidSwitch=</varname> defaults to <literal>suspend</literal>.
+        <varname>HandleLidSwitchExternalPower=</varname> is completely ignored by default (for backwards
+        compatibility) — an explicit value must be set before it will be used to determine
+        behaviour. <varname>HandleLidSwitchDocked=</varname> defaults to <literal>ignore</literal>. If the
+        system is inserted in a docking station, or if more than one display is connected, the action
+        specified by <varname>HandleLidSwitchDocked=</varname> occurs; if the system is on external power the
+        action (if any) specified by <varname>HandleLidSwitchExternalPower=</varname> occurs; otherwise the
+        <varname>HandleLidSwitch=</varname> action occurs.</para>
 
         <para>A different application may disable logind's handling of system power and
         sleep keys and the lid switch by taking a low-level inhibitor lock
