@@ -102,7 +102,7 @@ struct EntryItem {
                         EntryItem items[];       \
                 } regular;                       \
                 struct {                         \
-                        le64_t seqnum;           \
+                        le32_t seqnum;           \
                         le64_t realtime;         \
                         le64_t monotonic;        \
                         sd_id128_t boot_id;      \

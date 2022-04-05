@@ -189,7 +189,7 @@ static inline bool VALID_EPOCH(uint64_t u) {
 
 static inline uint64_t journal_file_entry_seqnum(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header)
-                        ? le64toh(o->entry.compact.seqnum)
+                        ? le32toh(o->entry.compact.seqnum) + le64toh(f->header->head_entry_seqnum)
                         : le64toh(o->entry.regular.seqnum);
 }
 

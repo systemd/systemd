@@ -478,7 +478,7 @@ _packed_ struct EntryObject {
                         EntryItem items[];
                 } regular;
                 struct {
-                        le64_t seqnum;
+                        le32_t seqnum;
                         le64_t realtime;
                         le64_t monotonic;
                         sd_id128_t boot_id;
@@ -513,6 +513,8 @@ objects, i.e. keyed by the file ID).
 
 If the HEADER_INCOMPATIBLE_COMPACT flag is set, Entry objects are stored in
 the format indicated by the **compact** struct instead of the **regular** struct.
+The **seqnum** field is stored as a 32-bit offset to the **head_entry_seqnum**
+field in the header.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
