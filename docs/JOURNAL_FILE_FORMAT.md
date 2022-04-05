@@ -177,6 +177,8 @@ _packed_ struct Header {
         /* Added in 246 */
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
+        /* Added in 252 */
+        le64_t head_entry_monotonic;
 };
 ```
 
@@ -479,8 +481,8 @@ _packed_ struct EntryObject {
                 } regular;
                 struct {
                         le64_t seqnum;
-                        le64_t realtime;
-                        le64_t monotonic;
+                        le32_t realtime;
+                        le32_t monotonic;
                         sd_id128_t boot_id;
                         le64_t xor_hash;
                         EntryItem items[];
@@ -513,6 +515,9 @@ objects, i.e. keyed by the file ID).
 
 If the HEADER_INCOMPATIBLE_COMPACT flag is set, Entry objects are stored in
 the format indicated by the **compact** struct instead of the **regular** struct.
+The **realtime** field is stored as a 32-bit offset to the **head_entry_realtime**
+field in the header. Similarly, The **monotonic** field is stored as a 32-bit
+offset to the **head_entry_monotonic** field in the header.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot

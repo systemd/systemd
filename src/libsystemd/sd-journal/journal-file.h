@@ -201,13 +201,13 @@ static inline size_t journal_file_entry_seqnum_offset(JournalFile *f) {
 
 static inline uint64_t journal_file_entry_realtime(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header)
-                        ? le64toh(o->entry.compact.realtime)
+                        ? le32toh(o->entry.compact.realtime) + le64toh(f->header->head_entry_realtime)
                         : le64toh(o->entry.regular.realtime);
 }
 
 static inline uint64_t journal_file_entry_monotonic(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header)
-                        ? le64toh(o->entry.compact.monotonic)
+                        ? le32toh(o->entry.compact.monotonic) + le64toh(f->header->head_entry_monotonic)
                         : le64toh(o->entry.regular.monotonic);
 }
 
