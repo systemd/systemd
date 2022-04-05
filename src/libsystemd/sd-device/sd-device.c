@@ -585,11 +585,15 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor) {
                 return r;
         if (maj == 0)
                 return 0;
+        if (!DEVICE_MAJOR_VALID(maj))
+                return -EINVAL;
 
         if (minor) {
                 r = safe_atou(minor, &min);
                 if (r < 0)
                         return r;
+                if (!DEVICE_MINOR_VALID(min))
+                        return -EINVAL;
         }
 
         r = device_add_property_internal(device, "MAJOR", major);
