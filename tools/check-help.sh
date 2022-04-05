@@ -39,3 +39,9 @@ if ! ("$BINARY" --no-such-parameter 2>&1 1>/dev/null || :) | grep . >/dev/null; 
     echo "$(basename "$BINARY") with an unknown parameter does not print to stderr"
     exit 4
 fi
+
+# --help and -h are equivalent
+if ! diff <("$BINARY" -h) <("$BINARY" --help); then
+    echo "$(basename "$BINARY") --help and -h are not identical"
+    exit 5
+fi
