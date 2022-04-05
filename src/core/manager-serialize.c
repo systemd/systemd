@@ -98,7 +98,8 @@ int manager_serialize(
         (void) serialize_item_format(f, "current-job-id", "%" PRIu32, m->current_job_id);
         (void) serialize_item_format(f, "n-installed-jobs", "%u", m->n_installed_jobs);
         (void) serialize_item_format(f, "n-failed-jobs", "%u", m->n_failed_jobs);
-        (void) serialize_bool(f, "taint-usr", m->taint_usr);
+        (void) serialize_bool(f, "taint-usr", m->taint_split_usr);
+        (void) serialize_bool(f, "taint-unmerged-usr", m->taint_unmerged_usr);
         (void) serialize_bool(f, "ready-sent", m->ready_sent);
         (void) serialize_bool(f, "taint-logged", m->taint_logged);
         (void) serialize_bool(f, "service-watchdogs", m->service_watchdogs);
@@ -368,7 +369,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (b < 0)
                                 log_notice("Failed to parse taint /usr flag '%s', ignoring.", val);
                         else
-                                m->taint_usr = m->taint_usr || b;
+                                m->taint_split_usr = m->taint_split_usr || b;
+
+                } else if ((val = startswith(l, "taint-unmerged-usr="))) {
+                        int b;
+
+                        b = parse_boolean(val);
+                        if (b < 0)
+                                log_notice("Failed to parse taint unmerged /usr flag '%s', ignoring.", val);
+                        else
+                                m->taint_unmerged_usr = m->taint_unmerged_usr || b;
 
                 } else if ((val = startswith(l, "ready-sent="))) {
                         int b;

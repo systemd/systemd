@@ -325,7 +325,10 @@ struct Manager {
         /* Flags */
         bool dispatching_load_queue;
 
-        bool taint_usr;
+        /* The first one checks for empty /usr (ie: mounted late at boot), the second one checks that
+         * /bin is a symlink */
+        bool taint_split_usr;
+        bool taint_unmerged_usr;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
