@@ -616,6 +616,12 @@ static int loop_device_make_internal(
                 .timestamp_not_before = timestamp,
         };
 
+        log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
+                  d->node,
+                  major(d->devno), minor(d->devno),
+                  d->nr,
+                  d->diskseq);
+
         *ret = d;
         return d->fd;
 }
