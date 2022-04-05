@@ -164,9 +164,6 @@ Features:
   sd_device object, so that data passed into sd_device_new_from_devnum() can
   also be queried.
 
-* udevadm: a new "tree" verb that shows tree of devices as syspath hierarchy,
-  along with their properties. uninitialized devices should be greyed out.
-
 * bootctl: show whether UEFI audit mode is available
 
 * sd-event: optionally, if per-event source rate limit is hit, downgrade
