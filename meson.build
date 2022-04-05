@@ -2113,7 +2113,7 @@ endforeach
 
 ############################################################
 
-dbus_programs += executable(
+exe = executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
@@ -2124,6 +2124,8 @@ dbus_programs += executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
+dbus_programs += exe
+public_programs += exe
 
 meson.add_install_script(meson_make_symlink,
                          rootlibexecdir / 'systemd',
@@ -2680,7 +2682,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install : true,
                 install_dir : systemgeneratordir)
 
-        executable(
+        public_programs += executable(
                 'systemd-cryptenroll',
                 systemd_cryptenroll_sources,
                 include_directories : includes,
@@ -3115,7 +3117,7 @@ if conf.get('ENABLE_RANDOMSEED') == 1
 endif
 
 if conf.get('ENABLE_FIRSTBOOT') == 1
-        executable(
+        public_programs += executable(
                 'systemd-firstboot',
                 'src/firstboot/firstboot.c',
                 include_directories : includes,
@@ -3605,7 +3607,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        public_programs += executable(
                 'systemd-networkd-wait-online',
                 systemd_networkd_wait_online_sources,
                 include_directories : includes,
