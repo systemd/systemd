@@ -468,12 +468,24 @@ _packed_ struct EntryItem {
 
 _packed_ struct EntryObject {
         ObjectHeader object;
-        le64_t seqnum;
-        le64_t realtime;
-        le64_t monotonic;
-        sd_id128_t boot_id;
-        le64_t xor_hash;
-        EntryItem items[];
+        union {
+                struct {
+                        le64_t seqnum;
+                        le64_t realtime;
+                        le64_t monotonic;
+                        sd_id128_t boot_id;
+                        le64_t xor_hash;
+                        EntryItem items[];
+                } regular;
+                struct {
+                        le64_t seqnum;
+                        le64_t realtime;
+                        le64_t monotonic;
+                        sd_id128_t boot_id;
+                        le64_t xor_hash;
+                        EntryItem items[];
+                } compact;
+        };
 };
 ```
 
@@ -498,6 +510,9 @@ timestamps.
 The **items[]** array contains references to all DATA objects of this entry,
 plus their respective hashes (which are calculated the same way as in the DATA
 objects, i.e. keyed by the file ID).
+
+If the HEADER_INCOMPATIBLE_COMPACT flag is set, Entry objects are stored in
+the format indicated by the **compact** struct instead of the **regular** struct.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
