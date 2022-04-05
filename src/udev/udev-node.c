@@ -13,6 +13,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -590,50 +591,29 @@ int udev_node_remove(sd_device *dev) {
         return 0;
 }
 
-int udev_node_apply_permissions(
-                sd_device *dev,
+static int udev_node_apply_permissions_impl(
+                sd_device *dev, /* can be NULL, only used for logging. */
+                int node_fd,
+                const char *devnode,
                 bool apply_mac,
                 mode_t mode,
                 uid_t uid,
                 gid_t gid,
                 OrderedHashmap *seclabel_list) {
 
-        const char *devnode, *subsystem;
         bool apply_mode, apply_uid, apply_gid;
-        _cleanup_close_ int node_fd = -1;
         struct stat stats;
-        dev_t devnum;
         int r;
 
-        assert(dev);
-
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
-        r = sd_device_get_devnum(dev, &devnum);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
-
-        if (streq(subsystem, "block"))
-                mode |= S_IFBLK;
-        else
-                mode |= S_IFCHR;
-
-        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
-        if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
-                        log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
-                        return 0; /* This is necessarily racey, so ignore missing the device */
-                }
-
-                return log_device_debug_errno(dev, node_fd, "Cannot open node %s: %m", devnode);
-        }
+        assert(node_fd >= 0);
+        assert(devnode);
 
         if (fstat(node_fd, &stats) < 0)
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
+
+        /* If group is set, but mode is not set, "upgrade" mode for the group. */
+        if (mode == MODE_INVALID && gid_is_valid(gid) && gid > 0)
+                mode = 0660;
 
         apply_mode = mode != MODE_INVALID && (stats.st_mode & 0777) != (mode & 0777);
         apply_uid = uid_is_valid(uid) && stats.st_uid != uid;
@@ -707,4 +687,96 @@ int udev_node_apply_permissions(
                 log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
 
         return 0;
+}
+
+int udev_node_apply_permissions(
+                sd_device *dev,
+                bool apply_mac,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                OrderedHashmap *seclabel_list) {
+
+        const char *devnode;
+        _cleanup_close_ int node_fd = -1;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
+        if (node_fd < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                        log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
+                        return 0; /* This is necessarily racey, so ignore missing the device */
+                }
+
+                return log_device_debug_errno(dev, node_fd, "Cannot open node %s: %m", devnode);
+        }
+
+        return udev_node_apply_permissions_impl(dev, node_fd, devnode, apply_mac, mode, uid, gid, seclabel_list);
+}
+
+int static_node_apply_permissions(
+                const char *name,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                char **tags) {
+
+        _cleanup_free_ char *unescaped_filename = NULL;
+        _cleanup_close_ int node_fd = -1;
+        const char *devnode;
+        struct stat stats;
+        int r;
+
+        assert(name);
+
+        if (uid == UID_INVALID && gid == GID_INVALID && mode == MODE_INVALID && !tags)
+                return 0;
+
+        devnode = strjoina("/dev/", name);
+
+        node_fd = open(devnode, O_PATH|O_CLOEXEC);
+        if (node_fd < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", devnode);
+                return 0;
+        }
+
+        if (fstat(node_fd, &stats) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", devnode);
+
+        if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode)) {
+                log_warning("%s is neither block nor character device, ignoring.", devnode);
+                return 0;
+        }
+
+        if (!strv_isempty(tags)) {
+                unescaped_filename = xescape(name, "/.");
+                if (!unescaped_filename)
+                        return log_oom();
+        }
+
+        /* export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
+        STRV_FOREACH(t, tags) {
+                _cleanup_free_ char *p = NULL;
+
+                p = path_join("/run/udev/static_node-tags/", *t, unescaped_filename);
+                if (!p)
+                        return log_oom();
+
+                r = mkdir_parents(p, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create parent directory for %s: %m", p);
+
+                r = symlink(devnode, p);
+                if (r < 0 && errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create symlink %s -> %s: %m", p, devnode);
+        }
+
+        return udev_node_apply_permissions_impl(NULL, node_fd, devnode, false, mode, uid, gid, NULL);
 }
