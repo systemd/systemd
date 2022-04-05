@@ -41,7 +41,7 @@ foreach pair : in_files
                         pair[0],
                         input : pair[0] + '.in',
                         output: pair[0],
-                        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                         install : enable_tmpfiles,
                         install_dir : tmpfilesdir)
         else

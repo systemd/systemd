@@ -16,7 +16,7 @@ custom_target(
         '50-coredump.conf',
         input : '50-coredump.conf.in',
         output : '50-coredump.conf',
-        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_COREDUMP') == 1,
         install_dir : sysctldir)
 

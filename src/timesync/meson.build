@@ -39,7 +39,7 @@ custom_target(
         'timesyncd.conf',
         input : 'timesyncd.conf.in',
         output : 'timesyncd.conf',
-        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_TIMESYNCD') == 1 and install_sysconfdir_samples,
         install_dir : pkgsysconfdir)
 

@@ -4,6 +4,6 @@ custom_target(
         '90-vconsole.rules',
         input : '90-vconsole.rules.in',
         output : '90-vconsole.rules',
-        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_VCONSOLE') == 1,
         install_dir : udevrulesdir)

@@ -1826,6 +1826,8 @@ config_h = configure_file(
 
 add_project_arguments('-include', 'config.h', language : 'c')
 
+jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,

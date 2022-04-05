@@ -28,9 +28,10 @@ def render(filename, defines):
 
 if __name__ == '__main__':
     defines = parse_config_h(sys.argv[1])
-    output = render(sys.argv[2], defines)
-    with open(sys.argv[3], 'w') as f:
+    defines.update(parse_config_h(sys.argv[2]))
+    output = render(sys.argv[3], defines)
+    with open(sys.argv[4], 'w') as f:
         f.write(output)
         f.write('\n')
-    info = os.stat(sys.argv[2])
-    os.chmod(sys.argv[3], info.st_mode)
+    info = os.stat(sys.argv[3])
+    os.chmod(sys.argv[4], info.st_mode)
