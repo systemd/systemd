@@ -240,49 +240,49 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         }
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % sizeof(EntryItem) != 0) {
+                if ((le64toh(o->object.size) - journal_file_entry_items_offset(f)) % sizeof(EntryItem) != 0) {
                         error(offset,
                               "Bad entry size (<= %zu): %"PRIu64,
-                              offsetof(Object, entry.items),
+                              journal_file_entry_items_offset(f),
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem) <= 0) {
+                if ((le64toh(o->object.size) - journal_file_entry_items_offset(f)) / sizeof(EntryItem) <= 0) {
                         error(offset,
                               "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem));
+                              (le64toh(o->object.size) - journal_file_entry_items_offset(f)) / sizeof(EntryItem));
                         return -EBADMSG;
                 }
 
-                if (le64toh(o->entry.seqnum) <= 0) {
+                if (journal_file_entry_seqnum(f, o) <= 0) {
                         error(offset,
                               "Invalid entry seqnum: %"PRIx64,
-                              le64toh(o->entry.seqnum));
+                              journal_file_entry_seqnum(f, o));
                         return -EBADMSG;
                 }
 
-                if (!VALID_REALTIME(le64toh(o->entry.realtime))) {
+                if (!VALID_REALTIME(journal_file_entry_realtime(f, o))) {
                         error(offset,
                               "Invalid entry realtime timestamp: %"PRIu64,
-                              le64toh(o->entry.realtime));
+                              journal_file_entry_realtime(f, o));
                         return -EBADMSG;
                 }
 
-                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic))) {
+                if (!VALID_MONOTONIC(journal_file_entry_monotonic(f, o))) {
                         error(offset,
                               "Invalid entry monotonic timestamp: %"PRIu64,
-                              le64toh(o->entry.monotonic));
+                              journal_file_entry_monotonic(f, o));
                         return -EBADMSG;
                 }
 
-                for (uint64_t i = 0; i < journal_file_entry_n_items(o); i++) {
-                        if (le64toh(o->entry.items[i].object_offset) == 0 ||
-                            !VALID64(le64toh(o->entry.items[i].object_offset))) {
+                for (uint64_t i = 0; i < journal_file_entry_n_items(f, o); i++) {
+                        if (le64toh(journal_file_entry_items(f, o)[i].object_offset) == 0 ||
+                            !VALID64(le64toh(journal_file_entry_items(f, o)[i].object_offset))) {
                                 error(offset,
                                       "Invalid entry item (%"PRIu64"/%"PRIu64" offset: "OFSfmt,
-                                      i, journal_file_entry_n_items(o),
-                                      le64toh(o->entry.items[i].object_offset));
+                                      i, journal_file_entry_n_items(f, o),
+                                      le64toh(journal_file_entry_items(f, o)[i].object_offset));
                                 return -EBADMSG;
                         }
                 }
@@ -646,12 +646,12 @@ static int verify_entry(
         assert(o);
         assert(cache_data_fd);
 
-        n = journal_file_entry_n_items(o);
+        n = journal_file_entry_n_items(f, o);
         for (i = 0; i < n; i++) {
                 uint64_t q;
                 Object *u;
 
-                q = le64toh(o->entry.items[i].object_offset);
+                q = le64toh(journal_file_entry_items(f, o)[i].object_offset);
 
                 if (!contains_uint64(cache_data_fd, n_data, q)) {
                         error(p, "Invalid data object of entry");
@@ -1006,64 +1006,64 @@ int journal_file_verify(
                         if (r < 0)
                                 goto fail;
 
-                        if (le64toh(o->entry.realtime) < last_tag_realtime) {
+                        if (journal_file_entry_realtime(f, o) < last_tag_realtime) {
                                 error(p,
                                       "Older entry after newer tag (%"PRIu64" < %"PRIu64")",
-                                      le64toh(o->entry.realtime),
+                                      journal_file_entry_realtime(f, o),
                                       last_tag_realtime);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (!entry_seqnum_set &&
-                            le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
+                            journal_file_entry_seqnum(f, o) != le64toh(f->header->head_entry_seqnum)) {
                                 error(p,
                                       "Head entry sequence number incorrect (%"PRIu64" != %"PRIu64")",
-                                      le64toh(o->entry.seqnum),
+                                      journal_file_entry_seqnum(f, o),
                                       le64toh(f->header->head_entry_seqnum));
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (entry_seqnum_set &&
-                            entry_seqnum >= le64toh(o->entry.seqnum)) {
+                            entry_seqnum >= journal_file_entry_seqnum(f, o)) {
                                 error(p,
                                       "Entry sequence number out of synchronization (%"PRIu64" >= %"PRIu64")",
                                       entry_seqnum,
-                                      le64toh(o->entry.seqnum));
+                                      journal_file_entry_seqnum(f, o));
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
-                        entry_seqnum = le64toh(o->entry.seqnum);
+                        entry_seqnum = journal_file_entry_seqnum(f, o);
                         entry_seqnum_set = true;
 
                         if (entry_monotonic_set &&
-                            sd_id128_equal(entry_boot_id, o->entry.boot_id) &&
-                            entry_monotonic > le64toh(o->entry.monotonic)) {
+                            sd_id128_equal(entry_boot_id, journal_file_entry_boot_id(f, o)) &&
+                            entry_monotonic > journal_file_entry_monotonic(f, o)) {
                                 error(p,
                                       "Entry timestamp out of synchronization (%"PRIu64" > %"PRIu64")",
                                       entry_monotonic,
-                                      le64toh(o->entry.monotonic));
+                                      journal_file_entry_monotonic(f, o));
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
-                        entry_monotonic = le64toh(o->entry.monotonic);
-                        entry_boot_id = o->entry.boot_id;
+                        entry_monotonic = journal_file_entry_monotonic(f, o);
+                        entry_boot_id = journal_file_entry_boot_id(f, o);
                         entry_monotonic_set = true;
 
                         if (!entry_realtime_set &&
-                            le64toh(o->entry.realtime) != le64toh(f->header->head_entry_realtime)) {
+                            journal_file_entry_realtime(f, o) != le64toh(f->header->head_entry_realtime)) {
                                 error(p,
                                       "Head entry realtime timestamp incorrect (%"PRIu64" != %"PRIu64")",
-                                      le64toh(o->entry.realtime),
+                                      journal_file_entry_realtime(f, o),
                                       le64toh(f->header->head_entry_realtime));
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
-                        entry_realtime = le64toh(o->entry.realtime);
+                        entry_realtime = journal_file_entry_realtime(f, o);
                         entry_realtime_set = true;
 
                         n_entries++;
