@@ -598,11 +598,10 @@ int udev_node_apply_permissions(
                 gid_t gid,
                 OrderedHashmap *seclabel_list) {
 
-        const char *devnode, *subsystem;
+        const char *devnode;
         bool apply_mode, apply_uid, apply_gid;
         _cleanup_close_ int node_fd = -1;
         struct stat stats;
-        dev_t devnum;
         int r;
 
         assert(dev);
@@ -610,17 +609,6 @@ int udev_node_apply_permissions(
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
-        r = sd_device_get_devnum(dev, &devnum);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
-
-        if (streq(subsystem, "block"))
-                mode |= S_IFBLK;
-        else
-                mode |= S_IFCHR;
 
         node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
