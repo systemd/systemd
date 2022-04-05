@@ -115,7 +115,7 @@ static int acquire_esp(
         free_and_replace(arg_esp_path, np);
         log_debug("Using EFI System Partition at %s.", arg_esp_path);
 
-        return 1;
+        return 0;
 }
 
 static int acquire_xbootldr(
@@ -583,6 +583,35 @@ static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
 
+static int boot_config_load_and_select(
+                BootConfig *config,
+                const char *esp_path,
+                dev_t esp_devid,
+                const char *xbootldr_path,
+                dev_t xbootldr_devid) {
+
+        _cleanup_strv_free_ char **efi_entries = NULL;
+        int r;
+
+        /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would
+         * find the same entries twice. */
+        bool same = esp_path && xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
+
+        r = boot_config_load(config, esp_path, same ? NULL : xbootldr_path);
+        if (r < 0)
+                return r;
+
+        r = efi_loader_get_entries(&efi_entries);
+        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                log_debug_errno(r, "Boot loader reported no entries.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+        else
+                (void) boot_config_augment_from_loader(config, efi_entries, /* only_auto= */ false);
+
+        return boot_config_select_special_entries(config);
+}
+
 static int boot_entry_show(
                 const BootEntry *e,
                 bool show_as_default,
@@ -682,16 +711,17 @@ static int boot_entry_show(
 }
 
 static int status_entries(
+                const BootConfig *config,
                 const char *esp_path,
                 sd_id128_t esp_partition_uuid,
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         sd_id128_t dollar_boot_partition_uuid;
         const char *dollar_boot_path;
         int r;
 
+        assert(config);
         assert(esp_path || xbootldr_path);
 
         if (xbootldr_path) {
@@ -709,21 +739,13 @@ static int status_entries(
                        SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         printf("\n\n");
 
-        r = boot_config_load(&config, esp_path, xbootldr_path);
-        if (r < 0)
-                return r;
-
-        r = boot_config_select_special_entries(&config);
-        if (r < 0)
-                return r;
-
-        if (config.default_entry < 0)
-                printf("%zu entries, no entry could be determined as default.\n", config.n_entries);
+        if (config->default_entry < 0)
+                printf("%zu entries, no entry could be determined as default.\n", config->n_entries);
         else {
                 printf("Default Boot Loader Entry:\n");
 
                 r = boot_entry_show(
-                                boot_config_default_entry(&config),
+                                boot_config_default_entry(config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
@@ -1593,12 +1615,8 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
                name);
 }
 
-static int are_we_installed(void) {
+static int are_we_installed(const char *esp_path) {
         int r;
-
-        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return r;
 
         /* Tests whether systemd-boot is installed. It's not obvious what to use as check here: we could
          * check EFI variables, we could check what binary /EFI/BOOT/BOOT*.EFI points to, or whether the
@@ -1614,7 +1632,7 @@ static int are_we_installed(void) {
          *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
          *    /boot/loader/entries would do). */
 
-        _cleanup_free_ char *p = path_join(arg_esp_path, "/EFI/systemd/");
+        _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd/");
         if (!p)
                 return log_oom();
 
@@ -1645,7 +1663,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, &xbootldr_uuid, &xbootldr_devid);
         if (arg_print_dollar_boot_path) {
                 if (r == -EACCES)
-                        return log_error_errno(r, "Failed to determine XBOOTLDR location: %m");
+                        return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
                 if (r < 0)
                         return r;
 
@@ -1659,8 +1677,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (arg_print_esp_path || arg_print_dollar_boot_path)
                 return 0;
 
-        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
-                * can show */
+        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just
+                * show what we can show */
 
         pager_open(arg_pager_flags);
 
@@ -1776,16 +1794,20 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_esp_path || arg_xbootldr_path) {
-                /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
-                bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
+                _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
 
-                k = status_entries(
-                                arg_esp_path,
-                                esp_uuid,
-                                same ? NULL : arg_xbootldr_path,
-                                same ? SD_ID128_NULL : xbootldr_uuid);
+                k = boot_config_load_and_select(&config,
+                                                arg_esp_path, esp_devid,
+                                                arg_xbootldr_path, xbootldr_devid);
                 if (k < 0)
                         r = k;
+                else {
+                        k = status_entries(&config,
+                                           arg_esp_path, esp_uuid,
+                                           arg_xbootldr_path, xbootldr_uuid);
+                        if (k < 0)
+                                r = k;
+                }
         }
 
         return r;
@@ -1793,17 +1815,17 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
-        _cleanup_strv_free_ char **efi_entries = NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
-        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
-         * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
-         * the latter but not the former, hence request the mode, and log about EACCES. */
+        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two
+         * things: turn off logging about access errors and turn off potentially privileged device probing.
+         * Here we're interested in the latter but not the former, hence request the mode, and log about
+         * EACCES. */
 
         r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
-                return log_error_errno(r, "Failed to determine ESP: %m");
+                return log_error_errno(r, "Failed to determine ESP location: %m");
         if (r < 0)
                 return r;
 
@@ -1813,22 +1835,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would find the same entries twice */
-        bool same = arg_esp_path && arg_xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
-
-        r = boot_config_load(&config, arg_esp_path, same ? NULL : arg_xbootldr_path);
-        if (r < 0)
-                return r;
-
-        r = efi_loader_get_entries(&efi_entries);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                log_debug_errno(r, "Boot loader reported no entries.");
-        else if (r < 0)
-                log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
-        else
-                (void) boot_config_augment_from_loader(&config, efi_entries, /* only_auto= */ false);
-
-        r = boot_config_select_special_entries(&config);
+        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
         if (r < 0)
                 return r;
 
@@ -2063,7 +2070,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
-                r = are_we_installed();
+                r = are_we_installed(arg_esp_path);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2209,7 +2216,11 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = are_we_installed();
+        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = are_we_installed(arg_esp_path);
         if (r < 0)
                 return r;
 
