@@ -536,7 +536,7 @@ static int loop_device_make_internal(
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
-                        if (!IN_SET(errno, ENOENT, ENXIO))
+                        if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
                         r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
