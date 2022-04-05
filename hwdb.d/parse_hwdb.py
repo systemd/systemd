@@ -140,6 +140,7 @@ def property_grammar():
              ('ID_PDA', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_ACCELEROMETER', Or((Literal('0'), Literal('1')))),
+             ('ID_INPUT_DEVICE_NEEDS_RAW', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_JOYSTICK', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_KEY', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_KEYBOARD', Or((Literal('0'), Literal('1')))),
