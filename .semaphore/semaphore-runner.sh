@@ -36,16 +36,20 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
-# wait until online
-while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/resolv.conf /etc/
+# We might attach the console too soon
+while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+systemctl unmask systemd-networkd systemd-resolved.service
+systemctl enable --now systemd-networkd systemd-resolved.service
+systemctl start systemd-networkd-wait-online.service
+while ! systemctl --quiet is-active systemd-networkd-wait-online.service; do sleep 1; done
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 # The following four are needed as long as these deps are not covered by Debian's own packaging
 apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
 apt-get purge --auto-remove -y unattended-upgrades
-systemctl unmask systemd-networkd
-systemctl enable systemd-networkd
 EOF
     sudo lxc-stop -n "$CONTAINER"
 }
