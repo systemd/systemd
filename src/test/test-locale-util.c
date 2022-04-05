@@ -92,6 +92,7 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_TREE_RIGHT);
         dump_glyph(SPECIAL_GLYPH_TREE_SPACE);
         dump_glyph(SPECIAL_GLYPH_TREE_TOP);
+        dump_glyph(SPECIAL_GLYPH_VERTICAL_DOTTED);
         dump_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET);
         dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
         dump_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
