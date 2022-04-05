@@ -78,6 +78,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-boot: rework random seed handling following recent kernel changes: always
+  pass seed to kernel, but credit only if secure boot is used
+
+* sd-boot: hash data from GetNextHighMonotonicCount() into updated random seed,
+  so that we might even open up up the random seed logic to non-SecureBoot
+  systems?
+
+* sd-boot: add menu item for shutdown? or hotkey?
+
 * sd-device has an API to create an sd_device object from a device id, but has
   no api to query the device id
 
