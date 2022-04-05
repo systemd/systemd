@@ -78,6 +78,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd creds hookup with qemu fw_cfg. (Quite possibly might not need any
+  code at all, given the fw_cfg stuff are just files, but we should then
+  document how to use it). Goal: provide symmetric ways to pass creds to nspawn
+  containers and qemu VMs. (maybe also pick up env vars from fw_cfg?)
+
+* beef up sd_notify() to support AV_VSOCK in $NOTIFY_SOCKET, so that VM
+  managers can get ready notifications for containers. Also pick up address
+  from qemu/fw_cfg if set there.
+
+* maybe write a tool that binds an AF_VFSOCK socket, then invokes qemu,
+  extending the command line to enable vsock on the VM, and using fw_cfg to
+  configure socket address.
+
 * sd-boot: rework random seed handling following recent kernel changes: always
   pass seed to kernel, but credit only if secure boot is used
 
