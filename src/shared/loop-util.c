@@ -62,9 +62,7 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
 
-        truncate_nl(p);
-
-        r = safe_atou64(p, ret);
+        r = safe_atou64(strstrip(p), ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
 
