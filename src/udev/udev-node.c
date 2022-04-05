@@ -590,35 +590,22 @@ int udev_node_remove(sd_device *dev) {
         return 0;
 }
 
-int udev_node_apply_permissions(
-                sd_device *dev,
+static int udev_node_apply_permissions_impl(
+                sd_device *dev, /* can be NULL, only used for logging. */
+                int node_fd,
+                const char *devnode,
                 bool apply_mac,
                 mode_t mode,
                 uid_t uid,
                 gid_t gid,
                 OrderedHashmap *seclabel_list) {
 
-        const char *devnode;
         bool apply_mode, apply_uid, apply_gid;
-        _cleanup_close_ int node_fd = -1;
         struct stat stats;
         int r;
 
-        assert(dev);
-
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
-
-        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
-        if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
-                        log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
-                        return 0; /* This is necessarily racey, so ignore missing the device */
-                }
-
-                return log_device_debug_errno(dev, node_fd, "Cannot open node %s: %m", devnode);
-        }
+        assert(node_fd >= 0);
+        assert(devnode);
 
         if (fstat(node_fd, &stats) < 0)
                 return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
@@ -695,4 +682,35 @@ int udev_node_apply_permissions(
                 log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
 
         return 0;
+}
+
+int udev_node_apply_permissions(
+                sd_device *dev,
+                bool apply_mac,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                OrderedHashmap *seclabel_list) {
+
+        const char *devnode;
+        _cleanup_close_ int node_fd = -1;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
+        if (node_fd < 0) {
+                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                        log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
+                        return 0; /* This is necessarily racey, so ignore missing the device */
+                }
+
+                return log_device_debug_errno(dev, node_fd, "Cannot open node %s: %m", devnode);
+        }
+
+        return udev_node_apply_permissions_impl(dev, node_fd, devnode, apply_mac, mode, uid, gid, seclabel_list);
 }
