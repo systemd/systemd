@@ -21,7 +21,7 @@ UBUNTU_RELEASE="$(lsb_release -cs)"
 create_container() {
     # Create autopkgtest LXC image; this sometimes fails with "Unable to fetch
     # GPG key from keyserver", so retry a few times with different keyservers.
-    for keyserver in "" "keys.gnupg.net" "keys.openpgp.org" "keyserver.ubuntu.com"; do
+    for keyserver in "keys.openpgp.org" "" "keyserver.ubuntu.com" "keys.gnupg.net"; do
         for retry in {1..5}; do
             sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH" ${keyserver:+--keyserver "$keyserver"} && break 2
             sleep $((retry*retry))
