@@ -3,8 +3,8 @@
 set -eu
 set -o pipefail
 
-# Note: `grep ... >/dev/null` instead of just `grep -q` is used intentionally
-#       here, since `grep -q` exits on the first match causing SIGPIPE being
+# Note: 'grep ... >/dev/null' instead of just 'grep -q' is used intentionally
+#       here, since 'grep -q' exits on the first match causing SIGPIPE being
 #       sent to the sender.
 
 BINARY="${1:?}"
@@ -24,11 +24,11 @@ fi
 
 # --help prints something. Also catches case where args are ignored.
 if ! "$BINARY" --help | grep . >/dev/null; then
-    echo "$(basename "$BINARY") --help output is empty."
+    echo "$(basename "$BINARY") --help output is empty"
     exit 2
 fi
 
-# no --help output to stdout
+# no --help output to stderr
 if "$BINARY" --help 2>&1 1>/dev/null | grep .; then
     echo "$(basename "$BINARY") --help prints to stderr"
     exit 3
