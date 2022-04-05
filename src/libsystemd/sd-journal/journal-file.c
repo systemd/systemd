@@ -1931,7 +1931,7 @@ static int journal_file_append_entry_internal(
                 if (f->header->head_entry_monotonic == 0)
                         f->header->head_entry_monotonic = htole64(ts->monotonic);
 
-                o->entry.compact.seqnum = htole64(journal_file_new_entry_seqnum(f, seqnum));
+                o->entry.compact.seqnum = htole32(journal_file_new_entry_seqnum(f, seqnum) - le64toh(f->header->head_entry_seqnum));
                 o->entry.compact.realtime = htole32(ts->realtime - le64toh(f->header->head_entry_realtime));
                 o->entry.compact.monotonic = htole32(ts->monotonic - le64toh(f->header->head_entry_monotonic));
                 o->entry.compact.boot_id = f->header->boot_id;
