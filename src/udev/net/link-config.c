@@ -218,10 +218,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         assert(filename);
 
         r = null_or_empty_path(filename);
-        if (r == -ENOENT)
-                return 0;
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
         if (r > 0) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
@@ -229,11 +227,11 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
 
         name = strdup(filename);
         if (!name)
-                return -ENOMEM;
+                return log_oom();
 
         config = new(LinkConfig, 1);
         if (!config)
-                return -ENOMEM;
+                return log_oom();
 
         *config = (LinkConfig) {
                 .filename = TAKE_PTR(name),
@@ -266,7 +264,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         config_item_perf_lookup, link_config_gperf_lookup,
                         CONFIG_PARSE_WARN, config, NULL);
         if (r < 0)
-                return r;
+                return r; /* config_parse_many() logs internally. */
 
         if (net_match_is_empty(&config->match) && !config->conditions) {
                 log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
@@ -288,13 +286,13 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
 
         r = link_adjust_wol_options(config);
         if (r < 0)
-                return r;
+                return r; /* link_adjust_wol_options() logs internally. */
 
         r = sr_iov_drop_invalid_sections(config->sr_iov_num_vfs, config->sr_iov_by_section);
         if (r < 0)
-                return r;
+                return r; /* sr_iov_drop_invalid_sections() logs internally. */
 
-        log_debug("Parsed configuration file %s", filename);
+        log_debug("Parsed configuration file \"%s\"", filename);
 
         LIST_PREPEND(configs, ctx->configs, TAKE_PTR(config));
         return 0;
@@ -340,11 +338,8 @@ int link_config_load(LinkConfigContext *ctx) {
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
-                r = link_load_one(ctx, *f);
-                if (r < 0)
-                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
-        }
+        STRV_FOREACH_BACKWARDS(f, files)
+                (void) link_load_one(ctx, *f);
 
         return 0;
 }
