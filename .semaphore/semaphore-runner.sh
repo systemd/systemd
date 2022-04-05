@@ -36,8 +36,11 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
-# wait until online
-while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
+# We might attach the console too soon
+while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+# For some reason, it is necessary to run this manually or the interface won't be configured
+# Note that we avoid networkd, as some of the tests will break it later on
+dhclient
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
