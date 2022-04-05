@@ -1826,6 +1826,8 @@ config_h = configure_file(
 
 add_project_arguments('-include', 'config.h', language : 'c')
 
+jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,
@@ -2113,7 +2115,7 @@ endforeach
 
 ############################################################
 
-dbus_programs += executable(
+exe = executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
@@ -2124,6 +2126,8 @@ dbus_programs += executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
+dbus_programs += exe
+public_programs += exe
 
 meson.add_install_script(meson_make_symlink,
                          rootlibexecdir / 'systemd',
@@ -2680,7 +2684,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install : true,
                 install_dir : systemgeneratordir)
 
-        executable(
+        public_programs += executable(
                 'systemd-cryptenroll',
                 systemd_cryptenroll_sources,
                 include_directories : includes,
@@ -3115,7 +3119,7 @@ if conf.get('ENABLE_RANDOMSEED') == 1
 endif
 
 if conf.get('ENABLE_FIRSTBOOT') == 1
-        executable(
+        public_programs += executable(
                 'systemd-firstboot',
                 'src/firstboot/firstboot.c',
                 include_directories : includes,
@@ -3605,7 +3609,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        public_programs += executable(
                 'systemd-networkd-wait-online',
                 systemd_networkd_wait_online_sources,
                 include_directories : includes,
@@ -3650,6 +3654,15 @@ executable(
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
+
+public_programs += custom_target(
+        'kernel-install',
+        input : kernel_install_in,
+        output : 'kernel-install',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : want_kernel_install,
+        install_mode : 'rwxr-xr-x',
+        install_dir : bindir)
 
 ############################################################
 
@@ -3891,6 +3904,7 @@ endif
 ############################################################
 
 check_help = find_program('tools/check-help.sh')
+check_version = find_program('tools/check-version.sh')
 
 foreach exec : public_programs
         name = exec.full_path().split('/')[-1]
@@ -3898,6 +3912,12 @@ foreach exec : public_programs
                 test('check-help-' + name,
                      check_help,
                      args : exec.full_path(),
+                     depends: exec)
+
+                test('check-version-' + name,
+                     check_version,
+                     args : [exec.full_path(),
+                             meson.project_version()],
                      depends: exec)
         endif
 endforeach
