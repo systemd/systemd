@@ -337,24 +337,41 @@ SYSV INIT.D SCRIPTS:
         Please see src/systemctl/systemd-sysv-install.SKELETON for how this
         needs to look like, and provide an implementation at the marked places.
 
-WARNINGS:
+WARNINGS and TAINT FLAGS:
         systemd will warn during early boot if /usr is not already mounted at
         this point (that means: either located on the same file system as / or
         already mounted in the initrd). While in systemd itself very little
-        will break if /usr is on a separate, late-mounted partition, many of
-        its dependencies very likely will break sooner or later in one form or
+        will break if /usr is on a separate late-mounted partition, many of its
+        dependencies very likely will break sooner or later in one form or
         another. For example, udev rules tend to refer to binaries in /usr,
         binaries that link to libraries in /usr or binaries that refer to data
         files in /usr. Since these breakages are not always directly visible,
-        systemd will warn about this, since this kind of file system setup is
-        not really supported anymore by the basic set of Linux OS components.
-
-        systemd requires that the /run mount point exists. systemd also
-        requires that /var/run is a symlink to /run.
+        systemd will warn about this. Such setups are not really supported by
+        the basic set of Linux OS components. Taint flag 'split-usr' will be
+        set when this condition is detected.
 
         For more information on this issue consult
         https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
+        systemd requires that the /run mount point exists. systemd also
+        requires that /var/run is a symlink to /run. Taint flag 'var-run-bad'
+        will be set when this condition is detected.
+
+        Systemd will also warn when the cgroup support is unavailable in the
+        kernel (taint flag 'cgroups-missing'), the system is using the old
+        cgroup hierarchy (taint flag 'cgroupsv1'), the hardware clock is
+        running in non-UTC mode (taint flag 'local-hwclock'), the kernel
+        overflow UID or GID are not 65534 (taint flags 'overflowuid-not-65534'
+        and 'overflowgid-not-65534'), the UID or GID range assigned to the
+        running systemd instance covers less than 0…65534 (taint flags
+        'short-uid-range' and 'short-gid-range').
+
+        Taint conditions are logged during boot, but may also be checked at any
+        time with:
+
+          busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Tainted
+
+VALGRIND:
         To run systemd under valgrind, compile with meson option
         -Dvalgrind=true and have valgrind development headers installed
         (i.e. valgrind-devel or equivalent). Otherwise, false positives will be
