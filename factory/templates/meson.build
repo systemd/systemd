@@ -6,6 +6,6 @@ custom_target(
         'locale.conf',
         input : 'locale.conf.in',
         output : 'locale.conf',
-        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : true,
         install_dir : factory_etc_dir)
