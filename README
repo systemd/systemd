@@ -30,14 +30,21 @@ LICENSE:
         LGPL-2.1-or-later for all code, exceptions noted in LICENSES/README.md
 
 REQUIREMENTS:
-        Linux kernel >= 3.15
-        Linux kernel >= 4.2 for unified cgroup hierarchy support
-        Linux kernel >= 4.10 for cgroup-bpf egress and ingress hooks
-        Linux kernel >= 4.15 for cgroup-bpf device hook
-        Linux kernel >= 4.17 for cgroup-bpf socket address hooks
-        Linux kernel >= 5.3 for bounded-loops in BPF program
-        Linux kernel >= 5.4 for signed Verity images support
-        Linux kernel >= 5.7 for BPF links and the BPF LSM hook
+        Linux kernel ≥ 3.15
+                     ≥ 4.5 for pids controller in cgroup v2
+                     ≥ 4.6 for cgroup namespaces
+                     ≥ 4.9 for RENAME_NOREPLACE support in vfat
+                     ≥ 4.10 for cgroup-bpf egress and ingress hooks
+                     ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
+                     ≥ 4.17 for cgroup-bpf socket address hooks
+                     ≥ 5.3 for bounded loops in BPF program
+                     ≥ 5.4 for signed Verity images
+                     ≥ 5.7 for BPF links and the BPF LSM hook
+
+        Kernel versions below 4.15 have significant gaps in functionality and
+        are not recommended for use with this version of systemd. Taint flag
+        'old-kernel' will be set. Systemd will most likely still function, but
+        upstream support and testing are limited.
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
