@@ -228,20 +228,26 @@ int main(int argc, char *argv[]) {
                        slow_tests_enabled() ? 5 * USEC_PER_SEC :
                        1 * USEC_PER_SEC);
 
-        for (unsigned i = 0; i < N_THREADS; i++)
-                assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
+        assert_cc(N_THREADS > 0);
+
+        if (N_THREADS > 1)
+                for (unsigned i = 0; i < N_THREADS; i++)
+                        assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
 
         log_notice("All threads started now.");
 
-        for (unsigned i = 0; i < N_THREADS; i++) {
-                log_notice("Joining thread #%u.", i);
+        if (N_THREADS == 1)
+                assert_se(thread_func(FD_TO_PTR(fd)) == NULL);
+        else
+                for (unsigned i = 0; i < N_THREADS; i++) {
+                        log_notice("Joining thread #%u.", i);
 
-                void *k;
-                assert_se(pthread_join(threads[i], &k) == 0);
-                assert_se(k == NULL);
+                        void *k;
+                        assert_se(pthread_join(threads[i], &k) == 0);
+                        assert_se(k == NULL);
 
-                log_notice("Joined thread #%u.", i);
-        }
+                        log_notice("Joined thread #%u.", i);
+                }
 
         log_notice("Threads are all terminated now.");
 
