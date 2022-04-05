@@ -91,6 +91,9 @@ KERNEL=="rfkill", SUBSYSTEM=="misc", TAG+="uaccess"
 # Most of these devices use HID for the knobs, faders, buttons, encoders, and jog wheels.
 SUBSYSTEM=="hidraw", ENV{ID_AV_PRODUCTION_CONTROLLER}=="1", TAG+="uaccess"
 
+# Input devices that require HID access for full feature support
+SUBSYSTEM=="hidraw", ENV{ID_INPUT_DEVICE_NEEDS_RAW}=="1", TAG+="uaccess"
+
 # Some devices use vendor defined protocols on USB Bulk endpoints for controllers.
 # Other devices transfer graphics to screens on the device through USB Bulk endpoints.
 # This also allows accessing HID devices with the libusb backend of hidapi.
