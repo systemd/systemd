@@ -4384,7 +4384,7 @@ char *manager_taint_string(Manager *m) {
 
         buf = new(char, sizeof("split-usr:"
                                "cgroups-missing:"
-                               "cgrousv1:"
+                               "cgroupsv1:"
                                "local-hwclock:"
                                "var-run-bad:"
                                "overflowuid-not-65534:"
