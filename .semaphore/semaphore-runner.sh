@@ -21,7 +21,7 @@ UBUNTU_RELEASE="$(lsb_release -cs)"
 create_container() {
     # Create autopkgtest LXC image; this sometimes fails with "Unable to fetch
     # GPG key from keyserver", so retry a few times with different keyservers.
-    for keyserver in "" "keys.gnupg.net" "keys.openpgp.org" "keyserver.ubuntu.com"; do
+    for keyserver in "keys.openpgp.org" "" "keyserver.ubuntu.com" "keys.gnupg.net"; do
         for retry in {1..5}; do
             sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH" ${keyserver:+--keyserver "$keyserver"} && break 2
             sleep $((retry*retry))
@@ -36,8 +36,16 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
-# wait until online
-while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
+# We might attach the console too soon
+while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+# Manpages database trigger takes a lot of time and is not useful in a CI
+echo 'man-db man-db/auto-update boolean false' | debconf-set-selections
+# Speed up dpkg, image is thrown away after the test
+mkdir -p /etc/dpkg/dpkg.cfg.d/
+echo 'force-unsafe-io' > /etc/dpkg/dpkg.cfg.d/unsafe_io
+# For some reason, it is necessary to run this manually or the interface won't be configured
+# Note that we avoid networkd, as some of the tests will break it later on
+dhclient
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
