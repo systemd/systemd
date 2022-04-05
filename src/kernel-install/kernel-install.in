@@ -23,11 +23,12 @@ skip_remaining=77
 usage()
 {
     echo "Usage:"
-    echo "  $0 [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE ...]"
-    echo "  $0 [OPTIONS...] remove KERNEL-VERSION"
-    echo "  $0 [OPTIONS...] inspect"
+    echo "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]"
+    echo "  kernel-install [OPTIONS...] remove KERNEL-VERSION"
+    echo "  kernel-install [OPTIONS...] inspect"
     echo "Options:"
-    echo "  -h, --help     Print this help"
+    echo "  -h, --help     Print this help and exit"
+    echo "      --version  Print version string and exit"
     echo "  -v, --verbose  Increase verbosity"
 }
 
@@ -55,6 +56,13 @@ export LC_COLLATE=C
 for i; do
     if [ "$i" = "--help" ] || [ "$i" = "-h" ]; then
         usage
+        exit 0
+    fi
+done
+
+for i; do
+    if [ "$i" = "--version" ]; then
+        echo "kernel-install {{PROJECT_VERSION}} ({{GIT_VERSION}})"
         exit 0
     fi
 done
