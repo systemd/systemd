@@ -75,46 +75,6 @@ int rmdir_parents(const char *path, const char *stop) {
         }
 }
 
-int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
-        int r;
-
-        /* Try the ideal approach first */
-        if (renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE) >= 0)
-                return 0;
-
-        /* renameat2() exists since Linux 3.15, btrfs and FAT added support for it later. If it is not implemented,
-         * fall back to a different method. */
-        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                return -errno;
-
-        /* Let's try to use linkat()+unlinkat() as fallback. This doesn't work on directories and on some file systems
-         * that do not support hard links (such as FAT, most prominently), but for files it's pretty close to what we
-         * want — though not atomic (i.e. for a short period both the new and the old filename will exist). */
-        if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0) {
-
-                r = RET_NERRNO(unlinkat(olddirfd, oldpath, 0));
-                if (r < 0) {
-                        (void) unlinkat(newdirfd, newpath, 0);
-                        return r;
-                }
-
-                return 0;
-        }
-
-        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !IN_SET(errno, EINVAL, EPERM)) /* FAT returns EPERM on link()… */
-                return -errno;
-
-        /* OK, neither RENAME_NOREPLACE nor linkat()+unlinkat() worked. Let's then fall back to the racy TOCTOU
-         * vulnerable accessat(F_OK) check followed by classic, replacing renameat(), we have nothing better. */
-
-        if (faccessat(newdirfd, newpath, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
-                return -EEXIST;
-        if (errno != ENOENT)
-                return -errno;
-
-        return RET_NERRNO(renameat(olddirfd, oldpath, newdirfd, newpath));
-}
-
 int readlinkat_malloc(int fd, const char *p, char **ret) {
         size_t l = PATH_MAX;
 
