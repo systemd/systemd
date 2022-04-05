@@ -353,6 +353,13 @@ WARNINGS and TAINT FLAGS:
         For more information on this issue consult
         https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
+        systemd will warn if the filesystem is not usr-merged (i.e.: /bin, /sbin
+        and /lib* are not symlinks to their counterparts under /usr). Taint flag
+        'unmerged-usr' will be set when this condition is detected.
+
+        For more information on this issue consult
+        https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge
+
         systemd requires that the /run mount point exists. systemd also
         requires that /var/run is a symlink to /run. Taint flag 'var-run-bad'
         will be set when this condition is detected.
