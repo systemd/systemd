@@ -9,9 +9,9 @@
 #include "device-util.h"
 #include "devnode-acl.h"
 #include "dirent-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "util.h"
@@ -195,21 +195,18 @@ int devnode_acl_all(const char *seat,
         dir = opendir("/run/udev/static_node-tags/uaccess");
         if (dir) {
                 FOREACH_DIRENT(de, dir, return -errno) {
-                        _cleanup_free_ char *unescaped_devname = NULL;
-                        ssize_t l;
-
-                        l = cunescape(de->d_name, UNESCAPE_RELAX, &unescaped_devname);
-                        if (l < 0)
-                                return l;
-
-                        n = path_join("/dev", unescaped_devname);
-                        if (!n)
-                                return -ENOMEM;
+                        r = readlinkat_malloc(dirfd(dir), de->d_name, &n);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0) {
+                                log_debug_errno(r,
+                                                "Unable to read symlink '/run/udev/static_node-tags/uaccess/%s', ignoring: %m",
+                                                de->d_name);
+                                continue;
+                        }
 
                         log_debug("Found static node %s for seat %s", n, seat);
                         r = set_consume(nodes, n);
-                        if (r == -EEXIST)
-                                continue;
                         if (r < 0)
                                 return r;
                 }
