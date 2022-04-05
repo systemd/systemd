@@ -21,7 +21,7 @@ UBUNTU_RELEASE="$(lsb_release -cs)"
 create_container() {
     # Create autopkgtest LXC image; this sometimes fails with "Unable to fetch
     # GPG key from keyserver", so retry a few times with different keyservers.
-    for keyserver in "" "keys.gnupg.net" "keys.openpgp.org" "keyserver.ubuntu.com"; do
+    for keyserver in "keys.openpgp.org" "" "keyserver.ubuntu.com" "keys.gnupg.net"; do
         for retry in {1..5}; do
             sudo lxc-create -n "$CONTAINER" -t download -- -d "$DISTRO" -r "$RELEASE" -a "$ARCH" ${keyserver:+--keyserver "$keyserver"} && break 2
             sleep $((retry*retry))
@@ -36,8 +36,11 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
-# wait until online
-while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/resolv.conf /etc/
+# We might attach the console too soon
+while ! systemctl --quiet is-active basic.target; do sleep 1; done
+systemctl start systemd-networkd systemd-resolved
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
