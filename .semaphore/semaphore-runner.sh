@@ -36,8 +36,12 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
-# wait until online
-while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/resolv.conf /etc/
+# We might attach the console too soon
+while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+systemctl start systemd-resolved.service systemd-networkd-wait-online.service
+while ! systemctl --quiet is-active systemd-networkd-wait-online.service; do sleep 1; done
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
