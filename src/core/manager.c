@@ -949,9 +949,13 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                         return r;
         }
 
-        m->taint_usr =
+        m->taint_split_usr =
                 !in_initrd() &&
                 dir_is_empty("/usr") > 0;
+
+        m->taint_unmerged_usr =
+                !in_initrd() &&
+                is_symlink("/bin") == 0;
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
@@ -4383,6 +4387,7 @@ char *manager_taint_string(Manager *m) {
         assert(m);
 
         buf = new(char, sizeof("split-usr:"
+                               "unmerged-usr:"
                                "cgroups-missing:"
                                "cgrousv1:"
                                "local-hwclock:"
@@ -4398,8 +4403,11 @@ char *manager_taint_string(Manager *m) {
         e = buf;
         buf[0] = 0;
 
-        if (m->taint_usr)
+        if (m->taint_split_usr)
                 e = stpcpy(e, "split-usr:");
+
+        if (m->taint_unmerged_usr)
+                e = stpcpy(e, "unmerged-usr:");
 
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
