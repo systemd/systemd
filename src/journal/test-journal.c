@@ -59,44 +59,44 @@ TEST(non_empty) {
         journal_file_dump(f->file);
 
         assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
-        assert_se(sd_id128_equal(o->entry.boot_id, fake_boot_id));
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
+        assert_se(sd_id128_equal(journal_file_entry_boot_id(f->file, o), fake_boot_id));
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 0);
 
         assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_find_data_object(f->file, test, strlen(test), &d, NULL) == 1);
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
 
         assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), &d, NULL) == 1);
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_find_data_object(f->file, "quux", 4, &d, NULL) == 0);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 1, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 3, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 2, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
