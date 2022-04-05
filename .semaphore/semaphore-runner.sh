@@ -36,6 +36,9 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/resolv.conf /etc/
+systemctl start systemd-networkd systemd-resolved
 # wait until online
 while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
 apt-get -q --allow-releaseinfo-change update
