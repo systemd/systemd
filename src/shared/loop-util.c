@@ -514,6 +514,17 @@ static int loop_device_make_internal(
         for (unsigned n_attempts = 0;;) {
                 _cleanup_close_ int loop = -1;
 
+                /* Let's take a lock on the control device first. On a busy system, where many programs
+                 * attempt to allocate a loopback device at the same time, we might otherwise keep looping
+                 * around relatively heavy operations: asking for a free loopback device, then opening it,
+                 * validating it, attaching something to it. Let's serialize this whole operation, to make
+                 * unnecessary busywork less likely. Note that this is just something we do to optimize our
+                 * own code (and whoever else decides to use LOCK_EX locks for this), taking this lock is not
+                 * necessary, it just means it's less likely we have to iterate through this loop again and
+                 * again if our own code races against our own code. */
+                if (flock(control, LOCK_EX) < 0)
+                        return -errno;
+
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
                         return -errno;
@@ -541,6 +552,11 @@ static int loop_device_make_internal(
                         } else if (r != -EBUSY)
                                 return r;
                 }
+
+                /* OK, this didn't work, let's try again a bit later, but first release the lock on the
+                 * control device */
+                if (flock(control, LOCK_UN) < 0)
+                        return -errno;
 
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
