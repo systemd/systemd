@@ -120,8 +120,6 @@ typedef struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         unsigned dhcp4_messages;
-        bool dhcp4_route_failed:1;
-        bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
         char *dhcp4_6rd_tunnel_name;
 
