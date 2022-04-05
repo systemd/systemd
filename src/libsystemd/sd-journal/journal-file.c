@@ -1870,9 +1870,6 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 
         /* log_debug("=> %s seqnr=%"PRIu64" n_entries=%"PRIu64, f->path, o->entry.seqnum, f->header->n_entries); */
 
-        if (f->header->head_entry_realtime == 0)
-                f->header->head_entry_realtime = htole64(journal_file_entry_realtime(f, o));
-
         f->header->tail_entry_realtime = htole64(journal_file_entry_realtime(f, o));
         f->header->tail_entry_monotonic = htole64(journal_file_entry_monotonic(f, o));
 
@@ -1922,10 +1919,16 @@ static int journal_file_append_entry_internal(
         if (boot_id)
                 f->header->boot_id = *boot_id;
 
+        if (f->header->head_entry_realtime == 0)
+                f->header->head_entry_realtime = htole64(ts->realtime);
+
         if (JOURNAL_HEADER_COMPACT(f->header)) {
+                if (f->header->head_entry_monotonic == 0)
+                        f->header->head_entry_monotonic = htole64(ts->monotonic);
+
                 o->entry.compact.seqnum = htole64(journal_file_new_entry_seqnum(f, seqnum));
-                o->entry.compact.realtime = htole64(ts->realtime);
-                o->entry.compact.monotonic = htole64(ts->monotonic);
+                o->entry.compact.realtime = htole32(ts->realtime - le64toh(f->header->head_entry_realtime));
+                o->entry.compact.monotonic = htole32(ts->monotonic - le64toh(f->header->head_entry_monotonic));
                 o->entry.compact.boot_id = f->header->boot_id;
                 o->entry.compact.xor_hash = htole64(xor_hash);
                 memcpy_safe(o->entry.compact.items, items, n_items * sizeof(EntryItem));
@@ -2046,6 +2049,31 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         return r;
 }
 
+static int check_entry_timestamp(JournalFile *f, const dual_timestamp *ts) {
+        if (f->header->n_entries > 0) {
+                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ETIME),
+                                               "New entry realtime timestamp is earlier than previous entry");
+                if (ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ETIME),
+                                               "New entry monotonic timestamp is earlier than previous entry");
+
+                assert(le64toh(f->header->head_entry_realtime) <= le64toh(f->header->tail_entry_realtime));
+                assert(le64toh(f->header->head_entry_monotonic) <= le64toh(f->header->tail_entry_monotonic));
+
+                if (JOURNAL_HEADER_COMPACT(f->header)) {
+                        if (ts->realtime - le64toh(f->header->head_entry_realtime) > UINT32_MAX)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ETIME),
+                                                       "New entry realtime timestamp is too far in the future");
+                        if (ts->monotonic - le64toh(f->header->head_entry_monotonic) > UINT32_MAX)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ETIME),
+                                                       "New entry monotonic timestamp is too far in the future");
+                }
+        }
+
+        return 0;
+}
+
 static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
         return CMP(le64toh(a->object_offset), le64toh(b->object_offset));
 }
@@ -2095,6 +2123,10 @@ int journal_file_append_entry(
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
         }
+
+        r = check_entry_timestamp(f, ts);
+        if (r < 0)
+                return r;
 
 #if HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
@@ -3347,6 +3379,11 @@ void journal_file_print_header(JournalFile *f) {
                 printf("Deepest data hash chain: %" PRIu64"\n",
                        f->header->data_hash_chain_depth);
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, head_entry_monotonic))
+                printf("Head monotonic timestamp: %s (%"PRIx64")\n",
+                       FORMAT_TIMESPAN(le64toh(f->header->head_entry_monotonic), USEC_PER_MSEC),
+                       le64toh(f->header->head_entry_monotonic));
+
         if (fstat(f->fd, &st) >= 0)
                 printf("Disk usage: %s\n", FORMAT_BYTES((uint64_t) st.st_blocks * 512ULL));
 }
@@ -3799,6 +3836,11 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 .monotonic = journal_file_entry_monotonic(from, o),
                 .realtime = journal_file_entry_realtime(from, o),
         };
+
+        r = check_entry_timestamp(to, &ts);
+        if (r < 0)
+                return r;
+
         boot_id = journal_file_entry_boot_id(from, o);
 
         n = journal_file_entry_n_items(from, o);
