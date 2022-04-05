@@ -84,8 +84,10 @@ Features:
   containers and qemu VMs. (maybe also pick up env vars from fw_cfg?)
 
 * beef up sd_notify() to support AV_VSOCK in $NOTIFY_SOCKET, so that VM
-  managers can get ready notifications for containers. Also pick up address
-  from qemu/fw_cfg if set there.
+  managers can get ready notifications from VMs, just like container managers
+  from their payload. Also pick up address from qemu/fw_cfg if set there.
+  (which has benefits, given SecureBoot and kernel cmdline are not necessarily
+  friends.)
 
 * maybe write a tool that binds an AF_VFSOCK socket, then invokes qemu,
   extending the command line to enable vsock on the VM, and using fw_cfg to
