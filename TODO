@@ -78,6 +78,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-device has an API to create an sd_device object from a device id, but has
+  no api to query the device id
+
+* sd-device should return the devnum type (i.e. 'b' or 'c') via some API for an
+  sd_device object, so that data passed into sd_device_new_from_devnum() can
+  also be queried.
+
 * udevadm: a new "tree" verb that shows tree of devices as syspath hierarchy,
   along with their properties. uninitialized devices should be greyed out.
 
