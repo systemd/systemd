@@ -561,6 +561,9 @@ static int loop_device_make_internal(
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
 
+                /* Now close the loop device explicitly. This will release any lock acquired by
+                 * attach_empty_file() or similar, while we sleep below. */
+                loop = safe_close(loop);
                 loopdev = mfree(loopdev);
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
