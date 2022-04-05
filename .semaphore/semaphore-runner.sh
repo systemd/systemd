@@ -38,6 +38,11 @@ create_container() {
 sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.list
 # We might attach the console too soon
 while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+# Manpages database trigger takes a lot of time and is not useful in a CI
+echo 'man-db man-db/auto-update boolean false' | debconf-set-selections
+# Speed up dpkg, image is thrown away after the test
+mkdir -p /etc/dpkg/dpkg.cfg.d/
+echo 'force-unsafe-io' > /etc/dpkg/dpkg.cfg.d/unsafe_io
 # For some reason, it is necessary to run this manually or the interface won't be configured
 # Note that we avoid networkd, as some of the tests will break it later on
 dhclient
