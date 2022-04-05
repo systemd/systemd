@@ -71,7 +71,7 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
 
 static int device_has_block_children(sd_device *d) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        const char *main_sn, *main_ss;
+        const char *main_ss, *main_dt;
         sd_device *q;
         int r;
 
@@ -80,15 +80,18 @@ static int device_has_block_children(sd_device *d) {
         /* Checks if the specified device currently has block device children (i.e. partition block
          * devices). */
 
-        r = sd_device_get_sysname(d, &main_sn);
-        if (r < 0)
-                return r;
-
         r = sd_device_get_subsystem(d, &main_ss);
         if (r < 0)
                 return r;
 
         if (!streq(main_ss, "block"))
+                return -EINVAL;
+
+        r = sd_device_get_devtype(d, &main_dt);
+        if (r < 0)
+                return r;
+
+        if (!streq(main_dt, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
                 return -EINVAL;
 
         r = sd_device_enumerator_new(&e);
@@ -104,26 +107,34 @@ static int device_has_block_children(sd_device *d) {
                 return r;
 
         FOREACH_DEVICE(e, q) {
-                const char *ss, *sn;
+                const char *ss, *dt;
 
                 r = sd_device_get_subsystem(q, &ss);
-                if (r < 0)
+                if (r < 0) {
+                        log_device_debug_errno(q, r, "Failed to get subsystem of child, ignoring: %m");
                         continue;
+                }
 
-                if (!streq(ss, "block"))
+                if (!streq(ss, "block")) {
+                        log_device_debug(q, "Skipping child that is not a block device (subsystem=%s).", ss);
                         continue;
+                }
 
-                r = sd_device_get_sysname(q, &sn);
-                if (r < 0)
+                r = sd_device_get_devtype(q, &dt);
+                if (r < 0) {
+                        log_device_debug_errno(q, r, "Failed to get devtype of child, ignoring: %m");
                         continue;
+                }
 
-                if (streq(sn, main_sn))
+                if (!streq(dt, "partition")) {
+                        log_device_debug(q, "Skipping non-partition child (devtype=%s).", dt);
                         continue;
+                }
 
-                return 1; /* we have block device children */
+                return true; /* we have block device children */
         }
 
-        return 0;
+        return false;
 }
 
 static int loop_configure(
