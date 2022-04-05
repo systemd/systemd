@@ -25,7 +25,9 @@ int unlink_noerrno(const char *path);
 
 int rmdir_parents(const char *path, const char *stop);
 
-int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
+static inline int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
+        return RET_NERRNO(renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE));
+}
 
 int readlinkat_malloc(int fd, const char *p, char **ret);
 int readlink_malloc(const char *p, char **r);
