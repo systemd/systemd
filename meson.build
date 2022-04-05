@@ -3655,6 +3655,15 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
+public_programs += custom_target(
+        'kernel-install',
+        input : kernel_install_in,
+        output : 'kernel-install',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : want_kernel_install,
+        install_mode : 'rwxr-xr-x',
+        install_dir : bindir)
+
 ############################################################
 
 runtest_env = custom_target(
