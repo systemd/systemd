@@ -4377,11 +4377,15 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        const char* stage[11] = {};
+        const char* stage[12] = {};
         size_t n = 0;
 
         if (m->taint_usr)
                 stage[n++] = "split-usr";
+
+        _cleanup_free_ char *usrbin = NULL;
+        if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
+                stage[n++] = "unmerged-usr";
 
         if (access("/proc/cgroups", F_OK) < 0)
                 stage[n++] = "cgroups-missing";
