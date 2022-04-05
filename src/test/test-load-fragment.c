@@ -10,6 +10,7 @@
 #include "capability-util.h"
 #include "conf-parser.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -411,6 +412,21 @@ static void test_config_parse_exec(void) {
                               &c, u);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
+
+        log_info("/* long arg */"); /* See issue #22957. */
+
+        char x[LONG_LINE_MAX-100], *y;
+        y = mempcpy(x, "/bin/echo ", STRLEN("/bin/echo "));
+        memset(y, 'x', sizeof(x) - STRLEN("/bin/echo ") - 1);
+        x[sizeof(x) - 1] = '\0';
+
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0, x,
+                              &c, u);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1,
+                          "/bin/echo", NULL, y, NULL, false);
 
         log_info("/* empty argument, reset */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
