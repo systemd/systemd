@@ -161,6 +161,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>-t</option></term>
+          <term><option>--tree</option></term>
+          <listitem>
+            <para>Display a sysfs tree. This recursively iterates through the sysfs hierarchy and displays it
+            in a tree structure. If a path is specified only the subtree below that directory is
+            shown. This will show both device and subsystem items.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-x</option></term>
           <term><option>--export</option></term>
           <listitem>
