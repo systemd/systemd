@@ -352,14 +352,28 @@ static int md_list_get(MountPoint **head) {
         if (r < 0)
                 return r;
 
+        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "disk");
+        if (r < 0)
+                return r;
+
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
+                const char *md_level = NULL;
                 MountPoint *m;
                 dev_t devnum;
 
                 if (sd_device_get_devnum(d, &devnum) < 0 ||
                     sd_device_get_devname(d, &dn) < 0)
+                        continue;
+
+                r = sd_device_get_property_value(d, "MD_LEVEL", &md_level);
+                if (r < 0) {
+                        log_error("Failed to get MD_LEVEL property for %s, ignoring", dn);
+                        continue;
+                }
+
+                if (streq(md_level, "container"))
                         continue;
 
                 p = strdup(dn);
