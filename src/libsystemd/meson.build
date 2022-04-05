@@ -186,7 +186,7 @@ custom_target(
         'libsystemd.pc',
         input : 'libsystemd.pc.in',
         output : 'libsystemd.pc',
-        command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pkgconfiglibdir != 'no',
         install_dir : pkgconfiglibdir)
 
