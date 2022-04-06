@@ -173,20 +173,22 @@ rm -r /tmp/testsuite-58.3-defs/
 # testcase for #21817
 mkdir -p /tmp/testsuite-58-issue-21817-defs/
 truncate -s 100m /var/tmp/testsuite-58-issue-21817.img
-LOOP=$(losetup -P --show -f /var/tmp/testsuite-58-issue-21817.img)
-udevadm wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
-printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt "$LOOP"
+sfdisk /var/tmp/testsuite-58-issue-21817.img <<EOF
+label: gpt
+
+size=50M, type=${root_guid}
+,
+EOF
 cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
 [Partition]
 Type=root
 EOF
-systemd-repart --pretty=yes --definitions /tmp/testsuite-58-issue-21817-defs/ "$LOOP"
-sfdisk --dump "$LOOP" | tee /tmp/testsuite-58-issue-21817.dump
-losetup -d "$LOOP"
+systemd-repart --pretty=yes --definitions /tmp/testsuite-58-issue-21817-defs/ --dry-run=no /var/tmp/testsuite-58-issue-21817.img
+sfdisk --dump /var/tmp/testsuite-58-issue-21817.img | tee /tmp/testsuite-58-issue-21817.dump
 
-grep -qiF "p1 : start=        2048, size=      102400, type=${root_guid}," /tmp/testsuite-58-issue-21817.dump
+grep -qiF "/var/tmp/testsuite-58-issue-21817.img1 : start=        2048, size=      102400, type=${root_guid}," /tmp/testsuite-58-issue-21817.dump
 # Accept both unpadded (pre-v2.38 util-linux) and padded (v2.38+ util-linux) sizes
-grep -qE "p2 : start=      104448, size=      (100319| 98304)," /tmp/testsuite-58-issue-21817.dump
+grep -qE "/var/tmp/testsuite-58-issue-21817.img2 : start=      104448, size=      (100319| 98304)," /tmp/testsuite-58-issue-21817.dump
 
 rm /var/tmp/testsuite-58-issue-21817.img /tmp/testsuite-58-issue-21817.dump
 rm -r /tmp/testsuite-58-issue-21817-defs/
@@ -216,7 +218,7 @@ EOF
 
     truncate -s 100m "/tmp/testsuite-58-sector-$1.img"
     LOOP=$(losetup -b "$1" -P --show -f "/tmp/testsuite-58-sector-$1.img" )
-    udevadm wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
+    udevadm wait --timeout 60 --settle "${LOOP:?}"
     systemd-repart --pretty=yes --definitions=/tmp/testsuite-58-sector/ --seed=750b6cd5c4ae4012a15e7be3c29e6a47 --empty=require --dry-run=no "$LOOP"
     rm -rf /tmp/testsuite-58-sector
     sfdisk --verify "$LOOP"
