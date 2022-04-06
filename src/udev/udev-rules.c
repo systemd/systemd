@@ -9,7 +9,6 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -30,6 +29,7 @@
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-netlink.h"
+#include "udev-node.h"
 #include "udev-rules.h"
 #include "udev-util.h"
 #include "user-util.h"
@@ -2536,72 +2536,6 @@ int udev_rules_apply_to_event(
         return 0;
 }
 
-static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mode_t mode, char **tags) {
-        char device_node[UDEV_PATH_SIZE], tags_dir[UDEV_PATH_SIZE], tag_symlink[UDEV_PATH_SIZE];
-        _cleanup_free_ char *unescaped_filename = NULL;
-        struct stat stats;
-        int r;
-
-        assert(devnode);
-
-        if (uid == UID_INVALID && gid == GID_INVALID && mode == MODE_INVALID && !tags)
-                return 0;
-
-        strscpyl(device_node, sizeof(device_node), "/dev/", devnode, NULL);
-        if (stat(device_node, &stats) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to stat %s: %m", device_node);
-                return 0;
-        }
-
-        if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode)) {
-                log_warning("%s is neither block nor character device, ignoring.", device_node);
-                return 0;
-        }
-
-        if (!strv_isempty(tags)) {
-                unescaped_filename = xescape(devnode, "/.");
-                if (!unescaped_filename)
-                        return log_oom();
-        }
-
-        /* export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
-        STRV_FOREACH(t, tags) {
-                strscpyl(tags_dir, sizeof(tags_dir), "/run/udev/static_node-tags/", *t, "/", NULL);
-                r = mkdir_p(tags_dir, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create %s: %m", tags_dir);
-
-                strscpyl(tag_symlink, sizeof(tag_symlink), tags_dir, unescaped_filename, NULL);
-                r = symlink(device_node, tag_symlink);
-                if (r < 0 && errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create symlink %s -> %s: %m",
-                                               tag_symlink, device_node);
-        }
-
-        /* don't touch the permissions if only the tags were set */
-        if (uid == UID_INVALID && gid == GID_INVALID && mode == MODE_INVALID)
-                return 0;
-
-        if (mode == MODE_INVALID)
-                mode = gid_is_valid(gid) ? 0660 : 0600;
-        if (!uid_is_valid(uid))
-                uid = 0;
-        if (!gid_is_valid(gid))
-                gid = 0;
-
-        r = chmod_and_chown(device_node, mode, uid, gid);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to chown '%s' %u %u: %m", device_node, uid, gid);
-        else
-                log_debug("chown '%s' %u:%u with mode %#o", device_node, uid, gid, mode);
-
-        (void) utimensat(AT_FDCWD, device_node, NULL, 0);
-        return 0;
-}
-
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
         _cleanup_strv_free_ char **tags = NULL;
         uid_t uid = UID_INVALID;
@@ -2626,7 +2560,7 @@ static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
                         if (r < 0)
                                 return log_oom();
                 } else if (token->type == TK_A_OPTIONS_STATIC_NODE) {
-                        r = apply_static_dev_perms(token->value, uid, gid, mode, tags);
+                        r = static_node_apply_permissions(token->value, mode, uid, gid, tags);
                         if (r < 0)
                                 return r;
                 }
