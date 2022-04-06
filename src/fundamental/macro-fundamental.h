@@ -43,6 +43,12 @@
 #  define VOID_0 ((void*)0)
 #endif
 
+/* When collecting coverage with gcov we must avoid calling _exit(), since it skips
+ * cleanup handlers including __gcov_flush(), resulting in missing coverage */
+#ifdef BUILT_WITH_COVERAGE
+#  define _exit exit
+#endif
+
 #define ELEMENTSOF(x)                                                   \
         (__builtin_choose_expr(                                         \
                 !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
