@@ -703,7 +703,6 @@ static int enumerate_partitions(dev_t devnum) {
                         UINT64_MAX,
                         USEC_INFINITY,
                         DISSECT_IMAGE_GPT_ONLY|
-                        DISSECT_IMAGE_NO_UDEV|
                         DISSECT_IMAGE_USR_NO_ROOT,
                         &m);
         if (r == -ENOPKG) {

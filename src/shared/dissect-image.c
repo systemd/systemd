@@ -4,6 +4,7 @@
 #include <valgrind/memcheck.h>
 #endif
 
+#include <linux/blkpg.h>
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/mount.h>
@@ -125,389 +126,6 @@ not_found:
 }
 
 #if HAVE_BLKID
-static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        int r;
-
-        assert(d);
-        assert(ret);
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_parent(e, d);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysattr(e, "partition", NULL, true);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(e);
-        return 0;
-}
-
-static int device_is_partition(
-                sd_device *d,
-                sd_device *expected_parent,
-                blkid_partition pp) {
-
-        const char *v, *parent_syspath, *expected_parent_syspath;
-        blkid_loff_t bsize, bstart;
-        uint64_t size, start;
-        int partno, bpartno, r;
-        sd_device *parent;
-
-        assert(d);
-        assert(expected_parent);
-        assert(pp);
-
-        r = sd_device_get_subsystem(d, &v);
-        if (r < 0)
-                return r;
-        if (!streq(v, "block"))
-                return false;
-
-        if (sd_device_get_devtype(d, &v) < 0 || !streq(v, "partition"))
-                return false;
-
-        r = sd_device_get_parent(d, &parent);
-        if (r < 0)
-                return false; /* Doesn't have a parent? No relevant to us */
-
-        r = sd_device_get_syspath(parent, &parent_syspath); /* Check parent of device of this action */
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_syspath(expected_parent, &expected_parent_syspath); /* Check parent of device we are looking for */
-        if (r < 0)
-                return r;
-
-        if (!path_equal(parent_syspath, expected_parent_syspath))
-                return false; /* Has a different parent than what we need, not interesting to us */
-
-        /* On kernel uevents we may find the partition number in the PARTN= field. Let's use that preferably,
-         * since it's cheaper and more importantly: the sysfs attribute "partition" appears to become
-         * available late, hence let's use the property instead, which is available at the moment we see the
-         * uevent. */
-        r = sd_device_get_property_value(d, "PARTN", &v);
-        if (r == -ENOENT)
-                r = sd_device_get_sysattr_value(d, "partition", &v);
-        if (r < 0)
-                return r;
-
-        r = safe_atoi(v, &partno);
-        if (r < 0)
-                return r;
-
-        errno = 0;
-        bpartno = blkid_partition_get_partno(pp);
-        if (bpartno < 0)
-                return errno_or_else(EIO);
-
-        if (partno != bpartno)
-                return false;
-
-        r = sd_device_get_sysattr_value(d, "start", &v);
-        if (r < 0)
-                return r;
-        r = safe_atou64(v, &start);
-        if (r < 0)
-                return r;
-
-        errno = 0;
-        bstart = blkid_partition_get_start(pp);
-        if (bstart < 0)
-                return errno_or_else(EIO);
-
-        if (start != (uint64_t) bstart)
-                return false;
-
-        r = sd_device_get_sysattr_value(d, "size", &v);
-        if (r < 0)
-                return r;
-        r = safe_atou64(v, &size);
-        if (r < 0)
-                return r;
-
-        errno = 0;
-        bsize = blkid_partition_get_size(pp);
-        if (bsize < 0)
-                return errno_or_else(EIO);
-
-        if (size != (uint64_t) bsize)
-                return false;
-
-        return true;
-}
-
-static int find_partition(
-                sd_device *parent,
-                blkid_partition pp,
-                usec_t timestamp_not_before,
-                DissectImageFlags flags,
-                sd_device **ret) {
-
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *q;
-        int r;
-
-        assert(parent);
-        assert(pp);
-        assert(ret);
-
-        r = enumerator_for_parent(parent, &e);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE(e, q) {
-                uint64_t usec;
-
-                if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                        r = sd_device_get_usec_initialized(q, &usec);
-                        if (r == -EBUSY) /* Not initialized yet */
-                                continue;
-                        if (r < 0)
-                                return r;
-
-                        if (timestamp_not_before != USEC_INFINITY &&
-                            usec < timestamp_not_before) /* udev database entry older than our attachment? Then it's not ours */
-                                continue;
-                }
-
-                r = device_is_partition(q, parent, pp);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        *ret = sd_device_ref(q);
-                        return 0;
-                }
-        }
-
-        return -ENXIO;
-}
-
-struct wait_data {
-        sd_device *parent_device;
-        blkid_partition blkidp;
-        sd_device *found;
-        uint64_t diskseq;
-        uint64_t uevent_seqnum_not_before;
-        usec_t timestamp_not_before;
-        DissectImageFlags flags;
-};
-
-static inline void wait_data_done(struct wait_data *d) {
-        sd_device_unref(d->found);
-}
-
-static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        struct wait_data *w = userdata;
-        int r;
-
-        assert(w);
-
-        if (device_for_action(device, SD_DEVICE_REMOVE))
-                return 0;
-
-        if (w->diskseq != 0) {
-                uint64_t diskseq;
-
-                /* If w->diskseq is non-zero, then we must have a disk seqnum */
-                r = sd_device_get_diskseq(device, &diskseq);
-                if (r < 0) {
-                        log_debug_errno(r, "Dropping event because it has no diskseq, but waiting for %" PRIu64, w->diskseq);
-                        return 0;
-                }
-                if (diskseq < w->diskseq) {
-                        log_debug("Dropping event because diskseq too old (%" PRIu64 " < %" PRIu64 ")",
-                                  diskseq, w->diskseq);
-                        return 0;
-                }
-                if (diskseq > w->diskseq) {
-                        r = -EBUSY;
-                        goto finish; /* Newer than what we were expecting, so we missed it, stop waiting */
-                }
-        } else if (w->uevent_seqnum_not_before != UINT64_MAX) {
-                uint64_t seqnum;
-
-                r = sd_device_get_seqnum(device, &seqnum);
-                if (r < 0)
-                        goto finish;
-
-                if (seqnum <= w->uevent_seqnum_not_before) { /* From an older use of this loop device */
-                        log_debug("Dropping event because seqnum too old (%" PRIu64 " <= %" PRIu64 ")",
-                                  seqnum, w->uevent_seqnum_not_before);
-                        return 0;
-                }
-        }
-
-        r = device_is_partition(device, w->parent_device, w->blkidp);
-        if (r < 0)
-                goto finish;
-        if (r == 0) /* Not the one we need */
-                return 0;
-
-        /* It's the one we need! Yay! */
-        assert(!w->found);
-        w->found = sd_device_ref(device);
-        r = 0;
-
-finish:
-        return sd_event_exit(sd_device_monitor_get_event(monitor), r);
-}
-
-static int timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        struct wait_data *w = userdata;
-        int r;
-
-        assert(w);
-
-        /* Why partition not appeared within the timeout? We may lost some uevent, as some properties
-         * were not ready when we received uevent... Not sure, but anyway, let's try to find the
-         * partition again before give up. */
-
-        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, w->flags, &w->found);
-        if (r == -ENXIO)
-                return log_debug_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
-                                       "Partition still not appeared after timeout reached.");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to find partition: %m");
-
-        log_debug("Partition appeared after timeout reached.");
-        return sd_event_exit(sd_event_source_get_event(s), 0);
-}
-
-static int retry_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        struct wait_data *w = userdata;
-        int r;
-
-        assert(w);
-
-        r = find_partition(w->parent_device, w->blkidp, w->timestamp_not_before, w->flags, &w->found);
-        if (r != -ENXIO) {
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to find partition: %m");
-
-                log_debug("Partition found by a periodic search.");
-                return sd_event_exit(sd_event_source_get_event(s), 0);
-        }
-
-        r = sd_event_source_set_time_relative(s, 500 * USEC_PER_MSEC);
-        if (r < 0)
-                return r;
-
-        return sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
-}
-
-static int wait_for_partition_device(
-                sd_device *parent,
-                blkid_partition pp,
-                usec_t deadline,
-                uint64_t diskseq,
-                uint64_t uevent_seqnum_not_before,
-                usec_t timestamp_not_before,
-                DissectImageFlags flags,
-                sd_device **ret) {
-
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL, *retry_source = NULL;
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        int r;
-
-        assert(parent);
-        assert(pp);
-        assert(ret);
-
-        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
-        if (r != -ENXIO)
-                return r;
-
-        r = sd_event_new(&event);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_new(&monitor);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "block", "partition");
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_parent(monitor, parent, true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_filter_add_match_sysattr(monitor, "partition", NULL, true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_monitor_attach_event(monitor, event);
-        if (r < 0)
-                return r;
-
-        _cleanup_(wait_data_done) struct wait_data w = {
-                .parent_device = parent,
-                .blkidp = pp,
-                .diskseq = diskseq,
-                .uevent_seqnum_not_before = uevent_seqnum_not_before,
-                .timestamp_not_before = timestamp_not_before,
-                .flags = flags,
-        };
-
-        r = sd_device_monitor_start(monitor, device_monitor_handler, &w);
-        if (r < 0)
-                return r;
-
-        /* Check again, the partition might have appeared in the meantime */
-        r = find_partition(parent, pp, timestamp_not_before, flags, ret);
-        if (r != -ENXIO)
-                return r;
-
-        if (deadline != USEC_INFINITY) {
-                r = sd_event_add_time(
-                                event, &timeout_source,
-                                CLOCK_MONOTONIC, deadline, 0,
-                                timeout_handler, &w);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_exit_on_failure(timeout_source, true);
-                if (r < 0)
-                        return r;
-        }
-
-        /* If we don't have a disk sequence number then we cannot do exact matching,
-         * and we cannot know if we missed it or if it has not been sent yet, so set
-         * up additional retries to increase the chances of receiving the event. */
-        if (diskseq == 0) {
-                r = sd_event_add_time_relative(
-                                event, &retry_source,
-                                CLOCK_MONOTONIC, 500 * USEC_PER_MSEC, 0,
-                                retry_handler, &w);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_exit_on_failure(retry_source, true);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_event_loop(event);
-        if (r < 0)
-                return r;
-
-        assert(w.found);
-        *ret = TAKE_PTR(w.found);
-        return 0;
-}
-
 static void check_partition_flags(
                 const char *node,
                 unsigned long long pflags,
@@ -530,76 +148,7 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
-
-static int device_wait_for_initialization_harder(
-                sd_device *device,
-                const char *subsystem,
-                usec_t deadline,
-                sd_device **ret) {
-
-        usec_t start, left, retrigger_timeout;
-        int r;
-
-        start = now(CLOCK_MONOTONIC);
-        left = usec_sub_unsigned(deadline, start);
-
-        if (DEBUG_LOGGING) {
-                const char *sn = NULL;
-
-                (void) sd_device_get_sysname(device, &sn);
-                log_device_debug(device,
-                                 "Will wait up to %s for '%s' to initialize…", FORMAT_TIMESPAN(left, 0), strna(sn));
-        }
-
-        if (left != USEC_INFINITY)
-                retrigger_timeout = CLAMP(left / 4, 1 * USEC_PER_SEC, 5 * USEC_PER_SEC); /* A fourth of the total timeout, but let's clamp to 1s…5s range */
-        else
-                retrigger_timeout = 2 * USEC_PER_SEC;
-
-        for (;;) {
-                usec_t local_deadline, n;
-                bool last_try;
-
-                n = now(CLOCK_MONOTONIC);
-                assert(n >= start);
-
-                /* Find next deadline, when we'll retrigger */
-                local_deadline = start +
-                        DIV_ROUND_UP(n - start, retrigger_timeout) * retrigger_timeout;
-
-                if (deadline != USEC_INFINITY && deadline <= local_deadline) {
-                        local_deadline = deadline;
-                        last_try = true;
-                } else
-                        last_try = false;
-
-                r = device_wait_for_initialization(device, subsystem, local_deadline, ret);
-                if (r >= 0 && DEBUG_LOGGING) {
-                        const char *sn = NULL;
-
-                        (void) sd_device_get_sysname(device, &sn);
-                        log_device_debug(device,
-                                         "Successfully waited for device '%s' to initialize for %s.",
-                                         strna(sn),
-                                         FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
-
-                }
-                if (r != -ETIMEDOUT || last_try)
-                        return r;
-
-                if (DEBUG_LOGGING)
-                        log_device_debug(device,
-                                         "Device didn't initialize within %s, assuming lost event. Retriggering device.",
-                                         FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
-
-                r = sd_device_trigger(device, SD_DEVICE_CHANGE);
-                if (r < 0)
-                        return r;
-        }
-}
 #endif
-
-#define DEVICE_TIMEOUT_USEC (45 * USEC_PER_SEC)
 
 static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
@@ -616,6 +165,62 @@ static void dissected_partition_done(DissectedPartition *p) {
                 .architecture = _ARCHITECTURE_INVALID,
         };
 }
+
+#if HAVE_BLKID
+static int ioctl_partition_add(
+                int fd,
+                const char *name,
+                int nr,
+                uint64_t start,
+                uint64_t size) {
+
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+                .start = start,
+                .length = size,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_ADD_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
+static int make_partition_devname(
+                const char *whole_devname,
+                int nr,
+                char **ret) {
+
+        bool need_p;
+
+        assert(whole_devname);
+        assert(nr > 0);
+
+        /* Given a whole block device node name (e.g. /dev/sda or /dev/loop7) generate a partition device
+         * name (e.g. /dev/sda7 or /dev/loop7p5). The rule the kernel uses is simple: if whole block device
+         * node name ends in a digit, then suffix a 'p', followed by the partition number. Otherwise, just
+         * suffix the partition number without any 'p'. */
+
+        if (isempty(whole_devname)) /* Make sure there *is* a last char */
+                return -EINVAL;
+
+        need_p = strchr(DIGITS, whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
+
+        return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+}
+#endif
 
 int dissect_image(
                 int fd,
@@ -638,11 +243,10 @@ int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL, *sysname = NULL;
+        const char *pttype = NULL, *sysname = NULL, *devname = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
         struct stat st;
-        usec_t deadline;
 
         assert(fd >= 0);
         assert(ret);
@@ -697,23 +301,6 @@ int dissect_image(
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0)
                 return r;
-
-        if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                _cleanup_(sd_device_unrefp) sd_device *initialized = NULL;
-
-                /* If udev support is enabled, then let's wait for the device to be initialized before we doing anything. */
-
-                r = device_wait_for_initialization_harder(
-                                d,
-                                "block",
-                                usec_add(now(CLOCK_MONOTONIC), DEVICE_TIMEOUT_USEC),
-                                &initialized);
-                if (r < 0)
-                        return r;
-
-                sd_device_unref(d);
-                d = TAKE_PTR(initialized);
-        }
 
         b = blkid_new_probe();
         if (!b)
@@ -770,6 +357,9 @@ int dissect_image(
                 if (r < 0)
                         return r;
         }
+        r = sd_device_get_devname(d, &devname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device devname: %m");
 
         if (!image_name_is_valid(m->image_name)) {
                 log_debug("Image name %s is not valid, ignoring", strempty(m->image_name));
@@ -785,8 +375,8 @@ int dissect_image(
 
                 (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
-                        const char *fstype = NULL, *options = NULL, *devname = NULL;
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
+                        const char *fstype = NULL, *options = NULL;
 
                         /* OK, we have found a file system, that's our root partition then. */
                         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
@@ -796,10 +386,6 @@ int dissect_image(
                                 if (!t)
                                         return -ENOMEM;
                         }
-
-                        r = sd_device_get_devname(d, &devname);
-                        if (r < 0)
-                                return r;
 
                         n = strdup(devname);
                         if (!n)
@@ -873,27 +459,17 @@ int dissect_image(
         if (n_partitions < 0)
                 return errno_or_else(EIO);
 
-        deadline = usec_add(now(CLOCK_MONOTONIC), DEVICE_TIMEOUT_USEC);
         for (int i = 0; i < n_partitions; i++) {
-                _cleanup_(sd_device_unrefp) sd_device *q = NULL;
+                _cleanup_free_ char *node = NULL;
                 unsigned long long pflags;
                 blkid_loff_t start, size;
                 blkid_partition pp;
-                const char *node;
                 int nr;
 
                 errno = 0;
                 pp = blkid_partlist_get_partition(pl, i);
                 if (!pp)
                         return errno_or_else(EIO);
-
-                r = wait_for_partition_device(d, pp, deadline, diskseq, uevent_seqnum_not_before, timestamp_not_before, flags, &q);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_devname(q, &node);
-                if (r < 0)
-                        return r;
 
                 pflags = blkid_partition_get_flags(pp);
 
@@ -915,6 +491,31 @@ int dissect_image(
                         return errno_or_else(EIO);
 
                 assert((uint64_t) size < UINT64_MAX/512);
+
+                r = make_partition_devname(devname, nr, &node);
+                if (r < 0)
+                        return r;
+
+                /* So here's the thing: after the main ("whole") block device popped up it might take a while
+                 * before the kernel fully probed the partition table. Waiting for that to finish is icky in
+                 * userspace. So here's what we do instead. We issue the BLKPG_ADD_PARTITION ioctl to add the
+                 * partition ourselves, racing against the kernel. Good thing is: if this call fails with
+                 * EBUSY then the kernel was quicker than us, and that's totally OK, the outcome is good for
+                 * us: the device node will exist. If OTOH our call was successful we won the race. Which is
+                 * also good as the outcome is the same: the partition block device exists, and we can use
+                 * it.
+                 *
+                 * Kernel returns EBUSY if there's already a partition by that number or an overlapping
+                 * partition already existent. */
+
+                r = ioctl_partition_add(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
+                if (r < 0) {
+                        if (r != -EBUSY)
+                                return log_debug_errno(r, "BLKPG_ADD_PARTITION failed: %m");
+
+                        log_debug_errno(r, "Kernel was quicker than us in adding partition %i.", nr);
+                } else
+                        log_debug("We were quicker than kernel in adding partition %i.", nr);
 
                 if (is_gpt) {
                         PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
@@ -1447,7 +1048,7 @@ int dissect_image(
             (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
             (!verity || !verity->root_hash || verity->designator != PARTITION_USR)) {
 
-                /* OK, we found nothing usable, then check if there's a single generic one distro, and use
+                /* OK, we found nothing usable, then check if there's a single generic partition, and use
                  * that. If the root hash was set however, then we won't fall back to a generic node, because
                  * the root hash decides. */
 
