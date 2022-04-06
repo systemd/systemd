@@ -168,7 +168,7 @@ $(printf 'name="test%d", size=2M\n' {1..50})
 EOF
 
     # Initial partition table
-    sfdisk -q -X gpt "$blockdev" <"$partscript"
+    udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
 
     # Delete the partitions, immediately recreate them, wait for udev to settle
     # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse
@@ -177,8 +177,8 @@ EOF
     # On unpatched udev versions the delete-recreate cycle may trigger a race
     # leading to dead symlinks in /dev/disk/
     for i in {1..100}; do
-        sfdisk -q --delete "$blockdev"
-        sfdisk -q -X gpt "$blockdev" <"$partscript"
+        udevadm lock --device="$blockdev" sfdisk -q --delete "$blockdev"
+        udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
 
         if ((i % 10 == 0)); then
             udevadm wait --settle --timeout=30 "$blockdev"
@@ -281,7 +281,7 @@ testcase_btrfs_basic() {
     echo "Multiple devices: using partitions, data: single, metadata: raid1"
     uuid="deadbeef-dead-dead-beef-000000000001"
     label="btrfs_mpart"
-    sfdisk --wipe=always "${devices[0]}" <<EOF
+    udevadm lock --device="${devices[0]}" sfdisk --wipe=always "${devices[0]}" <<EOF
 label: gpt
 
 name="diskpart1", size=85M
