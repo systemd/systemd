@@ -53,6 +53,8 @@ static void run_test(int argc, char *argv[]) {
                 assert_se(r >= 0);
 
                 r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset);
+                if (r == -EXDEV)
+                        break; /* Stop when we encounter a new boot ID. */
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
                 assert_se(r >= 0 ||

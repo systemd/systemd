@@ -51,7 +51,9 @@ TEST(non_empty) {
         assert_se(journal_file_append_entry(f->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
-        assert_se(journal_file_append_entry(f->file, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts,
+                                            JOURNAL_HEADER_COMPACT(f->file->header) ? NULL : &fake_boot_id,
+                                            &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
         journal_file_append_tag(f->file);
@@ -66,7 +68,8 @@ TEST(non_empty) {
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(journal_file_entry_seqnum(f->file, o) == 3);
-        assert_se(sd_id128_equal(journal_file_entry_boot_id(f->file, o), fake_boot_id));
+        assert_se(sd_id128_equal(journal_file_entry_boot_id(f->file, o),
+                                JOURNAL_HEADER_COMPACT(f->file->header) ? f->file->header->boot_id : fake_boot_id));
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 0);
 
