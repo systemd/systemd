@@ -151,6 +151,7 @@ typedef enum WorkerState {
 typedef struct Worker {
         Manager *manager;
         pid_t pid;
+        sd_event_source *child_event_source;
         sd_device_monitor *monitor;
         WorkerState state;
         Event *event;
@@ -203,9 +204,10 @@ static Worker *worker_free(Worker *worker) {
         if (!worker)
                 return NULL;
 
-        assert(worker->manager);
+        if (worker->manager)
+                hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
 
-        hashmap_remove(worker->manager->workers, PID_TO_PTR(worker->pid));
+        sd_event_source_unref(worker->child_event_source);
         sd_device_monitor_unref(worker->monitor);
         event_free(worker->event);
 
@@ -256,6 +258,8 @@ static Manager* manager_free(Manager *manager) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
+static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata);
+
 static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
         _cleanup_(worker_freep) Worker *worker = NULL;
         int r;
@@ -273,17 +277,21 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
                 return -ENOMEM;
 
         *worker = (Worker) {
-                .manager = manager,
                 .monitor = sd_device_monitor_ref(worker_monitor),
                 .pid = pid,
         };
+
+        r = sd_event_add_child(manager->event, &worker->child_event_source, pid, WEXITED, on_sigchld, worker);
+        if (r < 0)
+                return r;
 
         r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(worker);
+        worker->manager = manager;
 
+        *ret = TAKE_PTR(worker);
         return 0;
 }
 
@@ -1544,58 +1552,46 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
         return 1;
 }
 
-static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *manager = userdata;
+static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(worker->manager);
+        sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
+        EventResult result;
         int r;
 
-        assert(manager);
+        assert(si);
 
-        for (;;) {
-                pid_t pid;
-                int status;
-                Worker *worker;
+        switch (si->si_code) {
+        case CLD_EXITED:
+                if (si->si_status == 0)
+                        log_device_debug(dev, "Worker ["PID_FMT"] exited.", si->si_pid);
+                else
+                        log_device_warning(dev, "Worker ["PID_FMT"] exited with return code %i.",
+                                           si->si_pid, si->si_status);
+                result = EVENT_RESULT_EXIT_STATUS_BASE + si->si_status;
+                break;
 
-                pid = waitpid(-1, &status, WNOHANG);
-                if (pid <= 0)
-                        break;
+        case CLD_KILLED:
+        case CLD_DUMPED:
+                log_device_warning(dev, "Worker ["PID_FMT"] terminated by signal %i (%s).",
+                                   si->si_pid, si->si_status, signal_to_string(si->si_status));
+                result = EVENT_RESULT_SIGNAL_BASE + si->si_status;
+                break;
 
-                worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
-                if (!worker) {
-                        log_warning("Worker ["PID_FMT"] is unknown, ignoring", pid);
-                        continue;
-                }
-
-                if (WIFEXITED(status)) {
-                        if (WEXITSTATUS(status) == 0)
-                                log_debug("Worker ["PID_FMT"] exited", pid);
-                        else
-                                log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
-                } else if (WIFSIGNALED(status))
-                        log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
-                else if (WIFSTOPPED(status)) {
-                        log_info("Worker ["PID_FMT"] stopped", pid);
-                        continue;
-                } else if (WIFCONTINUED(status)) {
-                        log_info("Worker ["PID_FMT"] continued", pid);
-                        continue;
-                } else
-                        log_warning("Worker ["PID_FMT"] exit with status 0x%04x", pid, status);
-
-                if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
-                        log_device_error(worker->event->dev, "Worker ["PID_FMT"] failed", pid);
-
-                        /* delete state from disk */
-                        device_delete_db(worker->event->dev);
-                        device_tag_index(worker->event->dev, NULL, false);
-
-                        /* Forward kernel event to libudev listeners */
-                        device_broadcast(manager->monitor, worker->event->dev,
-                                         WIFEXITED(status) ? EVENT_RESULT_EXIT_STATUS_BASE + WEXITSTATUS(status):
-                                         WIFSIGNALED(status) ? EVENT_RESULT_SIGNAL_BASE + WTERMSIG(status) : 0);
-                }
-
-                worker_free(worker);
+        default:
+                assert_not_reached();
         }
+
+        if (result != EVENT_RESULT_SUCCESS && dev) {
+                /* delete state from disk */
+                device_delete_db(dev);
+                device_tag_index(dev, NULL, false);
+
+                /* Forward kernel event to libudev listeners */
+                device_broadcast(manager->monitor, dev, result);
+        }
+
+        worker_free(worker);
 
         /* we can start new workers, try to schedule events */
         event_queue_start(manager);
@@ -2017,10 +2013,6 @@ static int main_loop(Manager *manager) {
         r = sd_event_add_signal(manager->event, NULL, SIGHUP, on_sighup, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
-
-        r = sd_event_add_signal(manager->event, NULL, SIGCHLD, on_sigchld, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SIGCHLD event source: %m");
 
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
