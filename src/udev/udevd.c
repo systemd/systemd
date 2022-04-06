@@ -160,6 +160,7 @@ typedef struct Worker {
 typedef enum EventResult {
         EVENT_RESULT_NERRNO_MIN       = -ERRNO_MAX,
         EVENT_RESULT_NERRNO_MAX       = -1,
+        EVENT_RESULT_SUCCESS          = 0,
         EVENT_RESULT_EXIT_STATUS_BASE = 0,
         EVENT_RESULT_EXIT_STATUS_MAX  = 255,
         EVENT_RESULT_TRY_AGAIN        = 256, /* when the block device is locked by another process. */
@@ -363,7 +364,7 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
         return 1;
 }
 
-static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int result) {
+static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, EventResult result) {
         int r;
 
         assert(dev);
@@ -372,7 +373,7 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int res
         if (!monitor)
                 return;
 
-        if (result != 0) {
+        if (result != EVENT_RESULT_SUCCESS) {
                 (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
 
                 switch (result) {
@@ -415,7 +416,7 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, int res
                                          "Failed to broadcast event to libudev listeners, ignoring: %m");
 }
 
-static int worker_send_result(Manager *manager, int result) {
+static int worker_send_result(Manager *manager, EventResult result) {
         assert(manager);
         assert(manager->worker_watch[WRITE_END] >= 0);
 
@@ -1200,7 +1201,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(manager);
 
         for (;;) {
-                int result;
+                EventResult result;
                 struct iovec iovec = IOVEC_MAKE(&result, sizeof(result));
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
