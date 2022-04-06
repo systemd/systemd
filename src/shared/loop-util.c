@@ -62,9 +62,7 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
 
-        truncate_nl(p);
-
-        r = safe_atou64(p, ret);
+        r = safe_atou64(strstrip(p), ret);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
 
@@ -73,7 +71,7 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
 
 static int device_has_block_children(sd_device *d) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        const char *main_sn, *main_ss;
+        const char *main_sn, *main_ss, *main_dt;
         sd_device *q;
         int r;
 
@@ -93,6 +91,13 @@ static int device_has_block_children(sd_device *d) {
         if (!streq(main_ss, "block"))
                 return -EINVAL;
 
+        r = sd_device_get_devtype(d, &main_dt);
+        if (r < 0)
+                return r;
+
+        if (!streq(main_dt, "disk")) /* Refuse invocation on partition block device, insist on "whole" device */
+                return -EINVAL;
+
         r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
@@ -106,26 +111,40 @@ static int device_has_block_children(sd_device *d) {
                 return r;
 
         FOREACH_DEVICE(e, q) {
-                const char *ss, *sn;
-
-                r = sd_device_get_subsystem(q, &ss);
-                if (r < 0)
-                        continue;
-
-                if (!streq(ss, "block"))
-                        continue;
+                const char *ss, *sn, *dt;
 
                 r = sd_device_get_sysname(q, &sn);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get sysname of child, ignoring: %m");
                         continue;
+                }
 
-                if (streq(sn, main_sn))
+                r = sd_device_get_subsystem(q, &ss);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get subsystem of child '%s', ignoring: %m", sn);
                         continue;
+                }
 
-                return 1; /* we have block device children */
+                if (!streq(ss, "block")) {
+                        log_debug("Skipping child '%s' that is not a block device (subsystem=%s).", sn, ss);
+                        continue;
+                }
+
+                r = sd_device_get_devtype(q, &dt);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get devtype of child '%s', ignoring: %m", sn);
+                        continue;
+                }
+
+                if (!streq(dt, "partition")) {
+                        log_debug("Skipping non-partition child '%s' (devtype=%s).", sn, dt);
+                        continue;
+                }
+
+                return true; /* we have block device children */
         }
 
-        return 0;
+        return false;
 }
 
 static int loop_configure(
@@ -505,6 +524,17 @@ static int loop_device_make_internal(
         for (unsigned n_attempts = 0;;) {
                 _cleanup_close_ int loop = -1;
 
+                /* Let's take a lock on the control device first. On a busy system, where many programs
+                 * attempt to allocate a loopback device at the same time, we might otherwise keep looping
+                 * around relatively heavy operations: asking for a free loopback device, then opening it,
+                 * validating it, attaching something to it. Let's serialize this whole operation, to make
+                 * unnecessary busywork less likely. Note that this is just something we do to optimize our
+                 * own code (and whoever else decides to use LOCK_EX locks for this), taking this lock is not
+                 * necessary, it just means it's less likely we have to iterate through this loop again and
+                 * again if our own code races against our own code. */
+                if (flock(control, LOCK_EX) < 0)
+                        return -errno;
+
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
                         return -errno;
@@ -516,7 +546,7 @@ static int loop_device_make_internal(
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
-                        if (!IN_SET(errno, ENOENT, ENXIO))
+                        if (!ERRNO_IS_DEVICE_ABSENT(errno))
                                 return -errno;
                 } else {
                         r = loop_configure(loop, nr, &config, &try_loop_configure, &seqnum, &timestamp);
@@ -533,9 +563,17 @@ static int loop_device_make_internal(
                                 return r;
                 }
 
+                /* OK, this didn't work, let's try again a bit later, but first release the lock on the
+                 * control device */
+                if (flock(control, LOCK_UN) < 0)
+                        return -errno;
+
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
 
+                /* Now close the loop device explicitly. This will release any lock acquired by
+                 * attach_empty_file() or similar, while we sleep below. */
+                loop = safe_close(loop);
                 loopdev = mfree(loopdev);
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
@@ -587,6 +625,12 @@ static int loop_device_make_internal(
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
         };
+
+        log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
+                  d->node,
+                  major(d->devno), minor(d->devno),
+                  d->nr,
+                  d->diskseq);
 
         *ret = d;
         return d->fd;
