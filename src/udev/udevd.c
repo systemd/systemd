@@ -442,6 +442,12 @@ static int device_get_whole_disk(sd_device *dev, sd_device **ret_device, const c
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
+        /* Exclude the following devices:
+         * For "dm-", see the comment added by e918a1b5a94f270186dca59156354acd2a596494.
+         * For "md", see the commit message of 2e5b17d01347d3c3118be2b8ad63d20415dbb1f0,
+         * but not sure the assumption is still valid even when partitions are created on the md
+         * devices, surprisingly which seems to be possible, see PR #22973.
+         * For "drbd", see the commit message of fee854ee8ccde0cd28e0f925dea18cce35f3993d. */
         if (STARTSWITH_SET(val, "dm-", "md", "drbd"))
                 goto irrelevant;
 
