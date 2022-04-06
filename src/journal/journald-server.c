@@ -811,6 +811,11 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_warning("%s: Journal file is from the future, rotating.", f->path);
                 return true;
 
+        case -EXDEV:
+                log_info("%s: Boot ID (%s) differs from current boot ID, rotating.", f->path,
+                         SD_ID128_TO_STRING(f->header->boot_id));
+                return true;
+
         case -EAFNOSUPPORT:
                 log_warning("%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
                 return false;

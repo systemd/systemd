@@ -43,7 +43,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* In */
 
-        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, 0);
+        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, JOURNAL_MULTI_BOOT);
         if (r < 0) {
                 assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE));
                 return r;

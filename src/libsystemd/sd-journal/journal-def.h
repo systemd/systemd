@@ -106,7 +106,6 @@ struct EntryItem {
                         le32_t seqnum;           \
                         le32_t realtime;         \
                         le32_t monotonic;        \
-                        sd_id128_t boot_id;      \
                         le64_t xor_hash;         \
                         EntryItem items[];       \
                 } compact;                       \
