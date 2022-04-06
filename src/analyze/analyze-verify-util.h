@@ -10,6 +10,7 @@ typedef enum RecursiveErrors {
         RECURSIVE_ERRORS_YES,               /* Look for errors in all associated units */
         RECURSIVE_ERRORS_NO,                /* Don't look for errors in any but the selected unit */
         RECURSIVE_ERRORS_ONE,               /* Look for errors in the selected unit and its direct dependencies */
+        RECURSIVE_ERRORS_NEVER,             /* Like RECURSIVE_ERRORS_YES but always returns zero for compat reasons */
         _RECURSIVE_ERRORS_MAX,
         _RECURSIVE_ERRORS_INVALID = -EINVAL,
 } RecursiveErrors;
