@@ -309,13 +309,17 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
 #endif
 
-        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
-        if (r < 0) {
-                if (r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
-                compact = true;
-        } else
-                compact = r;
+        if (FLAGS_SET(file_flags, JOURNAL_MULTI_BOOT))
+                compact = false;
+        else {
+                r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+                        compact = true;
+                } else
+                        compact = r;
+        }
 
         memcpy(h.signature, HEADER_SIGNATURE, 8);
         h.header_size = htole64(ALIGN64(sizeof(h)));
@@ -359,10 +363,6 @@ static int journal_file_refresh_header(JournalFile *f) {
                 /* We don't have a machine-id, let's continue without */
                 zero(f->header->machine_id);
         else if (r < 0)
-                return r;
-
-        r = sd_id128_get_boot(&f->header->boot_id);
-        if (r < 0)
                 return r;
 
         r = journal_file_set_online(f);
@@ -1908,6 +1908,7 @@ static int journal_file_append_entry_internal(
         uint64_t np;
         uint64_t osize;
         Object *o;
+        sd_id128_t b;
         int r;
 
         assert(f);
@@ -1922,22 +1923,35 @@ static int journal_file_append_entry_internal(
                 return r;
 
         if (boot_id)
-                f->header->boot_id = *boot_id;
+                b = *boot_id;
+        else {
+                r = sd_id128_get_boot(&b);
+                if (r < 0)
+                        return r;
+        }
 
         if (f->header->head_entry_realtime == 0)
                 f->header->head_entry_realtime = htole64(ts->realtime);
 
         if (JOURNAL_HEADER_COMPACT(f->header)) {
+                if (sd_id128_is_null(f->header->boot_id))
+                        f->header->boot_id = b;
+
+                if (!sd_id128_equal(f->header->boot_id, b))
+                        return -EXDEV;
+
                 if (f->header->head_entry_monotonic == 0)
                         f->header->head_entry_monotonic = htole64(ts->monotonic);
 
                 o->entry.compact.seqnum = htole32(journal_file_new_entry_seqnum(f, seqnum) - le64toh(f->header->head_entry_seqnum));
                 o->entry.compact.realtime = htole32(ts->realtime - le64toh(f->header->head_entry_realtime));
                 o->entry.compact.monotonic = htole32(ts->monotonic - le64toh(f->header->head_entry_monotonic));
-                o->entry.compact.boot_id = f->header->boot_id;
                 o->entry.compact.xor_hash = htole64(xor_hash);
                 memcpy_safe(o->entry.compact.items, items, n_items * sizeof(EntryItem));
         } else {
+                if (!sd_id128_equal(f->header->boot_id, b))
+                        f->header->boot_id = b;
+
                 o->entry.regular.seqnum = htole64(journal_file_new_entry_seqnum(f, seqnum));
                 o->entry.regular.realtime = htole64(ts->realtime);
                 o->entry.regular.monotonic = htole64(ts->monotonic);

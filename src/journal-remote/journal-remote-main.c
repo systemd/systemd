@@ -602,7 +602,8 @@ static int create_remoteserver(
                         arg_output,
                         arg_split_mode,
                         (arg_compress ? JOURNAL_COMPRESS : 0) |
-                        (arg_seal ? JOURNAL_SEAL : 0));
+                        (arg_seal ? JOURNAL_SEAL : 0) |
+                        JOURNAL_MULTI_BOOT);
         if (r < 0)
                 return r;
 
