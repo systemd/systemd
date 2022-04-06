@@ -169,12 +169,6 @@ Features:
 
 * bootctl: show whether UEFI audit mode is available
 
-* dissect: rework how we access partitions: instead of letting the kernel probe
-  partition tables asynchronously, just pass the stuff we parsed in userspace
-  to the kernel via BLKPG_ADD_PARTITION. Benefit: we don't have to wait for
-  kernel/netlink/udev, but can run this synchronously without chance of losing
-  events or similar.
-
 * sd-event: optionally, if per-event source rate limit is hit, downgrade
   priority, but leave enabled, and once ratelimit window is over, upgrade
   priority again. That way we can combat event source starvation without
