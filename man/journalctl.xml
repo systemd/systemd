@@ -981,6 +981,17 @@
         above.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--convert=</option></term>
+
+        <listitem><para>Converts the specified journal files to the latest supported journal format. Takes
+        the path to store the converted journal files. The path should include the filename to be used for
+        the converted files, with the <literal>.journal</literal> extension (e.g.
+        <filename>/a/b/c/converted.journal</filename> will store the journal files in the
+        <filename>/a/b/c</filename> directory using <filename>converted.journal</filename> as the filename).
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
