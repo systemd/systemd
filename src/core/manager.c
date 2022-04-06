@@ -4370,71 +4370,54 @@ static int short_uid_range(const char *path) {
         return !uid_range_covers(p, n, 0, 65535);
 }
 
-char *manager_taint_string(Manager *m) {
-        _cleanup_free_ char *destination = NULL, *overflowuid = NULL, *overflowgid = NULL;
-        struct utsname uts;
-        char *buf, *e;
-        int r;
-
-        /* Returns a "taint string", e.g. "local-hwclock:var-run-bad".  Only things that are detected at
-         * runtime should be tagged here. For stuff that is set during compilation, emit a warning in the
+char* manager_taint_string(const Manager *m) {
+        /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
+         * runtime should be tagged here. For stuff that is known during compilation, emit a warning in the
          * configuration phase. */
 
         assert(m);
 
-        buf = new(char, sizeof("split-usr:"
-                               "cgroups-missing:"
-                               "cgroupsv1:"
-                               "local-hwclock:"
-                               "var-run-bad:"
-                               "overflowuid-not-65534:"
-                               "overflowgid-not-65534:"
-                               "old-kernel:"
-                               "short-uid-range:"
-                               "short-gid-range:"));
-        if (!buf)
-                return NULL;
-
-        e = buf;
-        buf[0] = 0;
+        const char* stage[11] = {};
+        size_t n = 0;
 
         if (m->taint_usr)
-                e = stpcpy(e, "split-usr:");
+                stage[n++] = "split-usr";
 
         if (access("/proc/cgroups", F_OK) < 0)
-                e = stpcpy(e, "cgroups-missing:");
+                stage[n++] = "cgroups-missing";
 
         if (cg_all_unified() == 0)
-                e = stpcpy(e, "cgroupsv1:");
+                stage[n++] = "cgroupsv1";
 
         if (clock_is_localtime(NULL) > 0)
-                e = stpcpy(e, "local-hwclock:");
+                stage[n++] = "local-hwclock";
 
-        r = readlink_malloc("/var/run", &destination);
-        if (r < 0 || !PATH_IN_SET(destination, "../run", "/run"))
-                e = stpcpy(e, "var-run-bad:");
+        _cleanup_free_ char *destination = NULL;
+        if (readlink_malloc("/var/run", &destination) < 0 ||
+            !PATH_IN_SET(destination, "../run", "/run"))
+                stage[n++] = "var-run-bad";
 
-        r = read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid);
-        if (r >= 0 && !streq(overflowuid, "65534"))
-                e = stpcpy(e, "overflowuid-not-65534:");
-        r = read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid);
-        if (r >= 0 && !streq(overflowgid, "65534"))
-                e = stpcpy(e, "overflowgid-not-65534:");
+        _cleanup_free_ char *overflowuid = NULL, *overflowgid = NULL;
+        if (read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid) >= 0 &&
+            !streq(overflowuid, "65534"))
+                stage[n++] = "overflowuid-not-65534";
+        if (read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid) >= 0 &&
+            !streq(overflowgid, "65534"))
+                stage[n++] = "overflowgid-not-65534";
 
+        struct utsname uts;
         assert_se(uname(&uts) >= 0);
         if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
-                e = stpcpy(e, "old-kernel:");
+                stage[n++] = "old-kernel";
 
         if (short_uid_range("/proc/self/uid_map") > 0)
-                e = stpcpy(e, "short-uid-range:");
+                stage[n++] = "short-uid-range";
         if (short_uid_range("/proc/self/gid_map") > 0)
-                e = stpcpy(e, "short-gid-range:");
+                stage[n++] = "short-gid-range";
 
-        /* remove the last ':' */
-        if (e != buf)
-                e[-1] = 0;
+        assert(n < ELEMENTSOF(stage) - 1);  /* One extra for NULL terminator */
 
-        return buf;
+        return strv_join((char**) stage, ":");
 }
 
 void manager_ref_console(Manager *m) {
