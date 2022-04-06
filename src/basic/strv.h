@@ -101,7 +101,7 @@ static inline char** strv_split_newlines(const char *s) {
  * string in the vector is an empty string. */
 int strv_split_colon_pairs(char ***t, const char *s);
 
-char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separtor);
+char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separator);
 static inline char *strv_join(char * const *l, const char *separator) {
         return strv_join_full(l, separator, NULL, false);
 }
