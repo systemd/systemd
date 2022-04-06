@@ -201,7 +201,7 @@ $D/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79-3D
 EOF
 
     LOOP="$(losetup -P --show --find "$D/zzz")"
-    "${udevadm:?}" wait --timeout 60 --initialized=yes --settle "${LOOP:?}"
+    "${udevadm:?}" wait --timeout 60 --settle "${LOOP:?}"
 
     VOLUME="test-repart-$RANDOM"
 
