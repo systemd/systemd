@@ -123,8 +123,9 @@ typedef struct JournalFile {
 } JournalFile;
 
 typedef enum JournalFileFlags {
-        JOURNAL_COMPRESS = 1 << 0,
-        JOURNAL_SEAL     = 1 << 1,
+        JOURNAL_COMPRESS   = 1 << 0,
+        JOURNAL_SEAL       = 1 << 1,
+        JOURNAL_MULTI_BOOT = 1 << 2,
 } JournalFileFlags;
 
 int journal_file_open(
@@ -213,7 +214,7 @@ static inline uint64_t journal_file_entry_monotonic(JournalFile *f, Object *o) {
 
 static inline sd_id128_t journal_file_entry_boot_id(JournalFile *f, Object *o) {
         return JOURNAL_HEADER_COMPACT(f->header)
-                        ? o->entry.compact.boot_id
+                        ? f->header->boot_id
                         : o->entry.regular.boot_id;
 }
 

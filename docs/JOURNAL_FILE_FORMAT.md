@@ -481,7 +481,6 @@ _packed_ struct EntryObject {
                         le32_t seqnum;
                         le64_t realtime;
                         le64_t monotonic;
-                        sd_id128_t boot_id;
                         le64_t xor_hash;
                         EntryItem items[];
                 } compact;
@@ -514,7 +513,9 @@ objects, i.e. keyed by the file ID).
 If the HEADER_INCOMPATIBLE_COMPACT flag is set, Entry objects are stored in
 the format indicated by the **compact** struct instead of the **regular** struct.
 The **seqnum** field is stored as a 32-bit offset to the **head_entry_seqnum**
-field in the header.
+field in the header. The boot ID is not stored per entry anymore and is always
+identical to the **boot_id** field in the header. As a consequence, journal files
+written in compact mode are limited to a single boot ID.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
