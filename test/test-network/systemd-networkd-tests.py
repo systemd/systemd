@@ -1711,7 +1711,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                                         '25-ip6tnl-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                                         '25-veth.netdev', '25-ip6tnl-slaac.network', '25-ipv6-prefix.network',
                                         '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network',
-                                        '25-ip6tnl-external.netdev', '26-netdev-link-local-addressing-yes.network')
+                                        '25-ip6tnl-tunnel-external.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
         self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
                           'ip6tnl-slaac:degraded', 'ip6tnl-external:degraded',
