@@ -339,9 +339,10 @@ int verify_units(char **filenames, LookupScope scope, bool check_man, bool run_g
 }
 
 static const char* const recursive_errors_table[_RECURSIVE_ERRORS_MAX] = {
-        [RECURSIVE_ERRORS_NO]  = "no",
-        [RECURSIVE_ERRORS_YES] = "yes",
-        [RECURSIVE_ERRORS_ONE] = "one",
+        [RECURSIVE_ERRORS_NO]     = "no",
+        [RECURSIVE_ERRORS_YES]    = "yes",
+        [RECURSIVE_ERRORS_ONE]    = "one",
+        [RECURSIVE_ERRORS_COMPAT] = "compat",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors);
