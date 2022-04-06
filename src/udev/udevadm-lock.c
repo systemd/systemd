@@ -144,6 +144,7 @@ static int find_devno(
                 const char *device,
                 bool backing) {
 
+        _cleanup_close_ int fd = -1;
         dev_t devt, whole_devt;
         struct stat st;
         int r;
@@ -153,7 +154,11 @@ static int find_devno(
         assert(*devnos || *n_devnos == 0);
         assert(device);
 
-        if (stat(device, &st) < 0)
+        fd = open(device, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", device);
+
+        if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", device);
 
         if (S_ISBLK(st.st_mode))
@@ -166,20 +171,13 @@ static int find_devno(
                 devt = st.st_dev;
         else {
                 _cleanup_close_ int regfd = -1;
-                struct stat st2;
 
                 /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
                  * handing, to get the backing device node. */
 
-                regfd = open(device, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (regfd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", device);
-
-                /* Extra safety: let's check we are still looking at the same file */
-                if (fstat(regfd, &st2) < 0)
-                        return log_error_errno(errno, "Failed to stat '%s': %m", device);
-                if (!stat_inode_same(&st, &st2))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "File '%s' was replaced while we were looking at it.", device);
+                        return log_error_errno(regfd, "Failed to open '%s': %m", device);
 
                 r = btrfs_get_block_device_fd(regfd, &devt);
                 if (r == -ENOTTY)
