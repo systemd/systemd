@@ -4383,6 +4383,7 @@ char *manager_taint_string(Manager *m) {
         assert(m);
 
         buf = new(char, sizeof("split-usr:"
+                               "unmerged-usr:"
                                "cgroups-missing:"
                                "cgroupsv1:"
                                "local-hwclock:"
@@ -4400,6 +4401,10 @@ char *manager_taint_string(Manager *m) {
 
         if (m->taint_usr)
                 e = stpcpy(e, "split-usr:");
+
+        _cleanup_free_ char *usrbin = NULL;
+        if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
+                e = stpcpy(e, "unmerged-usr:");
 
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
