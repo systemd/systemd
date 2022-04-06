@@ -3,11 +3,6 @@
 # The lookup keys are composed in:
 #   60-sensor.rules
 #
-# Note: The format of the "sensor:" prefix match key is a contract between the
-# rules file and the hardware data, it might change in later revisions to
-# support more or better matches, it is not necessarily expected to be a stable
-# ABI.
-#
 # Match string formats:
 # sensor:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 #
