@@ -158,12 +158,6 @@ static int run(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        if (strstr_ptr(ci_environment(), "autopkgtest") || strstr_ptr(ci_environment(), "github-actions")) {
-                // FIXME: we should reenable this one day
-                log_tests_skipped("Skipping test on Ubuntu autopkgtest CI/GH Actions, test too slow and installed udev too flakey.");
-                return EXIT_TEST_SKIP;
-        }
-
         /* This is a test for the loopback block device setup code and it's use by the image dissection
          * logic: since the kernel APIs are hard use and prone to races, let's test this in a heavy duty
          * test: we open a bunch of threads and repeatedly allocate and deallocate loopback block devices in
