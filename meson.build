@@ -47,6 +47,9 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # More items are added later after they have been detected.
 summary({'build mode' : get_option('mode')})
 
+# GCOV doesn't define any macro when compiled with, so let's define it ourselves
+conf.set10('BUILT_WITH_COVERAGE', get_option('b_coverage'))
+
 #####################################################################
 
 # Try to install the git pre-commit hook
