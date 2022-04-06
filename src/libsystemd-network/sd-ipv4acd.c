@@ -332,7 +332,7 @@ static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, const struct ether_arp *arp, b
         if (acd->check_mac_callback &&
             acd->check_mac_callback(acd, (const struct ether_addr*) arp->arp_sha, acd->check_mac_userdata) > 0)
                 /* sender hardware is one of the host's interfaces, ignoring. */
-                return true;
+                return false;
 
         return true; /* conflict! */
 }
