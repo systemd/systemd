@@ -175,7 +175,7 @@ mkdir -p /tmp/testsuite-58-issue-21817-defs/
 truncate -s 100m /var/tmp/testsuite-58-issue-21817.img
 LOOP=$(losetup -P --show -f /var/tmp/testsuite-58-issue-21817.img)
 udevadm wait --timeout 60 --settle "${LOOP:?}"
-printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk -X gpt "$LOOP"
+printf 'size=50M,type=%s\n,\n' "${root_guid}" | sfdisk --lock -X gpt "$LOOP"
 cat >/tmp/testsuite-58-issue-21817-defs/test.conf <<EOF
 [Partition]
 Type=root
