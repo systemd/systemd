@@ -78,6 +78,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* get_color_mode() should probably check the $COLORTERM environment variable
+  which most terminal environments appear to set.
+
+* firstboot: maybe just default to C.UTF-8 locale if nothing is set, so that we
+  don't query this unnecessarily in entirely uninitialized
+  containers. (i.e. containers with empty /etc).
+
 * systemd creds hookup with qemu fw_cfg. (Quite possibly might not need any
   code at all, given the fw_cfg stuff are just files, but we should then
   document how to use it). Goal: provide symmetric ways to pass creds to nspawn
