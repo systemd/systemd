@@ -872,12 +872,22 @@ static int mount_in_namespace(
 
         mount_tmp_created = true;
 
-        if (is_image)
-                r = verity_dissect_and_mount(FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, options, NULL, NULL, NULL, NULL);
-        else
+        if (is_image) {
+                _cleanup_free_ char *chased_src_path = NULL;
+
+                /* For the dm-verity autodiscovery to work, we need to pass the original path. */
+                r = fd_get_path(chased_src_fd, &chased_src_path);
+                if (r < 0)
+                        goto finish;
+
+                r = verity_dissect_and_mount(chased_src_path, mount_tmp, options, NULL, NULL, NULL, NULL);
+                if (r < 0)
+                        goto finish;
+        } else {
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
-        if (r < 0)
-                goto finish;
+                if (r < 0)
+                        goto finish;
+        }
 
         mount_tmp_mounted = true;
 
