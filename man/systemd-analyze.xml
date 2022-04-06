@@ -818,11 +818,13 @@ $ systemd-analyze verify /tmp/source:alias.service
 
         <listitem><para>Control verification of units and their dependencies and whether
         <command>systemd-analyze verify</command> exits with a non-zero process exit status or not. With
+        <command>never</command>, return zero as the exit status regardless of whether warnings arise during
+        verification of the specified unit or any of its associated dependencies. This is the default. With
         <command>yes</command>, return a non-zero process exit status when warnings arise during verification
-        of either the specified unit or any of its associated dependencies. This is the default. With
-        <command>no</command>, return a non-zero process exit status when warnings arise during verification
-        of only the specified unit. With <command>one</command>, return a non-zero process exit status when
-        warnings arise during verification of either the specified unit or its immediate dependencies. </para></listitem>
+        of either the specified unit or any of its associated dependencies. With <command>no</command>,
+        return a non-zero process exit status when warnings arise during verification of only the specified
+        unit. With <command>one</command>, return a non-zero process exit status when warnings arise during
+        verification of either the specified unit or its immediate dependencies. </para></listitem>
       </varlistentry>
 
       <varlistentry>
