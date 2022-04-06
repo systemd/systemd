@@ -51,7 +51,7 @@ foreach file : rules_in
                 file,
                 input : file + '.in',
                 output: file,
-                command : [meson_render_jinja2, config_h, '@INPUT@', '@OUTPUT@'],
+                command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : true,
                 install_dir : udevrulesdir)
 endforeach
