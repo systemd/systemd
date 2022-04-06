@@ -1216,7 +1216,7 @@ static int mount_image(const MountEntry *m, const char *root_directory) {
         }
 
         r = verity_dissect_and_mount(
-                                mount_entry_source(m), mount_entry_path(m), m->image_options,
+                                /* src_fd= */ -1, mount_entry_source(m), mount_entry_path(m), m->image_options,
                                 host_os_release_id, host_os_release_version_id, host_os_release_sysext_level, NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
