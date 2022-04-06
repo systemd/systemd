@@ -966,9 +966,6 @@ static int update_devnode(UdevEvent *event) {
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(dev, r, "Failed to get devnode mode: %m");
         }
-        if (event->mode == MODE_INVALID && gid_is_valid(event->gid) && event->gid > 0)
-                /* If group is set, but mode is not set, "upgrade" mode for the group. */
-                event->mode = 0660;
 
         bool apply_mac = device_for_action(dev, SD_DEVICE_ADD);
 
