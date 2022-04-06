@@ -10,10 +10,12 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "main-func.h"
 #include "missing_loop.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -21,8 +23,9 @@
 #include "user-util.h"
 #include "virt.h"
 
-#define N_THREADS 5
-#define N_ITERATIONS 3
+static unsigned arg_n_threads = 5;
+static unsigned arg_n_iterations = 3;
+static usec_t arg_timeout = 0;
 
 static usec_t end = 0;
 
@@ -30,7 +33,7 @@ static void* thread_func(void *ptr) {
         int fd = PTR_TO_FD(ptr);
         int r;
 
-        for (unsigned i = 0; i < N_ITERATIONS; i++) {
+        for (unsigned i = 0; i < arg_n_iterations; i++) {
                 _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
                 _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
@@ -106,20 +109,44 @@ static bool have_root_gpt_type(void) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_free_ char *p = NULL, *cmd = NULL;
         _cleanup_(pclosep) FILE *sfdisk = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -1;
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
-        pthread_t threads[N_THREADS];
-        sd_id128_t id;
         int r;
 
         test_setup_logging(LOG_DEBUG);
         log_show_tid(true);
         log_show_time(true);
+        log_show_color(true);
+
+        if (argc >= 2) {
+                r = safe_atou(argv[1], &arg_n_threads);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse first argument (number of threads): %s", argv[1]);
+                if (arg_n_threads <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Number of threads must be at least 1, refusing.");
+        }
+
+        if (argc >= 3) {
+                r = safe_atou(argv[2], &arg_n_iterations);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse second argument (number of iterations): %s", argv[2]);
+                if (arg_n_iterations <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Number of iterations must be at least 1, refusing.");
+        }
+
+        if (argc >= 4) {
+                r = parse_sec(argv[3], &arg_timeout);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse third argument (timeout): %s", argv[3]);
+        }
+
+        if (argc >= 5)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments (expected 3 at max).");
+
+        pthread_t threads[arg_n_threads];
 
         if (!have_root_gpt_type()) {
                 log_tests_skipped("No root partition GPT defined for this architecture, exiting.");
@@ -128,12 +155,6 @@ int main(int argc, char *argv[]) {
 
         if (detect_container() > 0) {
                 log_tests_skipped("Test not supported in a container, requires udev/uevent notifications.");
-                return EXIT_TEST_SKIP;
-        }
-
-        if (strstr_ptr(ci_environment(), "autopkgtest") || strstr_ptr(ci_environment(), "github-actions")) {
-                // FIXME: we should reenable this one day
-                log_tests_skipped("Skipping test on Ubuntu autopkgtest CI/GH Actions, test too slow and installed udev too flakey.");
                 return EXIT_TEST_SKIP;
         }
 
@@ -187,6 +208,12 @@ int main(int argc, char *argv[]) {
         sfdisk = NULL;
 
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, &loop) >= 0);
+
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
+        sd_id128_t id;
+
         assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
@@ -223,27 +250,39 @@ int main(int argc, char *argv[]) {
 
         log_notice("Threads are being started now");
 
-        /* Let's make sure we run for 10s on slow systems at max */
-        end = usec_add(now(CLOCK_MONOTONIC),
-                       slow_tests_enabled() ? 5 * USEC_PER_SEC :
-                       1 * USEC_PER_SEC);
+        /* zero timeout means pick default: let's make sure we run for 10s on slow systems at max */
+        if (arg_timeout == 0)
+                arg_timeout = slow_tests_enabled() ? 5 * USEC_PER_SEC : 1 * USEC_PER_SEC;
 
-        for (unsigned i = 0; i < N_THREADS; i++)
-                assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
+        end = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
+
+        if (arg_n_threads > 1) {
+                for (unsigned i = 0; i < arg_n_threads; i++)
+                        assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
+        }
 
         log_notice("All threads started now.");
 
-        for (unsigned i = 0; i < N_THREADS; i++) {
-                log_notice("Joining thread #%u.", i);
+        if (arg_n_threads == 1)
+                assert_se(thread_func(FD_TO_PTR(fd)) == NULL);
+        else {
+                for (unsigned i = 0; i < arg_n_threads; i++) {
+                        log_notice("Joining thread #%u.", i);
 
-                void *k;
-                assert_se(pthread_join(threads[i], &k) == 0);
-                assert_se(k == NULL);
+                        void *k;
+                        assert_se(pthread_join(threads[i], &k) == 0);
+                        assert_se(k == NULL);
 
-                log_notice("Joined thread #%u.", i);
+                        log_notice("Joined thread #%u.", i);
+                }
         }
 
         log_notice("Threads are all terminated now.");
+#else
+        log_notice("Cutting test short, since we do not have libblkid.");
+#endif
 
         return 0;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
