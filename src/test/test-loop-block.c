@@ -114,9 +114,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(pclosep) FILE *sfdisk = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -1;
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
-        sd_id128_t id;
         int r;
 
         test_setup_logging(LOG_DEBUG);
@@ -158,12 +155,6 @@ static int run(int argc, char *argv[]) {
 
         if (detect_container() > 0) {
                 log_tests_skipped("Test not supported in a container, requires udev/uevent notifications.");
-                return EXIT_TEST_SKIP;
-        }
-
-        if (strstr_ptr(ci_environment(), "autopkgtest") || strstr_ptr(ci_environment(), "github-actions")) {
-                // FIXME: we should reenable this one day
-                log_tests_skipped("Skipping test on Ubuntu autopkgtest CI/GH Actions, test too slow and installed udev too flakey.");
                 return EXIT_TEST_SKIP;
         }
 
@@ -217,6 +208,12 @@ static int run(int argc, char *argv[]) {
         sfdisk = NULL;
 
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, LO_FLAGS_PARTSCAN, &loop) >= 0);
+
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted = NULL;
+        sd_id128_t id;
+
         assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
@@ -281,6 +278,9 @@ static int run(int argc, char *argv[]) {
         }
 
         log_notice("Threads are all terminated now.");
+#else
+        log_notice("Cutting test short, since we do not have libblkid.");
+#endif
 
         return 0;
 }
