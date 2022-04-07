@@ -271,8 +271,10 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         assert(pid > 1);
 
         r = sd_event_add_child(manager->event, &s, pid, WEXITED, on_sigchld, manager);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_error_errno(r, "Failed to add child event source for worker ["PID_FMT"]: %m", pid);
+                assert_not_reached();
+        }
 
         /* close monitor, but keep address around */
         device_monitor_disconnect(worker_monitor);
