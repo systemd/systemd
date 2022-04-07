@@ -9,7 +9,7 @@
 #include "path-util.h"
 #include "string-util.h"
 
-int systemd_installation_has_version(const char *root, unsigned minimal_version) {
+int systemd_installation_has_version(const char *root, const char *minimal_version) {
         const char *pattern;
         int r;
 
@@ -48,7 +48,6 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 STRV_FOREACH(name, names) {
                         /* This is most likely to run only once, hence let's not optimize anything. */
                         char *t, *t2;
-                        unsigned version;
 
                         t = startswith(*name, path);
                         if (!t)
@@ -57,19 +56,13 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                         t2 = endswith(t, ".so");
                         if (!t2)
                                 continue;
+                        *t2 = '\0';
 
-                        t2[0] = '\0'; /* truncate the suffix */
-
-                        r = safe_atou(t, &version);
-                        if (r < 0) {
-                                log_debug_errno(r, "Found libsystemd shared at \"%s.so\", but failed to parse version: %m", *name);
-                                continue;
-                        }
-
-                        log_debug("Found libsystemd shared at \"%s.so\", version %u (%s).",
-                                  *name, version,
-                                  version >= minimal_version ? "OK" : "too old");
-                        if (version >= minimal_version)
+                        r = strverscmp_improved(t, minimal_version);
+                        log_debug("Found libsystemd shared at \"%s.so\", version %s (%s).",
+                                  *name, t,
+                                  r >= 0 ? "OK" : "too old");
+                        if (r >= 0)
                                 return true;
                 }
         }
