@@ -2980,6 +2980,11 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
+        /* Make sure udevd doesn't issue BLKRRPART behind our backs */
+        r = loop_device_flock(d, LOCK_SH);
+        if (r < 0)
+                return r;
+
         r = dissect_image_and_warn(d->fd, image, &verity, NULL, d->diskseq, d->uevent_seqnum_not_before, d->timestamp_not_before, flags, &dissected_image);
         if (r < 0)
                 return r;
@@ -3003,6 +3008,10 @@ int mount_image_privately_interactively(
         created_dir = TAKE_PTR(temp);
 
         r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, UID_INVALID, flags);
+        if (r < 0)
+                return r;
+
+        r = loop_device_flock(d, LOCK_UN);
         if (r < 0)
                 return r;
 
@@ -3086,6 +3095,10 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
 
+        r = loop_device_flock(loop_device, LOCK_SH);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to lock loop device: %m");
+
         r = dissect_image(
                         loop_device->fd,
                         &verity,
@@ -3132,6 +3145,10 @@ int verity_dissect_and_mount(
         r = dissected_image_mount(dissected_image, dest, UID_INVALID, UID_INVALID, dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
+
+        r = loop_device_flock(loop_device, LOCK_UN);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to unlock loopback device: %m");
 
         /* If we got os-release values from the caller, then we need to match them with the image's
          * extension-release.d/ content. Return -EINVAL if there's any mismatch.

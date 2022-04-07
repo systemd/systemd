@@ -639,6 +639,10 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
+        r = loop_device_flock(d, LOCK_UN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+
         if (di) {
                 r = decrypted_image_relinquish(di);
                 if (r < 0)
@@ -686,6 +690,10 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 return r;
 
         mounted_dir = TAKE_PTR(created_dir);
+
+        r = loop_device_flock(d, LOCK_UN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unlock loopback block device: %m");
 
         if (di) {
                 r = decrypted_image_relinquish(di);
@@ -844,6 +852,12 @@ static int run(int argc, char *argv[]) {
                         &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
+
+        /* Make sure udevd doesn't issue BLKRRPART underneath us thus making devices disappear in the middle,
+         * that we assume already are there. */
+        r = loop_device_flock(d, LOCK_SH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock loopback device: %m");
 
         r = dissect_image_and_warn(
                         d->fd,

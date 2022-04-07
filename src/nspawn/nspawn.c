@@ -5737,6 +5737,13 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                /* Take a LOCK_SH lock on the device, so that udevd doesn't issue BLKRRPART in our back */
+                r = loop_device_flock(loop, LOCK_SH);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to take lock on loopback block device: %m");
+                        goto finish;
+                }
+
                 r = dissect_image_and_warn(
                                 loop->fd,
                                 arg_image,
