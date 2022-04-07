@@ -473,6 +473,7 @@ sendmmsg	5302
 sendmsg	5045
 sendto	5043
 set_mempolicy	5229
+set_mempolicy_home_node	5450
 set_robust_list	5268
 set_thread_area	5242
 set_tid_address	5212
