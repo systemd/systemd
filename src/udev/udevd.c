@@ -270,7 +270,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
 
         r = sd_event_add_child(manager->event, NULL, pid, WEXITED, on_sigchld, manager);
         if (r < 0)
-                return r;
+                assert_not_reached();
 
         /* close monitor, but keep address around */
         device_monitor_disconnect(worker_monitor);
