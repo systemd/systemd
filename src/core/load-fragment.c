@@ -50,6 +50,7 @@
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-socket-bind-item.h"
+#include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"

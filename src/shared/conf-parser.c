@@ -24,6 +24,7 @@
 #include "macro.h"
 #include "missing_network.h"
 #include "nulstr-util.h"
+#include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
