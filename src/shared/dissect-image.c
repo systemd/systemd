@@ -92,20 +92,20 @@ int probe_filesystem(const char *node, char **ret_fstype) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == 1) {
-                log_debug("No type detected on partition %s", node);
+        if (r == 1)
                 goto not_found;
-        }
         if (r == -2)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Results ambiguous for partition %s", node);
         if (r != 0)
-                return errno_or_else(EIO);
+                return log_debug_errno(errno_or_else(EIO), "Failed to probe partition %s: %m", node);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
         if (fstype) {
                 char *t;
+
+                log_debug("Probed fstype '%s' on partition %s.", fstype, node);
 
                 t = strdup(fstype);
                 if (!t)
@@ -116,6 +116,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         }
 
 not_found:
+        log_debug("No type detected on partition %s", node);
         *ret_fstype = NULL;
         return 0;
 #else
