@@ -49,6 +49,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                         /* This is most likely to run only once, hence let's not optimize anything. */
                         char *t, *t2;
                         unsigned version;
+                        _cleanup_free_ char *string = NULL;
 
                         t = startswith(*name, path);
                         if (!t)
@@ -58,11 +59,17 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                         if (!t2)
                                 continue;
 
-                        t2[0] = '\0'; /* truncate the suffix */
+                        /* truncate the version suffix at the first dash, underscore, or dot. */
+                        t2 = t + strcspn(t, "-_.");
 
-                        r = safe_atou(t, &version);
+                        string = strndup(t, t2 - t);
+                        if (!string)
+                                return -ENOMEM;
+
+                        r = safe_atou(string, &version);
                         if (r < 0) {
-                                log_debug_errno(r, "Found libsystemd shared at \"%s.so\", but failed to parse version: %m", *name);
+                                log_debug_errno(r, "Found libsystemd shared at \"%s\" with version \"%s\", but failed to parse version: %m",
+                                                *name, string);
                                 continue;
                         }
 
