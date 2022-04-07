@@ -2055,6 +2055,12 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
+                /* Make sure udevd won't issue BLKRRPART (which might flush out the loaded partition table)
+                 * while we are still trying to mount things */
+                r = loop_device_flock(loop_device, LOCK_SH);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to lock loopback device with LOCK_SH: %m");
+
                 r = dissect_image(
                                 loop_device->fd,
                                 &verity,
@@ -2400,6 +2406,14 @@ int setup_namespace(
                 r = dissected_image_mount(dissected_image, root, UID_INVALID, UID_INVALID, dissect_image_flags);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount root image: %m");
+                        goto finish;
+                }
+
+                /* Now release the block device lock, so that udevd is free to call BLKRRPART on the device
+                 * if it likes. */
+                r = loop_device_flock(loop_device, LOCK_UN);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to release lock on loopback block device: %m");
                         goto finish;
                 }
 
