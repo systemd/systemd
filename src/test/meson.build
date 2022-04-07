@@ -255,7 +255,7 @@ tests += [
 
         [files('test-parse-argument.c')],
 
-        [files('test-parse-socket-bind-item.c')],
+        [files('test-parse-helpers.c')],
 
         [files('test-parse-util.c')],
 
