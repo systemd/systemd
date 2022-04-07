@@ -2,17 +2,17 @@
 
 #include "nspawn-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 TEST(systemd_installation_has_version) {
-        static const unsigned versions[] = {0, 231, PROJECT_VERSION, 999};
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(versions); i++) {
-                r = systemd_installation_has_version(saved_argv[1], versions[i]);
+        FOREACH_STRING(version, "0", "231", STRINGIFY(PROJECT_VERSION), "999") {
+                r = systemd_installation_has_version(saved_argv[1], version);
                 assert_se(r >= 0);
-                log_info("%s has systemd >= %u: %s",
-                         saved_argv[1] ?: "Current installation", versions[i], yes_no(r));
+                log_info("%s has systemd >= %s: %s",
+                         saved_argv[1] ?: "Current installation", version, yes_no(r));
         }
 }
 
