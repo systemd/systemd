@@ -33,12 +33,12 @@ bool credential_name_valid(const char *s) {
         return filename_is_valid(s) && fdname_is_valid(s);
 }
 
-int get_credentials_dir(const char **ret) {
+static int get_credentials_dir_internal(const char *envvar, const char **ret) {
         const char *e;
 
         assert(ret);
 
-        e = secure_getenv("CREDENTIALS_DIRECTORY");
+        e = secure_getenv(envvar);
         if (!e)
                 return -ENXIO;
 
@@ -47,6 +47,14 @@ int get_credentials_dir(const char **ret) {
 
         *ret = e;
         return 0;
+}
+
+int get_credentials_dir(const char **ret) {
+        return get_credentials_dir_internal("CREDENTIALS_DIRECTORY", ret);
+}
+
+int get_encrypted_credentials_dir(const char **ret) {
+        return get_credentials_dir_internal("ENCRYPTED_CREDENTIALS_DIRECTORY", ret);
 }
 
 int read_credential(const char *name, void **ret, size_t *ret_size) {

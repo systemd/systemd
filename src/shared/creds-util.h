@@ -26,7 +26,13 @@
 
 bool credential_name_valid(const char *s);
 
+/* Where creds have been passed to the local execution context */
 int get_credentials_dir(const char **ret);
+int get_encrypted_credentials_dir(const char **ret);
+
+/* Where creds have been passed to the system */
+#define SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@system"
+#define ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@encrypted"
 
 int read_credential(const char *name, void **ret, size_t *ret_size);
 
