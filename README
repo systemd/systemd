@@ -37,6 +37,7 @@ REQUIREMENTS:
                      ≥ 4.10 for cgroup-bpf egress and ingress hooks
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks
+                     ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.3 for bounded loops in BPF program
                      ≥ 5.4 for signed Verity images
                      ≥ 5.7 for BPF links and the BPF LSM hook
