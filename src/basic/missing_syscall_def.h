@@ -4,6 +4,7 @@
  * Use 'ninja -C build update-syscall-tables' to download new syscall tables,
  * and 'ninja -C build update-syscall-header' to regenerate this file.
  */
+#pragma once
 
 /* Note: if this code looks strange, this is because it is derived from the same
  * template as the per-syscall blocks below. */
