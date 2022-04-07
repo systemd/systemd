@@ -9,7 +9,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
     "--optimization=0"
-    "--optimization=s"
+    "--optimization=s -Dgnu-efi=true -Defi-cflags=-m32 -Defi-libdir=/usr/lib32"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"
@@ -27,6 +27,7 @@ PACKAGES=(
     kbd
     libblkid-dev
     libbpf-dev
+    libc6-dev-i386
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -93,7 +94,7 @@ elif [[ "$COMPILER" == gcc ]]; then
     # Latest gcc stack deb packages provided by
     # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
     add-apt-repository -y ppa:ubuntu-toolchain-r/test
-    PACKAGES+=("gcc-$COMPILER_VERSION")
+    PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
 else
     fatal "Unknown compiler: $COMPILER"
 fi
