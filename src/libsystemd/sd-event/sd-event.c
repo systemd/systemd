@@ -1426,7 +1426,6 @@ _public_ int sd_event_add_child(
                 return -ENOMEM;
 
         s->wakeup = WAKEUP_EVENT_SOURCE;
-        s->child.pid = pid;
         s->child.options = options;
         s->child.callback = callback;
         s->userdata = userdata;
@@ -1436,7 +1435,7 @@ _public_ int sd_event_add_child(
          * pin the PID, and make regular waitid() handling race-free. */
 
         if (shall_use_pidfd()) {
-                s->child.pidfd = pidfd_open(s->child.pid, 0);
+                s->child.pidfd = pidfd_open(pid, 0);
                 if (s->child.pidfd < 0) {
                         /* Propagate errors unless the syscall is not supported or blocked */
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
@@ -1445,10 +1444,6 @@ _public_ int sd_event_add_child(
                         s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
         } else
                 s->child.pidfd = -1;
-
-        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
-        if (r < 0)
-                return r;
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We have a pidfd and we only want to watch for exit */
@@ -1465,6 +1460,12 @@ _public_ int sd_event_add_child(
                 e->need_process_child = true;
         }
 
+        r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
+        if (r < 0)
+                return r;
+
+        /* These must be done after everything succeeds. */
+        s->child.pid = pid;
         e->n_online_child_sources++;
 
         if (ret)
