@@ -16,7 +16,6 @@
 int locale_setup(char ***environment) {
         _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **add = NULL;
-        LocaleVariable i;
         int r;
 
         r = proc_cmdline_get_key_many(PROC_CMDLINE_STRIP_RD_PREFIX,
@@ -58,7 +57,7 @@ int locale_setup(char ***environment) {
                         log_warning_errno(r, "Failed to read /etc/locale.conf: %m");
         }
 
-        for (i = 0; i < _VARIABLE_LC_MAX; i++) {
+        for (LocaleVariable i = 0; i < _VARIABLE_LC_MAX; i++) {
                 char *s;
 
                 if (!variables[i])
