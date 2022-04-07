@@ -23,10 +23,10 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                         * usr-merge, where /lib is a symlink to /usr/lib. /usr/lib is necessary
                         * for Gentoo which does a merge without making /lib a symlink.
                         */
-                       "lib/systemd/libsystemd-shared-*.so\0"
-                       "lib64/systemd/libsystemd-shared-*.so\0"
-                       "usr/lib/systemd/libsystemd-shared-*.so\0"
-                       "usr/lib64/systemd/libsystemd-shared-*.so\0") {
+                       "/lib/systemd/libsystemd-shared-*.so\0"
+                       "/lib64/systemd/libsystemd-shared-*.so\0"
+                       "/usr/lib/systemd/libsystemd-shared-*.so\0"
+                       "/usr/lib64/systemd/libsystemd-shared-*.so\0") {
 
                 _cleanup_strv_free_ char **names = NULL;
                 _cleanup_free_ char *path = NULL;

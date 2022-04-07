@@ -16,4 +16,7 @@ TEST(systemd_installation_has_version) {
         }
 }
 
+/* This program can be called with a path to an installation root.
+ * For example: build/test-nspawn-util /var/lib/machines/rawhide
+ */
 DEFINE_TEST_MAIN(LOG_DEBUG);
