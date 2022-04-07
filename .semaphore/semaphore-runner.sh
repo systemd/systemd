@@ -96,10 +96,6 @@ EOF
             rm -rf debian/patches
             # disable autopkgtests which are not for upstream
             sed -i '/# NOUPSTREAM/ q' debian/tests/control
-            # TODO: rebooting via autopkgtest-reboot seems to be broken, disable these tests for now
-            sed -i -n '1,/Tests: boot-and-services/p;/Tests: udev/,$p' debian/tests/control
-            sed -i '/Tests: boot-and-services/d' debian/tests/control
-            sed -i '/Tests: boot-smoke/,$d' debian/tests/control
             # enable more unit tests
             sed -i '/^CONFFLAGS =/ s/=/= --werror -Dtests=unsafe -Dsplit-usr=true -Dslow-tests=true -Dfuzz-tests=true -Dman=true /' debian/rules
             # no orig tarball
