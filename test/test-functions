@@ -1406,8 +1406,8 @@ check_coverage_reports() {
     # usually due to the sandbox being too restrictive (e.g. ProtectSystem=yes,
     # ProtectHome=yes) or the $BUILD_DIR being inaccessible to non-root users - see
     # `setfacl` stuff in install_compiled_systemd().
-
-    if "${JOURNALCTL:?}" -q --no-pager -D "${root:?}/var/log/journal" --grep "profiling:.+?gcda:[Cc]annot open"; then
+    if ! get_bool "${IGNORE_MISSING_COVERAGE:=}" && \
+       "${JOURNALCTL:?}" -q --no-pager -D "${root:?}/var/log/journal" --grep "profiling:.+?gcda:[Cc]annot open"; then
         derror "Detected possibly missing coverage, check the journal"
         return 1
     fi
