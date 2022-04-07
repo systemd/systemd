@@ -1196,6 +1196,12 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         return r;
 
+                /* Make sure udevd doesn't issue BLKRRPART in the background which might make our partitions
+                 * disappear temporarily. */
+                r = loop_device_flock(d, LOCK_SH);
+                if (r < 0)
+                        return r;
+
                 r = dissect_image(
                                 d->fd,
                                 NULL, NULL,

@@ -533,6 +533,10 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
+                        r = loop_device_flock(d, LOCK_SH);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to lock loopback device: %m");
+
                         r = dissect_image_and_warn(
                                         d->fd,
                                         img->path,

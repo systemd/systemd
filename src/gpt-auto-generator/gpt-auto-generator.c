@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -695,6 +696,12 @@ static int enumerate_partitions(dev_t devnum) {
         r = open_parent_block_device(devnum, &fd);
         if (r <= 0)
                 return r;
+
+        /* Let's take a LOCK_SH lock on the block device, in case udevd is already running. If we don't take
+         * the lock, udevd might end up issuing BLKRRPART in the middle, and we don't want that, since that
+         * might remove all partitions while we are operating on them. */
+        if (flock(fd, LOCK_SH) < 0)
+                return log_error_errno(errno, "Failed to lock root block device: %m");
 
         r = dissect_image(
                         fd,
