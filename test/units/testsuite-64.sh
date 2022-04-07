@@ -535,6 +535,39 @@ testcase_long_sysfs_path() {
     rm -fr "${logfile:?}" "${mpoint:?}"
 }
 
+testcase_mdadm_basic() {
+    local raid_name uuid
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo "Mirror raid"
+    raid_name="mdmirror"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000001"
+    expected_symlinks=(
+        "/dev/md/$raid_name"
+        "/dev/disk/by-id/md-name-H:mdmirror"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/mdadm_mirror" # ext4 partition
+    )
+    # Create a simple RAID 1 with an ext4 filesystem
+    echo y | mdadm --create "${expected_symlinks[0]}" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    udevadm wait --settle --timeout=30 "${expected_symlinks[0]}"
+    mkfs.ext4 -L mdadm_mirror "/dev/md/$raid_name"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    mdadm -v --stop "${expected_symlinks[0]}"
+    udevadm settle
+    helper_check_device_symlinks
+    # Reassemble it and check if all requires symlinks exist
+    mdadm --assemble "${expected_symlinks[0]}" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+}
+
 : >/failed
 
 udevadm settle
