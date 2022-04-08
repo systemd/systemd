@@ -239,7 +239,7 @@ CHANGES WITH 251:
           normalized unit file path, which is particularly useful for symlinked
           unit files.
 
-          The new %R specifier resolves to the pretty hostname
+          The new %q specifier resolves to the pretty hostname
           (i.e. PRETTY_HOSTNAME= from /etc/machine-info).
 
           The new %d specifier resolves to the credentials directory of a

@@ -2097,7 +2097,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <!-- We do not use the common definition from standard-specifiers.xml here since we want a
                  slightly more verbose explanation here, referring to the reload cycle. -->
-            <entry><literal>%R</literal></entry>
+            <entry><literal>%q</literal></entry>
             <entry>Pretty host name</entry>
             <entry>The pretty hostname of the running system at the point in time the unit configuration is loaded, as read from the <varname>PRETTY_HOSTNAME=</varname> field of <filename>/etc/machine-info</filename>. If not set, resolves to the short hostname. See <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
