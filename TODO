@@ -78,6 +78,25 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-fstab-generator: support addition mount specifications via kernel
+  cmdline. Usecase: invoke a VM, and mount a host homedir into it via
+  virtio-fs.
+
+* for vendor-built signed initrds:
+  - sysext should pick up sysext images from /.extra/ in the initrd, and insist
+    on verification
+  - kernel-install should be able to install pre-built unified kernel images in
+    type #2 drop-in dir in the ESP.
+  - kernel-install should be able encrypt creds automatically from machine id,
+    root pw, rootfs uuid, resum partition uuid, and place next to EFI kernel,
+    for sd-stub to pick them up
+  - systemd-fstab-generator should look for rootfs device to mount in creds
+  - pid 1 should look for machine ID in creds
+  - make sysext run in the initrd
+  - sd-stub: automatically pick up microcode from ESP and synthesize initrd from
+    it, and measure it. Signing is not necessary, as microcode does that on its
+    own. Pass as first initrd to kernel.
+
 * Add a new service type very similar to Type=notify, that goes one step
   further and extends the protocol to cover reloads. Specifically, SIGHUP will
   become the official way to reload, and daemon has to respond with sd_notify()
@@ -329,10 +348,6 @@ Features:
   of dracut's shutdown logic. Should probably support sysexts too. Care needs
   to be taken that the resulting logic ends up in RAM, i.e. is copied out of
   on-disk storage.
-
-* sd-stub: automatically pick up microcode from ESP and synthesize initrd from
-  it, and measure it. Signing is not necessary, as microcode does that on its
-  own. Pass as first initrd to kernel.
 
 * userdbd: implement an additional varlink service socket that provides the
   host user db in restricted form, then allow this to be bind mounted into
