@@ -2,6 +2,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "env-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -37,7 +38,9 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
         }
 
         init = empty_to_null(init);
-        if (init) {
+        if (getenv_bool("SYSTEMCTL_FORCE_HANDOVER") > 0)
+            init = NULL;
+        else if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
                 root_systemd_path = prefix_roota(root, "/" SYSTEMD_BINARY_PATH);

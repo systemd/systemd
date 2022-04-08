@@ -119,6 +119,9 @@ All tools:
 
 * `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call SysV compatibility hooks.
 
+* `$SYSTEMCTL_FORCE_HANDOVER=1` — if set, assume that systemd is switching to
+  another systemd on `systemctl switch-root`.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
