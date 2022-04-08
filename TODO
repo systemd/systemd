@@ -78,6 +78,18 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add a new service type very similar to Type=notify, that goes one step
+  further and extends the protocol to cover reloads. Specifically, SIGHUP will
+  become the official way to reload, and daemon has to respond with sd_notify()
+  to report when it starts reloading, and when it is complete reloading. Care
+  must be taken to remove races from this model. I.e. PID 1 needs to take
+  CLOCK_MONOTONIC, then send SIGHUP, then wait for at least one RELOADING=1
+  message that comes with a newer timestamp, then wait for a READY=1 message.
+  while we are at it, also maybe extend the logic to require handling of some
+  specific SIGRT signal for setting debug log level, that carries the level via
+  the sigqueue() data parameter. With that we extended with minimal logic the
+  service runtime logic quite substantially.
+
 * get_color_mode() should probably check the $COLORTERM environment variable
   which most terminal environments appear to set.
 
@@ -1465,7 +1477,7 @@ Features:
   specified, synthesize a definition automatically if we can: enlarge last
   partition on disk, but only if it is marked for growing and not read-only.
 
-* systemd-repart: read LUKS encryption key from $CREDENTIALS_PATH
+* systemd-repart: read LUKS encryption key from $CREDENTIALS_DIRECTORY
 
 * systemd-repart: add a switch to factory reset the partition table without
   immediately applying the new configuration again. i.e. --factory-reset=leave
