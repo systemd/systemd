@@ -103,7 +103,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         r = open_credential_directory(&d);
         if (r == -ENXIO)
-                return log_error_errno(r, "No credentials received. (i.e. $CREDENTIALS_PATH not set or pointing to empty directory.)");
+                return log_error_errno(r, "No credentials received. (i.e. $CREDENTIALS_DIRECTORY not set or pointing to empty directory.)");
         if (r < 0)
                 return log_error_errno(r, "Failed to open credentials directory: %m");
 
