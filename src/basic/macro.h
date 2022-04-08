@@ -29,19 +29,6 @@
 #define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
 #define _warn_unused_result_ __attribute__((__warn_unused_result__))
 
-#if defined(BUILT_WITH_COVERAGE) && BUILT_WITH_COVERAGE
-/* We need to explicitly call __gcov_dump() in places where we use _exit(), since
- * _exit() skips at-exit hooks resulting in lost coverage */
-#  include <unistd.h>
-extern void __gcov_dump(void);
-
-_noreturn_ static inline void _coverage__exit(int status) {
-        __gcov_dump();
-        _exit(status);
-}
-#  define _exit(x) _coverage__exit(x)
-#endif
-
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
 #  if defined(__has_feature)
 #    if __has_feature(memory_sanitizer)
