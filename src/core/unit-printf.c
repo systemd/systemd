@@ -195,8 +195,8 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
 }
 
 int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, char **ret) {
-        /* This is similar to unit_name_printf() but also supports unescaping. Also, adds a couple of additional codes
-         * (which are likely not suitable for unescaped inclusion in unit names):
+        /* This is similar to unit_name_printf() but also supports unescaping. Also, adds a couple of
+         * additional codes (which are likely not suitable for unescaped inclusion in unit names):
          *
          * %f: the unescaped instance if set, otherwise the id unescaped as path
          *
@@ -214,9 +214,9 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
          * %h: the homedir of the running user
          * %s: the shell of the running user
          *
-         * NOTICE: When you add new entries here, please be careful: specifiers which depend on settings of the unit
-         * file itself are broken by design, as they would resolve differently depending on whether they are used
-         * before or after the relevant configuration setting. Hence: don't add them.
+         * NOTICE: When you add new entries here, please be careful: specifiers which depend on settings of
+         * the unit file itself are broken by design, as they would resolve differently depending on whether
+         * they are used before or after the relevant configuration setting. Hence: don't add them.
          */
 
         assert(u);
@@ -237,9 +237,9 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
                 { 'y', specifier_real_path,                u->fragment_path },
                 { 'Y', specifier_real_directory,           u->fragment_path },
 
-                { 'c', specifier_cgroup,                   NULL },
-                { 'r', specifier_cgroup_slice,             NULL },
-                { 'R', specifier_cgroup_root,              NULL },
+                { 'c', specifier_cgroup,                   NULL },  /* deprecated, see 1b89b0c499cd4bf0ff389caab4ecaae6e75f9d4e */
+                { 'r', specifier_cgroup_slice,             NULL },  /* deprecated, see 1b89b0c499cd4bf0ff389caab4ecaae6e75f9d4e */
+                { 'R', specifier_cgroup_root,              NULL },  /* deprecated, see 1b89b0c499cd4bf0ff389caab4ecaae6e75f9d4e */
 
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'd', specifier_credentials_dir,          NULL },
