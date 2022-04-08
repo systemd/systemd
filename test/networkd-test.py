@@ -91,7 +91,7 @@ def setUpModule():
 def tearDownModule():
     global tmpmounts
     for d in tmpmounts:
-        subprocess.check_call(["umount", d])
+        subprocess.check_call(["umount", "--lazy", d])
     for u in stopped_units:
         subprocess.call(["systemctl", "stop", u])
     for u in running_units:
