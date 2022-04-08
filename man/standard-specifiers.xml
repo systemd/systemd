@@ -34,11 +34,6 @@
     <entry>Short host name</entry>
     <entry>The hostname of the running system, truncated at the first dot to remove any domain component.</entry>
   </row>
-  <row id='R'>
-    <entry><literal>%R</literal></entry>
-    <entry>Pretty host name</entry>
-    <entry>The pretty hostname of the running system, as read from the <varname>PRETTY_HOSTNAME=</varname> field of <filename>/etc/machine-info</filename>. If not set, resolves to the short hostname. See <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-  </row>
   <row id='m'>
     <entry><literal>%m</literal></entry>
     <entry>Machine ID</entry>
@@ -53,6 +48,11 @@
     <entry><literal>%o</literal></entry>
     <entry>Operating system ID</entry>
     <entry>The operating system identifier of the running system, as read from the <varname>ID=</varname> field of <filename>/etc/os-release</filename>. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='q'>
+    <entry><literal>%q</literal></entry>
+    <entry>Pretty host name</entry>
+    <entry>The pretty hostname of the running system, as read from the <varname>PRETTY_HOSTNAME=</varname> field of <filename>/etc/machine-info</filename>. If not set, resolves to the short hostname. See <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
   </row>
   <row id='T'>
     <entry><literal>%T</literal></entry>
