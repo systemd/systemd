@@ -400,11 +400,11 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         /* ACPI _SUN — slot user number */
         r = sd_device_new_from_subsystem_sysname(&pci, "subsystem", "pci");
         if (r < 0)
-                return log_debug_errno(r, "sd_device_new_from_subsystem_sysname failed: %m");
+                return log_debug_errno(r, "sd_device_new_from_subsystem_sysname() failed: %m");
 
         r = sd_device_get_syspath(pci, &syspath);
         if (r < 0)
-                return log_device_debug_errno(pci, r, "sd_device_get_syspath failed: %m");
+                return log_device_debug_errno(pci, r, "sd_device_get_syspath() failed: %m");
 
         if (!snprintf_ok(slots, sizeof slots, "%s/slots", syspath))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
@@ -504,11 +504,11 @@ static int names_vio(sd_device *dev, NetNames *names) {
         /* check if our direct parent is a VIO device with no other bus in-between */
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent failed: %m");
+                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
 
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem failed: %m");
+                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
         if (!streq("vio", subsystem))
                 return -ENOENT;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
@@ -519,7 +519,7 @@ static int names_vio(sd_device *dev, NetNames *names) {
          * there should only ever be one bus, and then remove leading zeros. */
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath failed: %m");
+                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
 
         r = sscanf(syspath, "/sys/devices/vio/%4x%4x/net/eth%u", &busid, &slotid, &ethid);
         log_device_debug(dev, "Parsing vio slot information from syspath \"%s\": %s",
@@ -547,11 +547,11 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         /* check if our direct parent is a platform device with no other bus in-between */
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent failed: %m");
+                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
 
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem failed: %m");
+                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
 
         if (!streq("platform", subsystem))
                  return -ENOENT;
@@ -559,7 +559,7 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath failed: %m");
+                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
 
         /* syspath is too short, to have a valid ACPI instance */
         if (strlen(syspath) < STRLEN(PLATFORM_TEST) + 1)
