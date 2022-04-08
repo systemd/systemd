@@ -166,7 +166,7 @@ bool dns_search_domain_unlink_marked(DnsSearchDomain *first) {
         } else
                 changed = false;
 
-        return changed || dns_search_domain_unlink_marked(next);
+        return dns_search_domain_unlink_marked(next) || changed;
 }
 
 void dns_search_domain_mark_all(DnsSearchDomain *first) {
