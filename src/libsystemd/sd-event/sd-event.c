@@ -706,6 +706,9 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
                 return;
         }
 
+        if (event_pid_changed(e))
+                return;
+
         assert(d->fd >= 0);
 
         if (signalfd(d->fd, &d->sigset, SFD_NONBLOCK|SFD_CLOEXEC) < 0)
