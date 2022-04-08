@@ -1310,7 +1310,7 @@ static const sd_bus_vtable machine_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("OpenShell",
                                 SD_BUS_ARGS("s", user, "s", path, "as", args, "as", environment),
-                                SD_BUS_RESULT("h", pty, "s",pty_path),
+                                SD_BUS_RESULT("h", pty, "s", pty_path),
                                 bus_machine_method_open_shell,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("BindMount",
