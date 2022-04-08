@@ -3218,23 +3218,16 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
 
         e->need_process_child = false;
 
-        /*
-           So, this is ugly. We iteratively invoke waitid() with P_PID
-           + WNOHANG for each PID we wait for, instead of using
-           P_ALL. This is because we only want to get child
-           information of very specific child processes, and not all
-           of them. We might not have processed the SIGCHLD even of a
-           previous invocation and we don't want to maintain a
-           unbounded *per-child* event queue, hence we really don't
-           want anything flushed out of the kernel's queue that we
-           don't care about. Since this is O(n) this means that if you
-           have a lot of processes you probably want to handle SIGCHLD
-           yourself.
-
-           We do not reap the children here (by using WNOWAIT), this
-           is only done after the event source is dispatched so that
-           the callback still sees the process as a zombie.
-        */
+        /* So, this is ugly. We iteratively invoke waitid() with P_PID + WNOHANG for each PID we wait
+         * for, instead of using P_ALL. This is because we only want to get child information of very
+         * specific child processes, and not all of them. We might not have processed the SIGCHLD event
+         * of a previous invocation and we don't want to maintain a unbounded *per-child* event queue,
+         * hence we really don't want anything flushed out of the kernel's queue that we don't care
+         * about. Since this is O(n) this means that if you have a lot of processes you probably want
+         * to handle SIGCHLD yourself.
+         *
+         * We do not reap the children here (by using WNOWAIT), this is only done after the event
+         * source is dispatched so that the callback still sees the process as a zombie. */
 
         HASHMAP_FOREACH(s, e->child_sources) {
                 assert(s->type == SOURCE_CHILD);
@@ -3251,7 +3244,9 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                 if (s->child.exited)
                         continue;
 
-                if (EVENT_SOURCE_WATCH_PIDFD(s)) /* There's a usable pidfd known for this event source? then don't waitid() for it here */
+                if (EVENT_SOURCE_WATCH_PIDFD(s))
+                        /* There's a usable pidfd known for this event source? Then don't waitid() for
+                         * it here */
                         continue;
 
                 zero(s->child.siginfo);
@@ -3266,10 +3261,9 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
                                 s->child.exited = true;
 
                         if (!zombie && (s->child.options & WEXITED)) {
-                                /* If the child isn't dead then let's
-                                 * immediately remove the state change
-                                 * from the queue, since there's no
-                                 * benefit in leaving it queued */
+                                /* If the child isn't dead then let's immediately remove the state
+                                 * change from the queue, since there's no benefit in leaving it
+                                 * queued. */
 
                                 assert(s->child.options & (WSTOPPED|WCONTINUED));
                                 (void) waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
@@ -3324,19 +3318,16 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
         assert_return(events == EPOLLIN, -EIO);
         assert(min_priority);
 
-        /* If there's a signal queued on this priority and SIGCHLD is
-           on this priority too, then make sure to recheck the
-           children we watch. This is because we only ever dequeue
-           the first signal per priority, and if we dequeue one, and
-           SIGCHLD might be enqueued later we wouldn't know, but we
-           might have higher priority children we care about hence we
-           need to check that explicitly. */
+        /* If there's a signal queued on this priority and SIGCHLD is on this priority too, then make
+         * sure to recheck the children we watch. This is because we only ever dequeue the first signal
+         * per priority, and if we dequeue one, and SIGCHLD might be enqueued later we wouldn't know,
+         * but we might have higher priority children we care about hence we need to check that
+         * explicitly. */
 
         if (sigismember(&d->sigset, SIGCHLD))
                 e->need_process_child = true;
 
-        /* If there's already an event source pending for this
-         * priority we don't read another */
+        /* If there's already an event source pending for this priority we don't read another */
         if (d->current)
                 return 0;
 
