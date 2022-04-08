@@ -622,6 +622,9 @@ static int mount_add_extras(Mount *m) {
 
         if (!m->where) {
                 r = unit_name_to_path(u->id, &m->where);
+                if (r == -ENAMETOOLONG)
+                        log_unit_error_errno(u, r, "Failed to derive mount point path from unit name, because unit name is hashed. "
+                                                   "Set \"Where=\" in the unit file explicitly.");
                 if (r < 0)
                         return r;
         }
