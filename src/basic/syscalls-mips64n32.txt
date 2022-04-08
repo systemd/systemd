@@ -473,6 +473,7 @@ sendmmsg	6307
 sendmsg	6045
 sendto	6043
 set_mempolicy	6233
+set_mempolicy_home_node	6450
 set_robust_list	6272
 set_thread_area	6246
 set_tid_address	6213
