@@ -47,9 +47,6 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # More items are added later after they have been detected.
 summary({'build mode' : get_option('mode')})
 
-# GCOV doesn't define any macro when compiled with, so let's define it ourselves
-conf.set10('BUILT_WITH_COVERAGE', get_option('b_coverage'))
-
 #####################################################################
 
 # Try to install the git pre-commit hook
@@ -1820,6 +1817,12 @@ update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
+
+############################################################
+
+if get_option('b_coverage')
+        add_project_arguments('-include', 'src/basic/coverage.h', language : 'c')
+endif
 
 ############################################################
 
@@ -4230,6 +4233,7 @@ foreach tuple : [
         ['link-boot-shared',      get_option('link-boot-shared')],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
+        ['coverage',              get_option('b_coverage')],
 ]
 
         if tuple.length() >= 2
