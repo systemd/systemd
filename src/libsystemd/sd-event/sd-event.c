@@ -854,6 +854,9 @@ static void source_disconnect(sd_event_source *s) {
                 break;
 
         case SOURCE_CHILD:
+                if (event_pid_changed(s->event))
+                        s->child.process_owned = false;
+
                 if (s->child.pid > 0) {
                         if (event_source_is_online(s)) {
                                 assert(s->event->n_online_child_sources > 0);
