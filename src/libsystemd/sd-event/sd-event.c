@@ -1698,7 +1698,8 @@ static void event_free_inotify_data(sd_event *e, struct inotify_data *d) {
         assert_se(hashmap_remove(e->inotify_data, &d->priority) == d);
 
         if (d->fd >= 0) {
-                if (epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
+                if (!event_pid_changed(e) &&
+                    epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, d->fd, NULL) < 0)
                         log_debug_errno(errno, "Failed to remove inotify fd from epoll, ignoring: %m");
 
                 safe_close(d->fd);
@@ -1808,7 +1809,7 @@ static void event_free_inode_data(
         if (d->inotify_data) {
 
                 if (d->wd >= 0) {
-                        if (d->inotify_data->fd >= 0) {
+                        if (d->inotify_data->fd >= 0 && !event_pid_changed(e)) {
                                 /* So here's a problem. At the time this runs the watch descriptor might already be
                                  * invalidated, because an IN_IGNORED event might be queued right the moment we enter
                                  * the syscall. Hence, whenever we get EINVAL, ignore it entirely, since it's a very
