@@ -92,12 +92,14 @@ Features:
     machine id, root pw, rootfs uuid, resume partition uuid, and place next to
     EFI kernel, for sd-stub to pick them up. These creds should be locked to
     the TPM, and bind to the right PCR the kernel is measured to.
+  - kernel-install should be able to pick up initrd sysexts automatically and
+    place them next to EFI kernel, for sd-stub to pick them up.
   - systemd-fstab-generator should look for rootfs device to mount in creds
   - pid 1 should look for machine ID in creds
   - systemd-resume-generator should look for resume partition uuid in creds
-  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*) and synthesize initrd from
-    it, and measure it. Signing is not necessary, as microcode does that on its
-    own. Pass as first initrd to kernel.
+  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
+    and synthesize initrd from it, and measure it. Signing is not necessary, as
+    microcode does that on its own. Pass as first initrd to kernel.
   - systemd-creds should have a fallback logic that uses neither TPM nor the
     system key in /var for encryption and instead some fixed key. This should
     be opt in (since it provides no security properties) but be used by
@@ -342,7 +344,8 @@ Features:
   credential logic and drops them into /run where nss-systemd can pick them up,
   similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
   and use it in the initrd to log in as root with locally selected password,
-  for debugging purposes.
+  for debugging purposes. Other usecase: boot into qemu with regular user
+  mounted from host. maybe put this in systemd-user-sessions.service?
 
 * drop dependency on libcap, replace by direct syscalls based on
   CapabilityQuintet we already have. (This likely allows us drop drop libcap
