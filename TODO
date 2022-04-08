@@ -83,19 +83,27 @@ Features:
   virtio-fs.
 
 * for vendor-built signed initrds:
+  - make sysext run in the initrd
   - sysext should pick up sysext images from /.extra/ in the initrd, and insist
-    on verification
+    on verification if in secureboot mode
   - kernel-install should be able to install pre-built unified kernel images in
     type #2 drop-in dir in the ESP.
-  - kernel-install should be able encrypt creds automatically from machine id,
-    root pw, rootfs uuid, resum partition uuid, and place next to EFI kernel,
-    for sd-stub to pick them up
+  - kernel-install should be able install encrypted creds automatically for
+    machine id, root pw, rootfs uuid, resume partition uuid, and place next to
+    EFI kernel, for sd-stub to pick them up. These creds should be locked to
+    the TPM, and bind to the right PCR the kernel is measured to.
   - systemd-fstab-generator should look for rootfs device to mount in creds
   - pid 1 should look for machine ID in creds
-  - make sysext run in the initrd
-  - sd-stub: automatically pick up microcode from ESP and synthesize initrd from
+  - systemd-resume-generator should look for resume partition uuid in creds
+  - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*) and synthesize initrd from
     it, and measure it. Signing is not necessary, as microcode does that on its
     own. Pass as first initrd to kernel.
+  - systemd-creds should have a fallback logic that uses neither TPM nor the
+    system key in /var for encryption and instead some fixed key. This should
+    be opt in (since it provides no security properties) but be used by
+    kernel-install when encrypting the creds it generates on systems that lack
+    a TPM, so that we can have very similar codepaths on TPM and TPM-less
+    systems. i.e. --with-key=tpm-graceful or so.
 
 * Add a new service type very similar to Type=notify, that goes one step
   further and extends the protocol to cover reloads. Specifically, SIGHUP will
