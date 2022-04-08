@@ -863,11 +863,15 @@ int manager_enumerate(Manager *m) {
                 return log_error_errno(r, "Could not enumerate links: %m");
 
         r = manager_enumerate_qdisc(m);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate QDiscs, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Could not enumerate QDisc: %m");
 
         r = manager_enumerate_tclass(m);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not enumerate TClasses, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Could not enumerate TClass: %m");
 
         r = manager_enumerate_addresses(m);
