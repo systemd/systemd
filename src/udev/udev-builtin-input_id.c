@@ -156,7 +156,8 @@ static bool test_pointers(sd_device *dev,
         bool has_abs_coordinates = false;
         bool has_rel_coordinates = false;
         bool has_mt_coordinates = false;
-        bool has_joystick_axes_or_buttons = false;
+        size_t num_joystick_axes = 0;
+        size_t num_joystick_buttons = 0;
         bool has_pad_buttons = false;
         bool is_direct = false;
         bool has_touch = false;
@@ -214,15 +215,19 @@ static bool test_pointers(sd_device *dev,
          * Catz Mad Catz M.M.O.TE). Skip those.
          */
         if (!test_bit(BTN_JOYSTICK - 1, bitmask_key)) {
-                for (int button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
-                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-                for (int button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
-                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-                for (int button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
-                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+                for (int button = BTN_JOYSTICK; button < BTN_DIGI; button++)
+                        if (test_bit(button, bitmask_key))
+                                num_joystick_buttons++;
+                for (int button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40; button++)
+                        if (test_bit(button, bitmask_key))
+                                num_joystick_buttons++;
+                for (int button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT; button++)
+                        if (test_bit(button, bitmask_key))
+                                num_joystick_buttons++;
         }
-        for (int axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
-                has_joystick_axes_or_buttons = test_bit(axis, bitmask_abs);
+        for (int axis = ABS_RX; axis < ABS_PRESSURE; axis++)
+                if (test_bit(axis, bitmask_abs))
+                        num_joystick_axes++;
 
         if (has_abs_coordinates) {
                 if (has_stylus || has_pen)
@@ -235,9 +240,9 @@ static bool test_pointers(sd_device *dev,
                         is_abs_mouse = true;
                 else if (has_touch || is_direct)
                         is_touchscreen = true;
-                else if (has_joystick_axes_or_buttons)
+                else if (num_joystick_buttons > 0 || num_joystick_axes > 0)
                         is_joystick = true;
-        } else if (has_joystick_axes_or_buttons)
+        } else if (num_joystick_buttons > 0 || num_joystick_axes > 0)
                 is_joystick = true;
 
         if (has_mt_coordinates) {
@@ -261,6 +266,34 @@ static bool test_pointers(sd_device *dev,
         /* There is no such thing as an i2c mouse */
         if (is_mouse && id->bustype == BUS_I2C)
                 is_pointing_stick = true;
+
+        /* Joystick un-detection. Some keyboards have random joystick buttons
+         * set. Avoid those being labeled as ID_INPUT_JOYSTICK with some heuristics.
+         * The well-known keys represent a (randomly picked) set of key groups.
+         * A joystick may have one of those but probably not several. And a joystick with less than 2 buttons
+         * or axes is not a joystick either.
+         * libinput uses similar heuristics, any changes here should be added to libinput too.
+         */
+        if (is_joystick) {
+                static const unsigned int well_known_keyboard_keys[] = {
+                        KEY_LEFTCTRL, KEY_CAPSLOCK, KEY_NUMLOCK, KEY_INSERT,
+                        KEY_MUTE, KEY_CALC, KEY_FILE, KEY_MAIL, KEY_PLAYPAUSE,
+                        KEY_BRIGHTNESSDOWN,
+                };
+                size_t num_well_known_keys = 0;
+
+                if (has_keys)
+                        for (size_t i = 0; i < ELEMENTSOF(well_known_keyboard_keys); i++)
+                                if (test_bit(well_known_keyboard_keys[i], bitmask_key))
+                                        num_well_known_keys++;
+
+                if (num_well_known_keys >= 4 || num_joystick_buttons + num_joystick_axes < 2) {
+                        log_device_debug(dev, "Input device has %zd joystick buttons and %zd axes but also %zd keyboard key sets, "
+                                         "assuming this is a keyboard, not a joystick.",
+                                         num_joystick_buttons, num_joystick_axes, num_well_known_keys);
+                        is_joystick = false;
+                }
+        }
 
         if (is_pointing_stick)
                 udev_builtin_add_property(dev, test, "ID_INPUT_POINTINGSTICK", "1");
