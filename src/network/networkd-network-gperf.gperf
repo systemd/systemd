@@ -143,6 +143,8 @@ Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,  
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.DHCPPrefixDelegation,                config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
+Network.IPv4NFTSet,                          config_parse_ipv4_nft_set,                                0,                             0
+Network.IPv6NFTSet,                          config_parse_ipv6_nft_set,                                0,                             0
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
