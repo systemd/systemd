@@ -63,6 +63,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D version-tag="${VERSION_TAG}"
 fi
 
+meson configure "$BUILDDIR" -Ddefault-compression=xz
 cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
