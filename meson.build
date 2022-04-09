@@ -1452,6 +1452,35 @@ conf.set10('HAVE_ZSTD', have_zstd)
 
 conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
 
+default_compression = get_option('default-compression')
+if default_compression == 'zstd' and not have_zstd
+        error('default-compression=zstd requires zstd')
+elif default_compression == 'lz4' and not have_lz4
+        error('default-compression=lz4 requires lz4')
+elif default_compression == 'xz' and not have_xz
+        error('default-compression=xz requires xz')
+endif
+if (default_compression == 'auto' or default_compression == 'zstd') and have_zstd
+        default_compression_zstd = true
+        default_compression_lz4 = false
+        default_compression_xz = false
+elif (default_compression == 'auto' or default_compression == 'lz4') and have_lz4
+        default_compression_zstd = false
+        default_compression_lz4 = true
+        default_compression_xz = false
+elif (default_compression == 'auto' or default_compression == 'xz') and have_xz
+        default_compression_zstd = false
+        default_compression_lz4 = false
+        default_compression_xz = true
+else
+        default_compression_zstd = false
+        default_compression_lz4 = false
+        default_compression_xz = false
+endif
+conf.set10('DEFAULT_COMPRESSION_ZSTD', default_compression_zstd)
+conf.set10('DEFAULT_COMPRESSION_LZ4', default_compression_lz4)
+conf.set10('DEFAULT_COMPRESSION_XZ', default_compression_xz)
+
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
         libxkbcommon = dependency('xkbcommon',
