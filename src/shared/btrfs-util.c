@@ -659,7 +659,7 @@ int btrfs_subvol_find_subtree_qgroup(int fd, uint64_t subvol_id, uint64_t *ret) 
          * prepared with btrfs_subvol_auto_qgroup_fd() with
          * insert_intermediary_qgroup=true (or equivalent). For others
          * it will return the leaf qgroup instead. The two cases may
-         * be distuingished via the return value, which is 1 in case
+         * be distinguished via the return value, which is 1 in case
          * an appropriate "subtree" qgroup was found, and 0
          * otherwise. */
 
