@@ -2270,6 +2270,35 @@ _public_ int sd_device_trigger_with_uuid(
         return 0;
 }
 
+static int device_is_md_array(sd_device *device) {
+        const char *subsystem, *sysname, *sysnum, *joined;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_subsystem(device, &subsystem);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (!streq(subsystem, "block"))
+                return false;
+
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysnum(device, &sysnum);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        joined = strjoina("md", sysnum);
+        return streq(sysname, joined);
+}
+
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -1, fd2 = -1;
         const char *devname, *subsystem = NULL;
@@ -2322,6 +2351,14 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (fd2 < 0)
                 return -errno;
+
+        r = device_is_md_array(device);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* The diskseq of a MD device is incremented when the MD array is (re)started.
+                 * See do_md_run() and md_check_events() in drivers/md/md.c of the kernel. */
+                return TAKE_FD(fd2);
 
         r = sd_device_get_diskseq(device, &diskseq);
         if (r == -ENOENT)
