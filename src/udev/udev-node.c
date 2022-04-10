@@ -187,12 +187,14 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         r = free_and_strdup(&target, devnode);
                         if (r < 0)
                                 return r;
-                } else {
+
+                } else if (r == -EINVAL) {
                         _cleanup_(sd_device_unrefp) sd_device *tmp_dev = NULL;
                         const char *devnode;
 
-                        /* Old format. The devnode and priority must be obtained from uevent and
-                         * udev database files. */
+                        /* When EINVAL, the file is not a symlink. Assume it is a regular file, which
+                         * means the old format. The devnode and priority must be obtained from uevent
+                         * and udev database files. */
 
                         if (sd_device_new_from_device_id(&tmp_dev, de->d_name) < 0)
                                 continue;
@@ -209,7 +211,8 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         r = free_and_strdup(&target, devnode);
                         if (r < 0)
                                 return r;
-                }
+                } else
+                        continue;
 
                 priority = tmp_prio;
         }
