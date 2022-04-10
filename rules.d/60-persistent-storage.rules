@@ -124,6 +124,6 @@ ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/
 # by-diskseq link (if an app is told to open a path like this, they may parse
 # the diskseq number from the path, then issue BLKGETDISKSEQ to verify they really got
 # the right device, to access specific disks in a race-free fashion)
-ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"
+ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"
 
 LABEL="persistent_storage_end"
