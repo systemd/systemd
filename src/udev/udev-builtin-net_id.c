@@ -1138,8 +1138,15 @@ static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
         return 0;
 }
 
+static int builtin_net_id_init(void) {
+        /* Load naming scheme here to suppress log messages in workers. */
+        naming_scheme();
+        return 0;
+}
+
 const UdevBuiltin udev_builtin_net_id = {
         .name = "net_id",
         .cmd = builtin_net_id,
+        .init = builtin_net_id_init,
         .help = "Network device properties",
 };
