@@ -2794,7 +2794,7 @@ static int property_get_reboot_to_boot_loader_menu(
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
-                /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distuingished:
+                /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distiinguished:
                  *
                  *     1. Variable not set, boot into boot loader menu is not enabled (we return UINT64_MAX to the user)
                  *     2. Variable set to "0", boot into boot loader menu is enabled with no timeout (we return 0 to the user)
