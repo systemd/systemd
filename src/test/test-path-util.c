@@ -477,6 +477,33 @@ TEST(path_make_relative) {
         test_path_make_relative_one("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
 }
 
+static void test_path_make_relative_parent_one(const char *from, const char *to, const char *expected) {
+        _cleanup_free_ char *z = NULL;
+        int r;
+
+        log_info("/* %s(%s, %s) */", __func__, from, to);
+
+        r = path_make_relative_parent(from, to, &z);
+        assert_se((r >= 0) == !!expected);
+        assert_se(streq_ptr(z, expected));
+}
+
+TEST(path_make_relative_parent) {
+        test_path_make_relative_parent_one("some/relative/path/hoge", "/some/path", NULL);
+        test_path_make_relative_parent_one("/some/path/hoge", "some/relative/path", NULL);
+        test_path_make_relative_parent_one("/some/dotdot/../path/hoge", "/some/path", NULL);
+        test_path_make_relative_parent_one("/", "/aaa", NULL);
+
+        test_path_make_relative_parent_one("/hoge", "/", ".");
+        test_path_make_relative_parent_one("/hoge", "/some/path", "some/path");
+        test_path_make_relative_parent_one("/some/path/hoge", "/some/path", ".");
+        test_path_make_relative_parent_one("/some/path/hoge", "/some/path/in/subdir", "in/subdir");
+        test_path_make_relative_parent_one("/some/path/hoge", "/", "../..");
+        test_path_make_relative_parent_one("/some/path/hoge", "/some/other/path", "../other/path");
+        test_path_make_relative_parent_one("/some/path/./dot/hoge", "/some/further/path", "../../further/path");
+        test_path_make_relative_parent_one("//extra.//.//./.slashes//./won't////fo.ol///anybody//hoge", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
+}
+
 TEST(path_strv_resolve) {
         char tmp_dir[] = "/tmp/test-path-util-XXXXXX";
         _cleanup_strv_free_ char **search_dirs = NULL;
