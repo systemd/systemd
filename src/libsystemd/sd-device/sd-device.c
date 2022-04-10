@@ -634,7 +634,6 @@ static int handle_uevent_line(
                 const char *value,
                 const char **major,
                 const char **minor) {
-        int r;
 
         assert(device);
         assert(key);
@@ -642,35 +641,22 @@ static int handle_uevent_line(
         assert(major);
         assert(minor);
 
-        if (streq(key, "DEVTYPE")) {
-                r = device_set_devtype(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "IFINDEX")) {
-                r = device_set_ifindex(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DEVNAME")) {
-                r = device_set_devname(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DEVMODE")) {
-                r = device_set_devmode(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DISKSEQ")) {
-                r = device_set_diskseq(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "MAJOR"))
+        if (streq(key, "DEVTYPE"))
+                return device_set_devtype(device, value);
+        if (streq(key, "IFINDEX"))
+                return device_set_ifindex(device, value);
+        if (streq(key, "DEVNAME"))
+                return device_set_devname(device, value);
+        if (streq(key, "DEVMODE"))
+                return device_set_devmode(device, value);
+        if (streq(key, "DISKSEQ"))
+                return device_set_diskseq(device, value);
+        if (streq(key, "MAJOR"))
                 *major = value;
         else if (streq(key, "MINOR"))
                 *minor = value;
-        else {
-                r = device_add_property_internal(device, key, value);
-                if (r < 0)
-                        return r;
-        }
+        else
+                return device_add_property_internal(device, key, value);
 
         return 0;
 }
@@ -1370,7 +1356,6 @@ int device_set_usec_initialized(sd_device *device, usec_t when) {
 }
 
 static int handle_db_line(sd_device *device, char key, const char *value) {
-        char *path;
         int r;
 
         assert(device);
@@ -1379,24 +1364,17 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         switch (key) {
         case 'G': /* Any tag */
         case 'Q': /* Current tag */
-                r = device_add_tag(device, value, key == 'Q');
-                if (r < 0)
-                        return r;
+                return device_add_tag(device, value, key == 'Q');
 
-                break;
-        case 'S':
+        case 'S': {
+                const char *path;
+
                 path = strjoina("/dev/", value);
-                r = device_add_devlink(device, path);
-                if (r < 0)
-                        return r;
-
-                break;
+                return device_add_devlink(device, path);
+        }
         case 'E':
-                r = device_add_property_internal_from_string(device, value);
-                if (r < 0)
-                        return r;
+                return device_add_property_internal_from_string(device, value);
 
-                break;
         case 'I': {
                 usec_t t;
 
@@ -1404,35 +1382,25 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                 if (r < 0)
                         return r;
 
-                r = device_set_usec_initialized(device, t);
-                if (r < 0)
-                        return r;
-
-                break;
+                return device_set_usec_initialized(device, t);
         }
         case 'L':
-                r = safe_atoi(value, &device->devlink_priority);
-                if (r < 0)
-                        return r;
+                return safe_atoi(value, &device->devlink_priority);
 
-                break;
         case 'W':
                 /* Deprecated. Previously, watch handle is both saved in database and /run/udev/watch.
                  * However, the handle saved in database may not be updated when the handle is updated
                  * or removed. Moreover, it is not necessary to store the handle within the database,
                  * as its value becomes meaningless when udevd is restarted. */
-                break;
-        case 'V':
-                r = safe_atou(value, &device->database_version);
-                if (r < 0)
-                        return r;
+                return 0;
 
-                break;
+        case 'V':
+                return safe_atou(value, &device->database_version);
+
         default:
                 log_device_debug(device, "sd-device: Unknown key '%c' in device db, ignoring", key);
+                return 0;
         }
-
-        return 0;
 }
 
 int device_get_device_id(sd_device *device, const char **ret) {
