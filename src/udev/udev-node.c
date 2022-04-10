@@ -146,7 +146,6 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 return r;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_free_ char *path = NULL, *buf = NULL;
                 int tmp_prio;
 
                 if (de->d_name[0] == '.')
@@ -156,14 +155,17 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 if (streq(de->d_name, id))
                         continue;
 
-                path = path_join(stackdir, de->d_name);
-                if (!path)
-                        return -ENOMEM;
-
-                if (readlink_malloc(path, &buf) >= 0) {
+                if (de->d_type == DT_LNK) {
+                        _cleanup_free_ char *buf = NULL;
                         char *devnode;
 
                         /* New format. The devnode and priority can be obtained from symlink. */
+
+                        r = readlinkat_malloc(dirfd(dir), de->d_name, &buf);
+                        if (r < 0) {
+                                log_device_debug_errno(dev, r, "Failed to read symlink %s, ignoring: %m", de->d_name);
+                                continue;
+                        }
 
                         devnode = strchr(buf, ':');
                         if (!devnode || devnode == buf)
@@ -182,7 +184,8 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         r = free_and_strdup(&target, devnode);
                         if (r < 0)
                                 return r;
-                } else {
+
+                } else if (de->d_type == DT_REG) {
                         _cleanup_(sd_device_unrefp) sd_device *tmp_dev = NULL;
                         const char *devnode;
 
@@ -204,7 +207,8 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         r = free_and_strdup(&target, devnode);
                         if (r < 0)
                                 return r;
-                }
+                } else
+                        continue;
 
                 priority = tmp_prio;
         }
