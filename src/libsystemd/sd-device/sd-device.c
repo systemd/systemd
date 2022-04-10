@@ -2270,10 +2270,39 @@ _public_ int sd_device_trigger_with_uuid(
         return 0;
 }
 
+static int device_is_md_array(sd_device *device) {
+        const char *subsystem, *sysname, *sysnum, *joined;
+        int r;
+
+        assert(device);
+
+        r = sd_device_get_subsystem(device, &subsystem);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (!streq(subsystem, "block"))
+                return false;
+
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysnum(device, &sysnum);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        joined = strjoina("md", sysnum);
+        return streq(sysname, joined);
+}
+
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -1, fd2 = -1;
         const char *devname, *subsystem = NULL;
-        uint64_t q, diskseq = 0;
+        uint64_t q, diskseq;
         struct stat st;
         dev_t devnum;
         int r;
@@ -2297,10 +2326,6 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = sd_device_get_diskseq(device, &diskseq);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
         fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
                 return -errno;
@@ -2309,10 +2334,15 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return -errno;
 
         if (st.st_rdev != devnum)
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected devnum %u:%u, expected %u:%u",
+                                              devname, major(st.st_rdev), minor(st.st_rdev),
+                                              major(devnum), minor(devnum));
 
         if (streq_ptr(subsystem, "block") ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode))
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected subsystem %s.",
+                                              devname, strna(subsystem));
 
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
         if (FLAGS_SET(flags, O_PATH))
@@ -2322,15 +2352,28 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (fd2 < 0)
                 return -errno;
 
-        if (diskseq == 0)
+        r = device_is_md_array(device);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* The diskseq of a MD device is incremented when the MD array is (re)started.
+                 * See do_md_run() and md_check_events() in drivers/md/md.c of the kernel. */
                 return TAKE_FD(fd2);
+
+        r = sd_device_get_diskseq(device, &diskseq);
+        if (r == -ENOENT)
+                return TAKE_FD(fd2);
+        if (r < 0)
+                return r;
 
         r = fd_get_diskseq(fd2, &q);
         if (r < 0)
                 return r;
 
         if (q != diskseq)
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected diskseq %"PRIu64", expected %"PRIu64,
+                                              devname, q, diskseq);
 
         return TAKE_FD(fd2);
 }
