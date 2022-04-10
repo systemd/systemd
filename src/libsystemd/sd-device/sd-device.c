@@ -2309,10 +2309,15 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return -errno;
 
         if (st.st_rdev != devnum)
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected devnum %u:%u, expected %u:%u",
+                                              devname, major(st.st_rdev), minor(st.st_rdev),
+                                              major(devnum), minor(devnum));
 
         if (streq_ptr(subsystem, "block") ? !S_ISBLK(st.st_mode) : !S_ISCHR(st.st_mode))
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected subsystem %s.",
+                                              devname, strna(subsystem));
 
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
         if (FLAGS_SET(flags, O_PATH))
@@ -2330,7 +2335,9 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return r;
 
         if (q != diskseq)
-                return -ENXIO;
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENXIO),
+                                              "Failed to open %s, unexpected diskseq %"PRIu64", expected %"PRIu64,
+                                              devname, q, diskseq);
 
         return TAKE_FD(fd2);
 }
