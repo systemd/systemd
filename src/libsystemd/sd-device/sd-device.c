@@ -2273,7 +2273,7 @@ _public_ int sd_device_trigger_with_uuid(
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -1, fd2 = -1;
         const char *devname, *subsystem = NULL;
-        uint64_t q, diskseq = 0;
+        uint64_t q, diskseq;
         struct stat st;
         dev_t devnum;
         int r;
@@ -2294,10 +2294,6 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return r;
 
         r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        r = sd_device_get_diskseq(device, &diskseq);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -2327,8 +2323,11 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (fd2 < 0)
                 return -errno;
 
-        if (diskseq == 0)
+        r = sd_device_get_diskseq(device, &diskseq);
+        if (r == -ENOENT)
                 return TAKE_FD(fd2);
+        if (r < 0)
+                return r;
 
         r = fd_get_diskseq(fd2, &q);
         if (r < 0)
