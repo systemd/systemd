@@ -146,7 +146,7 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 return r;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
-                _cleanup_free_ char *path = NULL, *buf = NULL;
+                _cleanup_free_ char *buf = NULL;
                 int tmp_prio;
 
                 if (de->d_name[0] == '.')
@@ -156,11 +156,8 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 if (streq(de->d_name, id))
                         continue;
 
-                path = path_join(stackdir, de->d_name);
-                if (!path)
-                        return -ENOMEM;
-
-                if (readlink_malloc(path, &buf) >= 0) {
+                r = readlinkat_malloc(dirfd(dir), de->d_name, &buf);
+                if (r >= 0) {
                         char *devnode;
 
                         /* New format. The devnode and priority can be obtained from symlink. */
