@@ -128,7 +128,7 @@ EOF
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -140,7 +140,7 @@ EOF
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -152,7 +152,7 @@ EOF
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -269,10 +269,10 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -280,11 +280,11 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
 # this is a comment
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 
 EOF
         },
@@ -293,11 +293,11 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
  # this is a comment with whitespace before the comment
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 
 EOF
         },
@@ -324,11 +324,11 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
 
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 
 EOF
         },
@@ -337,11 +337,11 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", \\
-SYMLINK+="modem"
+SYMLINK+="modem/%n"
 
 EOF
         },
@@ -362,7 +362,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
 
@@ -374,7 +374,7 @@ EOF
 #\\
 
 KERNEL=="ttyACM0", \\
-        SYMLINK+="modem"
+        SYMLINK+="modem/%n"
 
 EOF
         },
@@ -420,7 +420,7 @@ EOF
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", IMPORT{program}="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -429,11 +429,11 @@ EOF
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                                 exp_links       => ["disk-ATA-sda"],
-                                not_exp_links   => ["modem"],
+                                not_exp_links   => ["modem/0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="disk-%s{vendor}-%k"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -710,10 +710,10 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links       => ["modem"],
+                                exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
-ATTRS{idProduct}=="007b", SYMLINK+="modem"
+ATTRS{idProduct}=="007b", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -723,12 +723,12 @@ EOF
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
                                 devnode         => "fake/blockdev0",
                                 exp_links       => ["is/a/fake/blockdev0"],
-                                not_exp_links       => ["is/not/a/fake/blockdev0", "modem"],
+                                not_exp_links       => ["is/not/a/fake/blockdev0", "modem/0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", SYMLINK+="is/not/a/%k"
 SUBSYSTEM=="block", SYMLINK+="is/a/%k"
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
@@ -737,10 +737,10 @@ EOF
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
                                 devnode         => "fake/blockdev0",
-                                not_exp_links       => ["modem"],
+                                not_exp_links       => ["modem/0"],
                         }],
                 rules           => <<EOF
-KERNEL=="ttyACM0", SYMLINK+="modem"
+KERNEL=="ttyACM0", SYMLINK+="modem/%n"
 EOF
         },
         {
