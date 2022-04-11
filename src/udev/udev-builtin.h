@@ -6,7 +6,7 @@
 #include "sd-device.h"
 #include "sd-netlink.h"
 
-typedef enum {
+typedef enum UdevBuiltinCommand {
 #if HAVE_BLKID
         UDEV_BUILTIN_BLKID,
 #endif
