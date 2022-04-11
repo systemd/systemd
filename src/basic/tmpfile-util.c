@@ -115,7 +115,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(nf)) /* New name is not valid? (Maybe because too long?) Refuse. */
                 return -EINVAL;
 
-        if (d)  {
+        if (d) {
                 if (!path_extend(&d, nf))
                         return -ENOMEM;
 
