@@ -26,6 +26,34 @@
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
+int udev_node_cleanup(void) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        /* This MUST be called when no worker exists. Otherwise, it causes an race between mkdir()
+         * called by stack_directory_lock() and unlinkat() called by this. */
+
+        dir = opendir("/run/udev/links");
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to open directory '/run/udev/links', ignoring: %m");
+        }
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                if (de->d_name[0] == '.')
+                        continue;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                if (unlinkat(dirfd(dir), de->d_name, AT_REMOVEDIR) < 0 && errno != ENOTEMPTY)
+                        log_debug_errno(errno, "Failed to remove directory '/run/udev/links/%s', ignoring: %m", de->d_name);
+        }
+
+        return 0;
+}
+
 static int create_symlink(const char *target, const char *slink) {
         int r;
 
