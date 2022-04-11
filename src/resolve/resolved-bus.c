@@ -327,6 +327,13 @@ static void bus_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         q->bus_request = sd_bus_message_unref(q->bus_request);
+
+        if (q->manager->varlink_subscription) {
+                r = send_dns_notification(q->manager, q->answer, question);
+                if (r < 0)
+                        log_error_errno(r, "Failed to send varlink notification: %m");
+        }
+
         r = sd_bus_send(q->manager->bus, reply, NULL);
 
 finish:
