@@ -4,6 +4,9 @@
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <tbody>
+  <!-- note: units also use the following deprecated specifiers that are not documented:
+       %c, %r, %R. Do not reuse. -->
+
   <row id='a'>
     <entry><literal>%a</literal></entry>
     <entry>Architecture</entry>
