@@ -414,33 +414,47 @@ toolong:
         return size - 1;
 }
 
-/* manage "stack of names" with possibly specified device priorities */
-static int link_update(sd_device *dev, const char *slink_in, bool add) {
-        _cleanup_free_ char *slink = NULL, *dirname = NULL;
-        const char *slink_name;
+static int stack_directory_get_name(const char *slink, char **ret) {
+        _cleanup_free_ char *s = NULL, *dirname = NULL;
         char name_enc[NAME_MAX+1];
+        const char *name;
+
+        assert(slink);
+        assert(ret);
+
+        s = strdup(slink);
+        if (!s)
+                return -ENOMEM;
+
+        path_simplify(s);
+
+        if (!path_is_normalized(s))
+                return -EINVAL;
+
+        name = path_startswith(s, "/dev");
+        if (empty_or_root(name))
+                return -EINVAL;
+
+        udev_node_escape_path(name, name_enc, sizeof(name_enc));
+
+        dirname = path_join("/run/udev/links", name_enc);
+        if (!dirname)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(dirname);
+        return 0;
+}
+
+static int link_update(sd_device *dev, const char *slink, bool add) {
+        _cleanup_free_ char *dirname = NULL;
         int r;
 
         assert(dev);
-        assert(slink_in);
+        assert(slink);
 
-        slink = strdup(slink_in);
-        if (!slink)
-                return log_oom_debug();
-
-        path_simplify(slink);
-
-        slink_name = path_startswith(slink, "/dev");
-        if (!slink_name ||
-            empty_or_root(slink_name) ||
-            !path_is_normalized(slink_name))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid symbolic link of device node: %s", slink);
-
-        (void) udev_node_escape_path(slink_name, name_enc, sizeof(name_enc));
-        dirname = path_join("/run/udev/links", name_enc);
-        if (!dirname)
-                return log_oom_debug();
+        r = stack_directory_get_name(slink, &dirname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to build stack directory name for '%s': %m", slink);
 
         r = update_stack_directory(dev, dirname, add);
         if (r < 0)
