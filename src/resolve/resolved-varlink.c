@@ -99,6 +99,7 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
+#if ENABLE_VARLINK_NOTIFICATIONS
 static void varlink_connection_destroy(VarlinkConnection* conn) {
         assert(conn);
         conn->link = varlink_unref(conn->link);
@@ -135,6 +136,7 @@ static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void 
         varlink_connection_destroy(tmp);
         log_debug("Client for notifications vanished, disabling notifications.");
 }
+#endif
 
 static bool validate_and_mangle_flags(
                 const char *name,
@@ -260,7 +262,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         if (q->manager->varlink_subscription) {
-                r = send_dns_notification(q->manager, q->answer);
+                r = send_dns_notification(q->manager, q->answer, question);
                 if (r < 0)
                         log_error_errno(r, "Failed to send varlink notification: %m");
         }
@@ -559,6 +561,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
+#if ENABLE_VARLINK_NOTIFICATIONS
 static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata)
 {
         Manager *m;
@@ -588,6 +591,7 @@ static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *paramete
         log_debug("Client attached for varlink notifications");
         return 1;
 }
+#endif
 
 int manager_varlink_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
@@ -633,7 +637,7 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
-
+#if ENABLE_VARLINK_NOTIFICATIONS
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.ResolveNotifications.SubscribeDnsResolves",  vl_method_subscribe_dns_resolves);
@@ -654,6 +658,7 @@ int manager_varlink_init(Manager *m) {
 
         m->varlink_notification_server = TAKE_PTR(s);
         m->varlink_subscription = NULL;
+#endif
 
         return 0;
 }

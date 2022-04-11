@@ -1060,7 +1060,7 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int send_dns_notification(Manager* m, DnsAnswer* answer)
+int send_dns_notification(Manager* m, DnsAnswer* answer, DnsQuestion* question)
 {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         _cleanup_free_ char *normalized = NULL;
@@ -1109,7 +1109,7 @@ int send_dns_notification(Manager* m, DnsAnswer* answer)
         connection = m->varlink_subscription;
         while (connection) {
                 r = varlink_notifyb(connection->link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
-                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
+                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(dns_question_first_name(question)))));
                 if (r < 0)
                         log_error_errno(r, "Failed to send notification: %m");
                 connection = connection->next;
@@ -1145,7 +1145,7 @@ int manager_send(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract DNS packet info: %m");
 
-                r = send_dns_notification(m, p->answer);
+                r = send_dns_notification(m, p->answer, p->question);
                 if (r < 0)
                         log_error_errno(r, "Failed to send varlink notification: %m");
         }
