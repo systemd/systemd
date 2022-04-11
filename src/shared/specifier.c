@@ -199,7 +199,7 @@ int specifier_boot_id(char specifier, const void *data, const char *root, const 
         return 0;
 }
 
-int specifier_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+int specifier_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n;
 
         assert(ret);
@@ -212,7 +212,7 @@ int specifier_host_name(char specifier, const void *data, const char *root, cons
         return 0;
 }
 
-int specifier_short_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+int specifier_short_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n;
 
         assert(ret);
@@ -225,7 +225,7 @@ int specifier_short_host_name(char specifier, const void *data, const char *root
         return 0;
 }
 
-int specifier_pretty_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+int specifier_pretty_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         char *n = NULL;
 
         assert(ret);
