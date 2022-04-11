@@ -14,6 +14,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "label.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -21,6 +22,7 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -69,8 +71,7 @@ int udev_node_cleanup(void) {
 }
 
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
-        _cleanup_free_ char *target = NULL;
-        const char *id, *slink_tmp;
+        _cleanup_free_ char *target = NULL, *slink_tmp = NULL;
         struct stat st;
         int r;
 
@@ -91,33 +92,14 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
+        r = mkdir_parents_label(slink, 0755);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
+
         /* use relative link */
-        r = path_make_relative_parent(slink, devnode, &target);
+        r = symlink_atomic_full_label(target, slink, /* make_relative = */ true);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
-
-        r = device_get_device_id(dev, &id);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
-
-        slink_tmp = strjoina(slink, ".tmp-", id);
-        (void) unlink(slink_tmp);
-
-        r = mkdir_parents_label(slink_tmp, 0755);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink_tmp);
-
-        mac_selinux_create_file_prepare(slink_tmp, S_IFLNK);
-        r = RET_NERRNO(symlink(target, slink_tmp));
-        mac_selinux_create_file_clear();
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
-
-        if (rename(slink_tmp, slink) < 0) {
-                r = log_device_debug_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
-                (void) unlink(slink_tmp);
-                return r;
-        }
+                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, target);
 
         return 0;
 }
