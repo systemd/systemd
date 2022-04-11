@@ -247,24 +247,15 @@ const sd_bus_vtable bus_service_vtable[] = {
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStopPostEx", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
 
-        SD_BUS_METHOD_WITH_NAMES("BindMount",
-                                 "ssbb",
-                                 SD_BUS_PARAM(source)
-                                 SD_BUS_PARAM(destination)
-                                 SD_BUS_PARAM(read_only)
-                                 SD_BUS_PARAM(mkdir),
-                                 NULL,,
-                                 bus_service_method_bind_mount,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("BindMount",
+                                SD_BUS_ARGS("s", source, "s", destination, "b", read_only, "b", mkdir),
+                                SD_BUS_NO_RESULT,
+                                bus_service_method_bind_mount,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
-        SD_BUS_METHOD_WITH_NAMES("MountImage",
-                                 "ssbba(ss)",
-                                 SD_BUS_PARAM(source)
-                                 SD_BUS_PARAM(destination)
-                                 SD_BUS_PARAM(read_only)
-                                 SD_BUS_PARAM(mkdir)
-                                 SD_BUS_PARAM(options),
-                                 NULL,,
+        SD_BUS_METHOD_WITH_ARGS("MountImage",
+                                 SD_BUS_ARGS("s", source, "s", destination, "b", read_only, "b", mkdir, "a(ss)", options),
+                                 SD_BUS_NO_RESULT,
                                  bus_service_method_mount_image,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
