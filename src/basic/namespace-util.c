@@ -213,7 +213,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 
         r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to open netns fd: %m");
+                return log_error_errno(r, "Failed to open userns fd: %m");
 
         return TAKE_FD(userns_fd);
 
