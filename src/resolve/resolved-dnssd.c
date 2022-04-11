@@ -135,7 +135,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         return 0;
 }
 
-static int specifier_dnssd_host_name(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+static int specifier_dnssd_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         DnssdService *s  = (DnssdService *) userdata;
         char *n;
 
@@ -153,15 +153,15 @@ static int specifier_dnssd_host_name(char specifier, const void *data, const cha
 
 int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         static const Specifier specifier_table[] = {
-                { 'a', specifier_architecture,    NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'H', specifier_dnssd_host_name, NULL },
-                { 'm', specifier_machine_id,      NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'W', specifier_os_variant_id,   NULL },
+                { 'a', specifier_architecture,   NULL },
+                { 'b', specifier_boot_id,        NULL },
+                { 'B', specifier_os_build_id,    NULL },
+                { 'H', specifier_dnssd_hostname, NULL },
+                { 'm', specifier_machine_id,     NULL },
+                { 'o', specifier_os_id,          NULL },
+                { 'v', specifier_kernel_release, NULL },
+                { 'w', specifier_os_version_id,  NULL },
+                { 'W', specifier_os_variant_id,  NULL },
                 {}
         };
         _cleanup_free_ char *name = NULL;
