@@ -32,12 +32,10 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 };
 
 void udev_builtin_init(void) {
-        unsigned i;
-
         if (initialized)
                 return;
 
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->init)
                         builtins[i]->init();
 
@@ -45,12 +43,10 @@ void udev_builtin_init(void) {
 }
 
 void udev_builtin_exit(void) {
-        unsigned i;
-
         if (!initialized)
                 return;
 
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->exit)
                         builtins[i]->exit();
 
@@ -58,18 +54,14 @@ void udev_builtin_exit(void) {
 }
 
 bool udev_builtin_validate(void) {
-        unsigned i;
-
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && builtins[i]->validate && builtins[i]->validate())
                         return true;
         return false;
 }
 
 void udev_builtin_list(void) {
-        unsigned i;
-
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i])
                         fprintf(stderr, "  %-14s  %s\n", builtins[i]->name, builtins[i]->help);
 }
@@ -93,14 +85,13 @@ bool udev_builtin_run_once(UdevBuiltinCommand cmd) {
 }
 
 UdevBuiltinCommand udev_builtin_lookup(const char *command) {
-        UdevBuiltinCommand i;
         size_t n;
 
         assert(command);
 
         command += strspn(command, WHITESPACE);
         n = strcspn(command, WHITESPACE);
-        for (i = 0; i < _UDEV_BUILTIN_MAX; i++)
+        for (UdevBuiltinCommand i = 0; i < _UDEV_BUILTIN_MAX; i++)
                 if (builtins[i] && strneq(builtins[i]->name, command, n))
                         return i;
 

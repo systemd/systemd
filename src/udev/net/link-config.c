@@ -39,7 +39,6 @@
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
-        bool enable_name_policy;
         usec_t network_dirs_ts_usec;
 };
 
@@ -97,7 +96,6 @@ int link_config_ctx_new(LinkConfigContext **ret) {
 
         *ctx = (LinkConfigContext) {
                 .ethtool_fd = -1,
-                .enable_name_policy = true,
         };
 
         *ret = TAKE_PTR(ctx);
@@ -298,12 +296,6 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         return 0;
 }
 
-static bool enable_name_policy(void) {
-        bool b;
-
-        return proc_cmdline_get_bool("net.ifnames", &b) <= 0 || b;
-}
-
 static int device_unsigned_attribute(sd_device *device, const char *attr, unsigned *type) {
         const char *s;
         int r;
@@ -325,11 +317,6 @@ int link_config_load(LinkConfigContext *ctx) {
         int r;
 
         link_configs_free(ctx);
-
-        if (!enable_name_policy()) {
-                ctx->enable_name_policy = false;
-                log_info("Network interface NamePolicy= disabled on kernel command line, ignoring.");
-        }
 
         /* update timestamp */
         paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, true);
@@ -686,7 +673,27 @@ static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
-static int link_generate_new_name(Link *link, bool enable_name_policy) {
+static bool enable_name_policy(void) {
+        static int cached = -1;
+        bool b;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        r = proc_cmdline_get_bool("net.ifnames", &b);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse net.ifnames= kernel command line option, ignoring: %m");
+        if (r <= 0)
+                return (cached = true);
+
+        if (!b)
+                log_info("Network interface NamePolicy= disabled on kernel command line.");
+
+        return (cached = b);
+}
+
+static int link_generate_new_name(Link *link) {
         LinkConfig *config;
         sd_device *device;
 
@@ -709,7 +716,7 @@ static int link_generate_new_name(Link *link, bool enable_name_policy) {
                 goto no_rename;
         }
 
-        if (enable_name_policy && config->name_policy)
+        if (enable_name_policy() && config->name_policy)
                 for (NamePolicy *policy = config->name_policy; *policy != _NAMEPOLICY_INVALID; policy++) {
                         const char *new_name = NULL;
 
@@ -931,7 +938,7 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_generate_new_name(link, ctx->enable_name_policy);
+        r = link_generate_new_name(link);
         if (r < 0)
                 return r;
 
