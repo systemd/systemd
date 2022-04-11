@@ -20,6 +20,7 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -30,6 +31,8 @@ static int create_symlink(const char *target, const char *slink) {
 
         assert(target);
         assert(slink);
+
+        (void) unlink(slink);
 
         r = mkdir_parents_label(slink, 0755);
         if (r < 0)
@@ -43,8 +46,7 @@ static int create_symlink(const char *target, const char *slink) {
 }
 
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
-        _cleanup_free_ char *target = NULL;
-        const char *id, *slink_tmp;
+        _cleanup_free_ char *target = NULL, *slink_tmp = NULL;
         struct stat st;
         int r;
 
@@ -70,18 +72,18 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
 
-        r = device_get_device_id(dev, &id);
+        r = tempfn_xxxxxx(slink, NULL, &slink_tmp);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
+                log_device_debug_errno(dev, r,
+                                       "Failed to generate temporary file name for symlink '%s', "
+                                       "creating symlink non-atomically, ignoring: %m",
+                                       slink);
 
-        slink_tmp = strjoina(slink, ".tmp-", id);
-        (void) unlink(slink_tmp);
-
-        r = create_symlink(target, slink_tmp);
+        r = create_symlink(target, slink_tmp ?: slink);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp, target);
+                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink_tmp ?: slink, target);
 
-        if (rename(slink_tmp, slink) < 0) {
+        if (slink_tmp && rename(slink_tmp, slink) < 0) {
                 r = log_device_debug_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
                 (void) unlink(slink_tmp);
                 return r;
