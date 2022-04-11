@@ -27,6 +27,45 @@
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
+int udev_node_cleanup(void) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        /* This must not be called when any workers exist. It would cause a race between mkdir() called
+         * by stack_directory_lock() and unlinkat() called by this. */
+
+        dir = opendir("/run/udev/links");
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to open directory '/run/udev/links', ignoring: %m");
+        }
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                _cleanup_free_ char *lockfile = NULL;
+
+                if (de->d_name[0] == '.')
+                        continue;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                lockfile = path_join(de->d_name, ".lock");
+                if (!lockfile)
+                        return log_oom_debug();
+
+                if (unlinkat(dirfd(dir), lockfile, 0) < 0 && errno != ENOENT) {
+                        log_debug_errno(errno, "Failed to remove '/run/udev/links/%s', ignoring: %m", lockfile);
+                        continue;
+                }
+
+                if (unlinkat(dirfd(dir), de->d_name, AT_REMOVEDIR) < 0 && errno != ENOTEMPTY)
+                        log_debug_errno(errno, "Failed to remove '/run/udev/links/%s', ignoring: %m", de->d_name);
+        }
+
+        return 0;
+}
+
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
         _cleanup_free_ char *target = NULL, *slink_tmp = NULL;
         struct stat st;
