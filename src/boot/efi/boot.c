@@ -2354,27 +2354,37 @@ static EFI_STATUS secure_boot_enroll(EFI_FILE *root_dir, Config *config, ConfigE
         clear_screen(COLOR_NORMAL);
         ps_string(L"Enrolling secure boot keys from directory: %s\n", entry->current_name);
 
-        Print(L"*** DANGER ***\n");
-        Print(L"Enrolling Secure Boot keys might soft-brick your machine.\n");
-        Print(L"However the option i-might-brick-my-machine-please-auto-enroll-keys has been set\n");
-        Print(L"The enrollement of secure boot keys will proceed after %d seconds\n", config->timeout_sec);
-        Print(L"*** DANGER ***\n");
+        CHAR8 yes[1] = { 1 };
+        err = efivar_set_raw(EFI_GLOBAL_GUID, L"AuditMode", &yes, sizeof(yes), EFI_VARIABLE_NON_VOLATILE |
+                EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                EFI_VARIABLE_RUNTIME_ACCESS);
+        if (EFI_ERROR(err)) {
+                if (!config->allow_unsafe_enrollement)
+                        return log_error_status_stall(err, L"Failed switching to secure boot audit mode: %r", err);
+                else {
+                        Print(L"*** DANGER ***\n");
+                        Print(L"Secure Boot Audit mode is not available\n");
+                        Print(L"However the option i-might-brick-my-machine-please-auto-enroll-keys has been set\n");
+                        Print(L"The enrollement of secure boot keys will proceed after %d seconds\n", config->timeout_sec);
+                        Print(L"*** DANGER ***\n");
 
-        Print(L"\nType q, Q or ESC to cancel.\n\n");
+                        Print(L"\nType q, Q or ESC to cancel.\n\n");
 
-        while (TRUE) {
-                err = console_key_read(&key, config->timeout_sec * 1000 * 1000);
-                if (err == EFI_NOT_READY)
-                        continue;
-                if (err == EFI_TIMEOUT)
-                        break;
-                if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Error waiting for user input to enroll Secure Boot keys: %r", err);
-                break;
+                        while (TRUE) {
+                                err = console_key_read(&key, config->timeout_sec * 1000 * 1000);
+                                if (err == EFI_NOT_READY)
+                                        continue;
+                                if (err == EFI_TIMEOUT)
+                                        break;
+                                if (EFI_ERROR(err))
+                                        return log_error_status_stall(err, L"Error waiting for user input to enroll Secure Boot keys: %r", err);
+                                break;
+                        }
+
+                        if (IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q')))
+                                return EFI_SUCCESS;
+                }
         }
-
-        if (IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q')))
-                return EFI_SUCCESS;
 
         keys_dir = xpool_print(L"\\loader\\keys\\%s", entry->current_name);
         err = open_directory(root_dir, keys_dir, &dir);
@@ -2385,6 +2395,7 @@ static EFI_STATUS secure_boot_enroll(EFI_FILE *root_dir, Config *config, ConfigE
                 { L"db",  L"db.esl",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
                 { L"KEK", L"KEK.esl", EFI_GLOBAL_VARIABLE, NULL, 0 },
                 { L"PK",  L"PK.esl",  EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { L"systemd-boot-PK",  L"PK.esl",  EFI_GLOBAL_VARIABLE, NULL, 0 },
         };
 
         /* we start by loading ALL the variables from the disk */
