@@ -1060,6 +1060,63 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
+int send_dns_notification(Manager* m, DnsAnswer* answer, DnsQuestion* question)
+{
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_free_ char *normalized = NULL;
+        DnsResourceRecord *rr;
+        int ifindex, r;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        VarlinkConnection* connection = NULL;
+
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, answer) {
+                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
+                int family;
+                const void *p;
+
+                if (rr->key->type == DNS_TYPE_A) {
+                        family = AF_INET;
+                        p = &rr->a.in_addr;
+                } else if (rr->key->type == DNS_TYPE_AAAA) {
+                        family = AF_INET6;
+                        p = &rr->aaaa.in6_addr;
+                }
+                else
+                        continue;
+
+                r = json_build(&entry,
+                               JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                               JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(family)),
+                                               JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family)))));
+
+                if (!canonical)
+                        canonical = dns_resource_record_ref(rr);
+
+                r = json_variant_append_array(&array, entry);
+        }
+
+        if (json_variant_is_blank_object(array))
+                return 0;
+
+        if (!canonical)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to determine canonical name: %m");
+
+        r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get hostname: %m");
+
+        connection = m->varlink_subscription;
+        while (connection) {
+                r = varlink_notifyb(connection->link, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
+                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(dns_question_first_name(question)))));
+                if (r < 0)
+                        log_error_errno(r, "Failed to send notification: %m");
+                connection = connection->next;
+        }
+        return 0;
+}
+
 int manager_send(
                 Manager *m,
                 int fd,
@@ -1082,6 +1139,17 @@ int manager_send(
                   DNS_PACKET_ID(p),
                   ifindex, af_to_name(family),
                   p->size);
+
+        if (m->varlink_subscription) {
+                int r = dns_packet_extract(p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract DNS packet info: %m");
+
+                r = send_dns_notification(m, p->answer, p->question);
+                if (r < 0)
+                        log_error_errno(r, "Failed to send varlink notification: %m");
+        }
+
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);

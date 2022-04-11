@@ -99,6 +99,45 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
+#if ENABLE_VARLINK_NOTIFICATIONS
+static void varlink_connection_destroy(VarlinkConnection* conn) {
+        assert(conn);
+        conn->link = varlink_unref(conn->link);
+        mfree(conn);
+}
+
+static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+        assert(s);
+        assert(link);
+
+        assert(m->varlink_subscription);
+
+        VarlinkConnection* tmp = m->varlink_subscription;
+        if (m->varlink_subscription->link == link)
+        {
+                m->varlink_subscription = m->varlink_subscription->next;
+                varlink_connection_destroy(tmp);
+                return;
+        }
+
+        VarlinkConnection* prev = NULL;
+        while (tmp != NULL && tmp->link != link)
+        {
+                prev = tmp;
+                tmp = tmp->next;
+        }
+
+        assert(tmp);
+
+        prev->next = tmp->next;
+        varlink_connection_destroy(tmp);
+        log_debug("Client for notifications vanished, disabling notifications.");
+}
+#endif
+
 static bool validate_and_mangle_flags(
                 const char *name,
                 uint64_t *flags,
@@ -221,6 +260,12 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
         r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
         if (r < 0)
                 goto finish;
+
+        if (q->manager->varlink_subscription) {
+                r = send_dns_notification(q->manager, q->answer, question);
+                if (r < 0)
+                        log_error_errno(r, "Failed to send varlink notification: %m");
+        }
 
         r = varlink_replyb(q->varlink_request,
                            JSON_BUILD_OBJECT(
@@ -516,6 +561,38 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
+#if ENABLE_VARLINK_NOTIFICATIONS
+static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata)
+{
+        Manager *m;
+
+        assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        assert(m);
+
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+        {
+                // the client didn't set the more flag, so return an empty response and close the connection
+                return varlink_reply(link, NULL);
+        }
+
+        VarlinkConnection* s = new(VarlinkConnection, 1);
+        if (!s)
+                return log_oom();
+        s->link = varlink_ref(link);
+        s->next = m->varlink_subscription;
+        m->varlink_subscription = s;
+
+        log_debug("Client attached for varlink notifications");
+        return 1;
+}
+#endif
+
 int manager_varlink_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -551,6 +628,38 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+
+        if (m->varlink_notification_server)
+                return 0;
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+#if ENABLE_VARLINK_NOTIFICATIONS
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.ResolveNotifications.SubscribeDnsResolves",  vl_method_subscribe_dns_resolves);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_disconnect(s, vl_on_notification_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
+
+        r = varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.ResolveNotifications", 0660);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_notification_server = TAKE_PTR(s);
+        m->varlink_subscription = NULL;
+#endif
+
         return 0;
 }
 
