@@ -21,14 +21,14 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "udev-node.h"
 #include "user-util.h"
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
-        _cleanup_free_ char *target = NULL;
-        const char *id, *slink_tmp;
+        _cleanup_free_ char *target = NULL, *slink_tmp = NULL;
         struct stat st;
         int r;
 
@@ -54,11 +54,10 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
 
-        r = device_get_device_id(dev, &id);
+        r = tempfn_xxxxxx(slink, NULL, &slink_tmp);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
+                return log_device_debug_errno(dev, r, "Failed to generate temporary file name for symlink '%s': %m", slink);
 
-        slink_tmp = strjoina(slink, ".tmp-", id);
         (void) unlink(slink_tmp);
 
         r = mkdir_parents_label(slink_tmp, 0755);
