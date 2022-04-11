@@ -2657,7 +2657,7 @@ static int item_compare(const Item *a, const Item *b) {
         return CMP(a->type, b->type);
 }
 
-static bool item_compatible(Item *a, Item *b) {
+static bool item_compatible(const Item *a, const Item *b) {
         assert(a);
         assert(b);
         assert(streq(a->path, b->path));
@@ -2896,13 +2896,13 @@ static int parse_age_by_from_arg(const char *age_by_str, Item *item) {
         return 0;
 }
 
-static bool is_duplicated_item(ItemArray *existing, Item *i) {
+static bool is_duplicated_item(ItemArray *existing, const Item *i) {
 
         assert(existing);
         assert(i);
 
         for (size_t n = 0; n < existing->n_items; n++) {
-                Item *e = existing->items + n;
+                const Item *e = existing->items + n;
 
                 if (item_compatible(e, i))
                         continue;
