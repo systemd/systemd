@@ -547,7 +547,42 @@ static int match_initialized(sd_device_enumerator *enumerator, sd_device *device
         return (enumerator->match_initialized == MATCH_INITIALIZED_NO) == (r == 0);
 }
 
-static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator, const char *basedir, const char *subdir1, const char *subdir2) {
+static int test_matches(
+                sd_device_enumerator *enumerator,
+                sd_device *device) {
+
+        int r;
+
+        assert(enumerator);
+        assert(device);
+
+        /* Checks all matches, except for the sysname match (which the caller should check beforehand) */
+
+        r = match_initialized(enumerator, device);
+        if (r <= 0)
+                return r;
+
+        if (!device_match_parent(device, enumerator->match_parent, NULL))
+                return false;
+
+        if (!match_tag(enumerator, device))
+                return false;
+
+        if (!match_property(enumerator, device))
+                return false;
+
+        if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
+                return false;
+
+        return true;
+}
+
+static int enumerator_scan_dir_and_add_devices(
+                sd_device_enumerator *enumerator,
+                const char *basedir,
+                const char *subdir1,
+                const char *subdir2) {
+
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
         int k, r = 0;
@@ -589,24 +624,12 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                         continue;
                 }
 
-                k = match_initialized(enumerator, device);
+                k = test_matches(enumerator, device);
                 if (k <= 0) {
                         if (k < 0)
                                 r = k;
                         continue;
                 }
-
-                if (!device_match_parent(device, enumerator->match_parent, NULL))
-                        continue;
-
-                if (!match_tag(enumerator, device))
-                        continue;
-
-                if (!match_property(enumerator, device))
-                        continue;
-
-                if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
-                        continue;
 
                 k = device_enumerator_add_device(enumerator, device);
                 if (k < 0)
