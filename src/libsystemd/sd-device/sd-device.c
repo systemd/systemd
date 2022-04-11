@@ -13,6 +13,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -20,6 +21,7 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "macro.h"
+#include "missing_magic.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -207,6 +209,21 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         if (!S_ISDIR(st.st_mode))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "sd-device: the syspath \"%s\" is not a directory.", syspath);
+                }
+
+                /* Only operate on sysfs, i.e. refuse going down into /sys/fs/cgroup/ or similar places where
+                 * things are not arranged as kobjects in kernel, and hence don't necessarily have
+                 * kobject/attribute structure. */
+                r = getenv_bool_secure("SYSTEMD_DEVICE_VERIFY_SYSFS");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_DEVICE_VERIFY_SYSFS value: %m");
+                if (r != 0) {
+                        r = fd_is_fs_type(fd, SYSFS_MAGIC);
+                        if (r < 0)
+                                return log_debug_errno(r, "sd-device: failed to check if syspath \"%s\" is backed by sysfs.", syspath);
+                        if (r == 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "sd-device: the syspath \"%s\" is outside of sysfs, refusing.", syspath);
                 }
         } else {
                 syspath = strdup(_syspath);
