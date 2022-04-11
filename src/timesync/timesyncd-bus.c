@@ -227,12 +227,11 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),
 
-        SD_BUS_METHOD_WITH_NAMES("SetRuntimeNTPServers",
-                                 "as",
-                                 SD_BUS_PARAM(runtime_servers),
-                                 NULL,,
-                                 method_set_runtime_servers,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetRuntimeNTPServers",
+                                SD_BUS_ARGS("as", runtime_servers),
+                                SD_BUS_NO_RESULT,
+                                method_set_runtime_servers,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
