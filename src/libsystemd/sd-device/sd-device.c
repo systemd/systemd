@@ -150,7 +150,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                        _syspath);
 
         if (verify) {
-                r = chase_symlinks(_syspath, NULL, 0, &syspath, NULL);
+                _cleanup_close_ int fd = -1;
+
+                r = chase_symlinks(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
@@ -181,25 +183,28 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         path_simplify(syspath);
                 }
 
-                if (path_startswith(syspath,  "/sys/devices/")) {
-                        char *path;
+                if (path_startswith(syspath, "/sys/devices/")) {
+                        /* For proper devices, stricter rules apply: they must have a 'uevent' file,
+                         * otherwise we won't allow them */
 
-                        /* all 'devices' require an 'uevent' file */
-                        path = strjoina(syspath, "/uevent");
-                        if (access(path, F_OK) < 0) {
+                        if (faccessat(fd, "uevent", F_OK, 0) < 0) {
                                 if (errno == ENOENT)
-                                        /* This is not a valid device.
-                                         * Note, this condition is quite often satisfied when
-                                         * enumerating devices or finding a parent device.
+                                        /* This is not a valid device.  Note, this condition is quite often
+                                         * satisfied when enumerating devices or finding a parent device.
                                          * Hence, use log_trace_errno() here. */
                                         return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
-                                                               "sd-device: the uevent file \"%s\" does not exist.", path);
+                                                               "sd-device: the uevent file \"%s/uevent\" does not exist.", syspath);
 
-                                return log_debug_errno(errno, "sd-device: cannot access uevent file for %s: %m", syspath);
+                                return log_debug_errno(errno, "sd-device: cannot find uevent file for %s: %m", syspath);
                         }
                 } else {
-                        /* everything else just needs to be a directory */
-                        if (!is_dir(syspath, false))
+                        struct stat st;
+
+                        /* For everything else lax rules apply: they just need to be a directory */
+
+                        if (fstat(fd, &st) < 0)
+                                return log_debug_errno(errno, "sd-device: failed to check if syspath \"%s\" is a directory: %m", syspath);
+                        if (!S_ISDIR(st.st_mode))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "sd-device: the syspath \"%s\" is not a directory.", syspath);
                 }
