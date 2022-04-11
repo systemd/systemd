@@ -236,9 +236,9 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(boot_id);
         assert_se(specifier_os_build_id('B', NULL, NULL, NULL, &os_build_id) >= 0);
         assert_se(hostname = gethostname_malloc());
-        assert_se(specifier_short_host_name('l', NULL, NULL, NULL, &short_hostname) == 0);
+        assert_se(specifier_short_hostname('l', NULL, NULL, NULL, &short_hostname) == 0);
         assert_se(short_hostname);
-        assert_se(specifier_pretty_host_name('q', NULL, NULL, NULL, &pretty_hostname) == 0);
+        assert_se(specifier_pretty_hostname('q', NULL, NULL, NULL, &pretty_hostname) == 0);
         assert_se(pretty_hostname);
         assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
         assert_se(machine_id);
