@@ -16,6 +16,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-printf.h"
@@ -213,41 +214,74 @@ TEST(unit_name_mangle) {
 }
 
 TEST_RET(unit_printf, .sd_booted = true) {
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
+        _cleanup_free_ char
+                *architecture, *os_image_version, *boot_id, *os_build_id,
+                *hostname, *short_hostname, *pretty_hostname,
+                *machine_id, *os_image_id, *os_id, *os_version_id, *os_variant_id,
+                *user, *group, *uid, *gid, *home, *shell,
+                *tmp_dir, *var_tmp_dir;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r;
 
-        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
-        assert_se(host = gethostname_malloc());
+        _cleanup_(unlink_tempfilep) char filename[] = "/tmp/test-unit_printf.XXXXXX";
+        assert_se(mkostemp_safe(filename) >= 0);
+
+        /* Using the specifier functions is admittedly a bit circular, but we don't want to reimplement the
+         * logic a second time. We're at least testing that the hookup works. */
+        assert_se(specifier_architecture('a', NULL, NULL, NULL, &architecture) >= 0);
+        assert_se(architecture);
+        assert_se(specifier_os_image_version('A', NULL, NULL, NULL, &os_image_version) >= 0);
+        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &boot_id) >= 0);
+        assert_se(boot_id);
+        assert_se(specifier_os_build_id('B', NULL, NULL, NULL, &os_build_id) >= 0);
+        assert_se(hostname = gethostname_malloc());
+        assert_se(specifier_short_host_name('l', NULL, NULL, NULL, &short_hostname) == 0);
+        assert_se(short_hostname);
+        assert_se(specifier_pretty_host_name('q', NULL, NULL, NULL, &pretty_hostname) == 0);
+        assert_se(pretty_hostname);
+        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
+        assert_se(machine_id);
+        assert_se(specifier_os_image_id('M', NULL, NULL, NULL, &os_image_id) >= 0);
+        assert_se(specifier_os_id('o', NULL, NULL, NULL, &os_id) >= 0);
+        assert_se(specifier_os_version_id('w', NULL, NULL, NULL, &os_version_id) >= 0);
+        assert_se(specifier_os_variant_id('W', NULL, NULL, NULL, &os_variant_id) >= 0);
         assert_se(user = uid_to_name(getuid()));
         assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&uid, UID_FMT, getuid()));
         assert_se(asprintf(&gid, UID_FMT, getgid()));
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
+        assert_se(specifier_tmp_dir('T', NULL, NULL, NULL, &tmp_dir) >= 0);
+        assert_se(tmp_dir);
+        assert_se(specifier_var_tmp_dir('V', NULL, NULL, NULL, &var_tmp_dir) >= 0);
+        assert_se(var_tmp_dir);
 
         r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r == 0);
 
-#define expect(unit, pattern, expected)                                 \
+        assert_se(free_and_strdup(&m->cgroup_root, "/cgroup-root") == 1);
+
+#define expect(unit, pattern, _expected)                                \
         {                                                               \
-                char *e;                                                \
                 _cleanup_free_ char *t = NULL;                          \
                 assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
-                printf("result: %s\nexpect: %s\n", t, expected);        \
-                if ((e = endswith(expected, "*")))                      \
-                        assert_se(strncmp(t, e, e-expected));              \
-                else                                                    \
-                        assert_se(streq(t, expected));                     \
+                const char *expected = strempty(_expected);             \
+                printf("%s: result: %s\n    expect: %s\n", pattern, t, expected); \
+                assert_se(fnmatch(expected, t, FNM_NOESCAPE) == 0);     \
         }
 
         assert_se(u = unit_new(m, sizeof(Service)));
         assert_se(unit_add_name(u, "blah.service") == 0);
         assert_se(unit_add_name(u, "blah.service") == 0);
+
+        /* We need *a* file that exists, but it doesn't even need to have the right suffix. */
+        assert_se(free_and_strdup(&u->fragment_path, filename) == 1);
+
+        /* This sets the slice to /app.slice. */
+        assert_se(unit_set_default_slice(u) == 1);
 
         /* general tests */
         expect(u, "%%", "%");
@@ -256,62 +290,103 @@ TEST_RET(unit_printf, .sd_booted = true) {
         expect(u, "%", "%");
 
         /* normal unit */
-        expect(u, "%n", "blah.service");
-        expect(u, "%f", "/blah");
-        expect(u, "%N", "blah");
-        expect(u, "%p", "blah");
-        expect(u, "%P", "blah");
-        expect(u, "%i", "");
-        expect(u, "%I", "");
-        expect(u, "%j", "blah");
-        expect(u, "%J", "blah");
+        expect(u, "%a", architecture);
+        expect(u, "%A", os_image_version);
+        expect(u, "%b", boot_id);
+        expect(u, "%B", os_build_id);
+        expect(u, "%H", hostname);
+        expect(u, "%l", short_hostname);
+        expect(u, "%q", pretty_hostname);
+        expect(u, "%m", machine_id);
+        expect(u, "%M", os_image_id);
+        expect(u, "%o", os_id);
+        expect(u, "%w", os_version_id);
+        expect(u, "%W", os_variant_id);
         expect(u, "%g", group);
         expect(u, "%G", gid);
         expect(u, "%u", user);
         expect(u, "%U", uid);
+        expect(u, "%T", tmp_dir);
+        expect(u, "%V", var_tmp_dir);
+
+        expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%j", "blah");
+        expect(u, "%J", "blah");
+        expect(u, "%n", "blah.service");
+        expect(u, "%N", "blah");
+        expect(u, "%p", "blah");
+        expect(u, "%P", "blah");
+        expect(u, "%f", "/blah");
+        expect(u, "%y", filename);
+        expect(u, "%Y", "/tmp");
+        expect(u, "%C", m->prefix[EXEC_DIRECTORY_CACHE]);
+        expect(u, "%d", "*/credentials/blah.service");
+        expect(u, "%E", m->prefix[EXEC_DIRECTORY_CONFIGURATION]);
+        expect(u, "%L", m->prefix[EXEC_DIRECTORY_LOGS]);
+        expect(u, "%S", m->prefix[EXEC_DIRECTORY_STATE]);
+        expect(u, "%t", m->prefix[EXEC_DIRECTORY_RUNTIME]);
         expect(u, "%h", home);
-        expect(u, "%m", mid);
-        expect(u, "%b", bid);
-        expect(u, "%H", host);
-        expect(u, "%t", "/run/user/*");
+        expect(u, "%s", shell);
+
+        /* deprecated */
+        expect(u, "%c", "/cgroup-root/app.slice/blah.service");
+        expect(u, "%r", "/cgroup-root/app.slice");
+        expect(u, "%R", "/cgroup-root");
 
         /* templated */
         assert_se(u = unit_new(m, sizeof(Service)));
         assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
         assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
 
-        expect(u, "%n", "blah@foo-foo.service");
-        expect(u, "%N", "blah@foo-foo");
-        expect(u, "%f", "/foo/foo");
-        expect(u, "%p", "blah");
-        expect(u, "%P", "blah");
+        assert_se(free_and_strdup(&u->fragment_path, filename) == 1);
+
+        /* This sets the slice to /app.slice/app-blah.slice. */
+        assert_se(unit_set_default_slice(u) == 1);
+
         expect(u, "%i", "foo-foo");
         expect(u, "%I", "foo/foo");
         expect(u, "%j", "blah");
         expect(u, "%J", "blah");
-        expect(u, "%g", group);
-        expect(u, "%G", gid);
-        expect(u, "%u", user);
-        expect(u, "%U", uid);
+        expect(u, "%n", "blah@foo-foo.service");
+        expect(u, "%N", "blah@foo-foo");
+        expect(u, "%p", "blah");
+        expect(u, "%P", "blah");
+        expect(u, "%f", "/foo/foo");
+        expect(u, "%y", filename);
+        expect(u, "%Y", "/tmp");
+        expect(u, "%C", m->prefix[EXEC_DIRECTORY_CACHE]);
+        expect(u, "%d", "*/credentials/blah@foo-foo.service");
+        expect(u, "%E", m->prefix[EXEC_DIRECTORY_CONFIGURATION]);
+        expect(u, "%L", m->prefix[EXEC_DIRECTORY_LOGS]);
+        expect(u, "%S", m->prefix[EXEC_DIRECTORY_STATE]);
+        expect(u, "%t", m->prefix[EXEC_DIRECTORY_RUNTIME]);
         expect(u, "%h", home);
-        expect(u, "%m", mid);
-        expect(u, "%b", bid);
-        expect(u, "%H", host);
-        expect(u, "%t", "/run/user/*");
+        expect(u, "%s", shell);
+
+        /* deprecated */
+        expect(u, "%c", "/cgroup-root/app.slice/app-blah.slice/blah@foo-foo.service");
+        expect(u, "%r", "/cgroup-root/app.slice/app-blah.slice");
+        expect(u, "%R", "/cgroup-root");
 
         /* templated with components */
         assert_se(u = unit_new(m, sizeof(Slice)));
         assert_se(unit_add_name(u, "blah-blah\\x2d.slice") == 0);
 
-        expect(u, "%n", "blah-blah\\x2d.slice");
-        expect(u, "%N", "blah-blah\\x2d");
-        expect(u, "%f", "/blah/blah-");
-        expect(u, "%p", "blah-blah\\x2d");
-        expect(u, "%P", "blah/blah-");
         expect(u, "%i", "");
         expect(u, "%I", "");
         expect(u, "%j", "blah\\x2d");
         expect(u, "%J", "blah-");
+        expect(u, "%n", "blah-blah\\x2d.slice");
+        expect(u, "%N", "blah-blah\\x2d");
+        expect(u, "%p", "blah-blah\\x2d");
+        expect(u, "%P", "blah/blah-");
+        expect(u, "%f", "/blah/blah-");
+
+        /* deprecated */
+        expect(u, "%c", "/cgroup-root/blah-blah\\x2d.slice");
+        expect(u, "%r", "/cgroup-root");
+        expect(u, "%R", "/cgroup-root");
 
 #undef expect
 
