@@ -276,12 +276,18 @@ int specifier_architecture(char specifier, const void *data, const char *root, c
  * installation. */
 
 static int parse_os_release_specifier(const char *root, const char *id, char **ret) {
+        char *v = NULL;
         int r;
 
         assert(ret);
 
+        r = parse_os_release(root, id, &v);
+        if (r >= 0)
+                /* parse_os_release() calls parse_env_file() which only sets the return value for
+                 * entries found. Let's make sure we set the return value in all cases. */
+                *ret = v;
+
         /* Translate error for missing os-release file to EUNATCH. */
-        r = parse_os_release(root, id, ret);
         return r == -ENOENT ? -EUNATCH : r;
 }
 
