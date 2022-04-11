@@ -1697,6 +1697,8 @@ conf.set10('ENABLE_PAM_HOME', have)
 have = get_option('oomd')
 conf.set10('ENABLE_OOMD', have)
 
+conf.set10('ENABLE_VARLINK_NOTIFICATIONS', get_option('dns-varlink-notifications'))
+
 want_remote = get_option('remote')
 if want_remote != 'false'
         have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
