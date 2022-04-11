@@ -69,13 +69,18 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         int r;
 
         assert(dev);
-        assert(devnode);
         assert(slink);
+
+        if (!devnode) {
+                r = sd_device_get_devname(dev, &devnode);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+        }
 
         if (lstat(slink, &st) >= 0) {
                 if (!S_ISLNK(st.st_mode))
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                                      "Conflicting inode '%s' found, link to '%s' will not be created.",
+                                                      "Conflicting inode '%s' found, symlink to '%s' will not be created.",
                                                       slink, devnode);
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
@@ -486,22 +491,11 @@ static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {
         _cleanup_free_ char *filename = NULL;
-        const char *devnode, *devlink;
+        const char *devlink;
         int r;
 
         assert(dev);
         assert(dev_old);
-
-        r = sd_device_get_devname(dev, &devnode);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get devnode: %m");
-
-        if (DEBUG_LOGGING) {
-                const char *id = NULL;
-
-                (void) device_get_device_id(dev, &id);
-                log_device_debug(dev, "Handling device node '%s', devnum=%s", devnode, strna(id));
-        }
 
         /* update possible left-over symlinks */
         FOREACH_DEVICE_DEVLINK(dev_old, devlink) {
@@ -534,7 +528,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* always add /dev/{block,char}/$major:$minor */
-        r = node_symlink(dev, devnode, filename);
+        r = node_symlink(dev, NULL, filename);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
