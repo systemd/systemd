@@ -242,22 +242,55 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         return 0;
 }
 
-_public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum) {
-        char id[DECIMAL_STR_MAX(unsigned) * 2 + 1], *syspath;
+static int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *syspath = NULL;
+        const char *t, *subsystem;
+        dev_t n;
+        int r;
 
+        assert(ret);
+
+        if (S_ISCHR(mode))
+                t = "char";
+        else if (S_ISBLK(mode))
+                t = "block";
+        else
+                return -ENOTTY;
+
+        if (major(devnum) == 0)
+                return -ENODEV;
+
+        if (asprintf(&syspath, "/sys/dev/%s/%u:%u", t, major(devnum), minor(devnum)) < 0)
+                return -ENOMEM;
+
+        r = sd_device_new_from_syspath(&dev, syspath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(dev, &n);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (n != devnum)
+                return -ENXIO;
+
+        r = sd_device_get_subsystem(dev, &subsystem);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r >= 0 && streq(subsystem, "block") != !!S_ISBLK(mode))
+                return -ENXIO;
+
+        *ret = TAKE_PTR(dev);
+        return 0;
+}
+
+_public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum) {
         assert_return(ret, -EINVAL);
         assert_return(IN_SET(type, 'b', 'c'), -EINVAL);
 
-        if (devnum == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
-                                       "sd-device: Attempted to allocate device by zero major/minor, refusing.");
-
-        /* use /sys/dev/{block,char}/<maj>:<min> link */
-        xsprintf(id, "%u:%u", major(devnum), minor(devnum));
-
-        syspath = strjoina("/sys/dev/", (type == 'b' ? "block" : "char"), "/", id);
-
-        return sd_device_new_from_syspath(ret, syspath);
+        return device_new_from_mode_and_devnum(ret, type == 'b' ? S_IFBLK : S_IFCHR, devnum);
 }
 
 static int device_new_from_main_ifname(sd_device **ret, const char *ifname) {
@@ -295,7 +328,9 @@ _public_ int sd_device_new_from_ifname(sd_device **ret, const char *ifname) {
 }
 
 _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         char ifname[IF_NAMESIZE];
+        int r, i;
 
         assert_return(ret, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
@@ -303,7 +338,20 @@ _public_ int sd_device_new_from_ifindex(sd_device **ret, int ifindex) {
         if (format_ifname(ifindex, ifname) < 0)
                 return -ENODEV;
 
-        return device_new_from_main_ifname(ret, ifname);
+        r = device_new_from_main_ifname(&dev, ifname);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_ifindex(dev, &i);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (i != ifindex)
+                return -ENXIO;
+
+        *ret = TAKE_PTR(dev);
+        return 0;
 }
 
 static int device_strjoin_new(
@@ -400,23 +448,16 @@ _public_ int sd_device_new_from_subsystem_sysname(
 }
 
 _public_ int sd_device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
-        char type;
-
         assert_return(ret, -EINVAL);
         assert_return(st, -EINVAL);
 
-        if (S_ISBLK(st->st_mode))
-                type = 'b';
-        else if (S_ISCHR(st->st_mode))
-                type = 'c';
-        else
-                return -ENOTTY;
-
-        return sd_device_new_from_devnum(ret, type, st->st_rdev);
+        return device_new_from_mode_and_devnum(ret, st->st_mode, st->st_rdev);
 }
 
 _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
         struct stat st;
+        dev_t devnum;
+        mode_t mode;
 
         assert_return(ret, -EINVAL);
         assert_return(devname, -EINVAL);
@@ -428,16 +469,11 @@ _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
         if (isempty(path_startswith(devname, "/dev")))
                 return -EINVAL;
 
-        if (device_path_parse_major_minor(devname, NULL, NULL) >= 0) {
-                _cleanup_free_ char *syspath = NULL;
-
+        if (device_path_parse_major_minor(devname, &mode, &devnum) >= 0)
                 /* Let's shortcut when "/dev/block/maj:min" or "/dev/char/maj:min" is specified.
-                 * In that case, we directly convert the path to syspath, hence it is not necessary
+                 * In that case, we can directly convert the path to syspath, hence it is not necessary
                  * that the specified path exists. So, this works fine without udevd being running. */
-
-                syspath = path_join("/sys", devname);
-                return sd_device_new_from_syspath(ret, syspath);
-        }
+                return device_new_from_mode_and_devnum(ret, mode, devnum);
 
         if (stat(devname, &st) < 0)
                 return ERRNO_IS_DEVICE_ABSENT(errno) ? -ENODEV : -errno;
@@ -598,7 +634,6 @@ static int handle_uevent_line(
                 const char *value,
                 const char **major,
                 const char **minor) {
-        int r;
 
         assert(device);
         assert(key);
@@ -606,35 +641,22 @@ static int handle_uevent_line(
         assert(major);
         assert(minor);
 
-        if (streq(key, "DEVTYPE")) {
-                r = device_set_devtype(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "IFINDEX")) {
-                r = device_set_ifindex(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DEVNAME")) {
-                r = device_set_devname(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DEVMODE")) {
-                r = device_set_devmode(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "DISKSEQ")) {
-                r = device_set_diskseq(device, value);
-                if (r < 0)
-                        return r;
-        } else if (streq(key, "MAJOR"))
+        if (streq(key, "DEVTYPE"))
+                return device_set_devtype(device, value);
+        if (streq(key, "IFINDEX"))
+                return device_set_ifindex(device, value);
+        if (streq(key, "DEVNAME"))
+                return device_set_devname(device, value);
+        if (streq(key, "DEVMODE"))
+                return device_set_devmode(device, value);
+        if (streq(key, "DISKSEQ"))
+                return device_set_diskseq(device, value);
+        if (streq(key, "MAJOR"))
                 *major = value;
         else if (streq(key, "MINOR"))
                 *minor = value;
-        else {
-                r = device_add_property_internal(device, key, value);
-                if (r < 0)
-                        return r;
-        }
+        else
+                return device_add_property_internal(device, key, value);
 
         return 0;
 }
@@ -721,7 +743,7 @@ int device_read_uevent_file(sd_device *device) {
         if (major) {
                 r = device_set_devnum(device, major, minor);
                 if (r < 0)
-                        log_device_debug_errno(device, r, "sd-device: Failed to set 'MAJOR=%s' or 'MINOR=%s' from '%s', ignoring: %m", major, minor, path);
+                        log_device_debug_errno(device, r, "sd-device: Failed to set 'MAJOR=%s' or 'MINOR=%s' from '%s', ignoring: %m", major, strna(minor), path);
         }
 
         return 0;
@@ -1334,7 +1356,6 @@ int device_set_usec_initialized(sd_device *device, usec_t when) {
 }
 
 static int handle_db_line(sd_device *device, char key, const char *value) {
-        char *path;
         int r;
 
         assert(device);
@@ -1343,24 +1364,17 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
         switch (key) {
         case 'G': /* Any tag */
         case 'Q': /* Current tag */
-                r = device_add_tag(device, value, key == 'Q');
-                if (r < 0)
-                        return r;
+                return device_add_tag(device, value, key == 'Q');
 
-                break;
-        case 'S':
+        case 'S': {
+                const char *path;
+
                 path = strjoina("/dev/", value);
-                r = device_add_devlink(device, path);
-                if (r < 0)
-                        return r;
-
-                break;
+                return device_add_devlink(device, path);
+        }
         case 'E':
-                r = device_add_property_internal_from_string(device, value);
-                if (r < 0)
-                        return r;
+                return device_add_property_internal_from_string(device, value);
 
-                break;
         case 'I': {
                 usec_t t;
 
@@ -1368,35 +1382,25 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                 if (r < 0)
                         return r;
 
-                r = device_set_usec_initialized(device, t);
-                if (r < 0)
-                        return r;
-
-                break;
+                return device_set_usec_initialized(device, t);
         }
         case 'L':
-                r = safe_atoi(value, &device->devlink_priority);
-                if (r < 0)
-                        return r;
+                return safe_atoi(value, &device->devlink_priority);
 
-                break;
         case 'W':
                 /* Deprecated. Previously, watch handle is both saved in database and /run/udev/watch.
                  * However, the handle saved in database may not be updated when the handle is updated
                  * or removed. Moreover, it is not necessary to store the handle within the database,
                  * as its value becomes meaningless when udevd is restarted. */
-                break;
-        case 'V':
-                r = safe_atou(value, &device->database_version);
-                if (r < 0)
-                        return r;
+                return 0;
 
-                break;
+        case 'V':
+                return safe_atou(value, &device->database_version);
+
         default:
                 log_device_debug(device, "sd-device: Unknown key '%c' in device db, ignoring", key);
+                return 0;
         }
-
-        return 0;
 }
 
 int device_get_device_id(sd_device *device, const char **ret) {
