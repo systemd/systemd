@@ -62,20 +62,21 @@ static int create_symlink(const char *target, const char *slink) {
         return r;
 }
 
-static int node_symlink(sd_device *dev, const char *node, const char *slink) {
+static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
         const char *id, *slink_tmp;
-        struct stat stats;
+        struct stat st;
         int r;
 
         assert(dev);
-        assert(node);
+        assert(devnode);
         assert(slink);
 
-        if (lstat(slink, &stats) >= 0) {
-                if (!S_ISLNK(stats.st_mode))
+        if (lstat(slink, &st) >= 0) {
+                if (!S_ISLNK(st.st_mode))
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                                      "Conflicting inode '%s' found, link to '%s' will not be created.", slink, node);
+                                                      "Conflicting inode '%s' found, link to '%s' will not be created.",
+                                                      slink, devnode);
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
@@ -84,9 +85,9 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 return log_device_debug_errno(dev, r, "Failed to get parent directory of '%s': %m", slink);
 
         /* use relative link */
-        r = path_make_relative(slink_dirname, node, &target);
+        r = path_make_relative(slink_dirname, devnode, &target);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, node);
+                return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
 
         r = device_get_device_id(dev, &id);
         if (r < 0)
@@ -108,36 +109,36 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         return 0;
 }
 
-static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir, char **ret) {
+static int stack_directory_find_prioritized_devnode(sd_device *dev, const char *dirname, bool add, char **ret) {
         _cleanup_closedir_ DIR *dir = NULL;
-        _cleanup_free_ char *target = NULL;
+        _cleanup_free_ char *devnode = NULL;
         int r, priority = 0;
         const char *id;
 
         assert(dev);
-        assert(stackdir);
+        assert(dirname);
         assert(ret);
 
         /* Find device node of device with highest priority. This returns 1 if a device found, 0 if no
-         * device found, or a negative errno. */
+         * device found, or a negative errno on error. */
 
         if (add) {
-                const char *devnode;
+                const char *n;
 
                 r = device_get_devlink_priority(dev, &priority);
                 if (r < 0)
                         return r;
 
-                r = sd_device_get_devname(dev, &devnode);
+                r = sd_device_get_devname(dev, &n);
                 if (r < 0)
                         return r;
 
-                target = strdup(devnode);
-                if (!target)
+                devnode = strdup(n);
+                if (!devnode)
                         return -ENOMEM;
         }
 
-        dir = opendir(stackdir);
+        dir = opendir(dirname);
         if (!dir)
                 return -errno;
 
@@ -146,6 +147,7 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 return r;
 
         FOREACH_DIRENT_ALL(de, dir, break) {
+                const char *tmp_devnode;
                 int tmp_prio;
 
                 if (de->d_name[0] == '.')
@@ -157,7 +159,7 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 
                 if (de->d_type == DT_LNK) {
                         _cleanup_free_ char *buf = NULL;
-                        char *devnode;
+                        char *colon;
 
                         /* New format. The devnode and priority can be obtained from symlink. */
 
@@ -167,27 +169,22 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                                 continue;
                         }
 
-                        devnode = strchr(buf, ':');
-                        if (!devnode || devnode == buf)
+                        colon = strchr(buf, ':');
+                        if (!colon || colon == buf)
                                 continue;
 
-                        *(devnode++) = '\0';
-                        if (!path_startswith(devnode, "/dev"))
-                                continue;
+                        *colon = '\0';
 
                         if (safe_atoi(buf, &tmp_prio) < 0)
                                 continue;
 
-                        if (target && tmp_prio <= priority)
+                        if (devnode && tmp_prio <= priority)
                                 continue;
 
-                        r = free_and_strdup(&target, devnode);
-                        if (r < 0)
-                                return r;
+                        tmp_devnode = colon + 1;
 
                 } else if (de->d_type == DT_REG) {
                         _cleanup_(sd_device_unrefp) sd_device *tmp_dev = NULL;
-                        const char *devnode;
 
                         /* Old format. The devnode and priority must be obtained from uevent and
                          * udev database files. */
@@ -198,22 +195,26 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                         if (device_get_devlink_priority(tmp_dev, &tmp_prio) < 0)
                                 continue;
 
-                        if (target && tmp_prio <= priority)
+                        if (devnode && tmp_prio <= priority)
                                 continue;
 
-                        if (sd_device_get_devname(tmp_dev, &devnode) < 0)
+                        if (sd_device_get_devname(tmp_dev, &tmp_devnode) < 0)
                                 continue;
 
-                        r = free_and_strdup(&target, devnode);
-                        if (r < 0)
-                                return r;
                 } else
                         continue;
+
+                if (isempty(path_startswith(tmp_devnode, "/dev")))
+                        continue;
+
+                r = free_and_strdup(&devnode, tmp_devnode);
+                if (r < 0)
+                        return r;
 
                 priority = tmp_prio;
         }
 
-        *ret = TAKE_PTR(target);
+        *ret = TAKE_PTR(devnode);
         return !!*ret;
 }
 
@@ -442,7 +443,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 if (stat(dirname, &st1) < 0 && errno != ENOENT)
                         return log_device_debug_errno(dev, errno, "Failed to stat %s: %m", dirname);
 
-                r = link_find_prioritized(dev, add, dirname, &target);
+                r = stack_directory_find_prioritized_devnode(dev, dirname, add, &target);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
                 if (r == 0) {
