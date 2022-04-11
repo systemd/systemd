@@ -33,6 +33,10 @@ BEGIN {
     }
 }
 
+# Relax sd-device's sysfs verification, since we want to provide a fake sysfs
+# here that actually is a tmpfs.
+$ENV{"SYSTEMD_DEVICE_VERIFY_SYSFS"}="0";
+
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
 my $gdb                 = 0;
