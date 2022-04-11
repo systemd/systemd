@@ -26,6 +26,44 @@
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
 
+int udev_node_cleanup(void) {
+        _cleanup_closedir_ DIR *dir = NULL;
+
+        dir = opendir("/run/udev/links");
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to open directory '/run/udev/links', ignoring: %m");
+        }
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                _cleanup_close_ int fd = -1;
+
+                if (de->d_name[0] == '.')
+                        continue;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                fd = openat(dirfd(dir), de->d_name, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY);
+                if (fd < 0) {
+                        log_debug_errno(errno, "Failed to open directory '/run/udev/links/%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                if (flock(fd, LOCK_EX | LOCK_NB) < 0) {
+                        log_debug_errno(errno, "Failed to lock directory '/run/udev/links/%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                if (unlinkat(fd, ".", AT_REMOVEDIR) < 0 && errno != ENOTEMPTY)
+                        log_debug_errno(errno, "Failed to remove directory '/run/udev/links/%s', ignoring: %m", de->d_name);
+        }
+
+        return 0;
+}
+
 static int create_symlink(const char *target, const char *slink) {
         int r;
 
