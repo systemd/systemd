@@ -63,7 +63,7 @@ static int create_symlink(const char *target, const char *slink) {
 }
 
 static int node_symlink(sd_device *dev, const char *devnode, const char *slink) {
-        _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
+        _cleanup_free_ char *target = NULL;
         const char *id, *slink_tmp;
         struct stat st;
         int r;
@@ -80,12 +80,8 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         } else if (errno != ENOENT)
                 return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
-        r = path_extract_directory(slink, &slink_dirname);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get parent directory of '%s': %m", slink);
-
         /* use relative link */
-        r = path_make_relative(slink_dirname, devnode, &target);
+        r = path_make_relative_parent(slink, devnode, &target);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get relative path from '%s' to '%s': %m", slink, devnode);
 
