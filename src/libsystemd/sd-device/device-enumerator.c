@@ -577,6 +577,28 @@ static int test_matches(
         return true;
 }
 
+static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsystem) {
+        const char *subsystem_match;
+
+        assert(enumerator);
+
+        if (!subsystem)
+                return false;
+
+        SET_FOREACH(subsystem_match, enumerator->nomatch_subsystem)
+                if (fnmatch(subsystem_match, subsystem, 0) == 0)
+                        return false;
+
+        if (set_isempty(enumerator->match_subsystem))
+                return true;
+
+        SET_FOREACH(subsystem_match, enumerator->match_subsystem)
+                if (fnmatch(subsystem_match, subsystem, 0) == 0)
+                        return true;
+
+        return false;
+}
+
 static bool relevant_sysfs_subdir(const struct dirent *de) {
         assert(de);
 
@@ -617,6 +639,7 @@ static int enumerator_scan_dir_and_add_devices(
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
+                sd_device *upwards;
 
                 if (!relevant_sysfs_subdir(de))
                         continue;
@@ -645,31 +668,57 @@ static int enumerator_scan_dir_and_add_devices(
                 k = device_enumerator_add_device(enumerator, device);
                 if (k < 0)
                         r = k;
+
+                /* Also include all potentially matching parent devices in the enumeration. These are things
+                 * like root busses — e.g. /sys/devices/pci0000:00/ or /sys/devices/pnp0/, which ar not
+                 * linked from /sys/class/ or /sys/bus/, hence pick them up explicitly here. */
+                upwards = device;
+                for (;;) {
+                        const char *ss, *usn;
+
+                        k = sd_device_get_parent(upwards, &upwards);
+                        if (k == -ENOENT) /* Reached the top? */
+                                break;
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        k = sd_device_get_subsystem(upwards, &ss);
+                        if (k == -ENOENT) /* Has no subsystem? */
+                                continue;
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        if (!match_subsystem(enumerator, ss))
+                                continue;
+
+                        k = sd_device_get_sysname(upwards, &usn);
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        if (!match_sysname(enumerator, usn))
+                                continue;
+
+                        k = test_matches(enumerator, upwards);
+                        if (k < 0)
+                                break;
+                        if (k == 0)
+                                continue;
+
+                        k = device_enumerator_add_device(enumerator, upwards);
+                        if (k < 0)
+                                r = k;
+                        else if (k == 0) /* Exists already? Then no need to go further up. */
+                                break;
+                }
         }
 
         return r;
-}
-
-static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsystem) {
-        const char *subsystem_match;
-
-        assert(enumerator);
-
-        if (!subsystem)
-                return false;
-
-        SET_FOREACH(subsystem_match, enumerator->nomatch_subsystem)
-                if (fnmatch(subsystem_match, subsystem, 0) == 0)
-                        return false;
-
-        if (set_isempty(enumerator->match_subsystem))
-                return true;
-
-        SET_FOREACH(subsystem_match, enumerator->match_subsystem)
-                if (fnmatch(subsystem_match, subsystem, 0) == 0)
-                        return true;
-
-        return false;
 }
 
 static int enumerator_scan_dir(
