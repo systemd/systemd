@@ -359,6 +359,10 @@ static int portable_extract_by_path(
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
+                r = loop_device_flock(d, LOCK_SH);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire lock on loopback block device: %m");
+
                 BLOCK_SIGNALS(SIGCHLD);
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
