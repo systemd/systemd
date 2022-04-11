@@ -2657,7 +2657,7 @@ static int item_compare(const Item *a, const Item *b) {
         return CMP(a->type, b->type);
 }
 
-static bool item_compatible(Item *a, Item *b) {
+static bool item_compatible(const Item *a, const Item *b) {
         assert(a);
         assert(b);
         assert(streq(a->path, b->path));
@@ -2894,6 +2894,26 @@ static int parse_age_by_from_arg(const char *age_by_str, Item *item) {
         item->age_by_dir = ab_d > 0 ? ab_d : AGE_BY_DEFAULT_DIR;
 
         return 0;
+}
+
+static bool is_duplicated_item(ItemArray *existing, const Item *i) {
+
+        assert(existing);
+        assert(i);
+
+        for (size_t n = 0; n < existing->n_items; n++) {
+                const Item *e = existing->items + n;
+
+                if (item_compatible(e, i))
+                        continue;
+
+                /* Only multiple 'w+' lines for the same path are allowed. */
+                if (e->type != WRITE_FILE || !e->append_or_force ||
+                    i->type != WRITE_FILE || !i->append_or_force)
+                        return true;
+        }
+
+        return false;
 }
 
 static int parse_line(
@@ -3247,13 +3267,10 @@ static int parse_line(
 
         existing = ordered_hashmap_get(h, i.path);
         if (existing) {
-                size_t n;
-
-                for (n = 0; n < existing->n_items; n++) {
-                        if (!item_compatible(existing->items + n, &i) && !i.append_or_force) {
-                                log_syntax(NULL, LOG_NOTICE, fname, line, 0, "Duplicate line for path \"%s\", ignoring.", i.path);
-                                return 0;
-                        }
+                if (is_duplicated_item(existing, &i)) {
+                        log_syntax(NULL, LOG_NOTICE, fname, line, 0,
+                                   "Duplicate line for path \"%s\", ignoring.", i.path);
+                        return 0;
                 }
         } else {
                 existing = new0(ItemArray, 1);
