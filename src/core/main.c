@@ -2051,7 +2051,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                         }
                 }
 
-                assert(uname(&uts) >= 0);
+                assert_se(uname(&uts) >= 0);
 
                 if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
                         log_warning("Warning! Reported kernel version %s is older than systemd's required baseline kernel version %s. "
