@@ -203,6 +203,8 @@ int chase_symlinks(
                 todo = buffer;
                 done = strdup("/");
         }
+        if (!done)
+                return -ENOMEM;
 
         for (;;) {
                 _cleanup_free_ char *first = NULL;
