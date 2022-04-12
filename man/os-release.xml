@@ -117,7 +117,7 @@
       change between the build and the deployment phases, it is possible to relax this check: if exactly one
       file whose name matches <literal><filename>extension-release.*</filename></literal> is present in this
       directory, and the file is tagged with a <varname>user.extension-release.strict</varname>
-      <citerefentry><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry> set to the
+      <citerefentry project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry> set to the
       string <literal>0</literal>, it will be used instead.</para>
 
       <para>The rest of this document that talks about <filename>os-release</filename> should be understood
@@ -499,14 +499,14 @@ VERSION_ID=32</programlisting>
 
     <example>
       <title>Reading <filename>os-release</filename> in
-      <citerefentry><refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum></citerefentry></title>
+      <citerefentry project='man-pages'><refentrytitle>sh</refentrytitle><manvolnum>1</manvolnum></citerefentry></title>
 
       <programlisting><xi:include href="check-os-release.sh" parse="text" /></programlisting>
     </example>
 
     <example>
       <title>Reading <filename>os-release</filename> in
-      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (versions &gt;= 3.10)</title>
+      <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (versions &gt;= 3.10)</title>
 
       <programlisting><xi:include href="check-os-release-simple.py" parse="text" /></programlisting>
 
@@ -517,7 +517,7 @@ VERSION_ID=32</programlisting>
 
     <example>
       <title>Reading <filename>os-release</filename> in
-      <citerefentry><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (any version)</title>
+      <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry> (any version)</title>
 
       <programlisting><xi:include href="check-os-release.py" parse="text" /></programlisting>
 
