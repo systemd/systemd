@@ -314,8 +314,8 @@
         its configuration. The lockout mechanism is a global property of the TPM,
         <command>systemd-cryptenroll</command> does not control or configure the lockout mechanism. You may
         use tpm2-tss tools to inspect or configure the dictionary attack lockout, with
-        <citerefentry><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-        <citerefentry><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <citerefentry project='mankier'><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+        <citerefentry project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         commands, respectively.</para></listitem>
       </varlistentry>
 
