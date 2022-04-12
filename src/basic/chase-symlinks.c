@@ -212,7 +212,7 @@ int chase_symlinks(
                 struct stat st;
                 const char *e;
 
-                r = path_find_first_component(&todo, true, &e);
+                r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
                         return r;
                 if (r == 0) { /* We reached the end. */
@@ -387,7 +387,7 @@ chased_one:
                 const char *e;
 
                 /* todo may contain slashes at the beginning. */
-                r = path_find_first_component(&todo, true, &e);
+                r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
                         return r;
                 if (r == 0)
