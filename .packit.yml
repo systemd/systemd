@@ -32,6 +32,10 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+    # Build i*86 builds without bfptool, since kernel-tools are no longer built
+    # for i*86 archs
+    - 'sed -ri "s/^(BuildRequires:\s*bpftool)/%ifnarch %ix86\n%global have_bpf 1\n\1\n%endif/" .packit_rpm/systemd.spec'
+    - 'sed -ri "s/(-Dbpf-framework=)true/\1%[%{?have_bpf}?\"true\":\"false\"]/" .packit_rpm/systemd.spec'
 
 jobs:
 - job: copr_build
