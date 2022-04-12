@@ -24,7 +24,7 @@ bool unsafe_transition(const struct stat *a, const struct stat *b) {
         return a->st_uid != b->st_uid; /* Otherwise we need to stay within the same UID */
 }
 
-static int log_unsafe_transition(int a, int b, const char *path, unsigned flags) {
+static int log_unsafe_transition(int a, int b, const char *path, ChaseSymlinksFlags flags) {
         _cleanup_free_ char *n1 = NULL, *n2 = NULL, *user_a = NULL, *user_b = NULL;
         struct stat st;
 
@@ -44,7 +44,7 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
                                  strna(n1), strna(user_a), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(n2), strna(user_b), path);
 }
 
-static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
+static int log_autofs_mount_point(int fd, const char *path, ChaseSymlinksFlags flags) {
         _cleanup_free_ char *n1 = NULL;
 
         if (!FLAGS_SET(flags, CHASE_WARN))
@@ -57,7 +57,13 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
                                  strna(n1), path);
 }
 
-int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret_path, int *ret_fd) {
+int chase_symlinks(
+                const char *path,
+                const char *original_root,
+                ChaseSymlinksFlags flags,
+                char **ret_path,
+                int *ret_fd) {
+
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
@@ -397,7 +403,7 @@ chased_one:
 int chase_symlinks_and_open(
                 const char *path,
                 const char *root,
-                unsigned chase_flags,
+                ChaseSymlinksFlags chase_flags,
                 int open_flags,
                 char **ret_path) {
 
@@ -435,7 +441,7 @@ int chase_symlinks_and_open(
 int chase_symlinks_and_opendir(
                 const char *path,
                 const char *root,
-                unsigned chase_flags,
+                ChaseSymlinksFlags chase_flags,
                 char **ret_path,
                 DIR **ret_dir) {
 
@@ -478,7 +484,7 @@ int chase_symlinks_and_opendir(
 int chase_symlinks_and_stat(
                 const char *path,
                 const char *root,
-                unsigned chase_flags,
+                ChaseSymlinksFlags chase_flags,
                 char **ret_path,
                 struct stat *ret_stat,
                 int *ret_fd) {
@@ -520,7 +526,7 @@ int chase_symlinks_and_stat(
 int chase_symlinks_and_fopen_unlocked(
                 const char *path,
                 const char *root,
-                unsigned chase_flags,
+                ChaseSymlinksFlags chase_flags,
                 const char *open_flags,
                 char **ret_path,
                 FILE **ret_file) {
