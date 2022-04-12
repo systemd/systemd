@@ -577,6 +577,17 @@ static int test_matches(
         return true;
 }
 
+static bool relevant_sysfs_subdir(const struct dirent *de) {
+        assert(de);
+
+        if (de->d_name[0] == '.')
+                return false;
+
+        /* Also filter out regular files and such, i.e. stuff that definitely isn't a kobject path. (Note
+         * that we rely on the fact that sysfs fills in d_type here, i.e. doesn't do DT_UNKNOWN) */
+        return IN_SET(de->d_type, DT_DIR, DT_LNK);
+}
+
 static int enumerator_scan_dir_and_add_devices(
                 sd_device_enumerator *enumerator,
                 const char *basedir,
@@ -607,7 +618,7 @@ static int enumerator_scan_dir_and_add_devices(
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
 
-                if (de->d_name[0] == '.')
+                if (!relevant_sysfs_subdir(de))
                         continue;
 
                 if (!match_sysname(enumerator, de->d_name))
@@ -682,7 +693,7 @@ static int enumerator_scan_dir(
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
 
-                if (de->d_name[0] == '.')
+                if (!relevant_sysfs_subdir(de))
                         continue;
 
                 if (!match_subsystem(enumerator, subsystem ? : de->d_name))
