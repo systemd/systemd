@@ -241,7 +241,7 @@ REQUIREMENTS:
           DESTDIR=... meson install -C build/
 
         A tarball can be created with:
-          git archive --format=tar --prefix=systemd-222/ v222 | xz > systemd-222.tar.xz
+          v=250 && git archive --prefix=systemd-$v/ v$v | zstd >systemd-$v.tar.zstd
 
         When systemd-hostnamed is used, it is strongly recommended to
         install nss-myhostname to ensure that, in a world of
