@@ -117,6 +117,7 @@ manpages = [
    'SD_NOTICE',
    'SD_WARNING'],
   ''],
+ ['sd-device', '3', [], ''],
  ['sd-event', '3', [], ''],
  ['sd-hwdb', '3', [], ''],
  ['sd-id128',
