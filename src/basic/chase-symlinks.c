@@ -236,9 +236,9 @@ int chase_symlinks(
                         if (empty_or_root(done))
                                 continue;
 
-                        parent = dirname_malloc(done);
-                        if (!parent)
-                                return -ENOMEM;
+                        r = path_extract_directory(done, &parent);
+                        if (r < 0)
+                                return r;
 
                         /* Don't allow this to leave the root dir.  */
                         if (root &&
