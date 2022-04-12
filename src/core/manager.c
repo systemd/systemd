@@ -3665,8 +3665,70 @@ static int manager_run_environment_generators(Manager *m) {
         return r;
 }
 
+static int build_generator_environment(Manager *m, char ***ret) {
+        _cleanup_strv_free_ char **nl = NULL;
+        Virtualization v;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        /* Generators oftentimes want to know some basic facts about the environment they run in, in order to
+         * adjust generated units to that. Let's pass down some bits of information that are easy for us to
+         * determine (but a bit harder for generator scripts to determine), as environment variables. */
+
+        nl = strv_copy(m->transient_environment);
+        if (!nl)
+                return -ENOMEM;
+
+        r = strv_env_assign(&nl, "SYSTEMD_SCOPE", MANAGER_IS_SYSTEM(m) ? "system" : "user");
+        if (r < 0)
+                return r;
+
+        if (MANAGER_IS_SYSTEM(m)) {
+                /* Note that $SYSTEMD_INITRD may be used to override the initrd detection in much of our
+                 * codebase. This is hence more than purely informational. It will shorcut detection of the initrd
+                 * state if generators invoke our own tools. But that's OK, as it would come to the same results
+                 * (hopefully) */
+                r = strv_env_assign(&nl, "SYSTEMD_IN_INITRD", one_zero(in_initrd()));
+                if (r < 0)
+                        return r;
+
+                if (m->first_boot >= 0) {
+                        r = strv_env_assign(&nl, "SYSTEMD_FIRST_BOOT", one_zero(m->first_boot));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        v = detect_virtualization();
+        if (v < 0)
+                log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
+        else if (v > 0) {
+                r = strv_env_assign(&nl, "SYSTEMD_VIRTUALIZATION", virtualization_to_string(v));
+                if (r < 0)
+                        return r;
+
+                r = strv_env_assign(&nl, "SYSTEMD_VIRTUALIZATION_IS_VM", one_zero(VIRTUALIZATION_IS_VM(v)));
+                if (r < 0)
+                        return r;
+
+                r = strv_env_assign(&nl, "SYSTEMD_VIRTUALIZATION_IS_CONTAINER", one_zero(VIRTUALIZATION_IS_CONTAINER(v)));
+                if (r < 0)
+                        return r;
+        }
+
+        r = strv_env_assign(&nl, "SYSTEMD_ARCHITECTURE", architecture_to_string(uname_architecture()));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(nl);
+        return 0;
+}
+
 static int manager_run_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char **ge = NULL;
         const char *argv[5];
         int r;
 
@@ -3694,10 +3756,20 @@ static int manager_run_generators(Manager *m) {
         argv[3] = m->lookup_paths.generator_late;
         argv[4] = NULL;
 
+        r = build_generator_environment(m, &ge);
+        if (r < 0) {
+                log_error_errno(r, "Failed to build generator environment: %m");
+                goto finish;
+        }
+
         RUN_WITH_UMASK(0022)
-                (void) execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, NULL, NULL,
-                                           (char**) argv, m->transient_environment,
-                                           EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+                (void) execute_directories(
+                                (const char* const*) paths,
+                                DEFAULT_TIMEOUT_USEC,
+                                /* callbacks= */ NULL, /* callback_args= */ NULL,
+                                (char**) argv,
+                                ge,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
 
         r = 0;
 
