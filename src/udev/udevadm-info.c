@@ -18,6 +18,7 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "glyph-util.h"
 #include "pager.h"
 #include "sort-util.h"
@@ -315,11 +316,13 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                 if ((stats.st_mode & mask) != 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        _cleanup_closedir_ DIR *dir2 = NULL;
+                        _cleanup_closedir_ DIR *subdir = NULL;
 
-                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2)
-                                cleanup_dir(dir2, mask, depth-1);
+                        subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
+                        if (!subdir)
+                                log_debug_errno(errno, "Failed to open subdirectory '%s', ignoring: %m", dent->d_name);
+                        else
+                                cleanup_dir(subdir, mask, depth-1);
 
                         (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
@@ -362,11 +365,13 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
                 if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        _cleanup_closedir_ DIR *dir2 = NULL;
+                        _cleanup_closedir_ DIR *subdir = NULL;
 
-                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
-                        if (dir2)
-                                cleanup_dir_after_db_cleanup(dir2, datadir);
+                        subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
+                        if (!subdir)
+                                log_debug_errno(errno, "Failed to open subdirectory '%s', ignoring: %m", dent->d_name);
+                        else
+                                cleanup_dir_after_db_cleanup(subdir, datadir);
 
                         (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
