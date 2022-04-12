@@ -439,7 +439,10 @@ _public_ int sd_device_new_from_subsystem_sysname(
                         const char *subsys = memdupa_suffix0(sysname, sep - sysname);
                         sep++;
 
-                        r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
+                        if (streq(sep, "drivers")) /* If the sysname is "drivers", then it's the drivers directory itself that is meant. */
+                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers", NULL, ret);
+                        else
+                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -941,6 +944,8 @@ int device_set_drivers_subsystem(sd_device *device) {
 
         drivers = strstr(devpath, "/drivers/");
         if (!drivers)
+                drivers = endswith(devpath, "/drivers");
+        if (!drivers)
                 return -EINVAL;
 
         /* Find the path component immediately before the "/drivers/" string */
@@ -986,11 +991,11 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 if (subsystem)
                         r = device_set_subsystem(device, subsystem);
                 /* use implicit names */
-                else if (path_startswith(device->devpath, "/module/"))
+                else if (!isempty(path_startswith(device->devpath, "/module/")))
                         r = device_set_subsystem(device, "module");
-                else if (strstr(syspath, "/drivers/"))
+                else if (strstr(syspath, "/drivers/") || endswith(syspath, "/drivers"))
                         r = device_set_drivers_subsystem(device);
-                else if (PATH_STARTSWITH_SET(device->devpath, "/class/", "/bus/"))
+                else if (!isempty(PATH_STARTSWITH_SET(device->devpath, "/class/", "/bus/")))
                         r = device_set_subsystem(device, "subsystem");
                 else {
                         device->subsystem_set = true;
