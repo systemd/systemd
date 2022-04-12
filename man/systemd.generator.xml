@@ -51,95 +51,79 @@
     directories listed above.
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will execute
     these binaries very early at bootup and at configuration reload time — before unit files are
-    loaded. Their main purpose is to convert configuration that is not native to the service manager into
-    dynamically generated unit files, symlinks or unit file drop-ins, so that they can extend the unit file
-    hierarchy the service manager subsequently loads and operates on.</para>
+    loaded. Their main purpose is to convert configuration and execution context parameters that are not
+    native to the service manager into dynamically generated unit files, symlinks or unit file drop-ins, so
+    that they can extend the unit file hierarchy the service manager subsequently loads and operates
+    on.</para>
 
-    <para>Each generator is called with three directory paths that are to be used for
-    generator output. In these three directories, generators may dynamically generate
-    unit files (regular ones, instances, as well as templates), unit file
-    <filename>.d/</filename> drop-ins, and create symbolic links to unit files to add
-    additional dependencies, create aliases, or instantiate existing templates. Those
-    directories are included in the unit load path of
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    allowing generated configuration to extend or override existing
-    definitions.</para>
+    <para>Each generator is called with three directory paths that are to be used for generator output. In
+    these three directories, generators may dynamically generate unit files (regular ones, instances, as well
+    as templates), unit file <filename>.d/</filename> drop-ins, and create symbolic links to unit files to
+    add additional dependencies, create aliases, or instantiate existing templates. Those directories are
+    included in the unit load path of
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, allowing
+    generated configuration to extend or override existing definitions.</para>
 
-    <para>Directory paths for generator output differ by priority:
-    <filename>…/generator.early</filename> has priority higher than the admin
-    configuration in <filename>/etc/</filename>, while
-    <filename>…/generator</filename> has lower priority than
-    <filename>/etc/</filename> but higher than vendor configuration in
-    <filename>/usr/</filename>, and <filename>…/generator.late</filename> has priority
-    lower than all other configuration. See the next section and the discussion of
-    unit load paths and unit overriding in
+    <para>Directory paths for generator output differ by priority: <filename>…/generator.early</filename> has
+    priority higher than the admin configuration in <filename>/etc/</filename>, while
+    <filename>…/generator</filename> has lower priority than <filename>/etc/</filename> but higher than
+    vendor configuration in <filename>/usr/</filename>, and <filename>…/generator.late</filename> has
+    priority lower than all other configuration. See the next section and the discussion of unit load paths
+    and unit overriding in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>Generators are loaded from a set of paths determined during
-    compilation, as listed above. System and user generators are loaded
-    from directories with names ending in
-    <filename>system-generators/</filename> and
-    <filename>user-generators/</filename>, respectively. Generators
-    found in directories listed earlier override the ones with the
-    same name in directories lower in the list. A symlink to
-    <filename>/dev/null</filename> or an empty file can be used to
-    mask a generator, thereby preventing it from running. Please note
-    that the order of the two directories with the highest priority is
-    reversed with respect to the unit load path, and generators in
-    <filename>/run/</filename> overwrite those in
-    <filename>/etc/</filename>.</para>
+    <para>Generators are loaded from a set of paths determined during compilation, as listed above. System
+    and user generators are loaded from directories with names ending in
+    <filename>system-generators/</filename> and <filename>user-generators/</filename>,
+    respectively. Generators found in directories listed earlier override the ones with the same name in
+    directories lower in the list. A symlink to <filename>/dev/null</filename> or an empty file can be used
+    to mask a generator, thereby preventing it from running. Please note that the order of the two
+    directories with the highest priority is reversed with respect to the unit load path, and generators in
+    <filename>/run/</filename> overwrite those in <filename>/etc/</filename>.</para>
 
-    <para>After installing new generators or updating the
-    configuration, <command>systemctl daemon-reload</command> may be
-    executed. This will delete the previous configuration created by
-    generators, re-run all generators, and cause
-    <command>systemd</command> to reload units from disk. See
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information.
+    <para>After installing new generators or updating the configuration, <command>systemctl
+    daemon-reload</command> may be executed. This will delete the previous configuration created by
+    generators, re-run all generators, and cause <command>systemd</command> to reload units from disk. See
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for more
+    information.
     </para>
   </refsect1>
 
   <refsect1>
     <title>Output directories</title>
 
-    <para>Generators are invoked with three arguments: paths to directories where
-    generators can place their generated unit files or symlinks. By default those
-    paths are runtime directories that are included in the search path of
-    <command>systemd</command>, but a generator may be called with different paths
-    for debugging purposes.</para>
+    <para>Generators are invoked with three arguments: paths to directories where generators can place their
+    generated unit files or symlinks. By default those paths are runtime directories that are included in the
+    search path of <command>systemd</command>, but a generator may be called with different paths for
+    debugging purposes.</para>
 
     <orderedlist>
       <listitem>
         <para><parameter>normal-dir</parameter></para>
-        <para>In normal use this is <filename>/run/systemd/generator</filename> in
-        case of the system generators and
-        <filename>$XDG_RUNTIME_DIR/generator</filename> in case of the user
-        generators. Unit files placed in this directory take precedence over vendor
-        unit configuration but not over native user/administrator unit configuration.
+        <para>In normal use this is <filename>/run/systemd/generator</filename> in case of the system
+        generators and <filename>$XDG_RUNTIME_DIR/generator</filename> in case of the user generators. Unit
+        files placed in this directory take precedence over vendor unit configuration but not over native
+        user/administrator unit configuration.
         </para>
       </listitem>
 
       <listitem>
         <para><parameter>early-dir</parameter></para>
-        <para>In normal use this is <filename>/run/systemd/generator.early</filename>
-        in case of the system generators and
-        <filename>$XDG_RUNTIME_DIR/generator.early</filename> in case of the user
-        generators. Unit files placed in this directory override unit files in
-        <filename>/usr/</filename>, <filename>/run/</filename> and
-        <filename>/etc/</filename>. This means that unit files placed in this
-        directory take precedence over all normal configuration, both vendor and
-        user/administrator.</para>
+        <para>In normal use this is <filename>/run/systemd/generator.early</filename> in case of the system
+        generators and <filename>$XDG_RUNTIME_DIR/generator.early</filename> in case of the user
+        generators. Unit files placed in this directory override unit files in <filename>/usr/</filename>,
+        <filename>/run/</filename> and <filename>/etc/</filename>. This means that unit files placed in this
+        directory take precedence over all normal configuration, both vendor and user/administrator.</para>
       </listitem>
 
       <listitem>
         <para><parameter>late-dir</parameter></para>
-        <para>In normal use this is <filename>/run/systemd/generator.late</filename>
-        in case of the system generators and
-        <filename>$XDG_RUNTIME_DIR/generator.late</filename> in case of the user
-        generators. This directory may be used to extend the unit file tree without
-        overriding any other unit files. Any native configuration files supplied by
-        the vendor or user/administrator take precedence.</para>
+        <para>In normal use this is <filename>/run/systemd/generator.late</filename> in case of the system
+        generators and <filename>$XDG_RUNTIME_DIR/generator.late</filename> in case of the user
+        generators. This directory may be used to extend the unit file tree without overriding any other unit
+        files. Any native configuration files supplied by the vendor or user/administrator take
+        precedence.</para>
       </listitem>
     </orderedlist>
   </refsect1>
@@ -149,9 +133,8 @@
 
     <itemizedlist>
       <listitem>
-        <para>All generators are executed in parallel. That means all executables are
-        started at the very same time and need to be able to cope with this
-        parallelism.
+        <para>All generators are executed in parallel. That means all executables are started at the very
+        same time and need to be able to cope with this parallelism.
         </para>
       </listitem>
 
@@ -169,9 +152,9 @@
       </listitem>
 
       <listitem>
-        <para>Units written by generators are removed when the configuration is
-        reloaded. That means the lifetime of the generated units is closely bound to
-        the reload cycles of <command>systemd</command> itself.</para>
+        <para>Units written by generators are removed when the configuration is reloaded. That means the
+        lifetime of the generated units is closely bound to the reload cycles of <command>systemd</command>
+        itself.</para>
       </listitem>
 
       <listitem>
@@ -193,8 +176,8 @@
         <para>Since
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
 
-        is not available (see above), log messages have to be written to
-        <filename>/dev/kmsg</filename> instead.</para>
+        is not available (see above), log messages have to be written to <filename>/dev/kmsg</filename>
+        instead.</para>
       </listitem>
 
       <listitem>
@@ -210,48 +193,44 @@
       </listitem>
 
       <listitem>
-        <para>Generators may write out dynamic unit files or just hook unit files
-        into other units with the usual <filename>.wants/</filename> or
-        <filename>.requires/</filename> symlinks. Often, it is nicer to simply
-        instantiate a template unit file from <filename>/usr/</filename> with a
-        generator instead of writing out entirely dynamic unit files. Of course, this
-        works only if a single parameter is to be used.</para>
+        <para>Generators may write out dynamic unit files or just hook unit files into other units with the
+        usual <filename>.wants/</filename> or <filename>.requires/</filename> symlinks. Often, it is nicer to
+        simply instantiate a template unit file from <filename>/usr/</filename> with a generator instead of
+        writing out entirely dynamic unit files. Of course, this works only if a single parameter is to be
+        used.</para>
       </listitem>
 
       <listitem>
-        <para>If you are careful, you can implement generators in shell scripts. We
-        do recommend C code however, since generators are executed synchronously and
-        hence delay the entire boot if they are slow.</para>
+        <para>If you are careful, you can implement generators in shell scripts. We do recommend C code
+        however, since generators are executed synchronously and hence delay the entire boot if they are
+        slow.</para>
       </listitem>
 
       <listitem>
-        <para>Regarding overriding semantics: there are two rules we try to follow
-        when thinking about the overriding semantics:</para>
+        <para>Regarding overriding semantics: there are two rules we try to follow when thinking about the
+        overriding semantics:</para>
 
         <orderedlist numeration="lowerroman">
           <listitem>
-            <para>User configuration should override vendor configuration. This
-            (mostly) means that stuff from <filename>/etc/</filename> should override
-            stuff from <filename>/usr/</filename>.</para>
+            <para>User configuration should override vendor configuration. This (mostly) means that stuff
+            from <filename>/etc/</filename> should override stuff from <filename>/usr/</filename>.</para>
           </listitem>
 
           <listitem>
-            <para>Native configuration should override non-native configuration. This
-            (mostly) means that stuff you generate should never override native unit
-            files for the same purpose.</para>
+            <para>Native configuration should override non-native configuration. This (mostly) means that
+            stuff you generate should never override native unit files for the same purpose.</para>
           </listitem>
         </orderedlist>
 
-        <para>Of these two rules the first rule is probably the more important one
-        and breaks the second one sometimes. Hence, when deciding whether to use
-        argv[1], argv[2], or argv[3], your default choice should probably be
-        argv[1].</para>
+        <para>Of these two rules the first rule is probably the more important one and breaks the second one
+        sometimes. Hence, when deciding whether to use argv[1], argv[2], or argv[3], your default choice
+        should probably be argv[1].</para>
       </listitem>
 
       <listitem>
-        <para>Instead of heading off now and writing all kind of generators for
-        legacy configuration file formats, please think twice! It is often a better
-        idea to just deprecate old stuff instead of keeping it artificially alive.
+        <para>Instead of heading off now and writing all kind of generators for legacy configuration file
+        formats, please think twice! It is often a better idea to just deprecate old stuff instead of keeping
+        it artificially alive.
         </para>
       </listitem>
     </itemizedlist>
@@ -263,17 +242,15 @@
       <title>systemd-fstab-generator</title>
 
       <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      converts <filename>/etc/fstab</filename> into native mount units. It uses
-      argv[1] as location to place the generated unit files in order to allow the
-      user to override <filename>/etc/fstab</filename> with their own native unit
-      files, but also to ensure that <filename>/etc/fstab</filename> overrides any
+      converts <filename>/etc/fstab</filename> into native mount units. It uses argv[1] as location to place
+      the generated unit files in order to allow the user to override <filename>/etc/fstab</filename> with
+      their own native unit files, but also to ensure that <filename>/etc/fstab</filename> overrides any
       vendor default from <filename>/usr/</filename>.</para>
 
-      <para>After editing <filename>/etc/fstab</filename>, the user should invoke
-      <command>systemctl daemon-reload</command>. This will re-run all generators and
-      cause <command>systemd</command> to reload units from disk. To actually mount
-      new directories added to <filename>fstab</filename>, <command>systemctl start
-      <replaceable>/path/to/mountpoint</replaceable></command> or <command>systemctl
+      <para>After editing <filename>/etc/fstab</filename>, the user should invoke <command>systemctl
+      daemon-reload</command>. This will re-run all generators and cause <command>systemd</command> to reload
+      units from disk. To actually mount new directories added to <filename>fstab</filename>,
+      <command>systemctl start <replaceable>/path/to/mountpoint</replaceable></command> or <command>systemctl
       start local-fs.target</command> may be used.</para>
     </example>
 
@@ -281,11 +258,9 @@
       <title>systemd-system-update-generator</title>
 
       <para><citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      temporarily redirects <filename>default.target</filename> to
-      <filename>system-update.target</filename>, if a system update is
-      scheduled. Since this needs to override the default user configuration for
-      <filename>default.target</filename>, it uses argv[2]. For details about this
-      logic, see
+      temporarily redirects <filename>default.target</filename> to <filename>system-update.target</filename>,
+      if a system update is scheduled. Since this needs to override the default user configuration for
+      <filename>default.target</filename>, it uses argv[2]. For details about this logic, see
       <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
       </para>
     </example>
