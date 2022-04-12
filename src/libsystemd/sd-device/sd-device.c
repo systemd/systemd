@@ -196,6 +196,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                          * Hence, use log_trace_errno() here. */
                                         return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
                                                                "sd-device: the uevent file \"%s\" does not exist.", path);
+                                if (errno == ENOTDIR)
+                                        /* Not actually a directory. */
+                                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                               "sd-device: the syspath \"%s\" is not a directory.", syspath);
 
                                 return log_debug_errno(errno, "sd-device: cannot find uevent file for %s: %m", syspath);
                         }
