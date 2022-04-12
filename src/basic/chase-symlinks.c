@@ -177,7 +177,7 @@ int chase_symlinks(
                         return r;
         }
 
-        fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -321,7 +321,7 @@ int chase_symlinks(
                                  * directory as base. */
 
                                 safe_close(fd);
-                                fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                                fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
                                 if (fd < 0)
                                         return -errno;
 
