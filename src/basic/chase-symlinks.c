@@ -84,6 +84,10 @@ int chase_symlinks(
         if (isempty(path))
                 return -EINVAL;
 
+        /* We don't support relative paths in combination with a root directory */
+        if (FLAGS_SET(flags, CHASE_PREFIX_ROOT) && !path_is_absolute(path))
+                return -EINVAL;
+
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
@@ -161,17 +165,17 @@ int chase_symlinks(
                 path_simplify(root);
 
                 if (flags & CHASE_PREFIX_ROOT) {
-                        /* We don't support relative paths in combination with a root directory */
-                        if (!path_is_absolute(path))
-                                return -EINVAL;
-
-                        path = prefix_roota(root, path);
+                        buffer = path_join(root, path);
+                        if (!buffer)
+                                return -ENOMEM;
                 }
         }
 
-        r = path_make_absolute_cwd(path, &buffer);
-        if (r < 0)
-                return r;
+        if (!buffer) {
+                r = path_make_absolute_cwd(path, &buffer);
+                if (r < 0)
+                        return r;
+        }
 
         fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
