@@ -178,7 +178,7 @@
     <title>Assembling Kernel Images</title>
 
     <para>In order to assemble an UEFI PE kernel image from various components as described above, use an
-    <citerefentry><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry> command line
+    <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry> command line
     like this:</para>
 
     <programlisting>objcopy \
@@ -196,7 +196,7 @@
     UEFI boot stub.</para>
 
     <para>To then sign the resulting image for UEFI SecureBoot use an
-    <citerefentry><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry> command like
+    <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry> command like
     the following:</para>
 
     <programlisting>sbsign \
@@ -219,8 +219,8 @@
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
-      <citerefentry><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
