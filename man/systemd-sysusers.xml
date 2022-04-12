@@ -184,7 +184,7 @@
     for the first time, it may not be used for changing the password or shell of an account that already
     exists.</para>
 
-    <para>Use <citerefentry><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para>Use <citerefentry project='man-pages'><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     for generating UNIX password hashes from the command line.</para>
   </refsect1>
 
@@ -202,7 +202,7 @@
       <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>,
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
