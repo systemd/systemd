@@ -261,7 +261,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         if (r < 0)
                 return r;
 
-        r = device_set_syspath(device, syspath, true);
+        r = device_set_syspath(device, syspath, /* verify= */ true);
         if (r < 0)
                 return r;
 
@@ -943,7 +943,8 @@ int device_set_drivers_subsystem(sd_device *device) {
         if (!drivers)
                 return -EINVAL;
 
-        r = path_find_last_component(devpath, false, &drivers, &p);
+        /* Find the path component immediately before the "/drivers/" string */
+        r = path_find_last_component(devpath, /* accept_dot_dot= */ false, &drivers, &p);
         if (r < 0)
                 return r;
         if (r == 0)
