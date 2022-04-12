@@ -129,6 +129,66 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <para>The service manager sets a number of environment variables when invoking generator
+    executables. They carry information about the execution context of the generator, in order to simplify
+    conditionalizing generators to specific environments. The following environment variables are set:</para>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_SCOPE</varname></term>
+
+        <listitem><para>If the generator is invoked from the system service manager this variable is set to
+        <literal>system</literal>; if invoked from the per-user service manager it is set to
+        <literal>user</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_IN_INITRD</varname></term>
+
+        <listitem><para>If the generator is run as part of an initial RAM file system (initrd) this is set to
+        <literal>1</literal>. If it is run from the regular host (i.e. after the transition from initrd to
+        host) it is set to <literal>0</literal>. This environment variable is only set for system
+        generators.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_FIRST_BOOT</varname></term>
+
+        <listitem><para>If this boot-up cycle is considered a "first boot", this is set to
+        <literal>1</literal>; if it is a subsequent, regular boot it is set to <literal>0</literal>. For
+        details see the documentation of <varname>ConditionFirstBoot=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        environment variable is only set for system generators.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_VIRTUALIZATION</varname></term>
+
+        <listitem><para>If the service manager is run in a virtualized environment,
+        <varname>$SYSTEMD_VIRTUALIZATION</varname> is set to a pair of strings, separated by a colon. The
+        first string is either <literal>vm</literal> or <literal>container</literal>, categorizing the type
+        of virtualization. The second string identifies the implementation of the virtualization
+        technology. If no virtualization is detected this variable will not be set. This data is identical to
+        what
+        <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        detects and reports, and uses the same vocabulary of virtualization implementation
+        identifiers.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_ARCHITECTURE</varname></term>
+
+        <listitem><para>This variable is set to a short identifier of the reported architecture of the
+        system. For details about defined values, see documentation of
+        <varname>ConditionArchitecture=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Notes about writing generators</title>
 
     <itemizedlist>
