@@ -207,7 +207,7 @@ REQUIREMENTS:
         python-jinja2
         python-lxml (optional, required to build the indices)
         python >= 3.5
-        meson >= 0.53.2 (>= 0.54.0 is required to build with 'meson compile')
+        meson >= 0.53.2
         ninja
         gcc, awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
@@ -225,7 +225,7 @@ REQUIREMENTS:
         polkit (optional)
 
         To build in directory build/:
-          meson setup build/ && meson compile -C build/
+          meson setup build/ && ninja -C build/
 
         Any configuration options can be specified as -Darg=value... arguments
         to meson. After the build directory is initially configured, meson will
@@ -235,7 +235,7 @@ REQUIREMENTS:
         their current values.
 
         Useful commands:
-          meson compile -v -C build/ some/target
+          ninja -C build -v some/target
           meson test -C build/
           sudo meson install -C build/
           DESTDIR=... meson install -C build/
