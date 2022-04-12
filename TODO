@@ -441,11 +441,6 @@ Features:
   https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
   for doing that.
 
-* pass systemd-detect-virt result to generators as env var. Modifying behaviour
-  based on whether we are virtualized or not is a pretty common thing, hence
-  maybe just pass that info along for free in an env var. We cache the result
-  anyway, so it's basically free.
-
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
   disk the rootfs is on in a reasonably secure way. (or maybe: add
   /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
