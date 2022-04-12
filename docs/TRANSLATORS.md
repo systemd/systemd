@@ -27,7 +27,7 @@ To create a translation to a language not yet available, start by creating the
 initial template:
 
 ```
-$ meson compile -C build/ systemd-pot
+$ ninja -C build/ systemd-pot
 ```
 
 This will generate file `po/systemd.pot` in the source tree.
@@ -51,7 +51,7 @@ using the `poedit` GUI editor.)
 Start by updating the `*.po` files from the latest template:
 
 ```
-$ meson compile -C build/ systemd-update-po
+$ ninja -C build/ systemd-update-po
 ```
 
 This will touch all the `*.po` files, so you'll want to pay attention when
@@ -75,7 +75,7 @@ using `git checkout -- po/` after you commit the changes you do want to keep.)
 You can recompile the `*.po` files using the following command:
 
 ```
-$ meson compile -C build/ systemd-gmo
+$ ninja -C build/ systemd-gmo
 ```
 
 The resulting files will be saved in the `build/po/` directory.
