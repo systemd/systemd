@@ -40,6 +40,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_RIGHT]              = "`-",
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
                         [SPECIAL_GLYPH_TREE_TOP]                = ",-",
+                        [SPECIAL_GLYPH_VERTICAL_DOTTED]         = ":",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
                         [SPECIAL_GLYPH_WHITE_CIRCLE]            = "*",
@@ -81,6 +82,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_TOP]                = u8"┌─",
 
                         /* Single glyphs in both cases */
+                        [SPECIAL_GLYPH_VERTICAL_DOTTED]         = u8"┆",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = u8"‣",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = u8"●",
                         [SPECIAL_GLYPH_WHITE_CIRCLE]            = u8"○",
