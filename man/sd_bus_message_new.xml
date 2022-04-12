@@ -99,14 +99,13 @@
     <citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para><function>sd_bus_message_ref()</function> increases the reference counter of
+    <para><function>sd_bus_message_ref()</function> increases the internal reference counter of
     <parameter>m</parameter> by one.</para>
 
-    <para><function>sd_bus_message_unref()</function> decreases the reference counter of
+    <para><function>sd_bus_message_unref()</function> decreases the internal reference counter of
     <parameter>m</parameter> by one. Once the reference count has dropped to zero, message object is
-    destroyed and cannot be used anymore, so further calls to
-    <function>sd_bus_message_ref()</function> or <function>sd_bus_message_unref()</function> are
-    illegal.</para>
+    destroyed and cannot be used anymore, so further calls to <function>sd_bus_message_ref()</function> or
+    <function>sd_bus_message_unref()</function> are illegal.</para>
 
     <para><function>sd_bus_message_unrefp()</function> is similar to
     <function>sd_bus_message_unref()</function> but takes a pointer to a

@@ -46,10 +46,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_slot_ref()</function> increases the reference counter of
+    <para><function>sd_bus_slot_ref()</function> increases the internal reference counter of
     <parameter>slot</parameter> by one.</para>
 
-    <para><function>sd_bus_slot_unref()</function> decreases the reference counter of
+    <para><function>sd_bus_slot_unref()</function> decreases the internal reference counter of
     <parameter>slot</parameter> by one. Once the reference count has dropped to zero, slot object is
     destroyed and cannot be used anymore, so further calls to <function>sd_bus_slot_ref()</function>
     or <function>sd_bus_slot_unref()</function> are illegal.</para>
