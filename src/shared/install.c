@@ -2825,7 +2825,7 @@ static int normalize_linked_files(
                         return r;
 
                 const char *p = NULL;
-                if (i && i->path)
+                if (i && i->path && i->root)
                         /* Use startswith here, because we know that paths are normalized, and
                          * path_startswith() would give us a relative path, but we need an absolute path
                          * relative to i->root.
