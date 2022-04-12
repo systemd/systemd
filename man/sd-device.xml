@@ -42,7 +42,8 @@
     <filename>libudev.h</filename>.</para>
 
     <para>See
-    <literallayout><citerefentry><refentrytitle>sd_device_get_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <literallayout><citerefentry><refentrytitle>sd_device_get_syspath</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
 </literallayout>
     for more information about the functions available.</para>
   </refsect1>

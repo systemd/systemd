@@ -516,6 +516,7 @@ manpages = [
    'sd_device_get_sysname',
    'sd_device_get_sysnum'],
   ''],
+ ['sd_device_ref', '3', ['sd_device_unref', 'sd_device_unrefp'], ''],
  ['sd_event_add_child',
   '3',
   ['sd_event_add_child_pidfd',
