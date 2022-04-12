@@ -800,7 +800,7 @@
       does not probe a block device while changes are made to it, for example partitions created or file
       systems formatted. Note that many tools that interface with block devices natively support taking
       relevant locks, see for example
-      <citerefentry><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+      <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
       <option>--lock</option> switch.</para>
 
       <para>The command expects at least one block device specified via <option>--device=</option> or

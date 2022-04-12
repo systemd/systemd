@@ -2134,7 +2134,7 @@
         <term><varname>RoutingAlgorithm=</varname></term>
         <listitem>
           <para>This can be either <literal>batman-v</literal> or <literal>batman-iv</literal> and describes which routing_algo
-          of <citerefentry><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
+          of <citerefentry project='mankier'><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
           cannot be changed after interface creation. Defaults to <literal>batman-v</literal>.
           </para>
         </listitem>
