@@ -13,6 +13,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -20,6 +21,7 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "macro.h"
+#include "missing_magic.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -150,7 +152,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                        _syspath);
 
         if (verify) {
-                r = chase_symlinks(_syspath, NULL, 0, &syspath, NULL);
+                _cleanup_close_ int fd = -1;
+
+                r = chase_symlinks(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
@@ -181,27 +185,49 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         path_simplify(syspath);
                 }
 
-                if (path_startswith(syspath,  "/sys/devices/")) {
-                        char *path;
+                if (path_startswith(syspath, "/sys/devices/")) {
+                        /* For proper devices, stricter rules apply: they must have a 'uevent' file,
+                         * otherwise we won't allow them */
 
-                        /* all 'devices' require an 'uevent' file */
-                        path = strjoina(syspath, "/uevent");
-                        if (access(path, F_OK) < 0) {
+                        if (faccessat(fd, "uevent", F_OK, 0) < 0) {
                                 if (errno == ENOENT)
-                                        /* This is not a valid device.
-                                         * Note, this condition is quite often satisfied when
-                                         * enumerating devices or finding a parent device.
+                                        /* This is not a valid device.  Note, this condition is quite often
+                                         * satisfied when enumerating devices or finding a parent device.
                                          * Hence, use log_trace_errno() here. */
                                         return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
                                                                "sd-device: the uevent file \"%s\" does not exist.", path);
+                                if (errno == ENOTDIR)
+                                        /* Not actually a directory. */
+                                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                               "sd-device: the syspath \"%s\" is not a directory.", syspath);
 
-                                return log_debug_errno(errno, "sd-device: cannot access uevent file for %s: %m", syspath);
+                                return log_debug_errno(errno, "sd-device: cannot find uevent file for %s: %m", syspath);
                         }
                 } else {
-                        /* everything else just needs to be a directory */
-                        if (!is_dir(syspath, false))
+                        struct stat st;
+
+                        /* For everything else lax rules apply: they just need to be a directory */
+
+                        if (fstat(fd, &st) < 0)
+                                return log_debug_errno(errno, "sd-device: failed to check if syspath \"%s\" is a directory: %m", syspath);
+                        if (!S_ISDIR(st.st_mode))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "sd-device: the syspath \"%s\" is not a directory.", syspath);
+                }
+
+                /* Only operate on sysfs, i.e. refuse going down into /sys/fs/cgroup/ or similar places where
+                 * things are not arranged as kobjects in kernel, and hence don't necessarily have
+                 * kobject/attribute structure. */
+                r = getenv_bool_secure("SYSTEMD_DEVICE_VERIFY_SYSFS");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_DEVICE_VERIFY_SYSFS value: %m");
+                if (r != 0) {
+                        r = fd_is_fs_type(fd, SYSFS_MAGIC);
+                        if (r < 0)
+                                return log_debug_errno(r, "sd-device: failed to check if syspath \"%s\" is backed by sysfs.", syspath);
+                        if (r == 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "sd-device: the syspath \"%s\" is outside of sysfs, refusing.", syspath);
                 }
         } else {
                 syspath = strdup(_syspath);
@@ -235,7 +261,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         if (r < 0)
                 return r;
 
-        r = device_set_syspath(device, syspath, true);
+        r = device_set_syspath(device, syspath, /* verify= */ true);
         if (r < 0)
                 return r;
 
@@ -413,7 +439,10 @@ _public_ int sd_device_new_from_subsystem_sysname(
                         const char *subsys = memdupa_suffix0(sysname, sep - sysname);
                         sep++;
 
-                        r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
+                        if (streq(sep, "drivers")) /* If the sysname is "drivers", then it's the drivers directory itself that is meant. */
+                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers", NULL, ret);
+                        else
+                                r = device_strjoin_new("/sys/bus/", subsys, "/drivers/", sep, ret);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -915,9 +944,12 @@ int device_set_drivers_subsystem(sd_device *device) {
 
         drivers = strstr(devpath, "/drivers/");
         if (!drivers)
+                drivers = endswith(devpath, "/drivers");
+        if (!drivers)
                 return -EINVAL;
 
-        r = path_find_last_component(devpath, false, &drivers, &p);
+        /* Find the path component immediately before the "/drivers/" string */
+        r = path_find_last_component(devpath, /* accept_dot_dot= */ false, &drivers, &p);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -959,11 +991,11 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 if (subsystem)
                         r = device_set_subsystem(device, subsystem);
                 /* use implicit names */
-                else if (path_startswith(device->devpath, "/module/"))
+                else if (!isempty(path_startswith(device->devpath, "/module/")))
                         r = device_set_subsystem(device, "module");
-                else if (strstr(syspath, "/drivers/"))
+                else if (strstr(syspath, "/drivers/") || endswith(syspath, "/drivers"))
                         r = device_set_drivers_subsystem(device);
-                else if (PATH_STARTSWITH_SET(device->devpath, "/class/", "/bus/"))
+                else if (!isempty(PATH_STARTSWITH_SET(device->devpath, "/class/", "/bus/")))
                         r = device_set_subsystem(device, "subsystem");
                 else {
                         device->subsystem_set = true;

@@ -199,7 +199,7 @@ All tools:
   or whenever they change if it wants to integrate with `systemd-logind`'s
   APIs.
 
-`systemd-udevd`:
+`systemd-udevd` and sd-device library:
 
 * `$NET_NAMING_SCHEME=` — if set, takes a network naming scheme (i.e. one of
   "v238", "v239", "v240"…, or the special value "latest") as parameter. If
@@ -210,6 +210,10 @@ All tools:
   kernel command line option `net.naming-scheme=`, except if the value is
   prefixed with `:` in which case the kernel command line option takes
   precedence, if it is specified as well.
+
+* `$SYSTEMD_DEVICE_VERIFY_SYSFS` — if set to "0", disables verification that
+  devices sysfs path are actually backed by sysfs. Relaxing this verification
+  is useful for testing purposes.
 
 `nss-systemd`:
 
