@@ -2859,7 +2859,6 @@ static int acquire_credentials(
                 if (r < 0)
                         return r;
 
-
                 left -= add;
         }
 
