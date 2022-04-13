@@ -515,6 +515,7 @@ testcase_long_sysfs_path() {
     echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
     systemctl daemon-reload
     mount "$mpoint"
+    systemctl status "$mpoint"
     test -e "$mpoint/test"
     umount "$mpoint"
 
@@ -525,9 +526,9 @@ testcase_long_sysfs_path() {
     udevadm settle
 
     logfile="$(mktemp)"
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
+    [[ "$(journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name" | wc -l)" -eq 0 ]]
     # Make sure we don't unnecessarily spam the log
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service | tee "$logfile"
+    { journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service || :;} | tee "$logfile"
     [[ "$(wc -l <"$logfile")" -lt 10 ]]
 
     : >/etc/fstab
