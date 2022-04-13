@@ -2716,7 +2716,7 @@ static int load_cred_recurse_dir_cb(
                 void *userdata) {
 
         _cleanup_free_ char *credname = NULL, *sub_id = NULL;
-        struct load_cred_args *args = userdata;
+        struct load_cred_args *args = ASSERT_PTR(userdata);
         int r;
 
         if (event != RECURSE_DIR_ENTRY)
