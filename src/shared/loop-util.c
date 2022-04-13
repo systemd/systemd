@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -876,7 +877,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         r = read_one_line_file(sysfs, &buffer);
         if (r < 0)
                 return r;
-        r = parse_dev(buffer, &devno);
+        r = parse_devnum(buffer, &devno);
         if (r < 0)
                 return r;
 

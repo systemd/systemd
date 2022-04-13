@@ -5,12 +5,12 @@
 
 #include "bpf-devices.h"
 #include "bpf-program.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 

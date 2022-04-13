@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cpu-set-util.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -20,7 +21,6 @@
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

@@ -12,6 +12,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "dropin.h"

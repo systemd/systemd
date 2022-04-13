@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"

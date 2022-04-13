@@ -5,6 +5,7 @@
 #include "bootspec.h"
 #include "bootspec-fundamental.h"
 #include "conf-files.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-loader.h"
 #include "env-file.h"
@@ -15,7 +16,6 @@
 #include "pe-header.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -918,7 +918,7 @@ int boot_config_load_auto(
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
 
         /* If both paths actually refer to the same inode, suppress the xbootldr path */
-        if (esp_where && xbootldr_where && devid_set_and_equal(esp_devid, xbootldr_devid))
+        if (esp_where && xbootldr_where && devnum_set_and_equal(esp_devid, xbootldr_devid))
                 xbootldr_where = mfree(xbootldr_where);
 
         return boot_config_load(config, esp_where, xbootldr_where);

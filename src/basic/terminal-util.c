@@ -22,6 +22,7 @@
 
 #include "alloc-util.h"
 #include "def.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

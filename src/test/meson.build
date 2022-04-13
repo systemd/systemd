@@ -244,6 +244,8 @@ tests += [
 
         [files('test-stat-util.c')],
 
+        [files('test-devnum-util.c')],
+
         [files('test-os-util.c')],
 
         [files('test-libcrypt-util.c'),

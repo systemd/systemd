@@ -16,6 +16,7 @@
 #include "blkid-util.h"
 #include "bootspec.h"
 #include "copy.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
@@ -595,7 +596,7 @@ static int boot_config_load_and_select(
 
         /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would
          * find the same entries twice. */
-        bool same = esp_path && xbootldr_path && devid_set_and_equal(esp_devid, xbootldr_devid);
+        bool same = esp_path && xbootldr_path && devnum_set_and_equal(esp_devid, xbootldr_devid);
 
         r = boot_config_load(config, esp_path, same ? NULL : xbootldr_path);
         if (r < 0)

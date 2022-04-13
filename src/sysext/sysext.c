@@ -8,6 +8,7 @@
 
 #include "capability-util.h"
 #include "chase-symlinks.h"
+#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -31,7 +32,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "verbs.h"
@@ -84,7 +84,7 @@ static int is_our_mount_point(const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether hierarchy '%s' contains '.systemd-sysext/dev': %m", p);
 
-        r = parse_dev(buf, &dev);
+        r = parse_devnum(buf, &dev);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse device major/minor stored in '.systemd-sysext/dev' file on '%s': %m", p);
 

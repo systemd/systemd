@@ -15,5 +15,5 @@ static inline int QCMD_FIXED(uint32_t cmd, uint32_t type) {
         return (int) QCMD(cmd, type);
 }
 
-int quotactl_devno(int cmd, dev_t devno, int id, void *addr);
+int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr);
 int quotactl_path(int cmd, const char *path, int id, void *addr);

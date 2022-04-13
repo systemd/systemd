@@ -527,7 +527,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
 
                 previous_devno = st.st_dev;
 
-                r = quotactl_devno(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), st.st_dev, uid, &req);
+                r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), st.st_dev, uid, &req);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);
