@@ -181,8 +181,9 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 }
 
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
-        char *t, *x;
+        _cleanup_free_ char *t = NULL;
         uint64_t u;
+        char *x;
         int r;
 
         assert(ret);
@@ -193,22 +194,34 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
          *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
          */
 
+        if (!isempty(extra)) {
+                const char *e;
+
+                e = strchrnul(extra, '/');
+                if (*e != '\0')
+                        return -EINVAL;
+
+                if (e - p > NAME_MAX + 16)
+                        return -EINVAL;
+        }
+
         if (!p) {
                 r = tmp_dir(&p);
                 if (r < 0)
                         return r;
         }
 
-        extra = strempty(extra);
-
-        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
+        x = t = new(char, strlen(p) + 3 + strlen_ptr(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        if (isempty(p))
-                x = stpcpy(stpcpy(t, ".#"), extra);
-        else
-                x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
+        if (!isempty(p))
+                x = stpcpy(stpcpy(x, p), "/");
+
+        x = stpcpy(x, ".#");
+
+        if (!isempty(extra))
+                x = stpcpy(x, extra);
 
         u = random_u64();
         for (unsigned i = 0; i < 16; i++) {
@@ -218,7 +231,11 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_simplify(t);
+        path_simplify(t);
+        if (!path_is_valid(t))
+                return -EINVAL; /* New path is not valid? (Maybe because too long?) Refuse. */
+
+        *ret = TAKE_PTR(t);
         return 0;
 }
 
