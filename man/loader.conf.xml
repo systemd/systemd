@@ -216,6 +216,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enrollment</term>
+
+        <listitem><para>Danger: this feature might soft-brick your device if used improperly.</para>
+
+        <para>Takes one of <literal>no</literal>, <literal>manual</literal>, <literal>auto</literal>
+        or <literal>force</literal>. Controls the enrollment of secure boot keys. If set to
+        <literal>no</literal> (the default), no action whatsoever is taken. If set to
+        <literal>manual</literal> and the UEFI firmware is in setup-mode then entries to manually enroll
+        Secure Boot keys are created in the boot menu. If set to <literal>auto</literal>, in addition, if a
+        directory named <filename>/loader/keys/auto</filename> exists on the ESP and there is a way to enroll
+        them safely (there is none for now), then the keys in that directory are enrolled. If set to
+        <literal>force<literal> then the keys in the auto directory are loaded, safely or not. This is
+        useful for legacy UEFI firmwares but is also dangerous, you can soft-brick your machine.
+        the UEFI firmware is in setup-mode and a directory on the ESP named  then the db, KEK and PK secure boot
+        variables are automatically loaded.</para>
+
+        <para>Due to this feature being dangerous, currently the only option working is <literal>force</literal>.
+        Setting this option to <literal>no</literal>, <literal>manual</literal> or <literal>auto</literal> will
+        have no effect, not even manual entries.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
