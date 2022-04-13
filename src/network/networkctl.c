@@ -2552,28 +2552,30 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                         (void) sd_lldp_neighbor_get_port_description(n, &port_description);
 
-                        if (chassis_id) {
-                                cid = ellipsize(chassis_id, 17, 100);
-                                if (cid)
-                                        chassis_id = cid;
-                        }
+                        if (!arg_full) {
+                                if (chassis_id) {
+                                        cid = ellipsize(chassis_id, 17, 100);
+                                        if (cid)
+                                                chassis_id = cid;
+                                }
 
-                        if (port_id) {
-                                pid = ellipsize(port_id, 17, 100);
-                                if (pid)
-                                        port_id = pid;
-                        }
+                                if (port_id) {
+                                        pid = ellipsize(port_id, 17, 100);
+                                        if (pid)
+                                                port_id = pid;
+                                }
 
-                        if (system_name) {
-                                sname = ellipsize(system_name, 16, 100);
-                                if (sname)
-                                        system_name = sname;
-                        }
+                                if (system_name) {
+                                        sname = ellipsize(system_name, 16, 100);
+                                        if (sname)
+                                                system_name = sname;
+                                }
 
-                        if (port_description) {
-                                pdesc = ellipsize(port_description, 16, 100);
-                                if (pdesc)
-                                        port_description = pdesc;
+                                if (port_description) {
+                                        pdesc = ellipsize(port_description, 16, 100);
+                                        if (pdesc)
+                                                port_description = pdesc;
+                                }
                         }
 
                         if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
