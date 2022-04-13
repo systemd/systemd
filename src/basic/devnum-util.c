@@ -18,6 +18,8 @@ int parse_devnum(const char *s, dev_t *ret) {
         n = strspn(s, DIGITS);
         if (n == 0)
                 return -EINVAL;
+        if (n > DECIMAL_STR_MAX(dev_t))
+                return -EINVAL;
         if (s[n] != ':')
                 return -EINVAL;
 
