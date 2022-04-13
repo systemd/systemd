@@ -822,6 +822,30 @@ static int property_get_uname_field(
         return sd_bus_message_append(reply, "s", (char*) &u + PTR_TO_SIZE(userdata));
 }
 
+static int get_bios_version(char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *b = NULL;
+        const char *s = NULL;
+        int r;
+
+        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
+
+        (void) sd_device_get_sysattr_value(device, "bios_version", &s);
+
+        if (!isempty(s)) {
+                b = strdup(s);
+                if (!b)
+                        return -ENOMEM;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(b);
+
+        return !isempty(s);
+}
+
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
@@ -1126,9 +1150,47 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_get_bios_version(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *biosversion = NULL;
+        Context *c = userdata;
+        int r;
+
+        assert(m);
+        assert(c);
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.get-bios-version",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = get_bios_version(&biosversion);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", biosversion);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
-                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL;
+                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *biosversion = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
@@ -1212,6 +1274,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
                                        JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
+                                       JSON_BUILD_PAIR("BiosVersion", JSON_BUILD_STRING(biosversion)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
 
@@ -1320,7 +1383,11 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_RESULT("s", json),
                                 method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
-
+        SD_BUS_METHOD_WITH_ARGS("GetBiosVersion",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", biosversion),
+                                method_get_bios_version,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
