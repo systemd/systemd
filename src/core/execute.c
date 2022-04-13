@@ -2793,9 +2793,8 @@ static int acquire_credentials(
                 if (sub_fd < 0 && errno != ENOTDIR)
                         return -errno;
 
-                if (sub_fd < 0) {
+                if (sub_fd < 0)
                         /* Regular file */
-
                         r = load_credential(
                                         context,
                                         params,
@@ -2808,12 +2807,8 @@ static int acquire_credentials(
                                         uid,
                                         ownership_ok,
                                         &left);
-                        if (r < 0)
-                                return r;
-
-                } else {
+                else
                         /* Directory */
-
                         r = recurse_dir(
                                         sub_fd,
                                         /* path= */ lc->id, /* recurse_dir() will suffix the subdir paths from here to the top-level id */
@@ -2831,9 +2826,8 @@ static int acquire_credentials(
                                                 .ownership_ok = ownership_ok,
                                                 .left = &left,
                                         });
-                        if (r < 0)
-                                return r;
-                }
+                if (r < 0)
+                        return r;
         }
 
         /* Second, we add in literally specified credentials. If the credentials already exist, we'll not add
