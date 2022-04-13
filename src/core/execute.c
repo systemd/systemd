@@ -2625,7 +2625,8 @@ static int load_credential(
         assert(left);
 
         if (path_is_absolute(path) || read_dfd >= 0) {
-                /* If this is an absolute path, read the data directly from it, and support AF_UNIX sockets */
+                /* If this is an absolute path (or a directory fd is specifier relative which to read), read
+                 * the data directly from it, and support AF_UNIX sockets */
                 source = path;
                 flags |= READ_FULL_FILE_CONNECT_SOCKET;
 
@@ -2784,17 +2785,19 @@ static int acquire_credentials(
         HASHMAP_FOREACH(lc, context->load_credentials) {
                 _cleanup_close_ int sub_fd = -1;
 
-                /* Skip over credentials with unspecified paths. These are received by the
-                 * service manager via the $CREDENTIALS_DIRECTORY environment variable. */
-                if (!is_path(lc->path) && streq(lc->id, lc->path))
-                        continue;
+                /* If this is an absolute path, then try to open it as a directory. If that works, then we'll
+                 * recurse into it. If it is an absolute path but it isn't a directory, then we'll open it as
+                 * a regular file. Finally, if it's a relative path we will use it as a credential name to
+                 * propagate a credential passed to us from further up. */
 
-                sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
-                if (sub_fd < 0 && errno != ENOTDIR)
-                        return -errno;
+                if (path_is_absolute(lc->path)) {
+                        sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                        if (sub_fd < 0 && errno != ENOTDIR)
+                                return -errno;
+                }
 
                 if (sub_fd < 0)
-                        /* Regular file */
+                        /* Regular file (incl. a credential passed in from higher up) */
                         r = load_credential(
                                         context,
                                         params,
