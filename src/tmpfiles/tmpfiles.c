@@ -26,6 +26,7 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "def.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -58,7 +59,6 @@
 #include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -3084,7 +3084,7 @@ static int parse_line(
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Device file requires argument.");
                 }
 
-                r = parse_dev(i.argument, &i.major_minor);
+                r = parse_devnum(i.argument, &i.major_minor);
                 if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Can't parse device file major/minor '%s'.", i.argument);

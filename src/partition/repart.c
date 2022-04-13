@@ -24,6 +24,7 @@
 #include "conf-parser.h"
 #include "cryptsetup-util.h"
 #include "def.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "errno-util.h"
@@ -55,7 +56,6 @@
 #include "resize-fs.h"
 #include "sort-util.h"
 #include "specifier.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -3885,7 +3885,7 @@ static int resolve_copy_blocks_auto(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read %s: %m", q);
 
-                        r = parse_dev(t, &sl);
+                        r = parse_devnum(t, &sl);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse %s, ignoring: %m", q);
                                 continue;

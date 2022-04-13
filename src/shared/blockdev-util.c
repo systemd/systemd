@@ -6,12 +6,12 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_magic.h"
 #include "parse-util.h"
-#include "stat-util.h"
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
@@ -44,7 +44,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = parse_dev(s, &devt);
+        r = parse_devnum(s, &devt);
         if (r < 0)
                 return r;
 
@@ -170,7 +170,7 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = parse_dev(t, &devt);
+        r = parse_devnum(t, &devt);
         if (r < 0)
                 return -EINVAL;
 

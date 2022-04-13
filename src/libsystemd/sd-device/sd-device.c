@@ -12,6 +12,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -25,7 +26,6 @@
 #include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -786,7 +786,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 if (isempty(id))
                         return -EINVAL;
 
-                r = parse_dev(id + 1, &devt);
+                r = parse_devnum(id + 1, &devt);
                 if (r < 0)
                         return r;
 
