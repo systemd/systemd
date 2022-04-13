@@ -2695,7 +2695,6 @@ static int load_credential(
 }
 
 struct load_cred_args {
-        Set *seen_creds;
         const ExecContext *context;
         const ExecParameters *params;
         bool encrypted;
@@ -2732,14 +2731,12 @@ static int load_cred_recurse_dir_cb(
         if (!credential_name_valid(sub_id))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID %s, which is not valid, refusing", sub_id);
 
-        if (set_contains(args->seen_creds, sub_id)) {
+        if (faccessat(args->dfd, sub_id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
                 log_debug("Skipping credential with duplicated ID %s at %s", sub_id, path);
                 return RECURSE_DIR_CONTINUE;
         }
-
-        r = set_put_strdup(&args->seen_creds, sub_id);
-        if (r < 0)
-                return r;
+        if (errno != ENOENT)
+                return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sub_id);
 
         r = load_credential(
                         args->context,
@@ -2769,7 +2766,6 @@ static int acquire_credentials(
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -1;
-        _cleanup_set_free_ Set *seen_creds = NULL;
         ExecLoadCredential *lc;
         ExecSetCredential *sc;
         int r;
@@ -2780,10 +2776,6 @@ static int acquire_credentials(
         dfd = open(p, O_DIRECTORY|O_CLOEXEC);
         if (dfd < 0)
                 return -errno;
-
-        seen_creds = set_new(&string_hash_ops_free);
-        if (!seen_creds)
-                return -ENOMEM;
 
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
         HASHMAP_FOREACH(lc, context->load_credentials) {
@@ -2800,10 +2792,6 @@ static int acquire_credentials(
 
                 if (sub_fd < 0) {
                         /* Regular file */
-
-                        r = set_put_strdup(&seen_creds, lc->id);
-                        if (r < 0)
-                                return r;
 
                         r = load_credential(
                                         context,
@@ -2831,7 +2819,6 @@ static int acquire_credentials(
                                         RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
                                         load_cred_recurse_dir_cb,
                                         &(struct load_cred_args) {
-                                                .seen_creds = seen_creds,
                                                 .context = context,
                                                 .params = params,
                                                 .encrypted = lc->encrypted,
