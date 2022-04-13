@@ -1084,7 +1084,7 @@ static int set_bfq_weight(Unit *u, const char *controller, dev_t dev, uint64_t i
         bfq_weight = BFQ_WEIGHT(io_weight);
 
         if (major(dev) > 0)
-                xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), bfq_weight);
+                xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), bfq_weight);
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
@@ -1117,7 +1117,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
 
         r1 = set_bfq_weight(u, "io", dev, io_weight);
 
-        xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), io_weight);
+        xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), io_weight);
         r2 = cg_set_attribute("io", u->cgroup_path, "io.weight", buf);
 
         /* Look at the configured device, when both fail, prefer io.weight errno. */
@@ -1138,7 +1138,7 @@ static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint
         if (r < 0)
                 return;
 
-        xsprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), blkio_weight);
+        xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), blkio_weight);
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight_device", buf);
 }
 
@@ -1152,9 +1152,9 @@ static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t
                 return;
 
         if (target != USEC_INFINITY)
-                xsprintf(buf, "%u:%u target=%" PRIu64 "\n", major(dev), minor(dev), target);
+                xsprintf(buf, DEVNUM_FORMAT_STR " target=%" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), target);
         else
-                xsprintf(buf, "%u:%u target=max\n", major(dev), minor(dev));
+                xsprintf(buf, DEVNUM_FORMAT_STR " target=max\n", DEVNUM_FORMAT_VAL(dev));
 
         (void) set_attribute_and_warn(u, "io", "io.latency", buf);
 }
@@ -1173,7 +1173,7 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
                 else
                         xsprintf(limit_bufs[type], "%s", limits[type] == CGROUP_LIMIT_MAX ? "max" : "0");
 
-        xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
+        xsprintf(buf, DEVNUM_FORMAT_STR " rbps=%s wbps=%s riops=%s wiops=%s\n", DEVNUM_FORMAT_VAL(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
                  limit_bufs[CGROUP_IO_RIOPS_MAX], limit_bufs[CGROUP_IO_WIOPS_MAX]);
         (void) set_attribute_and_warn(u, "io", "io.max", buf);
@@ -1186,10 +1186,10 @@ static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint6
         if (lookup_block_device(dev_path, &dev) < 0)
                 return;
 
-        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
+        sprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), rbps);
         (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.read_bps_device", buf);
 
-        sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), wbps);
+        sprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), wbps);
         (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.write_bps_device", buf);
 }
 

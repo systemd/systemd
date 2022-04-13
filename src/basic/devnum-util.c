@@ -49,7 +49,7 @@ int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret) {
         else
                 return -ENODEV;
 
-        if (asprintf(ret, "/dev/%s/%u:%u", t, major(devnum), minor(devnum)) < 0)
+        if (asprintf(ret, "/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
                 return -ENOMEM;
 
         return 0;
