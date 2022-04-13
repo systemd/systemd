@@ -2306,10 +2306,6 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = sd_device_get_diskseq(device, &diskseq);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
         fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
                 return -errno;
@@ -2326,6 +2322,14 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         /* If flags has O_PATH, then we cannot check diskseq. Let's return earlier. */
         if (FLAGS_SET(flags, O_PATH))
                 return TAKE_FD(fd);
+
+        r = sd_device_get_property_value(device, "ID_IGNORE_DISKSEQ", NULL);
+        if (r == -ENOENT) {
+                r = sd_device_get_diskseq(device, &diskseq);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+        } else if (r < 0)
+                return r;
 
         fd2 = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (fd2 < 0)
