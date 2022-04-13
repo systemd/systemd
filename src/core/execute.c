@@ -2832,7 +2832,7 @@ static int acquire_credentials(
 
                         r = recurse_dir(
                                         sub_fd,
-                                        /* path= */ "",
+                                        /* path= */ NULL,
                                         /* statx_mask= */ 0,
                                         /* n_depth_max= */ UINT_MAX,
                                         RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
