@@ -86,10 +86,12 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
         return 0;
 }
 
-int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
-        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
+static int tempfn_build(const char *p, const char *pre, const char *post, char **ret) {
+        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL, *result = NULL;
+        size_t len_pre, len_post, len_add;
         int r;
 
+        assert(p);
         assert(ret);
 
         /*
@@ -97,8 +99,23 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
          *         /foo/bar/waldo
          *
          * Into this:
-         *         /foo/bar/.#<extra>waldoXXXXXX
+         *         /foo/bar/.#<pre>waldo<post>
          */
+
+        if (pre && strchr(post, '/'))
+                return -EINVAL;
+
+        if (post && strchr(post, '/'))
+                return -EINVAL;
+
+        len_pre = strlen_ptr(pre);
+        len_post = strlen_ptr(post);
+        /* NAME_MAX is counted *without* the trailing NUL byte. */
+        if (len_pre > NAME_MAX - STRLEN(".#") ||
+            len_post > NAME_MAX - STRLEN(".#") - len_pre)
+                return -EINVAL;
+
+        len_add = len_pre + len_post + STRLEN(".#");
 
         r = path_extract_directory(p, &d);
         if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
@@ -108,28 +125,45 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (r < 0)
                 return r;
 
-        nf = strjoin(".#", strempty(extra), fn, "XXXXXX");
+        if (strlen(fn) > NAME_MAX - len_add)
+                /* We cannot simply prepend and append strings to the filename. Let's truncate the filename. */
+                fn[NAME_MAX - len_add] = '\0';
+
+        nf = strjoin(".#", strempty(pre), fn, strempty(post));
         if (!nf)
                 return -ENOMEM;
 
-        if (!filename_is_valid(nf)) /* New name is not valid? (Maybe because too long?) Refuse. */
-                return -EINVAL;
-
-        if (d)  {
+        if (d) {
                 if (!path_extend(&d, nf))
                         return -ENOMEM;
 
-                *ret = path_simplify(TAKE_PTR(d));
+                result = path_simplify(TAKE_PTR(d));
         } else
-                *ret = TAKE_PTR(nf);
+                result = TAKE_PTR(nf);
 
+        if (!path_is_valid(result)) /* New path is not valid? (Maybe because too long?) Refuse. */
+                return -EINVAL;
+
+        *ret = TAKE_PTR(result);
         return 0;
 }
 
-int tempfn_random(const char *p, const char *extra, char **ret) {
-        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
-        int r;
+int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldoXXXXXX
+         */
 
+        return tempfn_build(p, extra, "XXXXXX", ret);
+}
+
+int tempfn_random(const char *p, const char *extra, char **ret) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(p);
         assert(ret);
 
         /*
@@ -140,37 +174,16 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldobaa2a261115984a9
          */
 
-        r = path_extract_directory(p, &d);
-        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
-                return r;
-
-        r = path_extract_filename(p, &fn);
-        if (r < 0)
-                return r;
-
-        if (asprintf(&nf, ".#%s%s%016" PRIx64,
-                     strempty(extra),
-                     fn,
-                     random_u64()) < 0)
+        if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        if (!filename_is_valid(nf)) /* Not valid? (maybe because too long now?) — refuse early */
-                return -EINVAL;
-
-        if (d) {
-                if (!path_extend(&d, nf))
-                        return -ENOMEM;
-
-                *ret = path_simplify(TAKE_PTR(d));
-        } else
-                *ret = TAKE_PTR(nf);
-
-        return 0;
+        return tempfn_build(p, extra, s, ret);
 }
 
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
-        char *t, *x;
+        _cleanup_free_ char *t = NULL;
         uint64_t u;
+        char *x;
         int r;
 
         assert(ret);
@@ -181,22 +194,34 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
          *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
          */
 
+        if (!isempty(extra)) {
+                const char *e;
+
+                e = strchrnul(extra, '/');
+                if (*e != '\0')
+                        return -EINVAL;
+
+                if ((size_t) (e - extra) > (size_t) (NAME_MAX - STRLEN(".#") - 16))
+                        return -EINVAL;
+        }
+
         if (!p) {
                 r = tmp_dir(&p);
                 if (r < 0)
                         return r;
         }
 
-        extra = strempty(extra);
-
-        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
+        x = t = new(char, strlen(p) + 3 + strlen_ptr(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        if (isempty(p))
-                x = stpcpy(stpcpy(t, ".#"), extra);
-        else
-                x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
+        if (!isempty(p))
+                x = stpcpy(stpcpy(x, p), "/");
+
+        x = stpcpy(x, ".#");
+
+        if (!isempty(extra))
+                x = stpcpy(x, extra);
 
         u = random_u64();
         for (unsigned i = 0; i < 16; i++) {
@@ -206,7 +231,11 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_simplify(t);
+        path_simplify(t);
+        if (!path_is_valid(t))
+                return -EINVAL; /* New path is not valid? (Maybe because too long?) Refuse. */
+
+        *ret = TAKE_PTR(t);
         return 0;
 }
 
