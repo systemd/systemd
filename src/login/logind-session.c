@@ -15,6 +15,7 @@
 #include "audit-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "devnum-util.h"
 #include "env-file.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -377,7 +378,7 @@ static int session_load_devices(Session *s, const char *devices) {
                         break;
                 }
 
-                k = parse_dev(word, &dev);
+                k = parse_devnum(word, &dev);
                 if (k < 0) {
                         r = k;
                         continue;
