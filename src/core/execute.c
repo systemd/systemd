@@ -2718,8 +2718,8 @@ static int load_cred_recurse_dir_cb(
                 const struct statx *sx,
                 void *userdata) {
 
-        _cleanup_free_ char *credname = NULL, *sub_id = NULL;
         struct load_cred_args *args = ASSERT_PTR(userdata);
+        _cleanup_free_ char *sub_id = NULL;
         int r;
 
         if (event != RECURSE_DIR_ENTRY)
@@ -2728,11 +2728,7 @@ static int load_cred_recurse_dir_cb(
         if (!IN_SET(de->d_type, DT_REG, DT_SOCK))
                 return RECURSE_DIR_CONTINUE;
 
-        credname = strreplace(path, "/", "_");
-        if (!credname)
-                return -ENOMEM;
-
-        sub_id = strjoin(args->parent_load_credential->id, "_", credname);
+        sub_id = strreplace(path, "/", "_");
         if (!sub_id)
                 return -ENOMEM;
 
@@ -2832,7 +2828,7 @@ static int acquire_credentials(
 
                         r = recurse_dir(
                                         sub_fd,
-                                        /* path= */ NULL,
+                                        /* path= */ lc->id, /* recurse_dir() will suffix the subdir paths from here to the top-level id */
                                         /* statx_mask= */ 0,
                                         /* n_depth_max= */ UINT_MAX,
                                         RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
