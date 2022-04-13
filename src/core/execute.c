@@ -2737,7 +2737,7 @@ static int load_cred_recurse_dir_cb(
                 return -ENOMEM;
 
         if (!credential_name_valid(sub_id))
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Credential would get ID %s, which is not valid, refusing", sub_id);
 
         if (set_contains(args->seen_creds, sub_id)) {
                 log_debug("Skipping credential with duplicated ID %s at %s", sub_id, path);
