@@ -20,13 +20,13 @@
 #include "btrfs-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "sleep-config.h"
 #include "stat-util.h"
@@ -274,7 +274,7 @@ static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
         if (r < 0)
                 return log_debug_errno(r, "Error reading /sys/power/resume: %m");
 
-        r = parse_dev(resume_str, &resume);
+        r = parse_devnum(resume_str, &resume);
         if (r < 0)
                 return log_debug_errno(r, "Error parsing /sys/power/resume device: %s: %m", resume_str);
 

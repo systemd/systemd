@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "devnum-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "util.h"
@@ -12,7 +13,6 @@
 int main(int argc, char *argv[]) {
         struct stat st;
         const char *device;
-        _cleanup_free_ char *major_minor = NULL;
         int r;
 
         if (argc != 2) {
@@ -40,14 +40,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (asprintf(&major_minor, "%d:%d", major(st.st_rdev), minor(st.st_rdev)) < 0) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
-        r = write_string_file("/sys/power/resume", major_minor, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file("/sys/power/resume", FORMAT_DEVNUM(st.st_rdev), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0) {
-                log_error_errno(r, "Failed to write '%s' to /sys/power/resume: %m", major_minor);
+                log_error_errno(r, "Failed to write '" DEVNUM_FORMAT_STR "' to /sys/power/resume: %m", DEVNUM_FORMAT_VAL(st.st_rdev));
                 return EXIT_FAILURE;
         }
 
@@ -58,6 +53,6 @@ int main(int argc, char *argv[]) {
          * no hibernation image).
          */
 
-        log_info("Could not resume from '%s' (%s).", device, major_minor);
+        log_info("Could not resume from '%s' (" DEVNUM_FORMAT_STR ").", device, DEVNUM_FORMAT_VAL(st.st_rdev));
         return EXIT_SUCCESS;
 }
