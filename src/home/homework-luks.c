@@ -1301,7 +1301,7 @@ int home_setup_luks(
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
-                        if (asprintf(&sysfs, "/sys/dev/block/%u:%u/partition", major(st.st_rdev), minor(st.st_rdev)) < 0)
+                        if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                                 return log_oom();
 
                         if (access(sysfs, F_OK) < 0) {
@@ -1312,7 +1312,7 @@ int home_setup_luks(
                         } else {
                                 _cleanup_free_ char *buffer = NULL;
 
-                                if (asprintf(&sysfs, "/sys/dev/block/%u:%u/start", major(st.st_rdev), minor(st.st_rdev)) < 0)
+                                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                                         return log_oom();
 
                                 r = read_one_line_file(sysfs, &buffer);
@@ -2205,7 +2205,7 @@ int home_create_luks(
                 if (!S_ISBLK(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Device is not a block device, refusing.");
 
-                if (asprintf(&sysfs, "/sys/dev/block/%u:%u/partition", major(st.st_rdev), minor(st.st_rdev)) < 0)
+                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                         return log_oom();
                 if (access(sysfs, F_OK) < 0) {
                         if (errno != ENOENT)

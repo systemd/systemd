@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "stdio-util.h"
+
 int parse_devnum(const char *s, dev_t *ret);
 
 /* glibc and the Linux kernel have different ideas about the major/minor size. These calls will check whether the
@@ -35,3 +37,15 @@ static inline bool devnum_set_and_equal(dev_t a, dev_t b) {
          * know" and we'll return false */
         return a == b && a != 0;
 }
+
+/* Maximum string length for a major:minor string. (Note that DECIMAL_STR_MAX includes space for a trailing NUL) */
+#define DEVNUM_STR_MAX (DECIMAL_STR_MAX(dev_t)-1+1+DECIMAL_STR_MAX(dev_t))
+
+#define DEVNUM_FORMAT_STR "%u:%u"
+#define DEVNUM_FORMAT_VAL(d) major(d), minor(d)
+
+static inline char *format_devnum(dev_t d, char buf[static DEVNUM_STR_MAX]) {
+        return ASSERT_PTR(snprintf_ok(buf, DEVNUM_STR_MAX, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(d)));
+}
+
+#define FORMAT_DEVNUM(d) format_devnum((d), (char[DEVNUM_STR_MAX]) {})

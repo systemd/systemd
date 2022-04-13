@@ -12,6 +12,7 @@
 #include "base-filesystem.h"
 #include "chase-symlinks.h"
 #include "dev-setup.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "extension-release.h"
@@ -885,10 +886,10 @@ add_symlink:
                 return 0;
 
         /* Create symlinks like /dev/char/1:9 → ../urandom */
-        if (asprintf(&sl, "%s/dev/%s/%u:%u",
+        if (asprintf(&sl, "%s/dev/%s/" DEVNUM_FORMAT_STR,
                      temporary_mount,
                      S_ISCHR(st.st_mode) ? "char" : "block",
-                     major(st.st_rdev), minor(st.st_rdev)) < 0)
+                     DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                 return log_oom();
 
         (void) mkdir_parents(sl, 0755);
