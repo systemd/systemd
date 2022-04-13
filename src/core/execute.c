@@ -2701,7 +2701,7 @@ struct load_cred_args {
         Set *seen_creds;
         const ExecContext *context;
         const ExecParameters *params;
-        ExecLoadCredential *parent_load_credential;
+        bool encrypted;
         const char *unit;
         int dfd;
         uid_t uid;
@@ -2749,7 +2749,7 @@ static int load_cred_recurse_dir_cb(
                         args->params,
                         sub_id,
                         de->d_name,
-                        args->parent_load_credential->encrypted,
+                        args->encrypted,
                         args->unit,
                         dir_fd,
                         args->dfd,
@@ -2837,7 +2837,7 @@ static int acquire_credentials(
                                                 .seen_creds = seen_creds,
                                                 .context = context,
                                                 .params = params,
-                                                .parent_load_credential = lc,
+                                                .encrypted = lc->encrypted,
                                                 .unit = unit,
                                                 .dfd = dfd,
                                                 .uid = uid,
