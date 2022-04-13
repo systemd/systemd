@@ -2819,7 +2819,7 @@ static int acquire_credentials(
                                         /* path= */ lc->id, /* recurse_dir() will suffix the subdir paths from here to the top-level id */
                                         /* statx_mask= */ 0,
                                         /* n_depth_max= */ UINT_MAX,
-                                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                                        RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
                                         load_cred_recurse_dir_cb,
                                         &(struct load_cred_args) {
                                                 .context = context,
