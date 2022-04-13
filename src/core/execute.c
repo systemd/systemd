@@ -2836,13 +2836,17 @@ static int acquire_credentials(
                 }
         }
 
-        /* First we use the literally specified credentials. Note that they might be overridden again below,
-         * and thus act as a "default" if the same credential is specified multiple times */
+        /* Second, we add in literally specified credentials. If the credentials already exist, we'll not add
+         * them, so that they can act as a "default" if the same credential is specified multiple times. */
         HASHMAP_FOREACH(sc, context->set_credentials) {
                 _cleanup_(erase_and_freep) void *plaintext = NULL;
                 const char *data;
                 size_t size, add;
 
+                /* Note that we check ahead of time here instead of relying on O_EXCL|O_CREAT later to return
+                 * EEXIST if the credential already exists. That's because the TPM2-based decryption is kinda
+                 * slow and involved, hence it's nice to be able to skip that if the credential already
+                 * exists anyway. */
                 if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
                 if (errno != ENOENT)
