@@ -547,73 +547,34 @@ static int match_initialized(sd_device_enumerator *enumerator, sd_device *device
         return (enumerator->match_initialized == MATCH_INITIALIZED_NO) == (r == 0);
 }
 
-static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator, const char *basedir, const char *subdir1, const char *subdir2) {
-        _cleanup_closedir_ DIR *dir = NULL;
-        char *path;
-        int k, r = 0;
+static int test_matches(
+                sd_device_enumerator *enumerator,
+                sd_device *device) {
+
+        int r;
 
         assert(enumerator);
-        assert(basedir);
+        assert(device);
 
-        path = strjoina("/sys/", basedir, "/");
+        /* Checks all matches, except for the sysname match (which the caller should check beforehand) */
 
-        if (subdir1)
-                path = strjoina(path, subdir1, "/");
+        r = match_initialized(enumerator, device);
+        if (r <= 0)
+                return r;
 
-        if (subdir2)
-                path = strjoina(path, subdir2, "/");
+        if (!device_match_parent(device, enumerator->match_parent, NULL))
+                return false;
 
-        dir = opendir(path);
-        if (!dir)
-                /* this is necessarily racey, so ignore missing directories */
-                return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
+        if (!match_tag(enumerator, device))
+                return false;
 
-        FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-                char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
+        if (!match_property(enumerator, device))
+                return false;
 
-                if (de->d_name[0] == '.')
-                        continue;
+        if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
+                return false;
 
-                if (!match_sysname(enumerator, de->d_name))
-                        continue;
-
-                (void) sprintf(syspath, "%s%s", path, de->d_name);
-
-                k = sd_device_new_from_syspath(&device, syspath);
-                if (k < 0) {
-                        if (k != -ENODEV)
-                                /* this is necessarily racey, so ignore missing devices */
-                                r = k;
-
-                        continue;
-                }
-
-                k = match_initialized(enumerator, device);
-                if (k <= 0) {
-                        if (k < 0)
-                                r = k;
-                        continue;
-                }
-
-                if (!device_match_parent(device, enumerator->match_parent, NULL))
-                        continue;
-
-                if (!match_tag(enumerator, device))
-                        continue;
-
-                if (!match_property(enumerator, device))
-                        continue;
-
-                if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))
-                        continue;
-
-                k = device_enumerator_add_device(enumerator, device);
-                if (k < 0)
-                        r = k;
-        }
-
-        return r;
+        return true;
 }
 
 static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsystem) {
@@ -638,6 +599,128 @@ static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsys
         return false;
 }
 
+static bool relevant_sysfs_subdir(const struct dirent *de) {
+        assert(de);
+
+        if (de->d_name[0] == '.')
+                return false;
+
+        /* Also filter out regular files and such, i.e. stuff that definitely isn't a kobject path. (Note
+         * that we rely on the fact that sysfs fills in d_type here, i.e. doesn't do DT_UNKNOWN) */
+        return IN_SET(de->d_type, DT_DIR, DT_LNK);
+}
+
+static int enumerator_scan_dir_and_add_devices(
+                sd_device_enumerator *enumerator,
+                const char *basedir,
+                const char *subdir1,
+                const char *subdir2) {
+
+        _cleanup_closedir_ DIR *dir = NULL;
+        char *path;
+        int k, r = 0;
+
+        assert(enumerator);
+        assert(basedir);
+
+        path = strjoina("/sys/", basedir, "/");
+
+        if (subdir1)
+                path = strjoina(path, subdir1, "/");
+
+        if (subdir2)
+                path = strjoina(path, subdir2, "/");
+
+        dir = opendir(path);
+        if (!dir)
+                /* this is necessarily racey, so ignore missing directories */
+                return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
+
+        FOREACH_DIRENT_ALL(de, dir, return -errno) {
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
+                sd_device *upwards;
+
+                if (!relevant_sysfs_subdir(de))
+                        continue;
+
+                if (!match_sysname(enumerator, de->d_name))
+                        continue;
+
+                (void) sprintf(syspath, "%s%s", path, de->d_name);
+
+                k = sd_device_new_from_syspath(&device, syspath);
+                if (k < 0) {
+                        if (k != -ENODEV)
+                                /* this is necessarily racey, so ignore missing devices */
+                                r = k;
+
+                        continue;
+                }
+
+                k = test_matches(enumerator, device);
+                if (k <= 0) {
+                        if (k < 0)
+                                r = k;
+                        continue;
+                }
+
+                k = device_enumerator_add_device(enumerator, device);
+                if (k < 0)
+                        r = k;
+
+                /* Also include all potentially matching parent devices in the enumeration. These are things
+                 * like root busses — e.g. /sys/devices/pci0000:00/ or /sys/devices/pnp0/, which ar not
+                 * linked from /sys/class/ or /sys/bus/, hence pick them up explicitly here. */
+                upwards = device;
+                for (;;) {
+                        const char *ss, *usn;
+
+                        k = sd_device_get_parent(upwards, &upwards);
+                        if (k == -ENOENT) /* Reached the top? */
+                                break;
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        k = sd_device_get_subsystem(upwards, &ss);
+                        if (k == -ENOENT) /* Has no subsystem? */
+                                continue;
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        if (!match_subsystem(enumerator, ss))
+                                continue;
+
+                        k = sd_device_get_sysname(upwards, &usn);
+                        if (k < 0) {
+                                r = k;
+                                break;
+                        }
+
+                        if (!match_sysname(enumerator, usn))
+                                continue;
+
+                        k = test_matches(enumerator, upwards);
+                        if (k < 0)
+                                break;
+                        if (k == 0)
+                                continue;
+
+                        k = device_enumerator_add_device(enumerator, upwards);
+                        if (k < 0)
+                                r = k;
+                        else if (k == 0) /* Exists already? Then no need to go further up. */
+                                break;
+                }
+        }
+
+        return r;
+}
+
 static int enumerator_scan_dir(
                 sd_device_enumerator *enumerator,
                 const char *basedir,
@@ -659,7 +742,7 @@ static int enumerator_scan_dir(
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 int k;
 
-                if (de->d_name[0] == '.')
+                if (!relevant_sysfs_subdir(de))
                         continue;
 
                 if (!match_subsystem(enumerator, subsystem ? : de->d_name))
