@@ -4,6 +4,10 @@
 ACTION=="remove", ENV{REMOVE_CMD}!="", RUN+="$env{REMOVE_CMD}"
 ACTION=="remove", GOTO="default_end"
 
+# The md driver increments diskseq *after* emitting 'change' uevent.
+# Drop the line below if it is fixed on the kernel side.
+SUBSYSTEM=="block", KERNEL=="md*", ENV{ID_IGNORE_DISKSEQ}="1"
+
 SUBSYSTEM=="virtio-ports", KERNEL=="vport*", ATTR{name}=="?*", SYMLINK+="virtio-ports/$attr{name}"
 
 # select "system RTC" or just use the first one
