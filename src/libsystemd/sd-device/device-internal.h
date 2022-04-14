@@ -21,8 +21,6 @@ struct sd_device {
          */
         unsigned database_version;
 
-        int watch_handle;
-
         sd_device *parent;
 
         OrderedHashmap *properties;
