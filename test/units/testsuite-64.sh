@@ -620,7 +620,55 @@ testcase_mdadm_basic() {
     mdadm -v --stop "$raid_dev"
     udevadm settle
     helper_check_device_symlinks
-    # Reassemble it and check if all requires symlinks exist
+    # Reassemble it and check if all required symlinks exist
+    mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+}
+
+testcase_mdadm_lvm() {
+    local part_name raid_name raid_dev uuid vgroup
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..4}
+    )
+
+    ls -l "${devices[@]}"
+
+    raid_name="mdlvm"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    vgroup="${raid_name}_vg"
+    uuid="aaaaaaaa:bbbbbbbb:ffffffff:00001010"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/$vgroup/mypart1"          # LVM partition
+        "/dev/$vgroup/mypart2"          # LVM partition
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a RAID 10 with LVM + ext4
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    # Create an LVM on the MD
+    lvm pvcreate -y "$raid_dev"
+    lvm pvs
+    lvm vgcreate "$vgroup" -y "$raid_dev"
+    lvm vgs
+    lvm vgchange -ay "$vgroup"
+    lvm lvcreate -y -L 4M "$vgroup" -n mypart1
+    lvm lvcreate -y -L 8M "$vgroup" -n mypart2
+    lvm lvs
+    udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
+    mkfs.ext4 -L "$part_name" "/dev/$vgroup/mypart2"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    lvm vgchange -an "$vgroup"
+    mdadm -v --stop "$raid_dev"
+    udevadm settle
+    helper_check_device_symlinks
+    # Reassemble it and check if all required symlinks exist
     mdadm --assemble "$raid_dev" --name "$raid_name" -v
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
