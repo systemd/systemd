@@ -1202,6 +1202,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         err = parse_boolean(value, &config->beep);
                         if (EFI_ERROR(err))
                                 log_error_stall(L"Error parsing 'beep' config option: %a", value);
+                        continue;
                 }
 
                 if (strcmpa((CHAR8 *)"reboot-for-bitlocker", key) == 0) {
@@ -1224,7 +1225,6 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 s = xstra_to_str(value);
                                 config->console_mode = MIN(Atoi(s), (UINTN)CONSOLE_MODE_RANGE_MAX);
                         }
-
                         continue;
                 }
 
@@ -1246,6 +1246,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                                 config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
                         }
+                        continue;
                 }
         }
 }
