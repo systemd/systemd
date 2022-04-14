@@ -474,9 +474,6 @@ int encrypt_credential_and_warn(
         int ksz, bsz, ivsz, tsz, added, r;
         uint8_t md[SHA256_DIGEST_LENGTH];
         const EVP_CIPHER *cc;
-#if HAVE_TPM2
-        bool try_tpm2 = false;
-#endif
         sd_id128_t id;
 
         assert(input || input_size == 0);
@@ -484,7 +481,7 @@ int encrypt_credential_and_warn(
         assert(ret_size);
 
         if (!sd_id128_in_set(with_key,
-                             SD_ID128_NULL,
+                             _CRED_AUTO,
                              CRED_AES256_GCM_BY_HOST,
                              CRED_AES256_GCM_BY_TPM2_HMAC,
                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC))
@@ -507,23 +504,26 @@ int encrypt_credential_and_warn(
                         log_debug("Including not-after timestamp '%s' in encrypted credential.", format_timestamp(buf, sizeof(buf), not_after));
         }
 
-        if (sd_id128_is_null(with_key) ||
-            sd_id128_in_set(with_key, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC)) {
+        if (sd_id128_in_set(with_key,
+                            _CRED_AUTO,
+                            CRED_AES256_GCM_BY_HOST,
+                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC)) {
 
                 r = get_credential_host_secret(
                                 CREDENTIAL_SECRET_GENERATE|
                                 CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED|
-                                (sd_id128_is_null(with_key) ? CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS : 0),
+                                (sd_id128_equal(with_key, _CRED_AUTO) ? CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS : 0),
                                 &host_key,
                                 &host_key_size);
-                if (r == -ENOMEDIUM && sd_id128_is_null(with_key))
+                if (r == -ENOMEDIUM && sd_id128_equal(with_key, _CRED_AUTO))
                         log_debug_errno(r, "Credential host secret location on temporary file system, not using.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to determine local credential host secret: %m");
         }
 
 #if HAVE_TPM2
-        if (sd_id128_is_null(with_key)) {
+        bool try_tpm2;
+        if (sd_id128_equal(with_key, _CRED_AUTO)) {
                 /* If automatic mode is selected and we are running in a container, let's not try TPM2. OTOH
                  * if user picks TPM2 explicitly, let's always honour the request and try. */
 
@@ -534,11 +534,10 @@ int encrypt_credential_and_warn(
                         log_debug("Running in container, not attempting to use TPM2.");
 
                 try_tpm2 = r <= 0;
-        }
+        } else
+                try_tpm2 = sd_id128_in_set(with_key, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
 
-        if (try_tpm2 ||
-            sd_id128_in_set(with_key, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC)) {
-
+        if (try_tpm2) {
                 r = tpm2_seal(tpm2_device,
                               tpm2_pcr_mask,
                               NULL,
@@ -551,7 +550,7 @@ int encrypt_credential_and_warn(
                               &tpm2_pcr_bank,
                               &tpm2_primary_alg);
                 if (r < 0) {
-                        if (!sd_id128_is_null(with_key))
+                        if (!sd_id128_equal(with_key, _CRED_AUTO))
                                 return r;
 
                         log_debug_errno(r, "TPM2 sealing didn't work, not using: %m");
@@ -562,7 +561,7 @@ int encrypt_credential_and_warn(
         }
 #endif
 
-        if (sd_id128_is_null(with_key)) {
+        if (sd_id128_equal(with_key, _CRED_AUTO)) {
                 /* Let's settle the key type in auto mode now. */
 
                 if (host_key && tpm2_key)

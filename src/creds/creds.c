@@ -40,7 +40,7 @@ static bool arg_legend = true;
 static bool arg_system = false;
 static TranscodeMode arg_transcode = TRANSCODE_OFF;
 static int arg_newline = -1;
-static sd_id128_t arg_with_key = SD_ID128_NULL;
+static sd_id128_t arg_with_key = _CRED_AUTO;
 static const char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static const char *arg_name = NULL;
@@ -684,7 +684,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_WITH_KEY:
                         if (isempty(optarg) || streq(optarg, "auto"))
-                                arg_with_key = SD_ID128_NULL;
+                                arg_with_key = _CRED_AUTO;
                         else if (streq(optarg, "host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST;
                         else if (streq(optarg, "tpm2"))
