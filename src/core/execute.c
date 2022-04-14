@@ -2692,7 +2692,7 @@ static int load_credential(
 
         r = write_credential(write_dfd, id, data, size, uid, ownership_ok);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to write credential '%s': %m", id);
 
         *left -= add;
         return 0;
