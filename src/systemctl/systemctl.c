@@ -161,6 +161,7 @@ static int systemctl_help(void) {
                "                                      otherwise start or restart\n"
                "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"
                "                                      if supported, otherwise restart\n"
+               "  toggle UNIT...                      Start inactive or stop active units\n"
                "  isolate UNIT                        Start one unit and stop all others\n"
                "  kill UNIT...                        Send signal to processes of a unit\n"
                "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
@@ -1040,6 +1041,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with ALTLinux */
                 { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with RH */
                 { "isolate",               2,        2,        VERB_ONLINE_ONLY, verb_start                   },
+                { "toggle",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_toggle                  },
                 { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_kill                    },
                 { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
                 { "freeze",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
