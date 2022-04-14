@@ -10,14 +10,14 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
+#include "mkdir.h"
 #include "parse-util.h"
-#include "random-util.h"
+#include "rm-rf.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "udev-watch.h"
-
-#define SAVE_WATCH_HANDLE_MAX_RETRIES  128
-#define MAX_RANDOM_DELAY (100 * USEC_PER_MSEC)
-#define MIN_RANDOM_DELAY ( 10 * USEC_PER_MSEC)
 
 int udev_watch_restore(int inotify_fd) {
         DIR *dir;
@@ -73,8 +73,74 @@ unlink:
         return 0;
 }
 
+static int udev_watch_clear(sd_device *dev, int dirfd, int *ret_wd) {
+        _cleanup_free_ char *wd_str = NULL, *buf = NULL;
+        const char *id;
+        int wd = -1, r;
+
+        assert(dev);
+        assert(dirfd >= 0);
+
+        r = device_get_device_id(dev, &id);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
+
+        /* 1. read symlink ID -> wd */
+        r = readlinkat_malloc(dirfd, id, &wd_str);
+        if (r == -ENOENT) {
+                if (ret_wd)
+                        *ret_wd = -1;
+                return 0;
+        }
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to read symlink '/run/udev/watch/%s': %m", id);
+                goto finalize;
+        }
+
+        r = safe_atoi(wd_str, &wd);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to parse watch handle from symlink '/run/udev/watch/%s': %m", id);
+                goto finalize;
+        }
+
+        if (wd < 0) {
+                r = log_device_debug_errno(dev, SYNTHETIC_ERRNO(EBADF), "Invalid watch handle %i.", wd);
+                goto finalize;
+        }
+
+        /* 2. read symlink wd -> ID */
+        r = readlinkat_malloc(dirfd, wd_str, &buf);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to read symlink '/run/udev/watch/%s': %m", wd_str);
+                goto finalize;
+        }
+
+        /* 3. check if the symlink wd -> ID is owned by the device. */
+        if (!streq(buf, id)) {
+                r = log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
+                                           "Symlink '/run/udev/watch/%s' is owned by another device '%s'.", wd_str, buf);
+                goto finalize;
+        }
+
+        /* 4. remove symlink wd -> ID only when the symlink is owned by the device. */
+        if (unlinkat(dirfd, wd_str, 0) < 0 && errno != -ENOENT)
+                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s', ignoring: %m", wd_str);
+
+        r = 0;
+
+finalize:
+        if (unlinkat(dirfd, id, 0) < 0 && errno != -ENOENT)
+                log_device_debug_errno(dev, errno, "Failed to remove '/run/udev/watch/%s': %m", id);
+
+        if (r >= 0 && ret_wd)
+                *ret_wd = wd;
+        return r;
+}
+
 int udev_watch_begin(int inotify_fd, sd_device *dev) {
-        const char *devnode;
+        char wd_str[DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int dirfd = -1;
+        const char *devnode, *id;
         int wd, r;
 
         assert(inotify_fd >= 0);
@@ -82,62 +148,55 @@ int udev_watch_begin(int inotify_fd, sd_device *dev) {
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device name: %m");
+                return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
+        r = device_get_device_id(dev, &id);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device ID: %m");
+
+        r = mkdir_p("/run/udev/watch", 0755);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to create '/run/udev/watch/': %m");
+
+        dirfd = open("/run/udev/watch", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY);
+        if (dirfd < 0)
+                return log_device_debug_errno(dev, errno, "Failed to open '/run/udev/watch/': %m");
+
+        /* 1. Clear old symlinks */
+        (void) udev_watch_clear(dev, dirfd, NULL);
+
+        /* 2. Add inotify watch */
         log_device_debug(dev, "Adding watch on '%s'", devnode);
         wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
-        if (wd < 0) {
-                bool ignore = errno == ENOENT;
+        if (wd < 0)
+                return log_device_debug_errno(dev, errno, "Failed to watch device node '%s': %m", devnode);
 
-                r = log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, errno,
-                                          "Failed to add device '%s' to watch%s: %m",
-                                          devnode, ignore ? ", ignoring" : "");
+        xsprintf(wd_str, "%d", wd);
 
-                (void) device_set_watch_handle(dev, -1);
-                return ignore ? 0 : r;
+        /* 3. Create new symlinks */
+        if (symlinkat(wd_str, dirfd, id) < 0) {
+                r = log_device_debug_errno(dev, errno, "Failed to create symlink '/run/udev/watch/%s' to '%s': %m", id, wd_str);
+                goto on_failure;
         }
 
-        for (unsigned i = 0; i < SAVE_WATCH_HANDLE_MAX_RETRIES; i++) {
-                if (i > 0) {
-                        usec_t delay = MIN_RANDOM_DELAY + random_u64_range(MAX_RANDOM_DELAY - MIN_RANDOM_DELAY);
-
-                        /* When the same handle is reused for different device node, we may fail to
-                         * save the watch handle with -EEXIST. Let's consider the case of two workers A
-                         * and B do the following:
-                         *
-                         * 1. A calls inotify_rm_watch()
-                         * 2. B calls inotify_add_watch()
-                         * 3. B calls device_set_watch_handle()
-                         * 4. A calls device_set_watch_handle(-1)
-                         *
-                         * At step 3, the old symlinks to save the watch handle still exist. So,
-                         * device_set_watch_handle() fails with -EEXIST. */
-
-                        log_device_debug_errno(dev, r,
-                                               "Failed to save watch handle '%i' for %s in "
-                                               "/run/udev/watch, retrying in after %s: %m",
-                                               wd, devnode, FORMAT_TIMESPAN(delay, USEC_PER_MSEC));
-                        (void) usleep(delay);
-                }
-
-                r = device_set_watch_handle(dev, wd);
-                if (r >= 0)
-                        return 0;
-                if (r != -EEXIST)
-                        break;
+        if (symlinkat(id, dirfd, wd_str) < 0) {
+                /* Possibly, the watch handle is previously assigned to another device, and udev_watch_end()
+                 * is not called for the device yet. */
+                r = log_device_debug_errno(dev, errno, "Failed to create symlink '/run/udev/watch/%s' to '%s': %m", wd_str, id);
+                goto on_failure;
         }
 
-        log_device_warning_errno(dev, r,
-                                 "Failed to save watch handle '%i' for %s in /run/udev/watch: %m",
-                                 wd, devnode);
+        return 0;
 
+on_failure:
+        (void) unlinkat(dirfd, id, 0);
         (void) inotify_rm_watch(inotify_fd, wd);
-
         return r;
 }
 
 int udev_watch_end(int inotify_fd, sd_device *dev) {
-        int wd;
+        _cleanup_close_ int dirfd = -1;
+        int wd, r;
 
         assert(dev);
 
@@ -148,14 +207,20 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
         if (sd_device_get_devname(dev, NULL) < 0)
                 return 0;
 
-        wd = device_get_watch_handle(dev);
-        if (wd < 0)
-                log_device_debug_errno(dev, wd, "Failed to get watch handle, ignoring: %m");
-        else {
-                log_device_debug(dev, "Removing watch");
+        dirfd = RET_NERRNO(open("/run/udev/watch", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
+        if (dirfd == -ENOENT)
+                return 0;
+        if (dirfd < 0)
+                return log_device_debug_errno(dev, dirfd, "Failed to open '/run/udev/watch/': %m");
+
+        /* First, clear symlinks. */
+        r = udev_watch_clear(dev, dirfd, &wd);
+
+        /* Then, remove inotify watch. */
+        if (r >= 0) {
+                log_device_debug(dev, "Removing watch handle %i.", wd);
                 (void) inotify_rm_watch(inotify_fd, wd);
         }
-        (void) device_set_watch_handle(dev, -1);
 
-        return 0;
+        return r;
 }
