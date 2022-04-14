@@ -19,6 +19,29 @@
 #include "string-util.h"
 #include "udev-watch.h"
 
+int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
+        char path_wd[STRLEN("/run/udev/watch/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *id = NULL;
+        int r;
+
+        assert(ret);
+
+        if (wd < 0)
+                return -EBADF;
+
+        if (dirfd >= 0) {
+                xsprintf(path_wd, "%d", wd);
+                r = readlinkat_malloc(dirfd, path_wd, &id);
+        } else {
+                xsprintf(path_wd, "/run/udev/watch/%d", wd);
+                r = readlink_malloc(path_wd, &id);
+        }
+        if (r < 0)
+                return r;
+
+        return sd_device_new_from_device_id(ret, id);
+}
+
 int udev_watch_restore(int inotify_fd) {
         DIR *dir;
         int r;
