@@ -536,7 +536,7 @@ testcase_long_sysfs_path() {
 }
 
 testcase_mdadm_basic() {
-    local raid_name uuid
+    local part_name raid_name raid_dev uuid
     local expected_symlinks=()
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
@@ -544,26 +544,84 @@ testcase_mdadm_basic() {
 
     ls -l "${devices[@]}"
 
-    echo "Mirror raid"
+    echo "Mirror raid (RAID 1)"
     raid_name="mdmirror"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
     uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000001"
     expected_symlinks=(
-        "/dev/md/$raid_name"
-        "/dev/disk/by-id/md-name-H:mdmirror"
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
         "/dev/disk/by-id/md-uuid-$uuid"
-        "/dev/disk/by-label/mdadm_mirror" # ext4 partition
+        "/dev/disk/by-label/$part_name" # ext4 partition
     )
     # Create a simple RAID 1 with an ext4 filesystem
-    echo y | mdadm --create "${expected_symlinks[0]}" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
-    udevadm wait --settle --timeout=30 "${expected_symlinks[0]}"
-    mkfs.ext4 -L mdadm_mirror "/dev/md/$raid_name"
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     # Disassemble the array
-    mdadm -v --stop "${expected_symlinks[0]}"
+    mdadm -v --stop "$raid_dev"
+    udevadm settle
+    helper_check_device_symlinks
+    # Reassemble it and check if all required symlinks exist
+    mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+    # Cleanup
+    mdadm -v --stop "$raid_dev"
+    udevadm settle
+
+    echo "Parity raid (RAID 5)"
+    raid_name="mdparity"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000101"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a simple RAID 5 with an ext4 filesystem
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    mdadm -v --stop "$raid_dev"
+    udevadm settle
+    helper_check_device_symlinks
+    # Reassemble it and check if all required symlinks exist
+    mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+    # Cleanup
+    mdadm -v --stop "$raid_dev"
+    udevadm settle
+
+    echo "Mirror + parity raid (RAID 10)"
+    raid_name="mdmirpar"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00001010"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a simple RAID 10 with an ext4 filesystem
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    mdadm -v --stop "$raid_dev"
     udevadm settle
     helper_check_device_symlinks
     # Reassemble it and check if all requires symlinks exist
-    mdadm --assemble "${expected_symlinks[0]}" --name "$raid_name" -v
+    mdadm --assemble "$raid_dev" --name "$raid_name" -v
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
 }
