@@ -1156,8 +1156,11 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 return log_oom();
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
-                        if (r == 0 || !p)
+                        if (r == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s=.", field);
+
+                        if (isempty(p)) /* If only one field is specified, then this means "inherit from above" */
+                                p = eq;
 
                         r = sd_bus_message_append(m, "a(ss)", 1, word, p);
                 }
