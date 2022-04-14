@@ -11,6 +11,7 @@
 #include "blockdev-util.h"
 #include "chattr-util.h"
 #include "creds-util.h"
+#include "efi-api.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -366,6 +367,11 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
  *
  *      3. The concatenation of the above.
  *
+ *      4. Or a fixed "empty" key. This will not provide confidentiality or authenticity, of course, but is
+ *         useful to encode credentials for the initrd on TPM-less systems, where we simply have no better
+ *         concept to bind things to. Note that decryption of a key set up like this will be refused on
+ *         systems that have a TPM and have SecureBoot enabled.
+ *
  * The above is hashed with SHA256 which is then used as encryption key for AES256-GCM. The encrypted
  * credential is a short (unencrypted) header describing which of the three keys to use, the IV to use for
  * AES256-GCM and some more meta information (sizes of certain objects) that is strictly speaking redundant,
@@ -482,9 +488,11 @@ int encrypt_credential_and_warn(
 
         if (!sd_id128_in_set(with_key,
                              _CRED_AUTO,
+                             _CRED_AUTO_INITRD,
                              CRED_AES256_GCM_BY_HOST,
                              CRED_AES256_GCM_BY_TPM2_HMAC,
-                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC))
+                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                             CRED_AES256_GCM_BY_TPM2_ABSENT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
         if (name && !credential_name_valid(name))
@@ -534,6 +542,13 @@ int encrypt_credential_and_warn(
                         log_debug("Running in container, not attempting to use TPM2.");
 
                 try_tpm2 = r <= 0;
+        } else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD)) {
+                /* If automatic mode for initrds is selected, we'll use the TPM2 key if the firmware does it,
+                 * otherwise we'll use a fixed key */
+
+                try_tpm2 = efi_has_tpm2();
+                if (!try_tpm2)
+                        log_debug("Firmware lacks TPM2 support, not attempting to use TPM2.");
         } else
                 try_tpm2 = sd_id128_in_set(with_key, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
 
@@ -550,7 +565,9 @@ int encrypt_credential_and_warn(
                               &tpm2_pcr_bank,
                               &tpm2_primary_alg);
                 if (r < 0) {
-                        if (!sd_id128_equal(with_key, _CRED_AUTO))
+                        if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
+                                log_warning("Firmware reported a TPM2 being present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
+                        else if (!sd_id128_equal(with_key, _CRED_AUTO))
                                 return r;
 
                         log_debug_errno(r, "TPM2 sealing didn't work, not using: %m");
@@ -561,7 +578,7 @@ int encrypt_credential_and_warn(
         }
 #endif
 
-        if (sd_id128_equal(with_key, _CRED_AUTO)) {
+        if (sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD)) {
                 /* Let's settle the key type in auto mode now. */
 
                 if (host_key && tpm2_key)
@@ -570,11 +587,16 @@ int encrypt_credential_and_warn(
                         id = CRED_AES256_GCM_BY_TPM2_HMAC;
                 else if (host_key)
                         id = CRED_AES256_GCM_BY_HOST;
+                else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
+                        id = CRED_AES256_GCM_BY_TPM2_ABSENT;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "TPM2 not available and host key located on temporary file system, no encryption key available.");
         } else
                 id = with_key;
+
+        if (sd_id128_equal(id, CRED_AES256_GCM_BY_TPM2_ABSENT))
+                log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
 
         /* Let's now take the host key and the TPM2 key and hash it together, to use as encryption key for the data */
         r = sha256_hash_host_and_tpm2_key(host_key, host_key_size, tpm2_key, tpm2_key_size, md);
@@ -733,7 +755,7 @@ int decrypt_credential_and_warn(
         struct encrypted_credential_header *h;
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
-        bool with_tpm2, with_host_key;
+        bool with_tpm2, with_host_key, is_tpm2_absent;
         const EVP_CIPHER *cc;
         int r, added;
 
@@ -749,9 +771,30 @@ int decrypt_credential_and_warn(
 
         with_host_key = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
         with_tpm2 = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+        is_tpm2_absent = sd_id128_equal(h->id, CRED_AES256_GCM_BY_TPM2_ABSENT);
 
-        if (!with_host_key && !with_tpm2)
+        if (!with_host_key && !with_tpm2 && !is_tpm2_absent)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data: %m");
+
+        if (is_tpm2_absent) {
+                /* So this is a credential encrypted with a zero length key. We support this to cover for the
+                 * case where neither a host key not a TPM2 are available (specifically: initrd environments
+                 * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
+                 * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
+                 * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
+                 * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
+                 * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
+                 * they are trusted, even though they are not. */
+
+                if (efi_has_tpm2()) {
+                        if (is_efi_secure_boot())
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Credential uses fixed key for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+
+                        log_warning("Credential uses fixed key for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
+                } else
+                        log_debug("Credential uses fixed key for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+        }
 
         /* Now we know the minimum header size */
         if (input_size < offsetof(struct encrypted_credential_header, iv))
@@ -832,6 +875,9 @@ int decrypt_credential_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine local credential key: %m");
         }
+
+        if (is_tpm2_absent)
+                log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
         sha256_hash_host_and_tpm2_key(host_key, host_key_size, tpm2_key, tpm2_key_size, md);
 
