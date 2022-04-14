@@ -584,7 +584,7 @@ int encrypt_credential_and_warn(
                         else if (!sd_id128_equal(with_key, _CRED_AUTO))
                                 return r;
 
-                        log_debug_errno(r, "TPM2 sealing didn't work, not using: %m");
+                        log_notice_errno(r, "TPM2 sealing didn't work, continuing without TPM2: %m");
                 }
 
                 assert(tpm2_blob_size <= CREDENTIAL_FIELD_SIZE_MAX);
