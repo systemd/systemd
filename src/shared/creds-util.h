@@ -38,15 +38,22 @@ typedef enum CredentialSecretFlags {
 
 int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *ret_size);
 
-/* The three modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of both */
+/* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
+ * both, as well as one with a fixed zero length key if TPM2 is missing (the latter of course provides no
+ * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler
+ * for us to handle). */
 #define CRED_AES256_GCM_BY_HOST               SD_ID128_MAKE(5a,1c,6a,86,df,9d,40,96,b1,d5,a6,5e,08,62,f1,9a)
 #define CRED_AES256_GCM_BY_TPM2_HMAC          SD_ID128_MAKE(0c,7c,c0,7b,11,76,45,91,9c,4b,0b,ea,08,bc,20,fe)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC SD_ID128_MAKE(93,a8,94,09,48,74,44,90,90,ca,f2,fc,93,ca,b5,53)
+#define CRED_AES256_GCM_BY_TPM2_ABSENT        SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
-/* Special ID to pick automatic mode (i.e. tpm2+host if TPM2 exists, only host otherwise). This ID will never
- * be stored on disk, but is useful only internally while figuring out what precisely to write to disk. To
- * mark that this isn't a "real" type, we'll prefix it with an underscore. */
+/* Two special IDs to pick a general automatic mode (i.e. tpm2+host if TPM2 exists, only host otherwise) or
+ * an initrd-specific automatic mode (i.e. tpm2 if firmware can do it, otherwise fixed zero-length key, and
+ * never involve host keys). These IDs will never be stored on disk, but are useful only internally while
+ * figuring out what precisely to write to disk. To mark that these aren't a "real" type, we'll prefix them
+ * with an underscore. */
 #define _CRED_AUTO                            SD_ID128_MAKE(a2,19,cb,07,85,b2,4c,04,b1,6d,18,ca,b9,d2,ee,01)
+#define _CRED_AUTO_INITRD                     SD_ID128_MAKE(02,dc,8e,de,3a,02,43,ab,a9,ec,54,9c,05,e6,a0,71)
 
 int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size);
 int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const void *input, size_t input_size, void **ret, size_t *ret_size);
