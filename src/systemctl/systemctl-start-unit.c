@@ -15,6 +15,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 #include "terminal-util.h"
+#include "systemctl-is-active.h"
 
 static const struct {
         const char *verb;      /* systemctl verb */
@@ -298,6 +299,17 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 job_type = "start";
                                 mode = "isolate";
                                 suffix = ".target";
+                        } else if (streq(argv[0], "toggle")) {
+                                /* A "systemctl toggle <unit1> <unit2> …" command */
+                                r = verb_is_active(argc, argv, userdata);
+                                if (r == 0) {
+                                        method = "StopUnit";
+                                        job_type = "stop";
+                                } else {
+                                        method = "StartUnit";
+                                        job_type = "start";
+                                }
+                                mode = arg_job_mode();
                         } else if (!arg_marked) {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
