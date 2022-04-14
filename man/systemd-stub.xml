@@ -70,7 +70,7 @@
     image, any attempts to override the kernel command line by passing one as invocation parameters to the
     EFI binary are ignored. Thus, in order to allow overriding the kernel command line, either disable UEFI
     SecureBoot, or don't include a kernel command line PE section in the kernel image file. If a command line
-    is accepted via EFI invocation parameters to the EFI binary it is measured into TPM PCR 8 (if a TPM is
+    is accepted via EFI invocation parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is
     present).</para>
 
     <para>If a DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing
@@ -100,7 +100,7 @@
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       for
       details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
-      PCR 4 (if a TPM is present).</para></listitem>
+      PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
       are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
@@ -108,13 +108,13 @@
       images to the initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
-      system extension images is measured into TPM PCR 8 (if a TPM is present).</para></listitem>
+      system extension images is measured into TPM PCR 4 (if a TPM is present).</para></listitem>
 
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
       the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
-      measured into TPM PCR 4 (if a TPM is present)</para></listitem>
+      measured into TPM PCR 12 (if a TPM is present)</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
@@ -123,6 +123,78 @@
     by <command>systemd-creds encrypt -T</command> (see
     <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details); in case of the system extension images by using signed Verity images.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>TPM2 PCR Notes</title>
+
+    <para>Note that when a unified kernel using <command>systemd-stub</command> is invoked the firmware will
+    measure it as a whole to TPM PCR 4, covering all embedded resources, such as the stub code itself, the
+    core kernel, the embedded initrd and kernel command line (see above for a full list).</para>
+
+    <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
+    every type of initrd will be measured twice: the initrd embedded in the kernel image will be measured to
+    both PCR 4 and PCR 9; the initrd synthesized from credentials will be measured to both PCR 12 and PCR 9;
+    the initrd synthesized from system extensions will be measured to both PCR 4 and PCR 9. Let's summarize
+    the OS resources and the PCRs they are measured to:</para>
+
+    <table>
+      <title>OS Resource PCR Summary</title>
+
+      <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+        <colspec colname="pcr" />
+        <colspec colname="definition" />
+
+        <thead>
+          <row>
+            <entry>OS Resource</entry>
+            <entry>Measurement PCR</entry>
+          </row>
+        </thead>
+
+        <tbody>
+          <row>
+            <entry><command>systemd-stub</command> code (the entry point of the unified PE binary)</entry>
+            <entry>4</entry>
+          </row>
+
+          <row>
+            <entry>Boot splash (embedded in the unified PE binary)</entry>
+            <entry>4</entry>
+          </row>
+
+          <row>
+            <entry>Core kernel code (embedded in unified PE binary)</entry>
+            <entry>4</entry>
+          </row>
+
+          <row>
+            <entry>Main initrd (embedded in unified PE binary)</entry>
+            <entry>4 + 9</entry>
+          </row>
+
+          <row>
+            <entry>Default kernel command line (embedded in unified PE binary)</entry>
+            <entry>4</entry>
+          </row>
+
+          <row>
+            <entry>Overriden kernel command line</entry>
+            <entry>12</entry>
+          </row>
+
+          <row>
+            <entry>Credentials (synthesized initrd from companion files)</entry>
+            <entry>12 + 9</entry>
+          </row>
+
+          <row>
+            <entry>System Extensions (synthesized initrd from companion files)</entry>
+            <entry>4 + 9</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>
