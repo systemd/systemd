@@ -515,6 +515,7 @@ testcase_long_sysfs_path() {
     echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
     systemctl daemon-reload
     mount "$mpoint"
+    systemctl status "$mpoint"
     test -e "$mpoint/test"
     umount "$mpoint"
 
@@ -525,13 +526,46 @@ testcase_long_sysfs_path() {
     udevadm settle
 
     logfile="$(mktemp)"
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
+    [[ "$(journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name" | wc -l)" -eq 0 ]]
     # Make sure we don't unnecessarily spam the log
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service | tee "$logfile"
+    { journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service || :;} | tee "$logfile"
     [[ "$(wc -l <"$logfile")" -lt 10 ]]
 
     : >/etc/fstab
     rm -fr "${logfile:?}" "${mpoint:?}"
+}
+
+testcase_mdadm_basic() {
+    local raid_name uuid
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo "Mirror raid"
+    raid_name="mdmirror"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000001"
+    expected_symlinks=(
+        "/dev/md/$raid_name"
+        "/dev/disk/by-id/md-name-H:mdmirror"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/mdadm_mirror" # ext4 partition
+    )
+    # Create a simple RAID 1 with an ext4 filesystem
+    echo y | mdadm --create "${expected_symlinks[0]}" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    udevadm wait --settle --timeout=30 "${expected_symlinks[0]}"
+    mkfs.ext4 -L mdadm_mirror "/dev/md/$raid_name"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    mdadm -v --stop "${expected_symlinks[0]}"
+    udevadm settle
+    helper_check_device_symlinks
+    # Reassemble it and check if all requires symlinks exist
+    mdadm --assemble "${expected_symlinks[0]}" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
 }
 
 : >/failed

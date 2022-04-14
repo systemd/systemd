@@ -109,7 +109,7 @@
     pointer to an <type>sd_bus</type> object. This call is useful in
     conjunction with GCC's and LLVM's <ulink
     url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up
-    Variable Attribute</ulink>. Note that this function is defined as
+    Variable Attribute</ulink>. Note that this function is defined as an
     inline function. Use a declaration like the following, in order to
     allocate a bus object that is freed automatically as the code
     block is left:</para>
@@ -124,12 +124,10 @@
   …
 }</programlisting>
 
-    <para><function>sd_bus_ref()</function> and <function>sd_bus_unref()</function>
-    execute no operation if the passed in bus object address is
-    <constant>NULL</constant>. <function>sd_bus_unrefp()</function> will first
-    dereference its argument, which must not be <constant>NULL</constant>, and will
-    execute no operation if <emphasis>that</emphasis> is <constant>NULL</constant>.
-    </para>
+    <para><function>sd_bus_ref()</function> and <function>sd_bus_unref()</function> execute no operation if
+    the argument is <constant>NULL</constant>. <function>sd_bus_unrefp()</function> will first dereference
+    its argument, which must not be <constant>NULL</constant>, and will execute no operation if
+    <emphasis>that</emphasis> is <constant>NULL</constant>.</para>
 
     <para><function>sd_bus_close_unref()</function> is similar to <function>sd_bus_unref()</function>, but
     first executes

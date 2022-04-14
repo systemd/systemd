@@ -12,6 +12,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "dropin.h"
@@ -57,8 +58,8 @@ static int open_parent_block_device(dev_t devnum, int *ret_fd) {
         if (sd_device_get_devname(d, &name) < 0) {
                 r = sd_device_get_syspath(d, &name);
                 if (r < 0) {
-                        log_device_debug_errno(d, r, "Device %u:%u does not have a name, ignoring: %m",
-                                               major(devnum), minor(devnum));
+                        log_device_debug_errno(d, r, "Device " DEVNUM_FORMAT_STR " does not have a name, ignoring: %m",
+                                               DEVNUM_FORMAT_VAL(devnum));
                         return 0;
                 }
         }

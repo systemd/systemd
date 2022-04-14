@@ -1055,6 +1055,29 @@ install_iscsi() {
     fi
 }
 
+install_mdadm() {
+    local unit
+    local mdadm_units=(
+        system/mdadm-grow-continue@.service
+        system/mdadm-last-resort@.service
+        system/mdadm-last-resort@.timer
+        system/mdmon@.service
+        system/mdmonitor-oneshot.service
+        system/mdmonitor-oneshot.timer
+        system/mdmonitor.service
+        system-shutdown/mdadm.shutdown
+    )
+
+    image_install mdadm mdmon
+    inst_rules 01-md-raid-creating.rules 63-md-raid-arrays.rules 64-md-raid-assembly.rules 69-md-clustered-confirm-device.rules
+    # Fedora/CentOS/RHEL ships this rule file
+    [[ -f /lib/udev/rules.d/65-md-incremental.rules ]] && inst_rules 65-md-incremental.rules
+
+    for unit in "${mdadm_units[@]}"; do
+        image_install "${ROOTLIBDIR:?}/$unit"
+    done
+}
+
 install_compiled_systemd() {
     dinfo "Install compiled systemd"
 

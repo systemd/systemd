@@ -1,20 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/quota.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "devnum-util.h"
 #include "quota-util.h"
-#include "stat-util.h"
 
-int quotactl_devno(int cmd, dev_t devno, int id, void *addr) {
+int quotactl_devnum(int cmd, dev_t devnum, int id, void *addr) {
         _cleanup_free_ char *devnode = NULL;
         int r;
 
         /* Like quotactl() but takes a dev_t instead of a path to a device node, and fixes caddr_t → void*,
          * like we should, today */
 
-        r = device_path_make_major_minor(S_IFBLK, devno, &devnode);
+        r = device_path_make_major_minor(S_IFBLK, devnum, &devnode);
         if (r < 0)
                 return r;
 
@@ -37,5 +38,5 @@ int quotactl_path(int cmd, const char *path, int id, void *addr) {
         if (devno == 0) /* Doesn't have a block device */
                 return -ENODEV;
 
-        return quotactl_devno(cmd, devno, id, addr);
+        return quotactl_devnum(cmd, devno, id, addr);
 }

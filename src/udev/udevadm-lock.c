@@ -7,6 +7,7 @@
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "main-func.h"
@@ -16,7 +17,6 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udevadm.h"

@@ -37,8 +37,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>libudev.h</filename> provides APIs to introspect
-    and enumerate devices on the local system.</para>
+    <para><filename>libudev.h</filename> provides an API to introspect and enumerate devices on the local
+    system. This library is supported, but should not be used in new projects. Please see
+    <citerefentry><refentrytitle>sd-device</refentrytitle><manvolnum>3</manvolnum></citerefentry> for an
+    equivalent replacement with a more modern API.</para>
 
     <para>All functions require a libudev context to operate. This
     context can be create via
