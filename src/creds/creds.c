@@ -560,7 +560,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
                "     --not-after=TIME     Include specified invalidation time in encrypted\n"
                "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|auto\n"
+               "     --with-key=host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd\n"
                "                          Which keys to encrypt with\n"
                "  -H                      Shortcut for --with-key=host\n"
                "  -T                      Shortcut for --with-key=tpm2\n"
@@ -685,12 +685,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_WITH_KEY:
                         if (isempty(optarg) || streq(optarg, "auto"))
                                 arg_with_key = _CRED_AUTO;
+                        else if (streq(optarg, "auto-initrd"))
+                                arg_with_key = _CRED_AUTO_INITRD;
                         else if (streq(optarg, "host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST;
                         else if (streq(optarg, "tpm2"))
                                 arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
                         else if (STR_IN_SET(optarg, "host+tpm2", "tpm2+host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
+                        else if (streq(optarg, "tpm2-absent"))
+                                arg_with_key = CRED_AES256_GCM_BY_TPM2_ABSENT;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
 
