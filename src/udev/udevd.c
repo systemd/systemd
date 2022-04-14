@@ -1487,12 +1487,10 @@ static int synthesize_change(sd_device *dev) {
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         union inotify_event_buffer buffer;
         ssize_t l;
         int r;
-
-        assert(manager);
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
@@ -1501,9 +1499,10 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
-                        return 1;
+                        return 0;
 
-                return log_error_errno(errno, "Failed to read inotify fd: %m");
+                log_warning_errno(errno, "Failed to read inotify fd: %m");
+                return 0;
         }
 
         FOREACH_INOTIFY_EVENT_WARN(e, buffer, l) {
@@ -1529,7 +1528,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                  * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
         }
 
-        return 1;
+        return 0;
 }
 
 static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
