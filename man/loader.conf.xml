@@ -216,6 +216,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enrollment</term>
+
+        <listitem><para>Danger: this feature might soft-brick your device if used improperly.</para>
+
+        <para>Takes one of <literal>no</literal>, <literal>manual</literal> or <literal>force</literal>.
+        Controls the enrollment of secure boot keys. If set to <literal>no</literal>, no action whatsoever
+        is taken. If set to <literal>manual</literal> (the default) and the UEFI firmware is in setup-mode
+        then entries to manually enroll Secure Boot variables are created in the boot menu. If set to
+        <literal>force</literal>, in addition, if a directory named <filename>/loader/keys/auto</filename>
+        exists on the ESP then the keys in that directory are enrolled automatically.</para>
+
+        <para>The different sets of variables can be set up under <filename>/loader/keys/*</filename> where *
+        is the name that is going to be used as the name of the entry. This allows to ship multiple sets
+        of Secure Boot variables and choose which one to enroll at runtime.</para>
+
+        <para>For now only the most simple case is supported: loading one database for authorized images,
+        one key exchange key (KEK) and one platform key (PK). For more information, please refer to the
+        <ulink url="https://uefi.org/specifications">UEFI specification</ulink>, under Secure Boot and Driver
+        Signing. Another resource that describe the interplay of the different variables is the
+        <ulink url="https://edk2-docs.gitbook.io/understanding-the-uefi-secure-boot-chain/secure_boot_chain_in_uefi/uefi_secure_boot">
+        EDK2 documentation</ulink>.</para>
+
+        <para>This feature is considered dangerous because even if you sign all the required files with the
+        keys you are loading, some files necessary for your system to function properly still won't be. This
+        is especially the case with Option ROMs (e.g. for storage controllers or graphics cards). Please
+        see <ulink url="https://github.com/Foxboron/sbctl/wiki/FAQ#option-rom">Secure Boot and Option ROMs</ulink>
+        for more details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
