@@ -251,7 +251,7 @@
 
               <row>
                 <entry>4</entry>
-                <entry>Boot loader; changes on boot loader updates. The shim project will measure the PE binary it chain loads into this PCR.</entry>
+                <entry>Boot loader and additional drivers; changes on boot loader updates. The shim project will measure the PE binary it chain loads into this PCR. If the Linux kernel is invoked as UEFI PE binary, it is measured here, too. <citerefentry><refentrytitle>sd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures system extension images read from the ESP here too (see <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).</entry>
               </row>
 
               <row>
@@ -273,13 +273,19 @@
               <!-- Grub measures all files it reads (including kernel image, initrd, …) into PCR 9… -->
 
               <row>
-                <entry>12</entry>
-                <entry><citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR.</entry>
+                <entry>9</entry>
+                <entry>The Linux kernel measures all initial RAM file systems it receives into this PCR.</entry>
+                <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
               </row>
 
               <row>
                 <entry>10</entry>
                 <entry>The IMA project measures its runtime state into this PCR.</entry>
+              </row>
+
+              <row>
+                <entry>12</entry>
+                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>sytemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
               </row>
 
               <row>
