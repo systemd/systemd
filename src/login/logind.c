@@ -1142,8 +1142,6 @@ static int manager_run(Manager *m) {
                 manager_gc(m, true);
 
                 r = manager_dispatch_delayed(m, false);
-                if (r < 0)
-                        return r;
                 if (r > 0)
                         continue;
 
