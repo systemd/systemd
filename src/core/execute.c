@@ -2792,8 +2792,10 @@ static int acquire_credentials(
 
                 if (path_is_absolute(lc->path)) {
                         sub_fd = open(lc->path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
-                        if (sub_fd < 0 && errno != ENOTDIR)
-                                return -errno;
+                        if (sub_fd < 0 && !IN_SET(errno,
+                                                  ENOTDIR,  /* Not a directory */
+                                                  ENOENT))  /* Doesn't exist? */
+                                return log_debug_errno(errno, "Failed to open '%s': %m", lc->path);
                 }
 
                 if (sub_fd < 0)
