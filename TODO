@@ -78,6 +78,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-stub: set efi var indicating stub features, i.e. whether they pick up
+  creds, sysexts and so on. similar to existing variable of sd-boot
+
+* sd-stub: set efi vars declaring TPM PCRs we measured creds/cmdline + sysext
+  into (even if we hardcode them)
+
 * systemd-fstab-generator: support addition mount specifications via kernel
   cmdline. Usecase: invoke a VM, and mount a host homedir into it via
   virtio-fs.
