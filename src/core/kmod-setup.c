@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "recurse-dir.h"
 #include "string-util.h"
+#include "virt.h"
 
 #if HAVE_KMOD
 #include "module-util.h"
@@ -80,6 +81,10 @@ static bool has_virtio_rng(void) {
 
         return r > 0;
 }
+
+static bool in_qemu(void) {
+        return IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_QEMU);
+}
 #endif
 
 int kmod_setup(void) {
@@ -109,6 +114,9 @@ int kmod_setup(void) {
 #endif
                 /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
                 { "virtio_rng", NULL,                       false,  false,   has_virtio_rng },
+
+                /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
+                { "qemu_fw_cfg", "/sys/firmware/qemu_fw_cfg", false, false,  in_qemu   },
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned i;
