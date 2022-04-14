@@ -483,6 +483,13 @@ int encrypt_credential_and_warn(
         assert(ret);
         assert(ret_size);
 
+        if (!sd_id128_in_set(with_key,
+                             SD_ID128_NULL,
+                             CRED_AES256_GCM_BY_HOST,
+                             CRED_AES256_GCM_BY_TPM2_HMAC,
+                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
+
         if (name && !credential_name_valid(name))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", name);
 
