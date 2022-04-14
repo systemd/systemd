@@ -114,12 +114,6 @@ Features:
   - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
     and synthesize initrd from it, and measure it. Signing is not necessary, as
     microcode does that on its own. Pass as first initrd to kernel.
-  - systemd-creds should have a fallback logic that uses neither TPM nor the
-    system key in /var for encryption and instead some fixed key. This should
-    be opt in (since it provides no security properties) but be used by
-    kernel-install when encrypting the creds it generates on systems that lack
-    a TPM, so that we can have very similar codepaths on TPM and TPM-less
-    systems. i.e. --with-key=tpm-graceful or so.
   - sd-stub should measure the kernel/initrd/… into a separate PCR, so that we
     have one PCR we can bind the encrypted creds to that is not effected by
     anything else but what we drop in via kernel-install, i.e. by earlier EFI
