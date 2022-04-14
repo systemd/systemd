@@ -637,6 +637,13 @@ static int print_tree(sd_device* below) {
         if (r < 0)
                 return log_error_errno(r, "Failed to scan for devices and subsystems: %m");
 
+        if (below) {
+                /* This must be called after device_enumerator_scan_devices_and_subsystems(). */
+                r = device_enumerator_add_parent_devices(e, below);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add parent devices: %m");
+        }
+
         assert_se(array = device_enumerator_get_devices(e, &n));
 
         if (n == 0) {

@@ -549,7 +549,8 @@ static int match_initialized(sd_device_enumerator *enumerator, sd_device *device
 
 static int test_matches(
                 sd_device_enumerator *enumerator,
-                sd_device *device) {
+                sd_device *device,
+                bool ignore_parent_match) {
 
         int r;
 
@@ -562,7 +563,8 @@ static int test_matches(
         if (r <= 0)
                 return r;
 
-        if (!device_match_parent(device, enumerator->match_parent, NULL))
+        if (!ignore_parent_match &&
+            !device_match_parent(device, enumerator->match_parent, NULL))
                 return false;
 
         if (!match_tag(enumerator, device))
@@ -597,6 +599,71 @@ static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsys
                         return true;
 
         return false;
+}
+
+static int enumerator_add_parent_devices(
+                sd_device_enumerator *enumerator,
+                sd_device *device,
+                bool ignore_parent_match) {
+
+        int k, r = 0;
+
+        assert(enumerator);
+        assert(device);
+
+        for (;;) {
+                const char *ss, *usn;
+
+                k = sd_device_get_parent(device, &device);
+                if (k == -ENOENT) /* Reached the top? */
+                        break;
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+
+                k = sd_device_get_subsystem(device, &ss);
+                if (k == -ENOENT) /* Has no subsystem? */
+                        continue;
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+
+                if (!match_subsystem(enumerator, ss))
+                        continue;
+
+                k = sd_device_get_sysname(device, &usn);
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+
+                if (!match_sysname(enumerator, usn))
+                        continue;
+
+                k = test_matches(enumerator, device, ignore_parent_match);
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+                if (k == 0)
+                        continue;
+
+                k = device_enumerator_add_device(enumerator, device);
+                if (k < 0) {
+                        r = k;
+                        break;
+                }
+                if (k == 0) /* Exists already? Then no need to go further up. */
+                        break;
+        }
+
+        return r;
+}
+
+int device_enumerator_add_parent_devices(sd_device_enumerator *enumerator, sd_device *device) {
+        return enumerator_add_parent_devices(enumerator, device, /* ignore_parent_match = */ true);
 }
 
 static bool relevant_sysfs_subdir(const struct dirent *de) {
@@ -639,7 +706,6 @@ static int enumerator_scan_dir_and_add_devices(
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
-                sd_device *upwards;
 
                 if (!relevant_sysfs_subdir(de))
                         continue;
@@ -658,7 +724,7 @@ static int enumerator_scan_dir_and_add_devices(
                         continue;
                 }
 
-                k = test_matches(enumerator, device);
+                k = test_matches(enumerator, device, /* ignore_parent_match = */ false);
                 if (k <= 0) {
                         if (k < 0)
                                 r = k;
@@ -672,50 +738,9 @@ static int enumerator_scan_dir_and_add_devices(
                 /* Also include all potentially matching parent devices in the enumeration. These are things
                  * like root busses — e.g. /sys/devices/pci0000:00/ or /sys/devices/pnp0/, which ar not
                  * linked from /sys/class/ or /sys/bus/, hence pick them up explicitly here. */
-                upwards = device;
-                for (;;) {
-                        const char *ss, *usn;
-
-                        k = sd_device_get_parent(upwards, &upwards);
-                        if (k == -ENOENT) /* Reached the top? */
-                                break;
-                        if (k < 0) {
-                                r = k;
-                                break;
-                        }
-
-                        k = sd_device_get_subsystem(upwards, &ss);
-                        if (k == -ENOENT) /* Has no subsystem? */
-                                continue;
-                        if (k < 0) {
-                                r = k;
-                                break;
-                        }
-
-                        if (!match_subsystem(enumerator, ss))
-                                continue;
-
-                        k = sd_device_get_sysname(upwards, &usn);
-                        if (k < 0) {
-                                r = k;
-                                break;
-                        }
-
-                        if (!match_sysname(enumerator, usn))
-                                continue;
-
-                        k = test_matches(enumerator, upwards);
-                        if (k < 0)
-                                break;
-                        if (k == 0)
-                                continue;
-
-                        k = device_enumerator_add_device(enumerator, upwards);
-                        if (k < 0)
-                                r = k;
-                        else if (k == 0) /* Exists already? Then no need to go further up. */
-                                break;
-                }
+                k = enumerator_add_parent_devices(enumerator, device, /* ignore_parent_match = */ false);
+                if (k < 0)
+                        r = k;
         }
 
         return r;
