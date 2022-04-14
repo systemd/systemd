@@ -338,6 +338,7 @@ Unit.ConditionACPower,                   config_parse_unit_condition_string,    
 Unit.ConditionMemory,                    config_parse_unit_condition_string,          CONDITION_MEMORY,                   offsetof(Unit, conditions)
 Unit.ConditionCPUs,                      config_parse_unit_condition_string,          CONDITION_CPUS,                     offsetof(Unit, conditions)
 Unit.ConditionEnvironment,               config_parse_unit_condition_string,          CONDITION_ENVIRONMENT,              offsetof(Unit, conditions)
+Unit.ConditionCPUFeature,                config_parse_unit_condition_string,          CONDITION_CPU_FEATURE,              offsetof(Unit, conditions)
 Unit.ConditionUser,                      config_parse_unit_condition_string,          CONDITION_USER,                     offsetof(Unit, conditions)
 Unit.ConditionGroup,                     config_parse_unit_condition_string,          CONDITION_GROUP,                    offsetof(Unit, conditions)
 Unit.ConditionControlGroupController,    config_parse_unit_condition_string,          CONDITION_CONTROL_GROUP_CONTROLLER, offsetof(Unit, conditions)
