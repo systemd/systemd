@@ -457,6 +457,13 @@ Features:
   our usual socket activation protocol. If passed path refers to AF_UNIX
   socket: connect() to it.
 
+* Similar, ConnectStream= which takes IP addresses and connects to them.
+
+* Similar, Load= which takes literal data in text or base64 format, and puts it
+  into a memfd, and passes that. This enables some fun stuff, such as embedding
+  bash scripts in unit files, by combining Load= with ExecStart=/bin/bash
+  /proc/self/fd/3
+
 * add a ConnectSocket= setting to service unit files, that may reference a
   socket unit, and which will connect to the socket defined therein, and pass
   the resulting fd to the service program via socket activation proto.
