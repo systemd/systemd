@@ -81,6 +81,13 @@ systemctl restart testservice-48.target
 
 systemctl is-active testservice-48.service
 
+# Check toggle
+state="$(systemctl is-active testservice-48.service)"
+systemctl toggle testservice-48.service
+test "${state}" != "$(systemctl is-active testservice-48.service)"
+systemctl toggle testservice-48.service
+test "${state}" == "$(systemctl is-active testservice-48.service)"
+
 echo OK >/testok
 
 exit 0
