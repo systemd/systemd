@@ -165,7 +165,7 @@
           <term><option>--tree</option></term>
           <listitem>
             <para>Display a sysfs tree. This recursively iterates through the sysfs hierarchy and displays it
-            in a tree structure. If a path is specified only the subtree below that directory is
+            in a tree structure. If a path is specified only the subtree below and its parent directories are
             shown. This will show both device and subsystem items.</para>
           </listitem>
         </varlistentry>
