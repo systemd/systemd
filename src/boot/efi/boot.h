@@ -39,6 +39,20 @@ enum {
         IDX_INVALID,
 };
 
+typedef enum {
+        ENROLLMENT_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */
+        ENROLLMENT_MANUAL,      /* Secure Boot key enrollment is strictly manual: manual entries are generated and need to be selected by the user */
+        ENROLLMENT_FORCE,       /* Secure Boot key enrollment may be automatic if it is available but might not be safe */
+        _ENROLLMENT_MAX,
+        _ENROLLMENT_INVALID = -EINVAL,
+} secure_boot_enrollment;
+
+static const CHAR16 * const secure_boot_enrollment_table[_ENROLLMENT_MAX] = {
+        [ENROLLMENT_OFF]    = L"off",
+        [ENROLLMENT_MANUAL] = L"manual",
+        [ENROLLMENT_FORCE]  = L"force",
+};
+
 typedef struct Config Config;
 
 typedef struct ConfigEntry {
@@ -54,7 +68,7 @@ typedef struct ConfigEntry {
         CHAR16 *devicetree;
         CHAR16 *options;
         CHAR16 key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(EFI_FILE *root_dir, Config*, struct ConfigEntry*);
         UINTN tries_done;
         UINTN tries_left;
         CHAR16 *path;
@@ -79,6 +93,7 @@ typedef struct Config {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN reboot_for_bitlocker;
+        secure_boot_enrollment secure_boot_enrollment;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
@@ -87,3 +102,5 @@ typedef struct Config {
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
 } Config;
+
+#include "secure-boot.h"
