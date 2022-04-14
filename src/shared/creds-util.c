@@ -94,9 +94,30 @@ struct credential_host_secret_format {
         uint8_t data[CREDENTIAL_HOST_SECRET_SIZE];
 } _packed_;
 
+static void warn_not_encrypted(int fd, CredentialSecretFlags flags, const char *dirname, const char *filename) {
+        int r;
+
+        assert(fd >= 0);
+        assert(dirname);
+        assert(filename);
+
+        if (!FLAGS_SET(flags, CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED))
+                return;
+
+        r = fd_is_encrypted(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.",
+                                dirname, filename);
+        else if (r == 0)
+                log_warning("Credential secret file '%s/%s' is not located on encrypted media, using anyway.",
+                            dirname, filename);
+}
+
 static int make_credential_host_secret(
                 int dfd,
                 const sd_id128_t machine_id,
+                CredentialSecretFlags flags,
+                const char *dirname,
                 const char *fn,
                 void **ret_data,
                 size_t *ret_size) {
@@ -141,6 +162,8 @@ static int make_credential_host_secret(
                 r = -errno;
                 goto finish;
         }
+
+        warn_not_encrypted(fd, flags, dirname, fn);
 
         if (t) {
                 r = rename_noreplace(dfd, t, dfd, fn);
@@ -248,7 +271,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                                                        "Failed to open %s/%s: %m", dirname, filename);
 
 
-                        r = make_credential_host_secret(dfd, machine_id, filename, ret, ret_size);
+                        r = make_credential_host_secret(dfd, machine_id, flags, dirname, filename, ret, ret_size);
                         if (r == -EEXIST) {
                                 log_debug_errno(r, "Credential secret %s/%s appeared while we were creating it, rereading.",
                                                 dirname, filename);
@@ -257,7 +280,6 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to create credential secret %s/%s: %m",
                                                        dirname, filename);
-
                         return 0;
                 }
 
@@ -302,15 +324,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                 if (sd_id128_equal(machine_id, f->machine_id)) {
                         size_t sz;
 
-                        if (FLAGS_SET(flags, CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED)) {
-                                r = fd_is_encrypted(fd);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.",
-                                                        dirname, filename);
-                                else if (r == 0)
-                                        log_warning("Credential secret file '%s/%s' is not located on encrypted media, using anyway.",
-                                                    dirname, filename);
-                        }
+                        warn_not_encrypted(fd, flags, dirname, filename);
 
                         sz = l - offsetof(struct credential_host_secret_format, data);
                         assert(sz > 0);
