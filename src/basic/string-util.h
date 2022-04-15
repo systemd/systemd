@@ -158,6 +158,8 @@ char* strshorten(char *s, size_t l);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
 
+char *strip_newline(char **ibuf, size_t *_isz);
+
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
 
 char *strextend_with_separator_internal(char **x, const char *separator, ...) _sentinel_;

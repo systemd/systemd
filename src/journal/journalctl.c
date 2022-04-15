@@ -93,6 +93,7 @@ static bool arg_all = false;
 static PagerFlags arg_pager_flags = 0;
 static int arg_lines = ARG_LINES_DEFAULT;
 static bool arg_no_tail = false;
+static bool arg_strip = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
 static bool arg_boot = false;
@@ -117,6 +118,7 @@ static bool arg_force = false;
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
+static char **arg_exclude_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
@@ -353,6 +355,7 @@ static int help(void) {
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
+               "  -T --exclude=STRING        Hide entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
@@ -360,6 +363,7 @@ static int help(void) {
                "  -e --pager-end             Immediately jump to the end in the pager\n"
                "  -f --follow                Follow the journal\n"
                "  -n --lines[=INTEGER]       Number of journal entries to show\n"
+               "  -s --strip                 Strip message by first newline character\n"
                "     --no-tail               Show all lines, even in follow mode\n"
                "  -r --reverse               Show the newest entries first\n"
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
@@ -472,6 +476,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",                 no_argument,       NULL, 'l'                      },
                 { "no-full",              no_argument,       NULL, ARG_NO_FULL              },
                 { "lines",                optional_argument, NULL, 'n'                      },
+                { "strip",                no_argument,       NULL, 's'                      },
                 { "no-tail",              no_argument,       NULL, ARG_NO_TAIL              },
                 { "new-id128",            no_argument,       NULL, ARG_NEW_ID128            }, /* deprecated */
                 { "quiet",                no_argument,       NULL, 'q'                      },
@@ -488,6 +493,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
+                { "exclude",              required_argument, NULL, 'T'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
                 { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
@@ -533,7 +539,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:su:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -631,6 +637,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_TAIL:
                         arg_no_tail = true;
+                        break;
+
+                case 's':
+                        arg_strip = true;
                         break;
 
                 case ARG_NEW_ID128:
@@ -946,6 +956,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         r = strv_extend(&arg_syslog_identifier, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case 'T':
+                        r = strv_extend(&arg_exclude_identifier, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -1804,6 +1820,22 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+static int add_exclude_identifier(sd_journal *j) {
+        int r;
+
+        assert(j);
+        j->exclude = set_new(&string_hash_ops);
+        assert(j->exclude);
+
+        STRV_FOREACH(i, arg_exclude_identifier) {
+                r = set_put(j->exclude, (const void *)*i);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 #if HAVE_GCRYPT
 static int format_journal_url(
                 const void *seed,
@@ -2444,6 +2476,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = add_exclude_identifier(j);
+        if (r < 0) {
+                log_error_errno(r, "Failed to add exclude filter for syslog identifiers: %m");
+                goto finish;
+        }
+
         r = add_priorities(j);
         if (r < 0)
                 goto finish;
@@ -2750,6 +2788,7 @@ int main(int argc, char *argv[]) {
                                 colors_enabled() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG |
                                 arg_utc * OUTPUT_UTC |
+                                arg_strip * OUTPUT_STRIP |
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = show_journal_entry(stdout, j, arg_output, 0, flags,
@@ -2821,6 +2860,7 @@ finish:
 
         set_free(arg_facilities);
         strv_free(arg_syslog_identifier);
+        strv_free(arg_exclude_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
         strv_free(arg_output_fields);
