@@ -153,22 +153,36 @@ EOF
 }
 
 testcase_simultaneous_events() {
-    local blockdev part partscript
+    local link target expected rule partscript i j
+    local -a devices symlinks
 
-    blockdev="$(readlink -f /dev/disk/by-id/scsi-*_deadbeeftest)"
+    for i in {0..9}; do
+        link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest$i"
+        target="$(readlink -f "$link")"
+        if [[ ! -b "$target" ]]; then
+            echo "ERROR: failed to find the test SCSI block device $link"
+            return 1
+        fi
+
+        devices+=("$target")
+    done
+
+    symlinks+=(
+        /dev/disk/by-partlabel/test{1..10}
+    )
+
     partscript="$(mktemp)"
-
-    if [[ ! -b "$blockdev" ]]; then
-        echo "ERROR: failed to find the test SCSI block device"
-        return 1
-    fi
-
     cat >"$partscript" <<EOF
-$(printf 'name="test%d", size=2M\n' {1..50})
+$(printf 'name="test%d", size=2M\n' {1..10})
 EOF
 
-    # Initial partition table
-    udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
+    rule=/run/udev/rules.d/50-test.rules
+    mkdir -p "${rule%/*}"
+    cat >"$rule" <<EOF
+SUBSYSTEM=="block", KERNEL=="${devices[4]##*/}*|${devices[5]##*/}*", OPTIONS="link_priority=10"
+EOF
+
+    udevadm control --reload
 
     # Delete the partitions, immediately recreate them, wait for udev to settle
     # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse
@@ -176,17 +190,35 @@ EOF
     #
     # On unpatched udev versions the delete-recreate cycle may trigger a race
     # leading to dead symlinks in /dev/disk/
-    for i in {1..100}; do
-        udevadm lock --device="$blockdev" sfdisk -q --delete "$blockdev"
-        udevadm lock --device="$blockdev" sfdisk -q -X gpt "$blockdev" <"$partscript"
+    for j in {1..10}; do
+        for i in {0..9}; do
+            if ((i % 2 == j % 2)); then
+                udevadm lock --device="${devices[$i]}" sfdisk -q --delete "${devices[$i]}"
+            else
+                udevadm lock --device="${devices[$i]}" sfdisk -q -X gpt "${devices[$i]}" <"$partscript"
+            fi
+        done
 
-        if ((i % 10 == 0)); then
-            udevadm wait --settle --timeout=30 "$blockdev"
-            helper_check_device_symlinks
-        fi
+        udevadm wait --settle --timeout=30 "${devices[@]}" "${symlinks[@]}"
+        helper_check_device_symlinks
+        for i in {1..10}; do
+            link="/dev/disk/by-partlabel/test${i}"
+            target="$(readlink -f "$link")"
+            if ((j % 2 == 0)); then
+                expected="${devices[5]}$i"
+            else
+                expected="${devices[4]}$i"
+            fi
+            if [[ "$target" != "$expected" ]]; then
+                echo >&2 "ERROR: symlink '/dev/disk/by-partlabel/test${i}' points to '$target' but '$expected' was expected"
+                return 1
+            fi
+        done
     done
 
-    rm -f "$partscript"
+    rm -f "$rule" "$partscript"
+
+    udevadm control --reload
 }
 
 testcase_lvm_basic() {
