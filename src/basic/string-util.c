@@ -583,6 +583,22 @@ static void advance_offsets(
                 shift[1] += size;
 }
 
+char *strip_newline(char **ibuf, size_t *_isz) {
+        assert(ibuf);
+        assert(*ibuf);
+
+        char *p = *ibuf;
+
+        while (*p & ~'\n') {
+                p++;
+        }
+
+        *p = '\0';
+        *_isz = p - *ibuf;
+
+        return *ibuf;
+}
+
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         const char *begin = NULL;
         enum {

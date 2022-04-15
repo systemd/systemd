@@ -491,8 +491,16 @@ static int output_short(
                 return 0;
         }
 
+        if (set_contains(j->exclude, identifier)) {
+                return 0;
+        }
+
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len, highlight_shifted);
+
+        if (flags & OUTPUT_STRIP) {
+                strip_newline(&message, &message_len);
+        }
 
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
