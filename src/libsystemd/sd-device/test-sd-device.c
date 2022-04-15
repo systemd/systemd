@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <fcntl.h>
 
 #include "device-enumerator-private.h"
@@ -163,7 +164,13 @@ static void test_sd_device_one(sd_device *d) {
         assert_se(r >= 0 || r == -ENOENT);
 
         r = sd_device_get_sysnum(d, &val);
-        assert_se(r >= 0 || r == -ENOENT);
+        if (r >= 0) {
+                assert_se(val > sysname);
+                assert_se(val < sysname + strlen(sysname));
+                assert_se(in_charset(val, DIGITS));
+                assert_se(!isdigit(val[-1]));
+        } else
+                assert_se(r == -ENOENT);
 
         r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
