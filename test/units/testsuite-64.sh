@@ -536,7 +536,7 @@ testcase_long_sysfs_path() {
 }
 
 testcase_mdadm_basic() {
-    local part_name raid_name raid_dev uuid
+    local i part_name raid_name raid_dev uuid
     local expected_symlinks=()
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
@@ -560,17 +560,17 @@ testcase_mdadm_basic() {
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    # Disassemble the array
-    mdadm -v --stop "$raid_dev"
-    udevadm settle
-    helper_check_device_symlinks
-    # Reassemble it and check if all required symlinks exist
-    mdadm --assemble "$raid_dev" --name "$raid_name" -v
-    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
     helper_check_device_symlinks
     # Cleanup
     mdadm -v --stop "$raid_dev"
-    udevadm settle
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
 
     echo "Parity raid (RAID 5)"
     raid_name="mdparity"
@@ -588,19 +588,19 @@ testcase_mdadm_basic() {
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    # Disassemble the array
-    mdadm -v --stop "$raid_dev"
-    udevadm settle
-    helper_check_device_symlinks
-    # Reassemble it and check if all required symlinks exist
-    mdadm --assemble "$raid_dev" --name "$raid_name" -v
-    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
     helper_check_device_symlinks
     # Cleanup
     mdadm -v --stop "$raid_dev"
-    udevadm settle
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
 
-    echo "Mirror + parity raid (RAID 10)"
+    echo "Mirror + parity raid (RAID 10) + multiple partitions"
     raid_name="mdmirpar"
     raid_dev="/dev/md/$raid_name"
     part_name="${raid_name}_part"
@@ -610,20 +610,44 @@ testcase_mdadm_basic() {
         "/dev/disk/by-id/md-name-H:$raid_name"
         "/dev/disk/by-id/md-uuid-$uuid"
         "/dev/disk/by-label/$part_name" # ext4 partition
+        # Partitions
+        "${raid_dev}1"
+        "${raid_dev}2"
+        "${raid_dev}3"
+        "/dev/disk/by-id/md-name-H:$raid_name-part1"
+        "/dev/disk/by-id/md-name-H:$raid_name-part2"
+        "/dev/disk/by-id/md-name-H:$raid_name-part3"
+        "/dev/disk/by-id/md-uuid-$uuid-part1"
+        "/dev/disk/by-id/md-uuid-$uuid-part2"
+        "/dev/disk/by-id/md-uuid-$uuid-part3"
     )
     # Create a simple RAID 10 with an ext4 filesystem
     echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
-    mkfs.ext4 -L "$part_name" "$raid_dev"
+    # Partition the raid device
+    # Here, 'udevadm lock' is meaningless, as udevd does not lock MD devices.
+    sfdisk --wipe=always "$raid_dev" <<EOF
+label: gpt
+
+uuid="deadbeef-dead-dead-beef-111111111111", name="mdpart1", size=8M
+uuid="deadbeef-dead-dead-beef-222222222222", name="mdpart2", size=32M
+uuid="deadbeef-dead-dead-beef-333333333333", name="mdpart3", size=16M
+EOF
+    udevadm wait --settle --timeout=30 "/dev/disk/by-id/md-uuid-$uuid-part2"
+    mkfs.ext4 -L "$part_name" "/dev/disk/by-id/md-uuid-$uuid-part2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    # Disassemble the array
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
+    helper_check_device_symlinks
+    # Cleanup
     mdadm -v --stop "$raid_dev"
-    udevadm settle
-    helper_check_device_symlinks
-    # Reassemble it and check if all required symlinks exist
-    mdadm --assemble "$raid_dev" --name "$raid_name" -v
-    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    helper_check_device_symlinks
+    # Check if all expected symlinks were removed after the cleanup
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
 }
 
 testcase_mdadm_lvm() {
