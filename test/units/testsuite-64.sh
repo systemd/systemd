@@ -536,7 +536,7 @@ testcase_long_sysfs_path() {
 }
 
 testcase_mdadm_basic() {
-    local part_name raid_name raid_dev uuid
+    local i part_name raid_name raid_dev uuid
     local expected_symlinks=()
     local devices=(
         /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
@@ -588,14 +588,17 @@ testcase_mdadm_basic() {
     udevadm wait --settle --timeout=30 "$raid_dev"
     mkfs.ext4 -L "$part_name" "$raid_dev"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    # Disassemble the array
-    mdadm -v --stop "$raid_dev"
-    udevadm settle
-    helper_check_device_symlinks
-    # Reassemble it and check if all required symlinks exist
-    mdadm --assemble "$raid_dev" --name "$raid_name" -v
-    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    helper_check_device_symlinks
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        # Disassemble the array
+        mdadm -v --stop "$raid_dev"
+        udevadm settle
+        helper_check_device_symlinks
+        # Reassemble it and check if all required symlinks exist
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+        helper_check_device_symlinks
+    done
     # Cleanup
     mdadm -v --stop "$raid_dev"
     udevadm settle
@@ -623,7 +626,17 @@ testcase_mdadm_basic() {
     # Reassemble it and check if all required symlinks exist
     mdadm --assemble "$raid_dev" --name "$raid_name" -v
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
-    helper_check_device_symlinks
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        # Disassemble the array
+        mdadm -v --stop "$raid_dev"
+        udevadm settle
+        helper_check_device_symlinks
+        # Reassemble it and check if all required symlinks exist
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+        helper_check_device_symlinks
+    done
 }
 
 testcase_mdadm_lvm() {
