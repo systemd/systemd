@@ -131,6 +131,9 @@ typedef struct Event {
         sd_device_action_t action;
         uint64_t seqnum;
         uint64_t blocker_seqnum;
+        const char *id;
+        const char *devpath;
+        const char *devpath_old;
         usec_t retry_again_next_usec;
         usec_t retry_again_timeout_usec;
 
@@ -851,13 +854,22 @@ static int event_run(Event *event) {
         return 1; /* event is now processing. */
 }
 
+static bool devpath_conflict(const char *a, const char *b) {
+        /* This returns true when two paths are equivalent, or one is a child of another. */
+
+        if (!a || !b)
+                return false;
+
+        for (; *a != '\0' && *b != '\0'; a++, b++)
+                if (*a != *b)
+                        return false;
+
+        return *a == '/' || *b == '/' || *a == *b;
+}
+
 static int event_is_blocked(Event *event) {
-        const char *subsystem, *devpath, *devpath_old = NULL;
-        dev_t devnum = makedev(0, 0);
         Event *loop_event = NULL;
-        size_t devpath_len;
-        int r, ifindex = 0;
-        bool is_block;
+        int r;
 
         /* lookup event for identical, parent, child device */
 
@@ -903,89 +915,20 @@ static int event_is_blocked(Event *event) {
         assert(loop_event->seqnum > event->blocker_seqnum &&
                loop_event->seqnum < event->seqnum);
 
-        r = sd_device_get_subsystem(event->dev, &subsystem);
-        if (r < 0)
-                return r;
-
-        is_block = streq(subsystem, "block");
-
-        r = sd_device_get_devpath(event->dev, &devpath);
-        if (r < 0)
-                return r;
-
-        devpath_len = strlen(devpath);
-
-        r = sd_device_get_property_value(event->dev, "DEVPATH_OLD", &devpath_old);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        r = sd_device_get_devnum(event->dev, &devnum);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
-        r = sd_device_get_ifindex(event->dev, &ifindex);
-        if (r < 0 && r != -ENOENT)
-                return r;
-
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, e, loop_event) {
-                size_t loop_devpath_len, common;
-                const char *loop_devpath;
-
                 loop_event = e;
 
                 /* found ourself, no later event can block us */
                 if (loop_event->seqnum >= event->seqnum)
                         goto no_blocker;
 
-                /* check major/minor */
-                if (major(devnum) != 0) {
-                        const char *s;
-                        dev_t d;
-
-                        if (sd_device_get_subsystem(loop_event->dev, &s) < 0)
-                                continue;
-
-                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
-                            devnum == d && is_block == streq(s, "block"))
-                                break;
-                }
-
-                /* check network device ifindex */
-                if (ifindex > 0) {
-                        int i;
-
-                        if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
-                            ifindex == i)
-                                break;
-                }
-
-                if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
-                        continue;
-
-                /* check our old name */
-                if (devpath_old && streq(devpath_old, loop_devpath))
+                if (streq(loop_event->id, event->id))
                         break;
 
-                loop_devpath_len = strlen(loop_devpath);
-
-                /* compare devpath */
-                common = MIN(devpath_len, loop_devpath_len);
-
-                /* one devpath is contained in the other? */
-                if (!strneq(devpath, loop_devpath, common))
-                        continue;
-
-                /* identical device event found */
-                if (devpath_len == loop_devpath_len)
-                        break;
-
-                /* parent device event found */
-                if (devpath[common] == '/')
-                        break;
-
-                /* child device event found */
-                if (loop_devpath[common] == '/')
+                if (devpath_conflict(event->devpath, loop_event->devpath) ||
+                    devpath_conflict(event->devpath, loop_event->devpath_old) ||
+                    devpath_conflict(event->devpath_old, loop_event->devpath))
                         break;
         }
 
@@ -1134,6 +1077,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
 }
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
+        const char *devpath, *devpath_old = NULL, *id = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
         Event *event;
@@ -1154,6 +1098,18 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
 
+        r = sd_device_get_devpath(dev, &devpath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = device_get_device_id(dev, &id);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
         event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
@@ -1163,6 +1119,9 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
+                .id = id,
+                .devpath = devpath,
+                .devpath_old = devpath_old,
                 .state = EVENT_QUEUED,
         };
 
