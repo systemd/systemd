@@ -856,7 +856,6 @@ static int event_run(Event *event) {
 
 static int event_is_blocked(Event *event) {
         Event *loop_event = NULL;
-        size_t devpath_len;
         int r;
 
         /* lookup event for identical, parent, child device */
@@ -903,12 +902,8 @@ static int event_is_blocked(Event *event) {
         assert(loop_event->seqnum > event->blocker_seqnum &&
                loop_event->seqnum < event->seqnum);
 
-        devpath_len = strlen(event->devpath);
-
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, e, loop_event) {
-                size_t loop_devpath_len, common;
-
                 loop_event = e;
 
                 /* found ourself, no later event can block us */
@@ -918,29 +913,9 @@ static int event_is_blocked(Event *event) {
                 if (streq_ptr(loop_event->id, event->id))
                         break;
 
-                /* check our old name */
-                if (event->devpath_old && streq(event->devpath_old, loop_event->devpath))
-                        break;
-
-                loop_devpath_len = strlen(loop_event->devpath);
-
-                /* compare devpath */
-                common = MIN(devpath_len, loop_devpath_len);
-
-                /* one devpath is contained in the other? */
-                if (!strneq(event->devpath, loop_event->devpath, common))
-                        continue;
-
-                /* identical device event found */
-                if (devpath_len == loop_devpath_len)
-                        break;
-
-                /* parent device event found */
-                if (event->devpath[common] == '/')
-                        break;
-
-                /* child device event found */
-                if (loop_event->devpath[common] == '/')
+                if (devpath_conflict(event->devpath, loop_event->devpath) ||
+                    devpath_conflict(event->devpath, loop_event->devpath_old) ||
+                    devpath_conflict(event->devpath_old, loop_event->devpath))
                         break;
         }
 
