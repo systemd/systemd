@@ -411,6 +411,8 @@ option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'lz4 compression support')
 option('zstd', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'zstd compression support')
+option('default-compression', type : 'combo', choices : ['auto', 'zstd', 'lz4', 'xz'], value: 'auto',
+       description : 'default compression algorithm')
 option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'xkbcommon keymap support')
 option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],
