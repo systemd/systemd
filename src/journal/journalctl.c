@@ -117,6 +117,7 @@ static bool arg_force = false;
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
+static char **arg_exclude_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
@@ -353,6 +354,7 @@ static int help(void) {
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
+               "  -T --exclude=STRING        Hide entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
@@ -488,6 +490,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
+                { "exclude",              required_argument, NULL, 'T'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
                 { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
@@ -533,7 +536,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:su:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -946,6 +949,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         r = strv_extend(&arg_syslog_identifier, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case 'T':
+                        r = strv_extend(&arg_exclude_identifier, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -1804,6 +1813,24 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+static int add_exclude_identifier(sd_journal *j) {
+        int r;
+
+        assert(j);
+        set_free(j->exclude);
+        j->exclude = set_new(&string_hash_ops);
+        if (!j->exclude)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, arg_exclude_identifier) {
+                r = set_put(j->exclude, (const void *)*i);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 #if HAVE_GCRYPT
 static int format_journal_url(
                 const void *seed,
@@ -2444,6 +2471,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = add_exclude_identifier(j);
+        if (r < 0) {
+                log_error_errno(r, "Failed to add exclude filter for syslog identifiers: %m");
+                goto finish;
+        }
+
         r = add_priorities(j);
         if (r < 0)
                 goto finish;
@@ -2821,6 +2854,7 @@ finish:
 
         set_free(arg_facilities);
         strv_free(arg_syslog_identifier);
+        strv_free(arg_exclude_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
         strv_free(arg_output_fields);
