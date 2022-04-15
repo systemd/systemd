@@ -491,7 +491,7 @@ static int output_short(
                 return 0;
         }
 
-        if (set_contains(j->exclude, identifier)) {
+        if (identifier && set_contains(j->exclude, identifier)) {
                 return 0;
         }
 
