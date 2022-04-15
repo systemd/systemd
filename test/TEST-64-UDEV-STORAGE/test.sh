@@ -311,19 +311,23 @@ EOF
 # Test case for issue https://github.com/systemd/systemd/issues/19946
 testcase_simultaneous_events() {
     local qemu_opts=("-device virtio-scsi-pci,id=scsi")
-    local partdisk="${TESTDIR:?}/simultaneousevents.img"
+    local diskpath i
 
-    dd if=/dev/zero of="$partdisk" bs=1M count=110
-    qemu_opts+=(
-        "-device scsi-hd,drive=drive1,serial=deadbeeftest"
-        "-drive format=raw,cache=unsafe,file=$partdisk,if=none,id=drive1"
-    )
+    for i in {0..9}; do
+        diskpath="${TESTDIR:?}/simultaneousevents${i}.img"
+
+        dd if=/dev/zero of="$diskpath" bs=1M count=32
+        qemu_opts+=(
+            "-device scsi-hd,drive=drive$i,serial=deadbeeftest$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
     test_run_one "${1:?}" || return $?
 
-    rm -f "$partdisk"
+    rm -f "$diskpath"
 }
 
 testcase_lvm_basic() {
