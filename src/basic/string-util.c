@@ -588,15 +588,13 @@ char *strip_newline(char **ibuf, size_t *_isz) {
         assert(*ibuf);
 
         char *p = *ibuf;
-        size_t len = 0;
 
         while (*p & ~'\n') {
-                len++;
                 p++;
         }
 
         *p = '\0';
-        *_isz = len;
+        *_isz = p - *ibuf;
 
         return *ibuf;
 }
