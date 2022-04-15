@@ -29,13 +29,16 @@
 
 #define UDP_DPORT_OFFSET 2
 
-static int nfnl_netlink_sendv(sd_netlink *nfnl,
-                              sd_netlink_message *messages[],
-                              size_t msgcount) {
+static int nfnl_netlink_sendv(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t msgcount) {
+
         _cleanup_free_ uint32_t *serial = NULL;
-        size_t i;
         int r;
 
+        assert(nfnl);
+        assert(messages);
         assert(msgcount > 0);
 
         r = sd_netlink_sendv(nfnl, messages, msgcount, &serial);
@@ -43,7 +46,7 @@ static int nfnl_netlink_sendv(sd_netlink *nfnl,
                 return r;
 
         r = 0;
-        for (i = 1; i < msgcount - 1; i++) {
+        for (size_t i = 1; i < msgcount - 1; i++) {
                 int tmp;
 
                 /* If message is an error, this returns embedded errno */
