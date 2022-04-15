@@ -41,6 +41,41 @@ helper_check_device_symlinks() {(
     done < <(find "${paths[@]}" -type l)
 )}
 
+helper_check_udev_watch() {(
+    set +x
+
+    local link target id dev i
+    local -a wd
+
+    while read -r link; do
+        target="$(readlink -f "$link")"
+        echo "$link -> $target"
+
+        for i in "${wd[@]}"; do
+            if [[ "$target" == "$i" ]]; then
+                echo >&2 "ERROR: multiple symlinks to '$target' exist"
+                return 1
+            fi
+        done
+        wd+=("$target")
+
+        id="${link##*/}"
+        if [[ "${id:0:1}" == "b" ]]; then
+            dev="/dev/block/${id:1}"
+        elif [[ "${id:0:1}" == "c" ]]; then
+            dev="/dev/char/${id:1}"
+        else
+            echo >&2 "ERROR: unexpected device ID '$id'"
+            return 1
+        fi
+
+        if [[ ! -e "$dev" ]]; then
+            echo >&2 "ERROR: device '$dev' corresponding to symlink '$link' does not exist"
+            return 1
+        fi
+    done < <(find /run/udev/watch -type l)
+)}
+
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -183,6 +218,7 @@ EOF
         if ((i % 10 == 0)); then
             udevadm wait --settle --timeout=30 "$blockdev"
             helper_check_device_symlinks
+            helper_check_udev_watch
         fi
     done
 
