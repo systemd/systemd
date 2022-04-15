@@ -1869,7 +1869,7 @@ install_pam() {
         paths+=(/lib*/security)
     fi
 
-    for d in /etc/pam.d /etc/security /usr/{etc,lib}/pam.d; do
+    for d in /etc/pam.d /{usr/,}etc/security /usr/{etc,lib}/pam.d; do
         [ -d "$d" ] && paths+=("$d")
     done
 
