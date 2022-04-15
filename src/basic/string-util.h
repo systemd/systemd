@@ -105,6 +105,8 @@ char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
 char *delete_trailing_chars(char *s, const char *bad);
 char *truncate_nl(char *s);
+char *truncate_nl_len(char **ibuf, size_t *_isz);
+
 
 static inline char *skip_leading_chars(const char *s, const char *bad) {
         if (!s)
