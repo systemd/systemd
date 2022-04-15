@@ -298,12 +298,27 @@ static void format_active_state(const char *active_state, const char **active_on
                 *active_on = *active_off = "";
 }
 
+static void format_enable_state(const char *enable_state, const char **enable_on, const char **enable_off) {
+        assert(enable_on);
+        assert(enable_off);
+
+        if (streq_ptr(enable_state, "disabled")) {
+                *enable_on = ansi_highlight_yellow();
+                *enable_off = ansi_normal();
+        } else if (streq_ptr(enable_state, "enabled")) {
+                *enable_on = ansi_highlight_green();
+                *enable_off = ansi_normal();
+        } else
+                *enable_on = *enable_off = "";
+}
+
 static void print_status_info(
                 sd_bus *bus,
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
         const char *active_on, *active_off, *on, *off, *ss, *fs;
+        const char *enable_on, *enable_off, *enable_vendor_on, *enable_vendor_off;
         _cleanup_free_ char *formatted_path = NULL;
         usec_t timestamp;
         const char *path;
@@ -315,6 +330,8 @@ static void print_status_info(
          * printer */
 
         format_active_state(i->active_state, &active_on, &active_off);
+        format_enable_state(i->unit_file_state, &enable_on, &enable_off);
+        format_enable_state(i->unit_file_preset, &enable_vendor_on, &enable_vendor_off);
 
         const SpecialGlyph glyph = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
 
@@ -345,12 +362,12 @@ static void print_status_info(
                 bool show_preset = !isempty(i->unit_file_preset) &&
                         show_preset_for_state(unit_file_state_from_string(i->unit_file_state));
 
-                printf("     Loaded: %s%s%s (%s; %s%s%s)\n",
+                printf("     Loaded: %s%s%s (%s; %s%s%s%s%s%s%s)\n",
                        on, strna(i->load_state), off,
                        path,
-                       i->unit_file_state,
+                       enable_on, i->unit_file_state, enable_off,
                        show_preset ? "; vendor preset: " : "",
-                       show_preset ? i->unit_file_preset : "");
+                       enable_vendor_on, show_preset ? i->unit_file_preset : "", enable_vendor_off);
 
         } else if (path)
                 printf("     Loaded: %s%s%s (%s)\n",
