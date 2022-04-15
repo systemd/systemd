@@ -1170,8 +1170,8 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
 
 static int device_set_sysname_and_sysnum(sd_device *device) {
         _cleanup_free_ char *sysname = NULL;
-        const char *sysnum = NULL;
-        size_t len = 0;
+        char *p;
+        int r;
 
         assert(device);
 
@@ -1180,21 +1180,14 @@ static int device_set_sysname_and_sysnum(sd_device *device) {
                 return r;
 
         /* some devices have '!' in their name, change that to '/' */
-        while (sysname[len] != '\0') {
-                if (sysname[len] == '!')
-                        sysname[len] = '/';
+        for (p = strchrnul(sysname, '!'); *p != '\0'; p = strchrnul(p, '!'))
+                *p = '/';
 
-                len++;
-        }
+        /* trailing number (refuse number only sysname)*/
+        for (; p > sysname && isdigit(p[-1]); p--)
+                ;
 
-        /* trailing number */
-        while (len > 0 && isdigit(sysname[--len]))
-                sysnum = &sysname[len];
-
-        if (len == 0)
-                sysnum = NULL;
-
-        device->sysnum = sysnum;
+        device->sysnum = p > sysname && *p != '\0' ? p : NULL;
         return free_and_replace(device->sysname, sysname);
 }
 
