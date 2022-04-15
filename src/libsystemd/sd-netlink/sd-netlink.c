@@ -270,7 +270,7 @@ int sd_netlink_sendv(
                         return -ENOMEM;
         }
 
-        for (unsigned i = 0; i < msgcount; i++) {
+        for (size_t i = 0; i < msgcount; i++) {
                 assert_return(!messages[i]->sealed, -EPERM);
 
                 netlink_seal_message(nl, messages[i]);
