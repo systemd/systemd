@@ -42,11 +42,12 @@ typedef enum OutputFlags {
         OUTPUT_BEGIN_NEWLINE  = 1 << 5,
         OUTPUT_UTC            = 1 << 6,
         OUTPUT_NO_HOSTNAME    = 1 << 7,
+        OUTPUT_STRIP          = 1 << 8,
 
         /* Specific to process tree output */
-        OUTPUT_KERNEL_THREADS = 1 << 8,
-        OUTPUT_CGROUP_XATTRS  = 1 << 9,
-        OUTPUT_CGROUP_ID      = 1 << 10,
+        OUTPUT_KERNEL_THREADS = 1 << 9,
+        OUTPUT_CGROUP_XATTRS  = 1 << 10,
+        OUTPUT_CGROUP_ID      = 1 << 11,
 } OutputFlags;
 
 JsonFormatFlags output_mode_to_json_format_flags(OutputMode m);
