@@ -26,7 +26,6 @@ static int track_cb_x(sd_bus_track *t, void *userdata) {
 }
 
 static int track_cb_y(sd_bus_track *t, void *userdata) {
-        int r;
 
         log_error("TRACK CB Y");
 
@@ -35,8 +34,7 @@ static int track_cb_y(sd_bus_track *t, void *userdata) {
 
         /* We got disconnected, let's close everything */
 
-        r = sd_event_exit(sd_bus_get_event(sd_bus_track_get_bus(t)), EXIT_SUCCESS);
-        assert_se(r >= 0);
+        assert_se(sd_event_exit(sd_bus_get_event(sd_bus_track_get_bus(t)), EXIT_SUCCESS) >= 0);
 
         return 0;
 }
@@ -51,8 +49,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        r = sd_event_default(&event);
-        assert_se(r >= 0);
+        assert_se(sd_event_default(&event) >= 0);
 
         r = sd_bus_open_user(&a);
         if (IN_SET(r, -ECONNREFUSED, -ENOENT, -ENOMEDIUM)) {
@@ -63,43 +60,33 @@ int main(int argc, char *argv[]) {
         }
         assert_se(r >= 0);
 
-        r = sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL);
-        assert_se(r >= 0);
+        assert_se(sd_bus_attach_event(a, event, SD_EVENT_PRIORITY_NORMAL) >= 0);
 
         if (use_system_bus)
-                r = sd_bus_open_system(&b);
+                assert_se(sd_bus_open_system(&b) >= 0);
         else
-                r = sd_bus_open_user(&b);
-        assert_se(r >= 0);
+                assert_se(sd_bus_open_user(&b) >= 0);
 
-        r = sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL);
-        assert_se(r >= 0);
+        assert_se(sd_bus_attach_event(b, event, SD_EVENT_PRIORITY_NORMAL) >= 0);
 
         /* Watch b's name from a */
-        r = sd_bus_track_new(a, &x, track_cb_x, NULL);
-        assert_se(r >= 0);
+        assert_se(sd_bus_track_new(a, &x, track_cb_x, NULL) >= 0);
 
-        r = sd_bus_get_unique_name(b, &unique);
-        assert_se(r >= 0);
+        assert_se(sd_bus_get_unique_name(b, &unique) >= 0);
 
-        r = sd_bus_track_add_name(x, unique);
-        assert_se(r >= 0);
+        assert_se(sd_bus_track_add_name(x, unique) >= 0);
 
         /* Watch's a's own name from a */
-        r = sd_bus_track_new(a, &y, track_cb_y, NULL);
-        assert_se(r >= 0);
+        assert_se(sd_bus_track_new(a, &y, track_cb_y, NULL) >= 0);
 
-        r = sd_bus_get_unique_name(a, &unique);
-        assert_se(r >= 0);
+        assert_se(sd_bus_get_unique_name(a, &unique) >= 0);
 
-        r = sd_bus_track_add_name(y, unique);
-        assert_se(r >= 0);
+        assert_se(sd_bus_track_add_name(y, unique) >= 0);
 
         /* Now make b's name disappear */
         sd_bus_close(b);
 
-        r = sd_event_loop(event);
-        assert_se(r >= 0);
+        assert_se(sd_event_loop(event) >= 0);
 
         assert_se(track_cb_called_x);
         assert_se(track_cb_called_y);
