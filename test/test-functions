@@ -221,6 +221,7 @@ DEBUGTOOLS=(
     stty
     tty
     vi
+    /usr/libexec/vi
 )
 
 is_built_with_asan() {
