@@ -666,12 +666,17 @@ testcase_mdadm_lvm() {
     # Disassemble the array
     lvm vgchange -an "$vgroup"
     mdadm -v --stop "$raid_dev"
-    udevadm settle
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
     helper_check_device_symlinks
     # Reassemble it and check if all required symlinks exist
     mdadm --assemble "$raid_dev" --name "$raid_name" -v
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
+    # Cleanup
+    lvm vgchange -an "$vgroup"
+    mdadm -v --stop "$raid_dev"
+    # Check if all expected symlinks were removed after the cleanup
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
 }
 
 : >/failed
