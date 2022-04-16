@@ -287,7 +287,7 @@ _public_ const char* sd_bus_track_contains(sd_bus_track *track, const char *name
         if (!track) /* Let's consider a NULL object equivalent to an empty object */
                 return NULL;
 
-        return hashmap_get(track->names, (void*) name) ? name : NULL;
+        return hashmap_contains(track->names, name) ? name : NULL;
 }
 
 _public_ const char* sd_bus_track_first(sd_bus_track *track) {
