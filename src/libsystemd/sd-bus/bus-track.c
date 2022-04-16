@@ -40,7 +40,6 @@ struct sd_bus_track {
                  "arg0='", name, "'")
 
 static struct track_item* track_item_free(struct track_item *i) {
-
         if (!i)
                 return NULL;
 
@@ -49,7 +48,8 @@ static struct track_item* track_item_free(struct track_item *i) {
         return mfree(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct track_item, track_item, track_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
                                               struct track_item, track_item_free);
 
@@ -180,7 +180,7 @@ static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus
 }
 
 _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
-        _cleanup_(track_item_freep) struct track_item *n = NULL;
+        _cleanup_(track_item_unrefp) struct track_item *n = NULL;
         struct track_item *i;
         const char *match;
         int r;
@@ -190,14 +190,8 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         i = hashmap_get(track->names, name);
         if (i) {
-                if (track->recursive) {
-                        unsigned k = i->n_ref + 1;
-
-                        if (k < i->n_ref) /* Check for overflow */
-                                return -EOVERFLOW;
-
-                        i->n_ref = k;
-                }
+                if (track->recursive)
+                        track_item_ref(i);
 
                 bus_track_remove_from_queue(track);
                 return 0;
@@ -207,9 +201,14 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         if (r < 0)
                 return r;
 
-        n = new0(struct track_item, 1);
+        n = new(struct track_item, 1);
         if (!n)
                 return -ENOMEM;
+
+        *n = (struct track_item) {
+                .n_ref = 1,
+        };
+
         n->name = strdup(name);
         if (!n->name)
                 return -ENOMEM;
@@ -241,8 +240,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
                 return r;
         }
 
-        n->n_ref = 1;
-        n = NULL;
+        TAKE_PTR(n);
 
         bus_track_remove_from_queue(track);
         track->modified = true;
@@ -264,13 +262,12 @@ _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
         i = hashmap_get(track->names, name);
         if (!i)
                 return -EUNATCH;
-        if (i->n_ref <= 0)
-                return -EUNATCH;
 
-        i->n_ref--;
-
-        if (i->n_ref <= 0)
+        assert(i->n_ref >= 1);
+        if (i->n_ref <= 1)
                 return bus_track_remove_name_fully(track, name);
+
+        track_item_unref(i);
 
         return 1;
 }
