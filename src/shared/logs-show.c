@@ -497,6 +497,9 @@ static int output_short(
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len, highlight_shifted);
 
+        if (flags & OUTPUT_STRIP)
+                truncate_nl_len(&message, &message_len);
+
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
