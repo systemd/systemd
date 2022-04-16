@@ -10,6 +10,7 @@
 
 static bool track_cb_called_x = false;
 static bool track_cb_called_y = false;
+static bool track_destroy_called_z = false;
 
 static int track_cb_x(sd_bus_track *t, void *userdata) {
 
@@ -39,9 +40,17 @@ static int track_cb_y(sd_bus_track *t, void *userdata) {
         return 0;
 }
 
+static int track_cb_z(sd_bus_track *t, void *userdata) {
+        assert_not_reached();
+}
+
+static void track_destroy_z(void *userdata) {
+        track_destroy_called_z = true;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL;
+        _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL, *z = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
         bool use_system_bus = false;
         const char *unique;
@@ -82,6 +91,53 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_get_unique_name(a, &unique) >= 0);
 
         assert_se(sd_bus_track_add_name(y, unique) >= 0);
+
+        /* Basic tests. */
+        assert_se(sd_bus_track_new(a, &z, track_cb_z, NULL) >= 0);
+
+        /* non-recursive case */
+        assert_se(sd_bus_track_set_recursive(z, false) >= 0);
+        assert_se(sd_bus_track_get_recursive(z) == 0);
+        assert_se(!sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 0);
+        assert_se(sd_bus_track_remove_name(z, unique) == 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_set_recursive(z, true) == -EBUSY);
+        assert_se(sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 1);
+        assert_se(sd_bus_track_remove_name(z, unique) == 1);
+        assert_se(!sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 0);
+        assert_se(sd_bus_track_remove_name(z, unique) == 0);
+
+        /* recursive case */
+        assert_se(sd_bus_track_set_recursive(z, true) >= 0);
+        assert_se(sd_bus_track_get_recursive(z) == 1);
+        assert_se(!sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 0);
+        assert_se(sd_bus_track_remove_name(z, unique) == 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_add_name(z, unique) >= 0);
+        assert_se(sd_bus_track_set_recursive(z, false) == -EBUSY);
+        assert_se(sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 3);
+        assert_se(sd_bus_track_remove_name(z, unique) == 1);
+        assert_se(sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 2);
+        assert_se(sd_bus_track_remove_name(z, unique) == 1);
+        assert_se(sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 1);
+        assert_se(sd_bus_track_remove_name(z, unique) == 1);
+        assert_se(!sd_bus_track_contains(z, unique));
+        assert_se(sd_bus_track_count_name(z, unique) == 0);
+        assert_se(sd_bus_track_remove_name(z, unique) == 0);
+
+        assert_se(sd_bus_track_set_destroy_callback(z, track_destroy_z) >= 0);
+        z = sd_bus_track_unref(z);
+        assert_se(track_destroy_called_z);
 
         /* Now make b's name disappear */
         sd_bus_close(b);
