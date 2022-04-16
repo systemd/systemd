@@ -191,12 +191,12 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
         i = hashmap_get(track->names, name);
         if (i) {
                 if (track->recursive) {
-                        unsigned k = track->n_ref + 1;
+                        unsigned k = i->n_ref + 1;
 
-                        if (k < track->n_ref) /* Check for overflow */
+                        if (k < i->n_ref) /* Check for overflow */
                                 return -EOVERFLOW;
 
-                        track->n_ref = k;
+                        i->n_ref = k;
                 }
 
                 bus_track_remove_from_queue(track);
