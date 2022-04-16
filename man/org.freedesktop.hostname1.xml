@@ -59,6 +59,7 @@ node /org/freedesktop/hostname1 {
       GetProductUUID(in  b interactive,
                      out ay uuid);
       GetHardwareSerial(out s serial);
+      GetFirmwareVersion(out s firmware_version);
       Describe(out s json);
     properties:
       readonly s Hostname = '...';
@@ -96,6 +97,8 @@ node /org/freedesktop/hostname1 {
 
     <!--method GetHardwareSerial is not documented!-->
 
+    <!--method GetFirmwareVersion is not documented!-->
+
     <!--property HardwareVendor is not documented!-->
 
     <!--property HardwareModel is not documented!-->
@@ -123,6 +126,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetProductUUID()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetFirmwareVersion()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
 
