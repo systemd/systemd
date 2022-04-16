@@ -256,12 +256,9 @@ _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
         if (!track) /* Treat a NULL track object as an empty track object */
                 return 0;
 
-        if (!track->recursive)
-                return bus_track_remove_name_fully(track, name);
-
         i = hashmap_get(track->names, name);
         if (!i)
-                return -EUNATCH;
+                return 0;
 
         assert(i->n_ref >= 1);
         if (i->n_ref <= 1)
