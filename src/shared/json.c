@@ -41,7 +41,7 @@ assert_cc(DEPTH_MAX <= UINT16_MAX);
 
 typedef struct JsonSource {
         /* When we parse from a file or similar, encodes the filename, to indicate the source of a json variant */
-        size_t n_ref;
+        unsigned n_ref;
         unsigned max_line;
         unsigned max_column;
         char name[];
@@ -53,7 +53,7 @@ struct JsonVariant {
                 /* We either maintain a reference counter for this variant itself, or we are embedded into an
                  * array/object, in which case only that surrounding object is ref-counted. (If 'embedded' is false,
                  * see below.) */
-                size_t n_ref;
+                unsigned n_ref;
 
                 /* If this JsonVariant is part of an array/object, then this field points to the surrounding
                  * JSON_VARIANT_ARRAY/JSON_VARIANT_OBJECT object. (If 'embedded' is true, see below.) */
