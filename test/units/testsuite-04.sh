@@ -77,6 +77,17 @@ grep -q '^PRIORITY=6$' /output
 grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
 grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
 
+# --strip shows only first line
+if command -v logger >/dev/null 2>&1 ;then
+    ID=$(journalctl --new-id128 | sed -n 2p)
+    for fun in x y z ;do logger -t "$ID" $'HEAD\nTAIL\nTAIL' ;: $fun ;done
+    journalctl --sync
+    journalctl -q -b -t "$ID" | grep -q HEAD
+    journalctl -q -b -t "$ID" | grep -q TAIL
+    journalctl -q -b -t "$ID" -s | grep -q HEAD
+    journalctl -q -b -t "$ID" -s | grep -q -v TAIL
+fi
+
 # `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 

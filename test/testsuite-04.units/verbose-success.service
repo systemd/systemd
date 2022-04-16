@@ -3,4 +3,5 @@
 Description=Verbose successful service
 
 [Service]
+Type=exec
 ExecStart=sh -c 'for fun in x y z ;do echo success ;done'
