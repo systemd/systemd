@@ -176,6 +176,19 @@ char *truncate_nl(char *s) {
         return s;
 }
 
+char *truncate_nl_len(char **ibuf, size_t *_isz) {
+        assert(ibuf);
+        assert(*ibuf);
+
+        char *p = *ibuf;
+        while (*p & ~'\n')
+                p++;
+
+        *p = '\0';
+        *_isz = p - *ibuf;
+        return *ibuf;
+}
+
 char ascii_tolower(char x) {
 
         if (x >= 'A' && x <= 'Z')

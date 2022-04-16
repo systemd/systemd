@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Verbose successful service
+
+[Service]
+Type=exec
+ExecStart=sh -c 'for fun in x y z ;do echo success ;done'
