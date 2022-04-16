@@ -156,24 +156,16 @@ int readlink_malloc(const char *p, char **ret) {
 
 int readlink_value(const char *p, char **ret) {
         _cleanup_free_ char *link = NULL;
-        char *value;
         int r;
+
+        assert(p);
+        assert(ret);
 
         r = readlink_malloc(p, &link);
         if (r < 0)
                 return r;
 
-        value = basename(link);
-        if (!value)
-                return -ENOENT;
-
-        value = strdup(value);
-        if (!value)
-                return -ENOMEM;
-
-        *ret = value;
-
-        return 0;
+        return path_extract_filename(link, ret);
 }
 
 int readlink_and_make_absolute(const char *p, char **r) {
