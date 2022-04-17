@@ -14,6 +14,14 @@ typedef enum Fido2EnrollFlags {
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
 
+typedef enum COSEAlgorithm {
+        COSE_ALG_RS256 = -257,
+        COSE_ALG_EDDSA = -8,
+        COSE_ALG_ES256 = -7,
+        _COSE_ALG_TYPE_MAX,
+        _COSE_ALG_TYPE_INVALID = -EINVAL,
+} COSEAlgorithm;
+
 #if HAVE_LIBFIDO2
 #include <fido.h>
 
@@ -109,6 +117,7 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon_name,
                 Fido2EnrollFlags lock_with,
+                int cred_alg,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
