@@ -1,0 +1,12 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 300
+. IN SOA primary.dns.systemd. root.dns.systemd. (
+    20220416   ; serial
+    3H         ; refresh
+    15M        ; retry
+    1W         ; expire
+    1D         ; minimum TTL
+)
+
+.                    NS primary.dns.systemd.
+primary.dns.systemd  A  1.2.3.1
