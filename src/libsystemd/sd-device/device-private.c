@@ -773,6 +773,10 @@ int device_rename(sd_device *device, const char *name) {
         if (r < 0)
                 return r;
 
+        /* Here, only clear the sysname and sysnum. They will be set when requested. */
+        device->sysnum = NULL;
+        device->sysname = mfree(device->sysname);
+
         r = sd_device_get_property_value(device, "INTERFACE", &interface);
         if (r == -ENOENT)
                 return 0;
