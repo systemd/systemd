@@ -148,13 +148,13 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
 }
 
 static int device_set_devuid(sd_device *device, const char *uid) {
-        unsigned u;
+        uid_t u;
         int r;
 
         assert(device);
         assert(uid);
 
-        r = safe_atou(uid, &u);
+        r = parse_uid(uid, &u);
         if (r < 0)
                 return r;
 
@@ -186,13 +186,13 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
 }
 
 static int device_set_devgid(sd_device *device, const char *gid) {
-        unsigned g;
+        gid_t g;
         int r;
 
         assert(device);
         assert(gid);
 
-        r = safe_atou(gid, &g);
+        r = parse_gid(gid, &g);
         if (r < 0)
                 return r;
 
