@@ -109,12 +109,18 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon_name,
                 Fido2EnrollFlags lock_with,
+                int cred_alg,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with);
 
+int parse_fido2_algorithm(const char *s, int *ret);
+#else
+static inline int parse_fido2_algorithm(const char *s, int *ret) {
+        return -EOPNOTSUPP;
+}
 #endif
 
 int fido2_list_devices(void);
