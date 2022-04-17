@@ -1437,37 +1437,30 @@ int device_get_device_id(sd_device *device, const char **ret) {
                         return r;
 
                 if (sd_device_get_devnum(device, &devnum) >= 0) {
-                        assert(subsystem);
-
                         /* use dev_t — b259:131072, c254:0 */
-                        r = asprintf(&id, "%c%u:%u",
+                        if (asprintf(&id, "%c%u:%u",
                                      streq(subsystem, "block") ? 'b' : 'c',
-                                     major(devnum), minor(devnum));
-                        if (r < 0)
+                                     major(devnum), minor(devnum)) < 0)
                                 return -ENOMEM;
                 } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
                         /* use netdev ifindex — n3 */
-                        r = asprintf(&id, "n%u", (unsigned) ifindex);
-                        if (r < 0)
+                        if (asprintf(&id, "n%u", (unsigned) ifindex) < 0)
                                 return -ENOMEM;
                 } else {
+                        _cleanup_free_ char *sysname = NULL;
+
                         /* use $subsys:$sysname — pci:0000:00:1f.2
-                         * sysname() has '!' translated, get it from devpath
-                         */
-                        const char *sysname;
+                         * sd_device_get_sysname() has '!' translated, get it from devpath */
+                        r = path_extract_filename(device->devpath, &sysname);
+                        if (r < 0)
+                                return r;
 
-                        sysname = basename(device->devpath);
-                        if (!sysname)
-                                return -EINVAL;
-
-                        if (!subsystem)
-                                return -EINVAL;
-
-                        if (streq(subsystem, "drivers"))
-                                /* the 'drivers' pseudo-subsystem is special, and needs the real subsystem
-                                 * encoded as well */
+                        if (streq(subsystem, "drivers")) {
+                                /* the 'drivers' pseudo-subsystem is special, and needs the real
+                                 * subsystem encoded as well */
+                                assert(device->driver_subsystem);
                                 id = strjoin("+drivers:", device->driver_subsystem, ":", sysname);
-                        else
+                        } else
                                 id = strjoin("+", subsystem, ":", sysname);
                         if (!id)
                                 return -ENOMEM;
