@@ -61,6 +61,11 @@ static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
 static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
+#if HAVE_LIBFIDO2
+static int arg_fido2_cred_alg = COSE_ES256;
+#else
+static int arg_fido2_cred_alg = 0;
+#endif
 static bool arg_recovery_key = false;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
@@ -1114,7 +1119,7 @@ static int acquire_new_home_record(UserRecord **ret) {
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&v, *i, arg_fido2_lock_with);
+                r = identity_add_fido2_parameters(&v, *i, arg_fido2_lock_with, arg_fido2_cred_alg);
                 if (r < 0)
                         return r;
         }
@@ -1473,7 +1478,7 @@ static int acquire_updated_home_record(
         }
 
         STRV_FOREACH(i, arg_fido2_device) {
-                r = identity_add_fido2_parameters(&json, *i, arg_fido2_lock_with);
+                r = identity_add_fido2_parameters(&json, *i, arg_fido2_lock_with, arg_fido2_cred_alg);
                 if (r < 0)
                         return r;
         }
@@ -2387,6 +2392,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
                 ARG_AUTO_RESIZE_MODE,
                 ARG_REBALANCE_WEIGHT,
+                ARG_FIDO2_CRED_ALG,
         };
 
         static const struct option options[] = {
@@ -2463,6 +2469,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
+                { "fido2-credential-algorithm",  required_argument, NULL, ARG_FIDO2_CRED_ALG              },
                 { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
                 { "fido2-with-client-pin",       required_argument, NULL, ARG_FIDO2_WITH_PIN              },
                 { "fido2-with-user-presence",    required_argument, NULL, ARG_FIDO2_WITH_UP               },
@@ -3483,6 +3490,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         strv_uniq(arg_pkcs11_token_uri);
+                        break;
+
+                case ARG_FIDO2_CRED_ALG:
+                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
                         break;
 
                 case ARG_FIDO2_DEVICE:
