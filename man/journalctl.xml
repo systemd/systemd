@@ -409,6 +409,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--strip</option></term>
+
+        <listitem><para>Strip each message so that only first line is
+        displayed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--utc</option></term>
 
         <listitem><para>Express time in Coordinated Universal Time
