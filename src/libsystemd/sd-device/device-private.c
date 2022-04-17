@@ -774,19 +774,17 @@ int device_rename(sd_device *device, const char *name) {
                 return r;
 
         r = sd_device_get_property_value(device, "INTERFACE", &interface);
-        if (r >= 0) {
-                /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
-                r = device_add_property_internal(device, "INTERFACE_OLD", interface);
-                if (r < 0)
-                        return r;
-
-                r = device_add_property_internal(device, "INTERFACE", name);
-                if (r < 0)
-                        return r;
-        } else if (r != -ENOENT)
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return r;
 
-        return 0;
+        /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
+        r = device_add_property_internal(device, "INTERFACE_OLD", interface);
+        if (r < 0)
+                return r;
+
+        return device_add_property_internal(device, "INTERFACE", name);
 }
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
