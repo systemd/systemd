@@ -7,4 +7,10 @@ TEST_DESCRIPTION="Journal-related tests"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+test_append_files() {
+    (
+        command -v logger >/dev/null 2>&1 && inst_binary logger
+    )
+}
+
 do_test "$@"
