@@ -111,7 +111,7 @@ uint64_t device_get_devlinks_generation(sd_device *device) {
         return device->devlinks_generation;
 }
 
-int device_get_devnode_mode(sd_device *device, mode_t *mode) {
+int device_get_devnode_mode(sd_device *device, mode_t *ret) {
         int r;
 
         assert(device);
@@ -123,13 +123,13 @@ int device_get_devnode_mode(sd_device *device, mode_t *mode) {
         if (device->devmode == MODE_INVALID)
                 return -ENOENT;
 
-        if (mode)
-                *mode = device->devmode;
+        if (ret)
+                *ret = device->devmode;
 
         return 0;
 }
 
-int device_get_devnode_uid(sd_device *device, uid_t *uid) {
+int device_get_devnode_uid(sd_device *device, uid_t *ret) {
         int r;
 
         assert(device);
@@ -141,8 +141,8 @@ int device_get_devnode_uid(sd_device *device, uid_t *uid) {
         if (device->devuid == UID_INVALID)
                 return -ENOENT;
 
-        if (uid)
-                *uid = device->devuid;
+        if (ret)
+                *ret = device->devuid;
 
         return 0;
 }
@@ -167,7 +167,7 @@ static int device_set_devuid(sd_device *device, const char *uid) {
         return 0;
 }
 
-int device_get_devnode_gid(sd_device *device, gid_t *gid) {
+int device_get_devnode_gid(sd_device *device, gid_t *ret) {
         int r;
 
         assert(device);
@@ -179,8 +179,8 @@ int device_get_devnode_gid(sd_device *device, gid_t *gid) {
         if (device->devgid == GID_INVALID)
                 return -ENOENT;
 
-        if (gid)
-                *gid = device->devgid;
+        if (ret)
+                *ret = device->devgid;
 
         return 0;
 }
@@ -593,17 +593,17 @@ int device_get_properties_strv(sd_device *device, char ***strv) {
         return 0;
 }
 
-int device_get_devlink_priority(sd_device *device, int *priority) {
+int device_get_devlink_priority(sd_device *device, int *ret) {
         int r;
 
         assert(device);
-        assert(priority);
 
         r = device_read_db(device);
         if (r < 0)
                 return r;
 
-        *priority = device->devlink_priority;
+        if (ret)
+                *ret = device->devlink_priority;
 
         return 0;
 }
