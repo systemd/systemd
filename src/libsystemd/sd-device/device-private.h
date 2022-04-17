@@ -18,11 +18,11 @@ static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
 }
 
 int device_get_device_id(sd_device *device, const char **ret);
-int device_get_devlink_priority(sd_device *device, int *priority);
+int device_get_devlink_priority(sd_device *device, int *ret);
 int device_get_watch_handle(sd_device *device);
-int device_get_devnode_mode(sd_device *device, mode_t *mode);
-int device_get_devnode_uid(sd_device *device, uid_t *uid);
-int device_get_devnode_gid(sd_device *device, gid_t *gid);
+int device_get_devnode_mode(sd_device *device, mode_t *ret);
+int device_get_devnode_uid(sd_device *device, uid_t *ret);
+int device_get_devnode_gid(sd_device *device, gid_t *ret);
 
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
@@ -51,8 +51,8 @@ int device_get_properties_nulstr(sd_device *device, const uint8_t **nulstr, size
 int device_get_properties_strv(sd_device *device, char ***strv);
 
 int device_rename(sd_device *device, const char *name);
-int device_shallow_clone(sd_device *old_device, sd_device **new_device);
-int device_clone_with_db(sd_device *old_device, sd_device **new_device);
+int device_shallow_clone(sd_device *device, sd_device **ret);
+int device_clone_with_db(sd_device *device, sd_device **ret);
 int device_copy_properties(sd_device *device_dst, sd_device *device_src);
 
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
