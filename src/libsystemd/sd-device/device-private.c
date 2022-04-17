@@ -835,10 +835,9 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
                         return r;
         }
 
-        /* And then read uevent file, but ignore errors, as some devices seem to return a spurious
-         * error on read, e.g. -ENODEV, and even if ifindex or devnum is set in the above,
-         * sd_device_get_ifindex() or sd_device_get_devnum() fails. See. #19788. */
-        (void) device_read_uevent_file(ret);
+        r = device_read_uevent_file(ret);
+        if (r < 0)
+                return r;
 
         *new_device = TAKE_PTR(ret);
         return 0;
