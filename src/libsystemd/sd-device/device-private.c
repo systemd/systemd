@@ -793,7 +793,7 @@ int device_rename(sd_device *device, const char *name) {
 
 int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
-        const char *val;
+        const char *val = NULL;
         int r;
 
         assert(old_device);
