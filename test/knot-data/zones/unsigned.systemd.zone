@@ -1,0 +1,20 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN unsigned.systemd.
+
+@ IN SOA primary.dns.systemd. root.dns.systemd. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+                      NS primary.dns.systemd.
+
+; MX records
+                      MX 15 mail.unsigned.systemd.
+; A/AAAA records
+                      A 1.2.3.101
+mail                  A 1.2.3.111
