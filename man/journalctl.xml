@@ -538,6 +538,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--exclude=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
+
+        <listitem><para>Exclude messages for the specified syslog
+        identifier
+        <replaceable>SYSLOG_IDENTIFIER</replaceable>.</para>
+
+        <para>This parameter can be specified multiple
+        times.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-u</option></term>
         <term><option>--unit=<replaceable>UNIT</replaceable>|<replaceable>PATTERN</replaceable></option></term>
 
