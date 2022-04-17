@@ -3451,7 +3451,7 @@ if conf.get('ENABLE_TMPFILES') == 1
         endif
 
         if have_standalone_binaries
-                public_programs += executable(
+                exe = executable(
                         'systemd-tmpfiles.standalone',
                         systemd_tmpfiles_sources,
                         include_directories : includes,
@@ -3463,6 +3463,14 @@ if conf.get('ENABLE_TMPFILES') == 1
                         dependencies : [libacl],
                         install : true,
                         install_dir : rootbindir)
+                public_programs += exe
+
+                if want_tests != 'false'
+                        test('test-systemd-tmpfiles.standalone',
+                             test_systemd_tmpfiles_py,
+                             # https://github.com/mesonbuild/meson/issues/2681
+                             args : exe.full_path())
+                endif
         endif
 endif
 
