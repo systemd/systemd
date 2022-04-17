@@ -2149,7 +2149,7 @@ Table=1234</programlisting></para>
         <listitem>
           <para>When true (the default), the client will request the DHCPv6 server to delegate
           prefixes. If the server provides prefixes to be delegated, then subnets of the prefixes are
-          assigned to the interfaces which enables <varname>DHCPPrefixDelegation=</varname>.
+          assigned to the interfaces that have <varname>DHCPPrefixDelegation=yes</varname>.
           See also the <varname>DHCPPrefixDelegation=</varname> setting in the [Network] section,
           settings in the [DHCPPrefixDelegation] section, and
           <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
