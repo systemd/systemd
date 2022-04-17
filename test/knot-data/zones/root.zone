@@ -1,0 +1,14 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 300
+. IN SOA ns1.unsigned.test. root.unsigned.test. (
+    20220416   ; serial
+    3H         ; refresh
+    15M        ; retry
+    1W         ; expire
+    1D         ; minimum TTL
+)
+
+.                   NS ns1.unsigned.test
+ns1.unsigned.test   A  10.0.0.1
+
+test                NS ns1.unsigned.test
