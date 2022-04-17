@@ -123,6 +123,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fido2-credential-algorithm=</option><replaceable>STRING</replaceable></term>
+        <listitem><para>Specify COSE algorithm used in credential generation. The default value is
+        <literal>es256</literal>. Supported values are <literal>es256</literal>, <literal>rs256</literal>
+        and <literal>eddsa</literal>.</para>
+
+        <para><literal>es256</literal> denotes ECDSA over NIST P-256 with SHA-256. <literal>rs256</literal>
+        denotes 2048-bit RSA with PKCS#1.5 padding and SHA-256. <literal>eddsa</literal> denotes
+        EDDSA over Curve25519 with SHA-512.</para>
+
+        <para>Note that your authenticator may not support some algorithms.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fido2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Enroll a FIDO2 security token that implements the <literal>hmac-secret</literal>
