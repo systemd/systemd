@@ -119,6 +119,15 @@ systemctl start silent-success
 journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
+# Test syslog identifiers exclusion
+systemctl start verbose-success
+journalctl --sync
+[[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T systemd)" ]]
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 
