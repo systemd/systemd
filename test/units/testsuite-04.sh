@@ -77,6 +77,17 @@ grep -q '^PRIORITY=6$' /output
 grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
 grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
 
+# --strip shows only first line, skip under asan due to logger
+if [ -z "$ASAN_OPTIONS" ] && [ -z "$UBSAN_OPTIONS" ] && command -v logger >/dev/null 2>&1 ;then
+    ID=$(journalctl --new-id128 | sed -n 2p)
+    logger -t "$ID" $'HEAD\nTAIL\nTAIL'
+    journalctl --sync
+    journalctl -q -b -t "$ID" | grep -q HEAD
+    journalctl -q -b -t "$ID" | grep -q TAIL
+    journalctl -q -b -t "$ID" -s | grep -q HEAD
+    journalctl -q -b -t "$ID" -s | grep -q -v TAIL
+fi
+
 # `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 
@@ -118,6 +129,15 @@ cmp /expected /output
 systemctl start silent-success
 journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
+
+# Test syslog identifiers exclusion
+systemctl start verbose-success
+journalctl --sync
+[[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T systemd)" ]]
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
