@@ -532,6 +532,7 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon_name,
                 Fido2EnrollFlags lock_with,
+                int cred_alg,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
@@ -628,10 +629,10 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set FIDO2 credential relying party ID/name: %s", sym_fido_strerr(r));
 
-        r = sym_fido_cred_set_type(c, COSE_ES256);
+        r = sym_fido_cred_set_type(c, cred_alg);
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 credential type to ES256: %s", sym_fido_strerr(r));
+                                       "Failed to set FIDO2 credential type to %d: %s", cred_alg, sym_fido_strerr(r));
 
         r = sym_fido_cred_set_user(
                         c,
