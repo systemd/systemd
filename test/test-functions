@@ -1772,14 +1772,12 @@ install_debug_tools() {
         local getty_override="${initdir:?}/etc/systemd/system/serial-getty@.service.d"
         mkdir -p "$getty_override"
         echo -e "[Service]\nEnvironment=TERM=linux" >"$getty_override/default-TERM.conf"
+        echo 'export TERM=linux' >>"$initdir/etc/profile"
 
-        cat >"$initdir/etc/motd" <<EOF
-To adjust the terminal size use:
-    export COLUMNS=xx
-    export LINES=yy
-or
-    stty cols xx rows yy
-EOF
+        if command -v resize >/dev/null; then
+            image_install resize
+            echo "resize" >>"$initdir/etc/profile"
+        fi
     fi
 }
 
