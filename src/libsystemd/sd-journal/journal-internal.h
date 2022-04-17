@@ -81,6 +81,7 @@ struct sd_journal {
         uint64_t current_field;
 
         Match *level0, *level1, *level2;
+        Set *exclude;
 
         pid_t original_pid;
 
