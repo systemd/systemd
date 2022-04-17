@@ -12,7 +12,8 @@ int enroll_fido2(
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                Fido2EnrollFlags lock_with) {
+                Fido2EnrollFlags lock_with,
+                int cred_alg) {
 
         _cleanup_(erase_and_freep) void *salt = NULL, *secret = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -42,6 +43,7 @@ int enroll_fido2(
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "drive-harddisk",
                         lock_with,
+                        cred_alg,
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,

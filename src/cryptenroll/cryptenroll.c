@@ -39,6 +39,11 @@ static size_t arg_n_wipe_slots = 0;
 static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
 static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
 static Fido2EnrollFlags arg_fido2_lock_with = FIDO2ENROLL_PIN | FIDO2ENROLL_UP;
+#if HAVE_LIBFIDO2
+static int arg_fido2_cred_alg = COSE_ES256;
+#else
+static int arg_fido2_cred_alg = 0;
+#endif
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
@@ -89,6 +94,8 @@ static int help(void) {
                "     --recovery-key    Enroll a recovery key\n"
                "     --pkcs11-token-uri=URI\n"
                "                       Specify PKCS#11 security token URI\n"
+               "     --fido2-credential-algorithm=STRING\n"
+               "                       Specify COSE algorithm for FIDO2 credential\n"
                "     --fido2-device=PATH\n"
                "                       Enroll a FIDO2-HMAC security token\n"
                "     --fido2-with-client-pin=BOOL\n"
@@ -129,6 +136,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_PIN,
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
+                ARG_FIDO2_CRED_ALG,
         };
 
         static const struct option options[] = {
@@ -137,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "password",                     no_argument,       NULL, ARG_PASSWORD         },
                 { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY     },
                 { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI },
+                { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG   },
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE     },
                 { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN   },
                 { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP    },
@@ -239,6 +248,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pkcs11_token_uri = TAKE_PTR(uri);
                         break;
                 }
+
+                case ARG_FIDO2_CRED_ALG:
+                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
+                        break;
 
                 case ARG_FIDO2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
@@ -566,7 +581,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_FIDO2:
-                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with);
+                slot = enroll_fido2(cd, vk, vks, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg);
                 break;
 
         case ENROLL_TPM2:

@@ -118,7 +118,8 @@ static int add_fido2_salt(
 int identity_add_fido2_parameters(
                 JsonVariant **v,
                 const char *device,
-                Fido2EnrollFlags lock_with) {
+                Fido2EnrollFlags lock_with,
+                int cred_alg) {
 
 #if HAVE_LIBFIDO2
         JsonVariant *un, *realm, *rn;
@@ -165,6 +166,7 @@ int identity_add_fido2_parameters(
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "user-home",
                         lock_with,
+                        cred_alg,
                         &cid, &cid_size,
                         &salt, &salt_size,
                         &secret, &secret_size,
