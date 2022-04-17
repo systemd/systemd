@@ -1452,6 +1452,30 @@ conf.set10('HAVE_ZSTD', have_zstd)
 
 conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
 
+compression = get_option('default-compression')
+if compression == 'auto'
+        if have_zstd
+                compression = 'zstd'
+        elif have_lz4
+                compression = 'lz4'
+        elif have_xz
+                compression = 'xz'
+        else
+                compression = 'none'
+        endif
+elif compression == 'zstd' and not have_zstd
+        error('default-compression=zstd requires zstd')
+elif compression == 'lz4' and not have_lz4
+        error('default-compression=lz4 requires lz4')
+elif compression == 'xz' and not have_xz
+        error('default-compression=xz requires xz')
+endif
+conf.set('OBJECT_COMPRESSED_NONE', 0)
+conf.set('OBJECT_COMPRESSED_XZ', 1)
+conf.set('OBJECT_COMPRESSED_LZ4', 2)
+conf.set('OBJECT_COMPRESSED_ZSTD', 4)
+conf.set('DEFAULT_COMPRESSION', 'OBJECT_COMPRESSED_@0@'.format(compression.to_upper()))
+
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
         libxkbcommon = dependency('xkbcommon',
