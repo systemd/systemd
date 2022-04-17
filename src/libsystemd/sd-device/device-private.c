@@ -791,28 +791,28 @@ int device_rename(sd_device *device, const char *name) {
         return device_add_property_internal(device, "INTERFACE", name);
 }
 
-int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
-        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
+int device_shallow_clone(sd_device *device, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
         const char *val = NULL;
         int r;
 
-        assert(old_device);
-        assert(new_device);
+        assert(device);
+        assert(ret);
 
-        r = device_new_aux(&ret);
+        r = device_new_aux(&dest);
         if (r < 0)
                 return r;
 
-        r = device_set_syspath(ret, old_device->syspath, false);
+        r = device_set_syspath(dest, device->syspath, false);
         if (r < 0)
                 return r;
 
-        (void) sd_device_get_subsystem(old_device, &val);
-        r = device_set_subsystem(ret, val);
+        (void) sd_device_get_subsystem(device, &val);
+        r = device_set_subsystem(dest, val);
         if (r < 0)
                 return r;
         if (streq_ptr(val, "drivers")) {
-                r = free_and_strdup(&ret->driver_subsystem, old_device->driver_subsystem);
+                r = free_and_strdup(&dest->driver_subsystem, device->driver_subsystem);
                 if (r < 0)
                         return r;
         }
@@ -820,48 +820,47 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
         /* The device may be already removed. Let's copy minimal set of information to make
          * device_get_device_id() work without uevent file. */
 
-        if (sd_device_get_property_value(old_device, "IFINDEX", &val) >= 0) {
-                r = device_set_ifindex(ret, val);
+        if (sd_device_get_property_value(device, "IFINDEX", &val) >= 0) {
+                r = device_set_ifindex(dest, val);
                 if (r < 0)
                         return r;
         }
 
-        if (sd_device_get_property_value(old_device, "MAJOR", &val) >= 0) {
+        if (sd_device_get_property_value(device, "MAJOR", &val) >= 0) {
                 const char *minor = NULL;
 
-                (void) sd_device_get_property_value(old_device, "MINOR", &minor);
-                r = device_set_devnum(ret, val, minor);
+                (void) sd_device_get_property_value(device, "MINOR", &minor);
+                r = device_set_devnum(dest, val, minor);
                 if (r < 0)
                         return r;
         }
 
-        r = device_read_uevent_file(ret);
+        r = device_read_uevent_file(dest);
         if (r < 0)
                 return r;
 
-        *new_device = TAKE_PTR(ret);
+        *ret = TAKE_PTR(dest);
         return 0;
 }
 
-int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
-        _cleanup_(sd_device_unrefp) sd_device *ret = NULL;
+int device_clone_with_db(sd_device *device, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
         int r;
 
-        assert(old_device);
-        assert(new_device);
+        assert(device);
+        assert(ret);
 
-        r = device_shallow_clone(old_device, &ret);
+        r = device_shallow_clone(device, &dest);
         if (r < 0)
                 return r;
 
-        r = device_read_db(ret);
+        r = device_read_db(dest);
         if (r < 0)
                 return r;
 
-        ret->sealed = true;
+        dest->sealed = true;
 
-        *new_device = TAKE_PTR(ret);
-
+        *ret = TAKE_PTR(dest);
         return 0;
 }
 
