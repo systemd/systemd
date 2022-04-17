@@ -747,20 +747,28 @@ int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
 }
 
 int device_rename(sd_device *device, const char *name) {
-        _cleanup_free_ char *dirname = NULL;
-        const char *new_syspath, *interface;
+        _cleanup_free_ char *new_syspath = NULL;
+        const char *interface;
         int r;
 
         assert(device);
         assert(name);
 
-        dirname = dirname_malloc(device->syspath);
-        if (!dirname)
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        r = path_extract_directory(device->syspath, &new_syspath);
+        if (r < 0)
+                return r;
+
+        if (!path_extend(&new_syspath, name))
                 return -ENOMEM;
 
-        new_syspath = prefix_roota(dirname, name);
+        if (!path_is_safe(new_syspath))
+                return -EINVAL;
 
-        /* the user must trust that the new name is correct */
+        /* At the time this is called, the renamed device may not exist yet. Hence, we cannot validate
+         * the new syspath. */
         r = device_set_syspath(device, new_syspath, false);
         if (r < 0)
                 return r;
