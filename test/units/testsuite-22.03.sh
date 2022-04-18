@@ -186,6 +186,7 @@ test ! -e /tmp/F/daemon/unsafe-symlink/exploit
 # 'w'
 #
 touch /tmp/w/overwritten
+touch /tmp/w/appended
 
 ### nop if the target does not exist.
 systemd-tmpfiles --create - <<EOF
@@ -205,12 +206,21 @@ EOF
 test -f /tmp/w/overwritten
 test "$(< /tmp/w/overwritten)" = "old content"
 
-### new content is overwritten
+### old content is overwritten
 systemd-tmpfiles --create - <<EOF
 w     /tmp/w/overwritten    0644 - - - new content
 EOF
 test -f /tmp/w/overwritten
 test "$(< /tmp/w/overwritten)" = "new content"
+
+### append lines
+systemd-tmpfiles --create - <<EOF
+w+    /tmp/w/appended    0644 - - - 1
+w+    /tmp/w/appended    0644 - - - 2\n
+w+    /tmp/w/appended    0644 - - - 3
+EOF
+test -f /tmp/w/appended
+test "$(< /tmp/w/appended)" = "$(echo -ne '12\n3')"
 
 ### writing into an 'exotic' file should be allowed.
 systemd-tmpfiles --create - <<EOF

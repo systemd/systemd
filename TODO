@@ -78,6 +78,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-stub: set efi var indicating stub features, i.e. whether they pick up
+  creds, sysexts and so on. similar to existing variable of sd-boot
+
+* sd-stub: set efi vars declaring TPM PCRs we measured creds/cmdline + sysext
+  into (even if we hardcode them)
+
 * systemd-fstab-generator: support addition mount specifications via kernel
   cmdline. Usecase: invoke a VM, and mount a host homedir into it via
   virtio-fs.
@@ -163,9 +169,6 @@ Features:
 * sd-device should return the devnum type (i.e. 'b' or 'c') via some API for an
   sd_device object, so that data passed into sd_device_new_from_devnum() can
   also be queried.
-
-* udevadm: a new "tree" verb that shows tree of devices as syspath hierarchy,
-  along with their properties. uninitialized devices should be greyed out.
 
 * bootctl: show whether UEFI audit mode is available
 
@@ -441,11 +444,6 @@ Features:
   https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
   for doing that.
 
-* pass systemd-detect-virt result to generators as env var. Modifying behaviour
-  based on whether we are virtualized or not is a pretty common thing, hence
-  maybe just pass that info along for free in an env var. We cache the result
-  anyway, so it's basically free.
-
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
   disk the rootfs is on in a reasonably secure way. (or maybe: add
   /dev/gpt-auto-{home,srv,boot,…} similar in style to /dev/gpt-auto-root as we
@@ -458,6 +456,13 @@ Features:
   system paths at service startup time and pass them to the service process via
   our usual socket activation protocol. If passed path refers to AF_UNIX
   socket: connect() to it.
+
+* Similar, ConnectStream= which takes IP addresses and connects to them.
+
+* Similar, Load= which takes literal data in text or base64 format, and puts it
+  into a memfd, and passes that. This enables some fun stuff, such as embedding
+  bash scripts in unit files, by combining Load= with ExecStart=/bin/bash
+  /proc/self/fd/3
 
 * add a ConnectSocket= setting to service unit files, that may reference a
   socket unit, and which will connect to the socket defined therein, and pass

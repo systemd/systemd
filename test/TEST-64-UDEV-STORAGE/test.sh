@@ -42,6 +42,9 @@ _host_has_feature() {(
         lvm)
             command -v lvm || return $?
             ;;
+        mdadm)
+            command -v mdadm || return $?
+            ;;
         multipath)
             command -v multipath && command -v multipathd || return $?
             ;;
@@ -64,6 +67,7 @@ test_append_files() {(
         [btrfs]=install_btrfs
         [iscsi]=install_iscsi
         [lvm]=install_lvm
+        [mdadm]=install_mdadm
         [multipath]=install_multipath
     )
 
@@ -444,6 +448,57 @@ EOF
     rm -f "${testdisk:?}"
 }
 
+testcase_mdadm_basic() {
+    if ! _host_has_feature "mdadm"; then
+        echo "Missing mdadm tools/modules, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath i size
+
+    for i in {0..4}; do
+        diskpath="${TESTDIR:?}/mdadmbasic${i}.img"
+
+        dd if=/dev/zero of="$diskpath" bs=1M count=64
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadm$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/mdadmbasic*.img
+}
+
+testcase_mdadm_lvm() {
+    if ! _host_has_feature "mdadm" || ! _host_has_feature "lvm"; then
+        echo "Missing mdadm tools/modules or LVM tools, skipping the test..."
+        return 77
+    fi
+
+    local qemu_opts=("-device ahci,id=ahci0")
+    local diskpath i size
+
+    for i in {0..4}; do
+        diskpath="${TESTDIR:?}/mdadmlvm${i}.img"
+
+        dd if=/dev/zero of="$diskpath" bs=1M count=64
+        qemu_opts+=(
+            "-device ide-hd,bus=ahci0.$i,drive=drive$i,model=foobar,serial=deadbeefmdadmlvm$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}" || return $?
+
+    rm -f "${TESTDIR:?}"/mdadmlvm*.img
+}
 # Allow overriding which tests should be run from the "outside", useful for manual
 # testing (make -C test/... TESTCASES="testcase1 testcase2")
 if [[ -v "TESTCASES" && -n "$TESTCASES" ]]; then

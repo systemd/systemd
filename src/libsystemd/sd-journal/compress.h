@@ -18,15 +18,15 @@ int compress_blob_zstd(const void *src, uint64_t src_size,
 static inline int compress_blob(const void *src, uint64_t src_size,
                                 void *dst, size_t dst_alloc_size, size_t *dst_size) {
         int r;
-#if HAVE_ZSTD
+#if DEFAULT_COMPRESSION == OBJECT_COMPRESSED_ZSTD
         r = compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_ZSTD;
-#elif HAVE_LZ4
+#elif DEFAULT_COMPRESSION == OBJECT_COMPRESSED_LZ4
         r = compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_LZ4;
-#elif HAVE_XZ
+#elif DEFAULT_COMPRESSION == OBJECT_COMPRESSED_XZ
         r = compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_XZ;
@@ -72,13 +72,13 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
-#if HAVE_ZSTD
+#if DEFAULT_COMPRESSION == OBJECT_COMPRESSED_ZSTD
 #  define compress_stream compress_stream_zstd
 #  define COMPRESSED_EXT ".zst"
-#elif HAVE_LZ4
+#elif DEFAULT_COMPRESSION == OBJECT_COMPRESSED_LZ4
 #  define compress_stream compress_stream_lz4
 #  define COMPRESSED_EXT ".lz4"
-#elif HAVE_XZ
+#elif DEFAULT_COMPRESSION == OBJECT_COMPRESSED_XZ
 #  define compress_stream compress_stream_xz
 #  define COMPRESSED_EXT ".xz"
 #else

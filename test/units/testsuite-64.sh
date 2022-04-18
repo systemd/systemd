@@ -515,6 +515,7 @@ testcase_long_sysfs_path() {
     echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
     systemctl daemon-reload
     mount "$mpoint"
+    systemctl status "$mpoint"
     test -e "$mpoint/test"
     umount "$mpoint"
 
@@ -525,13 +526,181 @@ testcase_long_sysfs_path() {
     udevadm settle
 
     logfile="$(mktemp)"
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name"
+    [[ "$(journalctl -b -q --no-pager -o short-monotonic -p info --grep "Device path.*vda.?' too long to fit into unit name" | wc -l)" -eq 0 ]]
     # Make sure we don't unnecessarily spam the log
-    journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service | tee "$logfile"
+    { journalctl -b -q --no-pager -o short-monotonic -p info --grep "/sys/devices/.+/vda[0-9]?" _PID=1 + UNIT=systemd-udevd.service || :;} | tee "$logfile"
     [[ "$(wc -l <"$logfile")" -lt 10 ]]
 
     : >/etc/fstab
     rm -fr "${logfile:?}" "${mpoint:?}"
+}
+
+testcase_mdadm_basic() {
+    local i part_name raid_name raid_dev uuid
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..4}
+    )
+
+    ls -l "${devices[@]}"
+
+    echo "Mirror raid (RAID 1)"
+    raid_name="mdmirror"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000001"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a simple RAID 1 with an ext4 filesystem
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..1} -v -f --level=1 --raid-devices=2
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
+    helper_check_device_symlinks
+    # Cleanup
+    mdadm -v --stop "$raid_dev"
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+
+    echo "Parity raid (RAID 5)"
+    raid_name="mdparity"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00000101"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a simple RAID 5 with an ext4 filesystem
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..2} -v -f --level=5 --raid-devices=3
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    mkfs.ext4 -L "$part_name" "$raid_dev"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
+    helper_check_device_symlinks
+    # Cleanup
+    mdadm -v --stop "$raid_dev"
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+
+    echo "Mirror + parity raid (RAID 10) + multiple partitions"
+    raid_name="mdmirpar"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    uuid="aaaaaaaa:bbbbbbbb:cccccccc:00001010"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+        # Partitions
+        "${raid_dev}1"
+        "${raid_dev}2"
+        "${raid_dev}3"
+        "/dev/disk/by-id/md-name-H:$raid_name-part1"
+        "/dev/disk/by-id/md-name-H:$raid_name-part2"
+        "/dev/disk/by-id/md-name-H:$raid_name-part3"
+        "/dev/disk/by-id/md-uuid-$uuid-part1"
+        "/dev/disk/by-id/md-uuid-$uuid-part2"
+        "/dev/disk/by-id/md-uuid-$uuid-part3"
+    )
+    # Create a simple RAID 10 with an ext4 filesystem
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadm{0..3} -v -f --level=10 --raid-devices=4
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    # Partition the raid device
+    # Here, 'udevadm lock' is meaningless, as udevd does not lock MD devices.
+    sfdisk --wipe=always "$raid_dev" <<EOF
+label: gpt
+
+uuid="deadbeef-dead-dead-beef-111111111111", name="mdpart1", size=8M
+uuid="deadbeef-dead-dead-beef-222222222222", name="mdpart2", size=32M
+uuid="deadbeef-dead-dead-beef-333333333333", name="mdpart3", size=16M
+EOF
+    udevadm wait --settle --timeout=30 "/dev/disk/by-id/md-uuid-$uuid-part2"
+    mkfs.ext4 -L "$part_name" "/dev/disk/by-id/md-uuid-$uuid-part2"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    for i in {0..9}; do
+        echo "Disassemble - reassemble loop, iteration #$i"
+        mdadm -v --stop "$raid_dev"
+        udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    done
+    helper_check_device_symlinks
+    # Cleanup
+    mdadm -v --stop "$raid_dev"
+    # Check if all expected symlinks were removed after the cleanup
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+}
+
+testcase_mdadm_lvm() {
+    local part_name raid_name raid_dev uuid vgroup
+    local expected_symlinks=()
+    local devices=(
+        /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..4}
+    )
+
+    ls -l "${devices[@]}"
+
+    raid_name="mdlvm"
+    raid_dev="/dev/md/$raid_name"
+    part_name="${raid_name}_part"
+    vgroup="${raid_name}_vg"
+    uuid="aaaaaaaa:bbbbbbbb:ffffffff:00001010"
+    expected_symlinks=(
+        "$raid_dev"
+        "/dev/$vgroup/mypart1"          # LVM partition
+        "/dev/$vgroup/mypart2"          # LVM partition
+        "/dev/disk/by-id/md-name-H:$raid_name"
+        "/dev/disk/by-id/md-uuid-$uuid"
+        "/dev/disk/by-label/$part_name" # ext4 partition
+    )
+    # Create a RAID 10 with LVM + ext4
+    echo y | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/ata-foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
+    udevadm wait --settle --timeout=30 "$raid_dev"
+    # Create an LVM on the MD
+    lvm pvcreate -y "$raid_dev"
+    lvm pvs
+    lvm vgcreate "$vgroup" -y "$raid_dev"
+    lvm vgs
+    lvm vgchange -ay "$vgroup"
+    lvm lvcreate -y -L 4M "$vgroup" -n mypart1
+    lvm lvcreate -y -L 8M "$vgroup" -n mypart2
+    lvm lvs
+    udevadm wait --settle --timeout=30 "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
+    mkfs.ext4 -L "$part_name" "/dev/$vgroup/mypart2"
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    # Disassemble the array
+    lvm vgchange -an "$vgroup"
+    mdadm -v --stop "$raid_dev"
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+    # Reassemble it and check if all required symlinks exist
+    mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
+    helper_check_device_symlinks
+    # Cleanup
+    lvm vgchange -an "$vgroup"
+    mdadm -v --stop "$raid_dev"
+    # Check if all expected symlinks were removed after the cleanup
+    udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
 }
 
 : >/failed

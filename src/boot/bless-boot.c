@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bootspec.h"
+#include "devnum-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
@@ -16,7 +17,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "stat-util.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -121,7 +121,7 @@ static int acquire_path(void) {
                                        "Couldn't find $BOOT partition. It is recommended to mount it to /boot.\n"
                                        "Alternatively, use --path= to specify path to mount point.");
 
-        if (esp_path && xbootldr_path && !devid_set_and_equal(esp_devid, xbootldr_devid)) /* in case the two paths refer to the same inode, suppress one */
+        if (esp_path && xbootldr_path && !devnum_set_and_equal(esp_devid, xbootldr_devid)) /* in case the two paths refer to the same inode, suppress one */
                 a = strv_new(esp_path, xbootldr_path);
         else if (esp_path)
                 a = strv_new(esp_path);

@@ -7,6 +7,7 @@
 #include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
 
+#include "af-list.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
 #include "missing_network.h"
@@ -737,6 +738,20 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
+static int unset_local(Tunnel *t) {
+        assert(t);
+
+        /* Unset the previous assignment. */
+        t->local = IN_ADDR_NULL;
+        t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
+
+        /* If the remote address is not specified, also clear the address family. */
+        if (!in_addr_is_set(t->family, &t->remote))
+                t->family = AF_UNSPEC;
+
+        return 0;
+}
+
 int config_parse_tunnel_local_address(
                 const char *unit,
                 const char *filename,
@@ -759,16 +774,8 @@ int config_parse_tunnel_local_address(
         assert(rvalue);
         assert(userdata);
 
-        if (isempty(rvalue) || streq(rvalue, "any")) {
-                /* Unset the previous assignment. */
-                t->local = IN_ADDR_NULL;
-                t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
-
-                /* If the remote address is not specified, also clear the address family. */
-                if (!in_addr_is_set(t->family, &t->remote))
-                        t->family = AF_UNSPEC;
-                return 0;
-        }
+        if (isempty(rvalue) || streq(rvalue, "any"))
+                return unset_local(t);
 
         type = netdev_local_address_type_from_string(rvalue);
         if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV4LL, NETDEV_LOCAL_ADDRESS_DHCP4))
@@ -783,6 +790,9 @@ int config_parse_tunnel_local_address(
                                    "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
                         return 0;
                 }
+
+                if (in_addr_is_null(f, &buffer))
+                        return unset_local(t);
         }
 
         if (t->family != AF_UNSPEC && t->family != f) {
@@ -794,6 +804,20 @@ int config_parse_tunnel_local_address(
         t->family = f;
         t->local = buffer;
         t->local_type = type;
+        return 0;
+}
+
+static int unset_remote(Tunnel *t) {
+        assert(t);
+
+        /* Unset the previous assignment. */
+        t->remote = IN_ADDR_NULL;
+
+        /* If the local address is not specified, also clear the address family. */
+        if (t->local_type == _NETDEV_LOCAL_ADDRESS_TYPE_INVALID &&
+            !in_addr_is_set(t->family, &t->local))
+                t->family = AF_UNSPEC;
+
         return 0;
 }
 
@@ -818,16 +842,8 @@ int config_parse_tunnel_remote_address(
         assert(rvalue);
         assert(userdata);
 
-        if (isempty(rvalue) || streq(rvalue, "any")) {
-                /* Unset the previous assignment. */
-                t->remote = IN_ADDR_NULL;
-
-                /* If the local address is not specified, also clear the address family. */
-                if (t->local_type == _NETDEV_LOCAL_ADDRESS_TYPE_INVALID &&
-                    !in_addr_is_set(t->family, &t->local))
-                        t->family = AF_UNSPEC;
-                return 0;
-        }
+        if (isempty(rvalue) || streq(rvalue, "any"))
+                return unset_remote(t);
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
@@ -835,6 +851,9 @@ int config_parse_tunnel_remote_address(
                            "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
                 return 0;
         }
+
+        if (in_addr_is_null(f, &buffer))
+                return unset_remote(t);
 
         if (t->family != AF_UNSPEC && t->family != f) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
