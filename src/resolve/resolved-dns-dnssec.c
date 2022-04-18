@@ -778,8 +778,7 @@ static hash_md_t algorithm_to_implementation_id(uint8_t algorithm) {
 static void dnssec_fix_rrset_ttl(
                 DnsResourceRecord *list[],
                 unsigned n,
-                DnsResourceRecord *rrsig,
-                usec_t realtime) {
+                DnsResourceRecord *rrsig) {
 
         assert(list);
         assert(n > 0);
@@ -1109,7 +1108,7 @@ int dnssec_verify_rrset(
 
         /* Now, fix the ttl, expiry, and remember the synthesizing source and the signer */
         if (r > 0)
-                dnssec_fix_rrset_ttl(list, n, rrsig, realtime);
+                dnssec_fix_rrset_ttl(list, n, rrsig);
 
         if (r == 0)
                 *result = DNSSEC_INVALID;
