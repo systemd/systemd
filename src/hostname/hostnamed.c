@@ -208,19 +208,19 @@ static int get_hardware_model(char **ret) {
         return get_dmi_data("ID_MODEL_FROM_DATABASE", "ID_MODEL", ret);
 }
 
-static int get_hardware_firmware_data(const char *dmi_data, char **ret) {
+static int get_hardware_firmware_data(const char *sysattr, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *b = NULL;
         const char *s = NULL;
         int r;
 
-        assert(dmi_data);
+        assert(sysattr);
 
         r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
         if (r < 0)
                 return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
 
-        (void) sd_device_get_sysattr_value(device, dmi_data, &s);
+        (void) sd_device_get_sysattr_value(device, sysattr, &s);
         if (!isempty(s)) {
                 b = strdup(s);
                 if (!b)
@@ -237,7 +237,7 @@ static int get_hardware_serial(char **ret) {
          int r;
 
          r = get_hardware_firmware_data("product_serial", ret);
-         if (r < 0)
+         if (r <= 0)
                 return get_hardware_firmware_data("board_serial", ret);
 
          return r;
@@ -621,6 +621,7 @@ static int property_get_firmware_version(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
+
         _cleanup_free_ char *firmware_version = NULL;
         int r;
 

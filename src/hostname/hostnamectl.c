@@ -308,7 +308,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)        },
                 { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor) },
                 { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)  },
-                { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version)},
+                { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version) },
                 {}
         };
 
