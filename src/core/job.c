@@ -605,7 +605,7 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
         assert(t < _JOB_TYPE_MAX);
 
         /* Show condition check message if the job did not actually do anything due to failed condition. */
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result)
+        if (t == JOB_START && result == JOB_SKIPPED && !u->condition_result)
                 return "Condition check resulted in %s being skipped.";
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
@@ -657,7 +657,7 @@ static const struct {
 static const char* job_done_mid(JobType type, JobResult result) {
         switch (type) {
         case JOB_START:
-                if (result == JOB_DONE)
+                if (IN_SET(result, JOB_DONE, JOB_SKIPPED))
                         return "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR;
                 else
                         return "MESSAGE_ID=" SD_MESSAGE_UNIT_FAILED_STR;
@@ -695,7 +695,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
         bool do_console = t != JOB_RELOAD && status;
         bool console_only = do_console && log_on_console();
 
-        if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
+        if (t == JOB_START && result == JOB_SKIPPED && !u->condition_result) {
                 /* No message on the console if the job did not actually do anything due to failed condition. */
                 if (console_only)
                         return;
@@ -708,7 +708,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                 Condition *c;
                 const char *mid = job_done_mid(t, result);  /* mid may be NULL. log_unit_struct() will ignore it. */
 
-                c = t == JOB_START && result == JOB_DONE ? unit_find_failed_condition(u) : NULL;
+                c = t == JOB_START && result == JOB_SKIPPED ? unit_find_failed_condition(u) : NULL;
                 if (c) {
                         /* Special case units that were skipped because of a failed condition check so that
                          * we can add more information to the message. */
@@ -760,7 +760,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
 
                 DISABLE_WARNING_FORMAT_NONLITERAL;
                 unit_status_printf(u,
-                                   result == JOB_DONE ? STATUS_TYPE_NORMAL : STATUS_TYPE_NOTICE,
+                                   IN_SET(result, JOB_DONE, JOB_SKIPPED) ? STATUS_TYPE_NORMAL : STATUS_TYPE_NOTICE,
                                    status, format, ident);
                 REENABLE_WARNING;
 
@@ -889,8 +889,8 @@ int job_run_and_invalidate(Job *j) {
                         job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
                 else if (r == -EALREADY) /* already being executed */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, true);
-                else if (r == -ECOMM)
-                        r = job_finish_and_invalidate(j, JOB_DONE, true, false);
+                else if (r == -ECOMM)    /* condition failed, but all is good. Return 'skipped'. */
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
                 else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
                 else if (r == -ENOEXEC)
@@ -948,7 +948,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 job_emit_done_message(u, j->id, t, result);
 
         /* Patch restart jobs so that they become normal start jobs */
-        if (result == JOB_DONE && t == JOB_RESTART) {
+        if (IN_SET(result, JOB_DONE, JOB_SKIPPED) && t == JOB_RESTART) {
 
                 job_change_type(j, JOB_START);
                 job_set_state(j, JOB_WAITING);
@@ -967,7 +967,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         job_free(j);
 
         /* Fail depending jobs on failure */
-        if (result != JOB_DONE && recursive) {
+        if (!IN_SET(result, JOB_DONE, JOB_SKIPPED) && recursive) {
                 if (IN_SET(t, JOB_START, JOB_VERIFY_ACTIVE))
                         job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_START_FAILURE);
                 else if (t == JOB_STOP)
@@ -981,17 +981,17 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
          * directly from activating to inactive is success.
          *
          * This happens when you use ConditionXYZ= in a unit too, since in that case the job completes with
-         * the JOB_DONE result, but the unit never really becomes active. Note that such a case still
+         * the JOB_SKIPPED result, but the unit never really becomes active. Note that such a case still
          * involves merging:
          *
          * A start job waits for something else, and a verify-active comes in and merges in the installed
-         * job. Then, later, when it becomes runnable, it finishes with JOB_DONE result as execution on
+         * job. Then, later, when it becomes runnable, it finishes with JOB_SKIPPED result as execution on
          * conditions not being met is skipped, breaking our dependency semantics.
          *
          * Also, depending on if start job waits or not, the merging may or may not happen (the verify-active
          * job may trigger after it finishes), so you get undeterministic results without this check.
          */
-        if (result == JOB_DONE && recursive &&
+        if (IN_SET(result, JOB_DONE, JOB_SKIPPED) && recursive &&
             IN_SET(t, JOB_START, JOB_RELOAD) &&
             !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
                 job_fail_dependencies(u, UNIT_ATOM_PROPAGATE_INACTIVE_START_AS_FAILURE);
