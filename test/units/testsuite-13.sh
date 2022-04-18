@@ -120,6 +120,23 @@ function check_selinux {
     systemd-nspawn "${SUSE_OPTS[@]}" --register=no -b -D /testsuite-13.nc-container --selinux-apifs-context=system_u:object_r:container_file_t:s0:c0,c1 --selinux-context=system_u:system_r:container_t:s0:c0,c1
 }
 
+function check_ephemeral_config {
+    # https://github.com/systemd/systemd/issues/13297
+    local _cmd='test -f /tmp/ephemeral-config'
+
+    mkdir -p /run/systemd/nspawn/
+    cat >/run/systemd/nspawn/testsuite-13.nc-container.nspawn <<EOF
+[Files]
+BindReadOnly=/tmp/ephemeral-config
+EOF
+    touch /tmp/ephemeral-config
+
+    # /testsuite-13.nc-container is prepared by test.sh
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --ephemeral /bin/sh -x -c "$_cmd"
+
+    rm -f /run/systemd/nspawn/testsuite-13.nc-container.nspawn
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -205,5 +222,7 @@ done
 check_machinectl_bind
 
 check_selinux
+
+check_ephemeral_config
 
 touch /testok
