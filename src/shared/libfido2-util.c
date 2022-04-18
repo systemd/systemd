@@ -450,6 +450,19 @@ static int fido2_use_hmac_hash_specific_token(
         return 0;
 }
 
+static const char *fido2_algorithm_to_string(int alg) {
+        switch(alg) {
+                case COSE_ES256:
+                        return "ES256";
+                case COSE_RS256:
+                        return "RS256";
+                case COSE_EDDSA:
+                        return "EDDSA";
+                default:
+                        return NULL;
+        }
+}
+
 int fido2_use_hmac_hash(
                 const char *device,
                 const char *rp_id,
@@ -532,6 +545,7 @@ int fido2_generate_hmac_hash(
                 const char *user_icon,
                 const char *askpw_icon_name,
                 Fido2EnrollFlags lock_with,
+                int cred_alg,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_salt, size_t *ret_salt_size,
                 void **ret_secret, size_t *ret_secret_size,
@@ -628,10 +642,10 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set FIDO2 credential relying party ID/name: %s", sym_fido_strerr(r));
 
-        r = sym_fido_cred_set_type(c, COSE_ES256);
+        r = sym_fido_cred_set_type(c, cred_alg);
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 credential type to ES256: %s", sym_fido_strerr(r));
+                                       "Failed to set FIDO2 credential type to %s: %s", fido2_algorithm_to_string(cred_alg), sym_fido_strerr(r));
 
         r = sym_fido_cred_set_user(
                         c,
@@ -1124,3 +1138,24 @@ finish:
                                "FIDO2 tokens not supported on this build.");
 #endif
 }
+
+#if HAVE_LIBFIDO2
+int parse_fido2_algorithm(const char *s, int *ret) {
+        int a;
+
+        assert(s);
+
+        if (streq(s, "ES256"))
+                a = COSE_ES256;
+        else if(streq(s, "RS256"))
+                a = COSE_RS256;
+        else if(streq(s, "EDDSA"))
+                a = COSE_EDDSA;
+        else
+                return -EINVAL;
+
+        if (ret)
+                *ret = a;
+        return 0;
+}
+#endif
