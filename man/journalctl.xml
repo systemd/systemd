@@ -409,6 +409,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--strip</option></term>
+
+        <listitem><para>Strip each message so that only the first line is
+        displayed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--utc</option></term>
 
         <listitem><para>Express time in Coordinated Universal Time
@@ -530,6 +538,18 @@
         <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
 
         <listitem><para>Show messages for the specified syslog
+        identifier
+        <replaceable>SYSLOG_IDENTIFIER</replaceable>.</para>
+
+        <para>This parameter can be specified multiple
+        times.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--exclude=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
+
+        <listitem><para>Exclude messages for the specified syslog
         identifier
         <replaceable>SYSLOG_IDENTIFIER</replaceable>.</para>
 

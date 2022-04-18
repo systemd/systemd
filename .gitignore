@@ -9,6 +9,7 @@
 .deps/
 .mypy_cache/
 __pycache__/
+cscope*
 /*.gcda
 /*.gcno
 /*.tar.bz2
