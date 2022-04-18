@@ -51,6 +51,7 @@ typedef struct StatusInfo {
         const char *home_url;
         const char *hardware_vendor;
         const char *hardware_model;
+        const char *firmware_version;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -235,6 +236,14 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (!isempty(i->firmware_version)) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Firmware Version:",
+                                   TABLE_STRING, i->firmware_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
@@ -299,6 +308,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)        },
                 { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor) },
                 { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)  },
+                { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version)},
                 {}
         };
 
