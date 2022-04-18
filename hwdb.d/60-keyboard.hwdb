@@ -1932,6 +1932,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnViewSonic:pnVPAD10:*
  KEYBOARD_KEY_dd=back                                   # Second button labeled Back
 
 ###########################################################
+# Positivo-Vaio
+###########################################################
+# Vaio FE14
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:pnVJFE41F11*:pvr*:*
+ KEYBOARD_KEY_76=f21		                     # Fn+F1 toggle touchpad
+
+###########################################################
 # Other
 ###########################################################
 
