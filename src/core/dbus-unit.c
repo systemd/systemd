@@ -1771,9 +1771,6 @@ int bus_unit_queue_job_one(
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RETURN_SKIP_ON_CONDITION_FAIL))
-                j->return_skip_on_cond_failure = true;
-
         r = bus_job_track_sender(j, message);
         if (r < 0)
                 return r;
