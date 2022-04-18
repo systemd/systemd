@@ -269,6 +269,9 @@ All tools:
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
 
+* `$SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL` — always send the legacy `JobRemoved`
+  signal, even if all clients called `SubscribeWithFlags` instead of `Subscribe`.
+
 `systemd-remount-fs`:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory

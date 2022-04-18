@@ -276,6 +276,7 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
 
         assert(bus);
         assert(j);
+        assert(j->manager);
 
         p = job_dbus_path(j);
         if (!p)
@@ -286,11 +287,46 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
                         &m,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "JobRemoved");
+                        "JobRemovedEx");
         if (r < 0)
                 return r;
 
         r = sd_bus_message_append(m, "uoss", j->id, p, j->unit->id, job_result_to_string(j->result));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(m, 'y', &j->unit->invocation_id, sizeof(sd_id128_t));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0)
+                return r;
+
+        /* Only send out legacy signal if there is at least one subscriber who asked for it. */
+        if (j->manager->n_legacy_subscribers == 0)
+                return 0;
+
+        m = sd_bus_message_unref(m);
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        &m,
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "JobRemoved");
+        if (r < 0)
+                return r;
+
+        /* The old JobRemoved signal never returns 'skipped' as a result, unless the job was about a device
+         * unit, for backward-compatibility reasons. */
+        JobResult result;
+        if (j->result == JOB_SKIPPED && j->unit->type != UNIT_DEVICE)
+                result = JOB_DONE;
+        else
+                result = j->result;
+
+        r = sd_bus_message_append(m, "uoss", j->id, p, j->unit->id, job_result_to_string(result));
         if (r < 0)
                 return r;
 

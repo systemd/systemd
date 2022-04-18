@@ -859,6 +859,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         m->ctrl_alt_del_ratelimit = (RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
 
+        if (getenv_bool_secure("SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL") > 0)
+                m->n_legacy_subscribers++;
+
         r = manager_default_environment(m);
         if (r < 0)
                 return r;

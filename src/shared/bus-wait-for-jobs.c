@@ -5,6 +5,7 @@
 #include "set.h"
 #include "bus-util.h"
 #include "bus-internal.h"
+#include "bus-locator.h"
 #include "unit-def.h"
 #include "escape.h"
 #include "strv.h"
@@ -48,6 +49,12 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return 0;
         }
 
+        if (sd_bus_message_is_signal(m, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(m, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
         found = set_remove(d->jobs, (char*) path);
         if (!found)
                 return 0;
@@ -78,12 +85,37 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
+int bus_subscribe_with_flags_cached(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        static int cached = -1;
+        int r;
+
+        assert(bus);
+
+        if (cached >= 0)
+                return cached;
+
+        r = bus_call_method(bus,
+                        bus_systemd_mgr,
+                        "SubscribeWithFlags",
+                        &error, &reply, "t", 0);
+        if (r < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return log_error_errno(r, "Failed to call SubscribeWithFlags: %s", bus_error_message(&error, r));
+
+        return cached = r >= 0;
+}
+
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *d = NULL;
+        bool new_signal_available = false;
         int r;
 
         assert(bus);
         assert(ret);
+
+        r = bus_subscribe_with_flags_cached(bus);
+        new_signal_available = r > 0;
 
         d = new(BusWaitForJobs, 1);
         if (!d)
@@ -102,7 +134,7 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
                         bus->bus_client ? "org.freedesktop.systemd1" : NULL,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
+                        new_signal_available ? "JobRemovedEx" : "JobRemoved",
                         match_job_removed, NULL, d);
         if (r < 0)
                 return r;
