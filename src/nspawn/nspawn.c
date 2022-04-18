@@ -4604,8 +4604,7 @@ static int merge_settings(Settings *settings, const char *path) {
 static int load_settings(void) {
         _cleanup_(settings_freep) Settings *settings = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
-        const char *fn;
+        _cleanup_free_ char *p = NULL, *fn = NULL;
         int r;
 
         if (arg_oci_bundle)
@@ -4616,7 +4615,19 @@ static int load_settings(void) {
         if (FLAGS_SET(arg_settings_mask, _SETTINGS_MASK_ALL))
                 return 0;
 
-        fn = strjoina(arg_machine, ".nspawn");
+        /* In ephemeral mode we append '-' and a random 16 characters string to the image name, so fixed
+         * config files are no longer matched. Ignore the random suffix for the purpose of finding files. */
+        if (arg_ephemeral) {
+                fn = strdup(arg_machine);
+                if (!fn)
+                        return log_oom();
+                assert(strlen(fn) > 17); /* Should end with -XXXXXXXXXXXXXXXX */
+                strcpy(fn + strlen(fn) - 17, ".nspawn");
+        } else {
+                fn = strjoin(arg_machine, ".nspawn");
+                if (!fn)
+                        return log_oom();
+        }
 
         /* We first look in the admin's directories in /etc and /run */
         FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
