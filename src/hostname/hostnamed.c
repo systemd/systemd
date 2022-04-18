@@ -1158,7 +1158,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
-                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmwareversion = NULL;
+                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
@@ -1222,7 +1222,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 (void) id128_get_product(&product_uuid);
                 (void) get_hardware_serial(&serial);
         }
-        (void) get_firmware_version(&firmwareversion);
+        (void) get_firmware_version(&firmware_version);
 
         r = json_build(&v, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
@@ -1243,7 +1243,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
                                        JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
-                                       JSON_BUILD_PAIR("FirmwareVersion", JSON_BUILD_STRING(firmwareversion)),
+                                       JSON_BUILD_PAIR("FirmwareVersion", JSON_BUILD_STRING(firmware_version)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
 
