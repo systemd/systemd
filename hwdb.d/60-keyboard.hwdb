@@ -154,6 +154,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:*
  KEYBOARD_KEY_e0=!pageup
 
+# Acer Aspire One AO532h
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO532h:*
+ KEYBOARD_KEY_84=bluetooth
+ KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
+
 # Predator PH 315-52
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
  KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
