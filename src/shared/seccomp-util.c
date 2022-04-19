@@ -718,6 +718,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "capget\0"      /* Able to query arbitrary processes */
                 "clone\0"
+                /* ia64 as the only architecture has clone2, a replacement for clone, but ia64 doesn't
+                 * implement seccomp, so we don't need to list it at all. C.f.
+                 * acce2f71779c54086962fefce3833d886c655f62 in the kernel. */
                 "clone3\0"
                 "execveat\0"
                 "fork\0"
@@ -1226,6 +1229,21 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
                         return r;
+
+                /* We cannot filter on individual flags to clone3(), and we need to disable the
+                 * syscall altogether. ENOSYS is used instead of EPERM, so that glibc and other
+                 * users shall fall back to clone(), as if on an older kernel.
+                 *
+                 * C.f. https://github.com/flatpak/flatpak/commit/a10f52a7565c549612c92b8e736a6698a53db330,
+                 * https://github.com/moby/moby/issues/42680. */
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(ENOSYS),
+                                SCMP_SYS(clone3),
+                                0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add clone3() rule for architecture %s, ignoring: %m", seccomp_arch_to_string(arch));
 
                 if ((retain & NAMESPACE_FLAGS_ALL) == 0)
                         /* If every single kind of namespace shall be prohibited, then let's block the whole setns() syscall
