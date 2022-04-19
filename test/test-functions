@@ -221,6 +221,7 @@ DEBUGTOOLS=(
     stty
     tty
     vi
+    /usr/libexec/vi
 )
 
 is_built_with_asan() {
@@ -1772,13 +1773,10 @@ install_debug_tools() {
         mkdir -p "$getty_override"
         echo -e "[Service]\nEnvironment=TERM=linux" >"$getty_override/default-TERM.conf"
 
-        cat >"$initdir/etc/motd" <<EOF
-To adjust the terminal size use:
-    export COLUMNS=xx
-    export LINES=yy
-or
-    stty cols xx rows yy
-EOF
+        if command -v resize >/dev/null; then
+            image_install resize
+            echo "resize" >>"$initdir/etc/profile"
+        fi
     fi
 }
 
