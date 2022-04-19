@@ -546,11 +546,3 @@ bool efi_has_tpm2(void) {
 }
 
 #endif
-
-char *efi_tilt_backslashes(char *s) {
-        for (char *p = s; *p; p++)
-                if (*p == '\\')
-                        *p = '/';
-
-        return s;
-}
