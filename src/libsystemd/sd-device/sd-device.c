@@ -1181,6 +1181,8 @@ static int device_set_sysname_and_sysnum(sd_device *device) {
         r = path_extract_filename(device->devpath, &sysname);
         if (r < 0)
                 return r;
+        if (r == O_DIRECTORY)
+                return -EINVAL;
 
         /* some devices have '!' in their name, change that to '/' */
         for (p = strchrnul(sysname, '!'); *p != '\0'; p = strchrnul(p, '!'))
@@ -1457,6 +1459,8 @@ int device_get_device_id(sd_device *device, const char **ret) {
                         r = path_extract_filename(device->devpath, &sysname);
                         if (r < 0)
                                 return r;
+                        if (r == O_DIRECTORY)
+                                return -EINVAL;
 
                         if (streq(subsystem, "drivers")) {
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real
