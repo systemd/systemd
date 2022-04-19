@@ -112,6 +112,10 @@ Features:
     kernel-install when encrypting the creds it generates on systems that lack
     a TPM, so that we can have very similar codepaths on TPM and TPM-less
     systems. i.e. --with-key=tpm-graceful or so.
+  - sd-stub should measure the kernel/initrd/… into a separate PCR, so that we
+    have one PCR we can bind the encrypted creds to that is not effected by
+    anything else but what we drop in via kernel-install, i.e. by earlier EFI
+    code running (i.e. like PCR 4)
 
 * Add a new service type very similar to Type=notify, that goes one step
   further and extends the protocol to cover reloads. Specifically, SIGHUP will
