@@ -47,6 +47,7 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "tmpfile-util-label.h"
+#include "tpm2-util.h"
 #include "umask-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -1697,10 +1698,10 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
                         { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                  },
                 };
-
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
                 uint64_t loader_features = 0;
+                Tpm2Support s;
                 int have;
 
                 read_efi_var(EFI_LOADER_VARIABLE(LoaderFirmwareType), &fw_type);
@@ -1723,7 +1724,15 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("  Secure Boot: %sd (%s)\n",
                        enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
                        secure_boot_mode_to_string(secure));
-                printf(" TPM2 Support: %s\n", yes_no(efi_has_tpm2()));
+
+                s = tpm2_support();
+                printf(" TPM2 Support: %s%s%s\n",
+                       FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
+                       (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),
+                       FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? "yes" :
+                       (s & TPM2_SUPPORT_FIRMWARE) ? "firmware only, driver unavailable" :
+                       (s & TPM2_SUPPORT_DRIVER) ? "driver only, firmware unavailable" : "no",
+                       ansi_normal());
 
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)
