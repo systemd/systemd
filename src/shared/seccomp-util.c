@@ -718,6 +718,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "capget\0"      /* Able to query arbitrary processes */
                 "clone\0"
+                /* ia64 as the only architecture has clone2, a replacement for clone, but ia64 doesn't
+                 * implement seccomp, so we don't need to list it at all. C.f.
+                 * acce2f71779c54086962fefce3833d886c655f62 in the kernel. */
                 "clone3\0"
                 "execveat\0"
                 "fork\0"
