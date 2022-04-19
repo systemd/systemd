@@ -943,6 +943,18 @@ TEST(string_replace_char) {
         assert_se(streq(string_replace_char(strdupa("aaaa"), 'a', '\t'), "\t\t\t\t"));
 }
 
+TEST(strspn_from_end) {
+        assert_se(strspn_from_end(NULL, NULL) == 0);
+        assert_se(strspn_from_end("hoge", NULL) == 0);
+        assert_se(strspn_from_end(NULL, DIGITS) == 0);
+        assert_se(strspn_from_end("", DIGITS) == 0);
+        assert_se(strspn_from_end("hoge", DIGITS) == 0);
+        assert_se(strspn_from_end("1234", DIGITS) == 4);
+        assert_se(strspn_from_end("aaa1234", DIGITS) == 4);
+        assert_se(strspn_from_end("aaa1234aaa", DIGITS) == 0);
+        assert_se(strspn_from_end("aaa12aa34", DIGITS) == 2);
+}
+
 TEST(streq_skip_trailing_chars) {
         /* NULL is WHITESPACE by default*/
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));

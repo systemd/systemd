@@ -1174,3 +1174,18 @@ char *string_replace_char(char *str, char old_char, char new_char) {
 
         return str;
 }
+
+size_t strspn_from_end(const char *str, const char *accept) {
+        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
+
+        if (isempty(accept))
+                return 0;
+
+        for (const char *p = str + strlen(str); p > str && strchr(accept, p[-1]); p--)
+                n++;
+
+        return n;
+}
