@@ -50,6 +50,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tomoyo-util.h"
+#include "tpm2-util.h"
 #include "udev-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
@@ -623,29 +624,14 @@ static int condition_test_ac_power(Condition *c, char **env) {
 }
 
 static int has_tpm2(void) {
-        int r;
-
         /* Checks whether the system has at least one TPM2 resource manager device, i.e. at least one "tpmrm"
-         * class device */
+         * class device. Alternatively, we are also happy if the firmware reports support (this is to cover
+         * for cases where we simply haven't loaded the driver for it yet, i.e. during early boot where we
+         * very likely want to use this condition check).
+         *
+         * Note that we don't check if we ourselves are built with TPM2 support here! */
 
-        r = dir_is_empty("/sys/class/tpmrm");
-        if (r == 0)
-                return true; /* nice! we have a device */
-
-        /* Hmm, so Linux doesn't know of the TPM2 device (or we couldn't check for it), most likely because
-         * the driver wasn't loaded yet. Let's see if the firmware knows about a TPM2 device, in this
-         * case. This way we can answer the TPM2 question already during early boot (where we most likely
-         * need it) */
-        if (efi_has_tpm2())
-                return true;
-
-        /* OK, this didn't work either, in this case propagate the original errors */
-        if (r == -ENOENT)
-                return false;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine whether system has TPM2 support: %m");
-
-        return !r;
+        return (tpm2_support() & (TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_FIRMWARE)) != 0;
 }
 
 static int condition_test_security(Condition *c, char **env) {
