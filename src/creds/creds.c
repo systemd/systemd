@@ -48,6 +48,7 @@ static bool arg_name_any = false;
 static usec_t arg_timestamp = USEC_INFINITY;
 static usec_t arg_not_after = USEC_INFINITY;
 static bool arg_pretty = false;
+static bool arg_quiet = false;
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
         [TRANSCODE_OFF] = "off",
@@ -525,6 +526,31 @@ static int verb_setup(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int verb_has_tpm2(int argc, char **argv, void *userdata) {
+        Tpm2Support s;
+
+        s = tpm2_support();
+
+        if (!arg_quiet) {
+                if (s == TPM2_SUPPORT_FULL)
+                        puts("yes");
+                else if (s == TPM2_SUPPORT_NONE)
+                        puts("no");
+                else
+                        puts("partial");
+
+                printf("%sfirmware\n"
+                       "%sdriver\n"
+                       "%ssystem\n",
+                       plus_minus(s & TPM2_SUPPORT_FIRMWARE),
+                       plus_minus(s & TPM2_SUPPORT_DRIVER),
+                       plus_minus(s & TPM2_SUPPORT_SYSTEM));
+        }
+
+        /* Return inverted bit flags */
+        return ~s & 7;
+}
+
 static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -543,6 +569,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          ciphertext credential file\n"
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
+               "  has-tpm2                Report whether TPM2 support is available\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
@@ -568,6 +595,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Pick TPM2 device\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Specify TPM2 PCRs to seal against\n"
+               "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -612,6 +640,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "name",        required_argument, NULL, ARG_NAME        },
                 { "timestamp",   required_argument, NULL, ARG_TIMESTAMP   },
                 { "not-after",   required_argument, NULL, ARG_NOT_AFTER   },
+                { "quiet",       no_argument,       NULL, 'q'             },
                 {}
         };
 
@@ -620,7 +649,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hHTp", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hHTpq", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -757,6 +786,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -774,12 +807,13 @@ static int parse_argv(int argc, char *argv[]) {
 static int creds_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list",    VERB_ANY, 1,        VERB_DEFAULT, verb_list    },
-                { "cat",     2,        VERB_ANY, 0,            verb_cat     },
-                { "encrypt", 3,        3,        0,            verb_encrypt },
-                { "decrypt", 2,        3,        0,            verb_decrypt },
-                { "setup",   VERB_ANY, 1,        0,            verb_setup   },
-                { "help",    VERB_ANY, 1,        0,            verb_help    },
+                { "list",     VERB_ANY, 1,        VERB_DEFAULT, verb_list     },
+                { "cat",      2,        VERB_ANY, 0,            verb_cat      },
+                { "encrypt",  3,        3,        0,            verb_encrypt  },
+                { "decrypt",  2,        3,        0,            verb_decrypt  },
+                { "setup",    VERB_ANY, 1,        0,            verb_setup    },
+                { "help",     VERB_ANY, 1,        0,            verb_help     },
+                { "has-tpm2", VERB_ANY, 1,        0,            verb_has_tpm2 },
                 {}
         };
 
