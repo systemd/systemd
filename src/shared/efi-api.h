@@ -3,6 +3,7 @@
 
 #include "efivars-fundamental.h"
 #include "efivars.h"
+#include "string-util.h"
 
 /* Various calls for interfacing with EFI variables from the official UEFI specs. */
 
@@ -65,4 +66,6 @@ static inline bool efi_has_tpm2(void) {
 
 #endif
 
-char *efi_tilt_backslashes(char *s);
+static inline char *efi_tilt_backslashes(char *s) {
+        return string_replace_char(s, '\\', '/');
+}
