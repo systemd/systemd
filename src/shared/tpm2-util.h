@@ -91,6 +91,8 @@ typedef struct {
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
+        /* NOTE! The systemd-creds tool returns these flags 1:1 as exit status. Hence these flags are pretty
+         * much ABI! Hence, be extra careful when changing/extending these definitions. */
         TPM2_SUPPORT_NONE     = 0,       /* no support */
         TPM2_SUPPORT_FIRMWARE = 1 << 0,  /* firmware reports TPM2 was used */
         TPM2_SUPPORT_DRIVER   = 1 << 1,  /* the kernel has a driver loaded for it */
