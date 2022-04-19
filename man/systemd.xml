@@ -742,13 +742,14 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para>When run as the system instance systemd parses a number of options listed below. They can be
-    specified as kernel command line arguments<footnote><para>If run inside a Linux container these arguments
-    may be passed as command line arguments to systemd itself, next to any of the command line options listed
-    in the Options section above. If run outside of Linux containers, these arguments are parsed from
-    <filename>/proc/cmdline</filename> instead.</para></footnote>, or through the
-    <literal>SystemdOptions</literal> EFI variable (on EFI systems). The kernel command line has higher
-    priority. Following variables are understood:</para>
+    <para>When run as the system instance, systemd parses a number of options listed below. They can be
+    specified as kernel command line arguments which are parsed from a number of sources depending on the
+    environment in which systemd is executed. If run inside a Linux container, these options are parsed from
+    the command line arguments passed to systemd itself, next to any of the command line options listed in
+    the Options section above. If run outside of Linux containers, these arguments are parsed from
+    <filename>/proc/cmdline</filename> and from the <literal>SystemdOptions</literal> EFI variable
+    (on EFI systems) instead. Options from <filename>/proc/cmdline</filename> have higher priority. The
+    following variables are understood:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
