@@ -122,7 +122,6 @@ function check_selinux {
 
 function check_ephemeral_config {
     # https://github.com/systemd/systemd/issues/13297
-    local _cmd='test -f /tmp/ephemeral-config'
 
     mkdir -p /run/systemd/nspawn/
     cat >/run/systemd/nspawn/testsuite-13.nc-container.nspawn <<EOF
@@ -132,7 +131,9 @@ EOF
     touch /tmp/ephemeral-config
 
     # /testsuite-13.nc-container is prepared by test.sh
-    systemd-nspawn --register=no -D /testsuite-13.nc-container --ephemeral /bin/sh -x -c "$_cmd"
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --ephemeral /bin/sh -x -c "test -f /tmp/ephemeral-config"
+
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --ephemeral --machine foobar /bin/sh -x -c "! test -f /tmp/ephemeral-config"
 
     rm -f /run/systemd/nspawn/testsuite-13.nc-container.nspawn
 }
