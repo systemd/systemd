@@ -182,6 +182,9 @@ TEST(sd_device_enumerator_devices) {
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        /* On some CI environments, it seems some bdi devices sometimes disappear during running this
+         * test. Let's exclude them for stability. */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
         FOREACH_DEVICE(e, d)
                 test_sd_device_one(d);
 }
@@ -250,6 +253,8 @@ TEST(sd_device_enumerator_filter_subsystem) {
 
         assert_se(subsystems = hashmap_new(&string_hash_ops));
         assert_se(sd_device_enumerator_new(&e) >= 0);
+        /* See comments in TEST(sd_device_enumerator_devices). */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath, *subsystem;
