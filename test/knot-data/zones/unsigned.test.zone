@@ -1,8 +1,8 @@
 ; SPDX-License-Identifier: LGPL-2.1-or-later
 $TTL 86400
-$ORIGIN unsigned.systemd.
+$ORIGIN unsigned.test.
 
-@ IN SOA primary.dns.systemd. root.dns.systemd. (
+@ IN SOA ns1.signed.test. root.signed.test. (
     42   ; serial
     3H   ; refresh
     15M  ; retry
@@ -11,10 +11,10 @@ $ORIGIN unsigned.systemd.
 )
 
 ; NS info
-                      NS primary.dns.systemd.
+                      NS ns1.signed.test.
 
 ; MX records
-@                     MX 15 mail.unsigned.systemd.
+@                     MX 15 mail.unsigned.test.
 ; A/AAAA records
                       A 1.2.3.101
 mail                  A 1.2.3.111
