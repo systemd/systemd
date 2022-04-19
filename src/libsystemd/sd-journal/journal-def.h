@@ -43,8 +43,11 @@ typedef enum ObjectType {
 } ObjectType;
 
 /* Object flags
- * The per-compression enums are defined in meson.build so that config.h is self-contained */
+ * The per-compression enums are also redefined in meson.build so that config.h is self-contained */
 enum {
+        OBJECT_COMPRESSED_XZ   = 1 << 0,
+        OBJECT_COMPRESSED_LZ4  = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD = 1 << 2,
         OBJECT_COMPRESSION_MASK = (OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD),
         _OBJECT_COMPRESSED_MAX = OBJECT_COMPRESSION_MASK,
 };
