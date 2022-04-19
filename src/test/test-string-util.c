@@ -935,6 +935,14 @@ TEST(strextendf) {
         assert_se(streq(p, "<77>,<99>,<                                                                              88>,<00001234>"));
 }
 
+TEST(string_replace_char) {
+        assert_se(streq(string_replace_char(strdupa(""), 'a', 'b'), ""));
+        assert_se(streq(string_replace_char(strdupa("abc"), 'a', 'b'), "bbc"));
+        assert_se(streq(string_replace_char(strdupa("hoge"), 'a', 'b'), "hoge"));
+        assert_se(streq(string_replace_char(strdupa("aaaa"), 'a', 'b'), "bbbb"));
+        assert_se(streq(string_replace_char(strdupa("aaaa"), 'a', '\t'), "\t\t\t\t"));
+}
+
 TEST(streq_skip_trailing_chars) {
         /* NULL is WHITESPACE by default*/
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));

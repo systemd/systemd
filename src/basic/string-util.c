@@ -1162,3 +1162,15 @@ bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
 
         return in_charset(s1, ok) && in_charset(s2, ok);
 }
+
+char *string_replace_char(char *str, char old_char, char new_char) {
+        assert(str);
+        assert(old_char != '\0');
+        assert(new_char != '\0');
+        assert(old_char != new_char);
+
+        for (char *p = strchr(str, old_char); p; p = strchr(p + 1, old_char))
+                *p = new_char;
+
+        return str;
+}
