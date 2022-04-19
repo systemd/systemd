@@ -623,11 +623,8 @@ static int property_get_firmware_version(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *firmware_version = NULL;
-        int r;
 
-        r = get_firmware_version(&firmware_version);
-        if (r < 0)
-                return r;
+        (void) get_firmware_version(&firmware_version);
 
         return sd_bus_message_append(reply, "s", firmware_version);
 }
