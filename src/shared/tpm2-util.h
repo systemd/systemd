@@ -89,3 +89,13 @@ typedef struct {
         uint32_t search_pcr_mask;
         const char *device;
 } systemd_tpm2_plugin_params;
+
+typedef enum Tpm2Support {
+        TPM2_SUPPORT_NONE     = 0,       /* no support */
+        TPM2_SUPPORT_FIRMWARE = 1 << 0,  /* firmware reports TPM2 was used */
+        TPM2_SUPPORT_DRIVER   = 1 << 1,  /* the kernel has a driver loaded for it */
+        TPM2_SUPPORT_SYSTEM   = 1 << 2,  /* we support it ourselves */
+        TPM2_SUPPORT_FULL     = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM,
+} Tpm2Support;
+
+Tpm2Support tpm2_support(void);

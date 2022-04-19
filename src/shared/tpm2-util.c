@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "efi-api.h"
 #include "extract-word.h"
 #include "parse-util.h"
+#include "stat-util.h"
 #include "tpm2-util.h"
 
 #if HAVE_TPM2
@@ -1452,4 +1454,25 @@ int tpm2_primary_alg_from_string(const char *alg) {
         if (streq_ptr(alg, "rsa"))
                 return TPM2_ALG_RSA;
         return -EINVAL;
+}
+
+Tpm2Support tpm2_support(void) {
+        Tpm2Support support = TPM2_SUPPORT_NONE;
+        int r;
+
+        r = dir_is_empty("/sys/class/tpmrm");
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
+        } else if (r == 0) /* populated! */
+                support |= TPM2_SUPPORT_DRIVER;
+
+        if (efi_has_tpm2())
+                support |= TPM2_SUPPORT_FIRMWARE;
+
+#if HAVE_TPM2
+        support |= TPM2_SUPPORT_SYSTEM;
+#endif
+
+        return support;
 }
