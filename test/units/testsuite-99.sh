@@ -16,8 +16,8 @@ run() {
 
 ### SETUP ###
 # Configure network
-hostnamectl hostname primary.dns.systemd
-echo "1.2.3.1 primary.dns.systemd" >>/etc/hosts
+hostnamectl hostname ns1.signed.test
+echo "1.2.3.1 ns1.signed.test" >>/etc/hosts
 
 mkdir -p /etc/systemd/network
 cat >/etc/systemd/network/dns0.netdev <<EOF
@@ -65,13 +65,13 @@ networkctl status
 resolvectl status
 resolvectl log-level debug
 
-# We need to manually propagate the DS records of onlinesign.systemd. to the parent
+# We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
-knotc zone-begin systemd.
+knotc zone-begin test.
 while read -ra line; do
-    knotc zone-set systemd. "${line[@]}"
-done < <(keymgr onlinesign.systemd ds)
-knotc zone-commit systemd.
+    knotc zone-set test. "${line[@]}"
+done < <(keymgr onlinesign.test ds)
+knotc zone-commit test.
 
 ### SETUP END ###
 
@@ -95,68 +95,68 @@ done
 # PR: https://github.com/systemd/systemd/pull/22414
 run dig +noall +authority +comments SRV .
 grep -qF "status: NOERROR" "$RUN_OUT"
-grep -qE "IN\s+SOA\s+primary\.dns\.systemd\." "$RUN_OUT"
+grep -qE "IN\s+SOA\s+ns1\.signed\.test\." "$RUN_OUT"
 
 
-: "--- ZONE: unsigned.systemd ---"
-run dig @1.2.3.1 +short unsigned.systemd
+: "--- ZONE: unsigned.test. ---"
+run dig @1.2.3.1 +short unsigned.test
 grep -qF "1.2.3.101" "$RUN_OUT"
-run resolvectl query unsigned.systemd
-grep -qF "unsigned.systemd: 1.2.3.10" "$RUN_OUT"
+run resolvectl query unsigned.test
+grep -qF "unsigned.test: 1.2.3.10" "$RUN_OUT"
 grep -qF "authenticated: no" "$RUN_OUT"
-run dig @1.2.3.1 +short MX unsigned.systemd
-grep -qF "15 mail.unsigned.systemd." "$RUN_OUT"
-run resolvectl query --legend=no -t MX unsigned.systemd
-grep -qF "unsigned.systemd IN MX 15 mail.unsigned.systemd" "$RUN_OUT"
+run dig @1.2.3.1 +short MX unsigned.test
+grep -qF "15 mail.unsigned.test." "$RUN_OUT"
+run resolvectl query --legend=no -t MX unsigned.test
+grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
 
 
-: "--- ZONE: dns.systemd (static DNSSEC) ---"
+: "--- ZONE: signed.systemd (static DNSSEC) ---"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
-run delv @1.2.3.1 dns.systemd
+run delv @1.2.3.1 signed.test
 grep -qF "; fully validated" "$RUN_OUT"
 # FIXME: re-enable once the issue is resolved
-#run delv dns.systemd
+#run delv signed.test
 #grep -qF "; fully validated" "$RUN_OUT"
 
-run dig +short dns.systemd
+run dig +short signed.test
 grep -qF "1.2.3.10" "$RUN_OUT"
-run resolvectl query dns.systemd
-grep -qF "dns.systemd: 1.2.3.10" "$RUN_OUT"
+run resolvectl query signed.test
+grep -qF "signed.test: 1.2.3.10" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-run dig @1.2.3.1 +short MX dns.systemd
-grep -qF "10 mail.dns.systemd." "$RUN_OUT"
-run resolvectl query --legend=no -t MX dns.systemd
-grep -qF "dns.systemd IN MX 10 mail.dns.systemd" "$RUN_OUT"
+run dig @1.2.3.1 +short MX signed.test
+grep -qF "10 mail.signed.test." "$RUN_OUT"
+run resolvectl query --legend=no -t MX signed.test
+grep -qF "signed.test IN MX 10 mail.signed.test" "$RUN_OUT"
 # Check a non-existent domain
-run dig +dnssec this.does.not.exist.dns.systemd
+run dig +dnssec this.does.not.exist.signed.test
 grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
 
-: "--- ZONE: onlinesign.systemd (dynamic DNSSEC) ---"
+: "--- ZONE: onlinesign.test (dynamic DNSSEC) ---"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
-run delv @1.2.3.1 sub.onlinesign.systemd
+run delv @1.2.3.1 sub.onlinesign.test
 grep -qF "; fully validated" "$RUN_OUT"
 # FIXME: re-enable once the issue is resolved
-#run delv sub.onlinesign.systemd
+#run delv sub.onlinesign.test
 #grep -qF "; fully validated" "$RUN_OUT"
 
-run dig +short sub.onlinesign.systemd
+run dig +short sub.onlinesign.test
 grep -qF "1.2.3.133" "$RUN_OUT"
-run resolvectl query sub.onlinesign.systemd
-grep -qF "sub.onlinesign.systemd: 1.2.3.133" "$RUN_OUT"
+run resolvectl query sub.onlinesign.test
+grep -qF "sub.onlinesign.test: 1.2.3.133" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
-run dig @1.2.3.1 +short TXT onlinesign.systemd
+run dig @1.2.3.1 +short TXT onlinesign.test
 grep -qF '"hello from onlinesign"' "$RUN_OUT"
-run resolvectl query --legend=no -t TXT onlinesign.systemd
-grep -qF 'onlinesign.systemd IN TXT "hello from onlinesign"' "$RUN_OUT"
+run resolvectl query --legend=no -t TXT onlinesign.test
+grep -qF 'onlinesign.test IN TXT "hello from onlinesign"' "$RUN_OUT"
 # Check a non-existent domain
 # Note: mod-onlinesign utilizes Minimally Covering NSEC Records, hence the
 #       different response than with "standard" DNSSEC
-run dig +dnssec this.does.not.exist.onlinesign.systemd
+run dig +dnssec this.does.not.exist.onlinesign.test
 grep -qF "status: NOERROR" "$RUN_OUT"
-grep -qF "NSEC \\000.this.does.not.exist.onlinesign.systemd." "$RUN_OUT"
+grep -qF "NSEC \\000.this.does.not.exist.onlinesign.test." "$RUN_OUT"
 
 
 touch /testok

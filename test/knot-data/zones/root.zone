@@ -1,6 +1,6 @@
 ; SPDX-License-Identifier: LGPL-2.1-or-later
 $TTL 300
-. IN SOA primary.dns.systemd. root.dns.systemd. (
+. IN SOA ns1.signed.test. root.signed.test. (
     20220416   ; serial
     3H         ; refresh
     15M        ; retry
@@ -8,5 +8,7 @@ $TTL 300
     1D         ; minimum TTL
 )
 
-.                    NS primary.dns.systemd.
-primary.dns.systemd  A  1.2.3.1
+.                   NS ns1.signed.test.
+ns1.signed.test     A  1.2.3.1
+
+test                NS ns1.signed.test.
