@@ -31,7 +31,7 @@
 
 static int nfnl_netlink_sendv(
                 sd_netlink *nfnl,
-                sd_netlink_message **messages,
+                sd_netlink_message *messages[static 1],
                 size_t msgcount) {
 
         _cleanup_free_ uint32_t *serial = NULL;
