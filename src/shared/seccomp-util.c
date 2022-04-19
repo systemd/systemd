@@ -1224,6 +1224,21 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 if (r < 0)
                         return r;
 
+                /* We cannot filter on individual flags to clone3(), and we need to disable the
+                 * syscall altogether. ENOSYS is used instead of EPERM, so that glibc and other
+                 * users shall fall back to clone(), as if on an older kernel.
+                 *
+                 * C.f. https://github.com/flatpak/flatpak/commit/a10f52a7565c549612c92b8e736a6698a53db330,
+                 * https://github.com/moby/moby/issues/42680. */
+
+                r = seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(ENOSYS),
+                                SCMP_SYS(clone3),
+                                0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add clone3() rule for architecture %s, ignoring: %m", seccomp_arch_to_string(arch));
+
                 if ((retain & NAMESPACE_FLAGS_ALL) == 0)
                         /* If every single kind of namespace shall be prohibited, then let's block the whole setns() syscall
                          * altogether. */
