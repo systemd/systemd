@@ -1470,14 +1470,8 @@ elif compression == 'lz4' and not have_lz4
 elif compression == 'xz' and not have_xz
         error('default-compression=xz requires xz')
 endif
-# These values are defined here so that config.h is self-contained, but they are also
-# re-defined (with different names to avoid conflits) in src/libsystemd/sd-journal/journal-def.h
-# as that source file represents the journal object ABI, and we want that to be self-contained too.
-conf.set('COMPRESSION_NONE', 0)
-conf.set('COMPRESSION_XZ', 1)
-conf.set('COMPRESSION_LZ4', 2)
-conf.set('COMPRESSION_ZSTD', 4)
-conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
+
+conf.set('DEFAULT_COMPRESSION_@0@'.format(compression.to_upper()), '1')
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
@@ -1906,13 +1900,11 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt],
+                     libbasic_gcrypt,
+                     libbasic_compress],
         link_whole : [libsystemd_static],
         dependencies : [threads,
-                        librt,
-                        libxz,
-                        libzstd,
-                        liblz4],
+                        librt],
         link_depends : libsystemd_sym,
         install : true,
         install_dir : rootlibdir)
@@ -1922,6 +1914,7 @@ install_libsystemd_static = static_library(
         libsystemd_sources,
         basic_sources,
         basic_gcrypt_sources,
+        basic_compress_sources,
         fundamental_sources,
         disable_mempool_c,
         include_directories : libsystemd_includes,
@@ -3036,7 +3029,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'systemd-coredump',
                 systemd_coredump_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libbasic_compress],
                 dependencies : [threads,
                                 libacl,
                                 libxz,
@@ -3050,7 +3044,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'coredumpctl',
                 coredumpctl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libbasic_compress],
                 dependencies : [threads,
                                 libxz,
                                 liblz4,
