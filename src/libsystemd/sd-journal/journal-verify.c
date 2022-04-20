@@ -148,7 +148,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
          * possible field values. It does not follow any references to
          * other objects. */
 
-        if ((o->object.flags & OBJECT_COMPRESSED_XZ) &&
+        if ((o->object.flags & _OBJECT_COMPRESSED_MASK) != 0 &&
             o->object.type != OBJECT_DATA) {
                 error(offset,
                       "Found compressed object of type %s that isn't of type data, which is not allowed.",
