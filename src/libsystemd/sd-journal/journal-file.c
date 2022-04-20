@@ -191,7 +191,7 @@ static int journal_file_set_online(JournalFile *f) {
 
         assert(f);
 
-        if (!f->writable)
+        if (!journal_file_writable(f))
                 return -EPERM;
 
         if (f->fd < 0 || !f->header)
@@ -285,24 +285,38 @@ JournalFile* journal_file_close(JournalFile *f) {
         return mfree(f);
 }
 
-static int journal_file_init_header(JournalFile *f, JournalFile *template) {
+static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
         Header h = {};
         ssize_t k;
+        bool keyed_hash, seal = false;
         int r;
 
         assert(f);
+
+        /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
+         * people really want that */
+        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
+                keyed_hash = true;
+        } else
+                keyed_hash = r;
+
+#if HAVE_GCRYPT
+        /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
+        seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
+#endif
 
         memcpy(h.signature, HEADER_SIGNATURE, 8);
         h.header_size = htole64(ALIGN64(sizeof(h)));
 
         h.incompatible_flags |= htole32(
-                f->compress_xz * HEADER_INCOMPATIBLE_COMPRESSED_XZ |
-                f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
-                f->compress_zstd * HEADER_INCOMPATIBLE_COMPRESSED_ZSTD |
-                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
+                        FLAGS_SET(file_flags, JOURNAL_COMPRESS) *
+                        COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
+                        keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
 
-        h.compatible_flags = htole32(
-                f->seal * HEADER_COMPATIBLE_SEALED);
+        h.compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED);
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -409,7 +423,7 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -EPROTONOSUPPORT;
 
         /* When open for writing we refuse to open files with compatible flags, too. */
-        if (f->writable && warn_wrong_flags(f, true))
+        if (journal_file_writable(f) && warn_wrong_flags(f, true))
                 return -EPROTONOSUPPORT;
 
         if (f->header->state >= _STATE_MAX)
@@ -438,7 +452,7 @@ static int journal_file_verify_header(JournalFile *f) {
             !VALID64(le64toh(f->header->entry_array_offset)))
                 return -ENODATA;
 
-        if (f->writable) {
+        if (journal_file_writable(f)) {
                 sd_id128_t machine_id;
                 uint8_t state;
                 int r;
@@ -474,14 +488,6 @@ static int journal_file_verify_header(JournalFile *f) {
                                                "Journal file %s is from the future, refusing to append new data to it that'd be older.",
                                                f->path);
         }
-
-        f->compress_xz = JOURNAL_HEADER_COMPRESSED_XZ(f->header);
-        f->compress_lz4 = JOURNAL_HEADER_COMPRESSED_LZ4(f->header);
-        f->compress_zstd = JOURNAL_HEADER_COMPRESSED_ZSTD(f->header);
-
-        f->seal = JOURNAL_HEADER_SEALED(f->header);
-
-        f->keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
 
         return 0;
 }
@@ -1240,7 +1246,7 @@ static int next_hash_offset(
                 (*depth)++;
 
                 /* If the depth of this hash chain is larger than all others we have seen so far, record it */
-                if (header_max_depth && f->writable)
+                if (header_max_depth && journal_file_writable(f))
                         *header_max_depth = htole64(MAX(*depth, le64toh(*header_max_depth)));
         }
 
@@ -1589,7 +1595,7 @@ static int journal_file_append_data(
                 compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
                 if (compression > COMPRESSION_NONE) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
-                        o->object.flags |= COMPRESSION_TO_MASK(compression);
+                        o->object.flags |= COMPRESSION_TO_OBJECT_FLAG(compression);
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
                                   size, rsize, compression_to_string(compression));
@@ -3372,53 +3378,11 @@ int journal_file_open(
         *f = (JournalFile) {
                 .fd = fd,
                 .mode = mode,
-
                 .open_flags = open_flags,
-                .writable = (open_flags & O_ACCMODE) != O_RDONLY,
-
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
-#if HAVE_GCRYPT
-                .seal = FLAGS_SET(file_flags, JOURNAL_SEAL),
-#endif
         };
-
-        if (DEFAULT_COMPRESSION == COMPRESSION_ZSTD)
-                f->compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
-        else if (DEFAULT_COMPRESSION == COMPRESSION_LZ4)
-                f->compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
-        else if (DEFAULT_COMPRESSION == COMPRESSION_XZ)
-                f->compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
-
-        /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
-         * people really want that */
-        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
-        if (r < 0) {
-                if (r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
-                f->keyed_hash = true;
-        } else
-                f->keyed_hash = r;
-
-        if (DEBUG_LOGGING) {
-                static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
-                static uint64_t last_bytes = UINT64_MAX;
-
-                if (last_seal != f->seal ||
-                    last_keyed_hash != f->keyed_hash ||
-                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
-                    last_bytes != f->compress_threshold_bytes) {
-
-                        log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
-                                  yes_no(f->seal), yes_no(f->keyed_hash), yes_no(JOURNAL_FILE_COMPRESS(f)),
-                                  FORMAT_BYTES(f->compress_threshold_bytes));
-                        last_seal = f->seal;
-                        last_keyed_hash = f->keyed_hash;
-                        last_compress = JOURNAL_FILE_COMPRESS(f);
-                        last_bytes = f->compress_threshold_bytes;
-                }
-        }
 
         if (fname) {
                 f->path = strdup(fname);
@@ -3471,7 +3435,7 @@ int journal_file_open(
                         goto fail;
 
                 /* If we just got the fd passed in, we don't really know if we created the file anew */
-                newly_created = f->last_stat.st_size == 0 && f->writable;
+                newly_created = f->last_stat.st_size == 0 && journal_file_writable(f);
         }
 
         f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(open_flags));
@@ -3490,17 +3454,7 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-#if HAVE_GCRYPT
-                /* Try to load the FSPRG state, and if we can't, then
-                 * just don't do sealing */
-                if (f->seal) {
-                        r = journal_file_fss_load(f);
-                        if (r < 0)
-                                f->seal = false;
-                }
-#endif
-
-                r = journal_file_init_header(f, template);
+                r = journal_file_init_header(f, file_flags, template);
                 if (r < 0)
                         goto fail;
 
@@ -3534,14 +3488,14 @@ int journal_file_open(
         }
 
 #if HAVE_GCRYPT
-        if (!newly_created && f->writable) {
+        if (!newly_created && journal_file_writable(f) && JOURNAL_HEADER_SEALED(f->header)) {
                 r = journal_file_fss_load(f);
                 if (r < 0)
                         goto fail;
         }
 #endif
 
-        if (f->writable) {
+        if (journal_file_writable(f)) {
                 if (metrics) {
                         journal_default_metrics(metrics, f->fd);
                         f->metrics = *metrics;
@@ -3593,6 +3547,25 @@ int journal_file_open(
         /* The file is opened now successfully, thus we take possession of any passed in fd. */
         f->close_fd = true;
 
+        if (DEBUG_LOGGING) {
+                static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
+                static uint64_t last_bytes = UINT64_MAX;
+
+                if (last_seal != JOURNAL_HEADER_SEALED(f->header) ||
+                    last_keyed_hash != JOURNAL_HEADER_KEYED_HASH(f->header) ||
+                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
+                    last_bytes != f->compress_threshold_bytes) {
+
+                        log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
+                                  yes_no(JOURNAL_HEADER_SEALED(f->header)), yes_no(JOURNAL_HEADER_KEYED_HASH(f->header)),
+                                  yes_no(JOURNAL_FILE_COMPRESS(f)), FORMAT_BYTES(f->compress_threshold_bytes));
+                        last_seal = JOURNAL_HEADER_SEALED(f->header);
+                        last_keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
+                        last_compress = JOURNAL_FILE_COMPRESS(f);
+                        last_bytes = f->compress_threshold_bytes;
+                }
+        }
+
         *ret = f;
         return 0;
 
@@ -3613,7 +3586,7 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
 
         assert(f);
 
-        if (!f->writable)
+        if (!journal_file_writable(f))
                 return -EINVAL;
 
         /* Is this a journal file that was passed to us as fd? If so, we synthesized a path name for it, and we refuse
@@ -3693,7 +3666,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         assert(o);
         assert(p);
 
-        if (!to->writable)
+        if (!journal_file_writable(to))
                 return -EPERM;
 
         ts = (dual_timestamp) {
