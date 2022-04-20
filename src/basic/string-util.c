@@ -1162,3 +1162,30 @@ bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
 
         return in_charset(s1, ok) && in_charset(s2, ok);
 }
+
+char *string_replace_char(char *str, char old_char, char new_char) {
+        assert(str);
+        assert(old_char != '\0');
+        assert(new_char != '\0');
+        assert(old_char != new_char);
+
+        for (char *p = strchr(str, old_char); p; p = strchr(p + 1, old_char))
+                *p = new_char;
+
+        return str;
+}
+
+size_t strspn_from_end(const char *str, const char *accept) {
+        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
+
+        if (isempty(accept))
+                return 0;
+
+        for (const char *p = str + strlen(str); p > str && strchr(accept, p[-1]); p--)
+                n++;
+
+        return n;
+}
