@@ -173,21 +173,6 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_CONTAINS(h, field) \
         (le64toh((h)->header_size) >= offsetof(Header, field) + sizeof((h)->field))
 
-#define JOURNAL_HEADER_SEALED(h) \
-        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED)
-
-#define JOURNAL_HEADER_COMPRESSED_XZ(h) \
-        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ)
-
-#define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
-        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
-
-#define JOURNAL_HEADER_COMPRESSED_ZSTD(h) \
-        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
-
-#define JOURNAL_HEADER_KEYED_HASH(h) \
-        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
-
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 

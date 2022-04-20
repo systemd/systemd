@@ -960,19 +960,19 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if ((o->object.flags & OBJECT_COMPRESSED_XZ) && !JOURNAL_HEADER_COMPRESSED_XZ(f->header)) {
+                if ((o->object.flags & OBJECT_COMPRESSED_XZ) && !f->compress_xz) {
                         error(p, "XZ compressed object in file without XZ compression");
                         r = -EBADMSG;
                         goto fail;
                 }
 
-                if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !JOURNAL_HEADER_COMPRESSED_LZ4(f->header)) {
+                if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !f->compress_lz4) {
                         error(p, "LZ4 compressed object in file without LZ4 compression");
                         r = -EBADMSG;
                         goto fail;
                 }
 
-                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !JOURNAL_HEADER_COMPRESSED_ZSTD(f->header)) {
+                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !f->compress_zstd) {
                         error(p, "ZSTD compressed object in file without ZSTD compression");
                         r = -EBADMSG;
                         goto fail;
@@ -993,7 +993,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY:
-                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
+                        if (f->seal && n_tags <= 0) {
                                 error(p, "First entry before first tag");
                                 r = -EBADMSG;
                                 goto fail;
@@ -1102,7 +1102,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_TAG:
-                        if (!JOURNAL_HEADER_SEALED(f->header)) {
+                        if (!f->seal) {
                                 error(p, "Tag object in file without sealing");
                                 r = -EBADMSG;
                                 goto fail;

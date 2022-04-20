@@ -505,7 +505,7 @@ static int next_for_match(
 
                 /* If the keyed hash logic is used, we need to calculate the hash fresh per file. Otherwise
                  * we can use what we pre-calculated. */
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                if (f->keyed_hash)
                         hash = journal_file_hash_data(f, m->data, m->size);
                 else
                         hash = m->hash;
@@ -599,7 +599,7 @@ static int find_location_for_match(
                 Object *d;
                 uint64_t dp, hash;
 
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                if (f->keyed_hash)
                         hash = journal_file_hash_data(f, m->data, m->size);
                 else
                         hash = m->hash;
@@ -3001,7 +3001,7 @@ _public_ int sd_journal_enumerate_unique(
                         /* We can reuse the hash from our current file only on old-style journal files
                          * without keyed hashes. On new-style files we have to calculate the hash anew, to
                          * take the per-file hash seed into consideration. */
-                        if (!JOURNAL_HEADER_KEYED_HASH(j->unique_file->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
+                        if (!j->unique_file->keyed_hash && !of->keyed_hash)
                                 r = journal_file_find_data_object_with_hash(of, odata, ol, le64toh(o->data.hash), NULL, NULL);
                         else
                                 r = journal_file_find_data_object(of, odata, ol, NULL, NULL);
@@ -3152,7 +3152,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                         if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
                                 continue;
 
-                        if (!JOURNAL_HEADER_KEYED_HASH(f->header) && !JOURNAL_HEADER_KEYED_HASH(of->header))
+                        if (!f->keyed_hash && !of->keyed_hash)
                                 r = journal_file_find_field_object_with_hash(of, o->field.payload, sz,
                                                                              le64toh(o->field.hash), NULL, NULL);
                         else
