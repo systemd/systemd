@@ -293,10 +293,10 @@ int main(int argc, char *argv[]) {
         random_bytes(data + 7, sizeof(data) - 7);
 
 #if HAVE_XZ
-        test_compress_decompress(OBJECT_COMPRESSED_XZ, "XZ",
+        test_compress_decompress(COMPRESSION_XZ, "XZ",
                                  compress_blob_xz, decompress_blob_xz,
                                  text, sizeof(text), false);
-        test_compress_decompress(OBJECT_COMPRESSED_XZ, "XZ",
+        test_compress_decompress(COMPRESSION_XZ, "XZ",
                                  compress_blob_xz, decompress_blob_xz,
                                  data, sizeof(data), true);
 
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
                                    compress_blob_xz, decompress_startswith_xz,
                                    huge, HUGE_SIZE, true);
 
-        test_compress_stream(OBJECT_COMPRESSED_XZ, "XZ", "xzcat",
+        test_compress_stream(COMPRESSION_XZ, "XZ", "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
 
         test_decompress_startswith_short("XZ", compress_blob_xz, decompress_startswith_xz);
@@ -320,10 +320,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_LZ4
-        test_compress_decompress(OBJECT_COMPRESSED_LZ4, "LZ4",
+        test_compress_decompress(COMPRESSION_LZ4, "LZ4",
                                  compress_blob_lz4, decompress_blob_lz4,
                                  text, sizeof(text), false);
-        test_compress_decompress(OBJECT_COMPRESSED_LZ4, "LZ4",
+        test_compress_decompress(COMPRESSION_LZ4, "LZ4",
                                  compress_blob_lz4, decompress_blob_lz4,
                                  data, sizeof(data), true);
 
@@ -337,7 +337,7 @@ int main(int argc, char *argv[]) {
                                    compress_blob_lz4, decompress_startswith_lz4,
                                    huge, HUGE_SIZE, true);
 
-        test_compress_stream(OBJECT_COMPRESSED_LZ4, "LZ4", "lz4cat",
+        test_compress_stream(COMPRESSION_LZ4, "LZ4", "lz4cat",
                              compress_stream_lz4, decompress_stream_lz4, srcfile);
 
         test_lz4_decompress_partial();
@@ -349,10 +349,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_ZSTD
-        test_compress_decompress(OBJECT_COMPRESSED_ZSTD, "ZSTD",
+        test_compress_decompress(COMPRESSION_ZSTD, "ZSTD",
                                  compress_blob_zstd, decompress_blob_zstd,
                                  text, sizeof(text), false);
-        test_compress_decompress(OBJECT_COMPRESSED_ZSTD, "ZSTD",
+        test_compress_decompress(COMPRESSION_ZSTD, "ZSTD",
                                  compress_blob_zstd, decompress_blob_zstd,
                                  data, sizeof(data), true);
 
@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
                                    compress_blob_zstd, decompress_startswith_zstd,
                                    huge, HUGE_SIZE, true);
 
-        test_compress_stream(OBJECT_COMPRESSED_ZSTD, "ZSTD", "zstdcat",
+        test_compress_stream(COMPRESSION_ZSTD, "ZSTD", "zstdcat",
                              compress_stream_zstd, decompress_stream_zstd, srcfile);
 
         test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
