@@ -493,7 +493,6 @@ static int next_for_match(
 
         int r;
         uint64_t np = 0;
-        Object *n;
 
         assert(j);
         assert(m);
@@ -569,12 +568,12 @@ static int next_for_match(
 
         assert(np > 0);
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY, np, &n);
-        if (r < 0)
-                return r;
+        if (ret) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, np, ret);
+                if (r < 0)
+                        return r;
+        }
 
-        if (ret)
-                *ret = n;
         if (offset)
                 *offset = np;
 
