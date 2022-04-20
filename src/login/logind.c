@@ -963,18 +963,33 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         n = now(CLOCK_MONOTONIC);
 
         r = manager_get_idle_hint(m, &since);
-        if (r <= 0)
+        if (r <= 0) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
                 elapse = n + m->idle_action_usec;
-        else {
+                m->was_idle = false;
+        } else {
+
                 /* Idle! Let's see if it's time to do something, or if
                  * we shall sleep for longer. */
 
                 if (n >= since.monotonic + m->idle_action_usec &&
                     (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
-                        log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
+                        bool is_edge = false;
 
-                        manager_handle_action(m, 0, m->idle_action, false, false);
+                        /* We weren't idle previously or some activity happened while we were sleeping, and now we are
+                         * idle. Let's remember that for the next time and make this an edge transition. */
+                        if (!m->was_idle || since.monotonic >= m->idle_action_not_before_usec) {
+                                is_edge = true;
+                                m->was_idle = true;
+                        }
+
+                        if (m->idle_action == HANDLE_LOCK && !is_edge)
+                                /* We are idle and we were before so we are actually not taking any action. */
+                                log_debug("System idle.");
+                        else
+                                log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
+
+                        manager_handle_action(m, 0, m->idle_action, false, is_edge);
                         m->idle_action_not_before_usec = n;
                 }
 
