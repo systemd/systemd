@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <inttypes.h>
 #include <sys/uio.h>
 
@@ -63,14 +64,8 @@ typedef struct JournalFile {
         mode_t mode;
 
         int open_flags;
-        bool writable:1;
-        bool compress_xz:1;
-        bool compress_lz4:1;
-        bool compress_zstd:1;
-        bool seal:1;
         bool close_fd:1;
         bool archive:1;
-        bool keyed_hash:1;
 
         direction_t last_direction;
         LocationType location_type;
@@ -257,7 +252,8 @@ int journal_file_map_field_hash_table(JournalFile *f);
 
 static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
         assert(f);
-        return f->compress_xz || f->compress_lz4 || f->compress_zstd;
+        return JOURNAL_HEADER_COMPRESSED_XZ(f->header) || JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ||
+                        JOURNAL_HEADER_COMPRESSED_ZSTD(f->header);
 }
 
 uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
@@ -265,3 +261,7 @@ uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
 bool journal_field_valid(const char *p, size_t l, bool allow_protected);
 
 const char* journal_object_type_to_string(ObjectType type) _const_;
+
+static inline bool journal_file_writable(JournalFile *f) {
+        return (f->open_flags & O_ACCMODE) != O_RDONLY;
+}
