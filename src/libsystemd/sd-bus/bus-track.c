@@ -48,7 +48,7 @@ static struct track_item* track_item_free(struct track_item *i) {
         return mfree(i);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct track_item, track_item, track_item_free);
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(struct track_item, track_item, track_item_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
                                               struct track_item, track_item_free);
@@ -190,8 +190,18 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         i = hashmap_get(track->names, name);
         if (i) {
-                if (track->recursive)
-                        track_item_ref(i);
+                if (track->recursive) {
+                        assert(i->n_ref > 0);
+
+                        /* Manual oveflow check (instead of a DEFINE_TRIVIAL_REF_FUNC() helper or so), so
+                         * that we can return a proper error, given this is almost always called in a
+                         * directly client controllable way, and thus better should never hit an assertion
+                         * here. */
+                        if (i->n_ref >= UINT_MAX)
+                                return -EOVERFLOW;
+
+                        i->n_ref++;
+                }
 
                 bus_track_remove_from_queue(track);
                 return 0;
