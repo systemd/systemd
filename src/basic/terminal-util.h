@@ -111,6 +111,10 @@ typedef enum ColorMode {
         /* Only 256 colors. */
         COLOR_256 = 256,
 
+        /* COLORTERM default value truecolor for terminator, 16,777,216 colors. 24-bit color Value. */
+        /* Other Possible value gnome-terminal */
+        COLOR_TERM = 24,
+
         _COLOR_INVALID = -EINVAL,
 } ColorMode;
 
