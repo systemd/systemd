@@ -11,7 +11,9 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
+#include "compress.h"
 #include "hashmap.h"
+#include "journal-def.h"
 #include "journal-def.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
@@ -265,3 +267,23 @@ uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
 bool journal_field_valid(const char *p, size_t l, bool allow_protected);
 
 const char* journal_object_type_to_string(ObjectType type) _const_;
+
+static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
+        switch (o->object.flags & _OBJECT_COMPRESSED_MASK) {
+
+        case 0:
+                return COMPRESSION_NONE;
+
+        case OBJECT_COMPRESSED_XZ:
+                return COMPRESSION_XZ;
+
+        case OBJECT_COMPRESSED_LZ4:
+                return COMPRESSION_LZ4;
+
+        case OBJECT_COMPRESSED_ZSTD:
+                return COMPRESSION_ZSTD;
+
+        default:
+                return _COMPRESSION_INVALID;
+        }
+}
