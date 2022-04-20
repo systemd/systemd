@@ -78,6 +78,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* drop support for kernels that lack ambient capabilities support (i.e. make
+  4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
+  is only supported for such old kernels
+
 * sd-event: compat wd reuse in inotify code: keep a set of removed watch
   descriptors, and clear this set piecemeal when we see the IN_IGNORED event
   for it, or when read() returns EAGAIN or on IN_Q_OVERFLOW. Then, whenever we
