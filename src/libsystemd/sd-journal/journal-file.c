@@ -396,6 +396,7 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
 
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
+        bool seal;
 
         assert(f);
         assert(f->header);
@@ -421,7 +422,9 @@ static int journal_file_verify_header(JournalFile *f) {
         if (header_size < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
-        if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+        seal = FLAGS_SET(le32toh(f->header->compatible_flags), HEADER_COMPATIBLE_SEALED);
+
+        if (seal && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
@@ -475,13 +478,13 @@ static int journal_file_verify_header(JournalFile *f) {
                                                f->path);
         }
 
-        f->compress_xz = JOURNAL_HEADER_COMPRESSED_XZ(f->header);
-        f->compress_lz4 = JOURNAL_HEADER_COMPRESSED_LZ4(f->header);
-        f->compress_zstd = JOURNAL_HEADER_COMPRESSED_ZSTD(f->header);
+        f->compress_xz = FLAGS_SET(le32toh(f->header->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ);
+        f->compress_lz4 = FLAGS_SET(le32toh(f->header->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_LZ4);
+        f->compress_zstd = FLAGS_SET(le32toh(f->header->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_ZSTD);
 
-        f->seal = JOURNAL_HEADER_SEALED(f->header);
+        f->seal = seal;
 
-        f->keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
+        f->keyed_hash = FLAGS_SET(le32toh(f->header->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH);
 
         return 0;
 }
@@ -1320,7 +1323,7 @@ uint64_t journal_file_hash_data(
         /* We try to unify our codebase on siphash, hence new-styled journal files utilizing the keyed hash
          * function use siphash. Old journal files use the Jenkins hash. */
 
-        if (JOURNAL_HEADER_KEYED_HASH(f->header))
+        if (f->keyed_hash)
                 return siphash24(data, sz, f->header->file_id.bytes);
 
         return jenkins_hash64(data, sz);
@@ -2069,7 +2072,7 @@ int journal_file_append_entry(
                  * are completely identical (they include the XOR hash after all). For classic Jenkins-hash
                  * files things are easier, we can just take the value from the stored record directly. */
 
-                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                if (f->keyed_hash)
                         xor_hash ^= jenkins_hash64(iovec[i].iov_base, iovec[i].iov_len);
                 else
                         xor_hash ^= le64toh(o->data.hash);
@@ -3232,12 +3235,12 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
-               JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               f->seal ? " SEALED" : "",
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
-               JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
-               JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
-               JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
-               JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
+               f->compress_xz ? " COMPRESSED-XZ" : "",
+               f->compress_lz4 ? " COMPRESSED-LZ4" : "",
+               f->compress_zstd ? " COMPRESSED-ZSTD" : "",
+               f->keyed_hash ? " KEYED-HASH" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -3738,7 +3741,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 if (r < 0)
                         return r;
 
-                if (JOURNAL_HEADER_KEYED_HASH(to->header))
+                if (to->keyed_hash)
                         xor_hash ^= jenkins_hash64(data, l);
                 else
                         xor_hash ^= le64toh(u->data.hash);

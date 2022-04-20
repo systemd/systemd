@@ -2029,7 +2029,7 @@ static int verify(sd_journal *j) {
                 usec_t first = 0, validated = 0, last = 0;
 
 #if HAVE_GCRYPT
-                if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
+                if (!arg_verify_key && f->seal)
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
@@ -2043,7 +2043,7 @@ static int verify(sd_journal *j) {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
                         log_info("PASS: %s", f->path);
 
-                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
+                        if (arg_verify_key && f->seal) {
                                 if (validated > 0) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
