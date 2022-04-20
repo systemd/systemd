@@ -1383,6 +1383,8 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 c = COMPRESSION_FROM_OBJECT(o);
+                if (c < 0)
+                        return -EPROTONOSUPPORT;
                 if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         uint64_t l;
@@ -1585,16 +1587,15 @@ static int journal_file_append_data(
                 size_t rsize = 0;
 
                 compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
-
-                if (compression >= 0) {
+                if (compression > COMPRESSION_NONE) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
-                        o->object.flags |= compression;
+                        o->object.flags |= COMPRESSION_TO_MASK(compression);
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
                                   size, rsize, compression_to_string(compression));
                 } else
                         /* Compression didn't work, we don't really care why, let's continue without compression */
-                        compression = 0;
+                        compression = COMPRESSION_NONE;
         }
 #endif
 
@@ -3716,6 +3717,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 c = COMPRESSION_FROM_OBJECT(o);
+                if (c < 0)
+                        return -EPROTONOSUPPORT;
                 if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         size_t rsize = 0;

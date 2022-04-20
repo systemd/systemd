@@ -270,11 +270,29 @@ const char* journal_object_type_to_string(ObjectType type) _const_;
 static inline Compression COMPRESSION_FROM_OBJECT(const Object *o) {
         assert(o);
 
-        /* These flags and enums are defined the same way. Make sure this is really the case. */
-        assert_cc((Compression) 0 == COMPRESSION_NONE);
-        assert_cc((Compression) OBJECT_COMPRESSED_XZ == COMPRESSION_XZ);
-        assert_cc((Compression) OBJECT_COMPRESSED_LZ4 == COMPRESSION_LZ4);
-        assert_cc((Compression) OBJECT_COMPRESSED_ZSTD == COMPRESSION_ZSTD);
+        switch (o->object.flags & _OBJECT_COMPRESSED_MASK) {
+        case 0:
+                return COMPRESSION_NONE;
+        case OBJECT_COMPRESSED_XZ:
+                return COMPRESSION_XZ;
+        case OBJECT_COMPRESSED_LZ4:
+                return COMPRESSION_LZ4;
+        case OBJECT_COMPRESSED_ZSTD:
+                return COMPRESSION_ZSTD;
+        default:
+                return _COMPRESSION_INVALID;
+        }
+}
 
-        return o->object.flags & _OBJECT_COMPRESSED_MASK;
+static inline uint8_t COMPRESSION_TO_MASK(Compression c) {
+        switch (c) {
+        case COMPRESSION_XZ:
+                return OBJECT_COMPRESSED_XZ;
+        case COMPRESSION_LZ4:
+                return OBJECT_COMPRESSED_LZ4;
+        case COMPRESSION_ZSTD:
+                return OBJECT_COMPRESSED_ZSTD;
+        default:
+                return 0;
+        }
 }

@@ -4,12 +4,10 @@
 #include <unistd.h>
 
 typedef enum Compression {
-        /* These are defined the same way as the relevant object types in journal-def.h,
-         * i.e. OBJECT_COMPRESSED_XZ, … */
-        COMPRESSION_NONE = 0,
-        COMPRESSION_XZ   = 1,
-        COMPRESSION_LZ4  = 2,
-        COMPRESSION_ZSTD = 4,
+        COMPRESSION_NONE,
+        COMPRESSION_XZ,
+        COMPRESSION_LZ4,
+        COMPRESSION_ZSTD,
         _COMPRESSION_MAX,
         _COMPRESSION_INVALID = -EINVAL,
 } Compression;
