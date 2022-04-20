@@ -27,7 +27,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
-#include "journal-def.h"
 #include "macro.h"
 #include "sparse-endian.h"
 #include "string-table.h"
@@ -58,15 +57,14 @@ static int zstd_ret_to_errno(size_t ret) {
 
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
-static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
-        [OBJECT_COMPRESSED_XZ]   = "XZ",
-        [OBJECT_COMPRESSED_LZ4]  = "LZ4",
-        [OBJECT_COMPRESSED_ZSTD] = "ZSTD",
-        /* If we add too many more entries here, it's going to grow quite large (and be mostly sparse), since
-         * the array key is actually a bitmask, not a plain enum */
+static const char* const compression_table[_COMPRESSION_MAX] = {
+        [COMPRESSION_NONE] = "NONE",
+        [COMPRESSION_XZ]   = "XZ",
+        [COMPRESSION_LZ4]  = "LZ4",
+        [COMPRESSION_ZSTD] = "ZSTD",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
+DEFINE_STRING_TABLE_LOOKUP(compression, Compression);
 
 int compress_blob_xz(const void *src, uint64_t src_size,
                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
@@ -313,22 +311,22 @@ int decompress_blob_zstd(
 }
 
 int decompress_blob(
-                int compression,
+                Compression compression,
                 const void *src,
                 uint64_t src_size,
                 void **dst,
                 size_t* dst_size,
                 size_t dst_max) {
 
-        if (compression == OBJECT_COMPRESSED_XZ)
+        if (compression == COMPRESSION_XZ)
                 return decompress_blob_xz(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == OBJECT_COMPRESSED_LZ4)
+        else if (compression == COMPRESSION_LZ4)
                 return decompress_blob_lz4(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == OBJECT_COMPRESSED_ZSTD)
+        else if (compression == COMPRESSION_ZSTD)
                 return decompress_blob_zstd(
                                 src, src_size,
                                 dst, dst_size, dst_max);
@@ -520,7 +518,7 @@ int decompress_startswith_zstd(
 }
 
 int decompress_startswith(
-                int compression,
+                Compression compression,
                 const void *src,
                 uint64_t src_size,
                 void **buffer,
@@ -528,20 +526,20 @@ int decompress_startswith(
                 size_t prefix_len,
                 uint8_t extra) {
 
-        if (compression == OBJECT_COMPRESSED_XZ)
+        if (compression == COMPRESSION_XZ)
                 return decompress_startswith_xz(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
 
-        else if (compression == OBJECT_COMPRESSED_LZ4)
+        else if (compression == COMPRESSION_LZ4)
                 return decompress_startswith_lz4(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
-        else if (compression == OBJECT_COMPRESSED_ZSTD)
+        else if (compression == COMPRESSION_ZSTD)
                 return decompress_startswith_zstd(
                                 src, src_size,
                                 buffer,
