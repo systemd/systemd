@@ -111,21 +111,22 @@ static void flush_progress(void) {
         } while (0)
 
 static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_t *src, uint64_t size, uint64_t *res_hash) {
-        int compression, r;
+        Compression compression;
+        int r;
 
         assert(o);
         assert(src);
         assert(res_hash);
 
-        compression = o->object.flags & OBJECT_COMPRESSION_MASK;
-        if (compression) {
+        compression = COMPRESSION_FROM_OBJECT(o);
+        if (compression != COMPRESSION_NONE) {
                 _cleanup_free_ void *b = NULL;
                 size_t b_size;
 
                 r = decompress_blob(compression, src, size, &b, &b_size, 0);
                 if (r < 0) {
                         error_errno(offset, r, "%s decompression failed: %m",
-                                    object_compressed_to_string(compression));
+                                    compression_to_string(compression));
                         return r;
                 }
 
