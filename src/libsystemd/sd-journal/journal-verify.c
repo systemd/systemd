@@ -119,6 +119,8 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
         assert(res_hash);
 
         c = COMPRESSION_FROM_OBJECT(o);
+        if (c < 0)
+                return -EBADMSG;
         if (c != COMPRESSION_NONE) {
                 _cleanup_free_ void *b = NULL;
                 size_t b_size;

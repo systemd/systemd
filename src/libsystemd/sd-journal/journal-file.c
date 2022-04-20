@@ -1383,6 +1383,8 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 c = COMPRESSION_FROM_OBJECT(o);
+                if (c < 0)
+                        return -EPROTONOSUPPORT;
                 if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         uint64_t l;
@@ -3716,6 +3718,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 c = COMPRESSION_FROM_OBJECT(o);
+                if (c < 0)
+                        return -EPROTONOSUPPORT;
                 if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         size_t rsize = 0;

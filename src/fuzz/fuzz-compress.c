@@ -35,7 +35,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 log_set_max_level(LOG_CRIT);
 
         log_info("Using compression %s, data size=%zu",
-                 compression_to_string(alg) ?: "(none)",
+                 compression_to_string(alg),
                  data_len);
 
         buf = malloc(MAX(size, 128u)); /* Make the buffer a bit larger for very small data */
