@@ -2312,6 +2312,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 l = le64toh(d->object.size) - offsetof(Object, data.payload);
 
                 c = COMPRESSION_FROM_OBJECT(d);
+                if (c < 0)
+                        return -EPROTONOSUPPORT;
                 if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         r = decompress_startswith(
@@ -2386,6 +2388,8 @@ static int return_data(
                 return -E2BIG;
 
         c = COMPRESSION_FROM_OBJECT(o);
+        if (c < 0)
+                return -EPROTONOSUPPORT;
         if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                 size_t rsize;
