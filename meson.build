@@ -1472,7 +1472,7 @@ elif compression == 'xz' and not have_xz
 endif
 conf.set('DEFAULT_COMPRESSION',
          compression == 'none' ? 0 :
-                 'OBJECT_COMPRESSED_@0@'.format(compression.to_upper()))
+                 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
@@ -1901,13 +1901,11 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt],
+                     libbasic_gcrypt,
+                     libbasic_compress],
         link_whole : [libsystemd_static],
         dependencies : [threads,
-                        librt,
-                        libxz,
-                        libzstd,
-                        liblz4],
+                        librt],
         link_depends : libsystemd_sym,
         install : true,
         install_dir : rootlibdir)
@@ -1917,6 +1915,7 @@ install_libsystemd_static = static_library(
         libsystemd_sources,
         basic_sources,
         basic_gcrypt_sources,
+        basic_compress_sources,
         fundamental_sources,
         disable_mempool_c,
         include_directories : libsystemd_includes,
@@ -3031,7 +3030,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'systemd-coredump',
                 systemd_coredump_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libbasic_compress],
                 dependencies : [threads,
                                 libacl,
                                 libxz,
@@ -3045,7 +3045,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'coredumpctl',
                 coredumpctl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libbasic_compress],
                 dependencies : [threads,
                                 libxz,
                                 liblz4,

@@ -172,6 +172,16 @@ tests += [
 
         [files('test-recurse-dir.c')],
 
+        [files('test-compress.c'),
+         [libshared,
+          libbasic_compress]],
+
+        [files('test-compress-benchmark.c'),
+         [libshared,
+          libbasic_compress],
+         [],
+         [], '', 'timeout=90'],
+
         [files('test-data-fd-util.c')],
 
         [files('test-static-destruct.c')],

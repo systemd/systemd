@@ -446,3 +446,21 @@ libbasic_gcrypt = static_library(
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
+
+############################################################
+
+basic_compress_sources = files(
+        'compress.c',
+        'compress.h')
+
+# A convenience library that is separate from libbasic to avoid unnecessary
+# linking to the compression libraries.
+libbasic_compress = static_library(
+        'basic-compress',
+        basic_compress_sources,
+        include_directories : basic_includes,
+        dependencies : [libxz,
+                        libzstd,
+                        liblz4],
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)

@@ -1372,6 +1372,7 @@ int journal_file_find_data_object_with_hash(
         p = le64toh(f->data_hash_table[h].head_hash_offset);
 
         while (p > 0) {
+                Compression c;
                 Object *o;
 
                 r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
@@ -1381,7 +1382,8 @@ int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+                c = COMPRESSION_FROM_OBJECT(o);
+                if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         uint64_t l;
                         size_t rsize = 0;
@@ -1392,8 +1394,7 @@ int journal_file_find_data_object_with_hash(
 
                         l -= offsetof(Object, data.payload);
 
-                        r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,
-                                            o->data.payload, l, &f->compress_buffer, &rsize, 0);
+                        r = decompress_blob(c, o->data.payload, l, &f->compress_buffer, &rsize, 0);
                         if (r < 0)
                                 return r;
 
@@ -1590,7 +1591,7 @@ static int journal_file_append_data(
                         o->object.flags |= compression;
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
-                                  size, rsize, object_compressed_to_string(compression));
+                                  size, rsize, compression_to_string(compression));
                 } else
                         /* Compression didn't work, we don't really care why, let's continue without compression */
                         compression = 0;
@@ -3143,6 +3144,7 @@ void journal_file_dump(JournalFile *f) {
         p = le64toh(READ_NOW(f->header->header_size));
         while (p != 0) {
                 const char *s;
+                Compression c;
 
                 r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
                 if (r < 0)
@@ -3180,9 +3182,10 @@ void journal_file_dump(JournalFile *f) {
                         break;
                 }
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK)
+                c = COMPRESSION_FROM_OBJECT(o);
+                if (c > COMPRESSION_NONE)
                         printf("Flags: %s\n",
-                               object_compressed_to_string(o->object.flags & OBJECT_COMPRESSION_MASK));
+                               compression_to_string(c));
 
                 if (p == le64toh(f->header->tail_object_offset))
                         p = 0;
@@ -3367,11 +3370,11 @@ int journal_file_open(
 #endif
         };
 
-        if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_ZSTD)
+        if (DEFAULT_COMPRESSION == COMPRESSION_ZSTD)
                 f->compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
-        else if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_LZ4)
+        else if (DEFAULT_COMPRESSION == COMPRESSION_LZ4)
                 f->compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
-        else if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_XZ)
+        else if (DEFAULT_COMPRESSION == COMPRESSION_XZ)
                 f->compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
 
         /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
@@ -3689,6 +3692,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         items = newa(EntryItem, n);
 
         for (uint64_t i = 0; i < n; i++) {
+                Compression c;
                 uint64_t l, h;
                 size_t t;
                 void *data;
@@ -3711,12 +3715,13 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 if ((uint64_t) t != l)
                         return -E2BIG;
 
-                if (o->object.flags & OBJECT_COMPRESSION_MASK) {
+                c = COMPRESSION_FROM_OBJECT(o);
+                if (c != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                         size_t rsize = 0;
 
                         r = decompress_blob(
-                                        o->object.flags & OBJECT_COMPRESSION_MASK,
+                                        c,
                                         o->data.payload, l,
                                         &from->compress_buffer, &rsize,
                                         0);
