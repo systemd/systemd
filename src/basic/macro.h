@@ -399,7 +399,7 @@ static inline int __coverity_check_and_return__(int condition) {
                 /* For type check. */                           \
                 unsigned *q = &p->n_ref;                        \
                 assert(*q > 0);                                 \
-                assert(*q < UINT_MAX);                          \
+                assert_se(*q < UINT_MAX);                       \
                                                                 \
                 (*q)++;                                         \
                 return p;                                       \
