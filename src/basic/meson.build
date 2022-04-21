@@ -140,6 +140,7 @@ basic_sources = files(
         'missing_drm.h',
         'missing_fcntl.h',
         'missing_fs.h',
+        'missing_hidraw.h',
         'missing_input.h',
         'missing_ioprio.h',
         'missing_keyctl.h',
