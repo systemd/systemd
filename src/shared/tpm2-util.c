@@ -5,6 +5,7 @@
 #include "parse-util.h"
 #include "stat-util.h"
 #include "tpm2-util.h"
+#include "virt.h"
 
 #if HAVE_TPM2
 #include "alloc-util.h"
@@ -1460,12 +1461,18 @@ Tpm2Support tpm2_support(void) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
 
-        r = dir_is_empty("/sys/class/tpmrm");
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
-        } else if (r == 0) /* populated! */
-                support |= TPM2_SUPPORT_DRIVER;
+        if (detect_container() <= 0) {
+                /* Check if there's a /dev/tpmrm* device via sysfs. If we run in a container we likely just
+                 * got the host sysfs mounted. Since devices are generally not virtualized for containers,
+                 * let's assume containers never have a TPM, at least for now. */
+
+                r = dir_is_empty("/sys/class/tpmrm");
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");
+                } else if (r == 0) /* populated! */
+                        support |= TPM2_SUPPORT_DRIVER;
+        }
 
         if (efi_has_tpm2())
                 support |= TPM2_SUPPORT_FIRMWARE;
