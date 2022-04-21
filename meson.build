@@ -1470,14 +1470,9 @@ elif compression == 'lz4' and not have_lz4
 elif compression == 'xz' and not have_xz
         error('default-compression=xz requires xz')
 endif
-# These values are defined here so that config.h is self-contained, but they are also
-# re-defined (with different names to avoid conflits) in src/libsystemd/sd-journal/journal-def.h
-# as that source file represents the journal object ABI, and we want that to be self-contained too.
-conf.set('COMPRESSION_NONE', 0)
-conf.set('COMPRESSION_XZ', 1)
-conf.set('COMPRESSION_LZ4', 2)
-conf.set('COMPRESSION_ZSTD', 4)
-conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
+conf.set10('DEFAULT_COMPRESSION_ZSTD', compression == 'zstd')
+conf.set10('DEFAULT_COMPRESSION_LZ4', compression == 'lz4')
+conf.set10('DEFAULT_COMPRESSION_XZ', compression == 'xz')
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
