@@ -3359,11 +3359,11 @@ int journal_file_open(
                 .open_flags = open_flags,
                 .writable = (open_flags & O_ACCMODE) != O_RDONLY,
 
-#if DEFAULT_COMPRESSION == COMPRESSION_ZSTD
+#if DEFAULT_COMPRESSION_ZSTD
                 .compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
-#elif DEFAULT_COMPRESSION == COMPRESSION_LZ4
+#elif DEFAULT_COMPRESSION_LZ4
                 .compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
-#elif DEFAULT_COMPRESSION == COMPRESSION_XZ
+#elif DEFAULT_COMPRESSION_XZ
                 .compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
 #endif
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
