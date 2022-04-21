@@ -67,6 +67,11 @@ for i; do
     fi
 done
 
+if [ "$KERNEL_INSTALL_BYPASS" = "1" ]; then
+    echo "kernel-install: Skipping execution because KERNEL_INSTALL_BYPASS=1"
+    exit 0
+fi
+
 export KERNEL_INSTALL_VERBOSE=0
 if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
     shift
