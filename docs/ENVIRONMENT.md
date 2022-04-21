@@ -441,3 +441,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   use for LUKS home directories, overriding the built-in default mount
   options. There's one variable for each of the supported file systems for the
   LUKS home directory backend.
+
+`kernel-install`:
+
+* `$KERNEL_INSTALL_ENABLE` – If set to "0", execution of kernel-install if
+  kernel-install is invoked. This is useful to skip execution of kernel-install
+  when it is invoked as a child process by another tool, such as package managers
+  running kernel-install in a postinstall script.
