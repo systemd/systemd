@@ -743,4 +743,3 @@ evdev:input:b0003v172Fp0047*
 evdev:input:b0003v172Fp0505*
  EVDEV_ABS_00=::160
  EVDEV_ABS_01=::160
- 
