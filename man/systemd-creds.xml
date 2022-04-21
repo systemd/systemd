@@ -90,7 +90,7 @@
         <term><command>encrypt</command> <replaceable>input|-</replaceable> <replaceable>output|-</replaceable></term>
 
         <listitem><para>Loads the specified (unencrypted plaintext) input credential file, encrypts it and
-        writes the (encrypted ciphertext) version to the specified output credential file. The resulting file
+        writes the (encrypted ciphertext) output to the specified target credential file. The resulting file
         may be referenced in the <varname>LoadCredentialEncrypted=</varname> setting in unit files, or its
         contents used literally in <varname>SetCredentialEncrypted=</varname> settings.</para>
 
@@ -102,8 +102,8 @@
         output path is specified as <literal>-</literal> the credential name cannot be derived from the file
         system path, and thus should be specified explicitly via the <option>--name=</option> switch.</para>
 
-        <para>The credential data is encrypted symmetrically with one of the following encryption
-        keys:</para>
+        <para>The credential data is encrypted and authenticated symmetrically with one of the following
+        encryption keys:</para>
 
         <orderedlist>
           <listitem><para>A secret key automatically derived from the system's TPM2 chip. This encryption key
@@ -145,8 +145,8 @@
         <optional><replaceable>output|-</replaceable></optional></term>
 
         <listitem><para>Undoes the effect of the <command>encrypt</command> operation: loads the specified
-        (encrypted ciphertext) input credential file, decrypts it and writes the (decrypted plaintext)
-        version to the specified output credential file.</para>
+        (encrypted ciphertext) input credential file, decrypts and authenticates it and writes the (decrypted
+        plaintext) output to the specified target credential file.</para>
 
         <para>Takes one or two file system paths. The file name part of the input path is compared with the
         credential name embedded in the encrypted file. If it does not match decryption fails. This is done

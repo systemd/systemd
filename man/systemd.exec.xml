@@ -3054,18 +3054,19 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         loading from a directory, symlinks will be ignored.</para>
 
         <para>The <varname>LoadCredentialEncrypted=</varname> setting is identical to
-        <varname>LoadCredential=</varname>, except that the credential data is decrypted before being passed
-        on to the executed processes. Specifically, the referenced path should refer to a file or socket with
-        an encrypted credential, as implemented by
+        <varname>LoadCredential=</varname>, except that the credential data is decrypted and authenticated
+        before being passed on to the executed processes. Specifically, the referenced path should refer to a
+        file or socket with an encrypted credential, as implemented by
         <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>. This
-        credential is loaded, decrypted and then passed to the application in decrypted plaintext form, in
-        the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
-        credential configured this way may encrypted with a secret key derived from the system's TPM2
-        security chip, or with a secret key stored in
-        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted credentials
-        improves security as credentials are not stored in plaintext and only decrypted into plaintext the
-        moment a service requiring them is started. Moreover, credentials may be bound to the local hardware
-        and installations, so that they cannot easily be analyzed offline.</para>
+        credential is loaded, decrypted, authenticated and then passed to the application in plaintext form,
+        in the same way a regular credential specified via <varname>LoadCredential=</varname> would be. A
+        credential configured this way may be symmetrically encrypted/authenticated with a secret key derived
+        from the system's TPM2 security chip, or with a secret key stored in
+        <filename>/var/lib/systemd/credentials.secret</filename>, or with both. Using encrypted and
+        authenticated credentials improves security as credentials are not stored in plaintext and only
+        authenticated and decrypted into plaintext the moment a service requiring them is started. Moreover,
+        credentials may be bound to the local hardware and installations, so that they cannot easily be
+        analyzed offline, or be generated externally.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
