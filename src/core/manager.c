@@ -777,9 +777,37 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         return 0;
 }
 
+static int manager_find_credentials_dirs(Manager *m) {
+        const char *e;
+        int r;
+
+        assert(m);
+
+        r = get_credentials_dir(&e);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to determine credentials directory, ignoring: %m");
+        } else {
+                m->received_credentials_directory = strdup(e);
+                if (!m->received_credentials_directory)
+                        return -ENOMEM;
+        }
+
+        r = get_encrypted_credentials_dir(&e);
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to determine encrypted credentials directory, ignoring: %m");
+        } else {
+                m->received_encrypted_credentials_directory = strdup(e);
+                if (!m->received_encrypted_credentials_directory)
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
+
 int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        const char *e;
         int r;
 
         assert(_m);
@@ -883,12 +911,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
         if (r < 0)
                 return r;
 
-        r = get_credentials_dir(&e);
-        if (r >= 0) {
-                m->received_credentials = strdup(e);
-                if (!m->received_credentials)
-                        return -ENOMEM;
-        }
+        r = manager_find_credentials_dirs(m);
+        if (r < 0)
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -1533,7 +1558,8 @@ Manager* manager_free(Manager *m) {
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
-        free(m->received_credentials);
+        free(m->received_credentials_directory);
+        free(m->received_encrypted_credentials_directory);
 
         free(m->watchdog_pretimeout_governor);
         free(m->watchdog_pretimeout_governor_overridden);
