@@ -2779,7 +2779,7 @@ int main(int argc, char *argv[]) {
 
                 /* Load the kernel modules early. */
                 if (!skip_setup)
-                        kmod_setup();
+                        (void) kmod_setup();
 
                 /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
                 r = mount_setup(loaded_policy, skip_setup);
