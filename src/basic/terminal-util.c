@@ -1278,6 +1278,9 @@ ColorMode get_color_mode(void) {
                         /* We only check for the presence of the variable; value is ignored. */
                         cached_color_mode = COLOR_OFF;
 
+                else if (getenv("COLORTERM"))
+                        cached_color_mode = COLOR_24BIT;
+
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time.
                          *
