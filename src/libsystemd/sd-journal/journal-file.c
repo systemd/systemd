@@ -1551,9 +1551,10 @@ static int journal_file_append_data(
                 Object **ret, uint64_t *ret_offset) {
 
         uint64_t hash, p, fp, osize;
-        Object *o, *fo;
-        int r, compression = 0;
+        bool compressed = false;
         const void *eq;
+        Object *o, *fo;
+        int r;
 
         assert(f);
 
@@ -1583,21 +1584,19 @@ static int journal_file_append_data(
         if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
                 size_t rsize = 0;
 
-                compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
+                if (compress_blob(data, size, o->data.payload, size - 1, &rsize) >= 0) {
+                        compressed = true;
 
-                if (compression >= 0) {
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
-                        o->object.flags |= compression;
+                        o->object.flags |= DEFAULT_OBJECT_COMPRESSED;
 
                         log_debug("Compressed data object %"PRIu64" -> %zu using %s",
-                                  size, rsize, object_compressed_to_string(compression));
-                } else
-                        /* Compression didn't work, we don't really care why, let's continue without compression */
-                        compression = 0;
+                                  size, rsize, object_compressed_to_string(DEFAULT_OBJECT_COMPRESSED));
+                }
         }
 #endif
 
-        if (compression == 0)
+        if (!compressed)
                 memcpy_safe(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
