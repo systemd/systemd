@@ -282,6 +282,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:*
  KEYBOARD_KEY_9f=homepage
 
 evdev:input:b0003v049Fp0051*
+evdev:input:b0003v049Fp008D*
  KEYBOARD_KEY_0c0011=presentation
  KEYBOARD_KEY_0c0012=addressbook
  KEYBOARD_KEY_0c0013=info
