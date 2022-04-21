@@ -55,6 +55,18 @@ else
         CFLAGS="$CFLAGS $UBSAN_FLAGS"
         CXXFLAGS="$CXXFLAGS $UBSAN_FLAGS"
     fi
+
+    if [[ "$SANITIZER" == introspector ]]; then
+        # fuzz-introspector passes -fuse-ld=gold and -flto using CFLAGS/LDFLAGS and due to
+        # https://github.com/mesonbuild/meson/issues/6377#issuecomment-575977919 and
+        # https://github.com/mesonbuild/meson/issues/6377 it doesn't mix well with meson.
+        # It's possible to build systemd with duct tape there using something like
+        # https://github.com/google/oss-fuzz/pull/7583#issuecomment-1104011067 but
+        # apparently even with gold and lto some parts of systemd are missing from
+        # reports (presumably due to https://github.com/google/oss-fuzz/issues/7598).
+        # Let's just fail here for now to make it clear that fuzz-introspector isn't supported.
+        exit 1
+    fi
 fi
 
 if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
