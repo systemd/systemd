@@ -55,3 +55,28 @@ int libmount_parse(const char *path, FILE *source, struct libmnt_table **ret_tab
         *ret_iter = TAKE_PTR(iter);
         return 0;
 }
+
+int libmount_mount_was_moved(const char *from, const char *to) {
+        _cleanup_(mnt_unref_fsp) struct libmnt_fs *fs;
+        _cleanup_(mnt_free_updatep) struct libmnt_update *upd;
+        int r;
+
+        fs = mnt_new_fs();
+        if (!fs)
+                return -ENOMEM;
+
+        mnt_fs_set_source(fs, from);
+        mnt_fs_set_target(fs, to);
+
+        upd = mnt_new_update();
+        if (!upd)
+                return -ENOMEM;
+
+        r = mnt_update_set_fs(upd, MS_MOVE, NULL, fs);
+        if (r == 1)
+                return 0; /* update is unnecessary */
+        if (r < 0)
+                return r;
+
+        return mnt_update_table(upd, NULL);
+}

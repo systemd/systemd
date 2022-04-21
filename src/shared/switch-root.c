@@ -11,6 +11,7 @@
 #include "base-filesystem.h"
 #include "chase-symlinks.h"
 #include "fd-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
@@ -121,6 +122,11 @@ int switch_root(const char *new_root,
                 else
                         (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
+
+        /* Inform libmount that we just moved the mount tree at '/sysroot' to '/' */
+        r = libmount_mount_was_moved(new_root, "/");
+        if (r < 0)
+                log_warning_errno(r, "Failed to inform libmount about switch root , ignoring: %m");
 
         return 0;
 }
