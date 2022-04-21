@@ -406,7 +406,8 @@ struct ExecParameters {
         const char *cgroup_path;
 
         char **prefix;
-        const char *received_credentials;
+        const char *received_credentials_directory;
+        const char *received_encrypted_credentials_directory;
 
         const char *confirm_spawn;
 

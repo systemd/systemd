@@ -438,7 +438,8 @@ struct Manager {
 
         /* Prefixes of e.g. RuntimeDirectory= */
         char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
-        char *received_credentials;
+        char *received_credentials_directory;
+        char *received_encrypted_credentials_directory;
 
         /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
          * multiple times on the same unit. */
