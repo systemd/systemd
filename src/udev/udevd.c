@@ -134,6 +134,7 @@ typedef struct Event {
         const char *id;
         const char *devpath;
         const char *devpath_old;
+        const char *devnode;
         usec_t retry_again_next_usec;
         usec_t retry_again_timeout_usec;
 
@@ -930,6 +931,9 @@ static int event_is_blocked(Event *event) {
                     devpath_conflict(event->devpath, loop_event->devpath_old) ||
                     devpath_conflict(event->devpath_old, loop_event->devpath))
                         break;
+
+                if (event->devnode && streq_ptr(event->devnode, loop_event->devnode))
+                        break;
         }
 
         assert(loop_event);
@@ -1077,7 +1081,7 @@ static int event_queue_assume_block_device_unlocked(Manager *manager, sd_device 
 }
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
-        const char *devpath, *devpath_old = NULL, *id = NULL;
+        const char *devpath, *devpath_old = NULL, *id = NULL, *devnode = NULL;
         sd_device_action_t action;
         uint64_t seqnum;
         Event *event;
@@ -1110,6 +1114,10 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
+        r = sd_device_get_devname(dev, &devnode);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
         event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
@@ -1122,6 +1130,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .id = id,
                 .devpath = devpath,
                 .devpath_old = devpath_old,
+                .devnode = devnode,
                 .state = EVENT_QUEUED,
         };
 
