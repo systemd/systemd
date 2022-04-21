@@ -171,6 +171,10 @@ Features:
   so that we might even open up up the random seed logic to non-SecureBoot
   systems?
 
+* sd-boot: also include the hyperv "vm generation id" in the random seed hash,
+  to cover nicely for machine clones. It's found in the ACPI tables, which
+  should be easily accessible from UEFI.
+
 * sd-boot: add menu item for shutdown? or hotkey?
 
 * sd-device has an API to create an sd_device object from a device id, but has
