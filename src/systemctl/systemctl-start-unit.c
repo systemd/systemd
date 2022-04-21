@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "special.h"
 #include "string-util.h"
+#include "systemctl-is-active.h"
 #include "systemctl-start-unit.h"
 #include "systemctl-util.h"
 #include "systemctl.h"
@@ -398,4 +399,50 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         return ret;
+}
+
+int verb_toggle(int argc, char *argv[], void *userdata) {
+        _cleanup_strv_free_ char **names = NULL;
+        UnitActiveState active_state;
+        sd_bus *bus;
+        int r, i, j = 0;
+        bool is_active = false;
+        char *new_args[3];
+        static const UnitActiveState good_states[] = {
+                UNIT_ACTIVE,
+                UNIT_RELOADING,
+        };
+        int nb_states = ELEMENTSOF(good_states);
+
+        if (!argv[1])
+                return 0;
+
+        r = mangle_names("to toggle", strv_skip(argv, 1), &names);
+        if (r < 0)
+                return r;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, names) {
+                is_active = false;
+
+                r = get_state_one_unit(bus, names[j], &active_state);
+                if (r < 0)
+                        return r;
+
+                for (i = 0; i < nb_states; ++i)
+                        if (good_states[i] == active_state)
+                                is_active = true;
+
+                new_args[0] = (char*) (is_active ? "stop" : "start");
+                new_args[1] = basename(names[j]);
+                new_args[2] = NULL;
+
+                r = verb_start(2, new_args, userdata);
+                j++;
+        }
+
+        return r;
 }
