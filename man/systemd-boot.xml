@@ -55,6 +55,9 @@
       <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
+
+      <listitem><para>Secure boot variables enrollement if the UEFI firmware is in setup-mode and files are provided
+      on the ESP.</para></listitem>
     </itemizedlist>
 
     <para><command>systemd-boot</command> supports the following features:</para>
@@ -91,6 +94,9 @@
       <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
       with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
+
+      <listitem><para>The boot manager allows for secure boot variables to be enrolled if the UEFI firmware is
+      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -311,6 +317,11 @@
     extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
     suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
     similar, to extend the native firmware support.</para>
+
+    <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
+    under <filename>/keys/*/{db,KEK,PK}.esl</filename>, * being the display name for the set of variables in the
+    menu. If one of the sets is named <filename>auto</filename> then it might be enrolled automatically depending
+    on whether <literal>secure-boot-enrollement</literal> is set to force or not.</para>
   </refsect1>
 
   <refsect1>

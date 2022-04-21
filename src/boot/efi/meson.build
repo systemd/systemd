@@ -346,19 +346,19 @@ efi_headers = files(
 
 common_sources = files(
         'assert.c',
+        'console.c',
         'devicetree.c',
         'disk.c',
         'graphics.c',
         'measure.c',
         'pe.c',
-        'secure-boot.c',
         'ticks.c',
         'util.c',
+        'secure-boot.c',
 )
 
 systemd_boot_sources = files(
         'boot.c',
-        'console.c',
         'drivers.c',
         'random-seed.c',
         'shim.c',

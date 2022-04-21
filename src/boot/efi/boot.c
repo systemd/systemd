@@ -5,6 +5,7 @@
 #include <efilib.h>
 
 #include "bcd.h"
+#include "boot.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
@@ -22,15 +23,6 @@
 #include "util.h"
 #include "xbootldr.h"
 
-#ifndef GNU_EFI_USE_MS_ABI
-        /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
-         * compiler to do the calling convention conversion for us. This is check is
-         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the comiler. */
-        #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
-#endif
-
-#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
-
 /* Magic string for recognizing our own binaries */
 _used_ _section_(".sdmagic") static const char magic[] =
         "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
@@ -41,77 +33,6 @@ _used_ _section_(".osrel") static const char osrel[] =
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
 
-enum loader_type {
-        LOADER_UNDEFINED,
-        LOADER_AUTO,
-        LOADER_EFI,
-        LOADER_LINUX,         /* Boot loader spec type #1 entries */
-        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
-};
-
-typedef struct {
-        CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
-        CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
-        CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
-        CHAR16 *sort_key;   /* The string to use as primary sort key, usually ID= from os-release, possibly suffixed */
-        CHAR16 *version;    /* The raw (human readable) version string of the entry */
-        CHAR16 *machine_id;
-        EFI_HANDLE *device;
-        enum loader_type type;
-        CHAR16 *loader;
-        CHAR16 *devicetree;
-        CHAR16 *options;
-        CHAR16 key;
-        EFI_STATUS (*call)(void);
-        UINTN tries_done;
-        UINTN tries_left;
-        CHAR16 *path;
-        CHAR16 *current_name;
-        CHAR16 *next_name;
-} ConfigEntry;
-
-typedef struct {
-        ConfigEntry **entries;
-        UINTN entry_count;
-        UINTN idx_default;
-        UINTN idx_default_efivar;
-        UINT32 timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
-        UINT32 timeout_sec_config;
-        UINT32 timeout_sec_efivar;
-        CHAR16 *entry_default_config;
-        CHAR16 *entry_default_efivar;
-        CHAR16 *entry_oneshot;
-        CHAR16 *entry_saved;
-        CHAR16 *options_edit;
-        BOOLEAN editor;
-        BOOLEAN auto_entries;
-        BOOLEAN auto_firmware;
-        BOOLEAN reboot_for_bitlocker;
-        BOOLEAN force_menu;
-        BOOLEAN use_saved_entry;
-        BOOLEAN use_saved_entry_efivar;
-        BOOLEAN beep;
-        INT64 console_mode;
-        INT64 console_mode_efivar;
-        RandomSeedMode random_seed_mode;
-} Config;
-
-/* These values have been chosen so that the transitions the user sees could
- * employ unsigned over-/underflow like this:
- * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
-enum {
-        TIMEOUT_MIN         = 1,
-        TIMEOUT_MAX         = UINT32_MAX - 2U,
-        TIMEOUT_UNSET       = UINT32_MAX - 1U,
-        TIMEOUT_MENU_FORCE  = UINT32_MAX,
-        TIMEOUT_MENU_HIDDEN = 0,
-        TIMEOUT_TYPE_MAX    = UINT32_MAX,
-};
-
-enum {
-        IDX_MAX = INT16_MAX,
-        IDX_INVALID,
-};
 
 static void cursor_left(UINTN *cursor, UINTN *first) {
         assert(cursor);
@@ -513,23 +434,32 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_UNSET:
             break;
         case TIMEOUT_MENU_FORCE:
-            Print(L"     timeout (EFI var): menu-force\n"); break;
+            Print(L"       timeout (EFI var): menu-force\n"); break;
         case TIMEOUT_MENU_HIDDEN:
-            Print(L"     timeout (EFI var): menu-hidden\n"); break;
+            Print(L"       timeout (EFI var): menu-hidden\n"); break;
         default:
-            Print(L"     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
+            Print(L"       timeout (EFI var): %lu s\n", config->timeout_sec_efivar);
         }
 
-        ps_string(L"               default: %s\n", config->entry_default_config);
-        ps_string(L"     default (EFI var): %s\n", config->entry_default_efivar);
-        ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
-        ps_string(L"           saved entry: %s\n", config->entry_saved);
-          ps_bool(L"                editor: %s\n", config->editor);
-          ps_bool(L"          auto-entries: %s\n", config->auto_entries);
-          ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
-          ps_bool(L"                  beep: %s\n", config->beep);
-          ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
-        ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
+        ps_string(L"                 default: %s\n", config->entry_default_config);
+        ps_string(L"       default (EFI var): %s\n", config->entry_default_efivar);
+        ps_string(L"      default (one-shot): %s\n", config->entry_oneshot);
+        ps_string(L"             saved entry: %s\n", config->entry_saved);
+          ps_bool(L"                  editor: %s\n", config->editor);
+          ps_bool(L"            auto-entries: %s\n", config->auto_entries);
+          ps_bool(L"           auto-firmware: %s\n", config->auto_firmware);
+          ps_bool(L"                    beep: %s\n", config->beep);
+          ps_bool(L"    reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
+        ps_string(L"        random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
+
+        switch (config->secure_boot_enrollment) {
+        case ENROLLMENT_OFF:
+        case ENROLLMENT_MANUAL:
+        case ENROLLMENT_FORCE:
+        ps_string(L"   secure-boot-enrollment: %s\n", secure_boot_enrollment_table[config->secure_boot_enrollment]); break;
+        default:
+            Print(L"   secure-boot-enrollment: %ld\n", config->secure_boot_enrollment); break;
+        }
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -594,6 +524,10 @@ static EFI_STATUS reboot_into_firmware(void) {
 
         err = RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
+}
+
+static EFI_STATUS reboot_into_firmware_entry(_unused_ EFI_FILE *root_dir, _unused_ Config *config, _unused_ ConfigEntry *entry) {
+        return reboot_into_firmware();
 }
 
 static BOOLEAN menu_run(
@@ -1209,6 +1143,18 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (EFI_ERROR(err))
                                 log_error_stall(L"Error parsing 'reboot-for-bitlocker' config option: %a", value);
+                }
+
+                if (strcmpa((CHAR8 *)"secure-boot-enrollment", key) == 0) {
+                        if (strcmpa((CHAR8 *)"manual", value) == 0)
+                                config->secure_boot_enrollment = ENROLLMENT_MANUAL;
+                        else if (strcmpa((CHAR8 *)"force", value)  == 0)
+                                config->secure_boot_enrollment = ENROLLMENT_FORCE;
+                        else if (strcmpa((CHAR8 *)"off", value) == 0)
+                                config->secure_boot_enrollment = ENROLLMENT_OFF;
+                        else
+                                log_error_stall(L"Error parsing 'secure-boot-enrollment' config option: %a", value);
+
                         continue;
                 }
 
@@ -1585,6 +1531,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = TRUE,
                 .auto_firmware = TRUE,
                 .reboot_for_bitlocker = FALSE,
+                .secure_boot_enrollment = ENROLLMENT_MANUAL,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1863,12 +1810,12 @@ static void config_title_generate(Config *config) {
         }
 }
 
-static BOOLEAN config_entry_add_call(
+static ConfigEntry *config_entry_add_call(
                 Config *config,
+                enum loader_type type,
                 const CHAR16 *id,
                 const CHAR16 *title,
-                EFI_STATUS (*call)(void)) {
-
+                typeof((ConfigEntry){}.call) call) {
         ConfigEntry *entry;
 
         assert(config);
@@ -1878,15 +1825,17 @@ static BOOLEAN config_entry_add_call(
 
         entry = xnew(ConfigEntry, 1);
         *entry = (ConfigEntry) {
-                .id = xstrdup(id),
-                .title = xstrdup(title),
+                .type = type,
                 .call = call,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
         };
 
+        entry->id = xstrdup(id);
+        entry->title = xstrdup(title);
+
         config_add_entry(config, entry);
-        return TRUE;
+        return entry;
 }
 
 static ConfigEntry *config_entry_add_loader(
@@ -2026,7 +1975,7 @@ static void config_entry_add_osx(Config *config) {
         }
 }
 
-static EFI_STATUS boot_windows_bitlocker(void) {
+static EFI_STATUS boot_windows_bitlocker_entry(_unused_ EFI_FILE *root_dir, _unused_ Config *config, _unused_ ConfigEntry *entry) {
         _cleanup_freepool_ EFI_HANDLE *handles = NULL;
         UINTN n_handles;
         EFI_STATUS err;
@@ -2130,7 +2079,7 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                                                       L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
-                e->call = boot_windows_bitlocker;
+                e->call = boot_windows_bitlocker_entry;
 #endif
 }
 
@@ -2317,9 +2266,10 @@ static void config_load_xbootldr(
 }
 
 static EFI_STATUS image_start(
+                EFI_FILE *root_dir,
                 EFI_HANDLE parent_image,
-                const Config *config,
-                const ConfigEntry *entry) {
+                Config *config,
+                ConfigEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         EFI_HANDLE image;
@@ -2332,7 +2282,7 @@ static EFI_STATUS image_start(
 
         /* If this loader entry has a special way to boot, try that first. */
         if (entry->call)
-                (void) entry->call();
+                (void) entry->call(root_dir, config, entry);
 
         _cleanup_(file_closep) EFI_FILE *image_root = LibOpenRoot(entry->device);
         if (!image_root)
@@ -2441,6 +2391,63 @@ static void save_selected_entry(const Config *config, const ConfigEntry *entry) 
                 (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", NULL, EFI_VARIABLE_NON_VOLATILE);
 }
 
+static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
+        EFI_STATUS err;
+        _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
+
+        if (secure_boot_mode() != SECURE_BOOT_SETUP)
+                return EFI_SUCCESS;
+
+        /* the lack of a 'keys' directory is not fatal and is silently ignored */
+        err = open_directory(root_dir, (CHAR16*) L"\\loader\\keys", &keys_basedir);
+        if (err == EFI_NOT_FOUND)
+                return EFI_SUCCESS;
+        if (EFI_ERROR(err))
+                return err;
+
+        for (;;) {
+                _cleanup_freepool_ CHAR16 *id, *title;
+                _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
+                UINTN dirent_size = 0;
+                ConfigEntry *entry = NULL;
+
+                err = readdir_harder(keys_basedir, &dirent, &dirent_size);
+                if (!dirent)
+                        break;
+
+                if (EFI_ERROR(err))
+                        return err;
+
+                if (dirent->FileName[0] == '.')
+                        continue;
+
+                if (!FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
+                        continue;
+
+                id = xpool_print(L"secure-boot-keys-%s", dirent->FileName);
+                title = xpool_print(L"Enroll Secure Boot keys: %s", dirent->FileName);
+
+                entry = config_entry_add_call(
+                        config,
+                        LOADER_SECURE_BOOT_KEYS,
+                        id,
+                        title,
+                        secure_boot_enroll);
+                if (!entry)
+                        continue;
+                entry->path = xpool_print(L"\\loader\\keys\\%s", dirent->FileName);
+
+                /* if auto enrollment is activated and set to force, we try to load keys straight from the /loader/keys/auto location. */
+                if (config->secure_boot_enrollment == ENROLLMENT_FORCE && strcaseeq(dirent->FileName, L"auto")) {
+                        err = secure_boot_enroll(root_dir, config, entry);
+                        if (!EFI_ERROR(err))
+                                return EFI_SUCCESS;
+                }
+        }
+
+        return EFI_SUCCESS;
+}
+
 static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
@@ -2517,9 +2524,17 @@ static void config_load_all_entries(
 
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
                 config_entry_add_call(config,
+                                      LOADER_UNDEFINED,
                                       L"auto-reboot-to-firmware-setup",
                                       L"Reboot Into Firmware Interface",
-                                      reboot_into_firmware);
+                                      reboot_into_firmware_entry);
+
+        /* find if secure boot signing keys exist and autoload them if necessary
+        otherwise creates menu entries so that the user can load them manually
+        if the secure-boot-enrollment variable is set to no (the default), we do not
+        even search for keys on the ESP */
+        if (config->secure_boot_enrollment != ENROLLMENT_OFF)
+                secure_boot_discover_keys(config, root_dir);
 
         if (config->entry_count == 0)
                 return;
@@ -2612,7 +2627,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Run special entry like "reboot" now. Those that have a loader
                  * will be handled by image_start() instead. */
                 if (entry->call && !entry->loader) {
-                        entry->call();
+                        entry->call(root_dir, &config, entry);
                         continue;
                 }
 
@@ -2622,7 +2637,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
 
-                err = image_start(image, &config, entry);
+                err = image_start(root_dir, image, &config, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
                         log_error_stall(L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
