@@ -15,27 +15,6 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
 int compress_blob_zstd(const void *src, uint64_t src_size,
                        void *dst, size_t dst_alloc_size, size_t *dst_size);
 
-static inline int compress_blob(const void *src, uint64_t src_size,
-                                void *dst, size_t dst_alloc_size, size_t *dst_size) {
-        int r;
-#if DEFAULT_COMPRESSION == COMPRESSION_ZSTD
-        r = compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size);
-        if (r == 0)
-                return COMPRESSION_ZSTD;
-#elif DEFAULT_COMPRESSION == COMPRESSION_LZ4
-        r = compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
-        if (r == 0)
-                return COMPRESSION_LZ4;
-#elif DEFAULT_COMPRESSION == COMPRESSION_XZ
-        r = compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
-        if (r == 0)
-                return COMPRESSION_XZ;
-#else
-        r = -EOPNOTSUPP;
-#endif
-        return r;
-}
-
 int decompress_blob_xz(const void *src, uint64_t src_size,
                        void **dst, size_t* dst_size, size_t dst_max);
 int decompress_blob_lz4(const void *src, uint64_t src_size,
@@ -72,19 +51,38 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
-#if DEFAULT_COMPRESSION == COMPRESSION_ZSTD
-#  define compress_stream compress_stream_zstd
+static inline int compress_blob(const void *src, uint64_t src_size,
+                                void *dst, size_t dst_alloc_size, size_t *dst_size) {
+#if DEFAULT_COMPRESSION_ZSTD
+        return compress_blob_zstd(src, src_size, dst, dst_alloc_size, dst_size);
+#elif DEFAULT_COMPRESSION_LZ4
+        return compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
+#elif DEFAULT_COMPRESSION_XZ
+        return compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static inline int compress_stream(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
+#if DEFAULT_COMPRESSION_ZSTD
+        return compress_stream_zstd(fdf, fdt, max_bytes, ret_uncompressed_size);
+#elif DEFAULT_COMPRESSION_LZ4
+        return compress_stream_lz4(fdf, fdt, max_bytes, ret_uncompressed_size);
+#elif DEFAULT_COMPRESSION_XZ
+        return compress_stream_xz(fdf, fdt, max_bytes, ret_uncompressed_size);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+#if DEFAULT_COMPRESSION_ZSTD
 #  define COMPRESSED_EXT ".zst"
-#elif DEFAULT_COMPRESSION == COMPRESSION_LZ4
-#  define compress_stream compress_stream_lz4
+#elif DEFAULT_COMPRESSION_LZ4
 #  define COMPRESSED_EXT ".lz4"
-#elif DEFAULT_COMPRESSION == COMPRESSION_XZ
-#  define compress_stream compress_stream_xz
+#elif DEFAULT_COMPRESSION_XZ
 #  define COMPRESSED_EXT ".xz"
 #else
-static inline int compress_stream(int fdf, int fdt, uint64_t max_size, uint64_t *ret_uncompressed_size) {
-        return -EOPNOTSUPP;
-}
 #  define COMPRESSED_EXT ""
 #endif
 
