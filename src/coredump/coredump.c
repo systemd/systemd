@@ -462,7 +462,7 @@ static int save_external_coredump(
                 if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
-                fn_compressed = strjoin(fn, COMPRESSED_EXT);
+                fn_compressed = strjoin(fn, default_compression_extension());
                 if (!fn_compressed)
                         return log_oom();
 

@@ -3359,13 +3359,6 @@ int journal_file_open(
                 .open_flags = open_flags,
                 .writable = (open_flags & O_ACCMODE) != O_RDONLY,
 
-#if DEFAULT_COMPRESSION_ZSTD
-                .compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
-#elif DEFAULT_COMPRESSION_LZ4
-                .compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
-#elif DEFAULT_COMPRESSION_XZ
-                .compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS),
-#endif
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
@@ -3373,6 +3366,13 @@ int journal_file_open(
                 .seal = FLAGS_SET(file_flags, JOURNAL_SEAL),
 #endif
         };
+
+        if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_ZSTD)
+                f->compress_zstd = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
+        else if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_LZ4)
+                f->compress_lz4 = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
+        else if (DEFAULT_COMPRESSION == OBJECT_COMPRESSED_XZ)
+                f->compress_xz = FLAGS_SET(file_flags, JOURNAL_COMPRESS);
 
         /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
          * people really want that */
