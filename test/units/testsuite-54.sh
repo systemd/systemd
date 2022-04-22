@@ -16,6 +16,26 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
 ( cat /etc/passwd /etc/shadow && echo -n wuff ) | cmp /tmp/ts54-concat
 rm /tmp/ts54-concat
 
+# Test that SetCredential= acts as fallback for LoadCredential=
+echo piff > /tmp/ts54-fallback
+[ "$(systemd-run -p LoadCredential=paff:/tmp/ts54-fallback -p SetCredential=paff:poff --pipe --wait systemd-creds cat paff)" = "piff" ]
+rm /tmp/ts54-fallback
+[ "$(systemd-run -p LoadCredential=paff:/tmp/ts54-fallback -p SetCredential=paff:poff --pipe --wait systemd-creds cat paff)" = "poff" ]
+
+if systemd-detect-virt -q -c ; then
+    # If this test is run in nspawn a credential should have been passed to us. See test/TEST-54-CREDS/test.sh
+    [ "$(systemd-creds --system cat mynspawncredential)" = "strangevalue" ]
+
+    # Test that propagation from system credential to service credential works
+    [ "$(systemd-run -p LoadCredential=mynspawncredential --pipe --wait systemd-creds cat mynspawncredential)" = "strangevalue" ]
+
+    # Check it also works, if we rename it while propagating it
+    [ "$(systemd-run -p LoadCredential=miau:mynspawncredential --pipe --wait systemd-creds cat miau)" = "strangevalue" ]
+
+    # Combine it with a fallback (which should have no effect, given the cred should be passed down)
+    [ "$(systemd-run -p LoadCredential=mynspawncredential -p SetCredential=mynspawncredential:zzz --pipe --wait systemd-creds cat mynspawncredential)" = "strangevalue" ]
+fi
+
 # Verify that the creds are immutable
 systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
