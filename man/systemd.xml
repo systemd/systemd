@@ -945,6 +945,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.set_credential=</varname></term>
+
+        <listitem><para>Sets a system credential, which can then be propagated to system services using the
+        <varname>LoadCredential=</varname> setting, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Takes a pair of credential name and value, separated by a colon. Note that the kernel
+        command line is typically accessible by unprivileged programs in
+        <filename>/proc/cmdline</filename>. Thus, this mechanism is not suitable for transferring sensitive
+        data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
+        keys), or in testing/debugging environments.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.import_credentials=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
+        command line, qemu_fw_cfg subsystem or the kernel command line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>quiet</varname></term>
 
         <listitem><para>Turn off status output at boot, much like
