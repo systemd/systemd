@@ -53,6 +53,15 @@ boot. For that it's essential to:
    [`/etc/machine-info`](https://www.freedesktop.org/software/systemd/man/machine-info.html)
    which carry additional identifying information about the OS image.
 
+5. Remove `/var/lib/systemd/credential.secret` which is used for protecting
+   service credentials, see
+   [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Credentials)
+   and
+   [`systemd-creds(1)`](https://www.freedesktop.org/software/systemd/man/systemd-creds.html)
+   for details. Note that by removing this file access to previously encrypted
+   credentials from this image is lost. The file is automatically generated if
+   a new credential is encrypted and the file does not exist yet.
+
 ## Boot Menu Entry Identifiers
 
 The
