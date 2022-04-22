@@ -20,6 +20,7 @@
 #include "nss-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -134,11 +135,18 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         if (STR_IN_SET(module, "resolve", "mymachines") && status == NSS_STATUS_UNAVAIL)
                 return;
 
-        if (STR_IN_SET(module, "myhostname", "resolve") &&
-            streq(name, "localhost") &&
-            getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
-                assert_se(status == NSS_STATUS_SUCCESS);
-                assert_se(n == 2);
+        if (streq(name, "localhost")) {
+                if (streq(module, "myhostname")) {
+                        assert_se(status == NSS_STATUS_SUCCESS);
+                        assert_se(n == socket_ipv6_is_enabled() + 1);
+
+                } else if (streq(module, "resolve") && getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
+                        assert_se(status == NSS_STATUS_SUCCESS);
+                        if (socket_ipv6_is_enabled())
+                                assert_se(n == 2);
+                        else
+                                assert_se(n <= 2); /* Even if IPv6 is disabled, /etc/hosts may contain ::1. */
+                }
         }
 }
 
