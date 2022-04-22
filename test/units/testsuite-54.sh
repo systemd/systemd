@@ -23,17 +23,34 @@ rm /tmp/ts54-fallback
 [ "$(systemd-run -p LoadCredential=paff:/tmp/ts54-fallback -p SetCredential=paff:poff --pipe --wait systemd-creds cat paff)" = "poff" ]
 
 if systemd-detect-virt -q -c ; then
+    expected_credential=mynspawncredential
+    expected_value=strangevalue
+elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
+    # Verify that passing creds through kernel cmdline works
+    [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
+
+    # If we aren't run in nspawn, we are run in qemu
+    systemd-detect-virt -q -v
+    expected_credential=myqemucredential
+    expected_value=othervalue
+else
+    echo "qemu_fw_cfg support missing in kernel. Sniff!"
+    expected_credential=""
+    expected_value=""
+fi
+
+if [ "$expected_credential" != "" ] ; then
     # If this test is run in nspawn a credential should have been passed to us. See test/TEST-54-CREDS/test.sh
-    [ "$(systemd-creds --system cat mynspawncredential)" = "strangevalue" ]
+    [ "$(systemd-creds --system cat "$expected_credential")" = "$expected_value" ]
 
     # Test that propagation from system credential to service credential works
-    [ "$(systemd-run -p LoadCredential=mynspawncredential --pipe --wait systemd-creds cat mynspawncredential)" = "strangevalue" ]
+    [ "$(systemd-run -p LoadCredential="$expected_credential" --pipe --wait systemd-creds cat "$expected_credential")" = "$expected_value" ]
 
     # Check it also works, if we rename it while propagating it
-    [ "$(systemd-run -p LoadCredential=miau:mynspawncredential --pipe --wait systemd-creds cat miau)" = "strangevalue" ]
+    [ "$(systemd-run -p LoadCredential=miau:"$expected_credential" --pipe --wait systemd-creds cat miau)" = "$expected_value" ]
 
     # Combine it with a fallback (which should have no effect, given the cred should be passed down)
-    [ "$(systemd-run -p LoadCredential=mynspawncredential -p SetCredential=mynspawncredential:zzz --pipe --wait systemd-creds cat mynspawncredential)" = "strangevalue" ]
+    [ "$(systemd-run -p LoadCredential="$expected_credential" -p SetCredential="$expected_credential":zzz --pipe --wait systemd-creds cat "$expected_credential")" = "$expected_value" ]
 fi
 
 # Verify that the creds are immutable
