@@ -1470,9 +1470,9 @@ elif compression == 'lz4' and not have_lz4
 elif compression == 'xz' and not have_xz
         error('default-compression=xz requires xz')
 endif
-conf.set10('DEFAULT_COMPRESSION_ZSTD', compression == 'zstd')
-conf.set10('DEFAULT_COMPRESSION_LZ4', compression == 'lz4')
-conf.set10('DEFAULT_COMPRESSION_XZ', compression == 'xz')
+conf.set('DEFAULT_COMPRESSION',
+         compression == 'none' ? 0 :
+                 'OBJECT_COMPRESSED_@0@'.format(compression.to_upper()))
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
