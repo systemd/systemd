@@ -46,9 +46,12 @@ echo 'force-unsafe-io' > /etc/dpkg/dpkg.cfg.d/unsafe_io
 # For some reason, it is necessary to run this manually or the interface won't be configured
 # Note that we avoid networkd, as some of the tests will break it later on
 dhclient
+mkdir -p /etc/network/interfaces.d/
+echo 'auto /eth*=eth' > /etc/network/interfaces.d/eth.cfg
+echo 'iface eth inet dhc' >> /etc/network/interfaces.d/eth.cfg
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
-apt-get install -y eatmydata
+apt-get install -y eatmydata ifupdown
 # The following four are needed as long as these deps are not covered by Debian's own packaging
 apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
 apt-get purge --auto-remove -y unattended-upgrades
