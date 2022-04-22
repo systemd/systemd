@@ -3,6 +3,7 @@
 set -e
 
 TEST_DESCRIPTION="test credentials"
+NSPAWN_ARGUMENTS="--set-credential=mynspawncredential:strangevalue"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
