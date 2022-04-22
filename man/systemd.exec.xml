@@ -3039,19 +3039,30 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         is absolute it is opened as regular file and the credential data is read from it. If the absolute
         path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made
         to it (only once at unit start-up) and the credential data read from the connection, providing an
-        easy IPC integration point for dynamically providing credentials from other services. If the
-        specified path is not absolute and itself qualifies as valid credential identifier it is understood
-        to refer to a credential that the service manager itself received via the
-        <varname>$CREDENTIALS_DIRECTORY</varname> environment variable, which may be used to propagate
-        credentials from an invoking environment (e.g. a container manager that invoked the service manager)
-        into a service. The contents of the file/socket may be arbitrary binary or textual data, including
-        newline characters and <constant>NUL</constant> bytes. If the file system path is omitted it is
-        chosen identical to the credential name, i.e. this is a terse way do declare credentials to inherit
-        from the service manager into a service. This option may be used multiple times, each time defining
-        an additional credential to pass to the unit. Alternatively, if the path is a directory, every file
-        in that directory will be loaded as a separate credential. The ID for each credential will be the
+        easy IPC integration point for dynamically transferring credentials from other services.</para>
+
+        <para>If the specified path is not absolute and itself qualifies as valid credential identifier it is
+        attempted to find a credential that the service manager itself received under the specified name —
+        which may be used to propagate credentials from an invoking environment (e.g. a container manager
+        that invoked the service manager) into a service. If no matching system credential is found, the
+        directories <filename>/etc/credstore/</filename>, <filename>/run/credstore/</filename> and
+        <filename>/usr/lib/credstore/</filename> are searched for files under the credential's name — which
+        hence are recommended locations for credential data on disk. If
+        <varname>LoadCredentialEncrypted=</varname> is used <filename>/run/credstore.encrypted/</filename>,
+        <filename>/etc/credstore.encrypted/</filename>, and
+        <filename>/usr/lib/credstore.encrypted/</filename> are searched as well.</para>
+
+        <para>If the file system path is omitted it is chosen identical to the credential name, i.e. this is
+        a terse way to declare credentials to inherit from the service manager into a service. This option
+        may be used multiple times, each time defining an additional credential to pass to the unit.</para>
+
+        <para>If an absolute path referring to a directory is specified, every file in that directory
+        (recursively) will be loaded as a separate credential. The ID for each credential will be the
         provided ID suffixed with <literal>_$FILENAME</literal> (e.g., <literal>Key_file1</literal>). When
         loading from a directory, symlinks will be ignored.</para>
+
+        <para>The contents of the file/socket may be arbitrary binary or textual data, including newline
+        characters and <constant>NUL</constant> bytes.</para>
 
         <para>The <varname>LoadCredentialEncrypted=</varname> setting is identical to
         <varname>LoadCredential=</varname>, except that the credential data is decrypted and authenticated
@@ -3077,9 +3088,22 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
         <para>In order to reference the path a credential may be read from within a
         <varname>ExecStart=</varname> command line use <literal>${CREDENTIALS_DIRECTORY}/mycred</literal>,
-        e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>.</para>
+        e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>. In order to reference the path
+        a credential may be read from within a <varname>Environment=</varname> line use
+        <literal>%d/mycred</literal>, e.g. <literal>Environment=MYCREDPATH=%d/mycred</literal>.</para>
 
         <para>Currently, an accumulated credential size limit of 1 MB per unit is enforced.</para>
+
+        <para>The service manager itself may receive system credentials that can be propagated to services
+        from a hosting container manager or VM hypervisor. See the <ulink
+        url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> documentation for details
+        about the former. For the latter, use the <command>qemu</command> <literal>fw_cfg</literal> node
+        <literal>opt/io.systemd.credentials/</literal>. Example qemu switch: <literal>-fw_cfg
+        name=opt/io.systemd.credentials/mycred,string=supersecret</literal>. They may also be specified on
+        the kernel command line using the <literal>systemd.set_credential=</literal> switch (see
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        and from the UEFI firmware environment via
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>If referencing an <constant>AF_UNIX</constant> stream socket to connect to, the connection will
         originate from an abstract namespace socket, that includes information about the unit and the
