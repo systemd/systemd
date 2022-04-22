@@ -20,6 +20,7 @@
 #include "nss-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -138,7 +139,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
             streq(name, "localhost") &&
             getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                 assert_se(status == NSS_STATUS_SUCCESS);
-                assert_se(n == 2);
+                assert_se(n == socket_ipv6_is_enabled() + 1);
         }
 }
 

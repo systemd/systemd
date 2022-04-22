@@ -440,7 +440,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
 
                 if (IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_ANY))
                         found_a = true;
-                if (IN_SET(t->type, DNS_TYPE_AAAA, DNS_TYPE_ANY))
+                if (IN_SET(t->type, DNS_TYPE_AAAA, DNS_TYPE_ANY) && socket_ipv6_is_enabled())
                         found_aaaa = true;
 
                 if (found_a && found_aaaa)
