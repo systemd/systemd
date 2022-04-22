@@ -23,25 +23,10 @@ fi
 
 # Meson uses Python 3 and requires a locale with an UTF-8 character map.
 # Not running under UTF-8 makes the `ninja test` step break with a CodecError.
-# So let's ensure we're running under UTF-8.
-#
-# If our current locale already is UTF-8, then we don't need to do anything:
+# So let's check that we're running under UTF-8.
 if [ "$(locale charmap 2>/dev/null)" != "UTF-8" ] ; then
-        # Try using C.UTF-8 locale, if available. This locale is not shipped
-        # by upstream glibc, so it's not available in all distros.
-        # (In particular, it's not available in Arch Linux.)
-        if locale -a | grep -q -E "C.UTF-8|C.utf8"; then
-                export LC_CTYPE=C.UTF-8
-        # Finally, try something like en_US.UTF-8, which should be
-        # available in Arch Linux, but is not present in Debian's
-        # minimal image in our mkosi config.
-        elif locale -a | grep -q en_US.utf8; then
-                export LC_CTYPE=en_US.UTF-8
-        else
-                # If nothing works, fail early.
-                echo "*** Could not find a valid locale that supports UTF-8. ***" >&2
-                exit 1
-        fi
+        echo "*** locale does not support UTF-8. ***" >&2
+        exit 1
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
