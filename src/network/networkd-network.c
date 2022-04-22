@@ -591,28 +591,6 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
         return 0;
 }
 
-static bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
-        struct stat *st_a, *st_b;
-        const char *path;
-
-        assert(a);
-        assert(b);
-
-        if (hashmap_size(a) != hashmap_size(b))
-                return false;
-
-        HASHMAP_FOREACH_KEY(st_a, path, a) {
-                st_b = hashmap_get(b, path);
-                if (!st_b)
-                        return false;
-
-                if (!stat_inode_unmodified(st_a, st_b))
-                        return false;
-        }
-
-        return true;
-}
-
 int network_reload(Manager *manager) {
         OrderedHashmap *new_networks = NULL;
         Network *n, *old;

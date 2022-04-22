@@ -40,6 +40,7 @@ struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
         usec_t network_dirs_ts_usec;
+        Hashmap *stats_by_path;
 };
 
 static LinkConfig* link_config_free(LinkConfig *config) {
@@ -70,6 +71,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LinkConfig*, link_config_free);
 static void link_configs_free(LinkConfigContext *ctx) {
         if (!ctx)
                 return;
+
+        ctx->stats_by_path = hashmap_free(ctx->stats_by_path);
 
         LIST_FOREACH(configs, config, ctx->configs)
                 link_config_free(config);
@@ -207,6 +210,7 @@ static int link_adjust_wol_options(LinkConfig *config) {
 
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_(link_config_freep) LinkConfig *config = NULL;
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
         _cleanup_free_ char *name = NULL;
         const char *dropin_dirname;
         size_t i;
@@ -254,15 +258,22 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(
                         STRV_MAKE_CONST(filename),
-                        (const char* const*) CONF_PATHS_STRV("systemd/network"),
+                        NETWORK_DIRS,
                         dropin_dirname,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
-                        CONFIG_PARSE_WARN, config, NULL);
+                        CONFIG_PARSE_WARN, config, &stats_by_path);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
+
+        if (ctx->stats_by_path) {
+                r = hashmap_move(ctx->stats_by_path, stats_by_path);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to save stats of '%s' and its drop-in configs, ignoring: %m", filename);
+        } else
+                ctx->stats_by_path = TAKE_PTR(stats_by_path);
 
         if (net_match_is_empty(&config->match) && !config->conditions) {
                 log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
@@ -316,10 +327,9 @@ int link_config_load(LinkConfigContext *ctx) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        link_configs_free(ctx);
+        assert(ctx);
 
-        /* update timestamp */
-        paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, true);
+        link_configs_free(ctx);
 
         r = conf_files_list_strv(&files, ".link", NULL, 0, NETWORK_DIRS);
         if (r < 0)
@@ -332,7 +342,18 @@ int link_config_load(LinkConfigContext *ctx) {
 }
 
 bool link_config_should_reload(LinkConfigContext *ctx) {
-        return paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, false);
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        int r;
+
+        assert(ctx);
+
+        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, &stats_by_path);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get stats of .link files: %m");
+                return true;
+        }
+
+        return !stats_by_path_equal(ctx->stats_by_path, stats_by_path);
 }
 
 Link *link_free(Link *link) {
