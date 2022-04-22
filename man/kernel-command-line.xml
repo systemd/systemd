@@ -73,6 +73,8 @@
         <term><varname>systemd.machine_id=</varname></term>
         <term><varname>systemd.unified_cgroup_hierarchy</varname></term>
         <term><varname>systemd.legacy_systemd_cgroup_controller</varname></term>
+        <term><varname>systemd.set_credential=</varname></term>
+        <term><varname>systemd.import_credentials=</varname></term>
         <listitem>
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see
