@@ -233,6 +233,7 @@ evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
 evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
+ KEYBOARD_KEY_7c=f20                                    # Remap micmute to f20
 
 # USB keyboard in Asus FX503VD
 evdev:input:b0003v0B05p1869*
