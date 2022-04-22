@@ -17,6 +17,7 @@ struct state {
         int rcode;
         const char *error_message;
         const char *success_message;
+        const char *eexist_message;
 };
 
 static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -30,7 +31,9 @@ static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         errno = 0;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0)
+        if (r == -EEXIST && s->eexist_message)
+                log_debug_errno(r, "%s", s->eexist_message);
+        else if (r < 0)
                 log_debug_errno(r, "%s: %m", s->error_message);
         else
                 log_debug("%s", s->success_message);
@@ -157,9 +160,11 @@ int loopback_setup(void) {
         struct state state_4 = {
                 .error_message = "Failed to add address 127.0.0.1 to loopback interface",
                 .success_message = "Successfully added address 127.0.0.1 to loopback interface",
+                .eexist_message = "127.0.0.1 has already been added to loopback interface",
         }, state_6 = {
                 .error_message = "Failed to add address ::1 to loopback interface",
                 .success_message = "Successfully added address ::1 to loopback interface",
+                .eexist_message = "::1 has already been added to loopback interface",
         }, state_up = {
                 .error_message = "Failed to bring loopback interface up",
                 .success_message = "Successfully brought loopback interface up",
