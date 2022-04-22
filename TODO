@@ -78,6 +78,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add ConditionCredentialExists= or so, that allows conditionalizing services
+  depending on whether a specific system credential is set. Usecase: a service
+  similar to the ssh keygen service that installs any SSH host key supplied via
+  system credentials into /etc/ssh.
+
 * drop support for kernels that lack ambient capabilities support (i.e. make
   4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
   is only supported for such old kernels
