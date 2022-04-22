@@ -1934,29 +1934,6 @@ fail:
         mount_shutdown(m);
 }
 
-static int drain_libmount(Manager *m) {
-        bool rescan = false;
-        int r;
-
-        assert(m);
-
-        /* Drain all events and verify that the event is valid.
-         *
-         * Note that libmount also monitors /run/mount mkdir if the directory does not exist yet. The mkdir
-         * may generate event which is irrelevant for us.
-         *
-         * error: r < 0; valid: r == 0, false positive: r == 1 */
-        do {
-                r = mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to drain libmount events: %m");
-                if (r == 0)
-                        rescan = true;
-        } while (r == 0);
-
-        return rescan;
-}
-
 static int mount_process_proc_self_mountinfo(Manager *m) {
         _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         const char *what;
@@ -1964,7 +1941,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
         assert(m);
 
-        r = drain_libmount(m);
+        r = libmount_drain(m->mount_monitor);
         if (r <= 0)
                 return r;
 
