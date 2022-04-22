@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "inotify-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -48,22 +49,25 @@ static int check_device(const char *path) {
 
         assert(path);
 
+        if (arg_wait_until == WAIT_UNTIL_REMOVED) {
+                r = laccess(path, F_OK);
+                if (r == -ENOENT)
+                        return true;
+                if (r < 0)
+                        return r;
+                return false;
+        }
+
         r = sd_device_new_from_path(&dev, path);
         if (r == -ENODEV)
-                return arg_wait_until == WAIT_UNTIL_REMOVED;
+                return false;
         if (r < 0)
                 return r;
 
-        switch (arg_wait_until) {
-        case WAIT_UNTIL_INITIALIZED:
+        if (arg_wait_until == WAIT_UNTIL_INITIALIZED)
                 return sd_device_get_is_initialized(dev);
-        case WAIT_UNTIL_ADDED:
-                return true;
-        case WAIT_UNTIL_REMOVED:
-                return false;
-        default:
-                assert_not_reached();
-        }
+
+        return true;
 }
 
 static bool check(void) {
