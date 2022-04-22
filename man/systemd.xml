@@ -954,7 +954,10 @@
         command line is typically accessible by unprivileged programs in
         <filename>/proc/cmdline</filename>. Thus, this mechanism is not suitable for transferring sensitive
         data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
-        keys), or in testing/debugging environments.</para></listitem>
+        keys), or in testing/debugging environments.</para>
+
+        <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+        Credentials</ulink> documentation.</para></listitem>
       </varlistentry>
 
       <varlistentry>

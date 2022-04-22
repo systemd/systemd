@@ -41,6 +41,9 @@
     <varname>SetCredentialEncrypted=</varname> settings, see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details.</para>
+
+    <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+    Credentials</ulink> documentation.</para>
   </refsect1>
 
   <refsect1>

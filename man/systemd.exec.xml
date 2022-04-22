@@ -3118,7 +3118,10 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         ID requested. Example: <literal>\0adf9d86b6eda275e/unit/foobar.service/credx</literal> in case the
         credential <literal>credx</literal> is requested for a unit <literal>foobar.service</literal>. This
         functionality is useful for using a single listening socket to serve credentials to multiple
-        consumers.</para></listitem>
+        consumers.</para>
+
+        <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+        Credentials</ulink> documentation.</para></listitem>
       </varlistentry>
 
       <varlistentry>
