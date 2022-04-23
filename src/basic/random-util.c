@@ -100,9 +100,7 @@ static void clear_srand_initialization(void) {
 void initialize_srand(void) {
         static bool pthread_atfork_registered = false;
         unsigned x;
-#if HAVE_SYS_AUXV_H
-        const void *auxv;
-#endif
+
         if (srand_called)
                 return;
 
@@ -113,7 +111,7 @@ void initialize_srand(void) {
          * AT_RANDOM data might be used by other stuff too (in particular: ASLR), and we probably shouldn't
          * leak the seed for that. */
 
-        auxv = ULONG_TO_PTR(getauxval(AT_RANDOM));
+        const void *auxv = ULONG_TO_PTR(getauxval(AT_RANDOM));
         if (auxv) {
                 static const uint8_t auxval_hash_key[16] = {
                         0x92, 0x6e, 0xfe, 0x1b, 0xcf, 0x00, 0x52, 0x9c, 0xcc, 0x42, 0xcf, 0xdc, 0x94, 0x1f, 0x81, 0x0f

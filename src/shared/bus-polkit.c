@@ -258,11 +258,6 @@ int bus_verify_polkit_async(
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
 
-#if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
-        AsyncPolkitQuery *q;
-        int c;
-#endif
         const char *sender;
         int r;
 
@@ -275,7 +270,7 @@ int bus_verify_polkit_async(
                 return r;
 
 #if ENABLE_POLKIT
-        q = hashmap_get(*registry, call);
+        AsyncPolkitQuery *q = hashmap_get(*registry, call);
         if (q) {
                 int authorized, challenge;
 
@@ -331,7 +326,9 @@ int bus_verify_polkit_async(
                 return -EBADMSG;
 
 #if ENABLE_POLKIT
-        c = sd_bus_message_get_allow_interactive_authorization(call);
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+
+        int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
                 return c;
         if (c > 0)
