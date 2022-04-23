@@ -6012,11 +6012,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->lock_personality));
 
         if (c->syscall_filter) {
-#if HAVE_SECCOMP
-                void *id, *val;
-                bool first = true;
-#endif
-
                 fprintf(f,
                         "%sSystemCallFilter: ",
                         prefix);
@@ -6025,6 +6020,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
+                void *id, *val;
+                bool first = true;
                 HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                         _cleanup_free_ char *name = NULL;
                         const char *errno_name = NULL;
@@ -6052,15 +6049,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->syscall_archs) {
-#if HAVE_SECCOMP
-                void *id;
-#endif
-
                 fprintf(f,
                         "%sSystemCallArchitectures:",
                         prefix);
 
 #if HAVE_SECCOMP
+                void *id;
                 SET_FOREACH(id, c->syscall_archs)
                         fprintf(f, " %s", strna(seccomp_arch_to_string(PTR_TO_UINT32(id) - 1)));
 #endif
@@ -6090,14 +6084,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->network_namespace_path);
 
         if (c->syscall_errno > 0) {
-#if HAVE_SECCOMP
-                const char *errno_name;
-#endif
-
                 fprintf(f, "%sSystemCallErrorNumber: ", prefix);
 
 #if HAVE_SECCOMP
-                errno_name = seccomp_errno_or_action_to_string(c->syscall_errno);
+                const char *errno_name = seccomp_errno_or_action_to_string(c->syscall_errno);
                 if (errno_name)
                         fputs(errno_name, f);
                 else

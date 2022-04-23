@@ -354,10 +354,6 @@ static int property_get_syscall_filter(
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-#if HAVE_SECCOMP
-        void *id, *val;
-#endif
-
         assert(bus);
         assert(reply);
         assert(c);
@@ -371,6 +367,7 @@ static int property_get_syscall_filter(
                 return r;
 
 #if HAVE_SECCOMP
+        void *id, *val;
         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                 _cleanup_free_ char *name = NULL;
                 const char *e = NULL;
@@ -423,10 +420,6 @@ static int property_get_syscall_log(
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-#if HAVE_SECCOMP
-        void *id, *val;
-#endif
-
         assert(bus);
         assert(reply);
         assert(c);
@@ -440,6 +433,7 @@ static int property_get_syscall_log(
                 return r;
 
 #if HAVE_SECCOMP
+        void *id, *val;
         HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
                 char *name = NULL;
 
@@ -475,15 +469,12 @@ static int property_get_syscall_archs(
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-#if HAVE_SECCOMP
-        void *id;
-#endif
-
         assert(bus);
         assert(reply);
         assert(c);
 
 #if HAVE_SECCOMP
+        void *id;
         SET_FOREACH(id, c->syscall_archs) {
                 const char *name;
 
