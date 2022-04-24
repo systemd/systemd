@@ -94,7 +94,7 @@ fi
 
 PATH_TO_INIT="$ROOTLIBDIR/systemd"
 SYSTEMD_JOURNALD="${SYSTEMD_JOURNALD:-$(command -v "$BUILD_DIR/systemd-journald" || command -v "$ROOTLIBDIR/systemd-journald")}"
-SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/systemd-journal-remote" || command -v "$ROOTLIBDIR/systemd-journal-remote")}"
+SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/systemd-journal-remote" || command -v "$ROOTLIBDIR/systemd-journal-remote" || echo "")}"
 SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR/systemd")}"
 SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
 JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
@@ -1456,7 +1456,11 @@ save_journal() {
 
     for j in "${1:?}"/*; do
         if get_bool "$save"; then
-            "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
+            if [ "$SYSTEMD_JOURNAL_REMOTE" = "" ]; then
+                cp -a "$j" "$dest"
+            else
+                "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
+            fi
         fi
 
         if [ -n "${TEST_SHOW_JOURNAL}" ]; then
