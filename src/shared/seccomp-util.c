@@ -80,6 +80,11 @@ uint32_t seccomp_local_archs[] = {
                 SCMP_ARCH_MIPSEL64,
                 SCMP_ARCH_MIPS64N32,
                 SCMP_ARCH_MIPSEL64N32, /* native */
+#elif defined(__hppa64__)
+                SCMP_ARCH_PARISC,
+                SCMP_ARCH_PARISC64,    /* native */
+#elif defined(__hppa__)
+                SCMP_ARCH_PARISC,
 #elif defined(__powerpc64__) && __BYTE_ORDER == __BIG_ENDIAN
                 SCMP_ARCH_PPC,
                 SCMP_ARCH_PPC64LE,
@@ -132,6 +137,14 @@ const char* seccomp_arch_to_string(uint32_t c) {
                 return "mips64-le";
         case SCMP_ARCH_MIPSEL64N32:
                 return "mips64-le-n32";
+#ifdef SCMP_ARCH_PARISC
+        case SCMP_ARCH_PARISC:
+                return "parisc";
+#endif
+#ifdef SCMP_ARCH_PARISC64
+        case SCMP_ARCH_PARISC64:
+                return "parisc64";
+#endif
         case SCMP_ARCH_PPC:
                 return "ppc";
         case SCMP_ARCH_PPC64:
@@ -181,6 +194,14 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
                 *ret = SCMP_ARCH_MIPSEL64;
         else if (streq(n, "mips64-le-n32"))
                 *ret = SCMP_ARCH_MIPSEL64N32;
+#ifdef SCMP_ARCH_PARISC
+        else if (streq(n, "parisc"))
+                *ret = SCMP_ARCH_PARISC;
+#endif
+#ifdef SCMP_ARCH_PARISC64
+        else if (streq(n, "parisc64"))
+                *ret = SCMP_ARCH_PARISC64;
+#endif
         else if (streq(n, "ppc"))
                 *ret = SCMP_ARCH_PPC;
         else if (streq(n, "ppc64"))
@@ -1442,6 +1463,12 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_MIPSEL:
                 case SCMP_ARCH_MIPS:
+#ifdef SCMP_ARCH_PARISC
+                case SCMP_ARCH_PARISC:
+#endif
+#ifdef SCMP_ARCH_PARISC64
+                case SCMP_ARCH_PARISC64:
+#endif
                 case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
@@ -1694,6 +1721,12 @@ int seccomp_memory_deny_write_execute(void) {
                  * We ignore that here, which means there's still a way to get writable/executable
                  * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
 
+#ifdef SCMP_ARCH_PARISC
+                case SCMP_ARCH_PARISC:
+#endif
+#ifdef SCMP_ARCH_PARISC64
+                case SCMP_ARCH_PARISC64:
+#endif
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_S390:
                         filter_syscall = SCMP_SYS(mmap2);
@@ -1726,7 +1759,7 @@ int seccomp_memory_deny_write_execute(void) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__s390__) && !defined(__s390x__) && !(defined(__riscv) && __riscv_xlen == 64)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__hppa__) && !defined(__hppa64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__s390__) && !defined(__s390x__) && !(defined(__riscv) && __riscv_xlen == 64)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
