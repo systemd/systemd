@@ -204,7 +204,7 @@ madvise	233
 mbind	235
 membarrier	283
 memfd_create	279
-memfd_secret
+memfd_secret	447
 memory_ordering
 migrate_pages	238
 mincore	232

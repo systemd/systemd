@@ -348,6 +348,7 @@ arch_list = [
         'mips64',
         'mips64n32',
         'mipso32',
+        'parisc',
         'powerpc',
         'powerpc64',
         'riscv32',
