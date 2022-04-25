@@ -153,3 +153,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);
 int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret);
 
 bool set_equal(Set *a, Set *b);
+
+bool set_fnmatch(Set *patterns, const char *s);
+bool set_fnmatch2(Set *match_patterns, Set *nomatch_patterns, const char *s);

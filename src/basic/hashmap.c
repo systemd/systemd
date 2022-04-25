@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <fnmatch.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -2069,4 +2070,28 @@ bool set_equal(Set *a, Set *b) {
                         return false;
 
         return true;
+}
+
+bool set_fnmatch(Set *patterns, const char *s) {
+        const char *p;
+
+        assert(s);
+
+        SET_FOREACH(p, patterns)
+                if (fnmatch(p, s, 0) == 0)
+                        return true;
+
+        return false;
+}
+
+bool set_fnmatch2(Set *match_patterns, Set *nomatch_patterns, const char *s) {
+        assert(s);
+
+        if (set_fnmatch(nomatch_patterns, s))
+                return false;
+
+        if (set_isempty(match_patterns))
+                return true;
+
+        return set_fnmatch(match_patterns, s);
 }
