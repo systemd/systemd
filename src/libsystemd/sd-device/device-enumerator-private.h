@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #include "sd-device.h"
 
 typedef enum MatchInitializedType {
@@ -19,6 +21,7 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
 int device_enumerator_add_parent_devices(sd_device_enumerator *enumerator, sd_device *device);
 int device_enumerator_add_match_is_initialized(sd_device_enumerator *enumerator, MatchInitializedType type);
 int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumerator, sd_device *parent);
+int device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname, bool match);
 int device_enumerator_add_prioritized_subsystem(sd_device_enumerator *enumerator, const char *subsystem);
 sd_device *device_enumerator_get_first(sd_device_enumerator *enumerator);
 sd_device *device_enumerator_get_next(sd_device_enumerator *enumerator);
