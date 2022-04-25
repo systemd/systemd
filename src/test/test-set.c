@@ -330,4 +330,50 @@ TEST(set_equal) {
         assert_se(set_equal(b, a));
 }
 
+TEST(set_fnmatch2) {
+        _cleanup_set_free_ Set *match = NULL, *nomatch = NULL;
+
+        assert_se(set_put_strdup(&match, "aaa") >= 0);
+        assert_se(set_put_strdup(&match, "bbb*") >= 0);
+        assert_se(set_put_strdup(&match, "*ccc") >= 0);
+
+        assert_se(set_put_strdup(&nomatch, "a*") >= 0);
+        assert_se(set_put_strdup(&nomatch, "bbb") >= 0);
+        assert_se(set_put_strdup(&nomatch, "ccc*") >= 0);
+
+        assert_se(set_fnmatch2(NULL, NULL, ""));
+        assert_se(set_fnmatch2(NULL, NULL, "hoge"));
+
+        assert_se(set_fnmatch2(match, NULL, "aaa"));
+        assert_se(set_fnmatch2(match, NULL, "bbb"));
+        assert_se(set_fnmatch2(match, NULL, "bbbXXX"));
+        assert_se(set_fnmatch2(match, NULL, "ccc"));
+        assert_se(set_fnmatch2(match, NULL, "XXXccc"));
+        assert_se(!set_fnmatch2(match, NULL, ""));
+        assert_se(!set_fnmatch2(match, NULL, "aaaa"));
+        assert_se(!set_fnmatch2(match, NULL, "XXbbb"));
+        assert_se(!set_fnmatch2(match, NULL, "cccXX"));
+
+        assert_se(set_fnmatch2(NULL, nomatch, ""));
+        assert_se(set_fnmatch2(NULL, nomatch, "Xa"));
+        assert_se(set_fnmatch2(NULL, nomatch, "bbbb"));
+        assert_se(set_fnmatch2(NULL, nomatch, "XXXccc"));
+        assert_se(!set_fnmatch2(NULL, nomatch, "a"));
+        assert_se(!set_fnmatch2(NULL, nomatch, "aXXXX"));
+        assert_se(!set_fnmatch2(NULL, nomatch, "bbb"));
+        assert_se(!set_fnmatch2(NULL, nomatch, "ccc"));
+        assert_se(!set_fnmatch2(NULL, nomatch, "cccXXX"));
+
+        assert_se(set_fnmatch2(match, nomatch, "bbbbb"));
+        assert_se(set_fnmatch2(match, nomatch, "XXccc"));
+        assert_se(!set_fnmatch2(match, nomatch, ""));
+        assert_se(!set_fnmatch2(match, nomatch, "a"));
+        assert_se(!set_fnmatch2(match, nomatch, "aaa"));
+        assert_se(!set_fnmatch2(match, nomatch, "b"));
+        assert_se(!set_fnmatch2(match, nomatch, "bbb"));
+        assert_se(!set_fnmatch2(match, nomatch, "ccc"));
+        assert_se(!set_fnmatch2(match, nomatch, "ccccc"));
+        assert_se(!set_fnmatch2(match, nomatch, "cccXX"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
