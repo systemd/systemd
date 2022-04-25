@@ -580,25 +580,12 @@ static int test_matches(
 }
 
 static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsystem) {
-        const char *subsystem_match;
-
         assert(enumerator);
 
         if (!subsystem)
                 return false;
 
-        SET_FOREACH(subsystem_match, enumerator->nomatch_subsystem)
-                if (fnmatch(subsystem_match, subsystem, 0) == 0)
-                        return false;
-
-        if (set_isempty(enumerator->match_subsystem))
-                return true;
-
-        SET_FOREACH(subsystem_match, enumerator->match_subsystem)
-                if (fnmatch(subsystem_match, subsystem, 0) == 0)
-                        return true;
-
-        return false;
+        return set_fnmatch(enumerator->match_subsystem, enumerator->nomatch_subsystem, subsystem);
 }
 
 static int enumerator_add_parent_devices(
