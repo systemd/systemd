@@ -122,8 +122,7 @@ int main(int argc, char **argv) {
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
         test_table(virtualization, VIRTUALIZATION);
-
-        test_table_sparse(object_compressed, OBJECT_COMPRESSED);
+        test_table(compression, COMPRESSION);
 
         assert_cc(sizeof(sd_device_action_t) == sizeof(int64_t));
 
