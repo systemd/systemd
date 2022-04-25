@@ -549,7 +549,7 @@ static int verb_has_tpm2(int argc, char **argv, void *userdata) {
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
          * become some reasonable values 1…7. i.e. the flags we return here tell what is missing rather than
-         * what is there, acknowledging the fact that for process exit statusses it is customary to return
+         * what is there, acknowledging the fact that for process exit statuses it is customary to return
          * zero (EXIT_FAILURE) when all is good, instead of all being bad. */
         return ~s & TPM2_SUPPORT_FULL;
 }

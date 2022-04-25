@@ -193,7 +193,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
                 if (track->recursive) {
                         assert(i->n_ref > 0);
 
-                        /* Manual oveflow check (instead of a DEFINE_TRIVIAL_REF_FUNC() helper or so), so
+                        /* Manual overflow check (instead of a DEFINE_TRIVIAL_REF_FUNC() helper or so), so
                          * that we can return a proper error, given this is almost always called in a
                          * directly client controllable way, and thus better should never hit an assertion
                          * here. */
