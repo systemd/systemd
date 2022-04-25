@@ -91,7 +91,7 @@ Features:
   descriptors, and clear this set piecemeal when we see the IN_IGNORED event
   for it, or when read() returns EAGAIN or on IN_Q_OVERFLOW. Then, whenever we
   see an inotify wd event check against this set, and if it is contained ignore
-  the event. (to be fully correct this would have to count the occurances, in
+  the event. (to be fully correct this would have to count the occurrences, in
   case the same wd is reused multiple times before we start processing
   IN_IGNORED again)
 
