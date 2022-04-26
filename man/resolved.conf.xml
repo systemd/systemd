@@ -329,6 +329,15 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         url="https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/">IAB
         Statement</ulink>, and may create a privacy and security risk.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Monitor=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>true</literal>,
+        <command>systemd-resolved</command> will enable a varlink interface at <filename>/run/systemd/resolve/io.systemd.Resolve.Monitor</filename>
+        that exposes methods for clients to subscribe to DNS resolution notifications on the system. If <literal>false</literal> (the default), the
+        interface is disabled.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
