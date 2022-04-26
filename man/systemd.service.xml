@@ -1123,8 +1123,14 @@
       <varlistentry>
         <term><varname>OOMPolicy=</varname></term>
 
-        <listitem><para>Configure the Out-Of-Memory (OOM) killer policy. On Linux, when memory becomes scarce
-        the kernel might decide to kill a running process in order to free up memory and reduce memory
+        <listitem><para>Configure the out-of-memory (OOM) kernel killer policy. Note that the userspace OOM
+        killer
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is a more flexible solution that aims to prevent out-of-memory situations for the userspace, not just
+        the kernel.</para>
+
+        <para>On Linux, when memory becomes scarce to the point that the kernel has trouble allocating memory
+        for itself, it might decide to kill a running process in order to free up memory and reduce memory
         pressure. This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
         <constant>kill</constant>. If set to <constant>continue</constant> and a process of the service is
         killed by the kernel's OOM killer this is logged but the service continues running. If set to
