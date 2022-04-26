@@ -1108,24 +1108,24 @@ DeviceAllow=/dev/loop-control
           <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           will act on this unit's cgroups. Defaults to <option>auto</option>.</para>
 
-          <para>When set to <option>kill</option>, <command>systemd-oomd</command> will actively monitor this unit's
-          cgroup metrics to decide whether it needs to act. If the cgroup passes the limits set by
-          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> or its
-          overrides, <command>systemd-oomd</command> will send a <constant>SIGKILL</constant> to all of the processes
-          under the chosen candidate cgroup. Note that only descendant cgroups can be eligible candidates for killing;
-          the unit that set its property to <option>kill</option> is not a candidate (unless one of its ancestors set
-          their property to <option>kill</option>). You can find more details on candidates and kill behavior at
+          <para>When set to <option>kill</option>, the unit becomes a candidate for monitoring by
+          <command>systemd-oomd</command>. If the cgroup passes the limits set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> or
+          the unit configuration, <command>systemd-oomd</command> will select a descendant cgroup and send
+          <constant>SIGKILL</constant> to all of the processes under it. You can find more details on
+          candidates and kill behavior at
           <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Setting
-          either of these properties to <option>kill</option> will also automatically acquire
-          <varname>After=</varname> and <varname>Wants=</varname> dependencies on
-          <filename>systemd-oomd.service</filename> unless <varname>DefaultDependencies=no</varname>.
-        </para>
+          and
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <para>When set to <option>auto</option>, <command>systemd-oomd</command> will not actively use this cgroup's
-          data for monitoring and detection. However, if an ancestor cgroup has one of these properties set to
-          <option>kill</option>, a unit with <option>auto</option> can still be an eligible candidate for
-          <command>systemd-oomd</command> to act on.</para>
+          <para>Setting either of these properties to <option>kill</option> will also result in
+          <varname>After=</varname> and <varname>Wants=</varname> dependencies on
+          <filename>systemd-oomd.service</filename> unless <varname>DefaultDependencies=no</varname>.</para>
+
+          <para>When set to <option>auto</option>, <command>systemd-oomd</command> will not actively use this
+          cgroup's data for monitoring and detection. However, if an ancestor cgroup has one of these
+          properties set to <option>kill</option>, a unit with <option>auto</option> can still be a candidate
+          for <command>systemd-oomd</command> to terminate.</para>
         </listitem>
       </varlistentry>
 
