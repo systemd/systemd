@@ -147,6 +147,9 @@ struct Manager {
         Hashmap *polkit_registry;
 
         VarlinkServer *varlink_server;
+        VarlinkServer *varlink_notification_server;
+
+        Set* varlink_subscription;
 
         sd_event_source *clock_change_event_source;
 
@@ -163,6 +166,8 @@ Manager* manager_free(Manager *m);
 int manager_start(Manager *m);
 
 uint32_t manager_find_mtu(Manager *m);
+
+int send_dns_notification(Manager* m, DnsAnswer* answer, const char* query_name);
 
 int manager_write(Manager *m, int fd, DnsPacket *p);
 int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination, uint16_t port, const union in_addr_union *source, DnsPacket *p);
