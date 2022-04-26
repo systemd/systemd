@@ -3205,9 +3205,10 @@ static int inner_child(
                 char **os_release_pairs) {
 
         _cleanup_free_ char *home = NULL;
-        size_t n_env = 1;
+        size_t n_env = 2;
         char *envp[] = {
                 (char*) "PATH=" DEFAULT_PATH_COMPAT,
+                (char*) "LANG=C.UTF-8",
                 NULL, /* container */
                 NULL, /* TERM */
                 NULL, /* HOME */
