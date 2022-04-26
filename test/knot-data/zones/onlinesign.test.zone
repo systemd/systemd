@@ -19,3 +19,4 @@ $ORIGIN onlinesign.test.
 
 ; No A/AAAA record for the $ORIGIN
 sub                  A 10.0.0.133
+secondsub            A 10.0.0.134
