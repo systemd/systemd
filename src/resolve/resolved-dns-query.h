@@ -95,6 +95,7 @@ struct DnsQuery {
         union in_addr_union request_address;
         unsigned block_all_complete;
         char *request_address_string;
+        char* request_name;
 
         /* DNS stub information */
         DnsPacket *request_packet;
