@@ -327,6 +327,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *query) {
                 goto finish;
 
         q->bus_request = sd_bus_message_unref(q->bus_request);
+
         r = sd_bus_send(q->manager->bus, reply, NULL);
 
 finish:
@@ -523,6 +524,9 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 
         q->bus_request = sd_bus_message_ref(message);
         q->request_family = family;
+        q->request_name = strdup(hostname);
+        if (!q->request_name)
+                return log_oom();
         q->complete = bus_method_resolve_hostname_complete;
 
         r = dns_query_bus_track(q, message);

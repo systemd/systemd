@@ -328,6 +328,8 @@ option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', '
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
        value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google')
+option('dns-varlink-notifications', type : 'boolean', value : 'false',
+       description : 'support for dns notifications over varlink')
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
