@@ -78,6 +78,24 @@ Janitorial Clean-ups:
 
 Features:
 
+* TPM2: add auth policy for signed PCR values to make updates easy. i.e. do
+  what tpm2_policyauthorize tool does.  To be truly useful scheme needs to be a
+  bit more elaborate though: policy probably must take some nvram based
+  generation counter into account that can only monotonically increase and can
+  be used to invalidate old PCR signatures. Otherwise people could downgrade to
+  old signed PCR sets whenever they want. Usecase: encrypt the rootfs with LUKS
+  with a key that can only be unlocked via a pristine pre-built Fedora
+  kernel+initrd.
+
+* update HACKING.md to suggest developing systemd with the ideas from:
+  https://0pointer.net/blog/testing-my-system-code-in-usr-without-modifying-usr.html
+  https://0pointer.net/blog/running-an-container-off-the-host-usr.html
+
+* add a clear concept how the initrd can make up credentials on their own to
+  pass to the system when transitioning into the host OS. usecase: things like
+  cloud-init/ignitation and similar can parameterize the host with data they
+  acquire.
+
 * Add ConditionCredentialExists= or so, that allows conditionalizing services
   depending on whether a specific system credential is set. Usecase: a service
   similar to the ssh keygen service that installs any SSH host key supplied via
