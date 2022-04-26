@@ -408,8 +408,9 @@ bool unit_may_gc(Unit *u) {
 
         state = unit_active_state(u);
 
-        /* If the unit is inactive and failed and no job is queued for it, then release its runtime resources */
-        if (UNIT_IS_INACTIVE_OR_FAILED(state) &&
+        /* If the unit is inactive, failed or is a service with RemainAfterExit=yes and no job is queued for it, then release its runtime resources */
+        if ((UNIT_IS_INACTIVE_OR_FAILED(state) ||
+             (u->type == UNIT_SERVICE && SERVICE(u)->state == SERVICE_EXITED)) &&
             UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
 
