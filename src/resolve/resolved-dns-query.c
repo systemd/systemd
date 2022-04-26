@@ -426,6 +426,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         }
 
         free(q->request_address_string);
+        free(q->request_name);
 
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
@@ -514,7 +515,7 @@ int dns_query_new(
                 .flags = flags,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
                 .answer_protocol = _DNS_PROTOCOL_INVALID,
-                .answer_family = AF_UNSPEC,
+                .answer_family = AF_UNSPEC
         };
 
         if (question_bypass) {
@@ -583,6 +584,15 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
          * query or transaction after calling this function. */
 
         q->state = state;
+
+        if (set_size(q->manager->varlink_subscription) > 0) {
+                DnsQuestion* question = q->request_packet ? q->request_packet->question :
+                                                            NULL;
+                const char* query_name = question ? dns_question_first_name(question) : q->request_name;
+                int r = send_dns_notification(q->manager, q->answer, query_name);
+                if (r < 0)
+                        log_error_errno(r, "Failed to send varlink notification: %m");
+        }
 
         dns_query_stop(q);
         if (q->complete)
