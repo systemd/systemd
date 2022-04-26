@@ -473,7 +473,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m = userdata;
-        const char *hostname;
+        char *hostname;
         int family, ifindex;
         uint64_t flags;
         int r;
@@ -523,6 +523,9 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 
         q->bus_request = sd_bus_message_ref(message);
         q->request_family = family;
+        q->request_name = strdup(hostname);
+        if (!q->request_name)
+                return log_oom();
         q->complete = bus_method_resolve_hostname_complete;
 
         r = dns_query_bus_track(q, message);
