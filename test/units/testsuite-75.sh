@@ -38,6 +38,7 @@ EOF
     echo "FallbackDNS="
     echo "DNSSEC=allow-downgrade"
     echo "DNSOverTLS=opportunistic"
+    echo "Monitor=yes"
 } >>/etc/systemd/resolved.conf
 ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Override the default NTA list, which turns off DNSSEC validation for (among
@@ -71,6 +72,10 @@ sleep 4
 networkctl status
 resolvectl status
 resolvectl log-level debug
+
+# Verify that DNS notifications are enabled (Monitor=yes)
+run busctl get-property org.freedesktop.resolve1 /org/freedesktop/resolve1 org.freedesktop.resolve1.Manager Monitor
+grep -qF 'b true' "$RUN_OUT"
 
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
