@@ -467,7 +467,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m = userdata;
-        const char *hostname;
+        char *hostname;
         int family, ifindex;
         uint64_t flags;
         int r;
@@ -517,6 +517,9 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 
         q->bus_request = sd_bus_message_ref(message);
         q->request_family = family;
+        q->request_name = strdup(hostname);
+        if (!q->request_name)
+                return log_oom();
         q->complete = bus_method_resolve_hostname_complete;
 
         r = dns_query_bus_track(q, message);
@@ -1710,6 +1713,7 @@ static int bus_property_get_ntas(
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET(bus_property_get_monitor_enabled, "b", Manager, manager_monitor_is_enabled);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dns_over_tls_mode, "s", Manager, manager_get_dns_over_tls_mode, dns_over_tls_mode_to_string);
 
@@ -2115,6 +2119,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
         SD_BUS_PROPERTY("ResolvConfMode", "s", bus_property_get_resolv_conf_mode, 0, 0),
+        SD_BUS_PROPERTY("Monitor", "b", bus_property_get_monitor_enabled, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("ResolveHostname",
                                 SD_BUS_ARGS("i", ifindex, "s", name, "i", family, "t", flags),
