@@ -180,13 +180,13 @@ finish:
         return r;
 }
 
-/* Fill `new_h` with `path`'s descendent OomdCGroupContexts. Only include descendent cgroups that are possible
+/* Fill 'new_h' with 'path's descendant OomdCGroupContexts. Only include descendant cgroups that are possible
  * candidates for action. That is, only leaf cgroups or cgroups with memory.oom.group set to "1".
  *
- * This function ignores most errors in order to handle cgroups that may have been cleaned up while populating
- * the hashmap.
+ * This function ignores most errors in order to handle cgroups that may have been cleaned up while
+ * populating the hashmap.
  *
- * `new_h` is of the form { key: cgroup paths -> value: OomdCGroupContext } */
+ * 'new_h' is of the form { key: cgroup paths -> value: OomdCGroupContext } */
 static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         _cleanup_free_ char *subpath = NULL;
         _cleanup_closedir_ DIR *d = NULL;
