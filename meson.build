@@ -1470,9 +1470,7 @@ elif compression == 'lz4' and not have_lz4
 elif compression == 'xz' and not have_xz
         error('default-compression=xz requires xz')
 endif
-conf.set('DEFAULT_COMPRESSION',
-         compression == 'none' ? 0 :
-                 'COMPRESSION_@0@'.format(compression.to_upper()))
+conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
