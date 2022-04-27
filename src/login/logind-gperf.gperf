@@ -45,7 +45,7 @@ Login.HoldoffTimeoutSec,            config_parse_sec,                   0, offse
 Login.IdleAction,                   config_parse_handle_action,         0, offsetof(Manager, idle_action)
 Login.IdleActionSec,                config_parse_sec,                   0, offsetof(Manager, idle_action_usec)
 Login.RuntimeDirectorySize,         config_parse_tmpfs_size,            0, offsetof(Manager, runtime_dir_size)
-Login.RuntimeDirectoryInodesMax,    config_parse_uint64,                0, offsetof(Manager, runtime_dir_inodes)
+Login.RuntimeDirectoryInodesMax,    config_parse_iec_uint64,            0, offsetof(Manager, runtime_dir_inodes)
 Login.RemoveIPC,                    config_parse_bool,                  0, offsetof(Manager, remove_ipc)
 Login.InhibitorsMax,                config_parse_uint64,                0, offsetof(Manager, inhibitors_max)
 Login.SessionsMax,                  config_parse_uint64,                0, offsetof(Manager, sessions_max)
