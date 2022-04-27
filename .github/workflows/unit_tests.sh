@@ -60,7 +60,11 @@ for phase in "${PHASES[@]}"; do
                 # The docs build is slow and is not affected by compiler/flags, so do it just once
                 MESON_ARGS+=(-Dman=true)
             fi
-            run_meson --fatal-meson-warnings -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
+            # We use some features (like install_tag) that were introduced in 0.60, but that don't
+            # break running with older versions
+            # FIXME: re-enable once the minimum version is bumped to 0.60
+            # MESON_ARGS+=(--fatal-meson-warnings)
+            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
@@ -79,7 +83,11 @@ for phase in "${PHASES[@]}"; do
                     MESON_ARGS+=(-Dskip-deps=true)
                 fi
             fi
-            run_meson --fatal-meson-warnings -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
+            # We use some features (like install_tag) that were introduced in 0.60, but that don't
+            # break running with older versions
+            # FIXME: re-enable once the minimum version is bumped to 0.60
+            # MESON_ARGS+=(--fatal-meson-warnings)
+            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
 
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1

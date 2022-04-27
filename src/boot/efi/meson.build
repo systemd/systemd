@@ -410,8 +410,8 @@ foreach file : fundamental_source_paths + common_sources + systemd_boot_sources 
         endif
 endforeach
 
-foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
-                 ['linux@0@.@1@.stub', stub_objects, true]]
+foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-boot'],
+                 ['linux@0@.@1@.stub', stub_objects, true, 'systemd-stub']]
         elf = custom_target(
                 tuple[0].format(efi_arch[0], 'elf'),
                 input : tuple[1],
@@ -425,6 +425,7 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
                            '-lgnuefi',
                            '-lgcc'],
                 install : tuple[2],
+                install_tag: tuple[3],
                 install_dir : bootlibdir)
 
         custom_target(
@@ -446,5 +447,6 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
                            efi_format,
                            '@INPUT@', '@OUTPUT@'],
                 install : true,
+                install_tag: tuple[3],
                 install_dir : bootlibdir)
 endforeach
