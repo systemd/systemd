@@ -174,6 +174,7 @@ static int device_coldplug(Unit *u) {
 
 static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound mask = DEVICE_FOUND_MASK;
 
         assert(d);
 
@@ -181,7 +182,9 @@ static void device_catchup(Unit *u) {
         if (d->enumerated_found == d->found)
                 return;
 
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        /* Avoid clearing DEVICE_FOUND_UDEV here */
+        mask &= ~(~d->enumerated_found & DEVICE_FOUND_UDEV);
+        device_update_found_one(d, d->enumerated_found, mask);
 }
 
 static const struct {
