@@ -18,12 +18,6 @@ d /run/systemd/sessions 0755 root root -
 d /run/systemd/users 0755 root root -
 d /run/systemd/machines 0755 root root -
 d /run/systemd/shutdown 0755 root root -
-{% if ENABLE_NETWORKD %}
-d /run/systemd/netif 0755 systemd-network systemd-network -
-d /run/systemd/netif/links 0755 systemd-network systemd-network -
-d /run/systemd/netif/leases 0755 systemd-network systemd-network -
-d /run/systemd/netif/lldp 0755 systemd-network systemd-network -
-{% endif %}
 
 d /run/log 0755 root root -
 

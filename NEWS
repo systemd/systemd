@@ -71,6 +71,13 @@ CHANGES WITH 251:
           (as exposed via the SystemCallFilter= setting in service unit files).
           It is apparently used by the linker now.
 
+        * The tmpfiles entries that create the /run/systemd/netif directory and
+          its subdirectories were moved from tmpfiles.d/systemd.conf to
+          tmpfiles.d/systemd-network.conf.
+
+          Users might need to adjust their files that override tmpfiles.d/systemd.conf
+          to account for this change.
+
         Changes in the Boot Loader Specification, kernel-install and sd-boot:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
