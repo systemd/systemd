@@ -20,6 +20,7 @@ int pkcs11_callback(
         CK_TOKEN_INFO updated_token_info;
         size_t decrypted_key_size;
         CK_OBJECT_HANDLE object;
+        CK_KEY_TYPE type;
         CK_RV rv;
         int r;
 
@@ -88,7 +89,7 @@ int pkcs11_callback(
         return log_error_errno(SYNTHETIC_ERRNO(ENOLCK), "PIN of security token incorrect.");
 
 decrypt:
-        r = pkcs11_token_find_private_key(m, session, uri, &object);
+        r = pkcs11_token_find_private_key(m, session, uri, &object, &type);
         if (r < 0)
                 return r;
 
