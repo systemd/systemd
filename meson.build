@@ -4127,6 +4127,7 @@ summary({
         'nobody user name' :                nobody_user,
         'nobody group name' :               nobody_group,
         'fallback hostname' :               get_option('fallback-hostname'),
+        'default compression method' :      compression,
         'default DNSSEC mode' :             default_dnssec,
         'default DNS-over-TLS mode' :       default_dns_over_tls,
         'default mDNS mode' :               default_mdns,
