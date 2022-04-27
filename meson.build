@@ -1470,9 +1470,7 @@ elif compression == 'lz4' and not have_lz4
 elif compression == 'xz' and not have_xz
         error('default-compression=xz requires xz')
 endif
-conf.set('DEFAULT_COMPRESSION',
-         compression == 'none' ? 0 :
-                 'COMPRESSION_@0@'.format(compression.to_upper()))
+conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
@@ -4127,6 +4125,7 @@ summary({
         'nobody user name' :                nobody_user,
         'nobody group name' :               nobody_group,
         'fallback hostname' :               get_option('fallback-hostname'),
+        'default compression method' :      compression,
         'default DNSSEC mode' :             default_dnssec,
         'default DNS-over-TLS mode' :       default_dns_over_tls,
         'default mDNS mode' :               default_mdns,
