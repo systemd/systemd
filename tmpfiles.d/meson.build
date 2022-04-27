@@ -13,6 +13,7 @@ files = [['README',               ''],
          ['systemd-pstore.conf',  'ENABLE_PSTORE'],
          ['tmp.conf',             ''],
          ['x11.conf',             ''],
+         ['systemd-network.conf', 'ENABLE_NETWORKD'],
         ]
 
 foreach pair : files
