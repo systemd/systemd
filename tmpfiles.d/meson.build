@@ -5,15 +5,15 @@ enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 files = [['README',               ''],
          ['home.conf',            ''],
          ['journal-nocow.conf',   ''],
+         ['portables.conf',       'ENABLE_PORTABLED'],
+         ['systemd-network.conf', 'ENABLE_NETWORKD'],
          ['systemd-nologin.conf', 'HAVE_PAM'],
          ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+         ['systemd-pstore.conf',  'ENABLE_PSTORE'],
          ['systemd-resolve.conf', 'ENABLE_RESOLVE'],
          ['systemd-tmp.conf',     ''],
-         ['portables.conf',       'ENABLE_PORTABLED'],
-         ['systemd-pstore.conf',  'ENABLE_PSTORE'],
          ['tmp.conf',             ''],
          ['x11.conf',             ''],
-         ['systemd-network.conf', 'ENABLE_NETWORKD'],
         ]
 
 foreach pair : files
