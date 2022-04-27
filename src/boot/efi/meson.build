@@ -425,6 +425,7 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
                            '-lgnuefi',
                            '-lgcc'],
                 install : tuple[2],
+                install_tag: 'sd-boot',
                 install_dir : bootlibdir)
 
         custom_target(
@@ -446,5 +447,6 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false],
                            efi_format,
                            '@INPUT@', '@OUTPUT@'],
                 install : true,
+                install_tag: 'sd-boot',
                 install_dir : bootlibdir)
 endforeach
