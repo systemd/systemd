@@ -203,7 +203,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
                 p = p + ALIGN64(le64toh(o->object.size));
         }
 
-        is_compressed = (o->object.flags & OBJECT_COMPRESSION_MASK) != 0;
+        is_compressed = COMPRESSION_FROM_OBJECT(o) != COMPRESSION_NONE;
 
         (void) managed_journal_file_close(f);
 
