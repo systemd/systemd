@@ -428,7 +428,7 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                 install_tag: tuple[3],
                 install_dir : bootlibdir)
 
-        custom_target(
+        efi = custom_target(
                 tuple[0].format(efi_arch[0], 'efi'),
                 input : elf,
                 output : tuple[0].format(efi_arch[0], 'efi'),
@@ -449,4 +449,6 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                 install : true,
                 install_tag: tuple[3],
                 install_dir : bootlibdir)
+
+        alias_target(tuple[3], efi)
 endforeach
