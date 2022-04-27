@@ -308,14 +308,11 @@
       <varlistentry>
         <term><varname>RuntimeDirectoryInodesMax=</varname></term>
 
-        <listitem><para>Sets the limit on number of inodes for the
-        <varname>$XDG_RUNTIME_DIR</varname> runtime directory for each
-        user who logs in. Takes a number, optionally suffixed with the
-        usual K, G, M, and T suffixes, to the base 1024 (IEC).
-        Defaults to <varname>RuntimeDirectorySize=</varname> divided
-        by 4096. Note that this size is a safety limit only.
-        As each runtime directory is a tmpfs file system, it will
-        only consume as much memory as is needed.</para></listitem>
+        <listitem><para>Sets the limit on number of inodes for the <varname>$XDG_RUNTIME_DIR</varname>
+        runtime directory for each user who logs in. Takes a number. Defaults to
+        <varname>RuntimeDirectorySize=</varname> divided by 4096. Note that this size is a safety limit only.
+        As each runtime directory is a tmpfs file system, it will only consume as much memory as is needed.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
