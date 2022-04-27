@@ -38,8 +38,11 @@ int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE se
 int pkcs11_token_read_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, X509 **ret_cert);
 #endif
 
-int pkcs11_token_find_private_key(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
+int pkcs11_token_find_private_key(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object, CK_KEY_TYPE *ret_key_type);
 int pkcs11_token_decrypt_data(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, const void *encrypted_data, size_t encrypted_data_size, void **ret_decrypted_data, size_t *ret_decrypted_data_size);
+#if HAVE_OPENSSL
+int pkcs11_token_ecdh_derive_shared_secret(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, EVP_PKEY *peer_key, uint8_t *ret_shared_secret, size_t *ret_shared_secret_len);
+#endif
 
 int pkcs11_token_acquire_rng(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session);
 
