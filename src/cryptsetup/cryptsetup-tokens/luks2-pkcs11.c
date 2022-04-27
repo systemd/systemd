@@ -32,6 +32,7 @@ static int luks2_pkcs11_callback(
                 void *userdata) {
 
         CK_OBJECT_HANDLE object;
+        CK_KEY_TYPE type;
         CK_RV rv;
         CK_TOKEN_INFO updated_token_info;
         int r;
@@ -79,9 +80,46 @@ static int luks2_pkcs11_callback(
         if (r < 0)
                 return r;
 
-        r = pkcs11_token_find_private_key(m, session, uri, &object);
+        r = pkcs11_token_find_private_key(m, session, uri, &object, &type);
         if (r < 0)
                 return r;
+#ifdef HAVE_OPENSSL
+        if (type == CKK_EC || type == CKK_ECDSA || type == CKK_EC_EDWARDS) {
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+                _cleanup_(erase_and_freep) uint8_t *shared_secret = NULL;
+                size_t shared_secret_len = 0;
+                d2i_PUBKEY(&pkey, (const uint8_t **)&data->encrypted_key, data->encrypted_key_size);
+                if (!pkey)
+                        return -EIO;
+
+                r = pkcs11_token_ecdh_derive_shared_secret(m, session, object, pkey, NULL, &shared_secret_len);
+                if (r < 0)
+                        return r;
+                if (shared_secret_len == 0)
+                        return -EINVAL;
+
+                shared_secret = malloc(shared_secret_len);
+                if (!shared_secret)
+                        return log_oom();
+
+                r = pkcs11_token_ecdh_derive_shared_secret(m, session, object, pkey, shared_secret, &shared_secret_len);
+                if (r < 0)
+                        return r;
+
+                data->decrypted_key = malloc(72);
+                if (!data->decrypted_key)
+                        return log_oom();
+
+                data->decrypted_key_size = 72;
+                r = hkdf_sha512(shared_secret, shared_secret_len, data->decrypted_key_size, data->decrypted_key);
+                if (r < 0)
+                        return r;
+        }
+        else {
+#else
+        if (type != CKK_RSA)
+                return -EOPNOTSUPP;
+#endif
 
         r = pkcs11_token_decrypt_data(
                         m,
@@ -93,6 +131,9 @@ static int luks2_pkcs11_callback(
                         &data->decrypted_key_size);
         if (r < 0)
                 return r;
+#if HAVE_OPENSSL
+        }
+#endif
 
         return 0;
 }

@@ -8,6 +8,8 @@
 #  include <openssl/bn.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
+#  include <openssl/kdf.h>
+#  include <openssl/ossl_typ.h>
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
@@ -39,6 +41,12 @@ int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *re
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+
+int hkdf_sha512(const uint8_t *in, const size_t in_len, size_t out_len, uint8_t *ret_out);
+
+int pkey_ecdh_derive_shared_secret(EVP_PKEY *pkey, EVP_PKEY *peer_key, uint8_t *ret_shared_secret, size_t *ret_shared_secret_len);
+
+int pkey_generate_ec_key(int nid, EVP_PKEY **ppkey);
 #endif
 
 #if PREFER_OPENSSL
