@@ -34,6 +34,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -556,6 +557,27 @@ int config_parse_many_nulstr(
                                        ret_stats_by_path);
 }
 
+static int config_get_dropin_files(
+                const char* const* conf_file_dirs,
+                const char *dropin_dirname,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **dropin_dirs = NULL;
+        const char *suffix;
+        int r;
+
+        assert(conf_file_dirs);
+        assert(dropin_dirname);
+        assert(ret);
+
+        suffix = strjoina("/", dropin_dirname);
+        r = strv_extend_strv_concat(&dropin_dirs, (char**) conf_file_dirs, suffix);
+        if (r < 0)
+                return r;
+
+        return conf_files_list_strv(ret, ".conf", NULL, 0, (const char* const*) dropin_dirs);
+}
+
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
                 const char* const* conf_files,
@@ -568,21 +590,126 @@ int config_parse_many(
                 void *userdata,
                 Hashmap **ret_stats_by_path) {
 
-        _cleanup_strv_free_ char **dropin_dirs = NULL;
         _cleanup_strv_free_ char **files = NULL;
-        const char *suffix;
         int r;
 
-        suffix = strjoina("/", dropin_dirname);
-        r = strv_extend_strv_concat(&dropin_dirs, (char**) conf_file_dirs, suffix);
-        if (r < 0)
-                return r;
+        assert(conf_file_dirs);
+        assert(dropin_dirname);
+        assert(sections);
+        assert(table);
 
-        r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char* const*) dropin_dirs);
+        r = config_get_dropin_files(conf_file_dirs, dropin_dirname, &files);
         if (r < 0)
                 return r;
 
         return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+}
+
+static int config_get_stats_by_path_one(
+                const char* conf_file,
+                const char* const* conf_file_dirs,
+                Hashmap *stats_by_path) {
+
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *dropin_dirname = NULL;
+        struct stat st;
+        int r;
+
+        assert(conf_file);
+        assert(conf_file_dirs);
+        assert(stats_by_path);
+
+        /* Unlike config_parse(), this does not support stream. */
+
+        r = path_extract_filename(conf_file, &dropin_dirname);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EINVAL;
+
+        if (!strextend(&dropin_dirname, ".d"))
+                return -ENOMEM;
+
+        r = config_get_dropin_files(conf_file_dirs, dropin_dirname, &files);
+        if (r < 0)
+                return r;
+
+        /* First read the main config file. */
+        r = RET_NERRNO(stat(conf_file, &st));
+        if (r >= 0) {
+                r = hashmap_put_stats_by_path(&stats_by_path, conf_file, &st);
+                if (r < 0)
+                        return r;
+        } else if (r != -ENOENT)
+                return r;
+
+        /* Then read all the drop-ins. */
+        STRV_FOREACH(fn, files) {
+                if (stat(*fn, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int config_get_stats_by_path(
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char* const* dirs,
+                Hashmap **ret) {
+
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        assert(suffix);
+        assert(dirs);
+        assert(ret);
+
+        r = conf_files_list_strv(&files, suffix, root, flags, dirs);
+        if (r < 0)
+                return r;
+
+        stats_by_path = hashmap_new(&path_hash_ops_free_free);
+        if (!stats_by_path)
+                return -ENOMEM;
+
+        STRV_FOREACH(f, files) {
+                r = config_get_stats_by_path_one(*f, dirs, stats_by_path);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(stats_by_path);
+        return 0;
+}
+
+bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
+        struct stat *st_a, *st_b;
+        const char *path;
+
+        if (hashmap_size(a) != hashmap_size(b))
+                return false;
+
+        HASHMAP_FOREACH_KEY(st_a, path, a) {
+                st_b = hashmap_get(b, path);
+                if (!st_b)
+                        return false;
+
+                if (!stat_inode_unmodified(st_a, st_b))
+                        return false;
+        }
+
+        return true;
 }
 
 static void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
