@@ -724,6 +724,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*455*G5*:*
  KEYBOARD_KEY_85=unknown                                # lid close; also reported via special evdev
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# HP ProBook 11G2
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPProBook11G2*:pvr*
+ KEYBOARD_KEY_d8=!f23                                   # Fn+F2: touchpad off
+ KEYBOARD_KEY_d9=!f22                                   # Fn+F2: touchpad on
+
 # HP mt44 Mobile Thin Client
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*mt44*Mobile*Thin*Client*:*
  KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
@@ -1692,7 +1697,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:*
 
 # Galaxy Book (2021) NP750XDA-KD4SE
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn750XDA:pvr*
- KEYBOARD_KEY_81=!esc 		
+ KEYBOARD_KEY_81=!esc
  KEYBOARD_KEY_ce=!prog1 	# Fn+F1 launch settings
  KEYBOARD_KEY_ae=!volumedown 	# Fn+F7 volume down
  KEYBOARD_KEY_b0=!volumeup	# Fn+F8 volume up
