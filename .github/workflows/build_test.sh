@@ -131,7 +131,6 @@ for args in "${ARGS[@]}"; do
     if [[ "$LINKER" != lld ]]; then
         additional_meson_args="--fatal-meson-warnings"
     fi
-    additional_meson_args=""
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
