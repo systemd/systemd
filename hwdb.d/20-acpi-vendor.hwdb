@@ -51,6 +51,9 @@ acpi:ATML*:
 acpi:AUTH*:
  ID_VENDOR_FROM_DATABASE=AuthenTec
 
+acpi:AWDZ*:
+ ID_VENDOR_FROM_DATABASE=Shanghai Aiwei Electronic Technology Co., Ltd.
+
 acpi:BABA*:
  ID_VENDOR_FROM_DATABASE=Alibaba Co., Ltd.
 
@@ -195,6 +198,9 @@ acpi:LNUX*:
 acpi:LOON*:
  ID_VENDOR_FROM_DATABASE=Loongson Technology Corporation Limited
 
+acpi:LTSC*:
+ ID_VENDOR_FROM_DATABASE=Lontium Semiconductor Corporation
+
 acpi:MCHP*:
  ID_VENDOR_FROM_DATABASE=Microchip Technology Inc
 
@@ -215,6 +221,9 @@ acpi:MSHW*:
 
 acpi:MXIM*:
  ID_VENDOR_FROM_DATABASE=Maxim Integrated
+
+acpi:NOLO*:
+ ID_VENDOR_FROM_DATABASE=NOLO Co., Ltd.
 
 acpi:NVDA*:
  ID_VENDOR_FROM_DATABASE=Nvidia
@@ -270,6 +279,9 @@ acpi:SECC*:
 acpi:SHRP*:
  ID_VENDOR_FROM_DATABASE=Sharp Corporation
 
+acpi:SILC*:
+ ID_VENDOR_FROM_DATABASE=Silicom Ltd. Connectivity Solutions
+
 acpi:SNSL*:
  ID_VENDOR_FROM_DATABASE=Sensel, Inc.
 
@@ -305,6 +317,9 @@ acpi:VFSI*:
 
 acpi:VSHY*:
  ID_VENDOR_FROM_DATABASE=Vishay Intertechnology, Inc.
+
+acpi:WACF*:
+ ID_VENDOR_FROM_DATABASE=Wacom Technology
 
 acpi:WCOM*:
  ID_VENDOR_FROM_DATABASE=Wacom
@@ -572,6 +587,9 @@ acpi:AKM*:
 
 acpi:AKP*:
  ID_VENDOR_FROM_DATABASE=Atom Komplex Prylad
+
+acpi:AKR*:
+ ID_VENDOR_FROM_DATABASE=Anker Innovations Limited
 
 acpi:AKY*:
  ID_VENDOR_FROM_DATABASE=Askey Computer Corporation
@@ -902,6 +920,9 @@ acpi:ATV*:
 
 acpi:ATX*:
  ID_VENDOR_FROM_DATABASE=Athenix Corporation
+
+acpi:AUD*:
+ ID_VENDOR_FROM_DATABASE=AudioControl
 
 acpi:AUG*:
  ID_VENDOR_FROM_DATABASE=August Home, Inc.
@@ -1246,7 +1267,7 @@ acpi:BUL*:
  ID_VENDOR_FROM_DATABASE=Bull
 
 acpi:BUR*:
- ID_VENDOR_FROM_DATABASE=Bernecker & Rainer Ind-Eletronik GmbH
+ ID_VENDOR_FROM_DATABASE=B&R Industrial Automation GmbH
 
 acpi:BUS*:
  ID_VENDOR_FROM_DATABASE=BusTek
@@ -2464,7 +2485,7 @@ acpi:ESA*:
  ID_VENDOR_FROM_DATABASE=Elbit Systems of America
 
 acpi:ESB*:
- ID_VENDOR_FROM_DATABASE=Esterline Belgium BVBA
+ ID_VENDOR_FROM_DATABASE=ScioTeq
 
 acpi:ESC*:
  ID_VENDOR_FROM_DATABASE=Eden Sistemas de Computacao S/A
@@ -3891,6 +3912,9 @@ acpi:KOL*:
 acpi:KOM*:
  ID_VENDOR_FROM_DATABASE=Kontron GmbH
 
+acpi:KOP*:
+ ID_VENDOR_FROM_DATABASE=Kopin Corporation
+
 acpi:KOU*:
  ID_VENDOR_FROM_DATABASE=KOUZIRO Co.,Ltd.
 
@@ -4261,7 +4285,7 @@ acpi:MAS*:
  ID_VENDOR_FROM_DATABASE=Mass Inc.
 
 acpi:MAT*:
- ID_VENDOR_FROM_DATABASE=Matsushita Electric Ind. Company Ltd
+ ID_VENDOR_FROM_DATABASE=Panasonic Connect Co.,Ltd.
 
 acpi:MAX*:
  ID_VENDOR_FROM_DATABASE=Rogen Tech Distribution Inc
@@ -4779,6 +4803,9 @@ acpi:MXI*:
 acpi:MXL*:
  ID_VENDOR_FROM_DATABASE=Hitachi Maxell, Ltd.
 
+acpi:MXM*:
+ ID_VENDOR_FROM_DATABASE=C&T Solution Inc.
+
 acpi:MXP*:
  ID_VENDOR_FROM_DATABASE=Maxpeed Corporation
 
@@ -5049,6 +5076,9 @@ acpi:NVI*:
 acpi:NVL*:
  ID_VENDOR_FROM_DATABASE=Novell Inc
 
+acpi:NVO*:
+ ID_VENDOR_FROM_DATABASE=Netvio Ltd.
+
 acpi:NVT*:
  ID_VENDOR_FROM_DATABASE=Navatek Engineering Corporation
 
@@ -5075,6 +5105,9 @@ acpi:NXP*:
 
 acpi:NXQ*:
  ID_VENDOR_FROM_DATABASE=Nexiq Technologies, Inc.
+
+acpi:NXR*:
+ ID_VENDOR_FROM_DATABASE=Nextorage Corporation
 
 acpi:NXS*:
  ID_VENDOR_FROM_DATABASE=Technology Nexus Secure Open Systems AB
@@ -6015,6 +6048,9 @@ acpi:SBS*:
 acpi:SBT*:
  ID_VENDOR_FROM_DATABASE=Senseboard Technologies AB
 
+acpi:SCA*:
+ ID_VENDOR_FROM_DATABASE=Schneider Consumer Group
+
 acpi:SCB*:
  ID_VENDOR_FROM_DATABASE=SeeCubic B.V.
 
@@ -6134,6 +6170,9 @@ acpi:SES*:
 
 acpi:SET*:
  ID_VENDOR_FROM_DATABASE=SendTek Corporation
+
+acpi:SFL*:
+ ID_VENDOR_FROM_DATABASE=Shiftall Inc.
 
 acpi:SFM*:
  ID_VENDOR_FROM_DATABASE=TORNADO Company
@@ -6414,6 +6453,9 @@ acpi:SPL*:
 acpi:SPN*:
  ID_VENDOR_FROM_DATABASE=Sapience Corporation
 
+acpi:SPO*:
+ ID_VENDOR_FROM_DATABASE=SAMPO CORPORATION
+
 acpi:SPR*:
  ID_VENDOR_FROM_DATABASE=pmns GmbH
 
@@ -6536,6 +6578,9 @@ acpi:STT*:
 
 acpi:STU*:
  ID_VENDOR_FROM_DATABASE=Sentelic Corporation
+
+acpi:STV*:
+ ID_VENDOR_FROM_DATABASE=Beijing Guochengwantong Information Technology Co., Ltd.
 
 acpi:STW*:
  ID_VENDOR_FROM_DATABASE=Starwin Inc.
@@ -7322,6 +7367,9 @@ acpi:VBT*:
 
 acpi:VCC*:
  ID_VENDOR_FROM_DATABASE=Virtual Computer Corporation
+
+acpi:VCE*:
+ ID_VENDOR_FROM_DATABASE=VARCem
 
 acpi:VCI*:
  ID_VENDOR_FROM_DATABASE=VistaCom Inc

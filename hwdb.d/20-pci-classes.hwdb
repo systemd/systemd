@@ -176,6 +176,15 @@ pci:v*d*sv*sd*bc05sc00*
 pci:v*d*sv*sd*bc05sc01*
  ID_PCI_SUBCLASS_FROM_DATABASE=FLASH memory
 
+pci:v*d*sv*sd*bc05sc02*
+ ID_PCI_SUBCLASS_FROM_DATABASE=CXL
+
+pci:v*d*sv*sd*bc05sc02i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=CXL Memory Device - vendor specific
+
+pci:v*d*sv*sd*bc05sc02i10*
+ ID_PCI_INTERFACE_FROM_DATABASE=CXL Memory Device (CXL 2.x)
+
 pci:v*d*sv*sd*bc05sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Memory controller
 
@@ -515,6 +524,9 @@ pci:v*d*sv*sd*bc0Csc08*
 pci:v*d*sv*sd*bc0Csc09*
  ID_PCI_SUBCLASS_FROM_DATABASE=CANBUS
 
+pci:v*d*sv*sd*bc0Csc80*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Serial bus controller
+
 pci:v*d*sv*sd*bc0D*
  ID_PCI_CLASS_FROM_DATABASE=Wireless controller
 
@@ -600,7 +612,7 @@ pci:v*d*sv*sd*bc12sc00*
  ID_PCI_SUBCLASS_FROM_DATABASE=Processing accelerators
 
 pci:v*d*sv*sd*bc12sc01*
- ID_PCI_SUBCLASS_FROM_DATABASE=AI Inference Accelerator
+ ID_PCI_SUBCLASS_FROM_DATABASE=SNIA Smart Data Accelerator Interface (SDXI) controller
 
 pci:v*d*sv*sd*bc13*
  ID_PCI_CLASS_FROM_DATABASE=Non-Essential Instrumentation

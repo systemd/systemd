@@ -152,6 +152,12 @@ usb:v0386*
 usb:v0386p0001*
  ID_MODEL_FROM_DATABASE=PSX for USB Converter
 
+usb:v03C3*
+ ID_VENDOR_FROM_DATABASE=ZWO
+
+usb:v03C3p120E*
+ ID_MODEL_FROM_DATABASE=ASI120MC-S Planetary Camera
+
 usb:v03D9*
  ID_VENDOR_FROM_DATABASE=Shenzhen Sinote Tech-Electron Co., Ltd
 
@@ -295,6 +301,9 @@ usb:v03EBp2065*
 
 usb:v03EBp2066*
  ID_MODEL_FROM_DATABASE=LUFA Multiple Report HID Demo
+
+usb:v03EBp2067*
+ ID_MODEL_FROM_DATABASE=LUFA HID Class Bootloader
 
 usb:v03EBp2068*
  ID_MODEL_FROM_DATABASE=LUFA Virtual Serial/Mass Storage Demo
@@ -986,6 +995,9 @@ usb:v03F0p161D*
 usb:v03F0p1624*
  ID_MODEL_FROM_DATABASE=Smart Card Keyboard - JP
 
+usb:v03F0p1647*
+ ID_MODEL_FROM_DATABASE=Z27n G2 Monitor Hub
+
 usb:v03F0p1702*
  ID_MODEL_FROM_DATABASE=PhotoSmart 380 series
 
@@ -1252,6 +1264,9 @@ usb:v03F0p2811*
 
 usb:v03F0p2817*
  ID_MODEL_FROM_DATABASE=Color LaserJet 2840
+
+usb:v03F0p2841*
+ ID_MODEL_FROM_DATABASE=OMEN MINDFRAME [3XT27AA]
 
 usb:v03F0p2902*
  ID_MODEL_FROM_DATABASE=PhotoSmart A820 series
@@ -2057,6 +2072,9 @@ usb:v03F0pBB02*
 usb:v03F0pBC02*
  ID_MODEL_FROM_DATABASE=PhotoSmart 8700 series
 
+usb:v03F0pBC11*
+ ID_MODEL_FROM_DATABASE=Photosmart 7520 series
+
 usb:v03F0pBD02*
  ID_MODEL_FROM_DATABASE=PhotoSmart Pro B9100 series
 
@@ -2348,6 +2366,9 @@ usb:v0403p6EE0*
 usb:v0403p6F70*
  ID_MODEL_FROM_DATABASE=HB-RF-USB
 
+usb:v0403p7BE8*
+ ID_MODEL_FROM_DATABASE=FT232R
+
 usb:v0403p8028*
  ID_MODEL_FROM_DATABASE=Dev board JTAG (FT232H based)
 
@@ -2630,6 +2651,9 @@ usb:v0403pDAF4*
 usb:v0403pE0D0*
  ID_MODEL_FROM_DATABASE=Total Phase Aardvark I2C/SPI Host Adapter
 
+usb:v0403pE518*
+ ID_MODEL_FROM_DATABASE=IBR IMB-usb
+
 usb:v0403pE521*
  ID_MODEL_FROM_DATABASE=EVER Sinline XL Series UPS
 
@@ -2680,6 +2704,9 @@ usb:v0403pED73*
 
 usb:v0403pED74*
  ID_MODEL_FROM_DATABASE=HAMEG HO820 Serial Port
+
+usb:v0403pEEA2*
+ ID_MODEL_FROM_DATABASE=PCStage Lite 32 channel DMX512 Interface
 
 usb:v0403pEF10*
  ID_MODEL_FROM_DATABASE=FT1245BL
@@ -3431,6 +3458,9 @@ usb:v040Ap4021*
 usb:v040Ap4022*
  ID_MODEL_FROM_DATABASE=1400 Digital Photo Printer
 
+usb:v040Ap4023*
+ ID_MODEL_FROM_DATABASE=Photo Printer 8800 / 9810
+
 usb:v040Ap402B*
  ID_MODEL_FROM_DATABASE=Photo Printer 6850
 
@@ -3934,6 +3964,9 @@ usb:v0416p7722*
 
 usb:v0416p7723*
  ID_MODEL_FROM_DATABASE=SD Card Reader
+
+usb:v0416pB23C*
+ ID_MODEL_FROM_DATABASE=KT108 keyboard
 
 usb:v0416pC141*
  ID_MODEL_FROM_DATABASE=Barcode Scanner
@@ -4940,8 +4973,14 @@ usb:v0424p2228*
 usb:v0424p223A*
  ID_MODEL_FROM_DATABASE=8-in-1 Card Reader
 
+usb:v0424p2412*
+ ID_MODEL_FROM_DATABASE=Hub
+
 usb:v0424p2503*
  ID_MODEL_FROM_DATABASE=USB 2.0 Hub
+
+usb:v0424p2504*
+ ID_MODEL_FROM_DATABASE=Hub
 
 usb:v0424p2507*
  ID_MODEL_FROM_DATABASE=hub
@@ -5151,7 +5190,7 @@ usb:v042F*
  ID_VENDOR_FROM_DATABASE=Molex, Inc.
 
 usb:v0430*
- ID_VENDOR_FROM_DATABASE=Sun Microsystems, Inc.
+ ID_VENDOR_FROM_DATABASE=Fujitsu Component Limited
 
 usb:v0430p0002*
  ID_MODEL_FROM_DATABASE=109 Keyboard
@@ -6088,6 +6127,9 @@ usb:v0451p8140*
 
 usb:v0451p8142*
  ID_MODEL_FROM_DATABASE=TUSB8041 4-Port Hub
+
+usb:v0451p9261*
+ ID_MODEL_FROM_DATABASE=TUSB9261 SerialATA-Bridge
 
 usb:v0451p926B*
  ID_MODEL_FROM_DATABASE=TUSB9260 Boot Loader
@@ -7796,6 +7838,9 @@ usb:v0461p4E22*
 usb:v0461p4E6F*
  ID_MODEL_FROM_DATABASE=Acer Wired Keyboard Model KBAY211
 
+usb:v0461p4E72*
+ ID_MODEL_FROM_DATABASE=Acer Wired Keyboard Model KBAY211
+
 usb:v0463*
  ID_VENDOR_FROM_DATABASE=MGE UPS Systems
 
@@ -8033,6 +8078,12 @@ usb:v046Dp0846*
 usb:v046Dp084B*
  ID_MODEL_FROM_DATABASE=ConferenceCam Connect Video
 
+usb:v046Dp084C*
+ ID_MODEL_FROM_DATABASE=ConferenceCam Connect Audio
+
+usb:v046Dp084E*
+ ID_MODEL_FROM_DATABASE=ConferenceCam Connect
+
 usb:v046Dp0850*
  ID_MODEL_FROM_DATABASE=QuickCam Web
 
@@ -8190,7 +8241,7 @@ usb:v046Dp08D9*
  ID_MODEL_FROM_DATABASE=QuickCam IM/Connect
 
 usb:v046Dp08DA*
- ID_MODEL_FROM_DATABASE=QuickCam Messanger
+ ID_MODEL_FROM_DATABASE=QuickCam Messenger
 
 usb:v046Dp08DD*
  ID_MODEL_FROM_DATABASE=QuickCam for Notebooks
@@ -8200,6 +8251,9 @@ usb:v046Dp08E0*
 
 usb:v046Dp08E1*
  ID_MODEL_FROM_DATABASE=Labtec Webcam
+
+usb:v046Dp08E5*
+ ID_MODEL_FROM_DATABASE=C920 PRO HD Webcam
 
 usb:v046Dp08F0*
  ID_MODEL_FROM_DATABASE=QuickCam Messenger
@@ -8386,6 +8440,9 @@ usb:v046Dp0A66*
 
 usb:v046Dp0A8F*
  ID_MODEL_FROM_DATABASE=H390 headset with microphone
+
+usb:v046Dp0AAA*
+ ID_MODEL_FROM_DATABASE=Logitech G PRO X Gaming Headset
 
 usb:v046Dp0B02*
  ID_MODEL_FROM_DATABASE=C-UV35 [Bluetooth Mini-Receiver] (HID proxy mode)
@@ -8601,7 +8658,7 @@ usb:v046DpC06C*
  ID_MODEL_FROM_DATABASE=Optical Mouse
 
 usb:v046DpC077*
- ID_MODEL_FROM_DATABASE=M105 Optical Mouse
+ ID_MODEL_FROM_DATABASE=Mouse
 
 usb:v046DpC07C*
  ID_MODEL_FROM_DATABASE=M-R0017 [G700s Rechargeable Gaming Mouse]
@@ -8625,7 +8682,7 @@ usb:v046DpC08B*
  ID_MODEL_FROM_DATABASE=G502 SE HERO Gaming Mouse
 
 usb:v046DpC092*
- ID_MODEL_FROM_DATABASE=G203 LIGHTSYNC Gaming Mouse
+ ID_MODEL_FROM_DATABASE=G102/G203 LIGHTSYNC Gaming Mouse
 
 usb:v046DpC101*
  ID_MODEL_FROM_DATABASE=UltraX Media Remote
@@ -8945,6 +9002,9 @@ usb:v046DpC332*
 usb:v046DpC335*
  ID_MODEL_FROM_DATABASE=G910 Orion Spectrum Mechanical Keyboard
 
+usb:v046DpC336*
+ ID_MODEL_FROM_DATABASE=G213 Prodigy Gaming Keyboard
+
 usb:v046DpC33A*
  ID_MODEL_FROM_DATABASE=G413 Gaming Keyboard
 
@@ -9066,6 +9126,9 @@ usb:v046DpC534*
  ID_MODEL_FROM_DATABASE=Unifying Receiver
 
 usb:v046DpC537*
+ ID_MODEL_FROM_DATABASE=Cordless Mouse Receiver
+
+usb:v046DpC539*
  ID_MODEL_FROM_DATABASE=Cordless Mouse Receiver
 
 usb:v046DpC53A*
@@ -10007,6 +10070,9 @@ usb:v0480p0100*
 usb:v0480p0200*
  ID_MODEL_FROM_DATABASE=External Disk
 
+usb:v0480p0212*
+ ID_MODEL_FROM_DATABASE=Toshiba Canvio Connect II 500GB Portable Hard Drive
+
 usb:v0480p0820*
  ID_MODEL_FROM_DATABASE=Canvio Advance Disk
 
@@ -10111,6 +10177,24 @@ usb:v0482p06B4*
 
 usb:v0483*
  ID_VENDOR_FROM_DATABASE=STMicroelectronics
+
+usb:v0483p0102*
+ ID_MODEL_FROM_DATABASE=Remote NDIS Network device with Android debug (ADB)
+
+usb:v0483p0103*
+ ID_MODEL_FROM_DATABASE=Remote NDIS Network device
+
+usb:v0483p0104*
+ ID_MODEL_FROM_DATABASE=MTP device with Android debug (ADB)
+
+usb:v0483p0105*
+ ID_MODEL_FROM_DATABASE=MTP device
+
+usb:v0483p0106*
+ ID_MODEL_FROM_DATABASE=PTP device with Android debug (ADB)
+
+usb:v0483p0107*
+ ID_MODEL_FROM_DATABASE=PTP device
 
 usb:v0483p0137*
  ID_MODEL_FROM_DATABASE=BeWAN ADSL USB ST (blue or green)
@@ -10921,6 +11005,9 @@ usb:v04A5p6200*
 
 usb:v04A5p7500*
  ID_MODEL_FROM_DATABASE=Hi-Speed Mass Storage Device
+
+usb:v04A5p8001*
+ ID_MODEL_FROM_DATABASE=BenQ ZOWIE Gaming Mouse
 
 usb:v04A5p9000*
  ID_MODEL_FROM_DATABASE=AWL300 Wireless Adapter
@@ -13607,6 +13694,12 @@ usb:v04B4p5500*
 usb:v04B4p5A9B*
  ID_MODEL_FROM_DATABASE=Dacal CD/DVD Library D-101/DC-300/DC-016RW
 
+usb:v04B4p6022*
+ ID_MODEL_FROM_DATABASE=Hantek DSO-6022BE
+
+usb:v04B4p602A*
+ ID_MODEL_FROM_DATABASE=Hantek DSO-6022BL
+
 usb:v04B4p6370*
  ID_MODEL_FROM_DATABASE=ViewMate Desktop Mouse CC2201
 
@@ -13676,6 +13769,9 @@ usb:v04B4pF111*
 usb:v04B4pF115*
  ID_MODEL_FROM_DATABASE=PSoC FirstTouch Programmer
 
+usb:v04B4pF139*
+ ID_MODEL_FROM_DATABASE=KitProg
+
 usb:v04B4pF231*
  ID_MODEL_FROM_DATABASE=DELLY Changer 4in1 universal IR remote
 
@@ -13696,6 +13792,12 @@ usb:v04B5*
 
 usb:v04B5p3064*
  ID_MODEL_FROM_DATABASE=Hantek DSO-3064
+
+usb:v04B5p6022*
+ ID_MODEL_FROM_DATABASE=Hantek DSO-6022BE
+
+usb:v04B5p602A*
+ ID_MODEL_FROM_DATABASE=Hantek DSO-6022BL
 
 usb:v04B6*
  ID_VENDOR_FROM_DATABASE=Hint Corp.
@@ -13729,6 +13831,9 @@ usb:v04B8p0007*
 
 usb:v04B8p0015*
  ID_MODEL_FROM_DATABASE=Stylus Photo R3000
+
+usb:v04B8p0080*
+ ID_MODEL_FROM_DATABASE=SC-P400 Series
 
 usb:v04B8p0101*
  ID_MODEL_FROM_DATABASE=GT-7000U [Perfection 636]
@@ -14705,6 +14810,9 @@ usb:v04CAp7025*
 usb:v04CAp7046*
  ID_MODEL_FROM_DATABASE=TOSHIBA Web Camera - HD
 
+usb:v04CAp7054*
+ ID_MODEL_FROM_DATABASE=HP HD Webcam
+
 usb:v04CAp9304*
  ID_MODEL_FROM_DATABASE=Hub
 
@@ -14993,6 +15101,9 @@ usb:v04CBp02E0*
 usb:v04CBp5006*
  ID_MODEL_FROM_DATABASE=ASK-300
 
+usb:v04CBp5007*
+ ID_MODEL_FROM_DATABASE=DX100
+
 usb:v04CC*
  ID_VENDOR_FROM_DATABASE=ST-Ericsson
 
@@ -15253,6 +15364,9 @@ usb:v04D9p0006*
 
 usb:v04D9p0022*
  ID_MODEL_FROM_DATABASE=Portable Keyboard
+
+usb:v04D9p0129*
+ ID_MODEL_FROM_DATABASE=Keyboard [KBPV8000]
 
 usb:v04D9p0348*
  ID_MODEL_FROM_DATABASE=Keyboard
@@ -16175,6 +16289,9 @@ usb:v04E8p390F*
 usb:v04E8p3911*
  ID_MODEL_FROM_DATABASE=SCX-1020 series
 
+usb:v04E8p4001*
+ ID_MODEL_FROM_DATABASE=PSSD T7
+
 usb:v04E8p4005*
  ID_MODEL_FROM_DATABASE=GT-S8000 Jet (msc)
 
@@ -16960,6 +17077,9 @@ usb:v04F2pB3FD*
 
 usb:v04F2pB40E*
  ID_MODEL_FROM_DATABASE=HP Truevision HD camera
+
+usb:v04F2pB420*
+ ID_MODEL_FROM_DATABASE=Lenovo EasyCamera
 
 usb:v04F2pB444*
  ID_MODEL_FROM_DATABASE=Lenovo Integrated Webcam
@@ -20474,6 +20594,9 @@ usb:v054Cp082F*
 usb:v054Cp0847*
  ID_MODEL_FROM_DATABASE=WG-C10 Portable Wireless Server
 
+usb:v054Cp0873*
+ ID_MODEL_FROM_DATABASE=UP-971AD
+
 usb:v054Cp0877*
  ID_MODEL_FROM_DATABASE=UP-D898/X898 series
 
@@ -20521,6 +20644,9 @@ usb:v054Cp0CDA*
 
 usb:v054Cp0CE0*
  ID_MODEL_FROM_DATABASE=WF-1000XM3 [Wireless Noise-Canceling Headphones]
+
+usb:v054Cp0CE6*
+ ID_MODEL_FROM_DATABASE=DualSense wireless controller (PS5)
 
 usb:v054Cp0CF0*
  ID_MODEL_FROM_DATABASE=MRW-G1
@@ -21598,6 +21724,12 @@ usb:v056Ap03AA*
 
 usb:v056Ap03AC*
  ID_MODEL_FROM_DATABASE=DTH-W1620 [MobileStudio Pro 16] touchscreen
+
+usb:v056Ap03C5*
+ ID_MODEL_FROM_DATABASE=CTL-4100WL [Intuos BT (S)]
+
+usb:v056Ap03C7*
+ ID_MODEL_FROM_DATABASE=CTL-6100WL [Intuos BT (M)]
 
 usb:v056Ap0400*
  ID_MODEL_FROM_DATABASE=PenPartner 4x5
@@ -24752,6 +24884,9 @@ usb:v05ACp850A*
 usb:v05ACp8510*
  ID_MODEL_FROM_DATABASE=FaceTime HD Camera (Built-in)
 
+usb:v05ACp8511*
+ ID_MODEL_FROM_DATABASE=FaceTime HD Camera (Built-in)
+
 usb:v05ACp8600*
  ID_MODEL_FROM_DATABASE=iBridge
 
@@ -24763,6 +24898,9 @@ usb:v05ACp9127*
 
 usb:v05ACp912F*
  ID_MODEL_FROM_DATABASE=Hub in 30" Cinema Display
+
+usb:v05ACp9210*
+ ID_MODEL_FROM_DATABASE=Studio Display 21"
 
 usb:v05ACp9215*
  ID_MODEL_FROM_DATABASE=Studio Display 15"
@@ -25057,6 +25195,9 @@ usb:v05C6p9274*
 
 usb:v05C6p9275*
  ID_MODEL_FROM_DATABASE=iRex Technologies Gobi 2000 Wireless Modem
+
+usb:v05C6pF000*
+ ID_MODEL_FROM_DATABASE=TA-1004 [Nokia 8]
 
 usb:v05C6pF003*
  ID_MODEL_FROM_DATABASE=Nokia 8110 4G
@@ -26042,6 +26183,9 @@ usb:v05E0p1701*
 usb:v05E0p1900*
  ID_MODEL_FROM_DATABASE=SNAPI Imaging Device
 
+usb:v05E0p1A00*
+ ID_MODEL_FROM_DATABASE=CS4070 Barcode Scanner
+
 usb:v05E0p2000*
  ID_MODEL_FROM_DATABASE=MC3090 Rugged Mobile Computer
 
@@ -26168,6 +26312,15 @@ usb:v05E3p0612*
 usb:v05E3p0616*
  ID_MODEL_FROM_DATABASE=hub
 
+usb:v05E3p0618*
+ ID_MODEL_FROM_DATABASE=Hub
+
+usb:v05E3p0620*
+ ID_MODEL_FROM_DATABASE=GL3523 Hub
+
+usb:v05E3p0626*
+ ID_MODEL_FROM_DATABASE=Hub
+
 usb:v05E3p0660*
  ID_MODEL_FROM_DATABASE=USB 2.0 Hub
 
@@ -26278,6 +26431,9 @@ usb:v05E3p0749*
 
 usb:v05E3p0751*
  ID_MODEL_FROM_DATABASE=microSD Card Reader
+
+usb:v05E3p0752*
+ ID_MODEL_FROM_DATABASE=micros Reader
 
 usb:v05E3p0760*
  ID_MODEL_FROM_DATABASE=USB 2.0 Card Reader/Writer
@@ -28712,8 +28868,149 @@ usb:v06BCp01E0*
 usb:v06BCp020B*
  ID_MODEL_FROM_DATABASE=OKI ES4140 Mono Printer
 
+usb:v06BCp021F*
+ ID_MODEL_FROM_DATABASE=ES8460 Multifunction Printer
+
+usb:v06BCp026F*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0270*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0271*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0272*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0273*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0274*
+ ID_MODEL_FROM_DATABASE=ES3451 Multifunction Printer
+
+usb:v06BCp0275*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0276*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0277*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0278*
+ ID_MODEL_FROM_DATABASE=MC351 Multifunction Printer
+
+usb:v06BCp0279*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp027A*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp027B*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp027C*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp027D*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp027E*
+ ID_MODEL_FROM_DATABASE=ES3461 Multifunction Printer
+
+usb:v06BCp027F*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp0280*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp0281*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp0282*
+ ID_MODEL_FROM_DATABASE=MC361 Multifunction Printer
+
+usb:v06BCp0283*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp0284*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp0285*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp0286*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp0287*
+ ID_MODEL_FROM_DATABASE=CX2731 Multifunction Printer
+
+usb:v06BCp0288*
+ ID_MODEL_FROM_DATABASE=ES5461 Multifunction Printer
+
+usb:v06BCp0289*
+ ID_MODEL_FROM_DATABASE=ES5461 Multifunction Printer
+
+usb:v06BCp028A*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp028B*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp028C*
+ ID_MODEL_FROM_DATABASE=MC561 Multifunction Printer
+
+usb:v06BCp02B4*
+ ID_MODEL_FROM_DATABASE=MC861 Multifunction Printer
+
+usb:v06BCp02B5*
+ ID_MODEL_FROM_DATABASE=ES8461 Multifunction Printer
+
+usb:v06BCp02B6*
+ ID_MODEL_FROM_DATABASE=MC851 Multifunction Printer
+
+usb:v06BCp02B7*
+ ID_MODEL_FROM_DATABASE=ES8451 Multifunction Printer
+
 usb:v06BCp02BB*
  ID_MODEL_FROM_DATABASE=OKI PT390 POS Printer
+
+usb:v06BCp02BD*
+ ID_MODEL_FROM_DATABASE=MB461 Multifunction Printer
+
+usb:v06BCp02BE*
+ ID_MODEL_FROM_DATABASE=MB471 Multifunction Printer
+
+usb:v06BCp02BF*
+ ID_MODEL_FROM_DATABASE=MB491 Multifunction Printer
+
+usb:v06BCp02CA*
+ ID_MODEL_FROM_DATABASE=ES4161 Multifunction Printer
+
+usb:v06BCp02CB*
+ ID_MODEL_FROM_DATABASE=ES4191 Multifunction Printer
+
+usb:v06BCp02D4*
+ ID_MODEL_FROM_DATABASE=MPS4200mb Multifunction Printer
+
+usb:v06BCp02E7*
+ ID_MODEL_FROM_DATABASE=MC352 Multifunction Printer
+
+usb:v06BCp02E8*
+ ID_MODEL_FROM_DATABASE=MC362 Multifunction Printer
+
+usb:v06BCp02E9*
+ ID_MODEL_FROM_DATABASE=MC562 Multifunction Printer
+
+usb:v06BCp02EA*
+ ID_MODEL_FROM_DATABASE=ES3452 Multifunction Printer
+
+usb:v06BCp02EB*
+ ID_MODEL_FROM_DATABASE=ES5462 Multifunction Printer
+
+usb:v06BCp02EE*
+ ID_MODEL_FROM_DATABASE=MB451 Multifunction Printer
 
 usb:v06BCp0383*
  ID_MODEL_FROM_DATABASE=MC563 Multifunction Printer
@@ -44552,6 +44849,18 @@ usb:v0E25*
 usb:v0E26*
  ID_VENDOR_FROM_DATABASE=J-Phone East Co., Ltd
 
+usb:v0E2E*
+ ID_VENDOR_FROM_DATABASE=Brady Worldwide, Inc.
+
+usb:v0E2Ep000B*
+ ID_MODEL_FROM_DATABASE=BMP 51
+
+usb:v0E2Ep000C*
+ ID_MODEL_FROM_DATABASE=BMP 61
+
+usb:v0E2Ep000D*
+ ID_MODEL_FROM_DATABASE=BMP 41
+
 usb:v0E30*
  ID_VENDOR_FROM_DATABASE=HeartMath LLC
 
@@ -58385,6 +58694,9 @@ usb:v1A86p5523*
 usb:v1A86p5584*
  ID_MODEL_FROM_DATABASE=CH341 in parallel mode, usb to printer port converter
 
+usb:v1A86p7522*
+ ID_MODEL_FROM_DATABASE=CH340 serial converter
+
 usb:v1A86p7523*
  ID_MODEL_FROM_DATABASE=CH340 serial converter
 
@@ -58395,7 +58707,7 @@ usb:v1A86p7584*
  ID_MODEL_FROM_DATABASE=CH340S
 
 usb:v1A86pE008*
- ID_MODEL_FROM_DATABASE=HID-based serial adapater
+ ID_MODEL_FROM_DATABASE=HID-based serial adapter
 
 usb:v1A89*
  ID_VENDOR_FROM_DATABASE=Dynalith Systems Co., Ltd.
@@ -60684,7 +60996,7 @@ usb:v1D50p6054*
  ID_MODEL_FROM_DATABASE=Satlab/AAUSAT3 BlueBox
 
 usb:v1D50p6055*
- ID_MODEL_FROM_DATABASE=RADiuS ER900TRS-02 transciever with SMA Connector
+ ID_MODEL_FROM_DATABASE=RADiuS ER900TRS-02 transceiver with SMA Connector
 
 usb:v1D50p6056*
  ID_MODEL_FROM_DATABASE=The Glitch
@@ -61095,16 +61407,16 @@ usb:v1D50p60EE*
  ID_MODEL_FROM_DATABASE=Duet 3 motion control electronics
 
 usb:v1D50p60F0*
- ID_MODEL_FROM_DATABASE=UDAD-T1 data aquisition device (boot)
+ ID_MODEL_FROM_DATABASE=UDAD-T1 data acquisition device (boot)
 
 usb:v1D50p60F1*
- ID_MODEL_FROM_DATABASE=UDAD-T1 data aquisition device
+ ID_MODEL_FROM_DATABASE=UDAD-T1 data acquisition device
 
 usb:v1D50p60F2*
- ID_MODEL_FROM_DATABASE=UDAD-T2 data aquisition device (boot)
+ ID_MODEL_FROM_DATABASE=UDAD-T2 data acquisition device (boot)
 
 usb:v1D50p60F3*
- ID_MODEL_FROM_DATABASE=UDAD-T2 data aquisition device
+ ID_MODEL_FROM_DATABASE=UDAD-T2 data acquisition device
 
 usb:v1D50p60F4*
  ID_MODEL_FROM_DATABASE=Uniti ARC motor controller
@@ -61150,6 +61462,9 @@ usb:v1D50p6122*
 
 usb:v1D50p614C*
  ID_MODEL_FROM_DATABASE=dwtk In-Circuit Emulator
+
+usb:v1D50p614D*
+ ID_MODEL_FROM_DATABASE=Generic Display
 
 usb:v1D50p8085*
  ID_MODEL_FROM_DATABASE=Box0 (box0-v5)
@@ -61203,7 +61518,7 @@ usb:v1D57pAF03*
  ID_MODEL_FROM_DATABASE=Wireless Receiver
 
 usb:v1D57pFA20*
- ID_MODEL_FROM_DATABASE=2.4GHz Wireless Reciever (Mini Keyboard & Mouse)
+ ID_MODEL_FROM_DATABASE=2.4GHz Wireless Receiver (Mini Keyboard & Mouse)
 
 usb:v1D5B*
  ID_VENDOR_FROM_DATABASE=Smartronix, Inc.
@@ -62127,7 +62442,22 @@ usb:v1FBD*
  ID_VENDOR_FROM_DATABASE=Delphin Technology AG
 
 usb:v1FBDp0001*
- ID_MODEL_FROM_DATABASE=Expert Key - Data aquisition system
+ ID_MODEL_FROM_DATABASE=Expert Key - Data acquisition system
+
+usb:v1FBDp0004*
+ ID_MODEL_FROM_DATABASE=MetiOS Device (RNDIS)
+
+usb:v1FBDp0005*
+ ID_MODEL_FROM_DATABASE=Loggito
+
+usb:v1FBDp0006*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 8 AI-RTD
+
+usb:v1FBDp0007*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 8 TC
+
+usb:v1FBDp0008*
+ ID_MODEL_FROM_DATABASE=LoggitoLab 4 AI-RTD 4 TC
 
 usb:v1FC9*
  ID_VENDOR_FROM_DATABASE=NXP Semiconductors
@@ -65243,6 +65573,60 @@ usb:v25DA*
 usb:v25DAp0001*
  ID_MODEL_FROM_DATABASE=Weather Station
 
+usb:v25DD*
+ ID_VENDOR_FROM_DATABASE=Bit4id Srl
+
+usb:v25DDp1101*
+ ID_MODEL_FROM_DATABASE=miniLector-s
+
+usb:v25DDp1201*
+ ID_MODEL_FROM_DATABASE=cryptokey
+
+usb:v25DDp2221*
+ ID_MODEL_FROM_DATABASE=iAM
+
+usb:v25DDp2311*
+ ID_MODEL_FROM_DATABASE=keyfour-a1
+
+usb:v25DDp2321*
+ ID_MODEL_FROM_DATABASE=CKey4
+
+usb:v25DDp2341*
+ ID_MODEL_FROM_DATABASE=tokenME FIPS v3
+
+usb:v25DDp2351*
+ ID_MODEL_FROM_DATABASE=Digital DNA Key
+
+usb:v25DDp2354*
+ ID_MODEL_FROM_DATABASE=Digital-DNA Key
+
+usb:v25DDp2361*
+ ID_MODEL_FROM_DATABASE=Digital-DNA Key BT
+
+usb:v25DDp2362*
+ ID_MODEL_FROM_DATABASE=Digital-DNA Key
+
+usb:v25DDp2371*
+ ID_MODEL_FROM_DATABASE=TokenME EVO v2
+
+usb:v25DDp23B4*
+ ID_MODEL_FROM_DATABASE=ArubaKey AK901
+
+usb:v25DDp3111*
+ ID_MODEL_FROM_DATABASE=miniLector EVO
+
+usb:v25DDp3211*
+ ID_MODEL_FROM_DATABASE=miniLector AIR EVO
+
+usb:v25DDp3403*
+ ID_MODEL_FROM_DATABASE=miniLector AIR NFC v3
+
+usb:v25DDp3503*
+ ID_MODEL_FROM_DATABASE=mLector AIR DI V3
+
+usb:v25DDpB001*
+ ID_MODEL_FROM_DATABASE=miniLector Blue
+
 usb:v25E3*
  ID_VENDOR_FROM_DATABASE=Lumigon
 
@@ -67547,6 +67931,30 @@ usb:v3195pF280*
 usb:v3195pF281*
  ID_MODEL_FROM_DATABASE=MSO-28
 
+usb:v3197*
+ ID_VENDOR_FROM_DATABASE=Katusha
+
+usb:v3197p1001*
+ ID_MODEL_FROM_DATABASE=M151
+
+usb:v3197p1002*
+ ID_MODEL_FROM_DATABASE=M250
+
+usb:v3197p1003*
+ ID_MODEL_FROM_DATABASE=P130
+
+usb:v3197p1004*
+ ID_MODEL_FROM_DATABASE=M130
+
+usb:v3197p1101*
+ ID_MODEL_FROM_DATABASE=P247
+
+usb:v3197p1102*
+ ID_MODEL_FROM_DATABASE=M247
+
+usb:v3197p1103*
+ ID_MODEL_FROM_DATABASE=M348
+
 usb:v31C9*
  ID_VENDOR_FROM_DATABASE=BeiJing LanXum Computer Technology Co., Ltd.
 
@@ -69329,8 +69737,23 @@ usb:v8086p07D3*
 usb:v8086p07DC*
  ID_MODEL_FROM_DATABASE=Bluetooth 4.0* Smart Ready (low energy)
 
+usb:v8086p0A66*
+ ID_MODEL_FROM_DATABASE=RealSense 3D Camera (Front F200)
+
+usb:v8086p0AA5*
+ ID_MODEL_FROM_DATABASE=RealSense SR300
+
+usb:v8086p0AD2*
+ ID_MODEL_FROM_DATABASE=RealSense D410
+
+usb:v8086p0AD3*
+ ID_MODEL_FROM_DATABASE=RealSense D415
+
 usb:v8086p0B07*
  ID_MODEL_FROM_DATABASE=RealSense D435
+
+usb:v8086p0B64*
+ ID_MODEL_FROM_DATABASE=RealSense L515
 
 usb:v8086p0DAD*
  ID_MODEL_FROM_DATABASE=Cherry MiniatureCard Keyboard
@@ -69406,6 +69829,9 @@ usb:v8086p9500*
 
 usb:v8086p9890*
  ID_MODEL_FROM_DATABASE=82930 Test Board
+
+usb:v8086pA36D*
+ ID_MODEL_FROM_DATABASE=Host Controller
 
 usb:v8086pBEEF*
  ID_MODEL_FROM_DATABASE=SCM Miniature Card Reader/Writer
