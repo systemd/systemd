@@ -60,63 +60,76 @@ static const char* transcode_mode_table[_TRANSCODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
 
-static int open_credential_directory(DIR **ret) {
-        _cleanup_free_ char *j = NULL;
+static int open_credential_directory(
+                DIR **ret_dir,
+                const char **ret_prefix,
+                bool encrypted) {
+
         const char *p;
         DIR *d;
         int r;
 
-        if (arg_system) {
-                _cleanup_free_ char *cd = NULL;
+        assert(ret_dir);
 
-                r = getenv_for_pid(1, "CREDENTIALS_DIRECTORY", &cd);
+        if (arg_system)
+                /* PID 1 ensures that system credentials are always accessible under the same fixed path. It
+                 * will create symlinks if necessary to guarantee that. */
+                p = encrypted ?
+                        ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY :
+                        SYSTEM_CREDENTIALS_DIRECTORY;
+        else {
+                /* Otherwise take the dirs from the env vars we got passed */
+                r = (encrypted ? get_encrypted_credentials_dir : get_credentials_dir)(&p);
+                if (r == -ENXIO) /* No environment variable? */
+                        goto not_found;
                 if (r < 0)
-                        return r;
-                if (!cd)
-                        return -ENXIO;
-
-                if (!path_is_absolute(cd) || !path_is_normalized(cd))
-                        return -EINVAL;
-
-                j = path_join("/proc/1/root", cd);
-                if (!j)
-                        return -ENOMEM;
-
-                p = j;
-        } else {
-                r = get_credentials_dir(&p);
-                if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to get credentials directory: %m");
         }
 
         d = opendir(p);
-        if (!d)
-                return -errno;
+        if (!d) {
+                /* No such dir? Then no creds where passed. (We conditionalize this on arg_system, since for
+                 * the per-service case a non-existing path would indicate an issue since the env var would
+                 * be set incorrectly in that case.) */
+                if (arg_system && errno == ENOENT)
+                        goto not_found;
 
-        *ret = d;
+                return log_error_errno(errno, "Failed to open credentials directory '%s': %m", p);
+        }
+
+        *ret_dir = d;
+
+        if (ret_prefix)
+                *ret_prefix = p;
+
+        return 1;
+
+not_found:
+        *ret_dir = NULL;
+
+        if (ret_prefix)
+                *ret_prefix = NULL;
+
         return 0;
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+static int add_credentials_to_table(Table *t, bool encrypted) {
         _cleanup_(closedirp) DIR *d = NULL;
+        const char *prefix;
         int r;
 
-        r = open_credential_directory(&d);
-        if (r == -ENXIO)
-                return log_error_errno(r, "No credentials received. (i.e. $CREDENTIALS_DIRECTORY not set or pointing to empty directory.)");
+        assert(t);
+
+        r = open_credential_directory(&d, &prefix, encrypted);
         if (r < 0)
-                return log_error_errno(r, "Failed to open credentials directory: %m");
-
-        t = table_new("name", "secure", "size");
-        if (!t)
-                return log_oom();
-
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 100);
+                return r;
+        if (!d)
+                return 0; /* No creds dir set */
 
         for (;;) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *j = NULL;
                 const char *secure, *secure_color = NULL;
+                _cleanup_close_ int fd = -1;
                 struct dirent *de;
                 struct stat st;
 
@@ -149,7 +162,10 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 if (!S_ISREG(st.st_mode))
                         continue;
 
-                if ((st.st_mode & 0377) != 0) {
+                if (encrypted) {
+                        secure = "encrypted";
+                        secure_color = ansi_highlight_green();
+                } else if ((st.st_mode & 0377) != 0) {
                         secure = "insecure"; /* Anything that is accessible more than read-only to its owner is insecure */
                         secure_color = ansi_highlight_red();
                 } else {
@@ -161,14 +177,47 @@ static int verb_list(int argc, char **argv, void *userdata) {
                         secure_color = r ? ansi_highlight_green() : ansi_highlight_yellow4();
                 }
 
+                j = path_join(prefix, de->d_name);
+                if (!j)
+                        return log_oom();
+
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, de->d_name,
                                 TABLE_STRING, secure,
                                 TABLE_SET_COLOR, secure_color,
-                                TABLE_SIZE, (uint64_t) st.st_size);
+                                TABLE_SIZE, (uint64_t) st.st_size,
+                                TABLE_STRING, j);
                 if (r < 0)
                         return table_log_add_error(r);
+        }
+
+        return 1; /* Creds dir set */
+}
+
+static int verb_list(int argc, char **argv, void *userdata) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        int r, q;
+
+        t = table_new("name", "secure", "size", "path");
+        if (!t)
+                return log_oom();
+
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 100);
+
+        r = add_credentials_to_table(t, /* encrypted= */ true);
+        if (r < 0)
+                return r;
+
+        q = add_credentials_to_table(t, /* encrypted= */ false);
+        if (q < 0)
+                return q;
+
+        if (r == 0 && q == 0) {
+                if (arg_system)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed to system.");
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && table_get_rows(t) <= 1) {
@@ -310,18 +359,15 @@ static int write_blob(FILE *f, const void *data, size_t size) {
 }
 
 static int verb_cat(int argc, char **argv, void *userdata) {
-        _cleanup_(closedirp) DIR *d = NULL;
+        usec_t timestamp;
         int r, ret = 0;
 
-        r = open_credential_directory(&d);
-        if (r == -ENXIO)
-                return log_error_errno(r, "No credentials passed.");
-        if (r < 0)
-                return log_error_errno(r, "Failed to open credentials directory: %m");
+        timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
         STRV_FOREACH(cn, strv_skip(argv, 1)) {
                 _cleanup_(erase_and_freep) void *data = NULL;
                 size_t size = 0;
+                int encrypted;
 
                 if (!credential_name_valid(*cn)) {
                         log_error("Credential name '%s' is not valid.", *cn);
@@ -330,17 +376,56 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                         continue;
                 }
 
-                r = read_full_file_full(
-                                dirfd(d), *cn,
-                                UINT64_MAX, SIZE_MAX,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
-                                NULL,
-                                (char**) &data, &size);
-                if (r < 0) {
+                /* Look both in regular and in encrypted credentials */
+                for (encrypted = 0; encrypted < 2; encrypted ++) {
+                        _cleanup_(closedirp) DIR *d = NULL;
+
+                        r = open_credential_directory(&d, NULL, encrypted);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open credentials directory: %m");
+                        if (!d) /* Not set */
+                                continue;
+
+                        r = read_full_file_full(
+                                        dirfd(d), *cn,
+                                        UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE,
+                                        NULL,
+                                        (char**) &data, &size);
+                        if (r == -ENOENT) /* Not found */
+                                continue;
+                        if (r >= 0) /* Found */
+                                break;
+
                         log_error_errno(r, "Failed to read credential '%s': %m", *cn);
                         if (ret >= 0)
                                 ret = r;
+                }
+
+                if (encrypted >= 2) { /* Found nowhere */
+                        log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Credential '%s' not set.", *cn);
+                        if (ret >= 0)
+                                ret = -ENOENT;
+
                         continue;
+                }
+
+                if (encrypted) {
+                        _cleanup_(erase_and_freep) void *plaintext = NULL;
+                        size_t plaintext_size;
+
+                        r = decrypt_credential_and_warn(
+                                        *cn,
+                                        timestamp,
+                                        arg_tpm2_device,
+                                        data, size,
+                                        &plaintext, &plaintext_size);
+                        if (r < 0)
+                                return r;
+
+                        erase_and_free(data);
+                        data = TAKE_PTR(plaintext);
+                        size = plaintext_size;
                 }
 
                 r = write_blob(stdout, data, size);

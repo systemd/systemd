@@ -2595,6 +2595,42 @@ static int write_credential(
         return 0;
 }
 
+static char **credential_search_path(
+                const ExecParameters *params,
+                bool encrypted) {
+
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(params);
+
+        /* Assemble a search path to find credentials in. We'll look in /etc/credstore/ (and similar
+         * directories in /usr/lib/ + /run/) for all types of credentials. If we are looking for encrypted
+         * credentials, also look in /etc/credstore.encrypted/ (and similar dirs). */
+
+        if (encrypted) {
+                if (strv_extend(&l, params->received_encrypted_credentials_directory) < 0)
+                        return NULL;
+
+                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore.encrypted"), /* filter_duplicates= */ true) < 0)
+                        return NULL;
+        }
+
+        if (params->received_credentials_directory)
+                if (strv_extend(&l, params->received_credentials_directory) < 0)
+                        return NULL;
+
+        if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
+                return NULL;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *t = strv_join(l, ":");
+
+                log_debug("Credential search path is: %s", t);
+        }
+
+        return TAKE_PTR(l);
+}
+
 static int load_credential(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2609,11 +2645,12 @@ static int load_credential(
                 uint64_t *left) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
+        _cleanup_strv_free_ char **search_path = NULL;
         _cleanup_(erase_and_freep) char *data = NULL;
-        _cleanup_free_ char *j = NULL, *bindname = NULL;
+        _cleanup_free_ char *bindname = NULL;
+        const char *source = NULL;
         bool missing_ok = true;
-        const char *source;
-        size_t size, add;
+        size_t size, add, maxsz;
         int r;
 
         assert(context);
@@ -2624,10 +2661,25 @@ static int load_credential(
         assert(write_dfd >= 0);
         assert(left);
 
-        if (path_is_absolute(path) || read_dfd >= 0) {
-                /* If this is an absolute path (or a directory fd is specifier relative which to read), read
-                 * the data directly from it, and support AF_UNIX sockets */
+        if (read_dfd >= 0) {
+                /* If a directory fd is specified, then read the file directly from that dir. In this case we
+                 * won't do AF_UNIX stuff (we simply don't want to recursively iterate down a tree of AF_UNIX
+                 * IPC sockets). It's OK if a file vanishes here in the time we enumerate it and intend to
+                 * open it. */
+
+                if (!filename_is_valid(path)) /* safety check */
+                        return -EINVAL;
+
+                missing_ok = true;
                 source = path;
+
+        } else if (path_is_absolute(path)) {
+                /* If this is an absolute path, read the data directly from it, and support AF_UNIX
+                 * sockets */
+
+                if (!path_is_valid(path)) /* safety check */
+                        return -EINVAL;
+
                 flags |= READ_FULL_FILE_CONNECT_SOCKET;
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
@@ -2636,25 +2688,50 @@ static int load_credential(
                         return -ENOMEM;
 
                 missing_ok = false;
+                source = path;
 
-        } else if (params->received_credentials) {
-                /* If this is a relative path, take it relative to the credentials we received
-                 * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
-                 * on a credential store, i.e. this is guaranteed to be regular files. */
-                j = path_join(params->received_credentials, path);
-                if (!j)
+        } else if (credential_name_valid(path)) {
+                /* If this is a relative path, take it as credential name relative to the credentials
+                 * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
+                 * are operating on a credential store, i.e. this is guaranteed to be regular files. */
+
+                search_path = credential_search_path(params, encrypted);
+                if (!search_path)
                         return -ENOMEM;
 
-                source = j;
+                missing_ok = true;
         } else
                 source = NULL;
 
-        if (source)
+        if (encrypted)
+                flags |= READ_FULL_FILE_UNBASE64;
+
+        maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
+
+        if (search_path) {
+                STRV_FOREACH(d, search_path) {
+                        _cleanup_free_ char *j = NULL;
+
+                        j = path_join(*d, path);
+                        if (!j)
+                                return -ENOMEM;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, j, /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
+                                        UINT64_MAX,
+                                        maxsz,
+                                        flags,
+                                        NULL,
+                                        &data, &size);
+                        if (r != -ENOENT)
+                                break;
+                }
+        } else if (source)
                 r = read_full_file_full(
                                 read_dfd, source,
                                 UINT64_MAX,
-                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
-                                flags | (encrypted ? READ_FULL_FILE_UNBASE64 : 0),
+                                maxsz,
+                                flags,
                                 bindname,
                                 &data, &size);
         else
