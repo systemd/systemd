@@ -1151,23 +1151,19 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
         }
 }
 
-int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
+void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         sd_device *dev;
 
         assert(event);
         assert(inotify_fd >= 0);
 
-        dev = event->dev;
+        dev = ASSERT_PTR(event->dev);
 
-        assert(dev);
+        if (!event->inotify_watch)
+                return;
 
         if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return 0;
+                return;
 
-        if (event->inotify_watch)
-                (void) udev_watch_begin(inotify_fd, dev);
-        else
-                (void) udev_watch_end(inotify_fd, dev);
-
-        return 0;
+        (void) udev_watch_begin(inotify_fd, dev);
 }
