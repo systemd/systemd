@@ -123,9 +123,13 @@ for args in "${ARGS[@]}"; do
     #   src/boot/efi/meson.build:52:16: ERROR: Fatal warnings enabled, aborting
     # when LINKER is set to lld so let's just not turn meson warnings into errors with lld
     # to make sure that the build systemd can pick up the correct efi-ld linker automatically.
-    if [[ "$LINKER" != lld ]]; then
-        additional_meson_args="--fatal-meson-warnings"
-    fi
+    # We use some features (like install_tag) that were introduced in 0.60, but that don't
+    # break running with older versions
+    # FIXME: re-enable once the minimum version is bumped to 0.60
+    #if [[ "$LINKER" != lld ]]; then
+    #    additional_meson_args="--fatal-meson-warnings"
+    #fi
+    additional_meson_args=""
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
