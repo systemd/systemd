@@ -621,9 +621,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        r = udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
-        if (r < 0)
-                return r;
+        udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
 
         log_device_uevent(dev, "Device processed");
         return 0;
@@ -1487,12 +1485,10 @@ static int synthesize_change(sd_device *dev) {
 }
 
 static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         union inotify_event_buffer buffer;
         ssize_t l;
         int r;
-
-        assert(manager);
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
@@ -1501,7 +1497,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
-                        return 1;
+                        return 0;
 
                 return log_error_errno(errno, "Failed to read inotify fd: %m");
         }
@@ -1510,26 +1506,36 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *devnode;
 
+                /* Do not handle IN_IGNORED here. Especially, do not try to call udev_watch_end() from the
+                 * main process. Otherwise, the pair of the symlinks may become inconsistent, and several
+                 * garbage may remain. The old symlinks are removed by a worker that processes the
+                 * corresponding 'remove' uevent;
+                 * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
+
+                if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
+                        continue;
+
                 r = device_new_from_watch_handle(&dev, e->wd);
                 if (r < 0) {
+                        /* Device may be removed just after closed. */
                         log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
                         continue;
                 }
 
-                if (sd_device_get_devname(dev, &devnode) < 0)
+                r = sd_device_get_devname(dev, &devnode);
+                if (r < 0) {
+                        /* Also here, device may be already removed. */
+                        log_device_debug_errno(dev, r, "Failed to get device node, ignoring: %m");
                         continue;
-
-                log_device_debug(dev, "Inotify event: %x for %s", e->mask, devnode);
-                if (e->mask & IN_CLOSE_WRITE) {
-                        (void) event_queue_assume_block_device_unlocked(manager, dev);
-                        (void) synthesize_change(dev);
                 }
 
-                /* Do not handle IN_IGNORED here. It should be handled by worker in 'remove' uevent;
-                 * udev_event_execute_rules() -> event_execute_rules_on_remove() -> udev_watch_end(). */
+                log_device_debug(dev, "Received inotify event for %s.", devnode);
+
+                (void) event_queue_assume_block_device_unlocked(manager, dev);
+                (void) synthesize_change(dev);
         }
 
-        return 1;
+        return 0;
 }
 
 static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
