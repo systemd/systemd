@@ -40,24 +40,78 @@ int enroll_pkcs11(
         if (!pkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
 
-        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine RSA public key size.");
+        int type = EVP_PKEY_base_id(pkey);
+        if (type == EVP_PKEY_RSA) {
+                r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine RSA public key size.");
 
-        log_debug("Generating %zu bytes random key.", decrypted_key_size);
+                log_debug("Generating %zu bytes random key.", decrypted_key_size);
 
-        decrypted_key = malloc(decrypted_key_size);
-        if (!decrypted_key)
-                return log_oom();
+                decrypted_key = malloc(decrypted_key_size);
+                if (!decrypted_key)
+                        return log_oom();
 
-        r = genuine_random_bytes(decrypted_key, decrypted_key_size, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate random key: %m");
+                r = genuine_random_bytes(decrypted_key, decrypted_key_size, RANDOM_BLOCK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate random key: %m");
 
-        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &encrypted_key, &encrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to encrypt key: %m");
+                r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &encrypted_key, &encrypted_key_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt key: %m");
+        }
+        else if (type == EVP_PKEY_EC) {
+                _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
+                _cleanup_(erase_and_freep) uint8_t *shared_secret = NULL;
+                size_t shared_secret_len = 0;
+                EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+                int nid;
 
+                if (!ec_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkey doesn't have EC_KEY associated");
+
+                nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
+                r = pkey_generate_ec_key(nid, &pkey_new);
+                if (r != 0)
+                        return log_error_errno(r, "Failed to generate ec key");
+
+                r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, NULL, &shared_secret_len);
+                if (r != 0 || shared_secret_len == 0)
+                        return log_error_errno(r, "Failed to determine derived shared secret size");
+
+                shared_secret = malloc(shared_secret_len);
+                if (!shared_secret)
+                        return log_oom();
+
+                r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, shared_secret, &shared_secret_len);
+                if (r != 0)
+                        return log_error_errno(r, "Failed to derive shared secret");
+
+                decrypted_key = malloc(72);
+                if (!decrypted_key)
+                        return log_oom();
+
+                r = hkdf_sha512(shared_secret, shared_secret_len, 72, decrypted_key);
+                if (r != 0)
+                        return log_error_errno(r, "Failed to generate hkdf secret");
+
+                decrypted_key_size = 72;
+                encrypted_key_size = i2d_PUBKEY(pkey_new, NULL);
+                if (encrypted_key_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine encoded public key size");
+
+                encrypted_key = malloc(encrypted_key_size);
+                if (!encrypted_key)
+                        return log_oom();
+
+                // i2d_PUBKEY function has a side effect that makes *pp point to end of the allocated buffer
+                uint8_t *buffer = encrypted_key;
+                encrypted_key_size = i2d_PUBKEY(pkey_new, (uint8_t **)&buffer);
+                if (encrypted_key_size == 0)
+                        return  log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get encoded public key");
+        }
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsuported public key type: %s", OBJ_nid2sn(type));
         /* Let's base64 encode the key to use, for compat with homed (and it's easier to type it in by
          * keyboard, if that might ever end up being necessary.) */
         r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
