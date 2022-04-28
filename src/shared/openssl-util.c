@@ -109,6 +109,126 @@ int rsa_pkey_to_suitable_key_size(
         return 0;
 }
 
+int hkdf_sha512(const uint8_t *in, const size_t in_len,  size_t out_len, uint8_t *ret_out) {
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        int r = 0;
+
+        assert_se(in);
+        assert_se(in_len);
+        assert_se(out_len);
+
+        ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
+        if (!ctx)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_derive_init(ctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey derive context");
+
+        r = EVP_PKEY_CTX_hkdf_mode(ctx, EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set hkdf mode");
+
+        r = EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha512());
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set hkdf message digest");
+
+        r = EVP_PKEY_CTX_set1_hkdf_key(ctx, in, in_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set hkdf key");
+
+        r = EVP_PKEY_derive(ctx, ret_out, &out_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to derive hkdf secret");
+
+        return 0;
+}
+
+int pkey_generate_ec_key(int nid, EVP_PKEY **ret_ppkey) {
+
+        assert_se(ret_ppkey);
+
+        int r = 0;
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *pctx = NULL;
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *params = NULL;
+
+        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (pctx == NULL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_paramgen_init((pctx));
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialze pkey parameters context");
+
+        r = EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set pkey context ec curve nid");
+
+        r = EVP_PKEY_paramgen(pctx, &params);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate pkey parameters");
+
+        kctx = EVP_PKEY_CTX_new(params, NULL);
+        if (!kctx)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_keygen_init(kctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey keygen context");
+
+        *ret_ppkey = NULL;
+
+        r = EVP_PKEY_keygen(kctx, ret_ppkey);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate pkey");
+
+        return 0;
+}
+
+int pkey_ecdh_derive_shared_secret(
+        EVP_PKEY *pkey,
+        EVP_PKEY *peer_key,
+        uint8_t *ret_shared_secret,
+        size_t *ret_shared_secret_len) {
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        int r = 0;
+        size_t secret_len = 0;
+
+        assert_se(pkey);
+        assert_se(peer_key);
+        assert_se(ret_shared_secret_len);
+
+        ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (!ctx)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_derive_init(ctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey derive context");
+
+        r = EVP_PKEY_derive_set_peer(ctx, peer_key);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set peer key for derivation");
+
+        r = EVP_PKEY_derive(ctx, NULL, &secret_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get derived key size");
+
+        if (!ret_shared_secret) {
+                *ret_shared_secret_len = secret_len;
+                return 0;
+        }
+
+        r = EVP_PKEY_derive(ctx, ret_shared_secret, ret_shared_secret_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to derive shared secret");
+
+        return 0;
+}
+
 #  if PREFER_OPENSSL
 int string_hashsum(
                 const char *s,
