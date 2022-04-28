@@ -946,18 +946,6 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         return 0;
 }
 
-static bool device_supported(void) {
-        static int read_only = -1;
-
-        /* If /sys is read-only we don't support device units, and any
-         * attempts to start one should fail immediately. */
-
-        if (read_only < 0)
-                read_only = path_is_read_only_fs("/sys");
-
-        return read_only <= 0;
-}
-
 static int validate_node(Manager *m, const char *node, sd_device **ret) {
         struct stat st;
         int r;
@@ -1003,7 +991,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         assert(m);
         assert(node);
 
-        if (!device_supported())
+        if (!udev_available())
                 return;
 
         if (mask == 0)
@@ -1073,7 +1061,7 @@ const UnitVTable device_vtable = {
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown,
-        .supported = device_supported,
+        .supported = udev_available,
 
         .status_message_formats = {
                 .starting_stopping = {
