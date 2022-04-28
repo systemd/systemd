@@ -100,7 +100,7 @@ not_supported:
 static int get_os_indications(uint64_t *ret) {
         static struct stat cache_stat = {};
         _cleanup_free_ void *v = NULL;
-        static uint64_t cache;
+        static uint64_t cache = 0;
         struct stat new_stat;
         size_t s;
         int r;
@@ -149,7 +149,7 @@ static int get_os_indications(uint64_t *ret) {
 
 int efi_get_reboot_to_firmware(void) {
         int r;
-        uint64_t b;
+        uint64_t b = 0;
 
         r = get_os_indications(&b);
         if (r < 0)
@@ -160,7 +160,7 @@ int efi_get_reboot_to_firmware(void) {
 
 int efi_set_reboot_to_firmware(bool value) {
         int r;
-        uint64_t b, b_new;
+        uint64_t b = 0, b_new;
 
         r = get_os_indications(&b);
         if (r < 0)
