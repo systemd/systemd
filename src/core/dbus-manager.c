@@ -530,7 +530,7 @@ static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error
 static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
-        Unit *u;
+        Unit *u = NULL;
         int r;
 
         assert(message);
@@ -748,7 +748,7 @@ static int method_generic_unit_operation(
                 GenericUnitOperationFlags flags) {
 
         const char *name;
-        Unit *u;
+        Unit *u = NULL;
         int r;
 
         assert(message);
@@ -2679,7 +2679,7 @@ static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bu
 static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
-        Unit *u;
+        Unit *u = NULL;
         int r;
 
         assert(message);
