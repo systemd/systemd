@@ -947,7 +947,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 }
 
 static int validate_node(Manager *m, const char *node, sd_device **ret) {
-        struct stat st;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
         assert(m);
@@ -957,34 +957,18 @@ static int validate_node(Manager *m, const char *node, sd_device **ret) {
         /* Validates a device node that showed up in /proc/swaps or /proc/self/mountinfo if it makes sense for us to
          * track. Note that this validator is fine within missing device nodes, but not with badly set up ones! */
 
-        if (!path_startswith(node, "/dev")) {
-                *ret = NULL;
-                return 0; /* bad! */
+        r = sd_device_new_from_devname(&dev, node);
+        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)) {
+                /* -EINVAL: the path does not start from /dev
+                 * -ENOTTY: not a device node but some other kind of file system node */
+                if (!IN_SET(r, -EINVAL, -ENOTTY))
+                        log_error_errno(r, "Failed to get sd-device object from device node '%s': %m", node);
+
+                return r;
         }
 
-        if (stat(node, &st) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to stat() device node file %s: %m", node);
-
-                *ret = NULL;
-                return 1; /* good! (though missing) */
-
-        } else {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-
-                r = sd_device_new_from_stat_rdev(&dev, &st);
-                if (r == -ENOENT) {
-                        *ret = NULL;
-                        return 1; /* good! (though missing) */
-                } else if (r == -ENOTTY) {
-                        *ret = NULL;
-                        return 0; /* bad! (not a device node but some other kind of file system node) */
-                } else if (r < 0)
-                        return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
-
-                *ret = TAKE_PTR(dev);
-                return 1; /* good! */
-        }
+        *ret = TAKE_PTR(dev);
+        return 0;
 }
 
 void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
@@ -1012,7 +996,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
                  * everything is alright with the device node. */
 
-                if (validate_node(m, node, &dev) <= 0)
+                if (validate_node(m, node, &dev) < 0)
                         return; /* Don't create a device unit for this if the device node is borked. */
 
                 (void) device_setup_unit(m, dev, node, false);
