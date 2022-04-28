@@ -474,18 +474,17 @@ static void device_upgrade_mount_deps(Unit *u) {
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
         _cleanup_(unit_freep) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
-        const char *sysfs = NULL;
+        const char *sysfs;
         Unit *u;
         int r;
 
         assert(m);
+        assert(dev);
         assert(path);
 
-        if (dev) {
-                r = sd_device_get_syspath(dev, &sysfs);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
-        }
+        r = sd_device_get_syspath(dev, &sysfs);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
 
         r = unit_name_from_path(path, ".device", &e);
         if (r < 0)
@@ -507,7 +506,6 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
                 if (DEVICE(u)->state == DEVICE_PLUGGED &&
                     DEVICE(u)->sysfs &&
-                    sysfs &&
                     !path_equal(DEVICE(u)->sysfs, sysfs))
                         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
                                                     "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
@@ -529,15 +527,13 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
         /* If this was created via some dependency and has not actually been seen yet ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
-        if (sysfs) {
-                r = device_set_sysfs(DEVICE(u), sysfs);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
+        r = device_set_sysfs(DEVICE(u), sysfs);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
 
-                /* The additional systemd udev properties we only interpret for the main object */
-                if (main)
-                        (void) device_add_udev_wants(u, dev);
-        }
+        /* The additional systemd udev properties we only interpret for the main object */
+        if (main)
+                (void) device_add_udev_wants(u, dev);
 
         (void) device_update_description(u, dev, path);
 
