@@ -19,7 +19,7 @@ COMMENTLINE = pythonStyleComment + EOL
 EMPTYLINE = LineEnd()
 text_eol = lambda name: Regex(r'[^\n]+')(name) + EOL
 
-ParserElement.set_default_whitespace_chars(' \n')
+ParserElement.setDefaultWhitespaceChars(' \n')
 
 def klass_grammar():
     klass_line = Literal('C ').suppress() + NUM2('klass') + text_eol('text')
