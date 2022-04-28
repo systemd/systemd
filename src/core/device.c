@@ -868,9 +868,12 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 }
 
 static void device_remove_old_on_move(Manager *m, sd_device *dev) {
-        _cleanup_free_ char *syspath_old = NULL, *e = NULL;
+        _cleanup_free_ char *syspath_old = NULL;
         const char *devpath_old;
         int r;
+
+        assert(m);
+        assert(dev);
 
         r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
         if (r < 0)
@@ -879,10 +882,6 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
         syspath_old = path_join("/sys", devpath_old);
         if (!syspath_old)
                 return (void) log_oom();
-
-        r = unit_name_from_path(syspath_old, ".device", &e);
-        if (r < 0)
-                return (void) log_device_debug_errno(dev, r, "Failed to generate unit name from old device path, ignoring: %m");
 
         device_update_found_by_sysfs(m, syspath_old, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
 }
