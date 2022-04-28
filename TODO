@@ -208,8 +208,6 @@ Features:
   sd_device object, so that data passed into sd_device_new_from_devnum() can
   also be queried.
 
-* bootctl: show whether UEFI audit mode is available
-
 * sd-event: optionally, if per-event source rate limit is hit, downgrade
   priority, but leave enabled, and once ratelimit window is over, upgrade
   priority again. That way we can combat event source starvation without
@@ -1354,10 +1352,12 @@ Features:
 * bootctl,sd-boot: actually honour the "architecture" key
 
 * bootctl:
+  - show whether UEFI audit mode is available
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
   - make it operate on loopback files, dissecting enough to find ESP to operate on
   - bootspec: properly support boot attempt counters when parsing entry file names
+  - support --quiet in is-installed, update
 
 * kernel-install:
   - optionally, support generating type #2 entries instead of type #1, including signing them
