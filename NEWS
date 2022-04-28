@@ -4,7 +4,7 @@ CHANGES WITH 251:
 
         Backwards-incompatible changes:
 
-        * The minimum kernel version required has been bumped from 3.13 to 3.15,
+        * The minimum kernel version required has been bumped from 3.13 to 4.15,
           and CLOCK_BOOTTIME is now assumed to always exist.
 
         * C11 with GNU extensions (aka "gnu11") is now used to build our
@@ -204,6 +204,19 @@ CHANGES WITH 251:
           similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
           format instead of simple series of hex characters.
 
+        * The sd-device API gained two new calls sd_device_new_from_devname()
+          and sd_device_new_from_path() which permit allocating an sd_device
+          object from a device node name or file system path.
+
+        * sd-device also gained a new call sd_device_open() which will open the
+          device node associated with a device for which an sd_device object
+          has been allocated. The call is supposed to address races around
+          device nodes being removed/recycled due to hotplug events, or media
+          change events: the call checks internally whether the major/minor of
+          the device node and the "diskseq" (in case of block devices) match
+          with the metadata loaded in the sd_device object, thus ensuring that
+          the device once opened really matches the provided sd_device object.
+
         Changes in PID1, systemctl, and systemd-oomd:
 
         * A new set of service monitor environment variables will be passed to
@@ -280,6 +293,32 @@ CHANGES WITH 251:
           necessary to fix this aspect. Absolute links are interpreted as
           before, and it is still possible to create them via other means.
 
+        * A new "taint" flag named "old-kernel" is introduced which is set when
+          the kernel systemd runs on is older then the current baseline version
+          (see above). The flag is shown in "systemctl status" output.
+
+        * Two additional taint flags "short-uid-range" and "short-gid-range"
+          have been added as well, which are set when systemd notices it is run
+          within a userns namespace that does not define the full 0…65535 UID
+          range
+
+        * A new "unmerged-usr" taint flag has been added that is set whenever
+          running on systems where /bin/ + /sbin/ are *not* symlinks to their
+          counterparts in /usr/, i.e. on systems where the /usr/-merge has been
+          completed.
+
+        * Generators invoked by PID 1 will now have a couple of useful
+          environment variables set describing the execution context a
+          bit. $SYSTEMD_SCOPE encodes whether the generator is called from the
+          system service manager, or from the per-user service
+          manager. $SYSTEMD_IN_INITRD encodes whether the generator is invoked
+          in initrd context or on the host. $SYSTEMD_FIRST_BOOT encodes whether
+          systemd considers the current boot to be a "first"
+          boot. $SYSTEMD_VIRTUALIZATION encode whether virtualization is
+          detected and which type of hypervisor/container
+          manager. $SYSTEMD_ARCHITECTURE indicates which architecture the
+          kernel is built for.
+
         Changes in systemd-journald:
 
         * The journal JSON export format has been added to listed of stable
@@ -310,6 +349,32 @@ CHANGES WITH 251:
           --initialized-nomatch to trigger both subsystems and devices, only
           already-initialized devices, and only devices which haven't been
           initialized yet, respectively.
+
+        * udevadm gained a new "wait" command for safely waiting for a specific
+          device to show up in the udev device database. This is useful in
+          scripts that asynchronously allocate a block device (e.g. through
+          repartitioning, or allocating a loopback device or similar) and need
+          to synchronize on the creation to complete.
+
+        * udevadm gained a new "lock" command for locking one or more block
+          devices while formatting it or writing a partition table to it. It is
+          an implementation of https://systemd.io/BLOCK_DEVICE_LOCKING and
+          usable in scripts dealing with block devices.
+
+        * udevadm info will show a couple of additional device fields in its
+          output, and will not apply a limited set of coloring to line types.
+
+        * udevadm info --tree will now show a tree of objects (i.e. devices and
+          suchlike) in the /sys/ hierarchy.
+
+        * Block devices will now get a new set of device symlinks in
+          /dev/disk/by-diskseq/<nr>, which may be used to reference block
+          device nodes via the kernel's "diskseq" value. Note that this does
+          not guarantee that opening a device by a symlink like this will
+          guarantee that the opened device actually matches the specified
+          diskseq value. To be safe against races, the actual diskseq value of
+          the opened device (BLKGETDISKSEQ ioctl()) must still be compred with
+          the one in the symlink path.
 
         * .link files gained support for setting MDI/MID-X on a link.
 
@@ -377,6 +442,10 @@ CHANGES WITH 251:
           used, to ensure that communication between CPU and discrete TPM chips
           cannot be eavesdropped to acquire disk encryption keys.
 
+        * A new switch --fido2-credential-algorithm= has been added to
+          systemd-cryptenroll allowing selection of the credential algorithm to
+          use when binding encryption to FIDO2 tokens.
+
         Changes in systemd-hostnamed:
 
         * HARDWARE_VENDOR= and HARDWARE_MODEL= can be set in /etc/machine-info
@@ -387,7 +456,9 @@ CHANGES WITH 251:
           hostnamed.
 
         * hostnamed's D-Bus interface gained a new method GetHardwareSerial()
-          for reading the hardware serial number, as reportd by DMI.
+          for reading the hardware serial number, as reportd by DMI. It also
+          exposes a new method D-Bus property FirmwareVersion that encode the
+          firmware version of the system.
 
         Changes in other components:
 
@@ -403,6 +474,22 @@ CHANGES WITH 251:
         * A new build-time configuration setting default-user-shell= can be
           used to set the default shell for user records and nspawn shell
           invocations (instead of of the default /bin/bash).
+
+        * systemd-timesyncd now provides a D-Bus API for receiving NTP server
+          information dynamically at runtime via IPC.
+
+        * The systemd-creds tool gained a new "has-tpm2" verb, which reports
+          whether a functioning TPM2 infrastructure is available, i.e. if
+          firmware, kernel driver and systemd all have TPM2 support enabled and
+          a device found.
+
+        * The systemd-creds tool gained support for generating encrypted
+          credentials that are using an empty encryption key. While this
+          provides no integrity nor confidentiality it's useful to implement
+          codeflows that work the same on TPM-ful and TPM2-less systems. The
+          service manager will only accept credentials "encrypted" that way if
+          a TPM2 device cannot be detected, to ensure that credentials
+          "encrypted" like that cannot be used to trick TPM2 systems.
 
         Experimental features:
 
