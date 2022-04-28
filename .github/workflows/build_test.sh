@@ -123,12 +123,14 @@ for args in "${ARGS[@]}"; do
     #   src/boot/efi/meson.build:52:16: ERROR: Fatal warnings enabled, aborting
     # when LINKER is set to lld so let's just not turn meson warnings into errors with lld
     # to make sure that the build systemd can pick up the correct efi-ld linker automatically.
-    # We use some features (like install_tag) that were introduced in 0.60, but that don't
-    # break running with older versions
-    # FIXME: re-enable once the minimum version is bumped to 0.60
-    #if [[ "$LINKER" != lld ]]; then
-    #    additional_meson_args="--fatal-meson-warnings"
-    #fi
+
+    # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
+    # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
+    # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
+    find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
+    if [[ "$LINKER" != lld ]]; then
+        additional_meson_args="--fatal-meson-warnings"
+    fi
     additional_meson_args=""
     info "Checking build with $args"
     # shellcheck disable=SC2086
