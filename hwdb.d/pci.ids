@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2022.03.22
-#	Date:    2022-03-22 03:15:02
+#	Version: 2022.04.16
+#	Date:    2022-04-16 00:17:00
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -103,6 +103,13 @@
 		0731 7212  JM7200
 		0731 7214  JM7500
 		0731 7215  JM7200
+	9100  JM9100
+		0731 9101  JM9100
+		0731 9102  JM9100-I
+	910a  JH910
+		0731 910a  JH910
+		0731 910b  JH910-I
+		0731 910c  JH910-M
 	9200  JM9200
 	920a  JH920
 		0731 920a  JH920
@@ -668,6 +675,7 @@
 		1000 3050  SAS9217-8i
 		1000 3060  SAS9217-4i4e
 		1014 0472  N2125 External Host Bus Adapter
+		1014 047a  N2115 Internal Host Bus Adapter
 		1590 0041  H220i
 		1590 0042  H221 / 9207-8e
 		1590 0044  H220i
@@ -725,16 +733,16 @@
 		1000 46a0  MegaRAID 9660-24i Tri-Mode Storage Adapter
 		1000 46c0  eHBA 9680W-16e Tri-Mode Storage Adapter
 		1000 46d0  eHBA 9600-8i8e Tri-Mode Storage Adapter
-		1028 2114  PERC H965 Adapter
-		1028 2115  PERC H965 Front
-		1028 2117  PERC H965 MX
+		1028 2114  PERC H965i Adapter
+		1028 2115  PERC H965i Front
+		1028 2117  PERC H965i MX
 		1028 213a  PERC H965e Adapter
-		1028 213b  PERC H765 Adapter
-		1028 213c  PERC H765 Front
+		1028 213b  PERC H765i Adapter
+		1028 213c  PERC H765i Front
 		1028 213d  PERC H765N Front
-		1028 213e  PERC H765 MX
-		1028 213f  PERC H365 Adapter
-		1028 2140  PERC H365 Front
+		1028 213e  PERC H765i MX
+		1028 213f  PERC H365i Adapter
+		1028 2140  PERC H365i Front
 		1028 2141  PERC H360 MX
 		1028 2142  HBA 465e Adapter
 	00ab  SAS3516 Fusion-MPT Tri-Mode RAID On Chip (ROC)
@@ -1075,7 +1083,9 @@
 	1636  Renoir
 	1637  Renoir Radeon High Definition Audio Controller
 	1638  Cezanne
-	163f  VanGogh
+# Used in the Steam Deck
+	163f  VanGogh [AMD Custom GPU 0405]
+	1640  Rembrandt Radeon High Definition Audio Controller
 	164c  Lucienne
 	164d  Rembrandt
 	1681  Rembrandt [Radeon 680M]
@@ -12416,6 +12426,8 @@
 	20b5  GA100 [A100 PCIe 80GB]
 	20b6  GA100GL [PG506-232]
 	20b7  GA100GL [A30 PCIe]
+	20b8  GA100 [A100X]
+	20b9  GA100 [A30X]
 	20bb  GA100 [DRIVE A100 PROD]
 	20be  GA100 [GRID A100A]
 	20bf  GA100 [GRID A100B]
@@ -12437,6 +12449,7 @@
 	21c4  TU116 [GeForce GTX 1660 SUPER]
 	21d1  TU116BM [GeForce GTX 1660 Ti Mobile]
 	2200  GA102
+	2203  GA102 [GeForce RTX 3090 Ti]
 	2204  GA102 [GeForce RTX 3090]
 		147d 10de  NVIDIA Geforce RTX 3090 Founders Edition
 	2205  GA102 [GeForce RTX 3080 Ti 20GB]
@@ -12485,6 +12498,7 @@
 	24ad  GA104 [GeForce RTX 3060 Engineering Sample]
 	24af  GA104 [GeForce RTX 3070 Engineering Sample]
 	24b0  GA104GL [RTX A4000]
+	24b1  GA104GL [RTX A4000H]
 	24b6  GA104GLM [RTX A5000 Mobile]
 	24b7  GA104GLM [RTX A4000 Mobile]
 	24b8  GA104GLM [RTX A3000 Mobile]
@@ -12511,11 +12525,13 @@
 	2583  GA107 [GeForce RTX 3050]
 	25a0  GA107M [GeForce RTX 3050 Ti Mobile]
 	25a2  GA107M [GeForce RTX 3050 Mobile]
+	25a3  GA107
 	25a4  GA107
 	25a5  GA107M [GeForce RTX 3050 Mobile]
 	25a6  GA107M [GeForce MX570]
 	25a7  GA107M [GeForce MX570]
 	25a9  GA107M [GeForce RTX 2050]
+	25aa  GA107M [GeForce MX570 A]
 	25af  GA107 [GeForce RTX 3050 Engineering Sample]
 	25b5  GA107GLM [RTX A4 Mobile]
 # A16 - 25B6 10DE 14A9 / A2 - 25B6 10DE 157E
@@ -12568,6 +12584,7 @@
 	e300  LPe31000/LPe32000 Series 16Gb/32Gb Fibre Channel Adapter
 		1014 0614  PCIe3 4-Port 16Gb Fibre Channel Adapter for POWER (FC EN1C/EN1D; CCIN 578E)
 		1014 0615  PCIe3 2-Port 32Gb Fibre Channel Adapter for POWER (FC EN1A/EN1B; CCIN 578F)
+		1014 06a0  PCIe3 2-Port 16Gb Fibre Channel Adapter for POWER (FC EN1L/EN1M; CCIN 2CFC)
 		10df e300  LPe32002-M2 2-Port 32Gb Fibre Channel Adapter
 		10df e301  LPe32000-M2 1-Port 32Gb Fibre Channel Adapter
 		10df e310  LPe31002-M6 2-Port 16Gb Fibre Channel Adapter
@@ -12621,9 +12638,13 @@
 		10df f411  LPe35000-M2-D 1-Port 32Gb Fibre Channel Adapter
 		10df f418  LPe35000-M2-L 1-Port 32Gb PCIe Fibre Channel Adapter
 		10df f419  LPe35002-M2-L 2-Port 32Gb PCIe Fibre Channel Adapter
+		10df f421  LPe36002-M2-L 2-Port 64Gb PCIe Fibre Channel Adapter
+		10df f422  LPe36002-M64-D 2-Port 64Gb Fibre Channel Adapter
 		1590 02d5  StoreFabric SN1610E 1-Port 32Gb Fibre Channel Adapter
 		1590 02d6  StoreFabric SN1610E 2-Port 32Gb Fibre Channel Adapter
 	f500  LPe37000/LPe38000 Series 32Gb/64Gb Fibre Channel Adapter
+		1014 06c1  PCIe4 4-Port 32Gb Fibre Channel Adapter for POWER (FC EN1L/EN1M; CCIN 2CFC)
+		1014 06c2  PCIe4 2-Port 64Gb Fibre Channel Adapter for POWER (FC EN1N/EN1P; CCIN 2CFD)
 	f700  LP7000 Fibre Channel Host Adapter
 	f701  LP7000 Fibre Channel Host Adapter Alternate ID (JX1:2-3, JX2:1-2)
 	f800  LP8000 Fibre Channel Host Adapter
@@ -15877,6 +15898,7 @@
 	8534  PM8534 PFX 64xG3 PCIe Fanout Switch
 	8535  PM8535 PFX 80xG3 PCIe Fanout Switch
 	8536  PM8536 PFX 96xG3 PCIe Fanout Switch
+		1bd4 0081  PM8536 PFX 96xG3 PCIe Fanout Switch
 	8546  PM8546 B-FEIP PSX 96xG3 PCIe Storage Switch
 	8562  PM8562 Switchtec PFX-L 32xG3 Fanout-Lite PCIe Gen3 Switch
 11f9  I-Cube Inc
@@ -17187,6 +17209,8 @@
 	5190  9200 ECO NVMe SSD
 	5191  9200 PRO NVMe SSD
 	5192  9200 MAX NVMe SSD
+	51a2  9300 PRO NVMe SSD
+	51a3  9300 MAX NVMe SSD
 1345  Arescom Inc
 1347  Odetics
 1349  Sumitomo Electric Industries, Ltd.
@@ -19680,6 +19704,8 @@
 		14e4 4126  NetXtreme-E Dual-port 10G SFP+ Ethernet OCP 3.0 Adapter (BCM957412N4120C)
 		152d 8b20  BCM57412 NetXtreme-E 10Gb RDMA Ethernet Controller
 		152d 8b22  BCM57412 NetXtreme-E 25Gb RDMA Ethernet Controller
+# NIC-ETH531F-LP-2P BCM57412 2 x 10G SFP+ Ethernet PCIe Card
+		193d 1024  NIC-ETH531F-LP-2P
 	16d7  BCM57414 NetXtreme-E 10Gb/25Gb RDMA Ethernet Controller
 		14e4 1402  BCM957414A4142CC 10Gb/25Gb Ethernet PCIe
 		14e4 1404  BCM957414M4142C OCP 2x25G Type1 wRoCE
@@ -20033,6 +20059,7 @@
 	9027  CN99xx [ThunderX2] Integrated AHCI/SATA 3 Host Controller
 	a8d8  BCM43224/5 Wireless Network Adapter
 	aa52  BCM43602 802.11ac Wireless LAN SoC
+	b080  BCM56080 Firelight2 Switch ASIC
 	b302  BCM56302 StrataXGS 24x1GE 2x10GE Switch Controller
 	b334  BCM56334 StrataXGS 24x1GE 4x10GE Switch Controller
 	b370  BCM56370 Switch ASIC
@@ -22053,8 +22080,8 @@
 	0400  Datacenter Technologies QDF2432 PCI Express Root Port
 	0401  Datacenter Technologies QDF2400 PCI Express Root Port
 	1000  QCS405 PCIe Root Complex
-	1101  QCA6390 Wireless Network Adapter [AX500-DBS (2x2)]
-	1103  Atheros QCNFA765
+	1101  QCA6390 Wireless Network Adapter
+	1103  QCNFA765 Wireless Network Adapter
 	1104  QCN6024/9024/9074 Wireless Network Adapter
 17cc  NetChip Technology, Inc
 	2280  USB 2.0
@@ -23684,6 +23711,38 @@
 		1bb1 0157  Nytro 5050M 7mm
 # Nytro 5050M (Ebonhawk Mainstream Performance) TCG - 7mm
 		1bb1 0158  Nytro 5050M TCG 7mm
+# Nytro 5060M (Rocinante Mainstream Performance) - 15mm
+		1bb1 0159  Nytro 5060M
+# Nytro 5050M TCG (Rocinante Mainstream Performance) - 15mm
+		1bb1 0160  Nytro 5060M TCG
+# Nytro 5060M 7mm (Rocinante Mainstream Performance)
+		1bb1 0161  Nytro 5060M 7mm
+# Nytro 5060M TCG (Rocinante Mainstream Performance) - 7mm
+		1bb1 0162  Nytro 5060M TCG 7mm
+# Nytro 5060H (Rocinante High Performance)
+		1bb1 0163  Nytro 5060H
+# Nytro 5060H TCG (Rocinante High Performance)
+		1bb1 0164  Nytro 5060H TCG
+# Nytro 5060H (Rocinante - High Performance) - E3.S 1T
+		1bb1 0165  Nytro 5060H E3.S 1T
+# Nytro 5060H (Rocinante - High Performance) - E3.S 1T TCG
+		1bb1 0166  Nytro 5060H E3.S 1T TCG
+# Nytro 5060H (Rocinante - High Performance) - E3.L 1T
+		1bb1 0167  Nytro 5060H E3.L 1T
+# Nytro 5060H (Rocinante - High Performance) - E3.L 1T TCG
+		1bb1 0168  Nytro 5060H E3.L 1T TCG
+# Nytro 5060M (Rocinante Mainstream Performance) - E3.S 1T
+		1bb1 0169  Nytro 5060M E3.S 1T
+# Nytro 5060M (Rocinante Mainstream Performance) - E3.S 1T TCG
+		1bb1 0170  Nytro 5060M E3.S 1T TCG
+# Nytro 5060M (Rocinante Mainstream Performance) - E3.L 1T
+		1bb1 0171  Nytro 5060M E3.L 1T
+# Nytro 5060M (Rocinante Mainstream Performance) - E3.L 1T TCG
+		1bb1 0172  Nytro 5060M E3.L 1T TCG
+# Nytro 5060M (Rocinante Mainstream Performance) - E1.S
+		1bb1 0173  Nytro 5060M E1.S
+# Nytro 5060M (Rocinante Mainstream Performance) - E1.S TCG
+		1bb1 0174  Nytro 5060M E1.S TCG
 		1bb1 01a1  Nytro XP7102
 	5012  FireCuda 510 SSD
 	5016  FireCuda 520 SSD
@@ -24076,10 +24135,16 @@
 	0001  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 	00b1  AQC100 10G Ethernet MAC controller [AQtion]
 	07b1  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+# Older revision of QNAP QM2 M.2 2280 PCIe SSD & 10GbE Expansion Card
+		1baa 07b1  QM2-2P10G1TA [QXG 10GbE Network Adapter]
+# Newer revision of QNAP QM2 M.2 2280 PCIe SSD & 10GbE Expansion Card
+		1baa 07b2  QM2-2P10G1TA [QM2 Expansion Adapter]
 	08b1  AQC108 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 	11b1  AQC111 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 	12b1  AQC112 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 	87b1  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+	94c0  AQC113CS NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
+		1043 87f5  ProArt X570-CREATOR WIFI
 	d107  AQC107 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
 		1043 8741  XG-C100C
 	d108  AQC108 NBase-T/IEEE 802.3bz Ethernet Controller [AQtion]
@@ -24618,7 +24683,14 @@
 1ed3  Yeston
 1ed5  Moore Threads Technology Co.,Ltd
 	0100  MTT S10
-	0101  MTT S30
+	0101  MTT S10
+	0102  MTT S30
+	0105  MTT S50
+	0106  MTT S60
+	0111  MTT S100
+	0121  MTT S1000M
+	0122  MTT S1000
+	0123  MTT S2000
 1ed8  Digiteq Automotive
 	0101  FG4 PCIe Frame Grabber
 1ed9  Myrtle.ai
@@ -24626,6 +24698,9 @@
 1eec  Viscore Technologies Ltd
 	0102  VSE250231S Dual-port 10Gb/25Gb Ethernet PCIe
 	1eec  VSE250231S Dual-port 10Gb/25Gb Ethernet PCIe
+1eed  Xiangdixian Computing Technology (Chongqing) Ltd.
+	0100  XDX P100 VGA controller
+	0101  XDX P101 High Definition Audio Controller
 1efb  Flexxon Pte Ltd
 1f02  Beijing Dayu Technology
 1f03  Shenzhen Shichuangyi Electronics Co., Ltd
@@ -25156,6 +25231,8 @@
 	0d10  SB-365x Motion Feedback Device
 	2f00  SB-3642 Motion Feedback Device
 	3000  SB-3644 Motion Feedback Device
+4e58  Nutanix, Inc.
+	0001  Virtual NVMe Controller
 5045  University of Toronto
 	4243  BLASTbus PCI Interface Card v1
 5046  GemTek Technology Corporation
@@ -26340,8 +26417,9 @@
 		8086 0010  Ethernet Network Adapter I710-T4L for OCP 3.0
 		8086 401a  Ethernet Network Adapter I710-T4L
 		8086 401b  Ethernet Network Adapter I710-T4L for OCP 3.0
+	0dd5  Ethernet Adaptive Virtual Function
 	0dda  Ethernet Connection X722 for 10GbE SFP+
-		1bd4 0076  Ethernet Connection X722 for 10GbE SFP+
+		1bd4 0076  Ethernet Connection F102IX722 for 10GbE SFP
 	0e00  Xeon E7 v2/Xeon E5 v2/Core i7 DMI2
 		1028 04f7  Xeon E5 v2 on PowerEdge R320 server
 		15d9 066b  X9SRL-F
@@ -27692,9 +27770,13 @@
 		8086 000c  Ethernet 100G 2P E810-C OCP
 		8086 000d  Ethernet Network Adapter E810-L-Q2 for OCP 3.0
 		8086 000e  Ethernet Network Adapter E810-2C-Q2
+		8086 000f  Ethernet Network Adapter E810-C-Q2T
 		8086 0010  Ethernet 100G 2P E810-C-stg Adapter
+		8086 0011  Ethernet Network Adapter E810-C-Q1 for OCP3.0
 	1593  Ethernet Controller E810-C for SFP
 		1137 02c3  E810XXVDA4 4x25/10 GbE SFP28 PCIe NIC
+		1137 02e9  E810XXVDA4TG 4x25/10 GbE SFP28 PCIe NIC
+		1137 02ea  E810XXVDA4T 4x25/10 GbE SFP28 PCIe NIC
 		8086 0002  Ethernet Network Adapter E810-L-2
 		8086 0005  Ethernet Network Adapter E810-XXV-4
 		8086 0006  Ethernet Network Adapter E810-XXV-4
@@ -27707,6 +27789,8 @@
 		8086 000e  Ethernet Network Adapter E810-XXV-4T
 		8086 000f  Ethernet 25G 4P E810-XXV-stg Adapter
 		8086 0010  Ethernet 25G 4P E810-XXV-st Adapter
+		8086 4010  Ethernet Network Adapter E810-XXV-4
+		8086 4013  Ethernet Network Adapter E810-XXV-4 for OCP 3.0
 	1599  Ethernet Controller E810-XXV for backplane
 		8086 0001  Ethernet 25G 2P E810-XXV-k Mezz
 	159a  Ethernet Controller E810-XXV for QSFP
@@ -27723,6 +27807,7 @@
 		8086 4001  Ethernet Network Adapter E810-XXV-2
 		8086 4002  Ethernet Network Adapter E810-XXV-2 for OCP 3.0
 		8086 4003  Ethernet Network Adapter E810-XXV-2
+		8086 4015  Ethernet Network Adapter E810-XXV-2 for OCP 3.0
 	15a0  Ethernet Connection (2) I218-LM
 	15a1  Ethernet Connection (2) I218-V
 	15a2  Ethernet Connection (3) I218-LM
@@ -31429,6 +31514,7 @@
 	34b7  Ice Lake-LP PCI Express Root Port #16
 	34ba  Ice Lake-LP PCI Express Root Port #3
 	34bc  Ice Lake-LP PCI Express Root Port #5
+	34c4  Ice Lake-LP SD Host Controller
 	34c5  Ice Lake-LP Serial IO I2c Controller #4
 	34c6  Ice Lake-LP Serial IO I2c Controller #5
 	34c8  Ice Lake-LP Smart Sound Technology Audio Controller
@@ -32805,6 +32891,7 @@
 	8a23  Ice Lake Thunderbolt 3 PCI Express Root Port #3
 	8a51  Iris Plus Graphics G7 (Ice Lake)
 	8a52  Iris Plus Graphics G7
+	8a53  Iris Plus Graphics G7
 	8a56  Iris Plus Graphics G1 (Ice Lake)
 	8a5a  Iris Plus Graphics G4 (Ice Lake)
 	8a5c  Iris Plus Graphics G4 (Ice Lake)
@@ -33843,6 +33930,7 @@
 	2008  Video assistant component
 8820  Stryker Corporation
 	2724  Mako Front Side Motor Controller [cPCI]
+8848  Wuxi Micro Innovation Integrated Circuit Design Co.,Ltd
 8866  T-Square Design Inc.
 8888  Silicon Magic
 8912  TRX
@@ -34215,6 +34303,10 @@
 		1bd4 0070  RS0800M5E24i
 		1bd4 0071  RS0800M5H16i
 		1bd4 0072  RS0800M5E16i
+		1bd4 0077  RS0800M5E16iM
+		1bd4 0078  RS0800M5E24iM
+		1bd4 0079  RS0800M5H24iM
+		1bd4 0080  RS0804M5R16iM
 		1cc4 0101  Ramaxel FBGF-RAD PM8204
 		1cc4 0201  Ramaxel FBGF-RAD PM8222
 		1d49 0220  ThinkSystem 4350-8i SAS/SATA 12Gb HBA
@@ -34844,7 +34936,6 @@ C 05  Memory controller
 	01  FLASH memory
 	02  CXL
 		00  CXL Memory Device - vendor specific
-# Devices compliant to CXL spec
 		10  CXL Memory Device (CXL 2.x)
 	80  Memory controller
 C 06  Bridge
