@@ -62,7 +62,12 @@
         boolean argument which controls whether to show the firmware setup on next system reboot. If the
         argument is omitted shows the current status of the flag, or whether the flag is supported. This
         controls the same flag as <command>systemctl reboot --firmware-setup</command>, but is more low-level
-        and allows setting the flag independently from actually requesting a reboot.</para></listitem>
+        and allows setting the flag independently from actually requesting a reboot.</para>
+
+        <para>Hint: use <command>systemctl reboot --firmware-setup</command> to reboot into firmware setup
+        once. See
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -107,7 +112,10 @@
         pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
         the <option>set-default</option> will set it persistently for all future boots.</para>
 
-        <para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,
+        <para><command>bootctl list</command> can be used to list available boot loader entries and their
+        IDs.</para>
+
+        <para>In addition, the boot loader entry ID may be specified as one of: <option>@default</option>,
         <option>@oneshot</option> or <option>@current</option>, which correspond to the current default boot loader
         entry for all future boots, the current default boot loader entry for the next boot, and the currently booted
         boot loader entry. These special IDs are resolved to the current values of the EFI variables
@@ -120,8 +128,15 @@
         <para>If set to <option>@saved</option> the chosen entry will be saved as an EFI variable
         on every boot and automatically selected the next time the boot loader starts.</para>
 
-        <para>When an empty string ("") is specified as an ID, then the corresponding EFI variable will be unset.
-        </para></listitem>
+        <para>When an empty string ("") is specified as the ID, then the corresponding EFI variable will be
+        unset.</para>
+
+        <para>Hint: use <command>systemctl reboot --boot-loader-entry=<replaceable>ID</replaceable></command>
+        to reboot into a specific boot entry and
+        <command>systemctl reboot --boot-loader-menu=<replaceable>timeout</replaceable></command>
+        to reboot into the boot loader menu once. See
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
