@@ -474,10 +474,10 @@ static void device_upgrade_mount_deps(Unit *u) {
 }
 
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
+        _cleanup_(unit_freep) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
-        Unit *u = NULL;
-        bool delete;
+        Unit *u;
         int r;
 
         assert(m);
@@ -515,19 +515,16 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                                                     "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
                                                     e, DEVICE(u)->sysfs, sysfs);
 
-                delete = false;
-
                 /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
                 unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
-        } else {
-                delete = true;
 
-                r = unit_new_for_name(m, sizeof(Device), e, &u);
-                if (r < 0) {
-                        log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
-                        goto fail;
-                }
+        } else {
+                r = unit_new_for_name(m, sizeof(Device), e, &new_unit);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
+
+                u = new_unit;
 
                 unit_add_to_load_queue(u);
         }
@@ -536,10 +533,8 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * initialized. Hence initialize it if necessary. */
         if (sysfs) {
                 r = device_set_sysfs(DEVICE(u), sysfs);
-                if (r < 0) {
-                        log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
 
                 /* The additional systemd udev properties we only interpret for the main object */
                 if (main)
@@ -555,13 +550,8 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
 
+        TAKE_PTR(new_unit);
         return 0;
-
-fail:
-        if (delete)
-                unit_free(u);
-
-        return r;
 }
 
 static void device_process_new(Manager *m, sd_device *dev) {
