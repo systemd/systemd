@@ -41,6 +41,49 @@ helper_check_device_symlinks() {(
     done < <(find "${paths[@]}" -type l)
 )}
 
+helper_check_udev_watch() {(
+    set +x
+
+    local link target id dev
+    local -a wd
+
+    while read -r link; do
+        target="$(readlink "$link")"
+        echo "$link -> $target"
+
+        if [[ ! -L "/run/udev/watch/$target" ]]; then
+            echo >&2 "ERROR: symlink /run/udev/watch/$target does not exist"
+            return 1
+        fi
+        if [[ "$(readlink "/run/udev/watch/$target")" != "$(basename "$link")" ]]; then
+            echo >&2 "ERROR: symlink target of /run/udev/watch/$target is inconsistent with $link"
+            return 1
+        fi
+
+        if [[ "$target" =~ ^[0-9]+$ ]]; then
+            # $link is ID -> wd
+            id="$(basename "$link")"
+        else
+            # $link is wd -> ID
+            id="$target"
+        fi
+
+        if [[ "${id:0:1}" == "b" ]]; then
+            dev="/dev/block/${id:1}"
+        elif [[ "${id:0:1}" == "c" ]]; then
+            dev="/dev/char/${id:1}"
+        else
+            echo >&2 "ERROR: unexpected device ID '$id'"
+            return 1
+        fi
+
+        if [[ ! -e "$dev" ]]; then
+            echo >&2 "ERROR: device '$dev' corresponding to symlink '$link' does not exist"
+            return 1
+        fi
+    done < <(find /run/udev/watch -type l)
+)}
+
 testcase_megasas2_basic() {
     lsblk -S
     [[ "$(lsblk --scsi --noheadings | wc -l)" -ge 128 ]]
@@ -214,6 +257,7 @@ EOF
                 return 1
             fi
         done
+        helper_check_udev_watch
     done
 
     rm -f "$rule" "$partscript"
