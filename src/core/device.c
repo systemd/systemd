@@ -490,32 +490,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         }
 
         r = unit_name_from_path(path, ".device", &e);
-        if (r < 0) {
-                /* Let's complain about overly long device names only at most once every 5s or so. This is
-                 * something we should mention, since relevant devices are not manageable by systemd, but not
-                 * flood the log about. */
-                static RateLimit rate_limit = {
-                        .interval = 5 * USEC_PER_SEC,
-                        .burst = 1,
-                };
-
-                /* If we cannot convert a device name to a unit name then let's ignore the device. So far,
-                 * devices with such long names weren't really the kind you want to manage with systemd
-                 * anyway, hence this shouldn't be a problem. */
-
-                if (r == -ENAMETOOLONG)
-                        return log_struct_errno(
-                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
-                                        "DEVICE=%s", path,
-                                        LOG_MESSAGE("Device path '%s' too long to fit into unit name, ignoring device.", path));
-
+        if (r < 0)
                 return log_struct_errno(
-                                ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                LOG_WARNING, r,
                                 "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
                                 "DEVICE=%s", path,
                                 LOG_MESSAGE("Failed to generate valid unit name from device path '%s', ignoring device: %m", path));
-        }
 
         u = manager_get_unit(m, e);
         if (u) {
