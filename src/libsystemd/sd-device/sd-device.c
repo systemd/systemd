@@ -2007,6 +2007,20 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
         return 0;
 }
 
+int device_get_property_bool(sd_device *device, const char *key) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(key);
+
+        r = sd_device_get_property_value(device, key, &value);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(value);
+}
+
 _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         const char *s;
         sd_id128_t id;
@@ -2296,7 +2310,7 @@ _public_ int sd_device_trigger_with_uuid(
 
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -1, fd2 = -1;
-        const char *devname, *subsystem = NULL, *val = NULL;
+        const char *devname, *subsystem = NULL;
         uint64_t q, diskseq = 0;
         struct stat st;
         dev_t devnum;
@@ -2338,11 +2352,10 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (FLAGS_SET(flags, O_PATH))
                 return TAKE_FD(fd);
 
-        r = sd_device_get_property_value(device, "ID_IGNORE_DISKSEQ", &val);
+        r = device_get_property_bool(device, "ID_IGNORE_DISKSEQ");
         if (r < 0 && r != -ENOENT)
                 return r;
-
-        if (!val || parse_boolean(val) <= 0) {
+        if (r <= 0) {
                 r = sd_device_get_diskseq(device, &diskseq);
                 if (r < 0 && r != -ENOENT)
                         return r;
