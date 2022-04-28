@@ -31,6 +31,11 @@ liblogind_core_sources = files(
 
 liblogind_core_sources += [logind_gperf_c]
 
+subdir('bpf')
+if conf.get('BPF_FRAMEWORK') == 1
+        liblogind_core_sources += [logind_revoke_skel_h]
+endif
+
 liblogind_core = static_library(
         'logind-core',
         liblogind_core_sources,

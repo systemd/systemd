@@ -11,6 +11,7 @@ enum DeviceType {
         DEVICE_TYPE_UNKNOWN,
         DEVICE_TYPE_DRM,
         DEVICE_TYPE_EVDEV,
+        DEVICE_TYPE_HIDRAW,
 };
 
 struct SessionDevice {
