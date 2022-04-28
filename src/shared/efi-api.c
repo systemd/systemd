@@ -100,7 +100,7 @@ not_supported:
 static int get_os_indications(uint64_t *ret) {
         static struct stat cache_stat = {};
         _cleanup_free_ void *v = NULL;
-        static uint64_t cache;
+        static uint64_t cache = 0;
         struct stat new_stat;
         size_t s;
         int r;
