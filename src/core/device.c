@@ -25,9 +25,9 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
-        [DEVICE_DEAD] = UNIT_INACTIVE,
+        [DEVICE_DEAD]      = UNIT_INACTIVE,
         [DEVICE_TENTATIVE] = UNIT_ACTIVATING,
-        [DEVICE_PLUGGED] = UNIT_ACTIVE,
+        [DEVICE_PLUGGED]   = UNIT_ACTIVE,
 };
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
@@ -138,6 +138,7 @@ static int device_load(Unit *u) {
 
 static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
+
         assert(d);
 
         if (d->state != state)
@@ -557,6 +558,7 @@ static void device_process_new(Manager *m, sd_device *dev) {
         int r;
 
         assert(m);
+        assert(dev);
 
         if (sd_device_get_syspath(dev, &sysfs) < 0)
                 return;
@@ -887,12 +889,11 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
-        Manager *m = userdata;
         const char *sysfs;
         int r;
 
-        assert(m);
         assert(dev);
 
         r = sd_device_get_syspath(dev, &sysfs);
