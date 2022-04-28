@@ -638,16 +638,9 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                  * dependency on the mount unit which was added during the loading of the later. When the device is
                  * plugged the sysfs might not be initialized yet, as we serialize the device's state but do not
                  * serialize the sysfs path across reloads/reexecs. Hence, when coming back from a reload/restart we
-                 * might have the state valid, but not the sysfs path. Hence, let's filter out conflicting devices, but
-                 * let's accept devices in any state with no sysfs path set. */
-
-                if (DEVICE(u)->state == DEVICE_PLUGGED &&
-                    DEVICE(u)->sysfs &&
-                    sysfs &&
-                    !path_equal(DEVICE(u)->sysfs, sysfs))
-                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                                    "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
-                                                    e, DEVICE(u)->sysfs, sysfs);
+                 * might have the state valid, but not the sysfs path. Also, there is another possibility; when multiple
+                 * devices have the same devlink (e.g. /dev/disk/by-uuid/xxxx), adding/updating/removing one of the
+                 * device causes syspath change. Hence, let's always update sysfs path.*/
 
                 /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
@@ -707,9 +700,111 @@ static bool device_is_ready(sd_device *dev) {
         return device_get_property_bool(dev, "SYSTEMD_READY") != 0;
 }
 
+static int device_setup_devlink_unit_one(Manager *m, const char *devlink, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(m);
+        assert(devlink);
+
+        if (sd_device_new_from_devname(&dev, devlink) < 0 || !device_is_ready(dev)) {
+                /* the devlink is already removed or not ready */
+                device_update_found_by_name(m, devlink, 0, DEVICE_FOUND_UDEV);
+                *ret = NULL;
+                return 0; /* not ready */
+        }
+
+        r = device_setup_unit(m, dev, devlink, false);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to setup unit for '%s': %m", devlink);
+
+        *ret = TAKE_PTR(dev);
+        return 1; /* ready */
+}
+
+static int device_setup_devlink_units(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
+        const char *devlink, *syspath;
+        int r;
+
+        assert(m);
+        assert(dev);
+        assert(ret_ready_devlinks);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
+                const char *s;
+
+                if (PATH_STARTSWITH_SET(devlink, "/dev/block/", "/dev/char/"))
+                        continue;
+
+                if (device_setup_devlink_unit_one(m, devlink, &assigned) <= 0)
+                        continue;
+
+                if (sd_device_get_syspath(assigned, &s) < 0)
+                        continue;
+
+                if (path_equal(s, syspath))
+                        continue;
+
+                r = strv_extend(&ready_devlinks, devlink);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret_ready_devlinks = TAKE_PTR(ready_devlinks);
+        return 0;
+}
+
+static int device_setup_devlink_units_on_remove(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
+        const char *syspath;
+        Device *l;
+        int r;
+
+        assert(m);
+        assert(dev);
+        assert(ret_ready_devlinks);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        l = hashmap_get(m->devices_by_sysfs, syspath);
+        LIST_FOREACH(same_sysfs, d, l) {
+                _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
+                const char *s;
+
+                if (!d->path)
+                        continue;
+
+                if (!path_startswith(d->path, "/dev/"))
+                        continue;
+
+                if (device_setup_devlink_unit_one(m, d->path, &assigned) <= 0)
+                        continue;
+
+                if (sd_device_get_syspath(assigned, &s) < 0)
+                        continue;
+
+                if (path_equal(s, syspath))
+                        continue;
+
+                r = strv_extend(&ready_devlinks, d->path);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret_ready_devlinks = TAKE_PTR(ready_devlinks);
+        return 0;
+}
+
 static void device_process_new(Manager *m, sd_device *dev) {
         const char *sysfs, *dn, *alias;
-        dev_t devnum;
         int r;
 
         assert(m);
@@ -727,30 +822,6 @@ static void device_process_new(Manager *m, sd_device *dev) {
         /* Add an additional unit for the device node */
         if (sd_device_get_devname(dev, &dn) >= 0)
                 (void) device_setup_unit(m, dev, dn, false);
-
-        /* Add additional units for all symlinks */
-        if (sd_device_get_devnum(dev, &devnum) >= 0) {
-                const char *p;
-
-                FOREACH_DEVICE_DEVLINK(dev, p) {
-                        struct stat st;
-
-                        if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
-                                continue;
-
-                        /* Verify that the symlink in the FS actually belongs to this device. This is useful
-                         * to deal with conflicting devices, e.g. when two disks want the same
-                         * /dev/disk/by-label/xxx link because they have the same label. We want to make sure
-                         * that the same device that won the symlink wins in systemd, so we check the device
-                         * node major/minor */
-                        if (stat(p, &st) >= 0 &&
-                            ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                             st.st_rdev != devnum))
-                                continue;
-
-                        (void) device_setup_unit(m, dev, p, false);
-                }
-        }
 
         /* Add additional units for all explicitly configured aliases */
         if (sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias) < 0)
@@ -891,17 +962,26 @@ static void device_enumerate(Manager *m) {
         }
 
         FOREACH_DEVICE(e, dev) {
+                _cleanup_strv_free_ char **ready_devlinks = NULL;
                 const char *sysfs;
-
-                if (!device_is_ready(dev))
-                        continue;
-
-                device_process_new(m, dev);
+                bool ready;
 
                 if (sd_device_get_syspath(dev, &sysfs) < 0)
                         continue;
 
-                device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+                ready = device_is_ready(dev);
+                if (ready)
+                        device_process_new(m, dev);
+
+                /* Add additional units for all symlinks */
+                if (device_setup_devlink_units(m, dev, &ready_devlinks) < 0)
+                        goto fail;
+
+                if (ready)
+                        device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+
+                STRV_FOREACH(devlink, ready_devlinks)
+                        device_update_found_by_name(m, *devlink, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
         }
 
         return;
@@ -948,9 +1028,11 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
         Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
         const char *sysfs;
+        bool ready;
         int r;
 
         assert(dev);
@@ -981,26 +1063,42 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
 
+                ready = false;
+
+                (void) device_setup_devlink_units_on_remove(m, dev, &ready_devlinks);
+
+        } else {
+                ready = device_is_ready(dev);
+
+                if (ready) {
+                        device_process_new(m, dev);
+
+                        r = swap_process_device_new(m, dev);
+                        if (r < 0)
+                                log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
+                }
+
+                /* Add additional units for all symlinks */
+                (void) device_setup_devlink_units(m, dev, &ready_devlinks);
+        }
+
+        if (ready || !strv_isempty(ready_devlinks))
+                manager_dispatch_load_queue(m);
+
+        if (action == SD_DEVICE_REMOVE)
                 /* If we get notified that a device was removed by udev, then it's completely gone, hence
                  * unset all found bits */
                 device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_MASK);
-
-        } else if (device_is_ready(dev)) {
-
-                device_process_new(m, dev);
-
-                r = swap_process_device_new(m, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
-
-                manager_dispatch_load_queue(m);
-
+        else if (ready)
                 /* The device is found now, set the udev found bit */
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
-        } else
+        else
                 /* The device is nominally around, but not ready for us. Hence unset the udev bit, but leave
                  * the rest around. */
                 device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV);
+
+        STRV_FOREACH(devlink, ready_devlinks)
+                device_update_found_by_name(m, *devlink, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
 
         return 0;
 }
