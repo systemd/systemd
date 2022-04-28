@@ -33,6 +33,9 @@ struct Device {
 
         /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
         char **wants_property;
+
+        /* The SYMLINK= udev rule (or DEVLINKS= udev property) */
+        char **devlinks;
 };
 
 extern const UnitVTable device_vtable;
