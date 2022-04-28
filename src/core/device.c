@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
@@ -438,20 +439,16 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
 }
 
 static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
-        const char *bound_by;
         int r;
 
         assert(d);
         assert(dev);
 
-        if (sd_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND", &bound_by) >= 0) {
-                r = parse_boolean(bound_by);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property, ignoring: %m", bound_by);
+        r = device_get_property_bool(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
+        if (r < 0 && r != -ENOENT)
+                log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND= udev property, ignoring: %m");
 
-                d->bind_mounts = r > 0;
-        } else
-                d->bind_mounts = false;
+        d->bind_mounts = r > 0;
 
         return d->bind_mounts;
 }
@@ -706,8 +703,6 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
 }
 
 static bool device_is_ready(sd_device *dev) {
-        const char *ready;
-
         assert(dev);
 
         if (device_is_renaming(dev) > 0)
@@ -717,10 +712,7 @@ static bool device_is_ready(sd_device *dev) {
         if (sd_device_has_current_tag(dev, "systemd") <= 0)
                 return false;
 
-        if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0)
-                return true;
-
-        return parse_boolean(ready) != 0;
+        return device_get_property_bool(dev, "SYSTEMD_READY") != 0;
 }
 
 static Unit *device_following(Unit *u) {
