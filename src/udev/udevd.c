@@ -621,9 +621,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 /* in case rtnl was initialized */
                 manager->rtnl = sd_netlink_ref(udev_event->rtnl);
 
-        r = udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
-        if (r < 0)
-                return r;
+        udev_event_process_inotify_watch(udev_event, manager->inotify_fd);
 
         log_device_uevent(dev, "Device processed");
         return 0;
