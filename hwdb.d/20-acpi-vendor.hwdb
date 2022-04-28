@@ -223,7 +223,7 @@ acpi:MXIM*:
  ID_VENDOR_FROM_DATABASE=Maxim Integrated
 
 acpi:NOLO*:
- ID_VENDOR_FROM_DATABASE=NOLO VR
+ ID_VENDOR_FROM_DATABASE=NOLO Co., Ltd.
 
 acpi:NVDA*:
  ID_VENDOR_FROM_DATABASE=Nvidia
@@ -4285,7 +4285,7 @@ acpi:MAS*:
  ID_VENDOR_FROM_DATABASE=Mass Inc.
 
 acpi:MAT*:
- ID_VENDOR_FROM_DATABASE=Matsushita Electric Ind. Company Ltd
+ ID_VENDOR_FROM_DATABASE=Panasonic Connect Co.,Ltd.
 
 acpi:MAX*:
  ID_VENDOR_FROM_DATABASE=Rogen Tech Distribution Inc
