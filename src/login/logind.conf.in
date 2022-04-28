@@ -42,6 +42,8 @@
 #IdleAction=ignore
 #IdleActionSec=30min
 #RuntimeDirectorySize=10%
+# Unlike the other settings, 400k for RuntimeDirectoryInodesMax= below is not
+# the default value. Defaults to RuntimeDirectorySize= divided by 4096.
 #RuntimeDirectoryInodesMax=400k
 #RemoveIPC=yes
 #InhibitorsMax=8192
