@@ -60,10 +60,11 @@ for phase in "${PHASES[@]}"; do
                 # The docs build is slow and is not affected by compiler/flags, so do it just once
                 MESON_ARGS+=(-Dman=true)
             fi
-            # We use some features (like install_tag) that were introduced in 0.60, but that don't
-            # break running with older versions
-            # FIXME: re-enable once the minimum version is bumped to 0.60
-            # MESON_ARGS+=(--fatal-meson-warnings)
+            # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
+            # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
+            # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
+            find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
+            MESON_ARGS+=(--fatal-meson-warnings)
             run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             meson test -C build --print-errorlogs
@@ -83,10 +84,11 @@ for phase in "${PHASES[@]}"; do
                     MESON_ARGS+=(-Dskip-deps=true)
                 fi
             fi
-            # We use some features (like install_tag) that were introduced in 0.60, but that don't
-            # break running with older versions
-            # FIXME: re-enable once the minimum version is bumped to 0.60
-            # MESON_ARGS+=(--fatal-meson-warnings)
+            # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
+            # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
+            # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
+            find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
+            MESON_ARGS+=(--fatal-meson-warnings)
             run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
 
