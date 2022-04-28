@@ -1005,7 +1005,9 @@ static int event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        (void) udev_watch_end(inotify_fd, dev);
+        r = udev_watch_end(inotify_fd, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -1069,7 +1071,9 @@ int udev_event_execute_rules(
                 return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
 
         /* Disable watch during event processing. */
-        (void) udev_watch_end(inotify_fd, event->dev);
+        r = udev_watch_end(inotify_fd, event->dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
@@ -1153,6 +1157,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
 
 void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         sd_device *dev;
+        int r;
 
         assert(event);
         assert(inotify_fd >= 0);
@@ -1165,5 +1170,7 @@ void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
         if (device_for_action(dev, SD_DEVICE_REMOVE))
                 return;
 
-        (void) udev_watch_begin(inotify_fd, dev);
+        r = udev_watch_begin(inotify_fd, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
 }
