@@ -129,6 +129,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         size_t hdrlen;
 
         assert(packet);
+        assert(len >= sizeof(DHCPPacket));
 
         /* IP */
 
