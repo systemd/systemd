@@ -177,13 +177,42 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
-        Manager *m;
-
         assert(d);
 
-        m = UNIT(d)->manager;
+        /* On initial boot, switch-root, reload, reexecute, the following happen:
+         * 1. MANAGER_IS_RUNNING() == false
+         * 2. enumerate devices: manager_enumerate() -> device_enumerate()
+         *    Device::enumerated_found is set.
+         * 3. deserialize devices: manager_deserialize() -> device_deserialize()
+         *    Device::deserialize_state and Device::deserialized_found are set.
+         * 4. coldplug devices: manager_coldplug() -> device_coldplug()
+         *    deserialized properties are copied to the main properties.
+         * 5. MANAGER_IS_RUNNING() == true: manager_ready()
+         * 6. catchup devices: manager_catchup() -> device_catchup()
+         *    Device::enumerated_found is applied to Device::found, and state is updated based on that.
+         *
+         * Notes:
+         * - On initial boot, no udev database exist. Hence, no devices are enumerated in the step 2.
+         *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
+         *   other units, or (b) generated when uevents are received.
+         * - On switch-root, no udev databse exist, except for devices with sticky bit, i.e. OPTIONS="db_persist".
+         *   Hence, almost no devices are enumerated in the step 2. However, in general, we have several
+         *   serialized devices. But, DEVICE_FOUND_UDEV flag in the deserialized_found should not be honored,
+         *   as udev rules in initramfs and the main system are usually different. Hence, if the deserialized
+         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (rather than DEVICE_DEAD,
+         *   otherwise mount units will be unmounted). Unlike the other starting mode,
+         *   Manager::honor_device_enumeration == false (maybe, it is better to rename the flag) when
+         *   device_coldplug() and device_catchup() are called. Hence, let's conditionalize the operations by
+         *   using the flag. After switch-root, systemd-udevd (re-)processes all devices. So, the Device::found
+         *   and Device::state are adjusted after systemd-udevd processes them.
+         *   FIXME: there is a possibility that some devices are unplugged during switching root. Then, the
+         *   devices are remaining in the tentative state and will never freed until the PID1 is reloaded or
+         *   reexecuted.
+         * - On reaload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
+         *   Of course, deserialized parameters may be outdated, but that can be adjusted by enumerated_found
+         *   in device_catchup() or by later uevents. */
 
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
+        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
                 DeviceFound n, previous;
 
                 /* When we are already running, then apply the new mask right-away, and trigger state changes
@@ -241,30 +270,49 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
 
 static int device_coldplug(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound f;
+        DeviceState s;
+        Manager *m;
 
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
         /* First, let's put the deserialized state and found mask into effect, if we have it. */
 
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        if (d->deserialized_state < 0)
                 return 0;
 
-        d->found = d->deserialized_found;
-        device_set_state(d, d->deserialized_state);
+        m = u->manager;
+        f = d->deserialized_found;
+        s = d->deserialized_state;
+
+        if (!m->honor_device_enumeration && MANAGER_IS_USER(m)) {
+                /* On switch-root, ignore DEVICE_FOUND_UDEV. See comments in device_update_found_one(). */
+                f &= ~DEVICE_FOUND_UDEV;
+                if (s == DEVICE_PLUGGED)
+                        s = DEVICE_TENTATIVE;
+        }
+
+        d->found = f;
+        device_set_state(d, s);
         return 0;
 }
 
 static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound mask;
+        Manager *m;
 
         assert(d);
 
         /* Second, let's update the state with the enumerated state if it's different */
-        if (d->enumerated_found == d->found)
-                return;
+
+        m = u->manager;
+        mask = DEVICE_FOUND_MASK;
+
+        if (!m->honor_device_enumeration && MANAGER_IS_USER(m))
+                /* On switch-root, ignore DEVICE_FOUND_UDEV. See comments in device_update_found_one(). */
+                mask &= ~DEVICE_FOUND_UDEV;
 
         device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
 }
