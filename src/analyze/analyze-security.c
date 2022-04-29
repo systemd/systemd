@@ -539,19 +539,16 @@ static int assess_system_call_architectures(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        uint32_t native = 0;
         char *d;
         uint64_t b;
 
         assert(ret_badness);
         assert(ret_description);
 
-        assert_se(seccomp_arch_from_string("native", &native) >= 0);
-
         if (set_isempty(info->system_call_architectures)) {
                 b = 10;
                 d = strdup("Service may execute system calls with all ABIs");
-        } else if (set_contains(info->system_call_architectures, UINT32_TO_PTR(native + 1)) &&
+        } else if (set_contains(info->system_call_architectures, "native") &&
                    set_size(info->system_call_architectures) == 1) {
                 b = 0;
                 d = strdup("Service may execute system calls only with native ABI");
@@ -2574,11 +2571,20 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                                 return log_oom();
                 }
                 info->_umask = c->umask;
-                if (c->syscall_archs) {
-                        info->system_call_architectures = set_copy(c->syscall_archs);
-                        if (!info->system_call_architectures)
+
+#if HAVE_SECCOMP
+                SET_FOREACH(key, c->syscall_archs) {
+                        const char *name;
+
+                        name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
+                        if (!name)
+                                continue;
+
+                        if (set_put_strdup(&info->system_call_architectures, name) < 0)
                                 return log_oom();
                 }
+#endif
+
                 info->system_call_filter_allow_list = c->syscall_allow_list;
                 if (c->syscall_filter) {
                         info->system_call_filter = hashmap_copy(c->syscall_filter);

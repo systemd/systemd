@@ -600,6 +600,8 @@ if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
     systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"executable"'
 fi
 
+systemd-analyze --threshold=90 security systemd-journald.service
+
 systemd-analyze log-level info
 
 echo OK >/testok
