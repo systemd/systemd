@@ -366,7 +366,8 @@ possible_common_cc_flags = [
 # and -O2; this should be enough to catch most important cases without too much
 # busywork. See https://github.com/systemd/systemd/pull/19226.
 if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
-                             cc.version().version_compare('<10'))
+                             cc.version().version_compare('<10') or
+                             run_command('sh', '-c', '[[ "$CFLAGS" =~ -O[134sg] ]]').returncode() == 0)
         possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
