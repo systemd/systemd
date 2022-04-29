@@ -174,6 +174,7 @@ static int device_coldplug(Unit *u) {
 
 static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound mask = DEVICE_FOUND_MASK;
 
         assert(d);
 
@@ -181,7 +182,9 @@ static void device_catchup(Unit *u) {
         if (d->enumerated_found == d->found)
                 return;
 
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        /* Avoid clearing DEVICE_FOUND_UDEV here */
+        mask &= ~(~d->enumerated_found & DEVICE_FOUND_UDEV);
+        device_update_found_one(d, d->enumerated_found, mask);
 }
 
 static const struct {
@@ -277,13 +280,33 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                 state = device_state_from_string(value);
                 if (state < 0)
                         log_unit_debug(u, "Failed to parse state value, ignoring: %s", value);
-                else
+                else {
+                        /*
+                         * If honor_device_enumeration is false, we've just switched root.
+                         * udev rules will be reevaluated for all devices. Device properties
+                         * like symlinks, aliases, or even SYSTEMD_READY may change.
+                         * udev coldplug will rediscover devices with updated properties.
+                         * Wait for the uevent to arrive before actually activating any
+                         * mount or swap units.
+                         * Reset to DEVICE_TENTATIVE (rather than DEVICE_DEAD) to avoid
+                         * spurious umounts.
+                         */
+                        if (!u->manager->honor_device_enumeration && state == DEVICE_PLUGGED)
+                                state = DEVICE_TENTATIVE;
                         d->deserialized_state = state;
+                }
 
         } else if (streq(key, "found")) {
                 r = device_found_from_string_many(value, &d->deserialized_found);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse found value '%s', ignoring: %m", value);
+                else if (!u->manager->honor_device_enumeration)
+                        /*
+                         * See above - after switching root, udev needs to rediscover
+                         * every device, thus we need to reset DEVICE_FOUND_UDEV here.
+                         * DEVICE_FOUND_MOUNT / DEVICE_FOUND_SWAP are preserved.
+                         */
+                        d->deserialized_found &= ~DEVICE_FOUND_UDEV;
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
