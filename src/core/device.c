@@ -971,6 +971,7 @@ static int validate_node(const char *node, sd_device **ret) {
 void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
         assert(m);
         assert(node);
+        assert(!FLAGS_SET(mask, DEVICE_FOUND_UDEV));
 
         if (!udev_available())
                 return;
