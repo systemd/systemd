@@ -144,14 +144,12 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         hdrlen = packet->ip.ihl * 4;
         if (hdrlen < 20)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: IPv4 IHL (%zu bytes) "
-                                       "smaller than minimum (20 bytes)",
+                                       "ignoring packet: IPv4 IHL (%zu bytes) smaller than minimum (20 bytes)",
                                        hdrlen);
 
         if (len < hdrlen)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: packet (%zu bytes) "
-                                       "smaller than expected (%zu) by IP header",
+                                       "ignoring packet: packet (%zu bytes) smaller than expected (%zu) by IP header",
                                        len, hdrlen);
 
         /* UDP */
@@ -162,14 +160,12 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 
         if (len < hdrlen + be16toh(packet->udp.len))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: packet (%zu bytes) "
-                                       "smaller than expected (%zu) by UDP header",
+                                       "ignoring packet: packet (%zu bytes) smaller than expected (%zu) by UDP header",
                                        len, hdrlen + be16toh(packet->udp.len));
 
         if (be16toh(packet->udp.dest) != port)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: to port %u, which "
-                                       "is not the DHCP client port (%u)",
+                                       "ignoring packet: to port %u, which is not the DHCP client port (%u)",
                                        be16toh(packet->udp.dest), port);
 
         /* checksums - computing these is relatively expensive, so only do it
