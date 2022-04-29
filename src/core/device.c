@@ -163,14 +163,57 @@ static int device_coldplug(Unit *u) {
         assert(d->state == DEVICE_DEAD);
 
         /* First, let's put the deserialized state and found mask into effect, if we have it. */
-
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        if (d->deserialized_state < 0)
                 return 0;
 
-        d->found = d->deserialized_found;
-        device_set_state(d, d->deserialized_state);
+        Manager *m = u->manager;
+        DeviceFound found = d->deserialized_found;
+        DeviceState state = d->deserialized_state;
+
+        /* On initial boot, switch-root, reload, reexecute, the following happen:
+         * 1. MANAGER_IS_RUNNING() == false
+         * 2. enumerate devices: manager_enumerate() -> device_enumerate()
+         *    Device.enumerated_found is set.
+         * 3. deserialize devices: manager_deserialize() -> device_deserialize()
+         *    Device.deserialize_state and Device.deserialized_found are set.
+         * 4. coldplug devices: manager_coldplug() -> device_coldplug()
+         *    deserialized properties are copied to the main properties.
+         * 5. MANAGER_IS_RUNNING() == true: manager_ready()
+         * 6. catchup devices: manager_catchup() -> device_catchup()
+         *    Device.enumerated_found is applied to Device.found, and state is updated based on that.
+         *
+         * Notes:
+         * - On initial boot, no udev database exists. Hence, no devices are enumerated in the step 2.
+         *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
+         *   other units, or (b) generated when uevents are received.
+         *
+         * - On switch-root, the udev databse may be cleared, except for devices with sticky bit, i.e.
+         *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
+         *   we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found must be
+         *   ignored, as udev rules in initramfs and the main system are often different. If the deserialized
+         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (or DEVICE_DEAD if nobody
+         *   sees the device). Unlike the other starting mode, Manager.honor_device_enumeration == false
+         *   (maybe, it is better to rename the flag) when device_coldplug() and device_catchup() are called.
+         *   Hence, let's conditionalize the operations by using the flag. After switch-root, systemd-udevd
+         *   will (re-)process all devices, and the Device.found and Device.state will be adjusted.
+         *
+         * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
+         *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
+         *   device_catchup() or uevents. */
+
+        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m)) {
+                found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
+                if (state == DEVICE_PLUGGED)
+                        state = DEVICE_TENTATIVE; /* downgrade state */
+                if (found == DEVICE_NOT_FOUND)
+                        state = DEVICE_DEAD; /* If nobody sees the device, downgrade more */
+        }
+
+        if (d->found == found && d->state == state)
+                return 0;
+
+        d->found = found;
+        device_set_state(d, state);
         return 0;
 }
 
@@ -644,13 +687,9 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
-        Manager *m;
-
         assert(d);
 
-        m = UNIT(d)->manager;
-
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
+        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
                 DeviceFound n, previous;
 
                 /* When we are already running, then apply the new mask right-away, and trigger state changes
