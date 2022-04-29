@@ -1912,7 +1912,6 @@ libsystemd = shared_library(
                         librt],
         link_depends : libsystemd_sym,
         install : true,
-        install_tag: 'libsystemd',
         install_dir : rootlibdir)
 
 install_libsystemd_static = static_library(
@@ -1926,7 +1925,6 @@ install_libsystemd_static = static_library(
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
         install_dir : rootlibdir,
         pic : static_libsystemd_pic,
         dependencies : [threads,
@@ -1954,7 +1952,6 @@ libudev = shared_library(
         dependencies : [threads],
         link_depends : libudev_sym,
         install : true,
-        install_tag: 'libudev',
         install_dir : rootlibdir)
 
 install_libudev_static = static_library(
@@ -1968,7 +1965,6 @@ install_libudev_static = static_library(
         include_directories : includes,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
-        install_tag: 'libudev',
         install_dir : rootlibdir,
         link_depends : libudev_sym,
         dependencies : libshared_deps + [libmount],
