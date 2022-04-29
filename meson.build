@@ -361,12 +361,18 @@ possible_common_cc_flags = [
         '-Wno-string-plus-int',  # clang
 ]
 
+c_args = get_option('c_args')
+
 # Disable -Wmaybe-uninitialized when compiling with -Os/-O1/-O3/etc. There are
 # too many false positives with gcc >= 8. Effectively, we only test with -O0
 # and -O2; this should be enough to catch most important cases without too much
 # busywork. See https://github.com/systemd/systemd/pull/19226.
 if cc.get_id() == 'gcc' and (not '02'.contains(get_option('optimization')) or
-                             cc.version().version_compare('<10'))
+                             cc.version().version_compare('<10') or
+                             '-Os' in c_args or
+                             '-O1' in c_args or
+                             '-O3' in c_args or
+                             '-Og' in c_args)
         possible_common_cc_flags += '-Wno-maybe-uninitialized'
 endif
 
@@ -3720,7 +3726,7 @@ test_cflags = ['-DTEST_CODE=1']
 # bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
 # use the variable unexpectedly. This triggers a lot of maybe-uninitialized
 # false positives when the combination of -O2 and -flto is used. Suppress them.
-if '-O2' in get_option('c_args') and '-flto=auto' in get_option('c_args')
+if '-O2' in c_args and '-flto=auto' in c_args
         test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
 endif
 
