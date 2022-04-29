@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "device.h"
 #include "log.h"
@@ -24,13 +25,12 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
-        [DEVICE_DEAD] = UNIT_INACTIVE,
+        [DEVICE_DEAD]      = UNIT_INACTIVE,
         [DEVICE_TENTATIVE] = UNIT_ACTIVATING,
-        [DEVICE_PLUGGED] = UNIT_ACTIVE,
+        [DEVICE_PLUGGED]   = UNIT_ACTIVE,
 };
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
-static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask);
 
 static void device_unset_sysfs(Device *d) {
         Hashmap *devices;
@@ -115,6 +115,7 @@ static void device_done(Unit *u) {
 
         device_unset_sysfs(d);
         d->wants_property = strv_free(d->wants_property);
+        d->path = mfree(d->path);
 }
 
 static int device_load(Unit *u) {
@@ -137,6 +138,7 @@ static int device_load(Unit *u) {
 
 static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
+
         assert(d);
 
         if (d->state != state)
@@ -154,34 +156,167 @@ static void device_set_state(Device *d, DeviceState state) {
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
+static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
+        assert(d);
+
+        /* Didn't exist before, but does now? if so, generate a new invocation ID for it */
+        if (previous == DEVICE_NOT_FOUND && now != DEVICE_NOT_FOUND)
+                (void) unit_acquire_invocation_id(UNIT(d));
+
+        if (FLAGS_SET(now, DEVICE_FOUND_UDEV))
+                /* When the device is known to udev we consider it plugged. */
+                device_set_state(d, DEVICE_PLUGGED);
+        else if (now != DEVICE_NOT_FOUND && !FLAGS_SET(previous, DEVICE_FOUND_UDEV))
+                /* If the device has not been seen by udev yet, but is now referenced by the kernel, then we assume the
+                 * kernel knows it now, and udev might soon too. */
+                device_set_state(d, DEVICE_TENTATIVE);
+        else
+                /* If nobody sees the device, or if the device was previously seen by udev and now is only referenced
+                 * from the kernel, then we consider the device is gone, the kernel just hasn't noticed it yet. */
+                device_set_state(d, DEVICE_DEAD);
+}
+
+static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+        assert(d);
+
+        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
+                DeviceFound n, previous;
+
+                /* When we are already running, then apply the new mask right-away, and trigger state changes
+                 * right-away */
+
+                n = (d->found & ~mask) | (found & mask);
+                if (n == d->found)
+                        return;
+
+                previous = d->found;
+                d->found = n;
+
+                device_found_changed(d, previous, n);
+        } else
+                /* We aren't running yet, let's apply the new mask to the shadow variable instead, which we'll apply as
+                 * soon as we catch-up with the state. */
+                d->enumerated_found = (d->enumerated_found & ~mask) | (found & mask);
+}
+
+static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
+        Device *l;
+
+        assert(m);
+        assert(sysfs);
+
+        if (mask == 0)
+                return;
+
+        l = hashmap_get(m->devices_by_sysfs, sysfs);
+        LIST_FOREACH(same_sysfs, d, l)
+                device_update_found_one(d, found, mask);
+}
+
+static void device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
+        _cleanup_free_ char *e = NULL;
+        Unit *u;
+        int r;
+
+        assert(m);
+        assert(path);
+
+        if (mask == 0)
+                return;
+
+        r = unit_name_from_path(path, ".device", &e);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to generate unit name from device path, ignoring: %m");
+
+        u = manager_get_unit(m, e);
+        if (!u)
+                return;
+
+        device_update_found_one(DEVICE(u), found, mask);
+}
+
 static int device_coldplug(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound f;
+        DeviceState s;
+        Manager *m;
 
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
+        /* For backward compatibility, set the path from the unit name. This fails when the unit name is hashed. */
+        if (!d->path)
+                (void) unit_name_to_path(u->id, &d->path);
 
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        /* First, let's put the deserialized state and found mask into effect, if we have it. */
+        if (d->deserialized_state < 0)
                 return 0;
 
-        d->found = d->deserialized_found;
-        device_set_state(d, d->deserialized_state);
+        m = u->manager;
+        f = d->deserialized_found;
+        s = d->deserialized_state;
+
+        /* On initial boot, switch-root, reload, reexecute, the following happen:
+         * 1. MANAGER_IS_RUNNING() == false
+         * 2. enumerate devices: manager_enumerate() -> device_enumerate()
+         *    Device::enumerated_found is set.
+         * 3. deserialize devices: manager_deserialize() -> device_deserialize()
+         *    Device::deserialize_state and Device::deserialized_found are set.
+         * 4. coldplug devices: manager_coldplug() -> device_coldplug()
+         *    deserialized properties are copied to the main properties.
+         * 5. MANAGER_IS_RUNNING() == true: manager_ready()
+         * 6. catchup devices: manager_catchup() -> device_catchup()
+         *    Device::enumerated_found is applied to Device::found, and state is updated based on that.
+         *
+         * Notes:
+         * - On initial boot, no udev database exist. Hence, no devices are enumerated in the step 2.
+         *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
+         *   other units, or (b) generated when uevents are received.
+         * - On switch-root, no udev databse exist, except for devices with sticky bit, i.e. OPTIONS="db_persist".
+         *   Hence, almost no devices are enumerated in the step 2. However, in general, we have several
+         *   serialized devices. But, DEVICE_FOUND_UDEV bit in the deserialized_found and enumerated_found
+         *   must be ignored, as udev rules in initramfs and the main system are often different. Hence, if the
+         *   deserialized state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (rather than
+         *   DEVICE_DEAD, otherwise the corresponding mount units will be unmounted). Unlike the other starting
+         *   mode, Manager::honor_device_enumeration == false (maybe, it is better to rename the flag) when
+         *   device_coldplug() and device_catchup() are called. Hence, let's conditionalize the operations by
+         *   using the flag. After switch-root, systemd-udevd will (re-)processes all devices. So, the
+         *   Device::found and Device::state are adjusted after the device being processed by systemd-udevd.
+         *   FIXME: there is a possibility that some devices are unplugged during switching root. Then, the
+         *   devices are remaining in the tentative state and will never be freed until the PID1 is reloaded
+         *   or reexecuted.
+         * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
+         *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
+         *   device_catchup() or uevents. */
+
+        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m)) {
+                f &= ~DEVICE_FOUND_UDEV;
+                if (s == DEVICE_PLUGGED)
+                        s = DEVICE_TENTATIVE;
+        }
+
+        d->found = f;
+        device_set_state(d, s);
         return 0;
 }
 
 static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
+        DeviceFound mask;
+        Manager *m;
 
         assert(d);
 
-        /* Second, let's update the state with the enumerated state if it's different */
-        if (d->enumerated_found == d->found)
-                return;
+        /* Second, let's update the state with the enumerated state. */
 
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        m = u->manager;
+        mask = DEVICE_FOUND_MASK;
+
+        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m))
+                /* On switch-root, ignore DEVICE_FOUND_UDEV. See comments in device_coldplug(). */
+                mask &= ~DEVICE_FOUND_UDEV;
+
+        device_update_found_one(d, d->enumerated_found, mask);
 }
 
 static const struct {
@@ -253,6 +388,8 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        (void) serialize_item(f, "path", d->path);
+
         (void) serialize_item(f, "state", device_state_to_string(d->state));
 
         if (device_found_to_string_many(d->found, &s) >= 0)
@@ -271,7 +408,12 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
-        if (streq(key, "state")) {
+        if (streq(key, "path")) {
+                d->path = strdup(value);
+                if (!d->path)
+                        log_oom_debug();
+
+        } if (streq(key, "state")) {
                 DeviceState state;
 
                 state = device_state_from_string(value);
@@ -301,9 +443,11 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sDevice State: %s\n"
+                "%sDevice Path: %s\n"
                 "%sSysfs Path: %s\n"
                 "%sFound: %s\n",
                 prefix, device_state_to_string(d->state),
+                prefix, strna(d->path),
                 prefix, strna(d->sysfs),
                 prefix, strna(s));
 
@@ -408,11 +552,9 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
 
-                r = strv_push(&added, k);
+                r = strv_consume(&added, TAKE_PTR(k));
                 if (r < 0)
                         return log_oom();
-
-                k = NULL;
         }
 
         if (d->state != DEVICE_DEAD)
@@ -440,20 +582,16 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
 }
 
 static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
-        const char *bound_by;
         int r;
 
         assert(d);
         assert(dev);
 
-        if (sd_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND", &bound_by) >= 0) {
-                r = parse_boolean(bound_by);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property, ignoring: %m", bound_by);
+        r = device_get_property_bool(dev, "SYSTEMD_MOUNT_DEVICE_BOUND");
+        if (r < 0 && r != -ENOENT)
+                log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND= udev property, ignoring: %m");
 
-                d->bind_mounts = r > 0;
-        } else
-                d->bind_mounts = false;
+        d->bind_mounts = r > 0;
 
         return d->bind_mounts;
 }
@@ -476,10 +614,10 @@ static void device_upgrade_mount_deps(Unit *u) {
 }
 
 static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool main) {
+        _cleanup_(unit_freep) Unit *new_unit = NULL;
         _cleanup_free_ char *e = NULL;
         const char *sysfs = NULL;
-        Unit *u = NULL;
-        bool delete;
+        Unit *u;
         int r;
 
         assert(m);
@@ -492,32 +630,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         }
 
         r = unit_name_from_path(path, ".device", &e);
-        if (r < 0) {
-                /* Let's complain about overly long device names only at most once every 5s or so. This is
-                 * something we should mention, since relevant devices are not manageable by systemd, but not
-                 * flood the log about. */
-                static RateLimit rate_limit = {
-                        .interval = 5 * USEC_PER_SEC,
-                        .burst = 1,
-                };
-
-                /* If we cannot convert a device name to a unit name then let's ignore the device. So far,
-                 * devices with such long names weren't really the kind you want to manage with systemd
-                 * anyway, hence this shouldn't be a problem. */
-
-                if (r == -ENAMETOOLONG)
-                        return log_struct_errno(
-                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
-                                        "DEVICE=%s", path,
-                                        LOG_MESSAGE("Device path '%s' too long to fit into unit name, ignoring device.", path));
-
+        if (r < 0)
                 return log_struct_errno(
-                                ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                LOG_WARNING, r,
                                 "MESSAGE_ID=" SD_MESSAGE_DEVICE_PATH_NOT_SUITABLE_STR,
                                 "DEVICE=%s", path,
                                 LOG_MESSAGE("Failed to generate valid unit name from device path '%s', ignoring device: %m", path));
-        }
 
         u = manager_get_unit(m, e);
         if (u) {
@@ -526,30 +644,24 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                  * dependency on the mount unit which was added during the loading of the later. When the device is
                  * plugged the sysfs might not be initialized yet, as we serialize the device's state but do not
                  * serialize the sysfs path across reloads/reexecs. Hence, when coming back from a reload/restart we
-                 * might have the state valid, but not the sysfs path. Hence, let's filter out conflicting devices, but
-                 * let's accept devices in any state with no sysfs path set. */
-
-                if (DEVICE(u)->state == DEVICE_PLUGGED &&
-                    DEVICE(u)->sysfs &&
-                    sysfs &&
-                    !path_equal(DEVICE(u)->sysfs, sysfs))
-                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                                    "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
-                                                    e, DEVICE(u)->sysfs, sysfs);
-
-                delete = false;
+                 * might have the state valid, but not the sysfs path. Also, there is another possibility; when multiple
+                 * devices have the same devlink (e.g. /dev/disk/by-uuid/xxxx), adding/updating/removing one of the
+                 * device causes syspath change. Hence, let's always update sysfs path.*/
 
                 /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
                 unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
-        } else {
-                delete = true;
 
-                r = unit_new_for_name(m, sizeof(Device), e, &u);
-                if (r < 0) {
-                        log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
-                        goto fail;
-                }
+        } else {
+                r = unit_new_for_name(m, sizeof(Device), e, &new_unit);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to allocate device unit %s: %m", e);
+
+                u = new_unit;
+
+                DEVICE(u)->path = strdup(path);
+                if (!DEVICE(u)->path)
+                        return log_oom();
 
                 unit_add_to_load_queue(u);
         }
@@ -558,10 +670,8 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * initialized. Hence initialize it if necessary. */
         if (sysfs) {
                 r = device_set_sysfs(DEVICE(u), sysfs);
-                if (r < 0) {
-                        log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to set sysfs path %s: %m", sysfs);
 
                 /* The additional systemd udev properties we only interpret for the main object */
                 if (main)
@@ -577,21 +687,129 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
 
+        TAKE_PTR(new_unit);
         return 0;
+}
 
-fail:
-        if (delete)
-                unit_free(u);
+static bool device_is_ready(sd_device *dev) {
+        assert(dev);
 
-        return r;
+        if (device_is_renaming(dev) > 0)
+                return false;
+
+        /* Is it really tagged as 'systemd' right now? */
+        if (sd_device_has_current_tag(dev, "systemd") <= 0)
+                return false;
+
+        return device_get_property_bool(dev, "SYSTEMD_READY") != 0;
+}
+
+static int device_setup_devlink_unit_one(Manager *m, const char *devlink, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(m);
+        assert(devlink);
+
+        if (sd_device_new_from_devname(&dev, devlink) < 0 || !device_is_ready(dev)) {
+                /* the devlink is already removed or not ready */
+                device_update_found_by_name(m, devlink, 0, DEVICE_FOUND_UDEV);
+                *ret = NULL;
+                return 0; /* not ready */
+        }
+
+        r = device_setup_unit(m, dev, devlink, false);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to setup unit for '%s': %m", devlink);
+
+        *ret = TAKE_PTR(dev);
+        return 1; /* ready */
+}
+
+static int device_setup_devlink_units(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
+        const char *devlink, *syspath;
+        int r;
+
+        assert(m);
+        assert(dev);
+        assert(ret_ready_devlinks);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
+                const char *s;
+
+                if (PATH_STARTSWITH_SET(devlink, "/dev/block/", "/dev/char/"))
+                        continue;
+
+                if (device_setup_devlink_unit_one(m, devlink, &assigned) <= 0)
+                        continue;
+
+                if (sd_device_get_syspath(assigned, &s) < 0)
+                        continue;
+
+                if (path_equal(s, syspath))
+                        continue;
+
+                r = strv_extend(&ready_devlinks, devlink);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret_ready_devlinks = TAKE_PTR(ready_devlinks);
+        return 0;
+}
+
+static int device_setup_devlink_units_on_remove(Manager *m, sd_device *dev, char ***ret_ready_devlinks) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
+        const char *syspath;
+        Device *l;
+        int r;
+
+        assert(m);
+        assert(dev);
+        assert(ret_ready_devlinks);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        l = hashmap_get(m->devices_by_sysfs, syspath);
+        LIST_FOREACH(same_sysfs, d, l) {
+                _cleanup_(sd_device_unrefp) sd_device *assigned = NULL;
+                const char *s;
+
+                if (!path_startswith(d->path, "/dev/"))
+                        continue;
+
+                if (device_setup_devlink_unit_one(m, d->path, &assigned) <= 0)
+                        continue;
+
+                if (sd_device_get_syspath(assigned, &s) < 0)
+                        continue;
+
+                if (path_equal(s, syspath))
+                        continue;
+
+                r = strv_extend(&ready_devlinks, d->path);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret_ready_devlinks = TAKE_PTR(ready_devlinks);
+        return 0;
 }
 
 static void device_process_new(Manager *m, sd_device *dev) {
         const char *sysfs, *dn, *alias;
-        dev_t devnum;
         int r;
 
         assert(m);
+        assert(dev);
 
         if (sd_device_get_syspath(dev, &sysfs) < 0)
                 return;
@@ -605,30 +823,6 @@ static void device_process_new(Manager *m, sd_device *dev) {
         /* Add an additional unit for the device node */
         if (sd_device_get_devname(dev, &dn) >= 0)
                 (void) device_setup_unit(m, dev, dn, false);
-
-        /* Add additional units for all symlinks */
-        if (sd_device_get_devnum(dev, &devnum) >= 0) {
-                const char *p;
-
-                FOREACH_DEVICE_DEVLINK(dev, p) {
-                        struct stat st;
-
-                        if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
-                                continue;
-
-                        /* Verify that the symlink in the FS actually belongs to this device. This is useful
-                         * to deal with conflicting devices, e.g. when two disks want the same
-                         * /dev/disk/by-label/xxx link because they have the same label. We want to make sure
-                         * that the same device that won the symlink wins in systemd, so we check the device
-                         * node major/minor */
-                        if (stat(p, &st) >= 0 &&
-                            ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                             st.st_rdev != devnum))
-                                continue;
-
-                        (void) device_setup_unit(m, dev, p, false);
-                }
-        }
 
         /* Add additional units for all explicitly configured aliases */
         if (sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias) < 0)
@@ -652,107 +846,6 @@ static void device_process_new(Manager *m, sd_device *dev) {
                 else
                         (void) device_setup_unit(m, dev, word, false);
         }
-}
-
-static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
-        assert(d);
-
-        /* Didn't exist before, but does now? if so, generate a new invocation ID for it */
-        if (previous == DEVICE_NOT_FOUND && now != DEVICE_NOT_FOUND)
-                (void) unit_acquire_invocation_id(UNIT(d));
-
-        if (FLAGS_SET(now, DEVICE_FOUND_UDEV))
-                /* When the device is known to udev we consider it plugged. */
-                device_set_state(d, DEVICE_PLUGGED);
-        else if (now != DEVICE_NOT_FOUND && !FLAGS_SET(previous, DEVICE_FOUND_UDEV))
-                /* If the device has not been seen by udev yet, but is now referenced by the kernel, then we assume the
-                 * kernel knows it now, and udev might soon too. */
-                device_set_state(d, DEVICE_TENTATIVE);
-        else
-                /* If nobody sees the device, or if the device was previously seen by udev and now is only referenced
-                 * from the kernel, then we consider the device is gone, the kernel just hasn't noticed it yet. */
-                device_set_state(d, DEVICE_DEAD);
-}
-
-static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
-        Manager *m;
-
-        assert(d);
-
-        m = UNIT(d)->manager;
-
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
-                DeviceFound n, previous;
-
-                /* When we are already running, then apply the new mask right-away, and trigger state changes
-                 * right-away */
-
-                n = (d->found & ~mask) | (found & mask);
-                if (n == d->found)
-                        return;
-
-                previous = d->found;
-                d->found = n;
-
-                device_found_changed(d, previous, n);
-        } else
-                /* We aren't running yet, let's apply the new mask to the shadow variable instead, which we'll apply as
-                 * soon as we catch-up with the state. */
-                d->enumerated_found = (d->enumerated_found & ~mask) | (found & mask);
-}
-
-static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
-        Device *l;
-
-        assert(m);
-        assert(sysfs);
-
-        if (mask == 0)
-                return;
-
-        l = hashmap_get(m->devices_by_sysfs, sysfs);
-        LIST_FOREACH(same_sysfs, d, l)
-                device_update_found_one(d, found, mask);
-}
-
-static void device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
-        _cleanup_free_ char *e = NULL;
-        Unit *u;
-        int r;
-
-        assert(m);
-        assert(path);
-
-        if (mask == 0)
-                return;
-
-        r = unit_name_from_path(path, ".device", &e);
-        if (r < 0)
-                return (void) log_debug_errno(r, "Failed to generate unit name from device path, ignoring: %m");
-
-        u = manager_get_unit(m, e);
-        if (!u)
-                return;
-
-        device_update_found_one(DEVICE(u), found, mask);
-}
-
-static bool device_is_ready(sd_device *dev) {
-        const char *ready;
-
-        assert(dev);
-
-        if (device_is_renaming(dev) > 0)
-                return false;
-
-        /* Is it really tagged as 'systemd' right now? */
-        if (sd_device_has_current_tag(dev, "systemd") <= 0)
-                return false;
-
-        if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0)
-                return true;
-
-        return parse_boolean(ready) != 0;
 }
 
 static Unit *device_following(Unit *u) {
@@ -870,17 +963,23 @@ static void device_enumerate(Manager *m) {
         }
 
         FOREACH_DEVICE(e, dev) {
+                _cleanup_strv_free_ char **ready_devlinks = NULL;
                 const char *sysfs;
-
-                if (!device_is_ready(dev))
-                        continue;
-
-                device_process_new(m, dev);
 
                 if (sd_device_get_syspath(dev, &sysfs) < 0)
                         continue;
 
-                device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+                if (device_is_ready(dev)) {
+                        device_process_new(m, dev);
+                        device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+                }
+
+                /* Add additional units for all symlinks */
+                if (device_setup_devlink_units(m, dev, &ready_devlinks) < 0)
+                        goto fail;
+
+                STRV_FOREACH(devlink, ready_devlinks)
+                        device_update_found_by_name(m, *devlink, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
         }
 
         return;
@@ -908,9 +1007,12 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 }
 
 static void device_remove_old_on_move(Manager *m, sd_device *dev) {
-        _cleanup_free_ char *syspath_old = NULL, *e = NULL;
+        _cleanup_free_ char *syspath_old = NULL;
         const char *devpath_old;
         int r;
+
+        assert(m);
+        assert(dev);
 
         r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
         if (r < 0)
@@ -920,20 +1022,17 @@ static void device_remove_old_on_move(Manager *m, sd_device *dev) {
         if (!syspath_old)
                 return (void) log_oom();
 
-        r = unit_name_from_path(syspath_old, ".device", &e);
-        if (r < 0)
-                return (void) log_device_debug_errno(dev, r, "Failed to generate unit name from old device path, ignoring: %m");
-
-        device_update_found_by_sysfs(m, syspath_old, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
+        device_update_found_by_sysfs(m, syspath_old, 0, DEVICE_FOUND_MASK);
 }
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
+        _cleanup_strv_free_ char **ready_devlinks = NULL;
+        Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
-        Manager *m = userdata;
         const char *sysfs;
+        bool ready;
         int r;
 
-        assert(m);
         assert(dev);
 
         r = sd_device_get_syspath(dev, &sysfs);
@@ -962,88 +1061,74 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
 
-                /* If we get notified that a device was removed by udev, then it's completely gone, hence
-                 * unset all found bits */
-                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
+                ready = false;
 
-        } else if (device_is_ready(dev)) {
+                (void) device_setup_devlink_units_on_remove(m, dev, &ready_devlinks);
 
-                device_process_new(m, dev);
+        } else {
+                ready = device_is_ready(dev);
 
-                r = swap_process_device_new(m, dev);
-                if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
+                if (ready) {
+                        device_process_new(m, dev);
 
+                        r = swap_process_device_new(m, dev);
+                        if (r < 0)
+                                log_device_warning_errno(dev, r, "Failed to process swap device new event, ignoring: %m");
+                }
+
+                /* Add additional units for all symlinks */
+                (void) device_setup_devlink_units(m, dev, &ready_devlinks);
+        }
+
+        if (ready || !strv_isempty(ready_devlinks))
                 manager_dispatch_load_queue(m);
 
+        if (action == SD_DEVICE_REMOVE)
+                /* If we get notified that a device was removed by udev, then it's completely gone, hence
+                 * unset all found bits */
+                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_MASK);
+        else if (ready)
                 /* The device is found now, set the udev found bit */
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
-        } else
+        else
                 /* The device is nominally around, but not ready for us. Hence unset the udev bit, but leave
                  * the rest around. */
                 device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV);
 
+        STRV_FOREACH(devlink, ready_devlinks)
+                device_update_found_by_name(m, *devlink, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
+
         return 0;
 }
 
-static bool device_supported(void) {
-        static int read_only = -1;
-
-        /* If /sys is read-only we don't support device units, and any
-         * attempts to start one should fail immediately. */
-
-        if (read_only < 0)
-                read_only = path_is_read_only_fs("/sys");
-
-        return read_only <= 0;
-}
-
-static int validate_node(Manager *m, const char *node, sd_device **ret) {
-        struct stat st;
+static int validate_node(const char *node, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        assert(m);
         assert(node);
         assert(ret);
 
         /* Validates a device node that showed up in /proc/swaps or /proc/self/mountinfo if it makes sense for us to
          * track. Note that this validator is fine within missing device nodes, but not with badly set up ones! */
 
-        if (!path_startswith(node, "/dev")) {
+        r = sd_device_new_from_devname(&dev, node);
+        if (r == -ENODEV) {
                 *ret = NULL;
-                return 0; /* bad! */
+                return 0; /* good! (though missing) */
         }
+        if (r < 0)
+                return r; /* bad! */
 
-        if (stat(node, &st) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to stat() device node file %s: %m", node);
-
-                *ret = NULL;
-                return 1; /* good! (though missing) */
-
-        } else {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-
-                r = sd_device_new_from_stat_rdev(&dev, &st);
-                if (r == -ENOENT) {
-                        *ret = NULL;
-                        return 1; /* good! (though missing) */
-                } else if (r == -ENOTTY) {
-                        *ret = NULL;
-                        return 0; /* bad! (not a device node but some other kind of file system node) */
-                } else if (r < 0)
-                        return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
-
-                *ret = TAKE_PTR(dev);
-                return 1; /* good! */
-        }
+        *ret = TAKE_PTR(dev);
+        return 1; /* good! */
 }
 
 void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
         assert(m);
         assert(node);
+        assert(!FLAGS_SET(mask, DEVICE_FOUND_UDEV));
 
-        if (!device_supported())
+        if (!udev_available())
                 return;
 
         if (mask == 0)
@@ -1064,10 +1149,10 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
                  * everything is alright with the device node. */
 
-                if (validate_node(m, node, &dev) <= 0)
+                if (validate_node(node, &dev) < 0)
                         return; /* Don't create a device unit for this if the device node is borked. */
 
-                (void) device_setup_unit(m, dev, node, false);
+                (void) device_setup_unit(m, dev, node, false); /* 'dev' may be NULL. */
         }
 
         /* Update the device unit's state, should it exist */
@@ -1113,7 +1198,7 @@ const UnitVTable device_vtable = {
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown,
-        .supported = device_supported,
+        .supported = udev_available,
 
         .status_message_formats = {
                 .starting_stopping = {
