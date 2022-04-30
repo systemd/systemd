@@ -151,7 +151,7 @@ TEST(fd_is_ns) {
 
 TEST(dir_is_empty) {
         _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
-        _cleanup_free_ char *j = NULL, *jj = NULL;
+        _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
 
         assert_se(dir_is_empty_at(AT_FDCWD, "/proc") == 0);
         assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi") == -ENOENT);
@@ -169,10 +169,16 @@ TEST(dir_is_empty) {
         assert_se(jj);
         assert_se(touch(jj) >= 0);
 
+        jjj = path_join(empty_dir, ".qqq");
+        assert_se(jjj);
+        assert_se(touch(jjj) >= 0);
+
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
         assert_se(unlink(j) >= 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
         assert_se(unlink(jj) >= 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+        assert_se(unlink(jjj) >= 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
 }
 
