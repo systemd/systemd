@@ -68,6 +68,7 @@ rm /tmp/testfile2.service
 cat <<EOF >/tmp/testfile.service
 [Service]
 ExecStart = echo hello
+DeviceAllow=/dev/sda
 EOF
 
 # Prevent regression from #13380 and #20859 where we can't verify hidden files
@@ -93,6 +94,9 @@ set +e
 systemd-analyze security --threshold=90 --offline=true /tmp/testfile.service \
     && { echo 'unexpected success'; exit 1; }
 set -e
+
+# Ensure we print the list of ACLs, see https://github.com/systemd/systemd/issues/23185
+systemd-analyze security --offline=true /tmp/testfile.service | grep -q -F "/dev/sda"
 
 rm /tmp/testfile.service
 

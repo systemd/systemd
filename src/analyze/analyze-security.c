@@ -100,7 +100,7 @@ typedef struct SecurityInfo {
 
         bool delegate;
         char *device_policy;
-        bool device_allow_non_empty;
+        char **device_allow;
 
         Set *system_call_architectures;
 
@@ -168,6 +168,7 @@ static SecurityInfo *security_info_free(SecurityInfo *i) {
         free(i->notify_access);
 
         free(i->device_policy);
+        strv_free(i->device_allow);
 
         strv_free(i->supplementary_groups);
         set_free(i->system_call_architectures);
@@ -720,8 +721,14 @@ static int assess_device_allow(
 
         if (STRPTR_IN_SET(info->device_policy, "strict", "closed")) {
 
-                if (info->device_allow_non_empty) {
-                        d = strdup("Service has a device ACL with some special devices");
+                if (!strv_isempty(info->device_allow)) {
+                        _cleanup_free_ char *join = NULL;
+
+                        join = strv_join(info->device_allow, " ");
+                        if (!join)
+                                return log_oom();
+
+                        d = strjoin("Service has a device ACL with some special devices: ", join);
                         b = 5;
                 } else {
                         d = strdup("Service has a minimal device ACL");
@@ -2259,7 +2266,6 @@ static int property_read_device_allow(
                 void *userdata) {
 
         SecurityInfo *info = userdata;
-        size_t n = 0;
         int r;
 
         assert(bus);
@@ -2279,10 +2285,10 @@ static int property_read_device_allow(
                 if (r == 0)
                         break;
 
-                n++;
+                r = strv_extendf(&info->device_allow, "%s:%s", name, policy);
+                if (r < 0)
+                        return r;
         }
-
-        info->device_allow_non_empty = n > 0;
 
         return sd_bus_message_exit_container(m);
 }
@@ -2622,7 +2628,13 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 
                 info->ip_filters_custom_ingress = !strv_isempty(g->ip_filters_ingress);
                 info->ip_filters_custom_egress = !strv_isempty(g->ip_filters_egress);
-                info->device_allow_non_empty = !LIST_IS_EMPTY(g->device_allow);
+
+                LIST_FOREACH(device_allow, a, g->device_allow)
+                        if (strv_extendf(&info->device_allow,
+                                         "%s:%s%s%s",
+                                         a->path,
+                                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "") < 0)
+                                return log_oom();
         }
 
         *ret_info = TAKE_PTR(info);
