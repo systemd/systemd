@@ -123,11 +123,6 @@ ninja --version
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
-    # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
-    # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
-    # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
-    find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
-
     # mold < 1.1 does not support LTO.
     if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
         fatal "Newer mold version detected, please remove this workaround."
