@@ -1461,6 +1461,8 @@ Manager* manager_free(Manager *m) {
 
         manager_clear_jobs_and_units(m);
 
+        log_info("jobs and units are freed.");
+
         for (UnitType c = 0; c < _UNIT_TYPE_MAX; c++)
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
