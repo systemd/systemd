@@ -197,6 +197,24 @@ int path_make_relative(const char *from, const char *to, char **ret) {
         return 0;
 }
 
+int path_make_relative_parent(const char *from_child, const char *to, char **ret) {
+        _cleanup_free_ char *from = NULL;
+        int r;
+
+        assert(from_child);
+        assert(to);
+        assert(ret);
+
+        /* Similar to path_make_relative(), but provides the relative path from the parent directory of
+         * 'from_child'. This may be useful when creating relative symlink. */
+
+        r = path_extract_directory(from_child, &from);
+        if (r < 0)
+                return r;
+
+        return path_make_relative(from, to, ret);
+}
+
 char* path_startswith_strv(const char *p, char **set) {
         STRV_FOREACH(s, set) {
                 char *t;
