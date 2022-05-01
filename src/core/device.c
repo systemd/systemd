@@ -179,10 +179,7 @@ static void device_catchup(Unit *u) {
 
         assert(d);
 
-        /* Second, let's update the state with the enumerated state if it's different */
-        if (d->enumerated_found == d->found)
-                return;
-
+        /* Second, let's update the state with the enumerated state */
         device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
 }
 
