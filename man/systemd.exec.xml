@@ -846,6 +846,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         runtime, and are generally more expressive. For example, <varname>MemoryMax=</varname> is a more
         powerful (and working) replacement for <varname>LimitRSS=</varname>.</para>
 
+        <para>Note that <varname>LimitNPROC=</varname> will limit the number of processes from one (real) UID and
+        not the number of processes started (forked) by the service. Therefore the limit is cumulative for all
+        processes running under the same UID. Please also note that the <varname>LimitNPROC=</varname> will not be
+        enforced if the service is running as root (and not dropping privileges). Due to these limitations,
+        <varname>TasksMax=</varname> (see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle>
+        <manvolnum>5</manvolnum></citerefentry>) is typically a better choice than <varname>LimitNPROC=</varname>.
+        </para>
+
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
