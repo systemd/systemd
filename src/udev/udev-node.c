@@ -118,112 +118,138 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         return 0;
 }
 
-static int stack_directory_find_prioritized_devnode(sd_device *dev, const char *dirname, bool add, char **ret) {
+static int stack_directory_read_one(int dirfd, const char *id, int is_symlink, char **devnode, int *priority) {
+        int tmp_prio, r;
+
+        assert(dirfd >= 0);
+        assert(id);
+        assert(devnode);
+        assert(priority);
+
+        if (is_symlink < 0) {
+                struct stat st;
+
+                if (fstatat(dirfd, id, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+
+                if (S_ISLNK(st.st_mode))
+                        is_symlink = true;
+                else if (S_ISREG(st.st_mode))
+                        is_symlink = false;
+                else
+                        return -EINVAL;
+        }
+
+        if (is_symlink) {
+                _cleanup_free_ char *buf = NULL;
+                char *colon;
+
+                /* New format. The devnode and priority can be obtained from symlink. */
+
+                r = readlinkat_malloc(dirfd, id, &buf);
+                if (r < 0)
+                        return r;
+
+                colon = strchr(buf, ':');
+                if (!colon || colon == buf)
+                        return -EINVAL;
+
+                *colon = '\0';
+
+                r = safe_atoi(buf, &tmp_prio);
+                if (r < 0)
+                        return r;
+
+                if (*devnode && tmp_prio <= *priority)
+                        return 0; /* Unchanged */
+
+                r = free_and_strdup(devnode, colon + 1);
+                if (r < 0)
+                        return r;
+
+        } else {
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                const char *val;
+
+                /* Old format. The devnode and priority must be obtained from uevent and udev database. */
+
+                r = sd_device_new_from_device_id(&dev, id);
+                if (r < 0)
+                        return r;
+
+                r = device_get_devlink_priority(dev, &tmp_prio);
+                if (r < 0)
+                        return r;
+
+                if (*devnode && tmp_prio <= *priority)
+                        return 0; /* Unchanged */
+
+                r = sd_device_get_devname(dev, &val);
+                if (r < 0)
+                        return r;
+
+                r = free_and_strdup(devnode, val);
+                if (r < 0)
+                        return r;
+        }
+
+        *priority = tmp_prio;
+        return 1; /* Updated */
+}
+
+static int stack_directory_find_prioritized_devnode(const char *dirname, const char *slink, char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *current_dev = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ char *devnode = NULL;
+        const char *id = NULL;
+        bool changed = false;
         int r, priority = 0;
-        const char *id;
 
-        assert(dev);
         assert(dirname);
+        assert(slink);
         assert(ret);
 
-        /* Find device node of device with highest priority. This returns 1 if a device found, 0 if no
-         * device found, or a negative errno on error. */
-
-        if (add) {
-                const char *n;
-
-                r = device_get_devlink_priority(dev, &priority);
-                if (r < 0)
-                        return r;
-
-                r = sd_device_get_devname(dev, &n);
-                if (r < 0)
-                        return r;
-
-                devnode = strdup(n);
-                if (!devnode)
-                        return -ENOMEM;
-        }
+        /* Find device node of device with highest priority. This returns 1 if we need to update the symlink,
+         * 0 if the current symlink has the highest priority, or a negative errno on error. */
 
         dir = opendir(dirname);
         if (!dir)
                 return -errno;
 
-        r = device_get_device_id(dev, &id);
-        if (r < 0)
-                return r;
+        if (sd_device_new_from_devname(&current_dev, slink) >= 0 &&
+            device_get_device_id(current_dev, &id) >= 0) {
+                /* If the symlink already exists, first read the currently assigned devnode and its priority.
+                 * Then, if the current devnode has the highest priority, we can keep the current symlink. */
+                r = stack_directory_read_one(dirfd(dir), id, -1, &devnode, &priority);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read '%s/%s', ignoring: %m", dirname, id);
+        }
 
         FOREACH_DIRENT_ALL(de, dir, break) {
-                int tmp_prio;
-
                 if (de->d_name[0] == '.')
                         continue;
 
-                /* skip ourself */
-                if (streq(de->d_name, id))
+                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                if (de->d_type == DT_LNK) {
-                        _cleanup_free_ char *buf = NULL;
-                        char *colon;
-
-                        /* New format. The devnode and priority can be obtained from symlink. */
-
-                        r = readlinkat_malloc(dirfd(dir), de->d_name, &buf);
-                        if (r < 0) {
-                                log_device_debug_errno(dev, r, "Failed to read symlink %s, ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        colon = strchr(buf, ':');
-                        if (!colon || colon == buf)
-                                continue;
-
-                        *colon = '\0';
-
-                        if (safe_atoi(buf, &tmp_prio) < 0)
-                                continue;
-
-                        if (devnode && tmp_prio <= priority)
-                                continue;
-
-                        r = free_and_strdup(&devnode, colon + 1);
-                        if (r < 0)
-                                return r;
-
-                } else if (de->d_type == DT_REG) {
-                        _cleanup_(sd_device_unrefp) sd_device *tmp_dev = NULL;
-                        const char *val;
-
-                        /* Old format. The devnode and priority must be obtained from uevent and
-                         * udev database files. */
-
-                        if (sd_device_new_from_device_id(&tmp_dev, de->d_name) < 0)
-                                continue;
-
-                        if (device_get_devlink_priority(tmp_dev, &tmp_prio) < 0)
-                                continue;
-
-                        if (devnode && tmp_prio <= priority)
-                                continue;
-
-                        if (sd_device_get_devname(tmp_dev, &val) < 0)
-                                continue;
-
-                        r = free_and_strdup(&devnode, val);
-                        if (r < 0)
-                                return r;
-
-                } else
+                /* skip already read file */
+                if (id && streq(de->d_name, id))
                         continue;
 
-                priority = tmp_prio;
+                r = stack_directory_read_one(dirfd(dir), de->d_name, /* is_symlink = */ de->d_type == DT_LNK, &devnode, &priority);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read '%s/%s', ignoring: %m", dirname, de->d_name);
+                        continue;
+                }
+                if (r > 0)
+                        changed = true;
         }
 
+        if (!devnode)
+                changed = true; /* no devnode found, we need to remove the current symlink. */
+
         *ret = TAKE_PTR(devnode);
-        return !!*ret;
+        return changed;
 }
 
 static int stack_directory_update(sd_device *dev, int fd, bool add) {
@@ -407,11 +433,16 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update stack directory '%s': %m", dirname);
+        if (r == 0)
+                return 0; /* The contents of the stack directory is unchanged. */
 
-        r = stack_directory_find_prioritized_devnode(dev, dirname, add, &devnode);
+        r = stack_directory_find_prioritized_devnode(dirname, slink, &devnode);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
-        if (r > 0)
+        if (r == 0)
+                return 0; /* It is not necessary to update the symlink. */
+
+        if (devnode)
                 return node_symlink(dev, devnode, slink);
 
         log_device_debug(dev, "No reference left for '%s', removing", slink);
