@@ -1,6 +1,6 @@
-meson==0.62.0 \
-    --hash=sha256:00e06dccac7d3b0568b5da82e70c2028c80c359aab6dc517bcbd1825511898c3 \
-    --hash=sha256:06f8c1cfa51bfdb533c82623ffa524cacdbea02ace6d709145e33aabdad6adcb
+meson==0.62.1 \
+    --hash=sha256:a0f5caa1e70da12d5e63aa6a9504273759b891af36c8d87de381a4ed1380e845 \
+    --hash=sha256:e901c0d5d49bd42fb9b90a55900f7cbdf80b0bbc498a235b8293682cf6d71a7b
 ninja==1.10.2.3 \
     --hash=sha256:0560eea57199e41e86ac2c1af0108b63ae77c3ca4d05a9425a750e908135935a \
     --hash=sha256:21a1d84d4c7df5881bfd86c25cce4cf7af44ba2b8b255c57bc1c434ec30a2dfc \
