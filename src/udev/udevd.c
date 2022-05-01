@@ -65,6 +65,7 @@
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
+#include "udev-node.h"
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "user-util.h"
@@ -111,6 +112,7 @@ typedef struct Manager {
 
         usec_t last_usec;
 
+        bool udev_node_needs_cleanup;
         bool stop_exec_queue;
         bool exit;
 } Manager;
@@ -1197,6 +1199,9 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         (void) event_queue_assume_block_device_unlocked(manager, dev);
 
+        /* To make the stack directory /run/udev/links cleaned up later. */
+        manager->udev_node_needs_cleanup = true;
+
         /* we have fresh events, try to schedule them */
         event_queue_start(manager);
 
@@ -1638,6 +1643,11 @@ static int on_post(sd_event_source *s, void *userdata) {
         }
 
         /* There are no idle workers. */
+
+        if (manager->udev_node_needs_cleanup) {
+                (void) udev_node_cleanup();
+                manager->udev_node_needs_cleanup = false;
+        }
 
         if (manager->exit)
                 return sd_event_exit(manager->event, 0);
