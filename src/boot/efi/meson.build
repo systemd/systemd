@@ -412,11 +412,11 @@ endforeach
 
 foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-boot'],
                  ['linux@0@.@1@.stub', stub_objects, true, 'systemd-stub']]
-        elf = custom_target(
-                tuple[0].format(efi_arch[0], 'elf'),
-                input : tuple[1],
-                output : tuple[0].format(efi_arch[0], 'elf'),
-                command : [cc.cmd_array(),
+        elf_target = tuple[0].format(efi_arch[0], 'elf')
+        elf_kwargs = {
+                'input' : tuple[1],
+                'output' : tuple[0].format(efi_arch[0], 'elf'),
+                'command' : [cc.cmd_array(),
                            '-o', '@OUTPUT@',
                            efi_cflags,
                            efi_ldflags,
@@ -424,15 +424,20 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                            '-lefi',
                            '-lgnuefi',
                            '-lgcc'],
-                install : tuple[2],
-                install_tag: tuple[3],
-                install_dir : bootlibdir)
+                'install' : tuple[2],
+                'install_dir' : bootlibdir
+        }
+        if meson.version().version_compare('>=0.60.0')
+                elf = custom_target(elf_target, kwargs: elf_kwargs + { 'install_tag' : tuple[3] })
+        else
+                elf = custom_target(elf_target, kwargs: elf_kwargs)
+        endif
 
-        efi = custom_target(
-                tuple[0].format(efi_arch[0], 'efi'),
-                input : elf,
-                output : tuple[0].format(efi_arch[0], 'efi'),
-                command : [objcopy,
+        efi_target = tuple[0].format(efi_arch[0], 'efi')
+        efi_kwargs = {
+                'input' : elf,
+                'output' : tuple[0].format(efi_arch[0], 'efi'),
+                'command' : [objcopy,
                            '-j', '.bss*',
                            '-j', '.data',
                            '-j', '.dynamic',
@@ -446,9 +451,14 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                            '--section-alignment=512',
                            efi_format,
                            '@INPUT@', '@OUTPUT@'],
-                install : true,
-                install_tag: tuple[3],
-                install_dir : bootlibdir)
+                'install' : true,
+                'install_dir' : bootlibdir
+        }
+        if meson.version().version_compare('>=0.60.0')
+                efi = custom_target(efi_target, kwargs: efi_kwargs + { 'install_tag' : tuple[3] })
+        else
+                efi = custom_target(efi_target, kwargs: efi_kwargs)
+        endif
 
         alias_target(tuple[3], efi)
 endforeach
