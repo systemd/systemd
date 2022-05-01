@@ -1520,6 +1520,12 @@ static int become_shutdown(
         if (detect_container() <= 0)
                 (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
+        {
+                _cleanup_free_ char *joined = NULL;
+
+                joined = strv_join((char **) command_line, NULL);
+                log_info("execve(%s)", joined);
+        }
         execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
         return -errno;
 }
@@ -1992,7 +1998,7 @@ static int invoke_main_loop(
                                 [MANAGER_KEXEC]    = "kexec",
                         };
 
-                        log_notice("Shutting down.");
+                        log_notice("Shutting down (%s).", table[m->objective]);
 
                         *ret_retval = m->return_value;
                         assert_se(*ret_shutdown_verb = table[m->objective]);
