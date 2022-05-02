@@ -3352,6 +3352,15 @@ executable(
         install : (conf.get('HAVE_SYSV_COMPAT') == 1),
         install_dir : rootlibexecdir)
 
+executable(
+        'systemd-iocost',
+        'src/iocost/iocost.c',
+        include_directories : includes,
+        link_with : [libshared],
+        install_rpath : rootlibexecdir,
+        install : true,
+        install_dir : rootlibexecdir)
+
 public_programs += executable(
         'systemd-mount',
         'src/mount/mount-tool.c',
