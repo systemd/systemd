@@ -83,6 +83,8 @@ foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
                      args : [cc.cmd_array(),
                              '-c',
                              '-x', opt,
+                             '-Wall',
+                             '-Wextra',
                              '-Werror',
                              '-include', meson.current_source_dir() / header,
                              '-o/dev/null',
