@@ -51,6 +51,7 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "ima-setup.h"
+#include "import-creds.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -2179,6 +2180,10 @@ static int initialize_runtime(
         /* Bump up RLIMIT_NOFILE for systemd itself */
         (void) bump_rlimit_nofile(saved_rlimit_nofile);
         (void) bump_rlimit_memlock(saved_rlimit_memlock);
+
+        /* Pull credentials from various sources into a common credential directory */
+        if (arg_system && !skip_setup)
+                (void) import_credentials();
 
         return 0;
 }

@@ -166,11 +166,6 @@ Features:
   don't query this unnecessarily in entirely uninitialized
   containers. (i.e. containers with empty /etc).
 
-* systemd creds hookup with qemu fw_cfg. (Quite possibly might not need any
-  code at all, given the fw_cfg stuff are just files, but we should then
-  document how to use it). Goal: provide symmetric ways to pass creds to nspawn
-  containers and qemu VMs. (maybe also pick up env vars from fw_cfg?)
-
 * beef up sd_notify() to support AV_VSOCK in $NOTIFY_SOCKET, so that VM
   managers can get ready notifications from VMs, just like container managers
   from their payload. Also pick up address from qemu/fw_cfg if set there.
@@ -534,14 +529,7 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
-* make LoadCredential= automatically find credentials in /etc/creds,
-  /run/creds, … and so on, if path component is unqualified
-
-* teach LoadCredential=/LoadCredentialEncrypted= to load credentials from
-  kernel cmdline, maybe: LoadCredentialEncrypted=foobar:proc-cmdline:foobar
-
 * credentials system:
-  - acquire from kernel command line
   - acquire from EFI variable?
   - acquire via via ask-password?
   - acquire creds via keyring?
