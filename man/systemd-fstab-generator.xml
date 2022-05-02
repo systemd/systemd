@@ -172,6 +172,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>roothash=</varname></term>
+        <term><varname>usrhash=</varname></term>
+
+        <listitem><para>These options are primarily read by
+        <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>. When
+        set this indicates that the root file system (or <filename>/usr/</filename>) shall be mounted from
+        Verity volumes with the specified hashes. If these kernel command line options are set the root (or
+        <filename>/usr/</filename>) file system is thus mounted from a device mapper volume
+        <filename>/dev/mapper/root</filename> (or <filename>/dev/mapper/usr</filename>).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.volatile=</varname></term>
 
         <listitem><para>Controls whether the system shall boot up in volatile mode. Takes a boolean argument or the
