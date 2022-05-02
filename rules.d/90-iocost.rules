@@ -1,0 +1,20 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+SUBSYSTEM!="block", GOTO="iocost_end"
+
+ACTION=="remove", GOTO="iocost_end"
+
+IMPORT{builtin}="hwdb 'block::name:$env{ID_MODEL}:fwrev:$env{ID_REVISION}:'"
+
+ENV{IOCOST_SOLUTIONS}=="", IMPORT{builtin}="hwdb 'block::name:$env{ID_MODEL}:fwrev::'"
+
+ENV{IOCOST_SOLUTIONS}!="", RUN+="iocost apply $env{DEVNAME}"
+
+LABEL="iocost_end"
