@@ -34,7 +34,7 @@ purpose. Specifically, the following features are provided:
    environment variables the credential data is not propagated down the process
    tree. Instead each time a credential is accessed an access check is enforced
    by the kernel. If the service is using file system namespacing the loaded
-   credential data is invisble to any other services.
+   credential data is invisible to any other services.
 
 4. Service credentials may be acquired from files on disk, specified as literal
    strings in unit files, acquired from another service dynamically via an
