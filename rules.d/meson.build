@@ -59,6 +59,7 @@ rules_in = [
         ['71-seat.rules',      enable_logind],
         ['73-seat-late.rules', enable_logind],
 
+        ['90-iocost.rules'],
         ['90-vconsole.rules',  conf.get('ENABLE_VCONSOLE') == 1],
 ]
 
