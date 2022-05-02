@@ -502,11 +502,11 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
         case TIMEOUT_UNSET:
             break;
         case TIMEOUT_MENU_FORCE:
-            Print(L"               timeout: menu-force\n"); break;
+            Print(L"      timeout (config): menu-force\n"); break;
         case TIMEOUT_MENU_HIDDEN:
-            Print(L"               timeout: menu-hidden\n"); break;
+            Print(L"      timeout (config): menu-hidden\n"); break;
         default:
-            Print(L"               timeout: %u s\n", config->timeout_sec_config);
+            Print(L"      timeout (config): %u s\n", config->timeout_sec_config);
         }
 
         switch (config->timeout_sec_efivar) {
@@ -520,7 +520,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
             Print(L"     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
         }
 
-        ps_string(L"               default: %s\n", config->entry_default_config);
+        ps_string(L"      default (config): %s\n", config->entry_default_config);
         ps_string(L"     default (EFI var): %s\n", config->entry_default_efivar);
         ps_string(L"    default (one-shot): %s\n", config->entry_oneshot);
         ps_string(L"           saved entry: %s\n", config->entry_saved);
@@ -533,13 +533,13 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
-            Print(L"          console-mode: %s\n", L"auto"); break;
+            Print(L" console-mode (config): %s\n", L"auto"); break;
         case CONSOLE_MODE_KEEP:
-            Print(L"          console-mode: %s\n", L"keep"); break;
+            Print(L" console-mode (config): %s\n", L"keep"); break;
         case CONSOLE_MODE_FIRMWARE_MAX:
-            Print(L"          console-mode: %s\n", L"max"); break;
+            Print(L" console-mode (config): %s\n", L"max"); break;
         default:
-            Print(L"          console-mode: %ld\n", config->console_mode); break;
+            Print(L" console-mode (config): %ld\n", config->console_mode); break;
         }
 
         /* EFI var console mode is always a concrete value or unset. */
