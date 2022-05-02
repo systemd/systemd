@@ -28,6 +28,7 @@ rules = [
                '78-sound-card.rules',
                '80-net-setup-link.rules',
                '81-net-dhcp.rules',
+               '90-iocost.rules',
               )],
 
         [files('80-drivers.rules'),
