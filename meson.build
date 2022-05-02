@@ -289,7 +289,6 @@ conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format
 
 cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
-check_compilation_sh = find_program('tools/check-compilation.sh')
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
@@ -3879,6 +3878,7 @@ foreach tuple : fuzzers
                         if b == name
                                 test('@0@_@1@'.format(b, c),
                                      exe,
+                                     suite : 'fuzzers',
                                      args : [project_source_root / p])
                         endif
                 endforeach
@@ -4013,6 +4013,7 @@ foreach tuple : sanitizers
                         if fuzz_tests
                                 test('@0@_@1@_@2@'.format(b, c, sanitizer),
                                      env,
+                                     suite : 'sanitizers',
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
                                      args : [exe.full_path(),
