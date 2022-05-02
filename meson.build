@@ -3878,6 +3878,7 @@ foreach tuple : fuzzers
                         if b == name
                                 test('@0@_@1@'.format(b, c),
                                      exe,
+                                     suite : 'fuzzers',
                                      args : [project_source_root / p])
                         endif
                 endforeach
@@ -4012,6 +4013,7 @@ foreach tuple : sanitizers
                         if fuzz_tests
                                 test('@0@_@1@_@2@'.format(b, c, sanitizer),
                                      env,
+                                     suite : 'sanitizers',
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
                                      args : [exe.full_path(),
