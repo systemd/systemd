@@ -450,7 +450,7 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# HP Pavillion X2 10-n000nd
+# HP Pavilion X2 10-n000nd
 sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2Detachable:*:rn815D:*
 # HP Pavilion X2 10-k010nr
 sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2DetachablePC10:*

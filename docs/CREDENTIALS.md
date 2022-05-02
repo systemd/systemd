@@ -146,7 +146,7 @@ data it needs from there. For daemons that do not support this but allow
 passing credentials via a path supplied over the command line use
 `${CREDENTIAL_PATH}` in the `ExecStart=` command line to reference the
 credentials directory. For daemons that allow passing credentials via a path
-supplied as environment variabe, use the `%d` specifier in the `Environment=`
+supplied as environment variable, use the `%d` specifier in the `Environment=`
 setting to build valid paths to specific credentials.
 
 ## Tools
@@ -270,7 +270,7 @@ services where they are ultimately consumed.
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
    UEFI kernel stub is used. This allows placing encrypted credentials in the
    EFI System Partition, which are then picked up by `systemd-stub` and passed
-   to the kernel and ultimately userpace where systemd receives them. This is
+   to the kernel and ultimately userspace where systemd receives them. This is
    useful to implement secure parameterization of vendor-built and signed
    initial RAM disks, as userspace can place credentials next to these EFI
    kernels, and be sure they can be accessed securely from initrd context.
