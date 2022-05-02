@@ -842,7 +842,7 @@ int journal_file_verify(
 #else
                 return -EOPNOTSUPP;
 #endif
-        } else if (f->seal)
+        } else if (JOURNAL_HEADER_SEALED(f->header))
                 return -ENOKEY;
 
         r = var_tmp_dir(&tmp_dir);
@@ -1130,7 +1130,7 @@ int journal_file_verify(
                         }
 
 #if HAVE_GCRYPT
-                        if (f->seal) {
+                        if (JOURNAL_HEADER_SEALED(f->header)) {
                                 uint64_t q, rt;
 
                                 debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
