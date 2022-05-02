@@ -289,7 +289,6 @@ conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format
 
 cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
-check_compilation_sh = find_program('tools/check-compilation.sh')
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
