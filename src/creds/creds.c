@@ -61,9 +61,9 @@ static const char* transcode_mode_table[_TRANSCODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(transcode_mode, TranscodeMode);
 
 static int open_credential_directory(
+                bool encrypted,
                 DIR **ret_dir,
-                const char **ret_prefix,
-                bool encrypted) {
+                const char **ret_prefix) {
 
         const char *p;
         DIR *d;
@@ -120,7 +120,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
 
         assert(t);
 
-        r = open_credential_directory(&d, &prefix, encrypted);
+        r = open_credential_directory(encrypted, &d, &prefix);
         if (r < 0)
                 return r;
         if (!d)
@@ -377,10 +377,10 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 }
 
                 /* Look both in regular and in encrypted credentials */
-                for (encrypted = 0; encrypted < 2; encrypted ++) {
+                for (encrypted = 0; encrypted < 2; encrypted++) {
                         _cleanup_(closedirp) DIR *d = NULL;
 
-                        r = open_credential_directory(&d, NULL, encrypted);
+                        r = open_credential_directory(encrypted, &d, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open credentials directory: %m");
                         if (!d) /* Not set */
