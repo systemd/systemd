@@ -79,6 +79,21 @@ Janitorial Clean-ups:
 
 Features:
 
+* add a proper concept of a "developer" mode, i.e. where cryptographic
+  protections of the root OS are weakened after interactive confirmation, to
+  allow hackers to allow their own stuff. idea: allow entering developer mode
+  only via explicit choice in boot menu: i.e. add explicit boot menu item for
+  it. when developer mode is entered generate a key pair in the TPM2, and add
+  the public part of it automatically to keychain of valid code signature keys
+  on subsequent boots. Then provide a tool to sign code with the key in the
+  TPM2. Ensure that boot menu item is only way to enter developer mode, by
+  binding it to locality/PCRs so that that keys cannot be generated otherwise.
+
+* services: add support for cryptographically unlocking per-service directories
+  via TPM2. Specifically, for StateDirectory= (and related dirs) use fscrypt to
+  set up the directory so that it can only be accessed if host and app are in
+  order.
+
 * TPM2: add auth policy for signed PCR values to make updates easy. i.e. do
   what tpm2_policyauthorize tool does.  To be truly useful scheme needs to be a
   bit more elaborate though: policy probably must take some nvram based
