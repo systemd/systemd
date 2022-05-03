@@ -413,25 +413,25 @@ static sd_network_monitor* FD_TO_MONITOR(int fd) {
 }
 
 static int monitor_add_inotify_watch(int fd) {
-        int k;
+        int wd;
 
-        k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
-        if (k >= 0)
-                return 0;
+        wd = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
+        if (wd >= 0)
+                return wd;
         else if (errno != ENOENT)
                 return -errno;
 
-        k = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE|IN_ISDIR);
-        if (k >= 0)
-                return 0;
+        wd = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE|IN_ISDIR);
+        if (wd >= 0)
+                return wd;
         else if (errno != ENOENT)
                 return -errno;
 
-        k = inotify_add_watch(fd, "/run/systemd/", IN_CREATE|IN_ISDIR);
-        if (k < 0)
+        wd = inotify_add_watch(fd, "/run/systemd/", IN_CREATE|IN_ISDIR);
+        if (wd < 0)
                 return -errno;
 
-        return 0;
+        return wd;
 }
 
 int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
@@ -470,7 +470,7 @@ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
 int sd_network_monitor_flush(sd_network_monitor *m) {
         union inotify_event_buffer buffer;
         ssize_t l;
-        int fd, k;
+        int fd;
 
         assert_return(m, -EINVAL);
 
@@ -486,13 +486,16 @@ int sd_network_monitor_flush(sd_network_monitor *m) {
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
                 if (e->mask & IN_ISDIR) {
-                        k = monitor_add_inotify_watch(fd);
-                        if (k < 0)
-                                return k;
+                        int wd;
 
-                        k = inotify_rm_watch(fd, e->wd);
-                        if (k < 0)
-                                return -errno;
+                        wd = monitor_add_inotify_watch(fd);
+                        if (wd < 0)
+                                return wd;
+
+                        if (wd != e->wd) {
+                                if (inotify_rm_watch(fd, e->wd) < 0)
+                                        return -errno;
+                        }
                 }
         }
 
