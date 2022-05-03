@@ -2358,6 +2358,19 @@ static int generic_array_bisect(
                 uint64_t *ret_offset,
                 uint64_t *ret_idx) {
 
+        /* Given an entry array chain, this function finds the object "closest" to the given needle in the
+         * chain, taking into account the provided direction. A function can be provided to determine how
+         * an object is matched against the given needle.
+         *
+         * Given a journal file, the offset of an object and the needle, the test_object() function should
+         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_RIGHT if the
+         * needle is located later in the entry array chain and TEST_FOUND if the object matches the needle.
+         * If test_object() returns TEST_FOUND for a specific object, that object's information will be used
+         * to populate the return values of this function. If test_object() never returns TEST_FOUND, the
+         * return values are populated with the details of one of the objects closest to the needle. If the
+         * direction is DIRECTION_UP, the earlier object is used. Otherwise, the later object is used.
+         */
+
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
         Object *array = NULL;
