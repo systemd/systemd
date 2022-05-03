@@ -23,6 +23,7 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "networkd-wwan.h"
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
@@ -1555,6 +1556,9 @@ int dhcp4_start(Link *link) {
         assert(link);
 
         if (!link->dhcp_client)
+                return 0;
+
+        if (link_dhcp_enabled_by_bearer(link, AF_INET) == 0)
                 return 0;
 
         if (!link_has_carrier(link))

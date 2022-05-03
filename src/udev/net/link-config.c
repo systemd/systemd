@@ -445,7 +445,8 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
                                 /* alternative_names = */ NULL,
                                 /* wlan_iftype = */ 0,
                                 /* ssid = */ NULL,
-                                /* bssid = */ NULL);
+                                /* bssid = */ NULL,
+                                /* apn = */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)

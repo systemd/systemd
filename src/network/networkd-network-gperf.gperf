@@ -58,6 +58,7 @@ Match.SSID,                                  config_parse_match_strv,           
 Match.BSSID,                                 config_parse_ether_addrs,                                 0,                             offsetof(Network, match.bssid)
 Match.Name,                                  config_parse_match_ifnames,                               IFNAME_VALID_ALTERNATIVE,      offsetof(Network, match.ifname)
 Match.Property,                              config_parse_match_property,                              0,                             offsetof(Network, match.property)
+Match.APN,                                   config_parse_match_strv,                                  0,                             offsetof(Network, match.apn)
 Match.Host,                                  config_parse_net_condition,                               CONDITION_HOST,                offsetof(Network, conditions)
 Match.Virtualization,                        config_parse_net_condition,                               CONDITION_VIRTUALIZATION,      offsetof(Network, conditions)
 Match.KernelCommandLine,                     config_parse_net_condition,                               CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, conditions)

@@ -131,6 +131,15 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>APN=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of shell-style globs matching the Access Point Name (APN)
+          of the current WWAN connection. If the list is prefixed with a "!", the test is inverted.
+          </para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="systemd.link.xml" xpointer="host" />
       <xi:include href="systemd.link.xml" xpointer="virtualization" />
       <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
