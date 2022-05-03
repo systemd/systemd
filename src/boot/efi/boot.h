@@ -13,6 +13,15 @@
 
 #define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
+enum loader_type {
+        LOADER_UNDEFINED,
+        LOADER_AUTO,
+        LOADER_EFI,
+        LOADER_LINUX,         /* Boot loader spec type #1 entries */
+        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_SECURE_BOOT_KEYS,
+};
+
 /* These values have been chosen so that the transitions the user sees could
  * employ unsigned over-/underflow like this:
  * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
@@ -30,6 +39,19 @@ enum {
         IDX_INVALID,
 };
 
+typedef enum {
+        ENROLLMENT_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */
+        ENROLLMENT_MANUAL,      /* Secure Boot key enrollment is strictly manual: manual entries are generated and need to be selected by the user */
+        ENROLLMENT_FORCE,       /* Secure Boot key enrollment may be automatic if it is available but might not be safe */
+        _ENROLLMENT_MAX,
+} secure_boot_enrollment;
+
+static const CHAR16 * const secure_boot_enrollment_table[_ENROLLMENT_MAX] = {
+        [ENROLLMENT_OFF]    = L"off",
+        [ENROLLMENT_MANUAL] = L"manual",
+        [ENROLLMENT_FORCE]  = L"force",
+};
+
 typedef struct Config Config;
 
 typedef struct ConfigEntry {
@@ -45,7 +67,7 @@ typedef struct ConfigEntry {
         CHAR16 *devicetree;
         CHAR16 *options;
         CHAR16 key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(EFI_FILE *root_dir, struct ConfigEntry*);
         UINTN tries_done;
         UINTN tries_left;
         CHAR16 *path;
@@ -70,6 +92,7 @@ typedef struct Config {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN reboot_for_bitlocker;
+        secure_boot_enrollment secure_boot_enrollment;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
@@ -78,3 +101,5 @@ typedef struct Config {
         INT64 console_mode_efivar;
         RandomSeedMode random_seed_mode;
 } Config;
+
+#include "secure-boot.h"
