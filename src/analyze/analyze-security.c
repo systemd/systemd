@@ -1250,6 +1250,17 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_PACCT),
         },
         {
+                .id = "CapabilityBoundingSet=~CAP_BPF",
+                .json_field = "CapabilityBoundingSet_CAP_BPF",
+                .description_good = "Service may load BPF programs",
+                .description_bad = "Service may not load BPF programs",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
+                .weight = 25,
+                .range = 1,
+                .assess = assess_capability_bounding_set,
+                .parameter = (UINT64_C(1) << CAP_BPF),
+        },
+        {
                 .id = "UMask=",
                 .json_field = "UMask",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#UMask=",
