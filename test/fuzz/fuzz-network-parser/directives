@@ -131,6 +131,7 @@ MUDURL=
 RouteMTUBytes=
 FallbackLeaseLifetimeSec=
 Use6RD=
+NetLabel=
 [DHCPv6]
 UseAddress=
 UseDelegatedPrefix=
@@ -152,6 +153,7 @@ RouteMetric=
 IAID=
 DUIDType=
 DUIDRawData=
+NetLabel=
 [DHCPv6PrefixDelegation]
 SubnetId=
 Announce=
@@ -159,6 +161,7 @@ Assign=
 ManageTemporaryAddress=
 Token=
 RouteMetric=
+NetLabel=
 [DHCPPrefixDelegation]
 UplinkInterface=
 SubnetId=
@@ -167,6 +170,7 @@ Assign=
 ManageTemporaryAddress=
 Token=
 RouteMetric=
+NetLabel=
 [Route]
 Destination=
 Protocol=
@@ -343,6 +347,7 @@ EmitDomains=
 Managed=
 OtherInformation=
 UplinkInterface=
+NetLabel=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=

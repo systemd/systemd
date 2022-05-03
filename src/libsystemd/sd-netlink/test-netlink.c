@@ -657,6 +657,8 @@ static void test_genl(void) {
         (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, 0, &m);
         m = sd_netlink_message_unref(m);
         (void) sd_genl_message_new(genl, NL80211_GENL_NAME, 0, &m);
+        m = sd_netlink_message_unref(m);
+        (void) sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, 0, &m);
 
         for (;;) {
                 r = sd_event_run(event, 500 * USEC_PER_MSEC);
