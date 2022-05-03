@@ -772,7 +772,7 @@ create_valgrind_wrapper() {
 #!/usr/bin/env bash
 
 mount -t proc proc /proc
-exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
+exec valgrind --leak-check=full --track-fds=yes --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 "$valgrind_wrapper"
 }
