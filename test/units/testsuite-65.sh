@@ -563,6 +563,12 @@ cat <<EOF >/tmp/testfile.json
     "weight": 25,
     "range": 1
     },
+"CapabilityBoundingSet_CAP_BPF":
+    {"description_good": "Service may load BPF programs",
+    "description_bad": "Service may not load BPF programs",
+    "weight": 25,
+    "range": 1
+    },
 "UMask":
     {"weight": 100,
     "range": 10

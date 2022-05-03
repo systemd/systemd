@@ -1234,6 +1234,9 @@ NR NAME                SHA256
                 <entry>CapabilityBoundingSet_CAP_SYS_TTY_CONFIG</entry>
               </row>
               <row>
+                <entry>CapabilityBoundingSet_CAP_BPF</entry>
+              </row>
+              <row>
                 <entry>UMask</entry>
               </row>
               <row>
