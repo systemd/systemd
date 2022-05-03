@@ -595,6 +595,57 @@ struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned cha
         return addr;
 }
 
+struct in6_addr* in6_addr_prefixlen_to_netmask(struct in6_addr *addr, unsigned char prefixlen) {
+        assert(addr);
+        assert(prefixlen <= 128);
+
+        for (unsigned int i = 0; i < 16; i++) {
+                uint8_t mask;
+
+                if (prefixlen >= 8) {
+                        mask = 0xFF;
+                        prefixlen -= 8;
+                } else if (prefixlen > 0) {
+                        mask = 0xFF << (8 - prefixlen);
+                        prefixlen = 0;
+                } else {
+                        assert(prefixlen == 0);
+                        mask = 0;
+                }
+
+                addr->s6_addr[i] = mask;
+        }
+
+        return addr;
+}
+
+int in_addr_prefixlen_to_netmask(int family, union in_addr_union *addr, unsigned char prefixlen) {
+        assert(addr);
+
+        switch (family) {
+        case AF_INET: {
+                struct in_addr *ret_addr;
+
+                ret_addr = in4_addr_prefixlen_to_netmask(&addr->in, prefixlen);
+                if (ret_addr)
+                        return 0;
+                return
+                        -EINVAL;
+        }
+        case AF_INET6: {
+                struct in6_addr *ret_addr;
+
+                ret_addr = in6_addr_prefixlen_to_netmask(&addr->in6, prefixlen);
+                if (ret_addr)
+                        return 0;
+                return
+                        -EINVAL;
+        }
+        default:
+                return -EAFNOSUPPORT;
+        }
+}
+
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
         uint8_t msb_octet = *(uint8_t*) addr;
 

@@ -117,6 +117,8 @@ sources = files(
         'networkd-neighbor.h',
         'networkd-radv.c',
         'networkd-radv.h',
+        'networkd-netlabel.c',
+        'networkd-netlabel.h',
         'networkd-network-bus.c',
         'networkd-network-bus.h',
         'networkd-network.c',
