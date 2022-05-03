@@ -221,15 +221,26 @@ static const NLType genl_wireguard_types[] = {
         [WGDEVICE_A_PEERS]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_peer_type_system },
 };
 
+/***************** genl NetLabel type systems *****************/
+static const NLType genl_netlabel_types[] = {
+        [NLBL_UNLABEL_A_IPV4ADDR] = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [NLBL_UNLABEL_A_IPV4MASK] = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [NLBL_UNLABEL_A_IPV6ADDR] = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
+        [NLBL_UNLABEL_A_IPV6MASK] = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
+        [NLBL_UNLABEL_A_IFACE]    = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ-1 },
+        [NLBL_UNLABEL_A_SECCTX]   = { .type = NETLINK_TYPE_STRING },
+};
+
 /***************** genl families *****************/
 static const NLTypeSystemUnionElement genl_type_systems[] = {
-        { .name = CTRL_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_ctrl),      },
-        { .name = BATADV_NL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_batadv),    },
-        { .name = FOU_GENL_NAME,     .type_system = TYPE_SYSTEM_FROM_TYPE(genl_fou),       },
-        { .name = L2TP_GENL_NAME,    .type_system = TYPE_SYSTEM_FROM_TYPE(genl_l2tp),      },
-        { .name = MACSEC_GENL_NAME,  .type_system = TYPE_SYSTEM_FROM_TYPE(genl_macsec),    },
-        { .name = NL80211_GENL_NAME, .type_system = TYPE_SYSTEM_FROM_TYPE(genl_nl80211),   },
-        { .name = WG_GENL_NAME,      .type_system = TYPE_SYSTEM_FROM_TYPE(genl_wireguard), },
+        { .name = CTRL_GENL_NAME,               .type_system = TYPE_SYSTEM_FROM_TYPE(genl_ctrl),      },
+        { .name = BATADV_NL_NAME,               .type_system = TYPE_SYSTEM_FROM_TYPE(genl_batadv),    },
+        { .name = FOU_GENL_NAME,                .type_system = TYPE_SYSTEM_FROM_TYPE(genl_fou),       },
+        { .name = L2TP_GENL_NAME,               .type_system = TYPE_SYSTEM_FROM_TYPE(genl_l2tp),      },
+        { .name = MACSEC_GENL_NAME,             .type_system = TYPE_SYSTEM_FROM_TYPE(genl_macsec),    },
+        { .name = NL80211_GENL_NAME,            .type_system = TYPE_SYSTEM_FROM_TYPE(genl_nl80211),   },
+        { .name = WG_GENL_NAME,                 .type_system = TYPE_SYSTEM_FROM_TYPE(genl_wireguard), },
+        { .name = NETLBL_NLTYPE_UNLABELED_NAME, .type_system = TYPE_SYSTEM_FROM_TYPE(genl_netlabel),  },
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
