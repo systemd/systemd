@@ -353,6 +353,9 @@ struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* NetLabel */
+        Set *ipv4_netlabel_unlbl_labels, *ipv6_netlabel_unlbl_labels;
 };
 
 Network *network_ref(Network *network);
@@ -378,6 +381,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv4_netlabel);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_netlabel);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_family_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);

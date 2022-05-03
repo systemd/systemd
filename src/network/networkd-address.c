@@ -448,6 +448,128 @@ static int address_set_masquerade(Address *address, bool add) {
         return 0;
 }
 
+static int netlabel_op(bool add, const char *label, const Address *address) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_free_ char *addr_str = NULL;
+        int r;
+
+        assert(address);
+        assert(address->link);
+        assert(address->link->network);
+
+        r = sd_genl_socket_open(&genl);
+        if (r < 0)
+                return r;
+
+        uint16_t command;
+        if (add)
+                command = NLBL_UNLABEL_C_STATICADD;
+        else
+                command = NLBL_UNLABEL_C_STATICREMOVE;
+
+        r = sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, command, &m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(m, NLBL_UNLABEL_A_IFACE, address->link->ifname);
+        if (r < 0)
+                return r;
+
+        if (add) {
+                r = sd_netlink_message_append_string(m, NLBL_UNLABEL_A_SECCTX, label);
+                if (r < 0)
+                        return r;
+        }
+
+        union in_addr_union mask;
+
+        memset(&mask, 0xff, sizeof(mask));
+        r = in_addr_mask(address->family, &mask, address->prefixlen);
+        if (r < 0)
+                return r;
+
+        if (address->family == AF_INET) {
+                r = sd_netlink_message_append_in_addr(m, NLBL_UNLABEL_A_IPV4ADDR, &address->in_addr.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_in_addr(m, NLBL_UNLABEL_A_IPV4MASK, &mask.in);
+        } else if (address->family == AF_INET6) {
+                r = sd_netlink_message_append_in6_addr(m, NLBL_UNLABEL_A_IPV6ADDR, &address->in_addr.in6);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_in6_addr(m, NLBL_UNLABEL_A_IPV6MASK, &mask.in6);
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_send(genl, m, NULL);
+        return r < 0 ? r : 0;
+}
+
+static void address_add_netlabel(const Address *address) {
+        const Set *labels;
+        int r;
+        _cleanup_free_ char *addr_str = NULL;
+
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network)
+                return;
+
+        if (address->family == AF_INET)
+                labels = address->link->network->ipv4_netlabel_unlbl_labels;
+        else if (address->family == AF_INET6)
+                labels = address->link->network->ipv4_netlabel_unlbl_labels;
+        else
+                return;
+
+        int r2;
+
+        r2 = in_addr_to_string(address->family, &address->in_addr, &addr_str);
+
+        const char *label;
+        SET_FOREACH(label, labels) {
+                r = netlabel_op(true, label, address);
+                if (r < 0) {
+                        log_warning_errno(r, "Adding NetLabel %s for IP address %s/%d failed, ignoring: %m",
+                                          label,
+                                          r2 == 0? addr_str: "(error while translating to string)",
+                                          address->prefixlen);
+                }
+        }
+
+        log_debug("Added NetLabel %s for interface %s IP address %s/%d",
+                  label, address->link->ifname,
+                  r2 == 0? addr_str: "(error while translating to string)", address->prefixlen);
+}
+
+static void address_del_netlabel(const Address *address) {
+        int r;
+        _cleanup_free_ char *addr_str = NULL;
+
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network)
+                return;
+
+        int r2;
+        r2 = in_addr_to_string(address->family, &address->in_addr, &addr_str);
+
+        r = netlabel_op(false, NULL, address);
+        if (r < 0)
+                log_warning_errno(r, "Deleting NetLabel for IP address %s/%d failed, ignoring: %m",
+                                  r2 == 0? addr_str: "(error while translating to string)",
+                                  address->prefixlen);
+        log_debug("Deleted NetLabels for interface %s IP address %s/%d",
+                  address->link->ifname,
+                  r2 == 0? addr_str: "(error while translating to string)", address->prefixlen);
+}
+
 static int address_add(Link *link, Address *address) {
         int r;
 
@@ -492,6 +614,8 @@ static int address_update(Address *address) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
+        address_add_netlabel(address);
+
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
                 if (r < 0)
@@ -517,6 +641,8 @@ static int address_drop(Address *address) {
         r = address_set_masquerade(address, false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
+
+        address_del_netlabel(address);
 
         if (address->state == 0)
                 address_free(address);
