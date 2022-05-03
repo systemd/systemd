@@ -688,6 +688,8 @@ static Network *network_free(Network *network) {
         free(network->dhcp6_mudurl);
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);
+        set_free(network->dhcp_netlabels);
+        set_free(network->dhcp6_netlabels);
 
         strv_free(network->ntp);
         for (unsigned i = 0; i < network->n_dns; i++)
@@ -754,6 +756,8 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
         set_free(network->dhcp_pd_tokens);
         set_free(network->ndisc_tokens);
+        set_free(network->dhcp_pd_netlabels);
+        set_free(network->ndisc_netlabels);
 
         return mfree(network);
 }
