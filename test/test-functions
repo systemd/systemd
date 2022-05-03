@@ -752,17 +752,17 @@ install_valgrind() {
 
     local valgrind_bins valgrind_libs valgrind_dbg_and_supp
 
-    valgrind_bins="$(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')"
-    image_install "$valgrind_bins"
+    readarray -t valgrind_bins < <(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')
+    image_install "${valgrind_bins[@]}"
 
-    valgrind_libs="$(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')"
-    image_install "$valgrind_libs"
+    readarray -t valgrind_libs < <(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')
+    image_install "${valgrind_libs[@]}"
 
-    valgrind_dbg_and_supp="$(
+    readarray -t valgrind_dbg_and_supp < <(
         strace -e open valgrind /bin/true 2>&1 >/dev/null |
         perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
-    )"
-    image_install "$valgrind_dbg_and_supp"
+    )
+    image_install "${valgrind_dbg_and_supp[@]}"
 }
 
 create_valgrind_wrapper() {
