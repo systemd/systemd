@@ -699,6 +699,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteBookFolioG1:*
  KEYBOARD_KEY_64=calendar
  KEYBOARD_KEY_81=f20
 
+# HP EliteBook 845 G7
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook845G7*:pvr*
+ KEYBOARD_KEY_68=unknown                                # Fn+F12 HP Programmable Key
+
 # HP ProBook 650
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*650*:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
