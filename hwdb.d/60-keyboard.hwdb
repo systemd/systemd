@@ -701,7 +701,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteBookFolioG1:*
 
 # HP EliteBook 845 G7
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook845G7*:pvr*
- KEYBOARD_KEY_68=unknown				# Fn+F12 HP Programmable Key 
+ KEYBOARD_KEY_68=unknown                                # Fn+F12 HP Programmable Key
 
 # HP ProBook 650
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook*650*:*
