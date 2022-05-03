@@ -61,6 +61,9 @@ struct Address {
 
         /* Called when address become ready */
         address_ready_callback_t callback;
+
+        /* NetLabel */
+        Set *netlabels;
 };
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
