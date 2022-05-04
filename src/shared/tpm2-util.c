@@ -1466,7 +1466,7 @@ Tpm2Support tpm2_support(void) {
                  * got the host sysfs mounted. Since devices are generally not virtualized for containers,
                  * let's assume containers never have a TPM, at least for now. */
 
-                r = dir_is_empty("/sys/class/tpmrm");
+                r = dir_is_empty("/sys/class/tpmrm", /* ignore_hidden_or_backup= */ false);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_debug_errno(r, "Unable to test whether /sys/class/tpmrm/ exists and is populated, assuming it is not: %m");

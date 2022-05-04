@@ -905,7 +905,7 @@ static int fd_copy_directory(
 
         exists = false;
         if (copy_flags & COPY_MERGE_EMPTY) {
-                r = dir_is_empty_at(dt, to);
+                r = dir_is_empty_at(dt, to, /* ignore_hidden_or_backup= */ false);
                 if (r < 0 && r != -ENOENT)
                         return r;
                 else if (r == 1)
