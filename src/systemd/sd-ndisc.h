@@ -82,7 +82,6 @@ int sd_ndisc_set_ifname(sd_ndisc *nd, const char *interface_name);
 int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
-int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, size_t raw_size);
 sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
 sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
 
