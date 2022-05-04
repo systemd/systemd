@@ -705,6 +705,9 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_deny_listed_route_prefix);
         set_free(network->ndisc_allow_listed_route_prefix);
 
+        set_free(network->ipv4_netlabel_unlbl_labels);
+        set_free(network->ipv6_netlabel_unlbl_labels);
+
         free(network->batadv_name);
         free(network->bridge_name);
         free(network->bond_name);
@@ -1159,6 +1162,95 @@ int config_parse_ntp(
                 if (r < 0)
                         return log_oom();
         }
+}
+
+static int config_parse_netlabel(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                Set **set) {
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(set);
+
+        if (isempty(rvalue)) {
+                set_free(*set);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to extract NetLabel label, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                /* Label semantics depend on LSM but let's do basic checks */
+                if (!string_is_safe(w)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Bad NetLabel label, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                r = set_ensure_put(set, &string_hash_ops, TAKE_PTR(w));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_ipv4_netlabel(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+        return config_parse_netlabel(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ipv4_netlabel_unlbl_labels);
+}
+
+int config_parse_ipv6_netlabel(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+        return config_parse_netlabel(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ipv6_netlabel_unlbl_labels);
 }
 
 int config_parse_required_for_online(
