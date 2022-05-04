@@ -1272,11 +1272,15 @@ ColorMode get_color_mode(void) {
 
         if (cached_color_mode < 0) {
                 m = parse_systemd_colors();
+                const char *colorterm = getenv("COLORTERM");
                 if (m >= 0)
                         cached_color_mode = m;
                 else if (getenv("NO_COLOR"))
                         /* We only check for the presence of the variable; value is ignored. */
                         cached_color_mode = COLOR_OFF;
+
+                else if (colorterm != NULL && (streq(colorterm, "truecolor") || streq(colorterm, "24bit")))
+                        cached_color_mode = COLOR_24BIT;
 
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time.
