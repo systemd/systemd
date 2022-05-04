@@ -922,7 +922,7 @@ static int condition_test_directory_not_empty(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_DIRECTORY_NOT_EMPTY);
 
-        r = dir_is_empty(c->parameter);
+        r = dir_is_empty(c->parameter, /* ignore_hidden_or_backup= */ true);
         return r <= 0 && !IN_SET(r, -ENOENT, -ENOTDIR);
 }
 
