@@ -116,6 +116,9 @@ sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
 sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size) {
         sd_lldp_neighbor *n;
 
+        if (raw_size > SIZE_MAX - ALIGN(sizeof(sd_lldp_neighbor)))
+                return NULL;
+
         n = malloc0(ALIGN(sizeof(sd_lldp_neighbor)) + raw_size);
         if (!n)
                 return NULL;
@@ -649,7 +652,8 @@ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t ra
         if (!n)
                 return -ENOMEM;
 
-        memcpy(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+        memcpy_safe(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+
         r = lldp_neighbor_parse(n);
         if (r < 0)
                 return r;
