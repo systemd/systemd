@@ -1639,7 +1639,7 @@ static int are_we_installed(const char *esp_path) {
                 return log_oom();
 
         log_debug("Checking whether %s contains any files…", p);
-        r = dir_is_empty(p);
+        r = dir_is_empty(p, /* ignore_hidden_or_backup= */ false);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to check whether %s contains any files: %m", p);
 
