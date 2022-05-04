@@ -15,7 +15,7 @@ inspect() {
     # avoid unexpected fails. To see the full outputs of both homectl &
     # userdbctl (for debugging purposes) drop the fields just before the
     # comparison.
-    local USERNAME="${1:?missing argument}"
+    local USERNAME="${1:?}"
     homectl inspect "$USERNAME" | tee /tmp/a
     userdbctl user "$USERNAME" | tee /tmp/b
 
