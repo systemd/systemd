@@ -1290,7 +1290,7 @@ static void test_usr(void) {
 
         /* Check that /usr is either on the same file system as / or mounted already. */
 
-        if (dir_is_empty("/usr") <= 0)
+        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) <= 0)
                 return;
 
         log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "

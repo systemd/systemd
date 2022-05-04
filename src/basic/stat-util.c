@@ -71,13 +71,10 @@ int is_device_node(const char *path) {
         return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
-int dir_is_empty_at(int dir_fd, const char *path) {
+int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
         _cleanup_close_ int fd = -1;
-        /* Allocate space for at least 3 full dirents, since every dir has at least two entries ("."  +
-         * ".."), and only once we have seen if there's a third we know whether the dir is empty or not. */
-        DEFINE_DIRENT_BUFFER(buffer, 3);
-        struct dirent *de;
-        ssize_t n;
+        struct dirent *buf;
+        size_t m;
 
         if (path) {
                 assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -99,15 +96,30 @@ int dir_is_empty_at(int dir_fd, const char *path) {
                         return fd;
         }
 
-        n = getdents64(fd, &buffer, sizeof(buffer));
-        if (n < 0)
-                return -errno;
+        /* Allocate space for at least 3 full dirents, since every dir has at least two entries ("."  +
+         * ".."), and only once we have seen if there's a third we know whether the dir is empty or not. If
+         * 'ignore_hidden_or_backup' is true we'll allocate a bit more, since we might skip over a bunch of
+         * entries that we end up ignoring. */
+        m = (ignore_hidden_or_backup ? 16 : 3) * DIRENT_SIZE_MAX;
+        buf = alloca(m);
 
-        msan_unpoison(&buffer, n);
+        for (;;) {
+                struct dirent *de;
+                ssize_t n;
 
-        FOREACH_DIRENT_IN_BUFFER(de, &buffer.de, n)
-                if (!hidden_or_backup_file(de->d_name))
-                        return 0;
+                n = getdents64(fd, buf, m);
+                if (n < 0)
+                        return -errno;
+                if (n == 0)
+                        break;
+
+                assert((size_t) n <= m);
+                msan_unpoison(buf, n);
+
+                FOREACH_DIRENT_IN_BUFFER(de, buf, n)
+                        if (!(ignore_hidden_or_backup ? hidden_or_backup_file(de->d_name) : dot_or_dot_dot(de->d_name)))
+                                return 0;
+        }
 
         return 1;
 }

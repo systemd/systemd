@@ -1552,7 +1552,7 @@ int dissected_image_mount(
                                 if (r < 0) {
                                         if (r != -ENOENT)
                                                 return r;
-                                } else if (dir_is_empty(p) > 0) {
+                                } else if (dir_is_empty(p, /* ignore_hidden_or_backup= */ false) > 0) {
                                         /* It exists and is an empty directory. Let's mount the ESP there. */
                                         r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
                                         if (r < 0)

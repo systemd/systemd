@@ -2680,7 +2680,7 @@ static int setup_journal(const char *directory) {
         } else if (access(p, F_OK) < 0)
                 return 0;
 
-        if (dir_is_empty(q) == 0)
+        if (dir_is_empty(q, /* ignore_hidden_or_backup= */ false) == 0)
                 log_warning("%s is not empty, proceeding anyway.", q);
 
         r = userns_mkdir(directory, p, 0755, 0, 0);

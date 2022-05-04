@@ -976,7 +976,7 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
 
         m->taint_usr =
                 !in_initrd() &&
-                dir_is_empty("/usr") > 0;
+                dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) > 0;
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */

@@ -153,17 +153,17 @@ TEST(dir_is_empty) {
         _cleanup_(rm_rf_physical_and_freep) char *empty_dir = NULL;
         _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
 
-        assert_se(dir_is_empty_at(AT_FDCWD, "/proc") == 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi") == -ENOENT);
+        assert_se(dir_is_empty_at(AT_FDCWD, "/proc", /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi", /* ignore_hidden_or_backup= */ true) == -ENOENT);
 
         assert_se(mkdtemp_malloc("/tmp/emptyXXXXXX", &empty_dir) >= 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
 
         j = path_join(empty_dir, "zzz");
         assert_se(j);
         assert_se(touch(j) >= 0);
 
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
 
         jj = path_join(empty_dir, "ppp");
         assert_se(jj);
@@ -173,13 +173,17 @@ TEST(dir_is_empty) {
         assert_se(jjj);
         assert_se(touch(jjj) >= 0);
 
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
         assert_se(unlink(j) >= 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
         assert_se(unlink(jj) >= 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
         assert_se(unlink(jjj) >= 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
+        assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) > 0);
 }
 
 static int intro(void) {

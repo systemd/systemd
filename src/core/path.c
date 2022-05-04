@@ -213,7 +213,7 @@ static bool path_spec_check_good(PathSpec *s, bool initial, bool from_trigger_no
         case PATH_DIRECTORY_NOT_EMPTY: {
                 int k;
 
-                k = dir_is_empty(s->path);
+                k = dir_is_empty(s->path, /* ignore_hidden_or_backup= */ true);
                 good = !(IN_SET(k, -ENOENT, -ENOTDIR) || k > 0);
                 break;
         }

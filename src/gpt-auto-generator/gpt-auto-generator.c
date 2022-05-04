@@ -305,7 +305,7 @@ static int path_is_busy(const char *where) {
                 return log_warning_errno(r, "Cannot check if \"%s\" is a mount point: %m", where);
 
         /* not a mountpoint but it contains files */
-        r = dir_is_empty(where);
+        r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
         if (r < 0)
                 return log_warning_errno(r, "Cannot check if \"%s\" is empty: %m", where);
         if (r > 0)

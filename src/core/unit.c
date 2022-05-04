@@ -4776,7 +4776,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
         if (!unit_log_level_test(u, LOG_NOTICE))
                 return;
 
-        r = dir_is_empty(where);
+        r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
         if (r > 0 || r == -ENOTDIR)
                 return;
         if (r < 0) {
