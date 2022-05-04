@@ -116,6 +116,9 @@ sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
 sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size) {
         sd_lldp_neighbor *n;
 
+        if (raw_size > SIZE_MAX - ALIGN(sizeof(sd_lldp_neighbor)))
+                return NULL;
+
         n = malloc0(ALIGN(sizeof(sd_lldp_neighbor)) + raw_size);
         if (!n)
                 return NULL;
