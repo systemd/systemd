@@ -137,9 +137,9 @@
                 </listitem>
               </varlistentry>
               <varlistentry>
-                <term>failed</term>
+                <term>initialized</term>
                 <listitem>
-                  <para>networkd failed to manage the link</para>
+                  <para>udev has processed the link, but we don't yet know if we will manage it</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -158,6 +158,12 @@
                 <term>unmanaged</term>
                 <listitem>
                   <para>networkd is not handling the link</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>failed</term>
+                <listitem>
+                  <para>networkd failed to manage the link</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
