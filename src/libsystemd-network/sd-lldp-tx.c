@@ -230,6 +230,8 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 2 + 1 + (SD_ID128_STRING_MAX - 1) +
                 /* Port ID */
                 2 + 1 + strlen_ptr(lldp_tx->ifname) +
+                /* TTL */
+                2 + 2 +
                 /* Port description */
                 2 + strlen_ptr(lldp_tx->port_description) +
                 /* System name */
@@ -238,8 +240,6 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 2 + strlen_ptr(pretty_hostname) +
                 /* MUD URL */
                 2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
-                /* TTL */
-                2 + 2 +
                 /* System Capabilities */
                 2 + 4 +
                 /* End */
@@ -369,6 +369,13 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         memcpy(header->ether_shost, &lldp_tx->hwaddr, ETH_ALEN);
 
         offset = sizeof(struct ether_header);
+
+        /* The three mandatory TLVs must appear first, in this specific order:
+         *   1. Chassis ID
+         *   2. Port ID
+         *   3. Time To Live
+         */
+
         r = packet_append_prefixed_string(packet, packet_size, &offset, SD_LLDP_TYPE_CHASSIS_ID,
                                           1, (const uint8_t[]) { SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED },
                                           SD_ID128_TO_STRING(machine_id));
@@ -380,6 +387,15 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                                           lldp_tx->ifname);
         if (r < 0)
                 return r;
+
+        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_TTL, 2);
+        if (r < 0)
+                return r;
+
+        unaligned_write_be16(packet + offset, LLDP_TX_TTL);
+        offset += 2;
+
+        /* Optional TLVs follow, in no specific order: */
 
         r = packet_append_string(packet, packet_size, &offset, SD_LLDP_TYPE_PORT_DESCRIPTION,
                                  lldp_tx->port_description);
@@ -415,13 +431,6 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                                           lldp_tx->mud_url);
         if (r < 0)
                 return r;
-
-        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_TTL, 2);
-        if (r < 0)
-                return r;
-
-        unaligned_write_be16(packet + offset, LLDP_TX_TTL);
-        offset += 2;
 
         r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
         if (r < 0)
