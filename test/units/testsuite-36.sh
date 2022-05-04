@@ -72,7 +72,7 @@ checkNUMA() {
 writePID1NUMAPolicy() {
     cat >"$confDir/numa.conf" <<EOF
 [Manager]
-NUMAPolicy=${1:?missing argument: NUMAPolicy}
+NUMAPolicy=${1:?}
 NUMAMask=${2:-""}
 EOF
 }
@@ -85,7 +85,7 @@ writeTestUnit() {
 writeTestUnitNUMAPolicy() {
     cat >"$testUnitNUMAConf" <<EOF
 [Service]
-NUMAPolicy=${1:?missing argument: NUMAPolicy}
+NUMAPolicy=${1:?}
 NUMAMask=${2:-""}
 EOF
     systemctl daemon-reload
@@ -106,25 +106,25 @@ pid1ReloadWithJournal() {
 
 pid1StartUnitWithStrace() {
     startStrace '-f'
-    systemctl start "${1:?missing unit name}"
+    systemctl start "${1:?}"
     sleep $sleepAfterStart
     stopStrace
 }
 
 pid1StartUnitWithJournal() {
     startJournalctl
-    systemctl start "${1:?missing unit name}"
+    systemctl start "${1:?}"
     sleep $sleepAfterStart
     stopJournalctl
 }
 
 pid1StopUnit() {
-    systemctl stop "${1:?missing unit name}"
+    systemctl stop "${1:?}"
 }
 
 systemctlCheckNUMAProperties() {
-    local UNIT_NAME="${1:?missing unit name}"
-    local NUMA_POLICY="${2:?missing NUMAPolicy}"
+    local UNIT_NAME="${1:?}"
+    local NUMA_POLICY="${2:?}"
     local NUMA_MASK="${3:-""}"
     local LOGFILE
 

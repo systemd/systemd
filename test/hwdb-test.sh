@@ -11,7 +11,7 @@ set -e
 
 export SYSTEMD_LOG_LEVEL=info
 ROOTDIR="$(dirname "$(dirname "$(readlink -f "$0")")")"
-SYSTEMD_HWDB="${1:?missing argument}"
+SYSTEMD_HWDB="${1:?}"
 
 if [ ! -x "$SYSTEMD_HWDB" ]; then
     echo "$SYSTEMD_HWDB is not executable" >&2
