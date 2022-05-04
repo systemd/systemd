@@ -50,6 +50,8 @@ size_t udev_replace_ifname(char *str);
 size_t udev_replace_chars(char *str, const char *allow);
 int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);
 
+bool devpath_conflict(const char *a, const char *b);
+
 int udev_queue_is_empty(void);
 int udev_queue_init(void);
 
