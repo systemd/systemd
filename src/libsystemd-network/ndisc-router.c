@@ -21,6 +21,9 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
 sd_ndisc_router *ndisc_router_new(size_t raw_size) {
         sd_ndisc_router *rt;
 
+        if (raw_size > SIZE_MAX - ALIGN(sizeof(sd_ndisc_router)))
+                return NULL;
+
         rt = malloc0(ALIGN(sizeof(sd_ndisc_router)) + raw_size);
         if (!rt)
                 return NULL;
