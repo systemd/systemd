@@ -46,6 +46,10 @@ install_headers(
 
 ############################################################
 
+if want_tests == 'false'
+        subdir_done()
+endif
+
 opts = [['c'],
         ['c', '-ansi'],
         ['c', '-std=iso9899:1990'],
@@ -73,13 +77,17 @@ endif
 foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
         foreach opt : opts
                 std_name = opt.length() == 2 ? '_'.join(opt[1].split(':')) : ''
-                name = ''.join(['cc-', header.split('/')[-1], '_', opt[0], std_name])
-                if want_tests != 'false'
-                        test(name,
-                             check_compilation_sh,
-                             args : cc.cmd_array() + ['-c', '-x'] + opt +
-                                    ['-Werror', '-include',
-                                     meson.current_source_dir() / header])
-                endif
+                test('cc-' + header.split('/')[-1] + '_' + opt[0] + std_name,
+                     env,
+                     suite : 'headers',
+                     args : [cc.cmd_array(),
+                             '-c',
+                             '-x', opt,
+                             '-Wall',
+                             '-Wextra',
+                             '-Werror',
+                             '-include', meson.current_source_dir() / header,
+                             '-o/dev/null',
+                             '/dev/null'])
         endforeach
 endforeach
