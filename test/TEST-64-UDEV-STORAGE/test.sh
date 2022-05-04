@@ -101,7 +101,7 @@ test_run_one() {
     local test_id="${1:?}"
 
     if run_qemu "$test_id"; then
-        check_result_qemu || { echo "QEMU test failed"; return 1; }
+        check_result_qemu || { echo "qemu test failed"; return 1; }
     fi
 
     return 0
@@ -117,7 +117,7 @@ test_run() {
     mount_initdir
 
     if get_bool "${TEST_NO_QEMU:=}" || ! find_qemu_bin; then
-        dwarn "can't run QEMU, skipping"
+        dwarn "can't run qemu, skipping"
         return 0
     fi
 

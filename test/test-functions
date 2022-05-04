@@ -60,7 +60,7 @@ get_bool() {
     fi
 }
 
-# Decide if we can (and want to) run QEMU with KVM acceleration.
+# Decide if we can (and want to) run qemu with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
 # running under KVM. If these conditions are met, enable KVM (and possibly
@@ -310,7 +310,7 @@ find_qemu_bin() {
     esac
 
     if [[ ! -e "$QEMU_BIN" ]]; then
-        echo "Could not find a suitable QEMU binary" >&2
+        echo "Could not find a suitable qemu binary" >&2
         return 1
     fi
 }
@@ -334,8 +334,8 @@ qemu_min_version() {
     printf "%s\n%s\n" "$1" "$qemu_ver" | sort -V -C
 }
 
-# Return 0 if QEMU did run (then you must check the result state/logs for actual
-# success), or 1 if QEMU is not available.
+# Return 0 if qemu did run (then you must check the result state/logs for actual
+# success), or 1 if qemu is not available.
 run_qemu() {
     if [ -f /etc/machine-id ]; then
         read -r MACHINE_ID </etc/machine-id
@@ -480,7 +480,7 @@ run_qemu() {
         derror "Test timed out after ${QEMU_TIMEOUT}s"
         TIMED_OUT=1
     else
-        [ "$rc" != 0 ] && derror "QEMU failed with exit code $rc"
+        [ "$rc" != 0 ] && derror "qemu failed with exit code $rc"
     fi
     return 0
 }
@@ -2877,9 +2877,9 @@ test_run() {
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then
-            check_result_qemu || { echo "QEMU test failed"; return 1; }
+            check_result_qemu || { echo "qemu test failed"; return 1; }
         else
-            dwarn "can't run QEMU, skipping"
+            dwarn "can't run qemu, skipping"
         fi
     fi
     if ! get_bool "${TEST_NO_NSPAWN:=}"; then
@@ -2909,12 +2909,12 @@ do_test() {
     fi
 
     if get_bool "${TEST_NO_QEMU:=}" && get_bool "${TEST_NO_NSPAWN:=}"; then
-        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both qemu and nspawn disabled" >&2
         exit 0
     fi
 
     if get_bool "${TEST_QEMU_ONLY:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
-        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: qemu-only tests requested" >&2
         exit 0
     fi
 
