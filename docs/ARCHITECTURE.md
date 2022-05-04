@@ -91,6 +91,17 @@ and generally safe to run on the host without side effects.
 Ideally, every module in `src/basic/` and `src/shared/` should have a
 corresponding unit test under `src/test/`, exercising every helper function.
 
+## Fuzzer test cases
+
+Files under `test/fuzz/` contain input data for fuzzers, one subdirectory for
+each fuzzer. Some of the files are "seed corpora", i.e. files that contain
+lists of settings and input values intended to generate initial coverage, and
+other files are samples saved by the fuzzing engines when they find an issue.
+
+When adding new input samples under `test/fuzz/*/`, please use some
+short-but-meaningful names. Names of meson tests include the input file name
+and output looks awkward if they are too long.
+
 # Integration Tests
 
 Sources in `test/` implement system-level testing for executables, libraries and
