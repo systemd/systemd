@@ -45,7 +45,8 @@ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, size_t raw_
         if (!rt)
                 return -ENOMEM;
 
-        memcpy(NDISC_ROUTER_RAW(rt), raw, raw_size);
+        memcpy_safe(NDISC_ROUTER_RAW(rt), raw, raw_size);
+
         r = ndisc_router_parse(NULL, rt);
         if (r < 0)
                 return r;
