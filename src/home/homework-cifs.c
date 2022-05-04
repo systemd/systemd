@@ -207,7 +207,7 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = dir_is_empty_at(setup->root_fd, NULL);
+        r = dir_is_empty_at(setup->root_fd, NULL, /* ignore_hidden_or_backup= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to detect if CIFS directory is empty: %m");
         if (r == 0)

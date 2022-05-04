@@ -445,7 +445,7 @@ int user_record_test_home_directory(UserRecord *h) {
         }
 
         /* Otherwise it's not OK */
-        r = dir_is_empty(hd);
+        r = dir_is_empty(hd, /* ignore_hidden_or_backup= */ false);
         if (r < 0)
                 return r;
         if (r == 0)
