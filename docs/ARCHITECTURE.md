@@ -73,7 +73,7 @@ D-Bus messages in `src/shared/bus-unit-util.c`
 So that they are exercised by the fuzzing CI, new unit settings should also be listed in the
 text files under `test/fuzz/fuzz-unit-file/`.
 
-## UDEV
+## systemd-udev
 
 Sources for the udev daemon and command-line tool (single binary) can be found under
 `src/udev/`.
@@ -83,7 +83,7 @@ Sources for the udev daemon and command-line tool (single binary) can be found u
 Source files found under `src/test/` implement unit-level testing, mostly for
 modules found in `src/basic/` and `src/shared/`, but not exclusively. Each test
 file is compiled in a standalone binary that can be run to exercise the
-corresponding module. While most of the tests can be ran by any user, some
+corresponding module. While most of the tests can be run by any user, some
 require privileges, and will attempt to clearly log about what they need
 (mostly in the form of effective capabilities). These tests are self-contained,
 and generally safe to run on the host without side effects.
@@ -104,20 +104,21 @@ and output looks awkward if they are too long.
 
 # Integration Tests
 
-Sources in `test/` implement system-level testing for executables, libraries and
-daemons that are shipped by the project. They require privileges to run, and
-are not safe to execute directly on a host. By default they will build an image
-and run the test under it via `QEMU` or `systemd-nspawn`.
+Sources in `test/TEST-*` implement system-level testing for executables,
+libraries and daemons that are shipped by the project. They require privileges
+to run, and are not safe to execute directly on a host. By default they will
+build an image and run the test under it via `qemu` or `systemd-nspawn`.
 
-Most of those tests should be able to run via `systemd-nspawn`, which is orders of
-magnitude faster than `QEMU`, but some tests require privileged operations like
-using `dm-crypt` or `loopdev`. They are clearly marked if that is the case.
+Most of those tests should be able to run via `systemd-nspawn`, which is
+orders-of-magnitude faster than `qemu`, but some tests require privileged
+operations like using `dm-crypt` or `loopdev`. They are clearly marked if that
+is the case.
 
 See `test/README.testsuite` for more specific details.
 
-# HWDB
+# hwdb
 
-Rules built in the static `HWDB` database shipped by the project can be found
+Rules built in the static hardware database shipped by the project can be found
 under `hwdb.d/`. Some of these files are updated automatically, some are filled
 by contributors.
 
@@ -130,7 +131,7 @@ Markdown files found under `docs/` are automatically published on the
 to ensure the formatting doesn't have errors is included in the
 `meson test -C build/ github-pages` run as part of the CI.
 
-## MAN pages
+## Man pages
 
 Manpages for binaries and libraries, and the DBUS interfaces, can be found under
 `man/` and should ideally be kept in sync with changes to the corresponding
