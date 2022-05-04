@@ -652,7 +652,8 @@ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t ra
         if (!n)
                 return -ENOMEM;
 
-        memcpy(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+        memcpy_safe(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
+
         r = lldp_neighbor_parse(n);
         if (r < 0)
                 return r;
