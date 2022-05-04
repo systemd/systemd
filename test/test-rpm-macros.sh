@@ -6,7 +6,7 @@
 # rpmspec utility is required (so this test will work with RPM 4 but won't work with RPM 5).
 set -eu
 
-BUILD_DIR="${1:?Missing argument: build directory}"
+BUILD_DIR="${1:?}"
 RPM_MACROS_FILE="${BUILD_DIR:?}/src/rpm/macros.systemd"
 
 if ! command -v rpm >/dev/null || ! command -v rpmspec >/dev/null; then

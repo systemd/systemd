@@ -3,8 +3,8 @@
 set -eu
 set -o pipefail
 
-SOURCE_ROOT="${1:?Missing argument: project source root}"
-BUILD_ROOT="${2:?Missing argument: project build root}"
+SOURCE_ROOT="${1:?}"
+BUILD_ROOT="${2:?}"
 
 command -v gawk &>/dev/null || exit 77
 

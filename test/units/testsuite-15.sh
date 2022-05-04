@@ -4,7 +4,7 @@ set -eux
 set -o pipefail
 
 _clear_service () {
-    local SERVICE_NAME="${1:?_clear_service: missing argument}"
+    local SERVICE_NAME="${1:?}"
     systemctl stop "$SERVICE_NAME.service" 2>/dev/null || :
     rm -f  /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service
     rm -fr /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.d
@@ -25,7 +25,7 @@ clear_services () {
 }
 
 create_service () {
-    local SERVICE_NAME="${1:?create_service: missing argument}"
+    local SERVICE_NAME="${1:?}"
     clear_services "$SERVICE_NAME"
 
     cat >/etc/systemd/system/"$SERVICE_NAME".service <<EOF
