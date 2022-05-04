@@ -326,6 +326,33 @@ CHANGES WITH 251:
           manager. $SYSTEMD_ARCHITECTURE indicates which architecture the
           kernel is built for.
 
+        * PID 1 will now automatically pick up system credentials from qemu's
+          fw_cfg interface, thus allowing passing arbitrary data into VM
+          systems similar to how this is already supported for passing them
+          into `systemd-nspawn` containers. Credentials may now also be passed
+          in via the new kernel command line option `systemd.set_credential=`
+          (note that kernel command line options are world-readable during
+          runtime, and only useful for credentials that require no
+          confidentiality). The credentials that can be passed to unified
+          kernels that use the `systemd-stub` UEFI stub are now similarly
+          picked up automatically. Automatic importing of system credentials
+          this way can be turned off via the new
+          `systemd.import_credentials=no` kernel command line option.
+
+        * LoadCredential= will now automatically search for credentials to
+          import in the /etc/credstore/, /run/credstore/, /usr/lib/credstore/
+          directories if no or a relative source filename is passed. Similar
+          LoadCredentialEncrypted= will search in these same directories, plus
+          /etc/credstore.encrypted/, /run/credstore.encrypted/ and
+          /usr/lib/credstore.encrypted/. The idea is that these directories are
+          now the recommended system-wide location to place credentials for
+          automatic pick-up by services in.
+
+        * System and service credentials are described in great detail in a new
+          document:
+
+          https://systemd.io/CREDENTIALS
+
         Changes in systemd-journald:
 
         * The journal JSON export format has been added to listed of stable
