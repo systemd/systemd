@@ -296,7 +296,7 @@ static int merge_hierarchy(
         else if (r < 0)
                 return log_error_errno(r, "Failed to resolve host hierarchy '%s': %m", hierarchy);
         else {
-                r = dir_is_empty(resolved_hierarchy);
+                r = dir_is_empty(resolved_hierarchy, /* ignore_hidden_or_backup= */ false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if host hierarchy '%s' is empty: %m", resolved_hierarchy);
                 if (r > 0) {
@@ -337,7 +337,7 @@ static int merge_hierarchy(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", hierarchy, *p);
 
-                r = dir_is_empty(resolved);
+                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
                 if (r > 0) {

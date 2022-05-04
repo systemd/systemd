@@ -449,7 +449,7 @@ int remove_bridge(const char *bridge_name) {
 
         path = strjoina("/sys/class/net/", bridge_name, "/brif");
 
-        r = dir_is_empty(path);
+        r = dir_is_empty(path, /* ignore_hidden_or_backup= */ false);
         if (r == -ENOENT) /* Already gone? */
                 return 0;
         if (r < 0)
