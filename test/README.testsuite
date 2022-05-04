@@ -1,5 +1,7 @@
-The extended testsuite only works with UID=0. It contains of several
-subdirectories named "test/TEST-??-*", which are run one by one.
+The extended testsuite only works with UID=0. It consists of the subdirectories
+named "test/TEST-??-*", each of which contains a description of an OS image and
+a test which consists of systemd units and scripts to execute in this image.
+The same image is used for execution under `systemd-nspawn` and `qemu`.
 
 To run the extended testsuite do the following:
 
@@ -53,10 +55,10 @@ Configuration variables
 =======================
 
 TEST_NO_QEMU=1
-    Don't run tests under QEMU
+    Don't run tests under qemu
 
 TEST_QEMU_ONLY=1
-    Run only tests that require QEMU
+    Run only tests that require qemu
 
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
@@ -65,8 +67,8 @@ TEST_PREFER_NSPAWN=1
     Run all tests that do not require qemu under systemd-nspawn
 
 TEST_NO_KVM=1
-    Disable QEMU KVM auto-detection (may be necessary when you're trying to run the
-    *vanilla* QEMU and have both qemu and qemu-kvm installed)
+    Disable qemu KVM auto-detection (may be necessary when you're trying to run the
+    *vanilla* qemu and have both qemu and qemu-kvm installed)
 
 TEST_NESTED_KVM=1
     Allow tests to run with nested KVM. By default, the testsuite disables
@@ -74,10 +76,10 @@ TEST_NESTED_KVM=1
     variable disables such checks
 
 QEMU_MEM=512M
-    Configure amount of memory for QEMU VMs (defaults to 512M)
+    Configure amount of memory for qemu VMs (defaults to 512M)
 
 QEMU_SMP=1
-    Configure number of CPUs for QEMU VMs (defaults to 1)
+    Configure number of CPUs for qemu VMs (defaults to 1)
 
 KERNEL_APPEND='...'
     Append additional parameters to the kernel command line
@@ -86,7 +88,7 @@ NSPAWN_ARGUMENTS='...'
     Specify additional arguments for systemd-nspawn
 
 QEMU_TIMEOUT=infinity
-    Set a timeout for tests under QEMU (defaults to infinity)
+    Set a timeout for tests under qemu (defaults to infinity)
 
 NSPAWN_TIMEOUT=infinity
     Set a timeout for tests under systemd-nspawn (defaults to infinity)
@@ -99,7 +101,7 @@ INTERACTIVE_DEBUG=1
 The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
 (Fedora's or Debian's default kernel path and initramfs are used by default)
 
-A script will try to find your QEMU binary. If you want to specify a different
+A script will try to find your qemu binary. If you want to specify a different
 one with $QEMU_BIN.
 
 Debugging the qemu image

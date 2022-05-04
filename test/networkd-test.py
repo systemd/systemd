@@ -7,7 +7,7 @@
 # but it assumes (and checks at the beginning) that networkd is not currently
 # running.
 #
-# This can be run on a normal installation, in QEMU, nspawn (with
+# This can be run on a normal installation, in qemu, systemd-nspawn (with
 # --private-network), LXD (with "--config raw.lxc=lxc.aa_profile=unconfined"),
 # or LXC system containers. You need at least the "ip" tool from the iproute
 # package; it is recommended to install dnsmasq too to get full test coverage.
