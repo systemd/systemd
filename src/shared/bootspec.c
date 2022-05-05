@@ -191,27 +191,19 @@ void boot_config_free(BootConfig *config) {
         set_free(config->inodes_seen);
 }
 
-static int boot_loader_read_conf(const char *path, BootConfig *config) {
-        _cleanup_fclose_ FILE *f = NULL;
+int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
         unsigned line = 1;
         int r;
 
-        assert(path);
         assert(config);
-
-        f = fopen(path, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
-        }
+        assert(file);
+        assert(path);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
                 const char *p;
 
-                r = read_line(f, LONG_LINE_MAX, &buf);
+                r = read_line(file, LONG_LINE_MAX, &buf);
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
@@ -260,6 +252,23 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
         }
 
         return 1;
+}
+
+static int boot_loader_read_conf_path(BootConfig *config, const char *path) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(config);
+        assert(path);
+
+        f = fopen(path, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open \"%s\": %m", path);
+        }
+
+        return boot_loader_read_conf(config, f, path);
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
@@ -847,6 +856,18 @@ int boot_config_select_special_entries(BootConfig *config) {
         return 0;
 }
 
+int boot_config_finalize(BootConfig *config) {
+        int r;
+
+        typesafe_qsort(config->entries, config->n_entries, boot_entry_compare);
+
+        r = boot_entries_uniquify(config->entries, config->n_entries);
+        if (r < 0)
+                return log_error_errno(r, "Failed to uniquify boot entries: %m");
+
+        return 0;
+}
+
 int boot_config_load(
                 BootConfig *config,
                 const char *esp_path,
@@ -859,7 +880,7 @@ int boot_config_load(
 
         if (esp_path) {
                 p = strjoina(esp_path, "/loader/loader.conf");
-                r = boot_loader_read_conf(p, config);
+                r = boot_loader_read_conf_path(config, p);
                 if (r < 0)
                         return r;
 
@@ -886,13 +907,7 @@ int boot_config_load(
                         return r;
         }
 
-        typesafe_qsort(config->entries, config->n_entries, boot_entry_compare);
-
-        r = boot_entries_uniquify(config->entries, config->n_entries);
-        if (r < 0)
-                return log_error_errno(r, "Failed to uniquify boot entries: %m");
-
-        return 0;
+        return boot_config_finalize(config);
 }
 
 int boot_config_load_auto(
