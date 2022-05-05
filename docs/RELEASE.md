@@ -11,7 +11,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 2. Update the contributors list in NEWS (`ninja -C build git-contrib`)
 3. Update the time and place in NEWS
 4. Update hwdb (`ninja -C build update-hwdb`, `ninja -C build update-hwdb-autosuspend`, commit separately).
-5. Update syscall numbers (`ninja -C build update-syscall-tables update-syscall-headers`).
+5. Update syscall numbers (`ninja -C build update-syscall-tables update-syscall-header`).
 6. [RC1] Update version and library numbers in `meson.build`
 7. Check dbus docs with `ninja -C build update-dbus-docs`
 8. Tag the release: `version=vXXX-rcY && git tag -s "${version}" -m "systemd ${version}"`
