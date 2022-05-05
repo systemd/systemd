@@ -1415,26 +1415,45 @@ node /org/freedesktop/login1/session/1 {
     <title>Examples</title>
 
     <example>
-      <title>Introspect <interfacename>org.freedesktop.login1.Manager</interfacename> on the bus</title>
+      <title>Introspect the logind manager on the bus</title>
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1
       </programlisting>
-    </example>
 
-    <example>
-      <title>Introspect <interfacename>org.freedesktop.login1.Seat</interfacename> on the bus</title>
+      <para>or</para>
 
-      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
- --object-path /org/freedesktop/login1/seat/seat0
+      <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1
       </programlisting>
     </example>
 
     <example>
-      <title>Introspect <interfacename>org.freedesktop.login1.User</interfacename> on the bus</title>
+      <title>Introspect the default seat on the bus</title>
+
+      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
+ --object-path /org/freedesktop/login1/seat/seat0
+      </programlisting>
+
+      <para>or</para>
+
+      <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/seat/seat0
+      </programlisting>
+
+      <para>Seat <literal>seat0</literal> is the default seat, so it'll be present unless local configuation
+      is made to reassign all devices to a different seat. The list of seats and users can be acquired with
+      <command>loginctl list-sessions</command>.</para>
+    </example>
+
+    <example>
+      <title>Introspect a single user on the bus</title>
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1/user/_1000
+      </programlisting>
+
+      <para>or</para>
+
+      <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/user/_1000
       </programlisting>
     </example>
 
@@ -1443,6 +1462,11 @@ node /org/freedesktop/login1/session/1 {
 
       <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
   --object-path /org/freedesktop/login1/session/45
+      </programlisting>
+
+      <para>or</para>
+
+      <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/session/45
       </programlisting>
     </example>
   </refsect1>
