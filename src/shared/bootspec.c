@@ -2,22 +2,35 @@
 
 #include <unistd.h>
 
-#include "bootspec.h"
 #include "bootspec-fundamental.h"
+#include "bootspec.h"
 #include "conf-files.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-loader.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
 #include "path-util.h"
 #include "pe-header.h"
+#include "pretty-print.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unaligned.h"
+
+static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
+        [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
+        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
+        [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
+        [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
 
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
@@ -987,6 +1000,16 @@ int boot_config_augment_from_loader(
         return 0;
 }
 
+static int boot_entry_file_check(const char *root, const char *p) {
+        _cleanup_free_ char *path = NULL;
+
+        path = path_join(root, p);
+        if (!path)
+                return log_oom();
+
+        return RET_NERRNO(access(path, F_OK));
+}
+
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
         assert(config);
         assert(id);
@@ -997,4 +1020,173 @@ BootEntry* boot_config_find_entry(BootConfig *config, const char *id) {
                         return config->entries + j;
 
         return NULL;
+}
+
+static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
+        int status = boot_entry_file_check(root, p);
+
+        printf("%13s%s ", strempty(field), field ? ":" : " ");
+        if (status < 0) {
+                errno = -status;
+                printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
+        } else
+                printf("%s\n", p);
+
+        if (*ret_status == 0 && status < 0)
+                *ret_status = status;
+}
+
+int show_boot_entry(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected,
+                bool show_reported) {
+
+        int status = 0;
+
+        /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
+           boot entry itself. */
+
+        assert(e);
+
+        printf("         type: %s\n",
+               boot_entry_type_to_string(e->type));
+
+        printf("        title: %s%s%s",
+               ansi_highlight(), boot_entry_title(e), ansi_normal());
+
+        if (show_as_default)
+                printf(" %s(default)%s",
+                       ansi_highlight_green(), ansi_normal());
+
+        if (show_as_selected)
+                printf(" %s(selected)%s",
+                       ansi_highlight_magenta(), ansi_normal());
+
+        if (show_reported) {
+                if (e->type == BOOT_ENTRY_LOADER)
+                        printf(" %s(reported/absent)%s",
+                               ansi_highlight_red(), ansi_normal());
+                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_LOADER_AUTO)
+                        printf(" %s(not reported/new)%s",
+                               ansi_highlight_green(), ansi_normal());
+        }
+
+        putchar('\n');
+
+        if (e->id)
+                printf("           id: %s\n", e->id);
+        if (e->path) {
+                _cleanup_free_ char *link = NULL;
+
+                /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
+                 * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
+                if (e->type == BOOT_ENTRY_CONF)
+                        (void) terminal_urlify_path(e->path, NULL, &link);
+
+                printf("       source: %s\n", link ?: e->path);
+        }
+        if (e->sort_key)
+                printf("     sort-key: %s\n", e->sort_key);
+        if (e->version)
+                printf("      version: %s\n", e->version);
+        if (e->machine_id)
+                printf("   machine-id: %s\n", e->machine_id);
+        if (e->architecture)
+                printf(" architecture: %s\n", e->architecture);
+        if (e->kernel)
+                boot_entry_file_list("linux", e->root, e->kernel, &status);
+
+        STRV_FOREACH(s, e->initrd)
+                boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("      options: %s\n", t2);
+        }
+
+        if (e->device_tree)
+                boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
+
+        STRV_FOREACH(s, e->device_tree_overlay)
+                boot_entry_file_list(s == e->device_tree_overlay ? "devicetree-overlay" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
+        return -status;
+}
+
+int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
+        int r;
+
+        if (!FLAGS_SET(json_format, JSON_FORMAT_OFF)) {
+                for (size_t i = 0; i < config->n_entries; i++) {
+                        _cleanup_free_ char *opts = NULL;
+                        const BootEntry *e = config->entries + i;
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        if (!strv_isempty(e->options)) {
+                                opts = strv_join(e->options, " ");
+                                if (!opts)
+                                        return log_oom();
+                        }
+
+                        r = json_build(&v, JSON_BUILD_OBJECT(
+                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        json_variant_dump(v, json_format, stdout, NULL);
+                }
+
+        } else {
+                printf("Boot Loader Entries:\n");
+
+                for (size_t n = 0; n < config->n_entries; n++) {
+                        r = show_boot_entry(
+                                        config->entries + n,
+                                        /* show_as_default= */  n == (size_t) config->default_entry,
+                                        /* show_as_selected= */ n == (size_t) config->selected_entry,
+                                        /* show_discovered= */  true);
+                        if (r < 0)
+                                return r;
+
+                        if (n+1 < config->n_entries)
+                                putchar('\n');
+                }
+        }
+
+        return 0;
 }
