@@ -61,6 +61,7 @@ static bool arg_print_dollar_boot_path = false;
 static bool arg_touch_variables = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_graceful = false;
+static bool arg_quiet = false;
 static int arg_make_entry_directory = false; /* tri-state: < 0 for automatic logic */
 static sd_id128_t arg_machine_id = SD_ID128_NULL;
 static char *arg_install_layout = NULL;
@@ -105,7 +106,8 @@ static int acquire_esp(
         r = find_esp_and_warn(arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 if (graceful)
-                        return log_info_errno(r, "Couldn't find EFI system partition, skipping.");
+                        return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
+                                              "Couldn't find EFI system partition, skipping.");
 
                 return log_error_errno(r,
                                        "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
@@ -178,7 +180,9 @@ static int load_etc_machine_info(void) {
                 return log_error_errno(r, "Failed to parse /etc/machine-info: %m");
 
         if (!isempty(s)) {
-                log_notice("Read $KERNEL_INSTALL_MACHINE_ID from /etc/machine-info. Please move it to /etc/kernel/entry-token.");
+                if (!arg_quiet)
+                        log_notice("Read $KERNEL_INSTALL_MACHINE_ID from /etc/machine-info. "
+                                   "Please move it to /etc/kernel/entry-token.");
 
                 r = sd_id128_from_string(s, &arg_machine_id);
                 if (r < 0)
@@ -189,7 +193,9 @@ static int load_etc_machine_info(void) {
         }
 
         if (!isempty(layout)) {
-                log_notice("Read $KERNEL_INSTALL_LAYOUT from /etc/machine-info. Please move it to the layout= setting of /etc/kernel/install.conf.");
+                if (!arg_quiet)
+                        log_notice("Read $KERNEL_INSTALL_LAYOUT from /etc/machine-info. "
+                                   "Please move it to the layout= setting of /etc/kernel/install.conf.");
 
                 log_debug("KERNEL_INSTALL_LAYOUT=%s is specified in /etc/machine-info.", layout);
                 free_and_replace(arg_install_layout, layout);
@@ -470,13 +476,13 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
         if (r < 0)
                 goto finish;
-        if (r == 0)
+        if (r == 0 && !arg_quiet)
                 log_info("systemd-boot not installed in ESP.");
 
         r = enumerate_binaries(esp_path, "EFI/BOOT", "boot");
         if (r < 0)
                 goto finish;
-        if (r == 0)
+        if (r == 0 && !arg_quiet)
                 log_info("No default/fallback boot loader installed in ESP.");
 
         r = 0;
@@ -1445,6 +1451,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
+               "  -q --quiet           Suppress output\n"
                "     --make-entry-directory=yes|no|auto\n"
                "                       Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
@@ -1487,6 +1494,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-variables",              no_argument,       NULL, ARG_NO_VARIABLES              },
                 { "no-pager",                  no_argument,       NULL, ARG_NO_PAGER                  },
                 { "graceful",                  no_argument,       NULL, ARG_GRACEFUL                  },
+                { "quiet",                     no_argument,       NULL, 'q'                           },
                 { "make-entry-directory",      required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      },
                 { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      }, /* Compatibility alias */
                 { "entry-token",               required_argument, NULL, ARG_ENTRY_TOKEN               },
@@ -1546,6 +1554,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GRACEFUL:
                         arg_graceful = true;
+                        break;
+
+                case 'q':
+                        arg_quiet = true;
                         break;
 
                 case ARG_ENTRY_TOKEN: {
@@ -2237,10 +2249,12 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (r > 0) {
-                puts("yes");
+                if (!arg_quiet)
+                        puts("yes");
                 return EXIT_SUCCESS;
         } else {
-                puts("no");
+                if (!arg_quiet)
+                        puts("no");
                 return EXIT_FAILURE;
         }
 }
