@@ -2226,7 +2226,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = acquire_esp(/* privileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, NULL, NULL);
+        r = acquire_esp(/* privileged_mode= */ false,
+                        /* graceful= */ arg_graceful,
+                        NULL, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 

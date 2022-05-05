@@ -272,7 +272,8 @@
         <term><option>--graceful</option></term>
         <listitem><para>Ignore failure when the EFI System Partition cannot be found, when EFI variables
         cannot be written, or a different or newer boot loader is already installed. Currently only applies
-        to random seed and update operations.</para></listitem>
+        to <command>is-installed</command>, <command>update</command>, and <command>random-seed</command>
+        verbs.</para></listitem>
       </varlistentry>
 
       <varlistentry>
