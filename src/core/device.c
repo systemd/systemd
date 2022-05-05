@@ -182,10 +182,10 @@ static int device_coldplug(Unit *u) {
          *
          * - On switch-root, the udev database may be cleared, except for devices with sticky bit, i.e.
          *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
-         *   Unlike the other starting mode, Manager.honor_device_enumeration == false (maybe, it is better
-         *   to rename the flag) when device_coldplug() and device_catchup() are called. Hence, let's
-         *   conditionalize the operations by using the flag. After switch-root, systemd-udevd will
-         *   (re-)process all devices, and the Device.found and Device.state will be adjusted.
+         *   Unlike the other starting mode, MANAGER_IS_SWITCHING_ROOT() is true when device_coldplug() and
+         *   device_catchup() are called. Hence, let's conditionalize the operations by using the flag. After
+         *   switch-root, systemd-udevd will (re-)process all devices, and the Device.found and Device.state
+         *   will be adjusted.
          *
          * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
          *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
@@ -210,9 +210,7 @@ static bool device_found_mask_on_catchup(Device *d) {
          * unplugged. The function device_enumerate() cannot distinguish the two cases. Let's explicitly
          * check if the device is still around. */
 
-        Manager *m = UNIT(d)->manager;
-        if (m->honor_device_enumeration || MANAGER_IS_USER(m))
-                /* Not switching root. Let's use the all bits. */
+        if (!MANAGER_IS_SWITCHING_ROOT(UNIT(d)->manager))
                 return DEVICE_FOUND_MASK;
 
         if (FLAGS_SET(d->enumerated_mask, DEVICE_FOUND_UDEV))
