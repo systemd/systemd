@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2022.04.13
-# Date:    2022-04-13 20:34:10
+# Version: 2022.05.03
+# Date:    2022-05-03 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -22333,13 +22333,15 @@
 	5440  TimVideos' HDMI2USB Opsis (FX2) - Unconfigured device
 	5441  TimVideos' HDMI2USB Opsis (FX2) - Firmware load/upgrade
 	5442  TimVideos' HDMI2USB Opsis (FX2) - HDMI/DVI Capture Device
-2a1d  Oxford Nanopore Technologies, Ltd
+2a1d  Oxford Nanopore Technologies plc
 	0000  MinION
 	0001  MinION
 	0010  VolTRAX
 	0011  VolTRAX
 	0020  GridION
 	0021  GridION
+	0120  GridION Mk1 Bay
+	0121  GridION Mk1 Bay
 2a37  RTD Embedded Technologies, Inc.
 	5110  UPS35110/UPS25110
 2a39  RME
