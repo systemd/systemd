@@ -806,6 +806,10 @@ static int manager_find_credentials_dirs(Manager *m) {
         return 0;
 }
 
+void manager_set_switching_root(Manager *m, bool switching_root) {
+        m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
+}
+
 int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -1866,6 +1870,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         }
 
         manager_ready(m);
+
+        manager_set_switching_root(m, false);
 
         return 0;
 }
