@@ -191,9 +191,8 @@ static int device_coldplug(Unit *u) {
          *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
          *   we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found must be
          *   ignored, as udev rules in initramfs and the main system are often different. If the deserialized
-         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (or DEVICE_DEAD if nobody
-         *   sees the device). Unlike the other starting mode, Manager.honor_device_enumeration == false
-         *   (maybe, it is better to rename the flag) when device_coldplug() and device_catchup() are called.
+         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE. Unlike the other starting
+         *   mode, MANAGER_IS_SWITCHING_ROOT() is true when device_coldplug() and device_catchup() are called.
          *   Hence, let's conditionalize the operations by using the flag. After switch-root, systemd-udevd
          *   will (re-)process all devices, and the Device.found and Device.state will be adjusted.
          *
@@ -201,7 +200,7 @@ static int device_coldplug(Unit *u) {
          *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
          *   device_catchup() or uevents. */
 
-        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m) &&
+        if (MANAGER_IS_SWITCHING_ROOT(m) &&
             !FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV)) {
                 found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
                 if (state == DEVICE_PLUGGED)
