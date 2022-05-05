@@ -26,8 +26,8 @@ struct Device {
          * devices for the same sysfs path. We chain them up here. */
         LIST_FIELDS(struct Device, same_sysfs);
 
-        DeviceState state, deserialized_state;
-        DeviceFound found, deserialized_found, enumerated_found;
+        DeviceState state;
+        DeviceFound found, enumerated_found;
 
         bool bind_mounts;
 

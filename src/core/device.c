@@ -105,8 +105,6 @@ static void device_init(Unit *u) {
         u->job_running_timeout = u->manager->default_timeout_start_usec;
 
         u->ignore_on_isolate = true;
-
-        d->deserialized_state = _DEVICE_STATE_INVALID;
 }
 
 static void device_done(Unit *u) {
@@ -156,23 +154,14 @@ static void device_set_state(Device *d, DeviceState state) {
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
-static int device_coldplug(Unit *u) {
+static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
-        DeviceState state;
-        DeviceFound found;
 
         assert(d);
-        assert(d->state == DEVICE_DEAD);
 
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
-
-        /* If the device wasn't serialized then it appeared during the reexec/reload process. Keep
-         * DEAD state and let device_catchup() set it in its final state. */
-        if (d->deserialized_state < 0)
-                return 0;
-
-        found = d->deserialized_found;
-        state = d->deserialized_state;
+        /* If the device appeared on our radar during the enumeration step, initialize its state */
+        if (d->state < 0)
+                d->state = DEVICE_DEAD;
 
         if (!FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV) &&
             MANAGER_IS_SWITCHING_ROOT(u->manager)) {
@@ -187,21 +176,10 @@ static int device_coldplug(Unit *u) {
                  * unplugged. The downside is that PID1 won't generate plugged->dead transitions
                  * for devices that were unplugged during the initrd transition. */
 
-                found = DEVICE_NOT_FOUND;
-                state = DEVICE_DEAD;
+                d->found = DEVICE_NOT_FOUND;
+                d->state = DEVICE_DEAD;
         }
 
-        d->found = found;
-        device_set_state(d, state);
-        return 0;
-}
-
-static void device_catchup(Unit *u) {
-        Device *d = DEVICE(u);
-
-        assert(d);
-
-        /* Second, let's update the state with the enumerated state */
         device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
 }
 
@@ -299,10 +277,10 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (state < 0)
                         log_unit_debug(u, "Failed to parse state value, ignoring: %s", value);
                 else
-                        d->deserialized_state = state;
+                        d->state = state;
 
         } else if (streq(key, "found")) {
-                r = device_found_from_string_many(value, &d->deserialized_found);
+                r = device_found_from_string_many(value, &d->found);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse found value '%s', ignoring: %m", value);
 
@@ -1057,7 +1035,6 @@ const UnitVTable device_vtable = {
         .done = device_done,
         .load = device_load,
 
-        .coldplug = device_coldplug,
         .catchup = device_catchup,
 
         .serialize = device_serialize,
