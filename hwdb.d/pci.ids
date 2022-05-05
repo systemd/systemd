@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2022.04.16
-#	Date:    2022-04-16 00:17:00
+#	Version: 2022.05.03
+#	Date:    2022-05-03 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -744,7 +744,9 @@
 		1028 213f  PERC H365i Adapter
 		1028 2140  PERC H365i Front
 		1028 2141  PERC H360 MX
-		1028 2142  HBA 465e Adapter
+		1028 2142  HBA465e Adapter
+		1028 2209  HBA465i Adapter
+		1028 220a  HBA465i Front
 	00ab  SAS3516 Fusion-MPT Tri-Mode RAID On Chip (ROC)
 # 8 Internal and 8 External port channel 9400 HBA
 		1000 3040  HBA 9400-8i8e
@@ -3776,6 +3778,7 @@
 	73bf  Navi 21 [Radeon RX 6800/6800 XT / 6900 XT]
 		1002 0e3a  Radeon RX 6900 XT
 		148c 2408  Red Devil AMD Radeon RX 6900 XT
+		1da2 440f  TOXIC RX 6900 XT
 		1eae 6701  XFX Speedster MERC 319 AMD Radeon RX 6800 XT Black
 	73c3  Navi 22
 	73c4  Navi 22 USB
@@ -3790,6 +3793,8 @@
 	7408  Aldebaran
 	740c  Aldebaran
 	740f  Aldebaran
+	7421  Navi 24 [Radeon PRO W6500M]
+	7422  Navi 24 [Radeon PRO W6400]
 	743f  Navi 24 [Radeon RX 6400 / 6500 XT]
 		1da2 e457  PULSE AMD Radeon RX 6500 XT
 	7833  RS350 Host Bridge
@@ -12515,6 +12520,7 @@
 	2504  GA106 [GeForce RTX 3060 Lite Hash Rate]
 	2505  GA106
 	2507  GA106 [Geforce RTX 3050]
+	2508  GA106 [GeForce RTX 3050 OEM]
 	2520  GA106M [GeForce RTX 3060 Mobile / Max-Q]
 	2523  GA106M [GeForce RTX 3050 Ti Mobile / Max-Q]
 	252f  GA106 [GeForce RTX 3060 Engineering Sample]
@@ -12539,6 +12545,7 @@
 	25b8  GA107GLM [RTX A2000 Mobile]
 	25b9  GA107GLM [RTX A1000 Laptop GPU]
 	25ba  GA107GLM [RTX A2000 8GB Laptop GPU]
+	25bb  GA107GLM [RTX A500 Laptop GPU]
 	25e0  GA107BM [GeForce RTX 3050 Ti Mobile]
 	25e2  GA107BM [GeForce RTX 3050 Mobile]
 	25e5  GA107BM [GeForce RTX 3050 Mobile]
@@ -19178,7 +19185,7 @@
 		103c 1240  Myrinet M2L-PCI64/2-3.0 LANai 7.4 (HP OEM)
 14c2  DTK Computer
 14c3  MEDIATEK Corp.
-	0608  RZ608 Wi-Fi 6E 80MHz
+	0608  MT7921K (RZ608) Wi-Fi 6E 80MHz
 	0616  MT7922 802.11ax PCI Express Wireless Network Adapter
 	7612  MT7612E 802.11acbgn PCI Express Wireless Network Adapter
 	7615  MT7615E 802.11ac PCI Express Wireless Network Adapter
@@ -20795,6 +20802,8 @@
 	0257  Quantum-2 in Flash Recovery Mode
 	0258  Quantum-2 RMA
 	0259  Abir Chiplet
+	025b  Quantum-3 in Flash Recovery Mode
+	025c  Quantum-3 RMA
 	0262  MT27710 [ConnectX-4 Lx Programmable] EN
 	0263  MT27710 [ConnectX-4 Lx Programmable Virtual Function] EN
 	0264  Innova-2 Flex Burn image
@@ -20998,6 +21007,7 @@
 	cf84  Spectrum-4C
 	d2f0  Quantum HDR (200Gbps) switch
 	d2f2  Quantum-2 NDR (400Gbps) switch
+	d2f4  Quantum-3
 15b4  CCI/TRIAD
 15b5  Cimetrics Inc
 15b6  Texas Memory Systems Inc
@@ -22126,6 +22136,10 @@
 		17d3 1883  ARC-1883 8/12/16/24 Port PCIe 3.0 to SAS/SATA 12Gb RAID Controller
 	1884  ARC-1884 series PCIe 3.0 to SAS/SATA 12/6Gb RAID Controller
 	188a  ARC-1886 series PCIe 4.0 to NVMe/SAS/SATA 16/12/6Gb RAID Controller
+		17d3 1217  ARC-1217 4-Port PCIe 4.0 to SAS/SATA 12/6Gb RAID Controller
+		17d3 1227  ARC-1227 8-Port PCIe 4.0 to SAS/SATA 12/6Gb RAID Controller
+		17d3 1686  ARC-1686 PCIe 4.0 to SAS/SATA 12/6Gb Tape drive Controller
+		17d3 1886  ARC-1886 PCIe 4.0 to NVMe/SAS/SATA 16/12/6Gb RAID Controller
 # nee Neterion Inc., previously S2io Inc.
 17d5  Exar Corp.
 	5731  Xframe 10-Gigabit Ethernet PCI-X
@@ -23901,6 +23915,7 @@
 		1028 214a  DC NVMe PE8010 RI U.2 7.68TB
 		1c5c 0100  PE8000 Series NVMe Solid State Drive
 	2849  PE81x0 U.2/3 NVMe Solid State Drive
+		1c5c 0101  PE81x0 U.2/3 NVMe Solid State Drive
 1c5f  Beijing Memblaze Technology Co. Ltd.
 	000d  PBlaze5 520/526
 	000e  PBlaze6 6530
@@ -24698,9 +24713,25 @@
 1eec  Viscore Technologies Ltd
 	0102  VSE250231S Dual-port 10Gb/25Gb Ethernet PCIe
 	1eec  VSE250231S Dual-port 10Gb/25Gb Ethernet PCIe
-1eed  Xiangdixian Computing Technology (Chongqing) Ltd.
-	0100  XDX P100 VGA controller
-	0101  XDX P101 High Definition Audio Controller
+1eed  XDX Computing Technology Ltd.
+	1100  XDX110 Graphic/VGA Controller
+	1101  XDX110 Audio Controller
+	1200  XDX120 Graphic/VGA Controller
+	1201  XDX120 Audio Controller
+	1300  XDX130 Graphic/VGA Controller
+	1301  XDX130 Audio Controller
+	1400  XDX140 Graphic/VGA Controller
+	1401  XDX140 Audio Controller
+	1500  XDX150 Graphic/VGA Controller
+	1501  XDX150 Audio Controller
+	1600  XDX160 Graphic/VGA Controller
+	1601  XDX160 Audio Controller
+	1700  XDX170 Graphic/VGA Controller
+	1701  XDX170 Audio Controller
+	1800  XDX180 Graphic/VGA Controller
+	1801  XDX180 Audio Controller
+	1900  XDX190 Graphic/VGA Controller
+	1901  XDX190 Audio Controller
 1efb  Flexxon Pte Ltd
 1f02  Beijing Dayu Technology
 1f03  Shenzhen Shichuangyi Electronics Co., Ltd
@@ -25247,6 +25278,8 @@
 5168  Animation Technologies Inc.
 	0300  FlyDVB-S
 	0301  FlyDVB-T
+51d8  Alder Lake-P Serial IO I2C Controller #2
+51d9  Alder Lake-P Serial IO I2C Controller #3
 5301  Alliance Semiconductor Corp.
 	0001  ProMotion aT3D
 5333  S3 Graphics Ltd.
@@ -25466,6 +25499,8 @@
 6766  Glenfly Tech Co., Ltd.
 	3d00  Arise-GT-10C0
 	3d02  Arise 1020
+	3d03  Arise-GT-1040
+	3d04  Arise1010
 	3d40  Arise-GT-10C0 High Definition Audio Controller
 	3d41  Arise 1020 High Definition Audio Controller
 6899  ZT Systems
@@ -27357,6 +27392,7 @@
 	124e  Ethernet Connection E823-L/X557-AT 10GBASE-T
 	124f  Ethernet Connection E823-L 1GbE
 	1250  430HX - 82439HX TXC [Triton II]
+	125b  Ethernet Controller I226-LM
 	1360  82806AA PCI64 Hub PCI Bridge
 	1361  82806AA PCI64 Hub Controller (HRes)
 		8086 1361  82806AA PCI64 Hub Controller (HRes)
@@ -27569,7 +27605,7 @@
 		8086 0001  Ethernet Server Bypass Adapter X520-SR2
 		8086 0002  Ethernet Server Bypass Adapter X520-LR2
 	1560  Ethernet Controller X540
-	1563  Ethernet Controller 10G X550T
+	1563  Ethernet Controller X550
 		1028 1fa8  Ethernet 10G 4P X550/I350 rNDC
 		1028 1fa9  Ethernet 10G 4P X550 rNDC
 		1137 02b2  X550-TX 10 Gig LOM
@@ -27773,6 +27809,7 @@
 		8086 000f  Ethernet Network Adapter E810-C-Q2T
 		8086 0010  Ethernet 100G 2P E810-C-stg Adapter
 		8086 0011  Ethernet Network Adapter E810-C-Q1 for OCP3.0
+		8086 0012  Ethernet 100G 2P E810-C-st Adapter
 	1593  Ethernet Controller E810-C for SFP
 		1137 02c3  E810XXVDA4 4x25/10 GbE SFP28 PCIe NIC
 		1137 02e9  E810XXVDA4TG 4x25/10 GbE SFP28 PCIe NIC
@@ -27964,6 +28001,11 @@
 	163d  Broadwell-U Integrated Graphics
 	163e  Broadwell-U Integrated Graphics
 	1889  Ethernet Adaptive Virtual Function
+	188a  Ethernet Connection E823-C for backplane
+	188b  Ethernet Connection E823-C for QSFP
+	188c  Ethernet Connection E823-C for SFP
+	188d  Ethernet Connection E823-C/X557-AT 10GBASE-T
+	188e  Ethernet Connection E823-C 1GbE
 	1890  Ethernet Connection E822-C for backplane
 	1891  Ethernet Connection E822-C for QSFP
 	1892  Ethernet Connection E822-C for SFP
@@ -32420,6 +32462,8 @@
 	51c6  Alder Lake-P Serial IO I2C Controller #1
 	51c8  Alder Lake PCH-P High Definition Audio Controller
 	51d3  Alder Lake-P SATA AHCI Controller
+	51d8  Alder Lake-P Serial IO I2C Controller #2
+	51d9  Alder Lake-P Serial IO I2C Controller #3
 	51e0  Alder Lake PCH HECI Controller
 	51e8  Alder Lake PCH Serial IO I2C Controller #0
 	51e9  Alder Lake PCH Serial IO I2C Controller #1
@@ -32437,7 +32481,6 @@
 		8086 0001  EtherExpress PRO/100 Server Ethernet Adapter
 	530d  80310 (IOP) IO Processor
 	5502  Ethernet Controller (2) I225-LMvP
-	5504  Ethernet Controller I226-K
 	5845  QEMU NVM Express Controller
 		1af4 1100  QEMU Virtual Machine
 	5900  Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers

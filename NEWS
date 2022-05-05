@@ -154,6 +154,9 @@ CHANGES WITH 251:
         * 'bootctl list' gained support for a new --json= switch to output boot
           menu entries in JSON format.
 
+        * 'bootctl is-installed' now supports the --graceful, and various verbs
+          omit output with the new option --quiet.
+
         Changes in systemd-homed:
 
         * Starting with v250 systemd-homed uses UID/GID mapping on the mounts
@@ -292,13 +295,6 @@ CHANGES WITH 251:
 
         * systemctl's --timestamp= option gained a new choice "unix", to show
           timestamp as unix times, i.e. seconds since 1970, Jan 1st.
-
-        * 'systemctl enable' and similar commands will now create relative
-          symlinks in .wants/ and .requires/ and for aliases. Most of the time
-          systemd itself doesn't care, but absolute symlinks were causing wrong
-          behaviour in case of aliases to linked unit files. The change was
-          necessary to fix this aspect. Absolute links are interpreted as
-          before, and it is still possible to create them via other means.
 
         * A new "taint" flag named "old-kernel" is introduced which is set when
           the kernel systemd runs on is older then the current baseline version
@@ -525,6 +521,10 @@ CHANGES WITH 251:
           a TPM2 device cannot be detected, to ensure that credentials
           "encrypted" like that cannot be used to trick TPM2 systems.
 
+        * When deciding whether to colorize output, all systemd programs now
+          also check $COLORTERM (in addition to $NO_COLOR, $SYSTEMD_COLORS, and
+          $TERM).
+
         Experimental features:
 
         * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
@@ -543,30 +543,35 @@ CHANGES WITH 251:
           and other assets. See the new systemd-sysupdate man page for updates.
 
         Contributions from: 4piu, Adam Williamson, adrian5, Albert Brox,
-        AlexCatze, Alfonso Sánchez-Beato, Alvin Šipraga, Andrea Pappacoda,
-        Andy Chi, Anita Zhang, Antonio Alvarez Feijoo,
-        Arfrever Frehtes Taifersar Arahesis, ash, Bastien Nocera, Be,
-        bearhoney, Benjamin Berg, Christian Brauner, Clyde Byrd III,
-        Curtis Klein, Daan De Meyer, Danilo Krummrich, David, David Bond,
-        Davide Cavalca, David Tardon, dependabot[bot], Donald Chan,
+        AlexCatze, Alfonso Sánchez-Beato, Alice S, Alvin Šipraga, amarjargal,
+        Amarjargal, Andrea Pappacoda, Andy Chi, Anita Zhang,
+        Antonio Alvarez Feijoo, Arfrever Frehtes Taifersar Arahesis, ash,
+        Bastien Nocera, Be, bearhoney, Ben Efros, Benjamin Berg, Brett Holman,
+        Christian Brauner, Clyde Byrd III, Curtis Klein, Daan De Meyer,
+        Daniele Medri, Daniel Mack, Danilo Krummrich, David, David Bond,
+        Davide Cavalca, David Tardon, davijosw, dependabot[bot], Donald Chan,
         Dorian Clay, Eduard Tolosa, Erik Sjölund, Evgeny Vereshchagin,
         Federico Ceratto, Franck Bui, Frantisek Sumsal, Gaël PORTAY,
-        Georges Basile Stavracas Neto, Goffredo Baroncelli, Grigori Goronzy,
-        Hans de Goede, Heiko Becker, Hugo Carvalho, James Hilliard,
-        Jan Janssen, Jason A. Donenfeld, Joan Bruguera, Joerie de Gram,
-        Josh Triplett, Julia Kartseva, ksa678491784, Lan Tian, Laura Barcziova,
-        Lennart Poettering, Leviticoh, licunlong, Lidong Zhong, lincoln auster,
-        Lubomir Rintel, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
-        Marcel Hellwig, march1993, Marco Scardovi, Markus Weippert,
-        Martin Wilck, Matija Skala, Matthias Lisin, Matt Walton, Max Gautier,
-        Michael Biebl, Michael Olbrich, Michal Koutný, Mike Gilbert,
-        Morten Linderud, Nishal Kulkarni, Noel Kuntze, Peter Hutterer,
-        Peter Morrow, Pigmy-penguin, prumian, Richard Neill,
-        Rike-Benjamin Schuppner, Romain Naour, Ruben Kerkhof, Ryan Hendrickson,
-        Santa Wiryaman, Seth Falco, Stephen Hemminger, tawefogo,
-        Temuri Doghonadze, Thomas Batten, Thomas Haller, Tobias Stoeckmann,
-        Tyson Whitehead, Vishal Chillara Srinivas, Vivien Didelot, Weblate,
-        Xiaotian Wu, yangmingtai, YmrDtnJu, Yonathan Randolph, Yu Watanabe,
+        Georges Basile Stavracas Neto, Gibeom Gwon, Goffredo Baroncelli,
+        Grigori Goronzy, Hans de Goede, Heiko Becker, Hugo Carvalho,
+        James Hilliard, Jan Janssen, Jason A. Donenfeld, Joan Bruguera,
+        Joerie de Gram, Josh Triplett, Julia Kartseva, ksa678491784, Lance,
+        Lan Tian, Laura Barcziova, Lennart Poettering, Leviticoh, licunlong,
+        Lidong Zhong, lincoln auster, Lubomir Rintel, Luca Boccassi,
+        Luca BRUNO, Ludwig Nussel, Marcel Hellwig, march1993, Marco Scardovi,
+        Mariusz Tkaczyk, Markus Weippert, Martin Liska, Martin Wilck,
+        Matija Skala, Matthew Blythe, Matthias Lisin, Matthijs van Duin,
+        Matt Walton, Max Gautier, Michael Biebl, Michael Olbrich,
+        Michal Koutný, Michal Sekletár, Mike Gilbert, MkfsSion,
+        Morten Linderud, Nick Rosbrook, Nishal Kulkarni, Noel Kuntze,
+        Peter Hutterer, Peter Morrow, Pigmy-penguin, prumian, Richard Neill,
+        Rike-Benjamin Schuppner, rodin-ia, Romain Naour, Ruben Kerkhof,
+        Ryan Hendrickson, Santa Wiryaman, Sebastian Pucilowski, Seth Falco,
+        Simon Ellmann, Sonali Srivastava, Stephen Hemminger, tawefogo,
+        techtino, Temuri Doghonadze, Thomas Batten, Thomas Haller,
+        Tobias Stoeckmann, Tyson Whitehead, Vishal Chillara Srinivas,
+        Vivien Didelot, w30023233, wangyuhang, Weblate, Xiaotian Wu,
+        yangmingtai, YmrDtnJu, Yonathan Randolph, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, наб
 
         — Warsaw, 2022-03---

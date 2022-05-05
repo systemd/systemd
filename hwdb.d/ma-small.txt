@@ -5927,6 +5927,30 @@ E90000-E90FFF     (base 16)		MHE Electronics
 				Changwon-si, Gyeongsangnam-do, Republic of Korea    51368
 				KR
 
+8C-1F-64   (hex)		Lambda Systems Inc.
+DB7000-DB7FFF     (base 16)		Lambda Systems Inc.
+				2-11-26 Sangenjaya
+				Setagaya-ku  Tokyo  154-0024
+				JP
+
+8C-1F-64   (hex)		Grossenbacher Systeme AG
+9F4000-9F4FFF     (base 16)		Grossenbacher Systeme AG
+				Spinnereistrasse 10
+				St. Gallen    9008
+				CH
+
+8C-1F-64   (hex)		KCS Co., Ltd.
+4AE000-4AEFFF     (base 16)		KCS Co., Ltd.
+				1101, NexZone, 50, Wanam-ro, Seongsan-gu,
+				Changwon-si    51573
+				KR
+
+8C-1F-64   (hex)		Satelles Inc
+9FF000-9FFFFF     (base 16)		Satelles Inc
+				1835 Alexander Bell Dr., Suite 240
+				Reston  VA  20191
+				US
+
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
 				VIA FELTRE N. 81
@@ -11699,17 +11723,23 @@ B7C000-B7CFFF     (base 16)		EVERNET CO,.LTD TAIWAN
 				Plainsboro  NJ  08536
 				US
 
-8C-1F-64   (hex)		Genius vision digital private limted
-CC6000-CC6FFF     (base 16)		Genius vision digital private limted
-				S-39, GF JANTA MARKET, RAJOURI GARDEN,NEW DELHI - 110027
-				new delhi  new delhi  110027
-				IN
-
 8C-1F-64   (hex)		FMTec GmbH - Future Management Technologies
 3E3000-3E3FFF     (base 16)		FMTec GmbH - Future Management Technologies
 				Austraße 59e
 				Bludenz  Austria  6700
 				AT
+
+8C-1F-64   (hex)		Genius Vision Digital Private Limited
+CC6000-CC6FFF     (base 16)		Genius Vision Digital Private Limited
+				S-39, GF JANTA MARKET, RAJOURI GARDEN,NEW DELHI - 110027
+				new delhi  new delhi  110027
+				IN
+
+8C-1F-64   (hex)		AVCOMM Technologies Inc
+1F0000-1F0FFF     (base 16)		AVCOMM Technologies Inc
+				333 West Loop N FreewaySuite 460
+				Houston  TX  77024-7338
+				US
 
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
@@ -13828,12 +13858,6 @@ CE5000-CE5FFF     (base 16)		GridBridge Inc
 				10 Magdala Place
 				Christchurch  Canterbury  8024
 				NZ
-
-70-B3-D5   (hex)		HBH Microwave GmbH
-CD2000-CD2FFF     (base 16)		HBH Microwave GmbH
-				Helmholtzstr. 1
-				Stutensee    76297
-				DE
 
 70-B3-D5   (hex)		Firefly RFID Solutions
 8B3000-8B3FFF     (base 16)		Firefly RFID Solutions
@@ -17449,6 +17473,24 @@ CDB000-CDBFFF     (base 16)		EUROPEAN TELECOMMUNICATION INTERNATIONAL KFT
 				1132 Budapest, Váci út 22-24. 3. em.)
 				Budapest    1132
 				HU
+
+8C-1F-64   (hex)		Goodtech AS dep Fredrikstad
+C0E000-C0EFFF     (base 16)		Goodtech AS dep Fredrikstad
+				Gamle Beddingvei 28
+				FREDRIKSTAD  Viken  1671
+				NO
+
+70-B3-D5   (hex)		TRUMPF Huttinger GmbH + Co. KG,
+CD2000-CD2FFF     (base 16)		TRUMPF Huttinger GmbH + Co. KG,
+				Helmholtzstr. 1
+				Stutensee    76297
+				DE
+
+8C-1F-64   (hex)		DIALTRONICS SYSTEMS PVT LTD
+1A5000-1A5FFF     (base 16)		DIALTRONICS SYSTEMS PVT LTD
+				Dialtronics Systems Pvt Ltd, #201, Sirisampada Hitech, Kavuri Hills, Madhapur
+				Hyderabad  Telangana  500081
+				IN
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -21887,12 +21929,6 @@ DBA000-DBAFFF     (base 16)		KODENSHI CORP.
 				MINATO-KU  TOKYO  1060032
 				JP
 
-70-B3-D5   (hex)		BIT Group USA, Inc.
-C75000-C75FFF     (base 16)		BIT Group USA, Inc.
-				15870 Bernardo center drive 
-				San Diego   CA  92127
-				US
-
 70-B3-D5   (hex)		Zeus Control Systems Ltd
 E73000-E73FFF     (base 16)		Zeus Control Systems Ltd
 				1-4 Alexander House Station Road
@@ -23365,6 +23401,36 @@ C3A000-C3AFFF     (base 16)		YUSUR Technology Co., Ltd.
 				9/205, MAIN MARKET OLD FARIDABAD HARYANA INDIA 121002
 				Faridabad  HARYANA  121002
 				IN
+
+8C-1F-64   (hex)		Fink Zeitsysteme GmbH
+73B000-73BFFF     (base 16)		Fink Zeitsysteme GmbH
+				Möslestraße 21
+				Altach  Vorarlberg  6844
+				AT
+
+70-B3-D5   (hex)		PLANET INNOVATION (PI)
+C75000-C75FFF     (base 16)		PLANET INNOVATION (PI)
+				6 Thomas
+				Irvine  CA  92618
+				US
+
+8C-1F-64   (hex)		KST technology
+DD7000-DD7FFF     (base 16)		KST technology
+				KST B/D 4-5, Wiryeseong-daero 12-gil
+				Songpa-gu  Seoul  05636
+				KR
+
+8C-1F-64   (hex)		Bavaria Digital Technik GmbH
+FB5000-FB5FFF     (base 16)		Bavaria Digital Technik GmbH
+				Rehbichler Weg 26
+				Pfronten  Bayern  87459
+				DE
+
+8C-1F-64   (hex)		NT
+CF4000-CF4FFF     (base 16)		NT
+				Azrieli Circular Tower132 Menachem Begin Rd
+				Tel Aviv    6701101
+				IL
 
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
@@ -29089,3 +29155,9 @@ DFE000-DFEFFF     (base 16)		Nuvation Energy
 				40 Bathurst Drive
 				Waterloo  Ontario  N2V 1V6
 				CA
+
+8C-1F-64   (hex)		Astro Machine Corporation
+268000-268FFF     (base 16)		Astro Machine Corporation
+				630 Lively Blvd
+				Elk Grove Village  IL  60007
+				US
