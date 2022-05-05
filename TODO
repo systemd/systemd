@@ -1399,6 +1399,9 @@ Features:
   - follow PropertiesChanged state more closely, to deal with quick logouts and
     relogins
   - (optionally?) spawn seat-manager@$SEAT.service whenever a seat shows up that as CanGraphical set
+  - expose details of boot entries on the bus. In particular, it should be possible
+    to query the list of boot entry titles that bootctl / sd-boot would show.
+    Currently we only expose their identifiers.
 
 * move logind udev rules to top-level rule.d/ directory
 
