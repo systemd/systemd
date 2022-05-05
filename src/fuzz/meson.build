@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 fuzzers += [
+        [files('fuzz-bootspec.c')],
+
         [files('fuzz-bus-label.c')],
 
         [files('fuzz-calendarspec.c')],
