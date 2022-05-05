@@ -66939,7 +66939,7 @@ usb:v2A19p5442*
  ID_MODEL_FROM_DATABASE=TimVideos' HDMI2USB Opsis (FX2) - HDMI/DVI Capture Device
 
 usb:v2A1D*
- ID_VENDOR_FROM_DATABASE=Oxford Nanopore Technologies, Ltd
+ ID_VENDOR_FROM_DATABASE=Oxford Nanopore Technologies plc
 
 usb:v2A1Dp0000*
  ID_MODEL_FROM_DATABASE=MinION
@@ -66958,6 +66958,12 @@ usb:v2A1Dp0020*
 
 usb:v2A1Dp0021*
  ID_MODEL_FROM_DATABASE=GridION
+
+usb:v2A1Dp0120*
+ ID_MODEL_FROM_DATABASE=GridION Mk1 Bay
+
+usb:v2A1Dp0121*
+ ID_MODEL_FROM_DATABASE=GridION Mk1 Bay
 
 usb:v2A37*
  ID_VENDOR_FROM_DATABASE=RTD Embedded Technologies, Inc.

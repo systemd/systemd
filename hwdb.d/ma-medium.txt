@@ -5060,6 +5060,18 @@ A00000-AFFFFF     (base 16)		Annapurna labs
 				Mail box 15123  Haifa  3508409
 				IL
 
+FC-61-79   (hex)		Shenzhen Xmitech Electronic Co.,Ltd
+C00000-CFFFFF     (base 16)		Shenzhen Xmitech Electronic Co.,Ltd
+				Room 8B1888, Block AB, New Energy Building, No.2239, Nanhai Avenue, Nanguang Community, Nanshan Street, Nanshan District, Shenzhen
+				Shenzhen    518054
+				CN
+
+30-3D-51   (hex)		SHENZHEN WLINK TECHNOLOGY CO., LTD.
+100000-1FFFFF     (base 16)		SHENZHEN WLINK TECHNOLOGY CO., LTD.
+				201, F5 Building, TCL International E City, No.1001 Zhongshanyuan Rd., Nanshan Dist.
+				Shenzhen  Guangdong  518052
+				CN
+
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
 				Floor 3, building 5, kaijeda industrial zone, no.97, huaxing road, langkou community, dalang street, longhua district
@@ -15023,11 +15035,11 @@ FC-61-79   (hex)		MACH SYSTEMS s.r.o.
 				Prague    10800
 				CZ
 
-FC-61-79   (hex)		Annapurna labs
-800000-8FFFFF     (base 16)		Annapurna labs
-				Matam Scientific Industries Center,   Building 8.2
-				Mail box 15123  Haifa  3508409
-				IL
+30-3D-51   (hex)		Media Hub Digital Smart Home Pty Ltd.
+500000-5FFFFF     (base 16)		Media Hub Digital Smart Home Pty Ltd.
+				40 Koornang Road
+				Scoresby  VIC  3179
+				AU
 
 FC-61-79   (hex)		Zhuhai Anjubao Electronics Technology Co., Ltd.
 000000-0FFFFF     (base 16)		Zhuhai Anjubao Electronics Technology Co., Ltd.
@@ -15040,6 +15052,18 @@ FC-61-79   (hex)		Shenzhen Shenshui Electronic Commerce Co.,Ltd
 				Room 517, Biaofan Building, No. 6, Tangwei Industrial Avenue, Fuhai Street, Baoan District
 				Shenzhen    518132
 				CN
+
+FC-61-79   (hex)		Annapurna labs
+800000-8FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+30-3D-51   (hex)		TeraNXT Global India Pvt Ltd.
+A00000-AFFFFF     (base 16)		TeraNXT Global India Pvt Ltd.
+				7A/61 W.E.A KAROL BAGH
+				DELHI  DELHI  110005
+				IN
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -20038,6 +20062,18 @@ FC-61-79   (hex)		Hangzhou LiDe Communication Co.,Ltd
 				No.188,DongJia Rd,Tonglu Econominc Development Zone,Hangzhou,Zhejiang,
 				Hangzhou    311500
 				CN
+
+30-3D-51   (hex)		Harman Connected Services Corporation India Pvt. Ltd.
+200000-2FFFFF     (base 16)		Harman Connected Services Corporation India Pvt. Ltd.
+				Plot No 3 & 3A, EOIZ Industrial Area, Sy.No.85 and 86, KIADB, Whitefield,
+				Bengaluru  Karnataka  560066
+				IN
+
+FC-61-79   (hex)		ACCO Brands USA LLC
+E00000-EFFFFF     (base 16)		ACCO Brands USA LLC
+				Four Corporate Drive
+				Lake Zurich  IL  60047-2997
+				US
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -25100,10 +25136,22 @@ D00000-DFFFFF     (base 16)		Int'Act Pty Ltd
 				Boston  MA  02215
 				US
 
+30-3D-51   (hex)		The Heil Co dba AWTI 3rd Eye Cam
+800000-8FFFFF     (base 16)		The Heil Co dba AWTI 3rd Eye Cam
+				201 West Main Street, Suite 300
+				Chattanooga    37408
+				US
+
 FC-61-79   (hex)		Signalinks Communication Technology Co.,Ltd
 100000-1FFFFF     (base 16)		Signalinks Communication Technology Co.,Ltd
 				3rd Floor, Building 6, Longxing Sciece park, East Huaning Road, Dalang Street , Longhua District, Shenzhen
 				Shenzhen  Guangdong  518000
+				CN
+
+FC-61-79   (hex)		Fulian Precision Electronics(Tianjin) Co., Ltd
+B00000-BFFFFF     (base 16)		Fulian Precision Electronics(Tianjin) Co., Ltd
+				No 36. North Street, West Zone, Economic & Technological Development Area, Tianjin, China
+				Tianjin  Tianjin  300457
 				CN
 
 FC-61-79   (hex)		Shenzhen Dptek Technology Co., Ltd.
