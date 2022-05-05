@@ -1759,8 +1759,6 @@ static void manager_ready(Manager *m) {
                 (void) touch_file("/run/systemd/systemd-units-load", false,
                         m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].realtime ?: now(CLOCK_REALTIME),
                         UID_INVALID, GID_INVALID, 0444);
-
-        m->honor_device_enumeration = true;
 }
 
 Manager* manager_reloading_start(Manager *m) {
@@ -3418,11 +3416,6 @@ int manager_reload(Manager *m) {
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
-
-        /* On manager reloading, device tag data should exists, thus, we should honor the results of device
-         * enumeration. The flag should be always set correctly by the serialized data, but it may fail. So,
-         * let's always set the flag here for safety. */
-        m->honor_device_enumeration = true;
 
         manager_ready(m);
 
