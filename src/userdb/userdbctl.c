@@ -431,7 +431,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         if (table) {
                 _cleanup_free_ UidRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
-                size_t n_uid_range;
+                size_t n_uid_range = 0;
 
                 r = uid_range_load_userns(&uid_range, &n_uid_range, "/proc/self/uid_map");
                 if (r < 0)
@@ -740,7 +740,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         if (table) {
                 _cleanup_free_ UidRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
-                size_t n_gid_range;
+                size_t n_gid_range = 0;
 
                 r = uid_range_load_userns(&gid_range, &n_gid_range, "/proc/self/gid_map");
                 if (r < 0)
