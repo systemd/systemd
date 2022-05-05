@@ -86,6 +86,9 @@ static inline const BootEntry* boot_config_default_entry(const BootConfig *confi
 
 void boot_config_free(BootConfig *config);
 
+int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path);
+
+int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
 int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
