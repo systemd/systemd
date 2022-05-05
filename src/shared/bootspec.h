@@ -9,6 +9,7 @@
 
 #include "set.h"
 #include "string-util.h"
+#include "json.h"
 
 typedef enum BootEntryType {
         BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
@@ -69,6 +70,8 @@ typedef struct BootConfig {
                 .selected_entry = -1, \
         }
 
+const char* boot_entry_type_to_string(BootEntryType);
+
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
 static inline const BootEntry* boot_config_default_entry(const BootConfig *config) {
@@ -94,3 +97,12 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
         return ASSERT_PTR(entry->show_title ?: entry->title ?: entry->id);
 }
+
+int show_boot_entry(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected,
+                bool show_reported);
+int show_boot_entries(
+                const BootConfig *config,
+                JsonFormatFlags json_format);
