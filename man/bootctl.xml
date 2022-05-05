@@ -277,6 +277,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress printing of the results of various commands and also the hints about ESP
+        being unavailable.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--make-entry-directory=yes|no</option></term>
         <listitem><para>Controls creation and deletion of the <ulink
         url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1 entry
