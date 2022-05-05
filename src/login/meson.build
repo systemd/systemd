@@ -65,25 +65,22 @@ pam_systemd_sym = 'src/login/pam_systemd.sym'
 pam_systemd_c = files('pam_systemd.c')
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
-in_files = [
-        ['logind.conf',        pkgsysconfdir, enable_logind and install_sysconfdir_samples],
-        ['70-uaccess.rules',   udevrulesdir,  enable_logind and conf.get('HAVE_ACL') == 1],
-        ['71-seat.rules',      udevrulesdir,  enable_logind],
-        ['73-seat-late.rules', udevrulesdir,  enable_logind],
-        ['systemd-user',       pamconfdir,    enable_logind]]
 
-foreach tuple : in_files
-        file = tuple[0]
-        dir = tuple[1]
-        install = (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no')
-        custom_target(
-                file,
-                input : file + '.in',
-                output: file,
-                command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-                install : tuple[2] and install,
-                install_dir : dir)
-endforeach
+custom_target(
+        'logind.conf',
+        input : 'logind.conf.in',
+        output : 'logind.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : enable_logind and install_sysconfdir_samples and pkgsysconfdir != 'no',
+        install_dir : pkgsysconfdir)
+
+custom_target(
+        'systemd-user',
+        input : 'systemd-user.in',
+        output : 'systemd-user',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : enable_logind and pamconfdir != 'no',
+        install_dir : pamconfdir)
 
 if enable_logind
         install_data('org.freedesktop.login1.conf',
@@ -92,8 +89,6 @@ if enable_logind
                      install_dir : dbussystemservicedir)
         install_data('org.freedesktop.login1.policy',
                      install_dir : polkitpolicydir)
-        install_data('70-power-switch.rules',
-                     install_dir : udevrulesdir)
 endif
 
 ############################################################

@@ -1403,8 +1403,6 @@ Features:
     to query the list of boot entry titles that bootctl / sd-boot would show.
     Currently we only expose their identifiers.
 
-* move logind udev rules to top-level rule.d/ directory
-
 * move multiseat vid/pid matches from logind udev rule to hwdb
 
 * logind: rework pam_logind to also do a bus call in case of invocation from
