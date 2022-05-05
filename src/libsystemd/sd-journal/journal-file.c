@@ -3341,6 +3341,84 @@ static int journal_file_warn_btrfs(JournalFile *f) {
         return 1;
 }
 
+static void journal_default_metrics(JournalMetrics *m, int fd) {
+        struct statvfs ss;
+        uint64_t fs_size = 0;
+
+        assert(m);
+        assert(fd >= 0);
+
+        if (fstatvfs(fd, &ss) >= 0)
+                fs_size = ss.f_frsize * ss.f_blocks;
+        else
+                log_debug_errno(errno, "Failed to determine disk size: %m");
+
+        if (m->max_use == UINT64_MAX) {
+
+                if (fs_size > 0)
+                        m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
+                                           MAX_USE_LOWER, MAX_USE_UPPER);
+                else
+                        m->max_use = MAX_USE_LOWER;
+        } else {
+                m->max_use = PAGE_ALIGN(m->max_use);
+
+                if (m->max_use != 0 && m->max_use < JOURNAL_FILE_SIZE_MIN*2)
+                        m->max_use = JOURNAL_FILE_SIZE_MIN*2;
+        }
+
+        if (m->min_use == UINT64_MAX) {
+                if (fs_size > 0)
+                        m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
+                                           MIN_USE_LOW, MIN_USE_HIGH);
+                else
+                        m->min_use = MIN_USE_LOW;
+        }
+
+        if (m->min_use > m->max_use)
+                m->min_use = m->max_use;
+
+        if (m->max_size == UINT64_MAX)
+                m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
+                                  MAX_SIZE_UPPER);
+        else
+                m->max_size = PAGE_ALIGN(m->max_size);
+
+        if (m->max_size != 0) {
+                if (m->max_size < JOURNAL_FILE_SIZE_MIN)
+                        m->max_size = JOURNAL_FILE_SIZE_MIN;
+
+                if (m->max_use != 0 && m->max_size*2 > m->max_use)
+                        m->max_use = m->max_size*2;
+        }
+
+        if (m->min_size == UINT64_MAX)
+                m->min_size = JOURNAL_FILE_SIZE_MIN;
+        else
+                m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
+                                    JOURNAL_FILE_SIZE_MIN,
+                                    m->max_size ?: UINT64_MAX);
+
+        if (m->keep_free == UINT64_MAX) {
+                if (fs_size > 0)
+                        m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
+                                           KEEP_FREE_UPPER);
+                else
+                        m->keep_free = DEFAULT_KEEP_FREE;
+        }
+
+        if (m->n_max_files == UINT64_MAX)
+                m->n_max_files = DEFAULT_N_MAX_FILES;
+
+        log_debug("Fixed min_use=%s max_use=%s max_size=%s min_size=%s keep_free=%s n_max_files=%" PRIu64,
+                  FORMAT_BYTES(m->min_use),
+                  FORMAT_BYTES(m->max_use),
+                  FORMAT_BYTES(m->max_size),
+                  FORMAT_BYTES(m->min_size),
+                  FORMAT_BYTES(m->keep_free),
+                  m->n_max_files);
+}
+
 int journal_file_open(
                 int fd,
                 const char *fname,
@@ -3768,84 +3846,6 @@ void journal_reset_metrics(JournalMetrics *m) {
                 .keep_free = UINT64_MAX,
                 .n_max_files = UINT64_MAX,
         };
-}
-
-void journal_default_metrics(JournalMetrics *m, int fd) {
-        struct statvfs ss;
-        uint64_t fs_size = 0;
-
-        assert(m);
-        assert(fd >= 0);
-
-        if (fstatvfs(fd, &ss) >= 0)
-                fs_size = ss.f_frsize * ss.f_blocks;
-        else
-                log_debug_errno(errno, "Failed to determine disk size: %m");
-
-        if (m->max_use == UINT64_MAX) {
-
-                if (fs_size > 0)
-                        m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
-                                           MAX_USE_LOWER, MAX_USE_UPPER);
-                else
-                        m->max_use = MAX_USE_LOWER;
-        } else {
-                m->max_use = PAGE_ALIGN(m->max_use);
-
-                if (m->max_use != 0 && m->max_use < JOURNAL_FILE_SIZE_MIN*2)
-                        m->max_use = JOURNAL_FILE_SIZE_MIN*2;
-        }
-
-        if (m->min_use == UINT64_MAX) {
-                if (fs_size > 0)
-                        m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
-                                           MIN_USE_LOW, MIN_USE_HIGH);
-                else
-                        m->min_use = MIN_USE_LOW;
-        }
-
-        if (m->min_use > m->max_use)
-                m->min_use = m->max_use;
-
-        if (m->max_size == UINT64_MAX)
-                m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
-                                  MAX_SIZE_UPPER);
-        else
-                m->max_size = PAGE_ALIGN(m->max_size);
-
-        if (m->max_size != 0) {
-                if (m->max_size < JOURNAL_FILE_SIZE_MIN)
-                        m->max_size = JOURNAL_FILE_SIZE_MIN;
-
-                if (m->max_use != 0 && m->max_size*2 > m->max_use)
-                        m->max_use = m->max_size*2;
-        }
-
-        if (m->min_size == UINT64_MAX)
-                m->min_size = JOURNAL_FILE_SIZE_MIN;
-        else
-                m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
-                                    JOURNAL_FILE_SIZE_MIN,
-                                    m->max_size ?: UINT64_MAX);
-
-        if (m->keep_free == UINT64_MAX) {
-                if (fs_size > 0)
-                        m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
-                                           KEEP_FREE_UPPER);
-                else
-                        m->keep_free = DEFAULT_KEEP_FREE;
-        }
-
-        if (m->n_max_files == UINT64_MAX)
-                m->n_max_files = DEFAULT_N_MAX_FILES;
-
-        log_debug("Fixed min_use=%s max_use=%s max_size=%s min_size=%s keep_free=%s n_max_files=%" PRIu64,
-                  FORMAT_BYTES(m->min_use),
-                  FORMAT_BYTES(m->max_use),
-                  FORMAT_BYTES(m->max_size),
-                  FORMAT_BYTES(m->min_size),
-                  FORMAT_BYTES(m->keep_free),
-                  m->n_max_files);
 }
 
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
