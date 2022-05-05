@@ -2069,7 +2069,6 @@ subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
 subdir('src/userdb')
-subdir('src/vconsole')
 subdir('src/xdg-autostart-generator')
 
 subdir('src/systemd')
