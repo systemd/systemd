@@ -55,6 +55,8 @@ rules_in = [
         ['70-uaccess.rules',   enable_logind and conf.get('HAVE_ACL') == 1],
         ['71-seat.rules',      enable_logind],
         ['73-seat-late.rules', enable_logind],
+
+        ['90-vconsole.rules',  conf.get('ENABLE_VCONSOLE') == 1],
 ]
 
 foreach tuple : rules_in
