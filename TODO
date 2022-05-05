@@ -79,6 +79,21 @@ Janitorial Clean-ups:
 
 Features:
 
+* tmpfiles: for f/F/w lines, if the argument columns is left unspecified, look
+  for a service credential named after the file path to write to, and load
+  contents to write from there. Usecase: provision arbitrary files from
+  credentials. Example use: with a line like "f /root/.ssh/authorized-keys
+  0644 root root" in a tmpfiles.d/ snippet add
+  LoadCredential=root.ssh.authorized-keys via drop-in to
+  systemd-tmpfiles.service, and then provision an SSH access key through
+  nspawn's --load-credential=, through qemu's fw_cfg, or via systemd-stub's
+  credntial pick-up. The latter is particularly interesting to implement SSH
+  access to an initrd.
+
+* systemd-homed: when initializing, look for a credential sysemd.homed.register
+  or so with JSON user records to automatically register if not registered yet.
+  Usecase: deploy a system, and add an account one can directly log into.
+
 * add a proper concept of a "developer" mode, i.e. where cryptographic
   protections of the root OS are weakened after interactive confirmation, to
   allow hackers to allow their own stuff. idea: allow entering developer mode
@@ -173,9 +188,6 @@ Features:
   specific SIGRT signal for setting debug log level, that carries the level via
   the sigqueue() data parameter. With that we extended with minimal logic the
   service runtime logic quite substantially.
-
-* get_color_mode() should probably check the $COLORTERM environment variable
-  which most terminal environments appear to set.
 
 * firstboot: maybe just default to C.UTF-8 locale if nothing is set, so that we
   don't query this unnecessarily in entirely uninitialized
@@ -787,9 +799,6 @@ Features:
   Alternatively (preferably?) use memfd_secret().
 
 * Move RestrictAddressFamily= to the new cgroup create socket
-
-* support the bind/connect/sendmsg cgroup stuff for sandboxing, and possibly
-  patching around
 
 * maybe implicitly attach monotonic+realtime timestamps to outgoing messages in
   log.c and sd-journal-send
