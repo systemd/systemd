@@ -1384,7 +1384,7 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         }
 
         log_dhcp6_client(client, "Starting in %s mode",
-                         client->information_request ? "Information request" : "Managed");
+                         client->information_request ? "Information request" : "Solicit");
 
         return client_start_transaction(client, state);
 }
