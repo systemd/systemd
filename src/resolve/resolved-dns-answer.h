@@ -5,8 +5,8 @@ typedef struct DnsAnswer DnsAnswer;
 typedef struct DnsAnswerItem DnsAnswerItem;
 
 #include "macro.h"
+#include "ordered-set.h"
 #include "resolved-dns-rr.h"
-#include "set.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
@@ -29,6 +29,7 @@ typedef enum DnsAnswerFlags {
 } DnsAnswerFlags;
 
 struct DnsAnswerItem {
+        unsigned n_ref;
         DnsResourceRecord *rr;
         DnsResourceRecord *rrsig; /* Optionally, also store RRSIG RR that successfully validates this item */
         int ifindex;
@@ -37,9 +38,7 @@ struct DnsAnswerItem {
 
 struct DnsAnswer {
         unsigned n_ref;
-        Set *set_items; /* Used by dns_answer_add() for optimization. */
-        size_t n_rrs, n_allocated;
-        DnsAnswerItem items[0];
+        OrderedSet *items;
 };
 
 DnsAnswer *dns_answer_new(size_t n);
@@ -76,7 +75,7 @@ int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKe
 int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname);
 
 static inline size_t dns_answer_size(DnsAnswer *a) {
-        return a ? a->n_rrs : 0;
+        return a ? ordered_set_size(a->items) : 0;
 }
 
 static inline bool dns_answer_isempty(DnsAnswer *a) {
@@ -91,50 +90,40 @@ uint32_t dns_answer_min_ttl(DnsAnswer *a);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
-#define _DNS_ANSWER_FOREACH(q, kk, a)                                   \
-        for (size_t UNIQ_T(i, q) = ({                                   \
-                        (kk) = dns_answer_isempty(a) ? NULL : (a)->items[0].rr; \
-                        0;                                              \
-                });                                                     \
-             UNIQ_T(i, q) < dns_answer_size(a);                         \
-             UNIQ_T(i, q)++,                                            \
-                     (kk) = UNIQ_T(i, q) < dns_answer_size(a) ? (a)->items[UNIQ_T(i, q)].rr : NULL)
+typedef struct DnsAnswerIterator {
+        Iterator iterator;
+        DnsAnswer *answer;
+        DnsAnswerItem *item;
+} DnsAnswerIterator;
 
-#define DNS_ANSWER_FOREACH(kk, a) _DNS_ANSWER_FOREACH(UNIQ, kk, a)
+#define _DNS_ANSWER_FOREACH(kk, a, i)                                   \
+        for (DnsAnswerIterator i = { .iterator = ITERATOR_FIRST, .answer = (a) };  \
+             i.answer &&                                                \
+             ordered_set_iterate(i.answer->items, &i.iterator, (void**) &(i.item)) && \
+             (kk = i.item->rr, true); )
 
-#define _DNS_ANSWER_FOREACH_IFINDEX(q, kk, ifi, a)                      \
-        for (size_t UNIQ_T(i, q) = ({                                   \
-                                (kk) = dns_answer_isempty(a) ? NULL : (a)->items[0].rr; \
-                                (ifi) = dns_answer_isempty(a) ? 0 : (a)->items[0].ifindex; \
-                                0;                                      \
-                        });                                             \
-             UNIQ_T(i, q) < dns_answer_size(a);                         \
-             UNIQ_T(i, q)++,                                            \
-                     (kk) = UNIQ_T(i, q) < dns_answer_size(a) ? (a)->items[UNIQ_T(i, q)].rr : NULL, \
-                     (ifi) = UNIQ_T(i, q) < dns_answer_size(a) ? (a)->items[UNIQ_T(i, q)].ifindex : 0)
+#define DNS_ANSWER_FOREACH(rr, a) _DNS_ANSWER_FOREACH(rr, a, UNIQ_T(i, UNIQ))
 
-#define DNS_ANSWER_FOREACH_IFINDEX(kk, ifindex, a) _DNS_ANSWER_FOREACH_IFINDEX(UNIQ, kk, ifindex, a)
+#define _DNS_ANSWER_FOREACH_IFINDEX(kk, ifi, a, i)                      \
+        for (DnsAnswerIterator i = { .iterator = ITERATOR_FIRST, .answer = (a) };  \
+             i.answer &&                                                \
+             ordered_set_iterate(i.answer->items, &i.iterator, (void**) &(i.item)) && \
+             (kk = i.item->rr, ifi = i.item->ifindex, true); )
 
-#define _DNS_ANSWER_FOREACH_FLAGS(q, kk, fl, a)                         \
-        for (size_t UNIQ_T(i, q) = ({                                   \
-                                (kk) = dns_answer_isempty(a) ? NULL : (a)->items[0].rr; \
-                                (fl) = dns_answer_isempty(a) ? 0 : (a)->items[0].flags; \
-                                0;                                      \
-                        });                                             \
-             UNIQ_T(i, q) < dns_answer_size(a);                         \
-             UNIQ_T(i, q)++,                                            \
-                     (kk) = UNIQ_T(i, q) < dns_answer_size(a) ? (a)->items[UNIQ_T(i, q)].rr : NULL, \
-                     (fl) = UNIQ_T(i, q) < dns_answer_size(a) ? (a)->items[UNIQ_T(i, q)].flags : 0)
+#define DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, a) _DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, a, UNIQ_T(i, UNIQ))
 
-#define DNS_ANSWER_FOREACH_FLAGS(kk, flags, a) _DNS_ANSWER_FOREACH_FLAGS(UNIQ, kk, flags, a)
+#define _DNS_ANSWER_FOREACH_FLAGS(kk, fl, a, i)                         \
+        for (DnsAnswerIterator i = { .iterator = ITERATOR_FIRST, .answer = (a) };  \
+             i.answer &&                                                \
+             ordered_set_iterate(i.answer->items, &i.iterator, (void**) &(i.item)) && \
+             (kk = i.item->rr, fl = i.item->flags, true); )
 
-#define _DNS_ANSWER_FOREACH_ITEM(q, item, a)                            \
-        for (size_t UNIQ_T(i, q) = ({                                   \
-                                (item) = dns_answer_isempty(a) ? NULL : (a)->items; \
-                                0;                                      \
-                        });                                             \
-             UNIQ_T(i, q) < dns_answer_size(a);                         \
-             UNIQ_T(i, q)++,                                            \
-                     (item) = (UNIQ_T(i, q) < dns_answer_size(a)) ? (a)->items + UNIQ_T(i, q) : NULL)
+#define DNS_ANSWER_FOREACH_FLAGS(rr, flags, a) _DNS_ANSWER_FOREACH_FLAGS(rr, flags, a, UNIQ_T(i, UNIQ))
 
-#define DNS_ANSWER_FOREACH_ITEM(item, a) _DNS_ANSWER_FOREACH_ITEM(UNIQ, item, a)
+#define _DNS_ANSWER_FOREACH_ITEM(item, a, i)                            \
+        for (DnsAnswerIterator i = { .iterator = ITERATOR_FIRST, .answer = (a) };  \
+             i.answer &&                                                \
+             ordered_set_iterate(i.answer->items, &i.iterator, (void**) &(i.item)) && \
+             (item = i.item, true); )
+
+#define DNS_ANSWER_FOREACH_ITEM(item, a) _DNS_ANSWER_FOREACH_ITEM(item, a, UNIQ_T(i, UNIQ))
