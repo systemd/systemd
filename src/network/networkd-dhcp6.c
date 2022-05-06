@@ -35,7 +35,7 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
         if (link->network->dhcp6_client_start_mode >= 0)
                 return link->network->dhcp6_client_start_mode;
 
-        /* When this interface itself is an uplink interface, then start dhcp6 client in managed mode. */
+        /* When this interface itself is an uplink interface, then start dhcp6 client in solicit mode. */
         if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false))
                 return DHCP6_CLIENT_START_MODE_SOLICIT;
 
@@ -686,7 +686,7 @@ static int dhcp6_configure(Link *link) {
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to %s requesting prefixes to be delegated: %m",
                                             enable_disable(link->network->dhcp6_use_pd_prefix));
 
-        /* Even if UseAddress=no, we need to request IA_NA, as the dhcp6 client may be started in managed mode. */
+        /* Even if UseAddress=no, we need to request IA_NA, as the dhcp6 client may be started in solicit mode. */
         r = sd_dhcp6_client_set_address_request(client, link->network->dhcp6_use_pd_prefix ? link->network->dhcp6_use_address : true);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to %s requesting address: %m",
