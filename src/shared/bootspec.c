@@ -168,6 +168,31 @@ static int boot_entry_load_type1(
         return 0;
 }
 
+int boot_config_load_type1(
+                BootConfig *config,
+                FILE *f,
+                const char *root,
+                const char *dir,
+                const char *id) {
+        int r;
+
+        assert(config);
+        assert(f);
+        assert(root);
+        assert(dir);
+        assert(id);
+
+        if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
+                return log_oom();
+
+        r = boot_entry_load_type1(f, root, dir, id, config->entries + config->n_entries);
+        if (r < 0)
+                return r;
+
+        config->n_entries++;
+        return 0;
+}
+
 void boot_config_free(BootConfig *config) {
         assert(config);
 
@@ -397,14 +422,9 @@ static int boot_entries_find_type1(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
-                if (!GREEDY_REALLOC0(config->entries, config->n_entries + 1))
-                        return log_oom();
-
-                r = boot_entry_load_type1(f, root, dir, de->d_name, config->entries + config->n_entries);
-                if (r < 0)
-                        continue;
-
-                config->n_entries++;
+                r = boot_config_load_type1(config, f, root, dir, de->d_name);
+                if (r == -ENOMEM)
+                        return r;
         }
 
         return 0;

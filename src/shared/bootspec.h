@@ -88,6 +88,13 @@ void boot_config_free(BootConfig *config);
 
 int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path);
 
+int boot_config_load_type1(
+                BootConfig *config,
+                FILE *f,
+                const char *root,
+                const char *dir,
+                const char *id);
+
 int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
