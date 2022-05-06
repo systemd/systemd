@@ -92,5 +92,5 @@ int boot_config_select_special_entries(BootConfig *config);
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);
 
-        return entry->show_title ?: entry->title ?: entry->id;
+        return ASSERT_PTR(entry->show_title ?: entry->title ?: entry->id);
 }
