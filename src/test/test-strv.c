@@ -317,6 +317,21 @@ TEST(strv_split) {
 
         assert_se(strv_split_full(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX) == 1);
         assert_se(strv_equal(l, STRV_MAKE("\\")));
+
+        l = strv_free_erase(l);
+
+        assert_se(l = strv_split("\\", NULL));
+        assert_se(strv_equal(l, STRV_MAKE("\\")));
+
+        l = strv_free_erase(l);
+
+        assert_se(l = strv_split("aa\\ bb\\", NULL));
+        assert_se(strv_equal(l, STRV_MAKE("aa\\", "bb\\")));
+
+        l = strv_free_erase(l);
+
+        assert_se(l = strv_split("aa\" bb'", NULL));
+        assert_se(strv_equal(l, STRV_MAKE("aa\"", "bb'")));
 }
 
 TEST(strv_split_empty) {
