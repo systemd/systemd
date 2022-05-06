@@ -389,11 +389,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
                         return r;
         }
 
-        r = unit_cgroup_freezer_action(s, action);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return unit_cgroup_freezer_action(s, action);
 }
 
 static int slice_freeze(Unit *s) {
