@@ -9,3 +9,8 @@ EFI_STATUS initrd_register(
                 EFI_HANDLE *ret_initrd_handle);
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle);
+
+static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
+        (void) initrd_unregister(*initrd_handle);
+        *initrd_handle = NULL;
+}
