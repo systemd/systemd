@@ -599,6 +599,7 @@ static int dns_trust_anchor_revoked_put(DnsTrustAnchor *d, DnsResourceRecord *rr
 static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord *rr) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *new_answer = NULL;
         DnsAnswer *old_answer;
+        DnsAnswerItem *item;
         int r;
 
         /* Remember that this is a revoked trust anchor RR */
@@ -631,11 +632,12 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
                 return 1;
         }
 
-        r = hashmap_replace(d->positive_by_key, new_answer->items[0].rr->key, new_answer);
+        item = ordered_set_first(new_answer->items);
+        r = hashmap_replace(d->positive_by_key, item->rr->key, new_answer);
         if (r < 0)
                 return r;
 
-        new_answer = NULL;
+        TAKE_PTR(new_answer);
         dns_answer_unref(old_answer);
         return 1;
 }
