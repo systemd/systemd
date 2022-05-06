@@ -5849,6 +5849,8 @@ static int unit_freezer_action(Unit *u, FreezerAction action) {
         if (r <= 0)
                 return r;
 
+        assert(IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING));
+
         return 1;
 }
 
