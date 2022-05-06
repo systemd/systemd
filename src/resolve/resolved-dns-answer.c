@@ -205,6 +205,12 @@ int dns_answer_add(
                 }
 
                 exist->flags |= flags;
+
+                if (rr->key->type == DNS_TYPE_RRSIG) {
+                        /* If the rr is RRSIG, then move the rr to the end. */
+                        assert_se(ordered_set_remove(a->items, exist) == exist);
+                        assert_se(ordered_set_put(a->items, exist) == 1);
+                }
                 return 0;
         }
 
