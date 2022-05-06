@@ -1184,7 +1184,7 @@ int dnssec_verify_rrset_search(
 
         /* Verifies all RRs from "a" that match the key "key" against DNSKEYs in "validated_dnskeys" */
 
-        if (!a || a->n_rrs <= 0)
+        if (dns_answer_isempty(a))
                 return -ENODATA;
 
         /* Iterate through each RRSIG RR. */
