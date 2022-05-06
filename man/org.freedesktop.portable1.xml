@@ -559,10 +559,5 @@ node /org/freedesktop/portable1 {
     </refsect2>
   </refsect1>
 
-  <refsect1>
-    <title>Versioning</title>
-
-    <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
-    the usual interface versioning guidelines</ulink>.</para>
-  </refsect1>
+  <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 </refentry>
