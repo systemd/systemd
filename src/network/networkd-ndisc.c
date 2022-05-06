@@ -949,13 +949,13 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
                         return 0;
 
                 /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags.
-                 * Note, if both managed and other information bits are set, then ignore other
-                 * information bit. See RFC 4861. */
+                 * Note, if both "managed" and "other configuration" bits are set, then ignore
+                 * "other configuration" bit. See RFC 4861. */
                 r = dhcp6_start_on_ra(link, !(flags & ND_RA_FLAG_MANAGED));
                 break;
         }
         case IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS:
-                /* When IPv6AcceptRA.DHCPv6Client=always, start dhcp6 client in managed mode
+                /* When IPv6AcceptRA.DHCPv6Client=always, start dhcp6 client in solicit mode
                  * even if the router flags have neither M nor O flags. */
                 r = dhcp6_start_on_ra(link, /* information_request = */ false);
                 break;

@@ -2172,9 +2172,10 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>WithoutRA=</varname></term>
         <listitem>
-          <para>Allows DHCPv6 client to start without router advertisements's managed or other
-          address configuration flag. Takes one of <literal>no</literal>, <literal>solicit</literal>
-          or <literal>information-request</literal>. If this is not specified,
+          <para>Allows DHCPv6 client to start without router advertisements's
+          <literal>managed</literal> or <literal>other configuration</literal> flag. Takes one of
+          <literal>no</literal>, <literal>solicit</literal>, or
+          <literal>information-request</literal>. If this is not specified,
           <literal>solicit</literal> is used when <varname>DHCPPrefixDelegation=</varname> is enabled
           and <varname>UplinkInterface=:self</varname> is specified in the [DHCPPrefixDelegation]
           section. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be started
@@ -2507,10 +2508,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>DHCPv6Client=</varname></term>
         <listitem>
           <para>Takes a boolean, or the special value <literal>always</literal>. When true, the
-          DHCPv6 client will be started when the RA has the managed or other information flag. If set
-          to <literal>always</literal>, the DHCPv6 client will be started in managed mode when an RA
-          is received, even if neither managed nor other information flag is set in the RA. This will
-          be ignored when <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
+          DHCPv6 client will be started in <literal>solicit</literal> mode if the RA has the
+          <literal>managed</literal> flag or <literal>information-request</literal> mode if the RA
+          lacks the <literal>managed</literal> flag but has the
+          <literal>other configuration</literal> flag. If set to <literal>always</literal>, the
+          DHCPv6 client will be started in <literal>solicit</literal> mode when an RA is received,
+          even if neither the <literal>managed</literal> nor the
+          <literal>other configuration</literal> flag is set in the RA. This will be ignored when
+          <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
           <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
           specified. Defaults to true.</para>
         </listitem>
