@@ -31,6 +31,7 @@ LICENSE:
 
 REQUIREMENTS:
         Linux kernel ≥ 3.15
+                     ≥ 4.3 for ambient capabilities
                      ≥ 4.5 for pids controller in cgroup v2
                      ≥ 4.6 for cgroup namespaces
                      ≥ 4.9 for RENAME_NOREPLACE support in vfat
