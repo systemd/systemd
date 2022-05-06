@@ -107,7 +107,8 @@ static int proposed_rrs_cmp(DnsResourceRecord **x, unsigned x_size, DnsResourceR
 
 static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, DnsResourceRecord ***ret_rrs) {
         _cleanup_free_ DnsResourceRecord **list = NULL;
-        unsigned n = 0, size = 0;
+        size_t i, n = 0, size = 0;
+        DnsResourceRecord *rr;
         int r;
 
         assert(p);
@@ -115,28 +116,39 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         assert(ret_rrs);
         assert_return(DNS_PACKET_NSCOUNT(p) > 0, -EINVAL);
 
-        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
-                r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        size++;
+        i = 0;
+        DNS_ANSWER_FOREACH(rr, p->answer) {
+                if (i >= DNS_PACKET_ANCOUNT(p) && i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                        r = dns_resource_key_match_rr(key, rr, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                size++;
+                }
+                i++;
         }
 
-        if (size == 0)
+        if (size == 0) {
+                *ret_rrs = NULL;
                 return 0;
+        }
 
         list = new(DnsResourceRecord *, size);
         if (!list)
                 return -ENOMEM;
 
-        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
-                r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        list[n++] = p->answer->items[i].rr;
+        i = 0;
+        DNS_ANSWER_FOREACH(rr, p->answer) {
+                if (i >= DNS_PACKET_ANCOUNT(p) && i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                        r = dns_resource_key_match_rr(key, rr, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                list[n++] = rr;
+                }
+                i++;
         }
+
         assert(n == size);
         typesafe_qsort(list, size, mdns_rr_compare);
 

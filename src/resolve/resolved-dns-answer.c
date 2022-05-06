@@ -9,6 +9,19 @@
 #include "resolved-dns-dnssec.h"
 #include "string-util.h"
 
+static DnsAnswerItem *dns_answer_item_free(DnsAnswerItem *item) {
+        if (!item)
+                return NULL;
+
+        dns_resource_record_unref(item->rr);
+        dns_resource_record_unref(item->rrsig);
+
+        return mfree(item);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(DnsAnswerItem, dns_answer_item, dns_answer_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswerItem*, dns_answer_item_unref);
+
 static void dns_answer_item_hash_func(const DnsAnswerItem *a, struct siphash *state) {
         assert(a);
         assert(state);
@@ -31,54 +44,62 @@ static int dns_answer_item_compare_func(const DnsAnswerItem *a, const DnsAnswerI
         return dns_resource_record_compare_func(a->rr, b->rr);
 }
 
-DEFINE_PRIVATE_HASH_OPS(dns_answer_item_hash_ops, DnsAnswerItem, dns_answer_item_hash_func, dns_answer_item_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        dns_answer_item_hash_ops,
+        DnsAnswerItem,
+        dns_answer_item_hash_func,
+        dns_answer_item_compare_func,
+        dns_answer_item_unref);
 
-DnsAnswer *dns_answer_new(size_t n) {
-        _cleanup_set_free_ Set *s = NULL;
-        DnsAnswer *a;
+static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
+        size_t m;
 
-        if (n > UINT16_MAX) /* We can only place 64K RRs in an answer at max */
+        assert(a);
+        assert(a->items);
+
+        m = ordered_set_size(a->items);
+        assert(m <= UINT16_MAX); /* We can only place 64K RRs in an answer at max */
+
+        if (n > UINT16_MAX - m)
                 n = UINT16_MAX;
-
-        s = set_new(&dns_answer_item_hash_ops);
-        if (!s)
-                return NULL;
+        else
+                n += m;
 
         /* Higher multipliers give slightly higher efficiency through hash collisions, but the gains
          * quickly drop off after 2. */
-        if (set_reserve(s, n * 2) < 0)
-                return NULL;
-
-        a = malloc0(offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * n);
-        if (!a)
-                return NULL;
-
-        a->n_ref = 1;
-        a->n_allocated = n;
-        a->set_items = TAKE_PTR(s);
-        return a;
+        return ordered_set_reserve(a->items, n * 2);
 }
 
-static void dns_answer_flush(DnsAnswer *a) {
-        DnsAnswerItem *item;
+DnsAnswer *dns_answer_new(size_t n) {
+        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        DnsAnswer *a;
 
+        if (n > UINT16_MAX)
+                n = UINT16_MAX;
+
+        s = ordered_set_new(&dns_answer_item_hash_ops);
+        if (!s)
+                return NULL;
+
+        a = new(DnsAnswer, 1);
         if (!a)
-                return;
+                return NULL;
 
-        a->set_items = set_free(a->set_items);
+        *a = (DnsAnswer) {
+                .n_ref = 1,
+                .items = TAKE_PTR(s),
+        };
 
-        DNS_ANSWER_FOREACH_ITEM(item, a) {
-                dns_resource_record_unref(item->rr);
-                dns_resource_record_unref(item->rrsig);
-        }
+        if (dns_answer_reserve_internal(a, n) < 0)
+                return NULL;
 
-        a->n_rrs = 0;
+        return a;
 }
 
 static DnsAnswer *dns_answer_free(DnsAnswer *a) {
         assert(a);
 
-        dns_answer_flush(a);
+        ordered_set_free(a->items);
         return mfree(a);
 }
 
@@ -91,6 +112,7 @@ static int dns_answer_add_raw(
                 DnsAnswerFlags flags,
                 DnsResourceRecord *rrsig) {
 
+        _cleanup_(dns_answer_item_unrefp) DnsAnswerItem *item = NULL;
         int r;
 
         assert(rr);
@@ -98,25 +120,26 @@ static int dns_answer_add_raw(
         if (!a)
                 return -ENOSPC;
 
-        if (a->n_rrs >= a->n_allocated)
+        if (dns_answer_size(a) >= UINT16_MAX)
                 return -ENOSPC;
 
-        a->items[a->n_rrs] = (DnsAnswerItem) {
-                .rr = rr,
+        item = new(DnsAnswerItem, 1);
+        if (!item)
+                return -ENOMEM;
+
+        *item = (DnsAnswerItem) {
+                .n_ref = 1,
+                .rr = dns_resource_record_ref(rr),
                 .ifindex = ifindex,
                 .flags = flags,
                 .rrsig = dns_resource_record_ref(rrsig),
         };
 
-        r = set_put(a->set_items, &a->items[a->n_rrs]);
+        r = ordered_set_put(a->items, item);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return -EEXIST;
 
-        dns_resource_record_ref(rr);
-        a->n_rrs++;
-
+        TAKE_PTR(item);
         return 1;
 }
 
@@ -159,7 +182,7 @@ int dns_answer_add(
                 .ifindex = ifindex,
         };
 
-        exist = set_get(a->set_items, &tmp);
+        exist = ordered_set_get(a->items, &tmp);
         if (exist) {
                 /* There's already an RR of the same RRset in place! Let's see if the TTLs more or less
                  * match. We don't really care if they match precisely, but we do care whether one is 0 and
@@ -437,7 +460,7 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
                 return 0;
         }
 
-        k = dns_answer_new(a->n_rrs + b->n_rrs);
+        k = dns_answer_new(dns_answer_size(a) + dns_answer_size(b));
         if (!k)
                 return -ENOMEM;
 
@@ -471,9 +494,8 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
 }
 
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
-        bool found = false, other = false;
-        DnsResourceRecord *rr;
-        size_t i;
+        DnsAnswerItem *item;
+        bool found = false;
         int r;
 
         assert(a);
@@ -481,162 +503,51 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
 
         /* Remove all entries matching the specified key from *a */
 
-        DNS_ANSWER_FOREACH(rr, *a) {
-                r = dns_resource_key_equal(rr->key, key);
+        DNS_ANSWER_FOREACH_ITEM(item, *a) {
+                r = dns_resource_key_equal(item->rr->key, key);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (r > 0) {
+                        dns_answer_item_unref(ordered_set_remove((*a)->items, item));
                         found = true;
-                else
-                        other = true;
-
-                if (found && other)
-                        break;
+                }
         }
 
         if (!found)
                 return 0;
 
-        if (!other) {
+        if (dns_answer_isempty(*a))
                 *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
-                return 1;
-        }
-
-        if ((*a)->n_ref > 1) {
-                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = NULL;
-                DnsAnswerItem *item;
-
-                copy = dns_answer_new((*a)->n_rrs);
-                if (!copy)
-                        return -ENOMEM;
-
-                DNS_ANSWER_FOREACH_ITEM(item, *a) {
-                        r = dns_resource_key_equal(item->rr->key, key);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                continue;
-
-                        r = dns_answer_add_raw(copy, item->rr, item->ifindex, item->flags, item->rrsig);
-                        if (r < 0)
-                                return r;
-                }
-
-                dns_answer_unref(*a);
-                *a = TAKE_PTR(copy);
-
-                return 1;
-        }
-
-        /* Only a single reference, edit in-place */
-
-        i = 0;
-        for (;;) {
-                if (i >= (*a)->n_rrs)
-                        break;
-
-                r = dns_resource_key_equal((*a)->items[i].rr->key, key);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        /* Kill this entry */
-
-                        dns_resource_record_unref((*a)->items[i].rr);
-                        dns_resource_record_unref((*a)->items[i].rrsig);
-
-                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
-                        (*a)->n_rrs--;
-                        continue;
-
-                } else
-                        /* Keep this entry */
-                        i++;
-        }
 
         return 1;
 }
 
-int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
-        bool found = false, other = false;
-        DnsResourceRecord *rr;
-        size_t i;
+int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr) {
+        _unused_ _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
+        DnsAnswerItem *item;
+        bool found = false;
         int r;
 
         assert(a);
-        assert(rm);
+        assert(rr);
 
         /* Remove all entries matching the specified RR from *a */
 
-        DNS_ANSWER_FOREACH(rr, *a) {
-                r = dns_resource_record_equal(rr, rm);
+        DNS_ANSWER_FOREACH_ITEM(item, *a) {
+                r = dns_resource_record_equal(item->rr, rr);
                 if (r < 0)
                         return r;
-                if (r > 0)
+                if (r > 0) {
+                        dns_answer_item_unref(ordered_set_remove((*a)->items, item));
                         found = true;
-                else
-                        other = true;
-
-                if (found && other)
-                        break;
+                }
         }
 
         if (!found)
                 return 0;
 
-        if (!other) {
+        if (dns_answer_isempty(*a))
                 *a = dns_answer_unref(*a); /* Return NULL for the empty answer */
-                return 1;
-        }
-
-        if ((*a)->n_ref > 1) {
-                _cleanup_(dns_answer_unrefp) DnsAnswer *copy = NULL;
-                DnsAnswerItem *item;
-
-                copy = dns_answer_new((*a)->n_rrs);
-                if (!copy)
-                        return -ENOMEM;
-
-                DNS_ANSWER_FOREACH_ITEM(item, *a) {
-                        r = dns_resource_record_equal(item->rr, rm);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                continue;
-
-                        r = dns_answer_add_raw(copy, item->rr, item->ifindex, item->flags, item->rrsig);
-                        if (r < 0)
-                                return r;
-                }
-
-                dns_answer_unref(*a);
-                *a = TAKE_PTR(copy);
-
-                return 1;
-        }
-
-        /* Only a single reference, edit in-place */
-
-        i = 0;
-        for (;;) {
-                if (i >= (*a)->n_rrs)
-                        break;
-
-                r = dns_resource_record_equal((*a)->items[i].rr, rm);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        /* Kill this entry */
-
-                        dns_resource_record_unref((*a)->items[i].rr);
-                        dns_resource_record_unref((*a)->items[i].rrsig);
-                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
-                        (*a)->n_rrs--;
-                        continue;
-
-                } else
-                        /* Keep this entry */
-                        i++;
-        }
 
         return 1;
 }
@@ -656,6 +567,8 @@ int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
                 r = dns_answer_remove_by_key(a, item->rr->key);
                 if (r < 0)
                         return r;
+                if (!*a)
+                        return 0; /* a is already empty. */
 
                 /* Let's remember this entry's RR key, to optimize the loop a bit: if we have an RRset with
                  * more than one item then we don't need to remove the key multiple times */
@@ -689,12 +602,7 @@ int dns_answer_copy_by_key(
                 if (r == 0)
                         continue;
 
-                /* Make space for at least one entry */
-                r = dns_answer_reserve_or_clone(a, 1);
-                if (r < 0)
-                        return r;
-
-                r = dns_answer_add(*a, item->rr, item->ifindex, item->flags|or_flags, rrsig ?: item->rrsig);
+                r = dns_answer_add_extend(a, item->rr, item->ifindex, item->flags|or_flags, rrsig ?: item->rrsig);
                 if (r < 0)
                         return r;
         }
@@ -708,6 +616,7 @@ int dns_answer_move_by_key(
                 const DnsResourceKey *key,
                 DnsAnswerFlags or_flags,
                 DnsResourceRecord *rrsig) {
+
         int r;
 
         assert(to);
@@ -722,140 +631,91 @@ int dns_answer_move_by_key(
 }
 
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
-        DnsAnswerItem *items;
-        size_t i, start, end;
+        _cleanup_free_ DnsAnswerItem **items = NULL;
+        DnsAnswerItem **p, *item;
+        size_t n;
 
-        if (!a)
+        n = dns_answer_size(a);
+        if (n <= 1)
                 return;
-
-        if (a->n_rrs <= 1)
-                return;
-
-        start = 0;
-        end = a->n_rrs-1;
 
         /* RFC 4795, Section 2.6 suggests we should order entries
          * depending on whether the sender is a link-local address. */
 
-        items = newa(DnsAnswerItem, a->n_rrs);
-        for (i = 0; i < a->n_rrs; i++) {
-                if (dns_resource_record_is_link_local_address(a->items[i].rr) != prefer_link_local)
-                        /* Order address records that are not preferred to the end of the array */
-                        items[end--] = a->items[i];
-                else
-                        /* Order all other records to the beginning of the array */
-                        items[start++] = a->items[i];
-        }
+        p = items = new(DnsAnswerItem*, n);
+        if (!items)
+                return (void) log_oom();
 
-        assert(start == end+1);
-        memcpy(a->items, items, sizeof(DnsAnswerItem) * a->n_rrs);
+        /* Order preferred address records and other records to the beginning of the array */
+        DNS_ANSWER_FOREACH_ITEM(item, a)
+                if (dns_resource_record_is_link_local_address(item->rr) == prefer_link_local)
+                        *p++ = dns_answer_item_ref(item);
+
+        /* Order address records that are not preferred to the end of the array */
+        DNS_ANSWER_FOREACH_ITEM(item, a)
+                if (dns_resource_record_is_link_local_address(item->rr) != prefer_link_local)
+                        *p++ = dns_answer_item_ref(item);
+
+
+        assert((size_t) (p - items) == n);
+
+        ordered_set_clear(a->items);
+        for (size_t i = 0; i < n; i++)
+                assert_se(ordered_set_put(a->items, items[i]) >= 0);
 }
 
 int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
-        DnsAnswer *n;
-
         assert(a);
 
         if (n_free <= 0)
                 return 0;
 
-        if (*a) {
-                size_t ns;
-                int r;
+        if (!*a) {
+                DnsAnswer *n;
 
-                if ((*a)->n_ref > 1)
-                        return -EBUSY;
-
-                ns = (*a)->n_rrs;
-                assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
-
-                if (n_free > UINT16_MAX - ns) /* overflow check */
-                        ns = UINT16_MAX;
-                else
-                        ns += n_free;
-
-                if ((*a)->n_allocated >= ns)
-                        return 0;
-
-                /* Allocate more than we need, but not more than UINT16_MAX */
-                if (ns <= UINT16_MAX/2)
-                        ns *= 2;
-                else
-                        ns = UINT16_MAX;
-
-                /* This must be done before realloc() below. Otherwise, the original DnsAnswer object
-                 * may be broken. */
-                r = set_reserve((*a)->set_items, ns);
-                if (r < 0)
-                        return r;
-
-                n = realloc(*a, offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * ns);
-                if (!n)
-                        return -ENOMEM;
-
-                n->n_allocated = ns;
-
-                /* Previously all items are stored in the set, and the enough memory area is allocated
-                 * in the above. So set_put() in the below cannot fail. */
-                set_clear(n->set_items);
-                for (size_t i = 0; i < n->n_rrs; i++)
-                        assert_se(set_put(n->set_items, &n->items[i]) > 0);
-        } else {
                 n = dns_answer_new(n_free);
                 if (!n)
                         return -ENOMEM;
+
+                *a = n;
+                return 0;
         }
 
-        *a = n;
-        return 0;
+        if ((*a)->n_ref > 1)
+                return -EBUSY;
+
+        return dns_answer_reserve_internal(*a, n_free);
 }
 
 int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
+        size_t ns;
         int r;
 
         assert(a);
 
-        /* Tries to extend the DnsAnswer object. And if that's not possible, since we are not the sole owner,
-         * then allocate a new, appropriately sized one. Either way, after this call the object will only
-         * have a single reference, and has room for at least the specified number of RRs. */
+        r = dns_answer_reserve(a, n_free);
+        if (r != -EBUSY)
+                return r;
 
-        if (*a && (*a)->n_ref > 1) {
-                _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
-                size_t ns;
+        ns = dns_answer_size(*a);
+        assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
 
-                ns = (*a)->n_rrs;
-                assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
+        if (n_free > UINT16_MAX - ns) /* overflow check */
+                ns = UINT16_MAX;
+        else
+                ns += n_free;
 
-                if (n_free > UINT16_MAX - ns) /* overflow check */
-                        ns = UINT16_MAX;
-                else if (n_free > 0) { /* Increase size and double the result, just in case — except if the
-                                        * increase is specified as 0, in which case we just allocate the
-                                        * exact amount as before, under the assumption this is just a request
-                                        * to copy the answer. */
-                        ns += n_free;
+        n = dns_answer_new(ns);
+        if (!n)
+                return -ENOMEM;
 
-                        if (ns <= UINT16_MAX/2) /* overflow check */
-                                ns *= 2;
-                        else
-                                ns = UINT16_MAX;
-                }
+        r = dns_answer_add_raw_all(n, *a);
+        if (r < 0)
+                return r;
 
-                n = dns_answer_new(ns);
-                if (!n)
-                        return -ENOMEM;
-
-                r = dns_answer_add_raw_all(n, *a);
-                if (r < 0)
-                        return r;
-
-                dns_answer_unref(*a);
-                assert_se(*a = TAKE_PTR(n));
-        } else if (n_free > 0) {
-                r = dns_answer_reserve(a, n_free);
-                if (r < 0)
-                        return r;
-        }
-
+        dns_answer_unref(*a);
+        *a = TAKE_PTR(n);
         return 0;
 }
 
@@ -945,6 +805,8 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
 }
 
 void dns_answer_randomize(DnsAnswer *a) {
+        _cleanup_free_ DnsAnswerItem **items = NULL;
+        DnsAnswerItem **p, *item;
         size_t n;
 
         /* Permutes the answer list randomly (Knuth shuffle) */
@@ -953,6 +815,15 @@ void dns_answer_randomize(DnsAnswer *a) {
         if (n <= 1)
                 return;
 
+        p = items = new(DnsAnswerItem*, n);
+        if (!items)
+                return (void) log_oom();
+
+        DNS_ANSWER_FOREACH_ITEM(item, a)
+                *p++ = dns_answer_item_ref(item);
+
+        assert((size_t) (p - items) == n);
+
         for (size_t i = 0; i < n; i++) {
                 size_t k;
 
@@ -960,8 +831,12 @@ void dns_answer_randomize(DnsAnswer *a) {
                 if (k == i)
                         continue;
 
-                SWAP_TWO(a->items[i], a->items[k]);
+                SWAP_TWO(items[i], items[k]);
         }
+
+        ordered_set_clear(a->items);
+        for (size_t i = 0; i < n; i++)
+                assert_se(ordered_set_put(a->items, items[i]) >= 0);
 }
 
 uint32_t dns_answer_min_ttl(DnsAnswer *a) {
