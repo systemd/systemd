@@ -77,7 +77,7 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
 static inline char** strv_split(const char *s, const char *separators) {
         char **ret;
 
-        if (strv_split_full(&ret, s, separators, 0) < 0)
+        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
                 return NULL;
 
         return ret;
