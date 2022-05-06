@@ -110,7 +110,7 @@ static void *tcp_dns_server(void *p) {
 
         assert_se((bindfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
         assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
-        assert_se(bind(bindfd, &SERVER_ADDRESS, sizeof(SERVER_ADDRESS)) >= 0);
+        assert_se(bind(bindfd, (struct sockaddr*)&SERVER_ADDRESS, sizeof(SERVER_ADDRESS)) >= 0);
         assert_se(listen(bindfd, 1) >= 0);
         assert_se((acceptfd = accept(bindfd, NULL, NULL)) >= 0);
         server_handle(acceptfd);
@@ -247,7 +247,7 @@ static void test_dns_stream(bool tls) {
         assert_se((clientfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
 
         for (int i = 0; i < 100; i++) {
-                r = connect(clientfd, &SERVER_ADDRESS, sizeof(SERVER_ADDRESS));
+                r = connect(clientfd, (struct sockaddr*)&SERVER_ADDRESS, sizeof(SERVER_ADDRESS));
                 if (r >= 0)
                         break;
                 usleep(EVENT_TIMEOUT_USEC / 100);
