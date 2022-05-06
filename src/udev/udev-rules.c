@@ -2425,11 +2425,15 @@ static int udev_rule_apply_parent_token_to_event(
         UdevRuleToken *head;
         int r;
 
-        line = rules->current_file->current_line;
-        head = rules->current_file->current_line->current_token;
-        event->dev_parent = event->dev;
+        assert(rules);
+        assert(rules->current_file);
+        assert(event);
+
+        line = ASSERT_PTR(rules->current_file->current_line);
+        head = ASSERT_PTR(rules->current_file->current_line->current_token);
+        event->dev_parent = ASSERT_PTR(event->dev);
+
         for (;;) {
-                line->current_token = NULL;
                 LIST_FOREACH(tokens, token, head) {
                         if (!token_is_for_parents(token))
                                 return true; /* All parent tokens match. */
@@ -2441,8 +2445,8 @@ static int udev_rule_apply_parent_token_to_event(
                         if (r == 0)
                                 break;
                 }
-                if (!line->current_token)
-                        /* All parent tokens match. But no assign tokens in the line. Hmm... */
+                if (r > 0)
+                        /* All parent tokens match, and no more token (except for GOTO) in the line. */
                         return true;
 
                 if (sd_device_get_parent(event->dev_parent, &event->dev_parent) < 0) {
