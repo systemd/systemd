@@ -716,10 +716,10 @@ static bool device_is_ready(sd_device *dev) {
         r = device_is_renaming(dev);
         if (r < 0)
                 log_device_error_errno(dev, r, "Failed to check if device is renaming: %m");
-        if (r > 0) {
+        if (r > 0)
                 log_device_debug(dev, "Device busy: renaming");
+        if (r != 0)
                 return false;
-        }
 
         /* Is it really tagged as 'systemd' right now? */
         r = sd_device_has_current_tag(dev, "systemd");
