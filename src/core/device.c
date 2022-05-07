@@ -896,6 +896,8 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         assert(dev);
 
+        log_device_uevent(dev, "Processing udev action");
+
         r = sd_device_get_syspath(dev, &sysfs);
         if (r < 0) {
                 log_device_error_errno(dev, r, "Failed to get device sys path: %m");
