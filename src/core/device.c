@@ -736,7 +736,7 @@ static bool device_is_ready(sd_device *dev) {
         if (r == 0)
                 log_device_debug(dev, "Device busy: SYSTEMD_READY property is false");
 
-        return r != 0;
+        return r > 0;
 }
 
 static Unit *device_following(Unit *u) {
