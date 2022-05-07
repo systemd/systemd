@@ -153,6 +153,27 @@ bool cg_is_hybrid_wanted(void) {
         return (wanted = r > 0 ? !b : is_default);
 }
 
+int cg_idle_parse(const char* s, int64_t *ret) {
+        int64_t i;
+        int r;
+
+        if (isempty(s)) {
+                *ret = CGROUP_CPU_IDLE_INVALID;
+                return 0;
+        }
+
+        r = safe_atoi64(s, &i);
+        if (r < 0)
+                return r;
+
+        if (i < CGROUP_CPU_IDLE_MIN || i > CGROUP_CPU_IDLE_MAX)
+                return -ERANGE;
+
+        *ret = i;
+        return 0;
+
+}
+
 int cg_weight_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;

@@ -1270,6 +1270,7 @@ struct cpu_data {
         uint64_t shares;
         uint64_t quota;
         uint64_t period;
+        int64_t idle;
         CPUSet cpu_set;
 };
 
@@ -1285,6 +1286,21 @@ static int oci_cgroup_cpu_shares(const char *name, JsonVariant *v, JsonDispatchF
                                 "shares value out of range.");
 
         *u = (uint64_t) k;
+        return 0;
+}
+
+static int oci_cgroup_cpu_idle(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
+        int64_t *u = userdata;
+        int64_t k;
+
+        assert(u);
+
+        k = json_variant_integer(v);
+        if (k <= INT32_MIN || k >= INT32_MAX)
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "idle value out of range.");
+
+        *u = (int64_t) k;
         return 0;
 }
 
@@ -1333,6 +1349,7 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
                 { "realtimePeriod",  JSON_VARIANT_UNSIGNED, oci_unsupported,       0,                                 0 },
                 { "cpus",            JSON_VARIANT_STRING,   oci_cgroup_cpu_cpus,   0,                                 0 },
                 { "mems",            JSON_VARIANT_STRING,   oci_unsupported,       0,                                 0 },
+                { "idle",            JSON_VARIANT_INTEGER,  oci_cgroup_cpu_idle,   offsetof(struct cpu_data, idle),   0 },
                 {}
         };
 
@@ -1340,6 +1357,7 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
                 .shares = UINT64_MAX,
                 .quota = UINT64_MAX,
                 .period = UINT64_MAX,
+                .idle = INT64_MAX,
         };
 
         Settings *s = userdata;
@@ -1376,6 +1394,16 @@ static int oci_cgroup_cpu(const char *name, JsonVariant *v, JsonDispatchFlags fl
         } else if ((data.quota != UINT64_MAX) != (data.period != UINT64_MAX))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "CPU quota and period not used together.");
+
+        if (data.idle != INT64_MAX) {
+                r = settings_allocate_properties(s);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(s->properties, "(sv)", "CPUIdle", "x", data.idle);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         return 0;
 }
