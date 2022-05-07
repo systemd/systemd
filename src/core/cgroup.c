@@ -144,6 +144,8 @@ void cgroup_context_init(CGroupContext *c) {
                 .cpu_quota_per_sec_usec = USEC_INFINITY,
                 .cpu_quota_period_usec = USEC_INFINITY,
 
+                .cpu_idle = CGROUP_CPU_IDLE_INVALID,
+
                 .cpu_shares = CGROUP_CPU_SHARES_INVALID,
                 .startup_cpu_shares = CGROUP_CPU_SHARES_INVALID,
 
@@ -446,6 +448,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
                 "%sStartupCPUWeight: %" PRIu64 "\n"
+                "%sCPUIdle: %" PRId64 "\n"
                 "%sCPUShares: %" PRIu64 "\n"
                 "%sStartupCPUShares: %" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec: %s\n"
@@ -482,6 +485,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
+                prefix, c->cpu_idle,
                 prefix, c->cpu_shares,
                 prefix, c->startup_cpu_shares,
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_per_sec_usec, 1),
@@ -864,6 +868,21 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);
         return 0;
+}
+
+static bool cgroup_context_has_cpu_idle(CGroupContext *c) {
+        return c->cpu_idle != CGROUP_CPU_IDLE_INVALID;
+}
+
+static int64_t cgroup_context_cpu_idle(CGroupContext *c, ManagerState state) {
+        return c->cpu_idle;
+}
+
+static void cgroup_apply_unified_cpu_idle(Unit *u, int64_t idle) {
+        char buf[DECIMAL_STR_MAX(int64_t) + 2];
+
+        xsprintf(buf, "%" PRIu64 "\n", idle);
+        (void) set_attribute_and_warn(u, "cpu", "cpu.idle", buf);
 }
 
 static bool cgroup_context_has_cpu_weight(CGroupContext *c) {
@@ -1391,6 +1410,10 @@ static void cgroup_context_apply(
          * we couldn't even write to them if we wanted to). */
         if ((apply_mask & CGROUP_MASK_CPU) && !is_local_root) {
 
+                if (cgroup_context_has_cpu_idle(c)) {
+                        cgroup_apply_unified_cpu_idle(u, cgroup_context_cpu_idle(c, state));
+                }
+
                 if (cg_all_unified() > 0) {
                         uint64_t weight;
 
@@ -1737,6 +1760,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
 
         if (cgroup_context_has_cpu_weight(c) ||
             cgroup_context_has_cpu_shares(c) ||
+            cgroup_context_has_cpu_idle(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPU;
 
@@ -4114,6 +4138,14 @@ static int unit_get_nice(Unit *u) {
         return ec ? ec->nice : 0;
 }
 
+static int64_t unit_get_cpu_idle(Unit *u) {
+        ManagerState state = manager_state(u->manager);
+        CGroupContext *cc;
+
+        cc = unit_get_cgroup_context(u);
+        return cc ? cgroup_context_cpu_idle(cc, state) : CGROUP_CPU_IDLE_DEFAULT;
+}
+
 static uint64_t unit_get_cpu_weight(Unit *u) {
         ManagerState state = manager_state(u->manager);
         CGroupContext *cc;
@@ -4126,10 +4158,17 @@ int compare_job_priority(const void *a, const void *b) {
         const Job *x = a, *y = b;
         int nice_x, nice_y;
         uint64_t weight_x, weight_y;
+        int64_t idle_x, idle_y;
         int ret;
 
         if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
                 return -ret;
+
+        idle_x = unit_get_cpu_idle(x->unit);
+        idle_y = unit_get_cpu_idle(y->unit);
+
+        if ((ret = CMP(idle_x, idle_y)) != 0)
+                return ret;
 
         weight_x = unit_get_cpu_weight(x->unit);
         weight_y = unit_get_cpu_weight(y->unit);
