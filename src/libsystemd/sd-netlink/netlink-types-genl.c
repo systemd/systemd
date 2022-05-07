@@ -116,10 +116,10 @@ static const NLType genl_fou_types[] = {
         [FOU_ATTR_IPPROTO]           = { .type = NETLINK_TYPE_U8 },
         [FOU_ATTR_TYPE]              = { .type = NETLINK_TYPE_U8 },
         [FOU_ATTR_REMCSUM_NOPARTIAL] = { .type = NETLINK_TYPE_FLAG },
-        [FOU_ATTR_LOCAL_V4]          = { .type = NETLINK_TYPE_IN_ADDR },
-        [FOU_ATTR_PEER_V4]           = { .type = NETLINK_TYPE_IN_ADDR },
-        [FOU_ATTR_LOCAL_V6]          = { .type = NETLINK_TYPE_IN_ADDR },
-        [FOU_ATTR_PEER_V6]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [FOU_ATTR_LOCAL_V4]          = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [FOU_ATTR_PEER_V4]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [FOU_ATTR_LOCAL_V6]          = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
+        [FOU_ATTR_PEER_V6]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
         [FOU_ATTR_PEER_PORT]         = { .type = NETLINK_TYPE_U16 },
         [FOU_ATTR_IFINDEX]           = { .type = NETLINK_TYPE_U32 },
 };
@@ -145,12 +145,12 @@ static const NLType genl_l2tp_types[] = {
         [L2TP_ATTR_LNS_MODE]          = { .type = NETLINK_TYPE_U8 },
         [L2TP_ATTR_USING_IPSEC]       = { .type = NETLINK_TYPE_U8 },
         [L2TP_ATTR_FD]                = { .type = NETLINK_TYPE_U32 },
-        [L2TP_ATTR_IP_SADDR]          = { .type = NETLINK_TYPE_IN_ADDR },
-        [L2TP_ATTR_IP_DADDR]          = { .type = NETLINK_TYPE_IN_ADDR },
+        [L2TP_ATTR_IP_SADDR]          = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [L2TP_ATTR_IP_DADDR]          = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [L2TP_ATTR_UDP_SPORT]         = { .type = NETLINK_TYPE_U16 },
         [L2TP_ATTR_UDP_DPORT]         = { .type = NETLINK_TYPE_U16 },
-        [L2TP_ATTR_IP6_SADDR]         = { .type = NETLINK_TYPE_IN_ADDR },
-        [L2TP_ATTR_IP6_DADDR]         = { .type = NETLINK_TYPE_IN_ADDR },
+        [L2TP_ATTR_IP6_SADDR]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
+        [L2TP_ATTR_IP6_DADDR]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
         [L2TP_ATTR_UDP_ZERO_CSUM6_TX] = { .type = NETLINK_TYPE_FLAG },
         [L2TP_ATTR_UDP_ZERO_CSUM6_RX] = { .type = NETLINK_TYPE_FLAG },
 };
@@ -194,7 +194,7 @@ static const NLType genl_nl80211_types[] = {
 /***************** genl wireguard type systems *****************/
 static const NLType genl_wireguard_allowedip_types[] = {
         [WGALLOWEDIP_A_FAMILY]    = { .type = NETLINK_TYPE_U16 },
-        [WGALLOWEDIP_A_IPADDR]    = { .type = NETLINK_TYPE_IN_ADDR },
+        [WGALLOWEDIP_A_IPADDR]    = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [WGALLOWEDIP_A_CIDR_MASK] = { .type = NETLINK_TYPE_U8 },
 };
 
@@ -205,7 +205,7 @@ static const NLType genl_wireguard_peer_types[] = {
         [WGPEER_A_FLAGS]                         = { .type = NETLINK_TYPE_U32 },
         [WGPEER_A_PRESHARED_KEY]                 = { .type = NETLINK_TYPE_BINARY, .size = WG_KEY_LEN },
         [WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = { .type = NETLINK_TYPE_U16 },
-        [WGPEER_A_ENDPOINT]                      = { .type = NETLINK_TYPE_SOCKADDR },
+        [WGPEER_A_ENDPOINT]                      = { .type = NETLINK_TYPE_SOCKADDR, .size = sizeof(struct sockaddr_in) },
         [WGPEER_A_ALLOWEDIPS]                    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_allowedip_type_system },
 };
 
