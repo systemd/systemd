@@ -1249,7 +1249,7 @@ static int swap_process_proc_swaps(Manager *m) {
                         }
 
                         if (swap->what)
-                                device_found_node(m, swap->what, 0, DEVICE_FOUND_SWAP);
+                                device_found_node(m, swap->what, DEVICE_NOT_FOUND, DEVICE_FOUND_SWAP);
 
                 } else if (swap->just_activated) {
 
