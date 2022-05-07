@@ -924,7 +924,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
                 /* If we get notified that a device was removed by udev, then it's completely gone, hence
                  * unset all found bits */
-                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_MASK);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_NOT_FOUND, DEVICE_FOUND_MASK);
 
         } else if (device_is_ready(dev)) {
 
