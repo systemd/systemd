@@ -194,6 +194,7 @@
 {{type}}.CPUWeight,                        config_parse_cg_weight,                      0,                                  offsetof({{type}}, cgroup_context.cpu_weight)
 {{type}}.StartupCPUWeight,                 config_parse_cg_weight,                      0,                                  offsetof({{type}}, cgroup_context.startup_cpu_weight)
 {{type}}.CPUShares,                        config_parse_cpu_shares,                     0,                                  offsetof({{type}}, cgroup_context.cpu_shares)
+{{type}}.CPUIdle,                          config_parse_cg_idle,                        0,                                  offsetof({{type}}, cgroup_context.cpu_idle)
 {{type}}.StartupCPUShares,                 config_parse_cpu_shares,                     0,                                  offsetof({{type}}, cgroup_context.startup_cpu_shares)
 {{type}}.CPUQuota,                         config_parse_cpu_quota,                      0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.CPUQuotaPeriodSec,                config_parse_sec_def_infinity,               0,                                  offsetof({{type}}, cgroup_context.cpu_quota_period_usec)
