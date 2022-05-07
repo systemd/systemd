@@ -90,9 +90,13 @@ elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
     AR="gcc-ar-$COMPILER_VERSION"
-    # Latest gcc stack deb packages provided by
-    # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-    add-apt-repository -y ppa:ubuntu-toolchain-r/test
+
+    if ! apt install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
+        # Latest gcc stack deb packages provided by
+        # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    fi
+
     PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
 else
     fatal "Unknown compiler: $COMPILER"
