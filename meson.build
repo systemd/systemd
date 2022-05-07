@@ -401,6 +401,12 @@ if cc.get_id() == 'clang'
         ]
 endif
 
+if get_option('mode') == 'release'
+        possible_common_cc_flags += '-ftrivial-auto-var-init=zero'
+elif not get_option('valgrind') and get_option('b_sanitize') == 'none'
+        possible_common_cc_flags += '-ftrivial-auto-var-init=pattern'
+endif
+
 possible_cc_flags = possible_common_cc_flags + [
         '-Werror=missing-declarations',
         '-Werror=missing-prototypes',
