@@ -906,13 +906,13 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         r = sd_device_get_syspath(dev, &sysfs);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get device sys path: %m");
+                log_device_error_errno(dev, r, "Failed to get device syspath, ignoring: %m");
                 return 0;
         }
 
         r = sd_device_get_action(dev, &action);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get udev action: %m");
+                log_device_error_errno(dev, r, "Failed to get udev action, ignoring: %m");
                 return 0;
         }
 
