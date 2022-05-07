@@ -709,16 +709,34 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
 }
 
 static bool device_is_ready(sd_device *dev) {
+        int r;
+
         assert(dev);
 
-        if (device_is_renaming(dev) > 0)
+        r = device_is_renaming(dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to check if device is renaming, assuming device is not renaming: %m");
+        if (r > 0) {
+                log_device_debug(dev, "Device busy: device is renaming");
                 return false;
+        }
 
         /* Is it really tagged as 'systemd' right now? */
-        if (sd_device_has_current_tag(dev, "systemd") <= 0)
+        r = sd_device_has_current_tag(dev, "systemd");
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to check if device has \"systemd\" tag, assuming device is not tagged with \"systemd\": %m");
+        if (r == 0)
+                log_device_debug(dev, "Device busy: device is not tagged with \"systemd\"");
+        if (r <= 0)
                 return false;
 
-        return device_get_property_bool(dev, "SYSTEMD_READY") != 0;
+        r = device_get_property_bool(dev, "SYSTEMD_READY");
+        if (r < 0 && r != -ENOENT)
+                log_device_warning_errno(dev, r, "Failed to get device SYSTEMD_READY property, assuming device does not have \"SYSTEMD_READY\" property: %m");
+        if (r == 0)
+                log_device_debug(dev, "Device busy: SYSTEMD_READY property from device is false");
+
+        return r != 0;
 }
 
 static Unit *device_following(Unit *u) {
