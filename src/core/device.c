@@ -598,8 +598,12 @@ static void device_process_new(Manager *m, sd_device *dev, const char *sysfs) {
         }
 
         /* Add additional units for all explicitly configured aliases */
-        if (sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias) < 0)
+        r = sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_error_errno(dev, r, "Failed to get SYSTEMD_ALIAS property, ignoring: %m");
                 return;
+        }
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
