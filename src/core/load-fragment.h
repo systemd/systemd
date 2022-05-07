@@ -78,6 +78,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_pass_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_unset_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_slice);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
+CONFIG_PARSER_PROTOTYPE(config_parse_cg_idle);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);

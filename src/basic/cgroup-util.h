@@ -115,11 +115,23 @@ extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 
+/* Special values for the cpu.idle attribute */
+#define CGROUP_CPU_IDLE_INVALID INT64_MAX
+#define CGROUP_CPU_IDLE_DEFAULT INT64_C(0)
+#define CGROUP_CPU_IDLE_MIN INT32_MIN
+#define CGROUP_CPU_IDLE_MAX INT32_MAX
+
 /* Special values for the cpu.shares attribute */
 #define CGROUP_CPU_SHARES_INVALID UINT64_MAX
 #define CGROUP_CPU_SHARES_MIN UINT64_C(2)
 #define CGROUP_CPU_SHARES_MAX UINT64_C(262144)
 #define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
+
+static inline bool CGROUP_CPU_IDLE_IS_OK(int64_t x) {
+        return
+            x == CGROUP_CPU_IDLE_INVALID ||
+            (x >= CGROUP_CPU_IDLE_MIN && x <= CGROUP_CPU_IDLE_MAX);
+}
 
 static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
         return
