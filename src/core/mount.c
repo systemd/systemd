@@ -2070,7 +2070,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         continue;
 
                 /* Let the device units know that the device is no longer mounted */
-                device_found_node(m, what, 0, DEVICE_FOUND_MOUNT);
+                device_found_node(m, what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
         }
 
         return 0;
