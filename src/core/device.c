@@ -552,16 +552,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         return 0;
 }
 
-static void device_process_new(Manager *m, sd_device *dev) {
-        const char *sysfs, *dn, *alias;
+static void device_process_new(Manager *m, sd_device *dev, const char *sysfs) {
+        const char *dn, *alias;
         dev_t devnum;
         int r;
 
         assert(m);
         assert(dev);
-
-        if (sd_device_get_syspath(dev, &sysfs) < 0)
-                return;
+        assert(sysfs);
 
         /* Add the main unit named after the sysfs path. If this one fails, don't bother with the rest, as
          * this one shall be the main device unit the others just follow. (Compare with how
@@ -837,11 +835,13 @@ static void device_enumerate(Manager *m) {
                 if (!device_is_ready(dev))
                         continue;
 
-                device_process_new(m, dev);
-
-                if (sd_device_get_syspath(dev, &sysfs) < 0)
+                r = sd_device_get_syspath(dev, &sysfs);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
                         continue;
+                }
 
+                device_process_new(m, dev, sysfs);
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
         }
 
@@ -928,7 +928,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         } else if (device_is_ready(dev)) {
 
-                device_process_new(m, dev);
+                device_process_new(m, dev, sysfs);
 
                 r = swap_process_device_new(m, dev);
                 if (r < 0)
