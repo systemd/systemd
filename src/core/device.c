@@ -552,16 +552,14 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
         return 0;
 }
 
-static void device_process_new(Manager *m, sd_device *dev) {
-        const char *sysfs, *dn, *alias;
+static void device_process_new(Manager *m, sd_device *dev, const char *sysfs) {
+        const char *dn, *alias;
         dev_t devnum;
         int r;
 
         assert(m);
         assert(dev);
-
-        if (sd_device_get_syspath(dev, &sysfs) < 0)
-                return;
+        assert(sysfs);
 
         /* Add the main unit named after the sysfs path. If this one fails, don't bother with the rest, as
          * this one shall be the main device unit the others just follow. (Compare with how
@@ -590,16 +588,22 @@ static void device_process_new(Manager *m, sd_device *dev) {
                          * node major/minor */
                         if (stat(p, &st) >= 0 &&
                             ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                             st.st_rdev != devnum))
+                             st.st_rdev != devnum)) {
+                                log_device_debug(dev, "Skipping device unit creation for symlink %s not owned by device", p);
                                 continue;
+                        }
 
                         (void) device_setup_unit(m, dev, p, false);
                 }
         }
 
         /* Add additional units for all explicitly configured aliases */
-        if (sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias) < 0)
+        r = sd_device_get_property_value(dev, "SYSTEMD_ALIAS", &alias);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_error_errno(dev, r, "Failed to get SYSTEMD_ALIAS property, ignoring: %m");
                 return;
+        }
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -705,16 +709,34 @@ static void device_update_found_by_name(Manager *m, const char *path, DeviceFoun
 }
 
 static bool device_is_ready(sd_device *dev) {
+        int r;
+
         assert(dev);
 
-        if (device_is_renaming(dev) > 0)
+        r = device_is_renaming(dev);
+        if (r < 0)
+                log_device_error_errno(dev, r, "Failed to check if device is renaming: %m");
+        if (r > 0)
+                log_device_debug(dev, "Device busy: renaming");
+        if (r != 0)
                 return false;
 
         /* Is it really tagged as 'systemd' right now? */
-        if (sd_device_has_current_tag(dev, "systemd") <= 0)
+        r = sd_device_has_current_tag(dev, "systemd");
+        if (r < 0)
+                log_device_error_errno(dev, r, "Failed to check if device has \"systemd\" tag: %m");
+        if (r == 0)
+                log_device_debug(dev, "Device busy: not tagged with \"systemd\"");
+        if (r <= 0)
                 return false;
 
-        return device_get_property_bool(dev, "SYSTEMD_READY") != 0;
+        r = device_get_property_bool(dev, "SYSTEMD_READY");
+        if (r < 0 && r != -ENOENT)
+                log_device_error_errno(dev, r, "Failed to get device SYSTEMD_READY property: %m");
+        if (r == 0)
+                log_device_debug(dev, "Device busy: SYSTEMD_READY property is false");
+
+        return r > 0 || r == -ENOENT;
 }
 
 static Unit *device_following(Unit *u) {
@@ -837,11 +859,13 @@ static void device_enumerate(Manager *m) {
                 if (!device_is_ready(dev))
                         continue;
 
-                device_process_new(m, dev);
-
-                if (sd_device_get_syspath(dev, &sysfs) < 0)
+                r = sd_device_get_syspath(dev, &sysfs);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Couldn't get syspath from device, ignoring: %m");
                         continue;
+                }
 
+                device_process_new(m, dev, sysfs);
                 device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
         }
 
@@ -898,15 +922,17 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         r = sd_device_get_syspath(dev, &sysfs);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get device sys path: %m");
+                log_device_error_errno(dev, r, "Failed to get device syspath, ignoring: %m");
                 return 0;
         }
 
         r = sd_device_get_action(dev, &action);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get udev action: %m");
+                log_device_error_errno(dev, r, "Failed to get udev action, ignoring: %m");
                 return 0;
         }
+
+        log_device_debug(dev, "Processing \"%s\" udev action", device_action_to_string(action));
 
         if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_REMOVE, SD_DEVICE_MOVE))
                 device_propagate_reload_by_sysfs(m, sysfs);
@@ -928,7 +954,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         } else if (device_is_ready(dev)) {
 
-                device_process_new(m, dev);
+                device_process_new(m, dev, sysfs);
 
                 r = swap_process_device_new(m, dev);
                 if (r < 0)
@@ -946,29 +972,9 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         return 0;
 }
 
-static int validate_node(const char *node, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
         int r;
 
-        assert(node);
-        assert(ret);
-
-        /* Validates a device node that showed up in /proc/swaps or /proc/self/mountinfo if it makes sense for us to
-         * track. Note that this validator is fine within missing device nodes, but not with badly set up ones! */
-
-        r = sd_device_new_from_devname(&dev, node);
-        if (r == -ENODEV) {
-                *ret = NULL;
-                return 0; /* good! (though missing) */
-        }
-        if (r < 0)
-                return r; /* bad! */
-
-        *ret = TAKE_PTR(dev);
-        return 1; /* good! */
-}
-
-void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
         assert(m);
         assert(node);
         assert(!FLAGS_SET(mask, DEVICE_FOUND_UDEV));
@@ -990,12 +996,20 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         if ((found & mask) != 0) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
+                /* Return early if we're not dealing with a device. */
+                if (!path_startswith(node, "/dev"))
+                        return;
+
                 /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
                  * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
-                 * everything is alright with the device node. */
+                 * everything is alright with the device node. Note that we're fine with missing device nodes,
+                 * but not with badly set up ones. */
 
-                if (validate_node(node, &dev) < 0)
-                        return; /* Don't create a device unit for this if the device node is borked. */
+                r = sd_device_new_from_devname(&dev, node);
+                if (r == -ENODEV)
+                        log_debug("Could not find device for %s, continuing without device node", node);
+                else if (r < 0)
+                        return (void) log_error_errno(r, "Failed to open %s device, ignoring: %m", node);
 
                 (void) device_setup_unit(m, dev, node, false); /* 'dev' may be NULL. */
         }
