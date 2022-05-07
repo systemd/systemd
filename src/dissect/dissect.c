@@ -372,12 +372,11 @@ static int strv_pair_to_json(char **l, JsonVariant **ret) {
 static void strv_pair_print(char **l, const char *prefix) {
         assert(prefix);
 
-        STRV_FOREACH_PAIR(p, q, l) {
+        STRV_FOREACH_PAIR(p, q, l)
                 if (p == l)
                         printf("%s %s=%s\n", prefix, *p, *q);
                 else
                         printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
-        }
 }
 
 static int get_sysext_scopes(DissectedImage *m, char ***ret_scopes) {
