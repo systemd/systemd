@@ -593,8 +593,10 @@ static void device_process_new(Manager *m, sd_device *dev) {
                          * node major/minor */
                         if (stat(p, &st) >= 0 &&
                             ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                             st.st_rdev != devnum))
+                             st.st_rdev != devnum)) {
+                                log_device_debug(dev, "Skipping device unit creation for symlink %s not owned by device.", p);
                                 continue;
+                        }
 
                         (void) device_setup_unit(m, dev, p, false);
                 }
