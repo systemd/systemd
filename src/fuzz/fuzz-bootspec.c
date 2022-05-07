@@ -59,9 +59,23 @@ static int json_dispatch_entries(const char *name, JsonVariant *variant, JsonDis
         return 0;
 }
 
+static int json_dispatch_loader(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        BootConfig *config = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **entries = NULL;
+        int r;
+
+        r = json_dispatch_strv(name, variant, flags, &entries);
+        if (r < 0)
+                return r;
+
+        (void) boot_config_augment_from_loader(config, entries, false);
+        return 0;
+}
+
 static const JsonDispatch data_dispatch[] = {
         { "config",  JSON_VARIANT_STRING, json_dispatch_config,  0, 0 },
         { "entries", JSON_VARIANT_ARRAY,  json_dispatch_entries, 0, 0 },
+        { "loader",  JSON_VARIANT_ARRAY,  json_dispatch_loader,  0, 0 },
         {}
 };
 
