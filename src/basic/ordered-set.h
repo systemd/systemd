@@ -74,6 +74,10 @@ static inline char** ordered_set_get_strv(OrderedSet *s) {
         return _hashmap_get_strv(HASHMAP_BASE((OrderedHashmap*) s));
 }
 
+static inline int ordered_set_reserve(OrderedSet *s, unsigned entries_add) {
+        return ordered_hashmap_reserve((OrderedHashmap*) s, entries_add);
+}
+
 int ordered_set_consume(OrderedSet *s, void *p);
 int _ordered_set_put_strdup(OrderedSet **s, const char *p  HASHMAP_DEBUG_PARAMS);
 #define ordered_set_put_strdup(s, p) _ordered_set_put_strdup(s, p  HASHMAP_DEBUG_SRC_ARGS)
