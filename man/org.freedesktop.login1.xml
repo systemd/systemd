@@ -1439,7 +1439,7 @@ node /org/freedesktop/login1/session/1 {
       <programlisting>$ busctl introspect org.freedesktop.login1 /org/freedesktop/login1/seat/seat0
       </programlisting>
 
-      <para>Seat <literal>seat0</literal> is the default seat, so it'll be present unless local configuation
+      <para>Seat <literal>seat0</literal> is the default seat, so it'll be present unless local configuration
       is made to reassign all devices to a different seat. The list of seats and users can be acquired with
       <command>loginctl list-sessions</command>.</para>
     </example>
