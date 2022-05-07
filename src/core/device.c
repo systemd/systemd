@@ -908,6 +908,8 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
+        log_device_debug(dev, "Processing \"%s\" udev action", device_action_to_string(action));
+
         if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_REMOVE, SD_DEVICE_MOVE))
                 device_propagate_reload_by_sysfs(m, sysfs);
 
