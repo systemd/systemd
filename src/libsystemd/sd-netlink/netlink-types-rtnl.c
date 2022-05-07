@@ -216,8 +216,8 @@ static const NLType rtnl_link_info_data_gre_types[] = {
         [IFLA_GRE_OFLAGS]           = { .type = NETLINK_TYPE_U16 },
         [IFLA_GRE_IKEY]             = { .type = NETLINK_TYPE_U32 },
         [IFLA_GRE_OKEY]             = { .type = NETLINK_TYPE_U32 },
-        [IFLA_GRE_LOCAL]            = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_GRE_REMOTE]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_GRE_LOCAL]            = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [IFLA_GRE_REMOTE]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [IFLA_GRE_TTL]              = { .type = NETLINK_TYPE_U8 },
         [IFLA_GRE_TOS]              = { .type = NETLINK_TYPE_U8 },
         [IFLA_GRE_PMTUDISC]         = { .type = NETLINK_TYPE_U8 },
@@ -248,8 +248,10 @@ static const NLType rtnl_link_info_data_ipoib_types[] = {
 #define DEFINE_IPTUN_TYPES(name, flags_type)                                            \
         static const NLType rtnl_link_info_data_##name##_types[] = {                    \
                 [IFLA_IPTUN_LINK]                = { .type = NETLINK_TYPE_U32 },        \
-                [IFLA_IPTUN_LOCAL]               = { .type = NETLINK_TYPE_IN_ADDR },    \
-                [IFLA_IPTUN_REMOTE]              = { .type = NETLINK_TYPE_IN_ADDR },    \
+                [IFLA_IPTUN_LOCAL]               = { .type = NETLINK_TYPE_IN_ADDR,      \
+                                                     .size = sizeof(struct in_addr) },  \
+                [IFLA_IPTUN_REMOTE]              = { .type = NETLINK_TYPE_IN_ADDR,      \
+                                                     .size = sizeof(struct in_addr) },  \
                 [IFLA_IPTUN_TTL]                 = { .type = NETLINK_TYPE_U8 },         \
                 [IFLA_IPTUN_TOS]                 = { .type = NETLINK_TYPE_U8 },         \
                 [IFLA_IPTUN_ENCAP_LIMIT]         = { .type = NETLINK_TYPE_U8 },         \
@@ -349,8 +351,8 @@ static const NLType rtnl_link_info_data_vti_types[] = {
         [IFLA_VTI_LINK]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_IKEY]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_VTI_OKEY]         = { .type = NETLINK_TYPE_U32 },
-        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFLA_VTI_LOCAL]        = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [IFLA_VTI_REMOTE]       = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [IFLA_VTI_FWMARK]       = { .type = NETLINK_TYPE_U32 },
 };
 
@@ -663,7 +665,7 @@ DEFINE_TYPE_SYSTEM(rtnl_bridge_cfm_mep_delete);
 
 static const NLType rtnl_bridge_cfm_mep_config_types[] = {
         [IFLA_BRIDGE_CFM_MEP_CONFIG_INSTANCE]    = { .type = NETLINK_TYPE_U32 },
-        [IFLA_BRIDGE_CFM_MEP_CONFIG_UNICAST_MAC] = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BRIDGE_CFM_MEP_CONFIG_UNICAST_MAC] = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_BRIDGE_CFM_MEP_CONFIG_MDLEVEL]     = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_MEP_CONFIG_MEPID]       = { .type = NETLINK_TYPE_U32 },
 };
@@ -695,7 +697,7 @@ DEFINE_TYPE_SYSTEM(rtnl_bridge_cfm_cc_rdi);
 
 static const NLType rtnl_bridge_cfm_cc_ccm_tx_types[] = {
         [IFLA_BRIDGE_CFM_CC_CCM_TX_INSTANCE]       = { .type = NETLINK_TYPE_U32 },
-        [IFLA_BRIDGE_CFM_CC_CCM_TX_DMAC]           = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BRIDGE_CFM_CC_CCM_TX_DMAC]           = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_SEQ_NO_UPDATE]  = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_PERIOD]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_IF_TLV]         = { .type = NETLINK_TYPE_U32 },
@@ -839,8 +841,8 @@ static const NLType rtnl_proto_down_reason_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_proto_down_reason);
 
 static const NLType rtnl_link_types[] = {
-        [IFLA_ADDRESS]             = { .type = NETLINK_TYPE_ETHER_ADDR },
-        [IFLA_BROADCAST]           = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_ADDRESS]             = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
+        [IFLA_BROADCAST]           = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_IFNAME]              = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
         [IFLA_MTU]                 = { .type = NETLINK_TYPE_U32 },
         [IFLA_LINK]                = { .type = NETLINK_TYPE_U32 },
@@ -891,7 +893,7 @@ static const NLType rtnl_link_types[] = {
         [IFLA_MAX_MTU]             = { .type = NETLINK_TYPE_U32 },
         [IFLA_PROP_LIST]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_prop_list_type_system },
         [IFLA_ALT_IFNAME]          = { .type = NETLINK_TYPE_STRING, .size = ALTIFNAMSIZ - 1 },
-        [IFLA_PERM_ADDRESS]        = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_PERM_ADDRESS]        = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_PROTO_DOWN_REASON]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_proto_down_reason_type_system },
         [IFLA_PARENT_DEV_NAME]     = { .type = NETLINK_TYPE_STRING, },
         [IFLA_PARENT_DEV_BUS_NAME] = { .type = NETLINK_TYPE_STRING, },
@@ -902,13 +904,13 @@ DEFINE_TYPE_SYSTEM(rtnl_link);
 /* IFA_FLAGS was defined in kernel 3.14, but we still support older
  * kernels where IFA_MAX is lower. */
 static const NLType rtnl_address_types[] = {
-        [IFA_ADDRESS]           = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFA_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_ADDRESS]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [IFA_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [IFA_LABEL]             = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
-        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [IFA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct ifa_cacheinfo) },
-        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [IFA_FLAGS]             = { .type = NETLINK_TYPE_U32 },
         [IFA_RT_PRIORITY]       = { .type = NETLINK_TYPE_U32 },
         [IFA_TARGET_NETNSID]    = { .type = NETLINK_TYPE_S32 },
@@ -940,13 +942,13 @@ static const NLType rtnl_route_metrics_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_route_metrics);
 
 static const NLType rtnl_route_types[] = {
-        [RTA_DST]               = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
-        [RTA_SRC]               = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
+        [RTA_DST]               = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) }, /* 6? */
+        [RTA_SRC]               = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) }, /* 6? */
         [RTA_IIF]               = { .type = NETLINK_TYPE_U32 },
         [RTA_OIF]               = { .type = NETLINK_TYPE_U32 },
-        [RTA_GATEWAY]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [RTA_GATEWAY]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [RTA_PRIORITY]          = { .type = NETLINK_TYPE_U32 },
-        [RTA_PREFSRC]           = { .type = NETLINK_TYPE_IN_ADDR }, /* 6? */
+        [RTA_PREFSRC]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) }, /* 6? */
         [RTA_METRICS]           = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_route_metrics_type_system },
         [RTA_MULTIPATH]         = { .type = NETLINK_TYPE_BINARY, .size = sizeof(struct rtnexthop) },
         [RTA_FLOW]              = { .type = NETLINK_TYPE_U32 }, /* 6? */
@@ -971,8 +973,8 @@ static const NLType rtnl_route_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_route);
 
 static const NLType rtnl_neigh_types[] = {
-        [NDA_DST]               = { .type = NETLINK_TYPE_IN_ADDR },
-        [NDA_LLADDR]            = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [NDA_DST]               = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [NDA_LLADDR]            = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [NDA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct nda_cacheinfo) },
         [NDA_PROBES]            = { .type = NETLINK_TYPE_U32 },
         [NDA_VLAN]              = { .type = NETLINK_TYPE_U16 },
@@ -991,8 +993,8 @@ static const NLType rtnl_addrlabel_types[] = {
 DEFINE_TYPE_SYSTEM(rtnl_addrlabel);
 
 static const NLType rtnl_routing_policy_rule_types[] = {
-        [FRA_DST]                 = { .type = NETLINK_TYPE_IN_ADDR },
-        [FRA_SRC]                 = { .type = NETLINK_TYPE_IN_ADDR },
+        [FRA_DST]                 = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
+        [FRA_SRC]                 = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [FRA_IIFNAME]             = { .type = NETLINK_TYPE_STRING },
         [FRA_GOTO]                = { .type = NETLINK_TYPE_U32 },
         [FRA_PRIORITY]            = { .type = NETLINK_TYPE_U32 },
@@ -1021,7 +1023,7 @@ static const NLType rtnl_nexthop_types[] = {
         [NHA_GROUP_TYPE]          = { .type = NETLINK_TYPE_U16 },
         [NHA_BLACKHOLE]           = { .type = NETLINK_TYPE_FLAG },
         [NHA_OIF]                 = { .type = NETLINK_TYPE_U32 },
-        [NHA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR },
+        [NHA_GATEWAY]             = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in_addr) },
         [NHA_ENCAP_TYPE]          = { .type = NETLINK_TYPE_U16 },
         [NHA_ENCAP]               = { .type = NETLINK_TYPE_NESTED },
         [NHA_GROUPS]              = { .type = NETLINK_TYPE_FLAG },
