@@ -416,6 +416,13 @@ if cc.get_id() == 'clang'
         ]
 endif
 
+if get_option('mode') == 'release'
+        # We could enable 'pattern' for developer mode, but that can interfere with
+        # valgrind and sanitizer builds. Also, clang does not zero-initialize unions,
+        # breaking some of our code (https://reviews.llvm.org/D68115).
+        possible_common_cc_flags += '-ftrivial-auto-var-init=zero'
+endif
+
 possible_cc_flags = possible_common_cc_flags + [
         '-Werror=missing-declarations',
         '-Werror=missing-prototypes',
