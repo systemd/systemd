@@ -1916,7 +1916,7 @@ static ConfigEntry *config_entry_add_loader(
                 .device = device,
                 .loader = xstrdup(loader),
                 .id = xstrdup(id),
-                .sort_key = xstrdup(sort_key),
+                .sort_key = sort_key ? xstrdup(sort_key) : NULL,
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
