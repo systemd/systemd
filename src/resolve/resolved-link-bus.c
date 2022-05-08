@@ -640,6 +640,7 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
 
         if (l->dns_over_tls_mode != mode) {
                 link_set_dns_over_tls_mode(l, mode);
+                link_allocate_scopes(l);
 
                 (void) link_save_user(l);
 
@@ -688,6 +689,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 
         if (l->dnssec_mode != mode) {
                 link_set_dnssec_mode(l, mode);
+                link_allocate_scopes(l);
 
                 (void) link_save_user(l);
 
