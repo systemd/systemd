@@ -76,26 +76,21 @@ static int component_compare(CalendarComponent * const *a, CalendarComponent * c
 }
 
 static void normalize_chain(CalendarComponent **c) {
-        CalendarComponent **b, *i, **j, *next;
-        size_t n = 0, k;
-
         assert(c);
 
-        for (i = *c; i; i = i->next) {
+        size_t n = 0;
+        for (CalendarComponent *i = *c; i; i = i->next) {
                 n++;
 
-                /*
-                 * While we're counting the chain, also normalize `stop`
-                 * so the length of the range is a multiple of `repeat`
-                 */
+                /* While we're counting the chain, also normalize 'stop'
+                 * so the length of the range is a multiple of 'repeat'. */
                 if (i->stop > i->start && i->repeat > 0)
                         i->stop -= (i->stop - i->start) % i->repeat;
 
-                /* If a repeat value is specified, but it cannot even be triggered once, let's suppress
-                 * it.
+                /* If a repeat value is specified, but it cannot even be triggered once, let's suppress it.
                  *
-                 * Similar, if the stop value is the same as the start value, then let's just make this a
-                 * non-repeating chain element */
+                 * Similarly, if the stop value is the same as the start value, then let's just make this a
+                 * non-repeating chain element. */
                 if ((i->stop > i->start && i->repeat > 0 && i->start + i->repeat > i->stop) ||
                     i->start == i->stop) {
                         i->repeat = 0;
@@ -106,17 +101,18 @@ static void normalize_chain(CalendarComponent **c) {
         if (n <= 1)
                 return;
 
-        j = b = newa(CalendarComponent*, n);
-        for (i = *c; i; i = i->next)
+        CalendarComponent **b, **j;
+        b = j = newa(CalendarComponent*, n);
+        for (CalendarComponent *i = *c; i; i = i->next)
                 *(j++) = i;
 
         typesafe_qsort(b, n, component_compare);
 
         b[n-1]->next = NULL;
-        next = b[n-1];
+        CalendarComponent *next = b[n-1];
 
         /* Drop non-unique entries */
-        for (k = n-1; k > 0; k--) {
+        for (size_t k = n-1; k > 0; k--) {
                 if (component_compare(&b[k-1], &next) == 0) {
                         free(b[k-1]);
                         continue;
@@ -253,7 +249,7 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
                 "Thu",
                 "Fri",
                 "Sat",
-                "Sun"
+                "Sun",
         };
 
         int l, x;
@@ -408,7 +404,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
                 { "Saturday",  5 },
                 { "Sat",       5 },
                 { "Sunday",    6 },
-                { "Sun",       6 }
+                { "Sun",       6 },
         };
 
         int l = -1;
