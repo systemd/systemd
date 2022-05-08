@@ -34,16 +34,18 @@ _resolvectl() {
     local i comps verb name
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help --version --no-pager -4 -6
-                      --service-address=no --service-txt=no
-                      --cname=no --search=no --legend=no'
-        [ARG]='-i --interface -p --protocol -t --type -c --class --raw'
+        [STANDALONE]='-h --help --version -4 -6 --legend=no --cname=no
+                      --validate=no --synthesize=no --cache=no --zone=no
+                      --trust-anchor=no --network=no --service-address=no
+                      --service-txt=no --search=no --no-pager'
+        [ARG]='-t --type -c --class -i --interface -p --protocol --raw'
     )
     local -A VERBS=(
         [DOMAIN]='query service openpgp'
         [FAMILY]='tlsa'
         [STATUS]='status'
         [LINK]='revert dns domain nta'
+        [BOOLEAN]='default-route'
         [RESOLVE]='llmnr mdns'
         [DNSSEC]='dnssec'
         [DNSOVERTLS]='dnsovertls'
@@ -52,6 +54,7 @@ _resolvectl() {
     )
     local -A ARGS=(
         [FAMILY]='tcp udp sctp'
+        [BOOLEAN]='yes no'
         [RESOLVE]='yes no resolve'
         [DNSSEC]='yes no allow-downgrade'
         [DNSOVERTLS]='yes no opportunistic'
@@ -113,7 +116,7 @@ _resolvectl() {
             comps=""
         fi
 
-    elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]} ${VERBS[DNSOVERTLS]}; then
+    elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[BOOLEAN]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]} ${VERBS[DNSOVERTLS]}; then
         for ((i++; i < COMP_CWORD; i++)); do
             if __contains_word "${COMP_WORDS[i]}" $interfaces &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
@@ -137,6 +140,22 @@ _resolvectl() {
 
             if [[ -z $name ]]; then
                 comps=${ARGS[RESOLVE]}
+            else
+                comps=''
+            fi
+
+        elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
+            name=
+            for ((i++; i < COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${ARGS[BOOLEAN]} &&
+                        ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                    name=${COMP_WORDS[i]}
+                    break;
+                fi
+            done
+
+            if [[ -z $name ]]; then
+                comps=${ARGS[BOOLEAN]}
             else
                 comps=''
             fi
