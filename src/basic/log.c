@@ -32,12 +32,15 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
+#define LOG_CONTEXT_RESERVED 4
+#define LOG_CONTEXT_MAX 128
 
 static log_syntax_callback_t log_syntax_callback = NULL;
 static void *log_syntax_callback_userdata = NULL;
@@ -66,6 +69,9 @@ static bool prohibit_ipc = false;
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
+
+static thread_local struct iovec log_context[LOG_CONTEXT_MAX] = {};
+static thread_local size_t n_log_context = LOG_CONTEXT_RESERVED;
 
 /* An assert to use in logging functions that does not call recursively
  * into our logging functions (since that might lead to a loop). */
@@ -617,15 +623,15 @@ static int write_to_journal(
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        struct iovec iovec[4] = {
-                IOVEC_MAKE_STRING(header),
-                IOVEC_MAKE_STRING("MESSAGE="),
-                IOVEC_MAKE_STRING(buffer),
-                IOVEC_MAKE_STRING("\n"),
-        };
+        log_context[0] = IOVEC_MAKE_STRING(header);
+        log_context[1] = IOVEC_MAKE_STRING("MESSAGE=");
+        log_context[2] = IOVEC_MAKE_STRING(buffer);
+        log_context[3] = IOVEC_MAKE_STRING("\n");
+        /* Update LOG_CONTEXT_RESERVED when adding more fields here. */
+
         const struct msghdr msghdr = {
-                .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
+                .msg_iov = log_context,
+                .msg_iovlen = n_log_context,
         };
 
         if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
@@ -1505,4 +1511,78 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
+}
+
+void log_context_push(const char *field) {
+        if (!field)
+                return;
+
+        if (n_log_context == LOG_CONTEXT_MAX)
+                return;
+
+        log_context[n_log_context++] = IOVEC_MAKE_STRING(field);
+        log_context[n_log_context++] = IOVEC_MAKE_STRING("\n");
+}
+
+void log_context_push_strv(char *const *fields) {
+        if (!fields)
+                return;
+
+        if (n_log_context + strv_length(fields) > LOG_CONTEXT_MAX)
+                return;
+
+        STRV_FOREACH(f, fields) {
+                log_context[n_log_context++] = IOVEC_MAKE_STRING(*f);
+                log_context[n_log_context++] = IOVEC_MAKE_STRING("\n");
+        }
+}
+
+void log_context_pop(const char **field) {
+        if (!*field)
+                return;
+
+        assert(n_log_context > LOG_CONTEXT_RESERVED + 1);
+
+        log_context[n_log_context--] = (struct iovec) {};
+        log_context[n_log_context--] = (struct iovec) {};
+        *field = NULL;
+}
+
+void log_context_pop_free(char **field) {
+        if (!*field)
+                return;
+
+        assert(n_log_context > LOG_CONTEXT_RESERVED + 1);
+
+        log_context[n_log_context--] = (struct iovec) {};
+        log_context[n_log_context--] = (struct iovec) {};
+        *field = mfree(*field);
+}
+
+void log_context_pop_strv(char *const **fields) {
+        if (!*fields)
+                return;
+
+        assert(strv_length(*fields) * 2 <= n_log_context - LOG_CONTEXT_RESERVED);
+
+        STRV_FOREACH(f, *fields) {
+                log_context[n_log_context--] = (struct iovec) {};
+                log_context[n_log_context--] = (struct iovec) {};
+        }
+
+        *fields = NULL;
+}
+
+void log_context_pop_strv_free(char ***fields) {
+        if (!*fields)
+                return;
+
+        assert(strv_length(*fields) * 2 <= n_log_context - LOG_CONTEXT_RESERVED);
+
+        STRV_FOREACH(f, *fields) {
+                log_context[n_log_context--] = (struct iovec) {};
+                log_context[n_log_context--] = (struct iovec) {};
+        }
+
+        *fields = strv_free(*fields);
 }

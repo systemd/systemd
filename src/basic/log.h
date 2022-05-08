@@ -359,3 +359,36 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+void log_context_push(const char *field);
+void log_context_push_strv(char *const *fields);
+
+void log_context_pop(const char **field);
+void log_context_pop_free(char **field);
+void log_context_pop_strv(char *const **fields);
+void log_context_pop_strv_free(char ***fields);
+
+#define LOG_CONTEXT_PUSH(field) _cleanup_(log_context_pop) _unused_ const char *UNIQ_T(context, UNIQ) = ({ \
+        typeof(*(field)) *_field = (field);                                                                \
+        log_context_push(_field);                                                                          \
+        _field;                                                                                            \
+})
+
+#define LOG_CONTEXT_CONSUME(field) _cleanup_(log_context_pop_free) _unused_ char *UNIQ_T(context, UNIQ) = ({ \
+        typeof(*(field)) *_field = (field);                                                                  \
+        log_context_push(_field);                                                                            \
+        _field;                                                                                              \
+})
+
+
+#define LOG_CONTEXT_PUSH_STRV(fields) _cleanup_(log_context_pop_strv) _unused_ char *const *UNIQ_T(context, UNIQ) = ({ \
+        typeof(*(fields)) *_fields = (fields);                                                                         \
+        log_context_push_strv(_fields);                                                                                \
+        _fields;                                                                                                       \
+})
+
+#define LOG_CONTEXT_CONSUME_STRV(fields) _cleanup_(log_context_pop_strv_free) _unused_ char **UNIQ_T(context, UNIQ) = ({ \
+        typeof(*(fields)) *_fields = (fields);                                                                           \
+        log_context_push_strv(_fields);                                                                                  \
+        _fields;                                                                                                         \
+})
