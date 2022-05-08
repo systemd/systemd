@@ -37,17 +37,17 @@ TEST(xdg_format_exec_start) {
 }
 
 static const char* const xdg_desktop_file[] = {
-        ("[Desktop Entry]\n"
-         "Exec\t =\t /bin/sleep 100\n" /* Whitespace Before/After = must be ignored */
-         "OnlyShowIn = A;B;\n"
-         "NotShowIn=C;;D\\\\\\;;E\n"), /* "C", "", "D\;", "E" */
+        "[Desktop Entry]\n"
+        "Exec\t =\t /bin/sleep 100\n" /* Whitespace Before/After = must be ignored */
+        "OnlyShowIn = A;B;\n"
+        "NotShowIn=C;;D\\\\\\;;E\n", /* "C", "", "D\;", "E" */
 
-        ("[Desktop Entry]\n"
-         "Exec=a\n"
-         "Exec=b\n"),
+        "[Desktop Entry]\n"
+        "Exec=a\n"
+        "Exec=b\n",
 
-        ("[Desktop Entry]\n"
-         "Hidden=\t true\n"),
+        "[Desktop Entry]\n"
+        "Hidden=\t true\n",
 };
 
 static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
