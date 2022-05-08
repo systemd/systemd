@@ -359,3 +359,15 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+const char* _log_context_push_(const char *field);
+char* const* _log_context_push_strv_(char *const *fields);
+
+void _log_context_pop_(const char **field);
+void _log_context_pop_strv_(char *const **fields);
+
+#define LOG_CONTEXT_PUSH(field) \
+        _cleanup_(_log_context_pop_) _unused_ const char *UNIQ_T(context, UNIQ) = _log_context_push_(field)
+
+#define LOG_CONTEXT_PUSH_STRV(fields) \
+        _cleanup_(_log_context_pop_strv_) _unused_ char *const *UNIQ_T(context, UNIQ) = _log_context_push_strv_(fields)

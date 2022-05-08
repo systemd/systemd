@@ -32,12 +32,15 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
+#define LOG_CONTEXT_MAX 1024
+#define LOG_CONTEXT_RESERVED (LOG_CONTEXT_MAX / 4)
 
 static log_syntax_callback_t log_syntax_callback = NULL;
 static void *log_syntax_callback_userdata = NULL;
@@ -66,6 +69,9 @@ static bool prohibit_ipc = false;
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
+
+static thread_local struct iovec log_context[LOG_CONTEXT_MAX] = {};
+static thread_local size_t n_log_context = 0;
 
 /* An assert to use in logging functions that does not call recursively
  * into our logging functions (since that might lead to a loop). */
@@ -611,21 +617,24 @@ static int write_to_journal(
                 const char *buffer) {
 
         char header[LINE_MAX];
+        size_t n = n_log_context;
 
         if (journal_fd < 0)
                 return 0;
 
+        assert_cc(LOG_CONTEXT_RESERVED >= 4);
+        assert(n <= LOG_CONTEXT_MAX - LOG_CONTEXT_RESERVED);
+
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        struct iovec iovec[4] = {
-                IOVEC_MAKE_STRING(header),
-                IOVEC_MAKE_STRING("MESSAGE="),
-                IOVEC_MAKE_STRING(buffer),
-                IOVEC_MAKE_STRING("\n"),
-        };
+        log_context[n++] = IOVEC_MAKE_STRING(header);
+        log_context[n++] = IOVEC_MAKE_STRING("MESSAGE=");
+        log_context[n++] = IOVEC_MAKE_STRING(buffer);
+        log_context[n++] = IOVEC_MAKE_STRING("\n");
+
         const struct msghdr msghdr = {
-                .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
+                .msg_iov = log_context,
+                .msg_iovlen = n,
         };
 
         if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
@@ -960,23 +969,25 @@ int log_struct_internal(
 
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
-                        struct iovec iovec[17];
-                        size_t n = 0;
+                        size_t n = n_log_context;
                         int r;
                         bool fallback = false;
+
+                        assert_cc(LOG_CONTEXT_RESERVED >= 17);
+                        assert(n <= LOG_CONTEXT_MAX - LOG_CONTEXT_RESERVED);
 
                         /* If the journal is available do structured logging.
                          * Do not report the errno if it is synthetic. */
                         log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
-                        iovec[n++] = IOVEC_MAKE_STRING(header);
+                        log_context[n++] = IOVEC_MAKE_STRING(header);
 
                         va_start(ap, format);
-                        r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, true, error, format, ap);
+                        r = log_format_iovec(log_context, LOG_CONTEXT_MAX, &n, true, error, format, ap);
                         if (r < 0)
                                 fallback = true;
                         else {
                                 const struct msghdr msghdr = {
-                                        .msg_iov = iovec,
+                                        .msg_iov = log_context,
                                         .msg_iovlen = n,
                                 };
 
@@ -984,8 +995,8 @@ int log_struct_internal(
                         }
 
                         va_end(ap);
-                        for (size_t i = 1; i < n; i += 2)
-                                free(iovec[i].iov_base);
+                        for (size_t i = n_log_context + 1; i < n; i += 2)
+                                free(log_context[i].iov_base);
 
                         if (!fallback) {
                                 if (open_when_needed)
@@ -1053,18 +1064,24 @@ int log_struct_iovec_internal(
             journal_fd >= 0) {
 
                 char header[LINE_MAX];
+                size_t n = n_log_context;
+
+                assert(n <= LOG_CONTEXT_MAX - LOG_CONTEXT_RESERVED);
+
+                if (1 + n_input_iovec * 2 > LOG_CONTEXT_MAX - n_log_context)
+                        return -EOVERFLOW;
+
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
 
-                struct iovec iovec[1 + n_input_iovec*2];
-                iovec[0] = IOVEC_MAKE_STRING(header);
+                log_context[n++] = IOVEC_MAKE_STRING(header);
                 for (size_t i = 0; i < n_input_iovec; i++) {
-                        iovec[1+i*2] = input_iovec[i];
-                        iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
+                        log_context[n++] = input_iovec[i];
+                        log_context[n++] = IOVEC_MAKE_STRING("\n");
                 }
 
                 const struct msghdr msghdr = {
-                        .msg_iov = iovec,
-                        .msg_iovlen = 1 + n_input_iovec*2,
+                        .msg_iov = log_context,
+                        .msg_iovlen = n,
                 };
 
                 if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) >= 0)
@@ -1505,4 +1522,52 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
+}
+
+const char* _log_context_push_(const char *field) {
+        assert(field);
+
+        if (n_log_context + 2 > LOG_CONTEXT_MAX - LOG_CONTEXT_RESERVED)
+                return NULL;
+
+        log_context[n_log_context++] = IOVEC_MAKE_STRING(field);
+        log_context[n_log_context++] = IOVEC_MAKE_STRING("\n");
+
+        return field;
+}
+
+char* const* _log_context_push_strv_(char *const *fields) {
+        assert(fields);
+
+        if (n_log_context + strv_length(fields) * 2 > LOG_CONTEXT_MAX - LOG_CONTEXT_RESERVED)
+                return NULL;
+
+        STRV_FOREACH(f, fields) {
+                log_context[n_log_context++] = IOVEC_MAKE_STRING(*f);
+                log_context[n_log_context++] = IOVEC_MAKE_STRING("\n");
+        }
+
+        return fields;
+}
+
+void _log_context_pop_(const char **field) {
+        if (!*field)
+                return;
+
+        assert(n_log_context >= 2);
+
+        n_log_context -= 2;
+        *field = NULL;
+}
+
+void _log_context_pop_strv_(char *const **fields) {
+        if (!*fields)
+                return;
+
+        assert(n_log_context >= strv_length(*fields) * 2);
+
+        STRV_FOREACH(f, *fields)
+                n_log_context -= 2;
+
+        *fields = NULL;
 }
