@@ -1317,7 +1317,9 @@ static int mount_partition(
         if (!fstype)
                 return -EAFNOSUPPORT;
 
-        /* We are looking at an encrypted partition? This either means stacked encryption, or the caller didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this case. */
+        /* We are looking at an encrypted partition? This either means stacked encryption, or the caller
+         * didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this
+         * case. */
         if (streq(fstype, "crypto_LUKS"))
                 return -EUNATCH;
 
@@ -3031,31 +3033,31 @@ int mount_image_privately_interactively(
 }
 
 static const char *const partition_designator_table[] = {
-        [PARTITION_ROOT] = "root",
-        [PARTITION_ROOT_SECONDARY] = "root-secondary",
-        [PARTITION_ROOT_OTHER] = "root-other",
-        [PARTITION_USR] = "usr",
-        [PARTITION_USR_SECONDARY] = "usr-secondary",
-        [PARTITION_USR_OTHER] = "usr-other",
-        [PARTITION_HOME] = "home",
-        [PARTITION_SRV] = "srv",
-        [PARTITION_ESP] = "esp",
-        [PARTITION_XBOOTLDR] = "xbootldr",
-        [PARTITION_SWAP] = "swap",
-        [PARTITION_ROOT_VERITY] = "root-verity",
-        [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
-        [PARTITION_ROOT_OTHER_VERITY] = "root-other-verity",
-        [PARTITION_USR_VERITY] = "usr-verity",
-        [PARTITION_USR_SECONDARY_VERITY] = "usr-secondary-verity",
-        [PARTITION_USR_OTHER_VERITY] = "usr-other-verity",
-        [PARTITION_ROOT_VERITY_SIG] = "root-verity-sig",
+        [PARTITION_ROOT]                      = "root",
+        [PARTITION_ROOT_SECONDARY]            = "root-secondary",
+        [PARTITION_ROOT_OTHER]                = "root-other",
+        [PARTITION_USR]                       = "usr",
+        [PARTITION_USR_SECONDARY]             = "usr-secondary",
+        [PARTITION_USR_OTHER]                 = "usr-other",
+        [PARTITION_HOME]                      = "home",
+        [PARTITION_SRV]                       = "srv",
+        [PARTITION_ESP]                       = "esp",
+        [PARTITION_XBOOTLDR]                  = "xbootldr",
+        [PARTITION_SWAP]                      = "swap",
+        [PARTITION_ROOT_VERITY]               = "root-verity",
+        [PARTITION_ROOT_SECONDARY_VERITY]     = "root-secondary-verity",
+        [PARTITION_ROOT_OTHER_VERITY]         = "root-other-verity",
+        [PARTITION_USR_VERITY]                = "usr-verity",
+        [PARTITION_USR_SECONDARY_VERITY]      = "usr-secondary-verity",
+        [PARTITION_USR_OTHER_VERITY]          = "usr-other-verity",
+        [PARTITION_ROOT_VERITY_SIG]           = "root-verity-sig",
         [PARTITION_ROOT_SECONDARY_VERITY_SIG] = "root-secondary-verity-sig",
-        [PARTITION_ROOT_OTHER_VERITY_SIG] = "root-other-verity-sig",
-        [PARTITION_USR_VERITY_SIG] = "usr-verity-sig",
-        [PARTITION_USR_SECONDARY_VERITY_SIG] = "usr-secondary-verity-sig",
-        [PARTITION_USR_OTHER_VERITY_SIG] = "usr-other-verity-sig",
-        [PARTITION_TMP] = "tmp",
-        [PARTITION_VAR] = "var",
+        [PARTITION_ROOT_OTHER_VERITY_SIG]     = "root-other-verity-sig",
+        [PARTITION_USR_VERITY_SIG]            = "usr-verity-sig",
+        [PARTITION_USR_SECONDARY_VERITY_SIG]  = "usr-secondary-verity-sig",
+        [PARTITION_USR_OTHER_VERITY_SIG]      = "usr-other-verity-sig",
+        [PARTITION_TMP]                       = "tmp",
+        [PARTITION_VAR]                       = "var",
 };
 
 int verity_dissect_and_mount(
