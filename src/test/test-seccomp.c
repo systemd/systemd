@@ -132,6 +132,8 @@ TEST(architecture_table) {
                        "mips-le\0"
                        "mips64-le\0"
                        "mips64-le-n32\0"
+                       "parisc\0"
+                       "parisc64\0"
                        "ppc\0"
                        "ppc64\0"
                        "ppc64-le\0"
