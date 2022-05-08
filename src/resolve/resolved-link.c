@@ -390,6 +390,7 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 #endif
 
         l->dns_over_tls_mode = mode;
+        l->unicast_scope = dns_scope_free(l->unicast_scope);
 }
 
 static int link_update_dns_over_tls_mode(Link *l) {
@@ -430,17 +431,8 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
         if (l->dnssec_mode == mode)
                 return;
 
-        if ((l->dnssec_mode == _DNSSEC_MODE_INVALID) ||
-            (l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
-            (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
-
-                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
-                 * allow-downgrade mode to full DNSSEC mode, flush it too. */
-                if (l->unicast_scope)
-                        dns_cache_flush(&l->unicast_scope->cache);
-        }
-
         l->dnssec_mode = mode;
+        l->unicast_scope = dns_scope_free(l->unicast_scope);
 }
 
 static int link_update_dnssec_mode(Link *l) {
