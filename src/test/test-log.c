@@ -7,6 +7,7 @@
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
@@ -65,6 +66,20 @@ static void test_log_syntax(void) {
         assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
 }
 
+static void test_log_context(void) {
+        char *strv[] = { (char*) "MYDATA=abc", NULL };
+        LOG_CONTEXT_PUSH("MYDATA=abc");
+        LOG_CONTEXT_PUSH("MYDATA=def");
+        LOG_CONTEXT_CONSUME(strdup("MYDATA=abc"));
+        LOG_CONTEXT_PUSH_STRV(strv);
+        LOG_CONTEXT_CONSUME_STRV(strv_new("MYDATA=abc"));
+
+        /* Test that everything still works with modifications to the log context. */
+        test_log_struct();
+        test_long_lines();
+        test_log_syntax();
+}
+
 int main(int argc, char* argv[]) {
         test_file();
 
@@ -77,6 +92,7 @@ int main(int argc, char* argv[]) {
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
+                test_log_context();
         }
 
         return 0;
