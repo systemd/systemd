@@ -497,7 +497,7 @@ static int config_parse_many_files(
         }
 
         /* First read the first found main config file. */
-        STRV_FOREACH(fn, (char**) conf_files) {
+        STRV_FOREACH(fn, conf_files) {
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;

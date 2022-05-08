@@ -3655,7 +3655,7 @@ static bool generator_path_any(const char* const* paths) {
 
         /* Optimize by skipping the whole process by not creating output directories
          * if no generators are found. */
-        STRV_FOREACH(path, (char**) paths)
+        STRV_FOREACH(path, paths)
                 if (access(*path, F_OK) == 0)
                         found = true;
                 else if (errno != ENOENT)
