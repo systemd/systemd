@@ -1515,32 +1515,20 @@ static int have_multiple_sessions(
 static int bus_manager_log_shutdown(
                 Manager *m,
                 const HandleActionData *a) {
-
-        const char *message, *log_message;
-
         assert(m);
         assert(a);
 
-        message = a->message;
-        log_message = a->log_message;
-
-        if (message)
-                message = strjoina("MESSAGE=", message);
-        else
-                message = "MESSAGE=System is shutting down";
-
-        if (isempty(m->wall_message))
-                message = strjoina(message, ".");
-        else
-                message = strjoina(message, " (", m->wall_message, ").");
-
-        if (log_message)
-                log_message = strjoina("SHUTDOWN=", log_message);
+        const char *message = a->message ?: "System is shutting down";
+        const char *log_message = a->log_message ? strjoina("SHUTDOWN=", a->log_message) : NULL;
 
         return log_struct(LOG_NOTICE,
-                        "MESSAGE_ID=%s", a->message_id ? a->message_id : SD_MESSAGE_SHUTDOWN_STR,
-                        message,
-                        log_message);
+                          "MESSAGE_ID=%s", a->message_id ?: SD_MESSAGE_SHUTDOWN_STR,
+                          LOG_MESSAGE("%s%s%s%s.",
+                                      message,
+                                      m->wall_message ? " (" : "",
+                                      strempty(m->wall_message),
+                                      m->wall_message ? ")" : ""),
+                          log_message);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
