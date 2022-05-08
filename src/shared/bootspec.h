@@ -9,6 +9,7 @@
 
 #include "set.h"
 #include "string-util.h"
+#include "json.h"
 
 typedef enum BootEntryType {
         BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
@@ -69,6 +70,8 @@ typedef struct BootConfig {
                 .selected_entry = -1, \
         }
 
+const char* boot_entry_type_to_string(BootEntryType);
+
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
 static inline const BootEntry* boot_config_default_entry(const BootConfig *config) {
@@ -83,6 +86,16 @@ static inline const BootEntry* boot_config_default_entry(const BootConfig *confi
 
 void boot_config_free(BootConfig *config);
 
+int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path);
+
+int boot_config_load_type1(
+                BootConfig *config,
+                FILE *f,
+                const char *root,
+                const char *dir,
+                const char *id);
+
+int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
 int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
@@ -92,5 +105,14 @@ int boot_config_select_special_entries(BootConfig *config);
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);
 
-        return entry->show_title ?: entry->title ?: entry->id;
+        return ASSERT_PTR(entry->show_title ?: entry->title ?: entry->id);
 }
+
+int show_boot_entry(
+                const BootEntry *e,
+                bool show_as_default,
+                bool show_as_selected,
+                bool show_reported);
+int show_boot_entries(
+                const BootConfig *config,
+                JsonFormatFlags json_format);
