@@ -143,12 +143,13 @@ static Virtualization detect_vm_device_tree(void) {
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
 static Virtualization detect_vm_dmi_vendor(void) {
-        static const char *const dmi_vendors[] = {
+        static const char* const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
                 "/sys/class/dmi/id/bios_vendor",
-                "/sys/class/dmi/id/product_version" /* For Hyper-V VMs test */
+                "/sys/class/dmi/id/product_version", /* For Hyper-V VMs test */
+                NULL
         };
 
         static const struct {
@@ -172,10 +173,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
         };
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
+        STRV_FOREACH(vendor, dmi_vendors) {
                 _cleanup_free_ char *s = NULL;
 
-                r = read_one_line_file(dmi_vendors[i], &s);
+                r = read_one_line_file(*vendor, &s);
                 if (r < 0) {
                         if (r == -ENOENT)
                                 continue;
@@ -183,10 +184,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
                         return r;
                 }
 
-                for (size_t j = 0; j < ELEMENTSOF(dmi_vendor_table); j++)
-                        if (startswith(s, dmi_vendor_table[j].vendor)) {
-                                log_debug("Virtualization %s found in DMI (%s)", s, dmi_vendors[i]);
-                                return dmi_vendor_table[j].id;
+                for (size_t i = 0; i < ELEMENTSOF(dmi_vendor_table); i++)
+                        if (startswith(s, dmi_vendor_table[i].vendor)) {
+                                log_debug("Virtualization %s found in DMI (%s)", s, *vendor);
+                                return dmi_vendor_table[i].id;
                         }
         }
         log_debug("No virtualization found in DMI vendor table.");
