@@ -66,7 +66,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_journal_open_files(&j, (const char**) STRV_MAKE(name), 0);
         if (r < 0) {
                 log_error_errno(r, "sd_journal_open_files([\"%s\"]) failed: %m", name);
-                assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE));
+                assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE, -ENODATA));
                 return r;
         }
 
