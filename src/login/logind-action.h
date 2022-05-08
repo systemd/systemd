@@ -39,7 +39,7 @@ struct HandleActionData {
         SleepOperation sleep_operation;
         const char* message_id;
         const char* message;
-        const char* log_message;
+        const char* log_verb;
 };
 
 int manager_handle_action(

@@ -1519,7 +1519,7 @@ static int bus_manager_log_shutdown(
         assert(a);
 
         const char *message = a->message ?: "System is shutting down";
-        const char *log_message = a->log_message ? strjoina("SHUTDOWN=", a->log_message) : NULL;
+        const char *log_verb = a->log_verb ? strjoina("SHUTDOWN=", a->log_verb) : NULL;
 
         return log_struct(LOG_NOTICE,
                           "MESSAGE_ID=%s", a->message_id ?: SD_MESSAGE_SHUTDOWN_STR,
@@ -1528,7 +1528,7 @@ static int bus_manager_log_shutdown(
                                       m->wall_message ? " (" : "",
                                       strempty(m->wall_message),
                                       m->wall_message ? ")" : ""),
-                          log_message);
+                          log_verb);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
