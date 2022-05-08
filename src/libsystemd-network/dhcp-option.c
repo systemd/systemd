@@ -62,7 +62,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 if (strv_isempty((char **) optval))
                         return -EINVAL;
 
-                STRV_FOREACH(s, (char **) optval) {
+                STRV_FOREACH(s, (const char* const*) optval) {
                         size_t len = strlen(*s);
 
                         if (len > 255 || len == 0)
@@ -78,7 +78,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 options[*offset + 1] = total;
                 *offset += 2;
 
-                STRV_FOREACH(s, (char **) optval) {
+                STRV_FOREACH(s, (const char* const*) optval) {
                         size_t len = strlen(*s);
 
                         options[*offset] = len;
