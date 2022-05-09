@@ -105,7 +105,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = json_variant_filter(&v, STRV_MAKE("a", "b", "c", "d", "e"));
         log_debug_errno(r, "json_variant_filter: %d/%m", r);
 
-        // TODO: json_variant_merge(&v, …);
-        // TODO: json_variant_append_array(&v, …);
+        /* I assume we can merge v with itself… */
+        r = json_variant_merge(&v, v);
+        log_debug_errno(r, "json_variant_merge: %d/%m", r);
+
+        r = json_variant_append_array(&v, v);
+        log_debug_errno(r, "json_variant_append_array: %d/%m", r);
+
         return 0;
 }
