@@ -19,6 +19,7 @@ enum loader_type {
         LOADER_EFI,
         LOADER_LINUX,         /* Boot loader spec type #1 entries */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_SECURE_BOOT_KEYS,
 };
 
 /* These values have been chosen so that the transitions the user sees could
@@ -37,6 +38,21 @@ enum {
         IDX_MAX = INT16_MAX,
         IDX_INVALID,
 };
+
+typedef enum {
+        ENROLL_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */
+        ENROLL_MANUAL,      /* Secure Boot key enrollment is strictly manual: manual entries are generated and need to be selected by the user */
+        ENROLL_FORCE,       /* Secure Boot key enrollment may be automatic if it is available but might not be safe */
+        _ENROLL_MAX,
+} secure_boot_enroll;
+
+static const CHAR16 * const secure_boot_enroll_table[_ENROLL_MAX] = {
+        [ENROLL_OFF]    = L"off",
+        [ENROLL_MANUAL] = L"manual",
+        [ENROLL_FORCE]  = L"force",
+};
+
+typedef struct Config Config;
 
 typedef struct ConfigEntry {
         CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
@@ -76,6 +92,7 @@ typedef struct Config {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN reboot_for_bitlocker;
+        secure_boot_enroll secure_boot_enroll;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
