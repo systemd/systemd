@@ -1109,6 +1109,38 @@ Table=1234</programlisting></para>
           Defaults to <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname><replaceable>label</replaceable></term>
+        <listitem>
+
+          <para>This setting provides a method for integrating dynamic network configuration into Linux
+          NetLabel subsystem rules, used by Linux security modules (LSMs) for network access control. The
+          option expects a whitespace separated list of NetLabel labels. The labels must conform to lexical
+          restrictions of LSM labels. When an interface is configured with IP addresses, the addresses and
+          subnetwork masks will be appended to the NetLabel Fallback Peer Labeling rules. They will be
+          removed when the interface is deconfigured. Failures to manage the labels will be ignored.</para>
+
+          <para>Warning: Once labeling is enabled for network traffic, a lot of LSM access control points in
+          Linux networking stack go from dormant to active. It is easy for someone not familiar with the LSM
+          per-packet access controls to get into a situation where for example remote connectivity is
+          broken. Also note that additional configuration with <citerefentry
+          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is needed.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          With the example rules applying for interface <literal>eth0</literal>, when the interface is
+          configured with an IPv4 address of 10.0.0.0/8, <command>systemd-networkd</command> performs the
+          equivalent of <command>netlabelctl</command> operation
+
+          <programlisting>netlabelctl unlbl add interface eth0 address:10.0.0.0/8 label:system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          and the reverse operation when the IPv4 address is deconfigured.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2050,6 +2082,13 @@ Table=1234</programlisting></para>
           <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>. Defaults to false.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>As in [Address] section.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2163,6 +2202,7 @@ Table=1234</programlisting></para>
         <term><varname>UseNTP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
+        <term><varname>NetLabel=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
         </listitem>
@@ -2262,6 +2302,13 @@ Table=1234</programlisting></para>
           <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
           the range 0…4294967295. When set to 0, the kernel's default value is used. Defaults to 256.
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>As in [Address] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2519,6 +2566,13 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
           <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
           specified. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>As in [Address] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>

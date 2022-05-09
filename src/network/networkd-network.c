@@ -705,6 +705,9 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_deny_listed_route_prefix);
         set_free(network->ndisc_allow_listed_route_prefix);
 
+        set_free(network->dhcp4_netlabels);
+        set_free(network->dhcp6_netlabels);
+
         free(network->batadv_name);
         free(network->bridge_name);
         free(network->bond_name);

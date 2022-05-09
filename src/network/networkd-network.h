@@ -353,6 +353,9 @@ struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* NetLabel */
+        Set *dhcp4_netlabels, *dhcp6_netlabels;
 };
 
 Network *network_ref(Network *network);
