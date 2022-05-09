@@ -1955,7 +1955,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         path_simplify(source);
 
                         if (isempty(destination)) {
-                                r = strv_extend(&sources, TAKE_PTR(source));
+                                r = strv_consume(&sources, TAKE_PTR(source));
                                 if (r < 0)
                                         return bus_log_create_error(r);
                         } else {
