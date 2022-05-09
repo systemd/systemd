@@ -3083,7 +3083,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       NULL,
                       method_reexecute,
-                      SD_BUS_VTABLE_UNPRIVILEGED),
+                      SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_METHOD_NO_REPLY),
         SD_BUS_METHOD("Exit",
                       NULL,
                       NULL,
