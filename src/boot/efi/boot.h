@@ -19,6 +19,7 @@ enum loader_type {
         LOADER_EFI,
         LOADER_LINUX,         /* Boot loader spec type #1 entries */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_SECURE_BOOT_KEYS,
 };
 
 /* These values have been chosen so that the transitions the user sees could
@@ -91,6 +92,7 @@ typedef struct Config {
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
         BOOLEAN reboot_for_bitlocker;
+        secure_boot_enroll secure_boot_enroll;
         BOOLEAN force_menu;
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
