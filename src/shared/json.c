@@ -4655,10 +4655,11 @@ int json_variant_normalize(JsonVariant **v) {
         if (!a)
                 return -ENOMEM;
 
-        for (i = 0; i < m; i++) {
+        for (i = 0; i < m; ) {
                 a[i] = json_variant_ref(json_variant_by_index(*v, i));
+                i++;
 
-                r = json_variant_normalize(a + i);
+                r = json_variant_normalize(&a[i-1]);
                 if (r < 0)
                         goto finish;
         }
