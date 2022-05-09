@@ -48,6 +48,7 @@ enum loader_type {
         LOADER_EFI,
         LOADER_LINUX,         /* Boot loader spec type #1 entries */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
+        LOADER_SECURE_BOOT_KEYS,
 };
 
 typedef struct {
@@ -88,6 +89,7 @@ typedef struct {
         bool auto_entries;
         bool auto_firmware;
         bool reboot_for_bitlocker;
+        secure_boot_enroll secure_boot_enroll;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -527,6 +529,17 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
           ps_bool(L"                  beep: %s\n", config->beep);
           ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
         ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
+
+        switch (config->secure_boot_enroll) {
+        case ENROLL_OFF:
+                Print(L"    secure-boot-enroll: off\n"); break;
+        case ENROLL_MANUAL:
+                Print(L"    secure-boot-enroll: manual\n"); break;
+        case ENROLL_FORCE:
+                Print(L"    secure-boot-enroll: force\n"); break;
+        default:
+                assert_not_reached();
+        }
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -1217,6 +1230,17 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'reboot-for-bitlocker' config option: %a", value);
+                }
+
+                if (streq8(key, "secure-boot-enroll")) {
+                        if (streq8(value, "manual"))
+                                config->secure_boot_enroll = ENROLL_MANUAL;
+                        else if (streq8(value, "force"))
+                                config->secure_boot_enroll = ENROLL_FORCE;
+                        else if (streq8(value, "off"))
+                                config->secure_boot_enroll = ENROLL_OFF;
+                        else
+                                log_error_stall(L"Error parsing 'secure-boot-enroll' config option: %a", value);
                         continue;
                 }
 
@@ -1519,6 +1543,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = true,
                 .auto_firmware = true,
                 .reboot_for_bitlocker = false,
+                .secure_boot_enroll = ENROLL_MANUAL,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -2429,6 +2454,55 @@ static void save_selected_entry(const Config *config, const ConfigEntry *entry) 
                 (void) efivar_set(LOADER_GUID, L"LoaderEntryLastBooted", NULL, EFI_VARIABLE_NON_VOLATILE);
 }
 
+static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
+        EFI_STATUS err;
+        _cleanup_(file_closep) EFI_FILE *keys_basedir = NULL;
+
+        if (secure_boot_mode() != SECURE_BOOT_SETUP)
+                return EFI_SUCCESS;
+
+        /* the lack of a 'keys' directory is not fatal and is silently ignored */
+        err = open_directory(root_dir, u"\\loader\\keys", &keys_basedir);
+        if (err == EFI_NOT_FOUND)
+                return EFI_SUCCESS;
+        if (err != EFI_SUCCESS)
+                return err;
+
+        for (;;) {
+                _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
+                size_t dirent_size = 0;
+                ConfigEntry *entry = NULL;
+
+                err = readdir_harder(keys_basedir, &dirent, &dirent_size);
+                if (err != EFI_SUCCESS || !dirent)
+                        return err;
+
+                if (dirent->FileName[0] == '.')
+                        continue;
+
+                if (!FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
+                        continue;
+
+                entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xpool_print(L"secure-boot-keys-%s", dirent->FileName),
+                        .title = xpool_print(L"Enroll Secure Boot keys: %s", dirent->FileName),
+                        .path = xpool_print(L"\\loader\\keys\\%s", dirent->FileName),
+                        .type = LOADER_SECURE_BOOT_KEYS,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+
+                if (config->secure_boot_enroll == ENROLL_FORCE && strcaseeq16(dirent->FileName, u"auto"))
+                        /* if we auto enroll sucessfully this call does not return, if it fails we still
+                         * want to add other potential entries to the menu */
+                        secure_boot_enroll_at(root_dir, entry->path);
+        }
+
+        return EFI_SUCCESS;
+}
+
 static void export_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *loaded_image_path,
@@ -2518,6 +2592,13 @@ static void config_load_all_entries(
                 config_add_entry(config, entry);
         }
 
+        /* find if secure boot signing keys exist and autoload them if necessary
+        otherwise creates menu entries so that the user can load them manually
+        if the secure-boot-enroll variable is set to no (the default), we do not
+        even search for keys on the ESP */
+        if (config->secure_boot_enroll != ENROLL_OFF)
+                secure_boot_discover_keys(config, root_dir);
+
         if (config->entry_count == 0)
                 return;
 
@@ -2604,6 +2685,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeMenuUSec", 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 break;
+                }
+
+                /* if auto enrollment is activated, we try to load keys for the given entry. */
+                if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
+                        err = secure_boot_enroll_at(root_dir, entry->path);
+                        if (err == EFI_SUCCESS)
+                                return EFI_SUCCESS;
+                        continue;
                 }
 
                 /* Run special entry like "reboot" now. Those that have a loader
