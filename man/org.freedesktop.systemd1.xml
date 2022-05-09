@@ -164,6 +164,7 @@ node /org/freedesktop/systemd1 {
       Dump(out s output);
       DumpByFileDescriptor(out h fd);
       Reload();
+      @org.freedesktop.DBus.Method.NoReply("true")
       Reexecute();
       @org.freedesktop.systemd1.Privileged("true")
       Exit();
