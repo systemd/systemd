@@ -273,8 +273,8 @@ static JsonVariant *json_variant_formalize(JsonVariant *v) {
 
 static JsonVariant *json_variant_conservative_formalize(JsonVariant *v) {
 
-        /* Much like json_variant_formalize(), but won't simplify if the variant has a source/line location attached to
-         * it, in order not to lose context */
+        /* Much like json_variant_formalize(), but won't simplify if the variant has a source/line location
+         * attached to it, in order not to lose context */
 
         if (!v)
                 return NULL;
@@ -546,7 +546,7 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
                 JsonVariant *w = v + 1 + v->n_elements,
-                        *c = array[v->n_elements];
+                            *c = array[v->n_elements];
                 uint16_t d;
 
                 d = json_variant_depth(c);
@@ -690,7 +690,7 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
                 JsonVariant *w = v + 1 + v->n_elements,
-                        *c = array[v->n_elements];
+                            *c = array[v->n_elements];
                 uint16_t d;
 
                 if ((v->n_elements & 1) == 0) {
@@ -731,7 +731,6 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
 }
 
 static size_t json_variant_size(JsonVariant* v) {
-
         if (!json_variant_is_regular(v))
                 return 0;
 
@@ -2253,8 +2252,9 @@ static int json_variant_set_source(JsonVariant **v, JsonSource *source, unsigned
 
         assert(v);
 
-        /* Patch in source and line/column number. Tries to do this in-place if the caller is the sole referencer of
-         * the object. If not, allocates a new object, possibly a surrogate for the original one */
+        /* Patch in source and line/column number. Tries to do this in-place if the caller is the sole
+         * referencer of the object. If not, allocates a new object, possibly a surrogate for the original
+         * one */
 
         if (!*v)
                 return 0;
@@ -3731,10 +3731,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack) {
                                 .expect = EXPECT_OBJECT_KEY,
-                                .n_suppress = current->n_suppress != 0 ? SIZE_MAX : 0, /* if we shall suppress the
-                                                                                           * new object, then we should
-                                                                                           * also suppress all object
-                                                                                           * members */
+                                .n_suppress = current->n_suppress != 0 ? SIZE_MAX : 0, /* If we shall suppress the
+                                                                                        * new object, then we should
+                                                                                        * also suppress all object
+                                                                                        * members. */
                         };
 
                         break;
@@ -4102,9 +4102,9 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(add_more);
                 }
 
-                /* If we are supposed to suppress items, let's subtract how many items where generated from that
-                 * counter. Except if the counter is SIZE_MAX, i.e. we shall suppress an infinite number of elements
-                 * on this stack level */
+                /* If we are supposed to suppress items, let's subtract how many items where generated from
+                 * that counter. Except if the counter is SIZE_MAX, i.e. we shall suppress an infinite number
+                 * of elements on this stack level */
                 if (current->n_suppress != SIZE_MAX) {
                         if (current->n_suppress <= n_subtract) /* Saturated */
                                 current->n_suppress = 0;
@@ -4696,10 +4696,9 @@ finish:
 }
 
 bool json_variant_is_normalized(JsonVariant *v) {
-
-        /* For now, let's consider anything containing numbers not expressible as integers as
-         * non-normalized. That's because we cannot sensibly compare them due to accuracy issues, nor even
-         * store them if they are too large. */
+        /* For now, let's consider anything containing numbers not expressible as integers as non-normalized.
+         * That's because we cannot sensibly compare them due to accuracy issues, nor even store them if they
+         * are too large. */
         if (json_variant_is_real(v) && !json_variant_is_integer(v) && !json_variant_is_unsigned(v))
                 return false;
 
