@@ -145,7 +145,7 @@ static void fix_year(CalendarComponent *c) {
         }
 }
 
-int calendar_spec_normalize(CalendarSpec *c) {
+static void calendar_spec_normalize(CalendarSpec *c) {
         assert(c);
 
         if (streq_ptr(c->timezone, "UTC")) {
@@ -167,8 +167,6 @@ int calendar_spec_normalize(CalendarSpec *c) {
         normalize_chain(&c->hour);
         normalize_chain(&c->minute);
         normalize_chain(&c->microsecond);
-
-        return 0;
 }
 
 static bool chain_valid(CalendarComponent *c, int from, int to, bool end_of_month) {
@@ -1086,9 +1084,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                         return -EINVAL;
         }
 
-        r = calendar_spec_normalize(c);
-        if (r < 0)
-                return r;
+        calendar_spec_normalize(c);
 
         if (!calendar_spec_valid(c))
                 return -EINVAL;
