@@ -55,8 +55,8 @@ typedef void* (*mfree_func_t)(void *p);
                 typeof(a)* _a = &(a);           \
                 typeof(b)* _b = &(b);           \
                 free(*_a);                      \
-                (*_a) = (*_b);                  \
-                (*_b) = NULL;                   \
+                *_a = *_b;                      \
+                *_b = NULL;                     \
                 0;                              \
         })
 
