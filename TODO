@@ -79,6 +79,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe add support for binding and connecting AF_UNIX sockets in the file
+  system outside of the 108ch limit. When connecting, open O_PATH fd to socket
+  inode first, then connect to /proc/self/fd/XYZ. When binding, create symlink
+  to target dir in /tmp, and bind through it.
+
 * tmpfiles: for f/F/w lines, if the argument columns is left unspecified, look
   for a service credential named after the file path to write to, and load
   contents to write from there. Usecase: provision arbitrary files from
