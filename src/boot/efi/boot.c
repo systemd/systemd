@@ -5,6 +5,7 @@
 #include <efilib.h>
 
 #include "bcd.h"
+#include "boot.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
@@ -22,15 +23,6 @@
 #include "util.h"
 #include "xbootldr.h"
 
-#ifndef GNU_EFI_USE_MS_ABI
-        /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
-         * compiler to do the calling convention conversion for us. This is check is
-         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the comiler. */
-        #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
-#endif
-
-#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
-
 /* Magic string for recognizing our own binaries */
 _used_ _section_(".sdmagic") static const char magic[] =
         "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
@@ -41,77 +33,6 @@ _used_ _section_(".osrel") static const char osrel[] =
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
 
-enum loader_type {
-        LOADER_UNDEFINED,
-        LOADER_AUTO,
-        LOADER_EFI,
-        LOADER_LINUX,         /* Boot loader spec type #1 entries */
-        LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
-};
-
-typedef struct {
-        CHAR16 *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
-        CHAR16 *title_show; /* The string to actually display (this is made unique before showing) */
-        CHAR16 *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
-        CHAR16 *sort_key;   /* The string to use as primary sort key, usually ID= from os-release, possibly suffixed */
-        CHAR16 *version;    /* The raw (human readable) version string of the entry */
-        CHAR16 *machine_id;
-        EFI_HANDLE *device;
-        enum loader_type type;
-        CHAR16 *loader;
-        CHAR16 *devicetree;
-        CHAR16 *options;
-        CHAR16 key;
-        EFI_STATUS (*call)(void);
-        UINTN tries_done;
-        UINTN tries_left;
-        CHAR16 *path;
-        CHAR16 *current_name;
-        CHAR16 *next_name;
-} ConfigEntry;
-
-typedef struct {
-        ConfigEntry **entries;
-        UINTN entry_count;
-        UINTN idx_default;
-        UINTN idx_default_efivar;
-        UINT32 timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
-        UINT32 timeout_sec_config;
-        UINT32 timeout_sec_efivar;
-        CHAR16 *entry_default_config;
-        CHAR16 *entry_default_efivar;
-        CHAR16 *entry_oneshot;
-        CHAR16 *entry_saved;
-        CHAR16 *options_edit;
-        BOOLEAN editor;
-        BOOLEAN auto_entries;
-        BOOLEAN auto_firmware;
-        BOOLEAN reboot_for_bitlocker;
-        BOOLEAN force_menu;
-        BOOLEAN use_saved_entry;
-        BOOLEAN use_saved_entry_efivar;
-        BOOLEAN beep;
-        INT64 console_mode;
-        INT64 console_mode_efivar;
-        RandomSeedMode random_seed_mode;
-} Config;
-
-/* These values have been chosen so that the transitions the user sees could
- * employ unsigned over-/underflow like this:
- * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
-enum {
-        TIMEOUT_MIN         = 1,
-        TIMEOUT_MAX         = UINT32_MAX - 2U,
-        TIMEOUT_UNSET       = UINT32_MAX - 1U,
-        TIMEOUT_MENU_FORCE  = UINT32_MAX,
-        TIMEOUT_MENU_HIDDEN = 0,
-        TIMEOUT_TYPE_MAX    = UINT32_MAX,
-};
-
-enum {
-        IDX_MAX = INT16_MAX,
-        IDX_INVALID,
-};
 
 static void cursor_left(UINTN *cursor, UINTN *first) {
         assert(cursor);
@@ -1863,12 +1784,11 @@ static void config_title_generate(Config *config) {
         }
 }
 
-static BOOLEAN config_entry_add_call(
+static ConfigEntry *config_entry_add_call(
                 Config *config,
                 const CHAR16 *id,
                 const CHAR16 *title,
-                EFI_STATUS (*call)(void)) {
-
+                typeof((ConfigEntry){}.call) call) {
         ConfigEntry *entry;
 
         assert(config);
@@ -1886,7 +1806,7 @@ static BOOLEAN config_entry_add_call(
         };
 
         config_add_entry(config, entry);
-        return TRUE;
+        return entry;
 }
 
 static ConfigEntry *config_entry_add_loader(
