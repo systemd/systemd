@@ -667,15 +667,13 @@ static int manager_enumerate_internal(
         if (r < 0)
                 return r;
 
+        m->enumerating = true;
         for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
-                m->enumerating = true;
-
                 k = process(nl, reply_one, m);
                 if (k < 0 && r >= 0)
                         r = k;
-
-                m->enumerating = false;
         }
+        m->enumerating = false;
 
         return r;
 }
