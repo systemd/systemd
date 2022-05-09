@@ -16,7 +16,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (calendar_spec_from_string(str, &cspec) >= 0) {
                 (void) calendar_spec_valid(cspec);
-                (void) calendar_spec_normalize(cspec);
                 (void) calendar_spec_to_string(cspec, &p);
         }
 
