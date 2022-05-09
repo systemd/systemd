@@ -128,6 +128,7 @@ struct CGroupContext {
         /* For unified hierarchy */
         uint64_t cpu_weight;
         uint64_t startup_cpu_weight;
+        int64_t cpu_idle;
         usec_t cpu_quota_per_sec_usec;
         usec_t cpu_quota_period_usec;
 

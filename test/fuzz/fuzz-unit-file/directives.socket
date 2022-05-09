@@ -27,6 +27,7 @@ CPUSchedulingPriority=
 CPUSchedulingResetOnFork=
 CPUShares=
 CPUWeight=
+CPUIdle=
 CacheDirectory=
 CacheDirectoryMode=
 Capabilities=
