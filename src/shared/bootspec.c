@@ -1016,7 +1016,7 @@ int boot_config_augment_from_loader(
                 if (!c)
                         return log_oom();
 
-                STRV_FOREACH_PAIR(a, b, (char**) title_table)
+                STRV_FOREACH_PAIR(a, b, title_table)
                         if (streq(*a, *i)) {
                                 t = strdup(*b);
                                 if (!t)
