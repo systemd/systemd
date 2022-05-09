@@ -224,9 +224,9 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                          strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
         })
 
-#define SOCKADDR_LEN(sa)                                                \
+#define SOCKADDR_LEN(saddr)                                             \
         ({                                                              \
-                const union sockaddr_union *__sa = &(sa);               \
+                const union sockaddr_union *__sa = &(saddr);            \
                 size_t _len;                                            \
                 switch (__sa->sa.sa_family) {                           \
                 case AF_INET:                                           \
