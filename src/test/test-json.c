@@ -315,7 +315,7 @@ TEST(build) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_REAL(M_PIl)) >= 0);
+        assert_se(json_build(&a, JSON_BUILD_REAL(M_PI)) >= 0);
 
         s = mfree(s);
         assert_se(json_variant_format(a, 0, &s) >= 0);
