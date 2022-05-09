@@ -379,6 +379,15 @@ evdev:name:SynPS/2 Synaptics TouchPad:*svnHP:pnHPENVYx360Convertible15m-cn0xxx:*
  EVDEV_ABS_36=1119:4741:61
 
 #########################################
+# HUION
+#########################################
+
+# HUION Inpiroy H420X
+evdev:input:b0003v256Cp0064*
+ EVDEV_ABS_00=::200
+ EVDEV_ABS_01=::200
+
+#########################################
 # Lenovo
 #########################################
 
