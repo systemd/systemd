@@ -39,6 +39,7 @@ BuildPackages=
         python3-Jinja2
         python3-lxml
         qrencode-devel
+        shadow
         system-user-nobody
         systemd-sysvinit
         zlib-devel
