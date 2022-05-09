@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -31,7 +32,7 @@
 #include "sparse-endian.h"
 #include "tests.h"
 
-static struct sockaddr_in SERVER_ADDRESS;
+static union sockaddr_union server_address;
 
 /* Bytes of the questions & answers used in the test, including TCP DNS 2-byte length prefix */
 static const uint8_t QUESTION_A[] =  {
@@ -110,7 +111,7 @@ static void *tcp_dns_server(void *p) {
 
         assert_se((bindfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
         assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
-        assert_se(bind(bindfd, (struct sockaddr*)&SERVER_ADDRESS, sizeof(SERVER_ADDRESS)) >= 0);
+        assert_se(bind(bindfd, &server_address.sa, SOCKADDR_LEN(server_address)) >= 0);
         assert_se(listen(bindfd, 1) >= 0);
         assert_se((acceptfd = accept(bindfd, NULL, NULL)) >= 0);
         server_handle(acceptfd);
@@ -131,10 +132,10 @@ static void *tls_dns_server(void *p) {
         assert_se(get_testdata_dir("test-resolve/selfsigned.cert", &cert_path) >= 0);
         assert_se(get_testdata_dir("test-resolve/selfsigned.key", &key_path) >= 0);
 
-        assert_se(in_addr_to_string(SERVER_ADDRESS.sin_family,
-                                    &(union in_addr_union){.in = SERVER_ADDRESS.sin_addr},
+        assert_se(in_addr_to_string(server_address.in.sin_family,
+                                    sockaddr_in_addr(&server_address.sa),
                                     &ip_str) >= 0);
-        assert_se(asprintf(&bind_str, "%s:%d", ip_str, be16toh(SERVER_ADDRESS.sin_port)) >= 0);
+        assert_se(asprintf(&bind_str, "%s:%d", ip_str, be16toh(server_address.in.sin_port)) >= 0);
 
         /* We will hook one of the socketpair ends to OpenSSL's TLS server
          * stdin/stdout, so we will be able to read and write plaintext
@@ -247,7 +248,7 @@ static void test_dns_stream(bool tls) {
         assert_se((clientfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
 
         for (int i = 0; i < 100; i++) {
-                r = connect(clientfd, (struct sockaddr*)&SERVER_ADDRESS, sizeof(SERVER_ADDRESS));
+                r = connect(clientfd, &server_address.sa, SOCKADDR_LEN(server_address));
                 if (r >= 0)
                         break;
                 usleep(EVENT_TIMEOUT_USEC / 100);
@@ -266,8 +267,8 @@ static void test_dns_stream(bool tls) {
         if (tls) {
                 DnsServer server = {
                         .manager = &manager,
-                        .family = SERVER_ADDRESS.sin_family,
-                        .address.in = SERVER_ADDRESS.sin_addr
+                        .family = server_address.sa.sa_family,
+                        .address = *sockaddr_in_addr(&server_address.sa),
                 };
 
                 assert_se(dnstls_manager_init(&manager) >= 0);
@@ -373,10 +374,10 @@ static void try_isolate_network(void) {
 }
 
 int main(int argc, char **argv) {
-        SERVER_ADDRESS = (struct sockaddr_in) {
-                .sin_family = AF_INET,
-                .sin_port = htobe16(12345),
-                .sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
+        server_address = (union sockaddr_union) {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(12345),
+                .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
         };
 
         test_setup_logging(LOG_DEBUG);
