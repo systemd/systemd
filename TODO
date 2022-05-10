@@ -263,10 +263,6 @@ Features:
 * sd-boot: rework random seed handling following recent kernel changes: always
   pass seed to kernel, but credit only if secure boot is used
 
-* sd-boot: hash data from GetNextHighMonotonicCount() into updated random seed,
-  so that we might even open up up the random seed logic to non-SecureBoot
-  systems?
-
 * sd-boot: also include the hyperv "vm generation id" in the random seed hash,
   to cover nicely for machine clones. It's found in the ACPI tables, which
   should be easily accessible from UEFI.
