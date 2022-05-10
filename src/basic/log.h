@@ -300,7 +300,13 @@ bool log_on_console(void) _pure_;
 
 /* Helper to wrap the main message in structured logging. The macro doesn't do much,
  * except to provide visual grouping of the format string and its arguments. */
-#define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
+#if LOG_MESSAGE_VERIFICATION
+/* Do a fake formatting of the message string to let the scanner verify the arguments
+ * against the format message. */
+#  define LOG_MESSAGE(fmt, ...) "MESSAGE=%.0d" fmt, printf(fmt, ##__VA_ARGS__), ##__VA_ARGS__
+#else
+#  define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
+#endif
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
