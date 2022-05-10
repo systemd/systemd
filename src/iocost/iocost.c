@@ -134,12 +134,9 @@ static char *name_from_key(const char *key) {
 
 static int apply_solution_for_path(const char *path, const char *name_to_apply) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *modalias = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         enum HwDbParseState state = MODEL;
-        _cleanup_free_ char *name = NULL;
-        _cleanup_free_ char *qos = NULL;
-        _cleanup_free_ char *model = NULL;
+        _cleanup_free_ char *modalias = NULL, *name = NULL, *qos = NULL, *model = NULL;
         const char *key, *value;
         dev_t devnum;
         int r;
