@@ -123,7 +123,7 @@ static char *name_from_key(const char *key) {
                 return NULL;
         }
 
-        name = strdup(key_parts[2])
+        name = strdup(key_parts[2]);
         if (!name) {
                 log_oom();
                 return NULL;
