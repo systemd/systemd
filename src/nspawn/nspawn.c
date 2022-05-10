@@ -5387,12 +5387,6 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        union sockaddr_union sa = {
-                .un = {
-                        .sun_family = AF_UNIX,
-                        .sun_path = "/run/udev/control",
-                },
-        };
         char udev_path[STRLEN("/proc//ns/net") + DECIMAL_STR_MAX(pid_t)];
         _cleanup_free_ char *udev_ns = NULL, *our_ns = NULL;
         _cleanup_close_ int fd = -1;
@@ -5410,13 +5404,13 @@ static int cant_be_in_netns(void) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate udev control socket: %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-
-                if (errno == ENOENT || ERRNO_IS_DISCONNECT(errno))
+        r = connect_unix_path(fd, AT_FDCWD, "/run/udev/control");
+        if (r < 0) {
+                if (r == -ENOENT || ERRNO_IS_DISCONNECT(r))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
 
-                return log_error_errno(errno, "Failed to connect socket to udev control socket: %m");
+                return log_error_errno(r, "Failed to connect socket to udev control socket: %m");
         }
 
         r = getpeercred(fd, &ucred);
