@@ -7,3 +7,4 @@
 typedef struct Link Link;
 
 int link_request_sr_iov_vfs(Link *link);
+bool sr_iov_vf_is_ready_to_configure(Link *link);
