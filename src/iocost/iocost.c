@@ -107,15 +107,29 @@ static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **modalias
                 return log_error_errno(r, "Model name for device %s is unknown", path);
 
         asprintf(modalias, "block:devname:%s:name:%s", path, model_name);
+        if (!modalias)
+                return log_oom();
 
         return 0;
 }
 
 static char *name_from_key(const char *key) {
         _cleanup_strv_free_ char **key_parts = NULL;
+        char *name = NULL;
 
         key_parts = strv_split(key, "_");
-        return ascii_strlower(strdup(key_parts[2]));
+        if (!key_parts) {
+                log_oom();
+                return NULL;
+        }
+
+        name = strdup(key_parts[2])
+        if (!name) {
+                log_oom();
+                return NULL;
+        }
+
+        return ascii_strlower();
 }
 
 static int apply_solution_for_path(const char *path, const char *name_to_apply) {
@@ -149,6 +163,8 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                 switch (state) {
                         case MODEL:
                                 name = name_from_key(key);
+                                if (!name)
+                                        return log_oom();
 
                                 /* Not the parameters we want to apply, skip the QOS line and look for the next. */
                                 if (strcmp(name, name_to_apply)) {
@@ -157,11 +173,15 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                                 }
 
                                 asprintf(&model, "%u:%u model=linear ctrl=user %s", major(dev), minor(dev), value);
+                                if (!model)
+                                        return log_oom();
 
                                 state = QOS;
                                 break;
                         case QOS:
                                 asprintf(&qos, "%u:%u enable=1 ctrl=user %s", major(dev), minor(dev), value);
+                                if (!qos)
+                                        return log_oom();
 
                                 state = DONE;
                                 break;
@@ -213,6 +233,9 @@ static int show_solutions_for_path(const char *path) {
                 switch (state) {
                         case MODEL:
                                 name = name_from_key(key);
+                                if (!name)
+                                        return log_oom();
+
                                 printf("\n%s:\n\tio.cost.model: %s\n", name, value);
 
                                 state = QOS;
