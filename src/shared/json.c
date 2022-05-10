@@ -4621,7 +4621,7 @@ int json_variant_sort(JsonVariant **v) {
 
 int json_variant_normalize(JsonVariant **v) {
         _cleanup_free_ JsonVariant **a = NULL;
-        JsonVariant *n = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *n = NULL;
         size_t i, m;
         int r;
 
@@ -4669,7 +4669,7 @@ int json_variant_normalize(JsonVariant **v) {
                 goto finish;
         }
 
-        JSON_VARIANT_REPLACE(*v, n);
+        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
 
         r = 1;
 
