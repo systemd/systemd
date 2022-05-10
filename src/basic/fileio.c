@@ -809,7 +809,7 @@ int read_full_file_full(
                                 return r;
 
                         if (bind(sk, &bsa.sa, r) < 0)
-                                return r;
+                                return -errno;
                 }
 
                 if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
