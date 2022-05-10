@@ -470,6 +470,8 @@ option('fuzz-tests', type : 'boolean', value : 'false',
        description : 'run the fuzzer regression tests by default (with sanitizers)')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
+option('log-message-verification', type : 'boolean', value : 'false',
+       description : 'do fake printf() calls to verify format strings')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
