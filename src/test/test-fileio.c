@@ -881,7 +881,7 @@ TEST(read_full_file_socket) {
         _cleanup_close_ int listener = -1;
         _cleanup_free_ char *data = NULL, *clientname = NULL;
         union sockaddr_union sa;
-        const char *j;
+        const char *j, *jj;
         size_t size;
         pid_t pid;
         int r;
@@ -896,6 +896,11 @@ TEST(read_full_file_socket) {
 
         assert_se(bind(listener, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
         assert_se(listen(listener, 1) >= 0);
+
+        /* Make sure the socket doesn't fit into a struct sockaddr_un, but we can still access it */
+        jj = strjoina(z, "/a_very_long_patha_very_long_patha_very_long_patha_very_long_patha_very_long_patha_very_long_patha_very_long_patha_very_long_path");
+        assert_se(strlen(jj) > sizeof_field(struct sockaddr_un, sun_path));
+        assert_se(rename(j, jj) >= 0);
 
         /* Bind the *client* socket to some randomized name, to verify that this works correctly. */
         assert_se(asprintf(&clientname, "@%" PRIx64 "/test-bindname", random_u64()) >= 0);
@@ -924,8 +929,8 @@ TEST(read_full_file_socket) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(read_full_file_full(AT_FDCWD, j, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size) == -ENXIO);
-        assert_se(read_full_file_full(AT_FDCWD, j, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size) >= 0);
+        assert_se(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size) == -ENXIO);
+        assert_se(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size) >= 0);
         assert_se(size == strlen(TEST_STR));
         assert_se(streq(data, TEST_STR));
 
