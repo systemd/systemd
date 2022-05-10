@@ -84,6 +84,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         int r;
 
+        if (size > 65535)
+                return 0;
+
         /* Disable most logging if not running standalone */
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
