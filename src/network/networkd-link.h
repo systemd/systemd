@@ -52,6 +52,7 @@ typedef struct Link {
         int ifindex;
         int master_ifindex;
         int dsa_master_ifindex;
+        int phys_port_ifindex; /* for SR-IOV */
         char *ifname;
         char **alternative_names;
         char *kind;
