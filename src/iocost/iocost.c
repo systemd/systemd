@@ -86,9 +86,10 @@ enum HwdbParseState {
         DONE,
 };
 
-static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **modalias) {
+static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *model_name;
+        _cleanup_free_ char *modalias = NULL;
         int r;
 
         r = sd_device_new_from_path(&device, path);
@@ -105,10 +106,10 @@ static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **modalias
                 return 0;
         }
 
-        asprintf(modalias, "block:devname:%s:name:%s", path, model_name);
-        if (!modalias)
+        if (asprintf(modalias, "block:devname:%s:name:%s", path, model_name) < 0)
                 return log_oom();
 
+        *ret = TAKE_PTR(modalias);
         return 0;
 }
 
@@ -159,7 +160,7 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                 switch (state) {
                         case MODEL:
                                 if (name)
-                                        free(name);
+                                        name = mfree(name);;
 
                                 name = name_from_key(key);
                                 if (!name)
@@ -171,15 +172,13 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                                         break;
                                 }
 
-                                asprintf(&model, DEVNUM_FORMAT_STR" model=linear ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value);
-                                if (!model)
+                                if (asprintf(&model, DEVNUM_FORMAT_STR" model=linear ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value) < 0)
                                         return log_oom();
 
                                 state = QOS;
                                 break;
                         case QOS:
-                                asprintf(&qos, DEVNUM_FORMAT_STR" enable=1 ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value);
-                                if (!qos)
+                                if (asprintf(&qos, DEVNUM_FORMAT_STR" enable=1 ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value) < 0)
                                         return log_oom();
 
                                 state = DONE;
