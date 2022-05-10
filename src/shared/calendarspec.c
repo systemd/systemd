@@ -298,7 +298,7 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                 return;
         }
 
-        if (usec && c->start == 0 && c->repeat == USEC_PER_SEC && !c->next) {
+        if (usec && c->start == 0 && c->stop < 0 && c->repeat == USEC_PER_SEC && !c->next) {
                 fputc('*', f);
                 return;
         }

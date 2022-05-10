@@ -162,6 +162,8 @@ TEST(calendar_spec_one) {
         test_one("00:00:1.0..3.8", "*-*-* 00:00:01..03");
         test_one("00:00:01..03", "*-*-* 00:00:01..03");
         test_one("00:00:01/2,02..03", "*-*-* 00:00:01/2,02..03");
+        test_one("*:4,30:0..3", "*-*-* *:04,30:00..03");
+        test_one("*:4,30:0/1", "*-*-* *:04,30:*");
         test_one("*-*~1 Utc", "*-*~01 00:00:00 UTC");
         test_one("*-*~05,3 ", "*-*~03,05 00:00:00");
         test_one("*-*~* 00:00:00", "*-*-* 00:00:00");
@@ -252,6 +254,9 @@ TEST(calendar_spec_from_string) {
         assert_se(calendar_spec_from_string("00:00:2300", &c) == -ERANGE);
         assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) == -ERANGE);
         assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
+        assert_se(calendar_spec_from_string("*:4,30:*,5", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("*:4,30:5,*", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("*:4,30:*\n", &c) == -EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
