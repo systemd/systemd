@@ -269,16 +269,14 @@ static int verb_apply(int argc, char *argv[], void *userdata) {
 
         path = argv[1];
 
-        if (argc > 2) {
+        if (argc > 2)
                 name = argv[2];
-        } else {
+        else
                 name = DEFAULT_SOLUTION;
-        }
 
         r = validate_path(path);
-        if (r < 0) {
+        if (r < 0)
                 return r;
-        }
 
         return apply_solution_for_path(path, name);
 }
@@ -290,9 +288,8 @@ static int verb_query(int argc, char *argv[], void *userdata) {
         path = argv[1];
 
         r = validate_path(path);
-        if (r < 0) {
+        if (r < 0)
                 return r;
-        }
 
         return show_solutions_for_path(path);
 }
