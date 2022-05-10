@@ -202,7 +202,7 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Could not find iocost parameters with name `%s'", name_to_apply);
 
-        printf("Applying `%s' iocost parameters to %s\n\tio.cost.model: %s\n\tio.cost.qos: %s\n", name, path, model, qos);
+        log_debug("Applying `%s' iocost parameters to %s\n\tio.cost.model: %s\n\tio.cost.qos: %s\n", name, path, model, qos);
 
         r = cg_set_attribute("io", NULL, "io.cost.qos", qos);
         if (r < 0)
