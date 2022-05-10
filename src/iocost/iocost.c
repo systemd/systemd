@@ -5,14 +5,15 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+#include "sd-hwdb.h"
+
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "devnum-util.h"
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "sd-device.h"
-#include "sd-hwdb.h"
 #include "verbs.h"
 
 #define DEFAULT_SOLUTION "isolatedbandwidth"
@@ -78,11 +79,11 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-enum HwDbParseState {
-        MODEL = 1,
-        QOS = 2,
-        SKIP = 3,
-        DONE = 4,
+enum HwdbParseState {
+        MODEL,
+        QOS,
+        SKIP,
+        DONE,
 };
 
 static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **modalias) {
@@ -133,7 +134,7 @@ static char *name_from_key(const char *key) {
 static int apply_solution_for_path(const char *path, const char *name_to_apply) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        enum HwDbParseState state = MODEL;
+        enum HwdbParseState state = MODEL;
         _cleanup_free_ char *modalias = NULL, *name = NULL, *qos = NULL, *model = NULL;
         const char *key, *value;
         dev_t devnum;
@@ -216,7 +217,7 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
 static int show_solutions_for_path(const char *path) {
         _cleanup_free_ char *modalias = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        enum HwDbParseState state = MODEL;
+        enum HwdbParseState state = MODEL;
         const char *key, *value;
         int r;
 
@@ -253,8 +254,7 @@ static int show_solutions_for_path(const char *path) {
 }
 
 static int verb_apply(int argc, char *argv[], void *userdata) {
-        const char *path;
-        const char *name;
+        const char *path, *name;
 
         path = argv[1];
 
