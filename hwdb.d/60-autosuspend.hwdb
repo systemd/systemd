@@ -24,7 +24,11 @@
 #
 # Allowed properties are:
 #    ID_AUTOSUSPEND=1
+#    ID_AUTOSUSPEND_DELAY_MS=####
 #    ID_PERSIST=0
+#
+# ID_AUTOSUSPEND_DELAY_MS adjusts the delay for autosuspend to something
+# different than the kernel default of 2000ms.
 #
 # ID_PERSIST=0 allows disabling the kernels USB "persist" feature, which allows
 # the continued use of devices after a power loss (due to suspend). Disable it
