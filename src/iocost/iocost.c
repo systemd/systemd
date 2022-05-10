@@ -106,7 +106,7 @@ static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **ret) {
                 return 0;
         }
 
-        if (asprintf(modalias, "block:devname:%s:name:%s", path, model_name) < 0)
+        if (asprintf(&modalias, "block:devname:%s:name:%s", path, model_name) < 0)
                 return log_oom();
 
         *ret = TAKE_PTR(modalias);
