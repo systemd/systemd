@@ -164,7 +164,7 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                                         return log_oom();
 
                                 /* Not the parameters we want to apply, skip the QOS line and look for the next. */
-                                if (strcmp(name, name_to_apply)) {
+                                if (!streq(name, name_to_apply)) {
                                         state = SKIP;
                                         break;
                                 }
