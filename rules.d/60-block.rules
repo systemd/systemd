@@ -11,3 +11,6 @@ ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block",
 ACTION!="remove", SUBSYSTEM=="block", \
   KERNEL=="loop*|mmcblk*[0-9]|msblk*[0-9]|mspblk*[0-9]|nvme*|sd*|vd*|xvd*|bcache*|cciss*|dasd*|ubd*|ubi*|scm*|pmem*|nbd*|zd*", \
   OPTIONS+="watch"
+
+# apply known iocost solutions
+ACTION=="add", SUBSYSTEM=="block", RUN+="/usr/lib/systemd/systemd-iocost apply $sys$devpath"
