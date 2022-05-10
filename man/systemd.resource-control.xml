@@ -199,6 +199,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUIdle=</varname></term>
+
+        <listitem>
+          <para>Assign the idle scheduling strategy to the processes executed, both the unified and
+          legacy control group is effiecient.
+          this options only take 1 or 0 currently, default to 0.</para>
+
+         <itemizedlist>
+            <listitem>
+              <para>1: SCHED_IDLE, which means it is configured with mininum sched weight and could be preempt by other non-idle processes in the same level of task group</para>
+            </listitem>
+            <listitem>
+              <para>0: default behavior</para>
+            </listitem>
+         </itemizedlist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CPUQuota=</varname></term>
 
         <listitem>
