@@ -141,14 +141,14 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
         _cleanup_free_ char *qos = NULL;
         _cleanup_free_ char *model = NULL;
         const char *key, *value;
-        dev_t dev;
+        dev_t devnum;
         int r;
 
         r = sd_device_new_from_path(&device, path);
         if (r < 0)
                 return log_error_errno(r, "Error looking up device: %m");
 
-        r = sd_device_get_devnum(device, &dev);
+        r = sd_device_get_devnum(device, &devnum);
         if (r < 0)
                 return log_error_errno(r, "Error getting devnum for device %s: %m", path);
 
@@ -172,14 +172,14 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                                         break;
                                 }
 
-                                asprintf(&model, "%u:%u model=linear ctrl=user %s", major(dev), minor(dev), value);
+                                asprintf(&model, "%u:%u model=linear ctrl=user %s", major(devnum), minor(devnum), value);
                                 if (!model)
                                         return log_oom();
 
                                 state = QOS;
                                 break;
                         case QOS:
-                                asprintf(&qos, "%u:%u enable=1 ctrl=user %s", major(dev), minor(dev), value);
+                                asprintf(&qos, "%u:%u enable=1 ctrl=user %s", major(devnum), minor(devnum), value);
                                 if (!qos)
                                         return log_oom();
 
