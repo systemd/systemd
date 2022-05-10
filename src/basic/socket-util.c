@@ -1236,7 +1236,10 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
          * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
          * do not expect non-NUL terminated file system path. */
         if (l+1 > sizeof(ret->sun_path))
-                return -EINVAL;
+                return path[0] == '@' ? -EINVAL : -ENAMETOOLONG; /* return a recognizable error if this is
+                                                                  * too long to fit into a sockaddr_un, but
+                                                                  * is a file system path, and thus might be
+                                                                  * connectible via O_PATH indirection. */
 
         *ret = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
