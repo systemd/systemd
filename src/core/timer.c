@@ -68,7 +68,7 @@ static void timer_done(Unit *u) {
         t->monotonic_event_source = sd_event_source_disable_unref(t->monotonic_event_source);
         t->realtime_event_source = sd_event_source_disable_unref(t->realtime_event_source);
 
-        free(t->stamp_path);
+        t->stamp_path = mfree(t->stamp_path);
 }
 
 static int timer_verify(Timer *t) {
