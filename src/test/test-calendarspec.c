@@ -13,10 +13,15 @@ static void _test_one(int line, const char *input, const char *output) {
         usec_t u;
         int r;
 
-        assert_se(calendar_spec_from_string(input, &c) >= 0);
+        r = calendar_spec_from_string(input, &c);
+        if (r < 0)
+                log_error_errno(r, "Failed to parse \"%s\": %m", input);
+        assert_se(r >= 0);
 
         assert_se(calendar_spec_to_string(c, &p) >= 0);
-        log_info("line %d: \"%s\" → \"%s\"", line, input, p);
+        log_info("line %d: \"%s\" → \"%s\"%s%s", line, input, p,
+                 !streq(p, output) ? " expected:" : "",
+                 !streq(p, output) ? output : "");
 
         assert_se(streq(p, output));
 
@@ -222,30 +227,30 @@ TEST(calendar_spec_next) {
 TEST(calendar_spec_from_string) {
         CalendarSpec *c;
 
-        assert_se(calendar_spec_from_string("test", &c) < 0);
-        assert_se(calendar_spec_from_string(" utc", &c) < 0);
-        assert_se(calendar_spec_from_string("    ", &c) < 0);
-        assert_se(calendar_spec_from_string("", &c) < 0);
-        assert_se(calendar_spec_from_string("7", &c) < 0);
-        assert_se(calendar_spec_from_string("121212:1:2", &c) < 0);
-        assert_se(calendar_spec_from_string("2000-03-05.23 00:00:00", &c) < 0);
-        assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) < 0);
-        assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) < 0);
-        assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) < 0);
-        assert_se(calendar_spec_from_string("2016~11-22", &c) < 0);
-        assert_se(calendar_spec_from_string("*-*~5/5", &c) < 0);
-        assert_se(calendar_spec_from_string("Monday.. 12:00", &c) < 0);
-        assert_se(calendar_spec_from_string("Monday..", &c) < 0);
-        assert_se(calendar_spec_from_string("-00:+00/-5", &c) < 0);
-        assert_se(calendar_spec_from_string("00:+00/-5", &c) < 0);
-        assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) < 0);
-        assert_se(calendar_spec_from_string("*~29", &c) < 0);
-        assert_se(calendar_spec_from_string("*~16..31", &c) < 0);
-        assert_se(calendar_spec_from_string("12..1/2-*", &c) < 0);
-        assert_se(calendar_spec_from_string("20/4:00", &c) < 0);
-        assert_se(calendar_spec_from_string("00:00/60", &c) < 0);
-        assert_se(calendar_spec_from_string("00:00:2300", &c) < 0);
-        assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) < 0);
+        assert_se(calendar_spec_from_string("test", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string(" utc", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("    ", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("7", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("121212:1:2", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("2000-03-05.23 00:00:00", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) == -ERANGE);
+        assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("2016~11-22", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("*-*~5/5", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("Monday.. 12:00", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("Monday..", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("-00:+00/-5", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("00:+00/-5", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("*~29", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("*~16..31", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("12..1/2-*", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("20/4:00", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("00:00/60", &c) == -EINVAL);
+        assert_se(calendar_spec_from_string("00:00:2300", &c) == -ERANGE);
+        assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) == -ERANGE);
         assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
 }
 
