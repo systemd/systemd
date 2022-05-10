@@ -332,3 +332,5 @@ int socket_get_mtu(int fd, int af, size_t *ret);
 
 /* an initializer for struct ucred that initialized all fields to the invalid value appropriate for each */
 #define UCRED_INVALID { .pid = 0, .uid = UID_INVALID, .gid = GID_INVALID }
+
+int connect_unix_path(int fd, int dir_fd, const char *path);
