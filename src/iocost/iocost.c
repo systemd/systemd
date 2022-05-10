@@ -27,7 +27,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Set up iocost model and qos solutions for known SSDs\n"
+               "Set up iocost model and qos solutions for block devices from hwdb\n"
                "\nCommands:\n"
                "  apply <path> [solution]    Apply the specified solution to the device represented by <path>\n"
                "                             (solution defaults to "DEFAULT_SOLUTION")\n"
