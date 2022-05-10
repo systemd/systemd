@@ -620,7 +620,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 m->synchronized = true;
 
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE("Initial clock synchronization to %s.", FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
+                           LOG_MESSAGE("Initial clock synchronization to %s.",
+                                       FORMAT_TIMESTAMP_STYLE(dts.realtime, TIMESTAMP_US)),
                            "MESSAGE_ID=" SD_MESSAGE_TIME_SYNC_STR,
                            "MONOTONIC_USEC=" USEC_FMT, dts.monotonic,
                            "REALTIME_USEC=" USEC_FMT, dts.realtime,

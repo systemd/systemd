@@ -150,7 +150,7 @@ static int emit_deprecation_warning(void) {
                         return -ENOMEM;
 
                 log_struct(LOG_NOTICE,
-                           "MESSAGE=systemd-udev-settle.service is deprecated. Please fix %s not to pull it in.", t,
+                           LOG_MESSAGE("systemd-udev-settle.service is deprecated. Please fix %s not to pull it in.", t),
                            "OFFENDING_UNITS=%s", t,
                            "MESSAGE_ID=" SD_MESSAGE_SYSTEMD_UDEV_SETTLE_DEPRECATED_STR);
         }
