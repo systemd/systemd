@@ -254,18 +254,9 @@ static int show_solutions_for_path(const char *path) {
         return 0;
 }
 
-static int validate_path(const char *path) {
-        if (!path_startswith(path, "/sys/") && !path_startswith(path, "/dev/")) {
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Argument is not a /dev or /sys device path.");
-        }
-        return 0;
-}
-
 static int verb_apply(int argc, char *argv[], void *userdata) {
         const char *path;
         const char *name;
-        int r;
 
         path = argv[1];
 
@@ -274,22 +265,13 @@ static int verb_apply(int argc, char *argv[], void *userdata) {
         else
                 name = DEFAULT_SOLUTION;
 
-        r = validate_path(path);
-        if (r < 0)
-                return r;
-
         return apply_solution_for_path(path, name);
 }
 
 static int verb_query(int argc, char *argv[], void *userdata) {
         const char *path;
-        int r;
 
         path = argv[1];
-
-        r = validate_path(path);
-        if (r < 0)
-                return r;
 
         return show_solutions_for_path(path);
 }
