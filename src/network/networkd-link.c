@@ -129,15 +129,15 @@ bool link_ipv6_enabled(Link *link) {
 bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
         assert(link);
 
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return false;
+
         if (!link->network) {
                 if (!allow_unmanaged)
                         return false;
 
                 return link_has_carrier(link);
         }
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
 
         if (!link->network->configure_without_carrier) {
                 if (link->set_flags_messages > 0)
