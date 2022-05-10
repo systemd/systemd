@@ -15,4 +15,8 @@ ENV{ID_AUTOSUSPEND}=="1", TEST=="power/control", \
 ENV{ID_PERSIST}=="0", TEST=="power/persist", \
   ATTR{power/persist}="0"
 
+# Set up an autosuspend delay if hwdb say so
+ENV{ID_AUTOSUSPEND_DELAY_MS}!="", TEST=="power/control", \
+  ATTR{power/autosuspend_delay_ms}="$env{ID_AUTOSUSPEND_DELAY_MS}"
+
 LABEL="autosuspend_end"
