@@ -204,11 +204,11 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
 
         printf("Applying `%s' iocost parameters to %s\n\tio.cost.model: %s\n\tio.cost.qos: %s\n", name, path, model, qos);
 
-        r = cg_set_attribute("io", "/", "io.cost.qos", qos);
+        r = cg_set_attribute("io", NULL, "io.cost.qos", qos);
         if (r < 0)
                 return log_error_errno(r, "Failed to set qos: %m");
 
-        r = cg_set_attribute("io", "/", "io.cost.model", model);
+        r = cg_set_attribute("io", NULL, "io.cost.model", model);
         if (r < 0)
                 return log_error_errno(r, "Failed to set model: %m");
 
