@@ -792,7 +792,7 @@ int read_full_file_full(
                                 return r;
 
                         if (bind(sk, &bsa.sa, r) < 0)
-                                return r;
+                                return -errno;
                 }
 
                 r = connect_unix_path(sk, dir_fd, filename);
