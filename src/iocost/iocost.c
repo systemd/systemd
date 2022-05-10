@@ -129,7 +129,7 @@ static char *name_from_key(const char *key) {
                 return NULL;
         }
 
-        return ascii_strlower();
+        return ascii_strlower(name);
 }
 
 static int apply_solution_for_path(const char *path, const char *name_to_apply) {
