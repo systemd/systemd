@@ -277,8 +277,6 @@ static int connect_journal_socket(
                 uid_t uid,
                 gid_t gid) {
 
-        union sockaddr_union sa;
-        socklen_t sa_len;
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
         const char *j;
@@ -287,10 +285,6 @@ static int connect_journal_socket(
         j = log_namespace ?
                 strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
                 "/run/systemd/journal/stdout";
-        r = sockaddr_un_set_path(&sa.un, j);
-        if (r < 0)
-                return r;
-        sa_len = r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -308,10 +302,10 @@ static int connect_journal_socket(
                 }
         }
 
-        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        r = connect_unix_path(fd, AT_FDCWD, j);
 
-        /* If we fail to restore the uid or gid, things will likely
-           fail later on. This should only happen if an LSM interferes. */
+        /* If we fail to restore the uid or gid, things will likely fail later on. This should only happen if
+           an LSM interferes. */
 
         if (uid_is_valid(uid))
                 (void) seteuid(olduid);
@@ -389,8 +383,6 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        union sockaddr_union sa;
-        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -408,18 +400,17 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
 
-        r = sockaddr_un_set_path(&sa.un, path);
-        if (r < 0)
-                return r == -EINVAL ? -ENXIO : r;
-        sa_len = r;
-
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, sa_len) < 0)
-                return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
-                                                           * indication that this wasn't an AF_UNIX socket after all */
+        r = connect_unix_path(fd, AT_FDCWD, path);
+        if (IN_SET(r, -ENOTSOCK, -EINVAL))
+                /* Propagate initial error if we get ENOTSOCK or EINVAL, i.e. we have indication that this
+                 * wasn't an AF_UNIX socket after all */
+                return -ENXIO;
+        if (r < 0)
+                return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
                 r = shutdown(fd, SHUT_WR);

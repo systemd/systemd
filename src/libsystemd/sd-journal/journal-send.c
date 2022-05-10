@@ -408,10 +408,6 @@ _public_ int sd_journal_perror(const char *message) {
 }
 
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
-        };
         _cleanup_close_ int fd = -1;
         char *header;
         size_t l;
@@ -424,9 +420,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (fd < 0)
                 return -errno;
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/journal/stdout");
         if (r < 0)
-                return -errno;
+                return r;
 
         if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;

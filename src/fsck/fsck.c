@@ -226,20 +226,17 @@ static int process_progress(int fd, FILE* console) {
 }
 
 static int fsck_progress_socket(void) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/fsck.progress",
-        };
-
         _cleanup_close_ int fd = -1;
+        int r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                      errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/fsck.progress");
+        if (r < 0)
+                return log_full_errno(IN_SET(r, -ECONNREFUSED, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to connect to progress socket, ignoring: %m");
 
         return TAKE_FD(fd);
 }
