@@ -288,17 +288,24 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         }
 }
 
-static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
+static bool chain_is_star(const CalendarComponent *c, bool usec) {
+        /* Return true if the whole chain can be replaced by '*'.
+         * This happens when the chain is empty or one of the components covers all. */
+        if (!c)
+                return true;
+        if (usec)
+                for (; c; c = c->next)
+                        if (c->start == 0 && c->stop < 0 && c->repeat == USEC_PER_SEC)
+                                return true;
+        return false;
+}
+
+static void _format_chain(FILE *f, int space, const CalendarComponent *c, bool start, bool usec) {
         int d = usec ? (int) USEC_PER_SEC : 1;
 
         assert(f);
 
-        if (!c) {
-                fputc('*', f);
-                return;
-        }
-
-        if (usec && c->start == 0 && c->stop < 0 && c->repeat == USEC_PER_SEC && !c->next) {
+        if (start && chain_is_star(c, usec)) {
                 fputc('*', f);
                 return;
         }
@@ -321,8 +328,12 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 
         if (c->next) {
                 fputc(',', f);
-                format_chain(f, space, c->next, usec);
+                _format_chain(f, space, c->next, false, usec);
         }
+}
+
+static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
+        _format_chain(f, space, c, /* start = */ true, usec);
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **p) {
