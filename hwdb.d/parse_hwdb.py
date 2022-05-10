@@ -135,6 +135,7 @@ def property_grammar():
              ('MOUSE_WHEEL_CLICK_COUNT', INTEGER),
              ('MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL', INTEGER),
              ('ID_AUTOSUSPEND', Or((Literal('0'), Literal('1')))),
+             ('ID_AUTOSUSPEND_DELAY_MS', INTEGER),
              ('ID_AV_PRODUCTION_CONTROLLER', Or((Literal('0'), Literal('1')))),
              ('ID_PERSIST', Or((Literal('0'), Literal('1')))),
              ('ID_PDA', Or((Literal('0'), Literal('1')))),
