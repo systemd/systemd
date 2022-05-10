@@ -298,7 +298,8 @@ int log_emergency_level(void);
 
 bool log_on_console(void) _pure_;
 
-/* Helper to prepare various field for structured logging */
+/* Helper to wrap the main message in structured logging. The macro doesn't do much,
+ * except to provide visual grouping of the format string and its arguments. */
 #define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
