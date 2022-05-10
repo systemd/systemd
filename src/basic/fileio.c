@@ -775,7 +775,7 @@ int read_full_file_full(
 
                 /* Seeking is not supported on AF_UNIX sockets */
                 if (offset != UINT64_MAX)
-                        return -ESPIPE;
+                        return -ENXIO;
 
                 sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
                 if (sk < 0)
