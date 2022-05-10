@@ -4579,7 +4579,7 @@ static int json_cmp_strings(const void *x, const void *y) {
 
 int json_variant_sort(JsonVariant **v) {
         _cleanup_free_ JsonVariant **a = NULL;
-        JsonVariant *n = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *n = NULL;
         size_t m;
         int r;
 
@@ -4612,7 +4612,7 @@ int json_variant_sort(JsonVariant **v) {
         if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
                 return -ENOTUNIQ;
 
-        JSON_VARIANT_REPLACE(*v, n);
+        JSON_VARIANT_REPLACE(*v, TAKE_PTR(n));
 
         return 1;
 }
