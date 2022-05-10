@@ -29,10 +29,10 @@
 
 static clockid_t map_clock_id(clockid_t c) {
 
-        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
-         * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
-         * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
-         * those archs. */
+        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus,
+         * clock_gettime() will fail for them. Since they are essentially the same as their non-ALARM
+         * pendants (their only difference is when timers are set on them), let's just map them
+         * accordingly. This way, we can get the correct time even on those archs. */
 
         switch (c) {
 
@@ -295,8 +295,8 @@ char *format_timestamp_style(
                 usec_t t,
                 TimestampStyle style) {
 
-        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that our
-         * generated timestamps may be parsed with parse_timestamp(), and always read the same. */
+        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that
+         * our generated timestamps may be parsed with parse_timestamp(), and always read the same. */
         static const char * const weekdays[] = {
                 [0] = "Sun",
                 [1] = "Mon",
@@ -383,8 +383,8 @@ char *format_timestamp_style(
         /* Append the timezone */
         n = strlen(buf);
         if (utc) {
-                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r() normally uses the
-                 * obsolete "GMT" instead. */
+                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r()
+                 * normally uses the obsolete "GMT" instead. */
                 if (n + 5 > l)
                         return NULL; /* "UTC" doesn't fit. */
 
@@ -399,12 +399,14 @@ char *format_timestamp_style(
                         /* The full time zone does not fit in. Yuck. */
 
                         if (n + 1 + _POSIX_TZNAME_MAX + 1 > l)
-                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that case, complain that it doesn't fit */
+                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that
+                                              * case, complain that it doesn't fit. */
 
-                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the POSIX
-                         * minimum time zone length. In this case suppress the timezone entirely, in order not to dump
-                         * an overly long, hard to read string on the user. This should be safe, because the user will
-                         * assume the local timezone anyway if none is shown. And so does parse_timestamp(). */
+                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the
+                         * POSIX minimum time zone length. In this case suppress the timezone entirely, in
+                         * order not to dump an overly long, hard to read string on the user. This should be
+                         * safe, because the user will assume the local timezone anyway if none is shown. And
+                         * so does parse_timestamp(). */
                 } else {
                         buf[n++] = ' ';
                         strcpy(buf + n, tm.tm_zone);
@@ -700,10 +702,11 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
                         tzset();
 
-                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note that we only
-                         * support the local timezones here, nothing else. Not because we wouldn't want to, but simply because
-                         * there are no nice APIs available to cover this. By accepting the local time zone strings, we make
-                         * sure that all timestamps written by format_timestamp() can be parsed correctly, even though we don't
+                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note
+                         * that we only support the local timezones here, nothing else. Not because we
+                         * wouldn't want to, but simply because there are no nice APIs available to cover
+                         * this. By accepting the local time zone strings, we make sure that all timestamps
+                         * written by format_timestamp() can be parsed correctly, even though we don't
                          * support arbitrary timezone specifications. */
 
                         for (j = 0; j <= 1; j++) {

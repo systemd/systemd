@@ -35,7 +35,6 @@ typedef struct CalendarSpec {
 
 CalendarSpec* calendar_spec_free(CalendarSpec *c);
 
-int calendar_spec_normalize(CalendarSpec *spec);
 bool calendar_spec_valid(CalendarSpec *spec);
 
 int calendar_spec_to_string(const CalendarSpec *spec, char **p);
