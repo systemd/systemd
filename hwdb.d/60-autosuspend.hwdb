@@ -24,7 +24,11 @@
 #
 # Allowed properties are:
 #    ID_AUTOSUSPEND=1
+#    ID_AUTOSUSPEND_DELAY_MS=####
 #    ID_PERSIST=0
+#
+# ID_AUTOSUSPEND_DELAY_MS adjusts the delay for autosuspend to something
+# different than the kernel default of 2000ms.
 #
 # ID_PERSIST=0 allows disabling the kernels USB "persist" feature, which allows
 # the continued use of devices after a power loss (due to suspend). Disable it
@@ -71,12 +75,17 @@ usb:v0627p0001:*QEMU USB Tablet*
  ID_AUTOSUSPEND=1
 
 #########################################
-# Sierra Wireless
+# WWAN
 #########################################
 
 # Sierra Wireless EM7345 4G LTE modem
 usb:v1199pA001*
  ID_AUTOSUSPEND=1
+
+# Fibocom LG850-GL
+usb:v2CB7p0007*
+ ID_AUTOSUSPEND=1
+ ID_AUTOSUSPEND_DELAY_MS=7000
 
 #########################################
 # Wacom
