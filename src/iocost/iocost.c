@@ -159,6 +159,9 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
 
                 switch (state) {
                         case MODEL:
+                                if (name)
+                                        free(name);
+
                                 name = name_from_key(key);
                                 if (!name)
                                         return log_oom();
