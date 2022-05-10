@@ -414,17 +414,21 @@ _public_ int sd_device_new_from_subsystem_sysname(
         assert_return(path_is_normalized(subsystem), -EINVAL);
         assert_return(path_is_normalized(sysname), -EINVAL);
 
+        /* translate sysname back to sysfs filename */
+        name = strdupa_safe(sysname);
+        string_replace_char(name, '/', '!');
+
         if (streq(subsystem, "subsystem")) {
                 FOREACH_STRING(s, "/sys/bus/", "/sys/class/") {
-                        r = device_strjoin_new(s, sysname, NULL, NULL, ret);
+                        r = device_strjoin_new(s, name, NULL, NULL, ret);
                         if (r < 0)
                                 return r;
                         if (r > 0)
                                 return 0;
                 }
 
-        } else  if (streq(subsystem, "module")) {
-                r = device_strjoin_new("/sys/module/", sysname, NULL, NULL, ret);
+        } else if (streq(subsystem, "module")) {
+                r = device_strjoin_new("/sys/module/", name, NULL, NULL, ret);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -433,10 +437,10 @@ _public_ int sd_device_new_from_subsystem_sysname(
         } else if (streq(subsystem, "drivers")) {
                 const char *sep;
 
-                sep = strchr(sysname, ':');
+                sep = strchr(name, ':');
                 if (sep && sep[1] != '\0') { /* Require ":" and something non-empty after that. */
 
-                        const char *subsys = memdupa_suffix0(sysname, sep - sysname);
+                        const char *subsys = memdupa_suffix0(name, sep - name);
                         sep++;
 
                         if (streq(sep, "drivers")) /* If the sysname is "drivers", then it's the drivers directory itself that is meant. */
@@ -450,12 +454,6 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 }
         }
 
-        /* translate sysname back to sysfs filename */
-        name = strdupa_safe(sysname);
-        for (size_t i = 0; name[i]; i++)
-                if (name[i] == '/')
-                        name[i] = '!';
-
         r = device_strjoin_new("/sys/bus/", subsystem, "/devices/", name, ret);
         if (r < 0)
                 return r;
@@ -468,7 +466,7 @@ _public_ int sd_device_new_from_subsystem_sysname(
         if (r > 0)
                 return 0;
 
-        r = device_strjoin_new("/sys/firmware/", subsystem, "/", sysname, ret);
+        r = device_strjoin_new("/sys/firmware/", subsystem, "/", name, ret);
         if (r < 0)
                 return r;
         if (r > 0)
