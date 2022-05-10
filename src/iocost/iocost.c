@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
+#include "devnum-util.h"
 #include "main-func.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -172,14 +173,14 @@ static int apply_solution_for_path(const char *path, const char *name_to_apply) 
                                         break;
                                 }
 
-                                asprintf(&model, "%u:%u model=linear ctrl=user %s", major(devnum), minor(devnum), value);
+                                asprintf(&model, DEVNUM_FORMAT_STR" model=linear ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value);
                                 if (!model)
                                         return log_oom();
 
                                 state = QOS;
                                 break;
                         case QOS:
-                                asprintf(&qos, "%u:%u enable=1 ctrl=user %s", major(devnum), minor(devnum), value);
+                                asprintf(&qos, DEVNUM_FORMAT_STR" enable=1 ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), value);
                                 if (!qos)
                                         return log_oom();
 
