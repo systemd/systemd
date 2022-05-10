@@ -75,12 +75,17 @@ usb:v0627p0001:*QEMU USB Tablet*
  ID_AUTOSUSPEND=1
 
 #########################################
-# Sierra Wireless
+# WWAN
 #########################################
 
 # Sierra Wireless EM7345 4G LTE modem
 usb:v1199pA001*
  ID_AUTOSUSPEND=1
+
+# Fibocom LG850-GL
+usb:v2CB7p0007*
+ ID_AUTOSUSPEND=1
+ ID_AUTOSUSPEND_DELAY_MS=7000
 
 #########################################
 # Wacom
