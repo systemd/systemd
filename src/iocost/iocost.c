@@ -104,9 +104,6 @@ static int hwdb_query_for_path(const char *path, sd_hwdb **hwdb, char **modalias
                 return 0;
         }
 
-        if (r < 0)
-                return log_error_errno(r, "Model name for device %s is unknown", path);
-
         asprintf(modalias, "block:devname:%s:name:%s", path, model_name);
         if (!modalias)
                 return log_oom();
