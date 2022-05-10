@@ -82,6 +82,14 @@ JsonVariant *json_variant_ref(JsonVariant *v);
 JsonVariant *json_variant_unref(JsonVariant *v);
 void json_variant_unref_many(JsonVariant **array, size_t n);
 
+#define JSON_VARIANT_REPLACE(v, q)        \
+        do {                              \
+                typeof(v)* _v = &(v);     \
+                typeof(q) _q = (q);       \
+                json_variant_unref(*_v);  \
+                *_v = _q;                 \
+        } while(0)
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant *, json_variant_unref);
 
 const char *json_variant_string(JsonVariant *v);
