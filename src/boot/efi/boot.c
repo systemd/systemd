@@ -1419,7 +1419,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         }
 }
 
-static void config_entry_add_from_file(
+static void config_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1669,7 +1669,7 @@ static void config_load_entries(
 
                 err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
                 if (!EFI_ERROR(err))
-                        config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
+                        config_entry_add_type1(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -1863,71 +1863,6 @@ static void config_title_generate(Config *config) {
         }
 }
 
-static BOOLEAN config_entry_add_call(
-                Config *config,
-                const CHAR16 *id,
-                const CHAR16 *title,
-                EFI_STATUS (*call)(void)) {
-
-        ConfigEntry *entry;
-
-        assert(config);
-        assert(id);
-        assert(title);
-        assert(call);
-
-        entry = xnew(ConfigEntry, 1);
-        *entry = (ConfigEntry) {
-                .id = xstrdup(id),
-                .title = xstrdup(title),
-                .call = call,
-                .tries_done = UINTN_MAX,
-                .tries_left = UINTN_MAX,
-        };
-
-        config_add_entry(config, entry);
-        return TRUE;
-}
-
-static ConfigEntry *config_entry_add_loader(
-                Config *config,
-                EFI_HANDLE *device,
-                enum loader_type type,
-                const CHAR16 *id,
-                CHAR16 key,
-                const CHAR16 *title,
-                const CHAR16 *loader,
-                const CHAR16 *sort_key,
-                const CHAR16 *version) {
-
-        ConfigEntry *entry;
-
-        assert(config);
-        assert(device);
-        assert(id);
-        assert(title);
-        assert(loader);
-
-        entry = xnew(ConfigEntry, 1);
-        *entry = (ConfigEntry) {
-                .type = type,
-                .title = xstrdup(title),
-                .version = version ? xstrdup(version) : NULL,
-                .device = device,
-                .loader = xstrdup(loader),
-                .id = xstrdup(id),
-                .sort_key = sort_key ? xstrdup(sort_key) : NULL,
-                .key = key,
-                .tries_done = UINTN_MAX,
-                .tries_left = UINTN_MAX,
-        };
-
-        StrLwr(entry->id);
-
-        config_add_entry(config, entry);
-        return entry;
-}
-
 static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
         EFI_STATUS err;
         const CHAR8 *sections[] = {
@@ -1991,7 +1926,20 @@ static ConfigEntry *config_entry_add_loader_auto(
         if (EFI_ERROR(err))
                 return NULL;
 
-        return config_entry_add_loader(config, device, LOADER_AUTO, id, key, title, loader, NULL, NULL);
+        ConfigEntry *entry = xnew(ConfigEntry, 1);
+        *entry = (ConfigEntry) {
+                .id = xstrdup(id),
+                .type = LOADER_AUTO,
+                .title = xstrdup(title),
+                .device = device,
+                .loader = xstrdup(loader),
+                .key = key,
+                .tries_done = UINTN_MAX,
+                .tries_left = UINTN_MAX,
+        };
+
+        config_add_entry(config, entry);
+        return entry;
 }
 
 static void config_entry_add_osx(Config *config) {
@@ -2134,14 +2082,13 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
-static void config_entry_add_linux(
+static void config_entry_add_unified(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
         _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
-        ConfigEntry *entry;
         UINTN f_size = 0;
         EFI_STATUS err;
 
@@ -2169,8 +2116,7 @@ static void config_entry_add_linux(
                 };
 
                 _cleanup_freepool_ CHAR16 *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL,
-                        *path = NULL;
+                        *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const CHAR16 *good_name, *good_version, *good_sort_key;
                 _cleanup_freepool_ CHAR8 *content = NULL;
                 UINTN offs[_SECTION_MAX] = {};
@@ -2266,18 +2212,22 @@ static void config_entry_add_linux(
                                     &good_sort_key))
                         continue;
 
-                path = xpool_print(L"\\EFI\\Linux\\%s", f->FileName);
-                entry = config_entry_add_loader(
-                                config,
-                                device,
-                                LOADER_UNIFIED_LINUX,
-                                /* id= */ f->FileName,
-                                /* key= */ 'l',
-                                /* title= */ good_name,
-                                /* loader= */ path,
-                                /* sort_key= */ good_sort_key,
-                                good_version);
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup(f->FileName),
+                        .type = LOADER_UNIFIED_LINUX,
+                        .title = xstrdup(good_name),
+                        .version = xstrdup(good_version),
+                        .device = device,
+                        .loader = xpool_print(L"\\EFI\\Linux\\%s", f->FileName),
+                        .sort_key = good_sort_key ? xstrdup(good_sort_key) : NULL,
+                        .key = 'l',
+                        .tries_done = UINTN_MAX,
+                        .tries_left = UINTN_MAX,
+                };
 
+                StrLwr(entry->id);
+                config_add_entry(config, entry);
                 config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
 
                 if (szs[SECTION_CMDLINE] == 0)
@@ -2312,7 +2262,7 @@ static void config_load_xbootldr(
         if (EFI_ERROR(err))
                 return;
 
-        config_entry_add_linux(config, new_device, root_dir);
+        config_entry_add_unified(config, new_device, root_dir);
         config_load_entries(config, new_device, root_dir, NULL);
 }
 
@@ -2496,7 +2446,7 @@ static void config_load_all_entries(
         config_load_defaults(config, root_dir);
 
         /* scan /EFI/Linux/ directory */
-        config_entry_add_linux(config, loaded_image->DeviceHandle, root_dir);
+        config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
 
         /* scan /loader/entries/\*.conf files */
         config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
@@ -2515,11 +2465,17 @@ static void config_load_all_entries(
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
 
-        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                config_entry_add_call(config,
-                                      L"auto-reboot-to-firmware-setup",
-                                      L"Reboot Into Firmware Interface",
-                                      reboot_into_firmware);
+        if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup(L"auto-reboot-to-firmware-setup"),
+                        .title = xstrdup(L"Reboot Into Firmware Interface"),
+                        .call = reboot_into_firmware,
+                        .tries_done = UINTN_MAX,
+                        .tries_left = UINTN_MAX,
+                };
+                config_add_entry(config, entry);
+        }
 
         if (config->entry_count == 0)
                 return;
