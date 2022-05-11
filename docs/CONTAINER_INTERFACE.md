@@ -38,7 +38,7 @@ manager, please consider supporting the following interfaces.
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
    mount some suitable TTY to `/dev/console`. If this is a pty, make sure to
-   not close the controlling pty during systemd's lifetime. PID1 will close
+   not close the controlling pty during systemd's lifetime. PID 1 will close
    ttys, to avoid being killed by SAK. It only opens ttys for the time it
    actually needs to print something. Also, make sure to create device nodes
    for `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`, `/dev/urandom`,
@@ -263,7 +263,7 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    short string identifying the container manager implementation. This file
    should be newline terminated. Passing this information via this file has the
    benefit that payload code can easily access it, even when running
-   unprivileged without access to the container PID1's environment block.
+   unprivileged without access to the container PID 1's environment block.
 
 6. The `/run/host/container-uuid` file may be used to pass the same information
    as the `$container_uuid` environment variable (see above). This file should

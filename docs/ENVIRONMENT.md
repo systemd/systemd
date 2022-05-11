@@ -111,7 +111,7 @@ All tools:
 
 `systemctl`:
 
-* `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
+* `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
   listener, and instead always connect through the dbus-daemon D-bus broker.
 
 * `$SYSTEMCTL_INSTALL_CLIENT_SIDE=1` — if set, enable or disable unit files on

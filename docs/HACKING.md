@@ -30,7 +30,7 @@ Please always test your work before submitting a PR. For many of the components
 of systemd testing is straightforward as you can simply compile systemd and
 run the relevant tool from the build directory.
 
-For some components (most importantly, systemd/PID1 itself) this is not
+For some components (most importantly, systemd/PID 1 itself) this is not
 possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` build files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
