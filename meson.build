@@ -33,7 +33,13 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
-conf.set10('LOG_MESSAGE_VERIFICATION', get_option('log-message-verification'))
+verification = get_option('log-message-verification')
+if verification == 'auto'
+        verification = conf.get('BUILD_MODE_DEVELOPER') == 1
+else
+        verification = verification == 'true'
+endif
+conf.set10('LOG_MESSAGE_VERIFICATION', verification)
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
