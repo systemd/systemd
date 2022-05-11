@@ -21,6 +21,7 @@ static enum {
 static const char *arg_suffix = NULL;
 static const char *arg_template = NULL;
 static bool arg_path = false;
+static bool arg_object = false;
 static bool arg_instance = false;
 
 static int help(void) {
@@ -41,6 +42,8 @@ static int help(void) {
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
                "  -p --path               When escaping/unescaping assume the string is a path\n"
+               "  -o --object             When escaping/unescaping assume the string is a D-Bus\n"
+               "                          object\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -64,6 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unescape",  no_argument,       NULL, 'u'           },
                 { "mangle",    no_argument,       NULL, 'm'           },
                 { "path",      no_argument,       NULL, 'p'           },
+                { "object",    no_argument,       NULL, 'o'           },
                 { "instance",  no_argument,       NULL, 'i'           },
                 {}
         };
@@ -73,7 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "humpo", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -112,6 +116,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_path = true;
                         break;
 
+                case 'o':
+                        arg_object = true;
+                        break;
+
                 case 'i':
                         arg_instance = true;
                         break;
@@ -142,6 +150,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--path may not be combined with --mangle.");
+
+        if (arg_object && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--object may not be combined with --mangle.");
 
         if (arg_instance && arg_action != ACTION_UNESCAPE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -201,6 +213,20 @@ static int run(int argc, char *argv[]) {
                                  * some forms of non-normalization is actually OK, such as a series // and
                                  * unit_name_path_escape() will clean those up silently, and the reversal is
                                  * "close enough" to be OK. */
+                        } else if (arg_object) {
+                                _cleanup_free_ char *prefix = NULL, *object = NULL;
+
+                                r = path_extract_directory(*i, &prefix);
+                                if (r < 0)
+                                        return log_error_errno(r, "Could not extract prefix from '%s': %m", *i);
+
+                                r = path_extract_filename(*i, &object);
+                                if (r < 0)
+                                        return log_error_errno(r, "Could not extract object from '%s': %m", *i);
+
+                                r = sd_bus_path_encode(prefix, object, &e);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to escape '%s': %m", *i);
                         } else {
                                 e = unit_name_escape(*i);
                                 if (!e)
@@ -250,7 +276,15 @@ static int run(int argc, char *argv[]) {
 
                         if (arg_path)
                                 r = unit_name_path_unescape(name, &e);
-                        else
+                        else if (arg_object) {
+                                _cleanup_free_ char *prefix = NULL;
+
+                                r = path_extract_directory(*i, &prefix);
+                                if (r < 0)
+                                        return log_error_errno(r, "Could not extract prefix from '%s': %m", *i);
+
+                                r = sd_bus_path_decode(name, prefix, &e);
+                        } else
                                 r = unit_name_unescape(name, &e);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to unescape string: %m");
