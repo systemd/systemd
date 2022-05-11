@@ -3146,7 +3146,7 @@ int unit_add_dependency(
         if (!noop)
                 unit_add_to_dbus_queue(u);
 
-        return 0;
+        return 1;
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
