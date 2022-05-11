@@ -794,7 +794,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                 /* Compare with strict result and warn if result doesn't match */
                 if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, 0))
                         log_struct(LOG_NOTICE,
-                                   "MESSAGE=Accepting user/group name '%s', which does not match strict user/group name rules.", u,
+                                   LOG_MESSAGE("Accepting user/group name '%s', which does not match strict user/group name rules.", u),
                                    "USER_GROUP_NAME=%s", u,
                                    "MESSAGE_ID=" SD_MESSAGE_UNSAFE_USER_NAME_STR);
 
