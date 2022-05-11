@@ -25,13 +25,16 @@
 #include "blockdev-util.h"
 #include "def.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -524,6 +527,57 @@ static bool nonunmountable_path(const char *path) {
                 || path_startswith(path, "/run/initramfs");
 }
 
+static void log_mount_blockers(int umount_log_level, const char *mnt) {
+        /* Logging proccesses that block umount could get very verbose. So only log when we are at the later
+         * stages of shutdown where we have gotten rid of most of them. */
+        if (umount_log_level == LOG_INFO)
+                return;
+
+        _cleanup_closedir_ DIR *dir = opendir("/proc");
+        if (!dir)
+                return;
+
+        _cleanup_free_ char *blockers = NULL;
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                pid_t pid;
+
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
+                        continue;
+
+                if (parse_pid(de->d_name, &pid) < 0)
+                        continue;
+
+                const char *fd_path = procfs_file_alloca(pid, "fd");
+                _cleanup_closedir_ DIR *fd_dir = opendir(fd_path);
+                if (!fd_dir)
+                        continue;
+
+                FOREACH_DIRENT(fd_de, fd_dir, break) {
+                        _cleanup_free_ char *fdname = NULL, *comm = NULL;
+
+                        if (readlinkat_malloc(dirfd(fd_dir), fd_de->d_name, &fdname) < 0)
+                                continue;
+
+                        if (!path_startswith(fdname, mnt))
+                                continue;
+
+                        if (PATH_STARTSWITH_SET(fdname, "/dev", "/sys", "/proc"))
+                                continue;
+
+                        if (get_process_comm(pid, &comm) < 0)
+                                continue;
+
+                        const char *comm_pid = strjoina(comm, "(", de->d_name, ")");
+                        strextend_with_separator(&blockers, ", ", comm_pid);
+
+                        break;
+                }
+        }
+
+        log_full(umount_log_level, "Unmounting '%s' blocked by: %s", mnt, blockers);
+}
+
 static int remount_with_timeout(MountPoint *m, int umount_log_level) {
         pid_t pid;
         int r;
@@ -586,6 +640,8 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
                 r = umount2(m->path, MNT_FORCE);
                 if (r < 0)
                         log_full_errno(umount_log_level, errno, "Failed to unmount %s: %m", m->path);
+                if (r == -EBUSY)
+                        log_mount_blockers(umount_log_level, m->path);
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
