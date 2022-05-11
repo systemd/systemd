@@ -1374,6 +1374,7 @@ check_asan_reports() {
                  BEGIN {
                      %services_to_ignore = (
                          "dbus-daemon" => undef,
+                         "dbus-broker-launch" => undef,
                      );
                  }
                  print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
