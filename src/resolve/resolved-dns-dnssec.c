@@ -989,8 +989,9 @@ int dnssec_verify_rrset(
 
         DnsResourceRecord **list, *rr;
         const char *source, *name;
-        size_t n = 0, sig_size;
         _cleanup_free_ char *sig_data = NULL;
+        size_t sig_size = 0; /* avoid false maybe-uninitialized warning */
+        size_t n = 0;
         bool wildcard;
         int r;
 
@@ -1184,7 +1185,7 @@ int dnssec_verify_rrset_search(
 
         /* Verifies all RRs from "a" that match the key "key" against DNSKEYs in "validated_dnskeys" */
 
-        if (!a || a->n_rrs <= 0)
+        if (dns_answer_isempty(a))
                 return -ENODATA;
 
         /* Iterate through each RRSIG RR. */
