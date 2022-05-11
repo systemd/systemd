@@ -2365,7 +2365,8 @@ static void service_enter_restart(Service *s) {
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                         LOG_UNIT_INVOCATION_ID(UNIT(s)),
-                        LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                        LOG_UNIT_MESSAGE(UNIT(s),
+                                         "Scheduled restart job, restart counter is at %u.", s->n_restarts),
                         "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */

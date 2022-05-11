@@ -31,16 +31,21 @@ static void test_log_struct(void) {
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
                    "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, EILSEQ,
-                   "MESSAGE=Waldo PID="PID_FMT": %m (normal)", getpid_cached(),
+        /* The same as above, just using LOG_MESSAGE(), which is generally recommended */
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Waldo PID="PID_FMT" (no errno)", getpid_cached()),
                    "SERVICE=piepapo");
+
+        log_struct_errno(LOG_INFO, EILSEQ,
+                         LOG_MESSAGE("Waldo PID="PID_FMT": %m (normal)", getpid_cached()),
+                         "SERVICE=piepapo");
 
         log_struct_errno(LOG_INFO, SYNTHETIC_ERRNO(EILSEQ),
-                   "MESSAGE=Waldo PID="PID_FMT": %m (synthetic)", getpid_cached(),
-                   "SERVICE=piepapo");
+                         LOG_MESSAGE("Waldo PID="PID_FMT": %m (synthetic)", getpid_cached()),
+                         "SERVICE=piepapo");
 
         log_struct(LOG_INFO,
-                   "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
+                   LOG_MESSAGE("Foobar PID="PID_FMT, getpid_cached()),
                    "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
                    (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
                    "SUFFIX=GOT IT");

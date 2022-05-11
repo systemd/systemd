@@ -67,6 +67,10 @@ static bool prohibit_ipc = false;
  * use here. */
 static char *log_abort_msg = NULL;
 
+#if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
+bool _log_message_dummy = false; /* Always false */
+#endif
+
 /* An assert to use in logging functions that does not call recursively
  * into our logging functions (since that might lead to a loop). */
 #define assert_raw(expr)                                                \
