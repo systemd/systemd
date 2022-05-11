@@ -14,7 +14,7 @@ ExecStart=test -f /var/lib/private/quux/pief/yayyay
 ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/waldo:%S/quux/pief"'
 
 # Make sure that /var/lib/private/waldo is really the only writable directory besides the obvious candidates
-ExecStart=sh -x -c 'test $$(find / \\( -path /var/tmp -o -path /tmp -o -path /proc -o -path /dev/mqueue -o -path /dev/shm -o -path /sys/fs/bpf -o -path /dev/.lxc \\) -prune -o -type d -writable -print 2>/dev/null | sort -u | tr -d "\\\\n") = /var/lib/private/quux/pief/var/lib/private/waldo'
+ExecStart=sh -x -c 'test $$(find / \\( -path /var/tmp -o -path /tmp -o -path /proc -o -path /dev/mqueue -o -path /dev/shm -o -path /sys/fs/bpf -o -path /dev/.lxc -o -path /sys/devices/system/cpu \\) -prune -o -type d -writable -print 2>/dev/null | sort -u | tr -d "\\\\n") = /var/lib/private/quux/pief/var/lib/private/waldo'
 
 Type=oneshot
 DynamicUser=yes
