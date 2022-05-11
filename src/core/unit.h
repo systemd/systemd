@@ -1025,6 +1025,14 @@ Condition *unit_find_failed_condition(Unit *u);
 #define log_unit_warning_errno(unit, error, ...) log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
 #define log_unit_error_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
 
+#if LOG_TRACE
+#  define log_unit_trace(...)          log_unit_debug(__VA_ARGS__)
+#  define log_unit_trace_errno(...)    log_unit_debug_errno(__VA_ARGS__)
+#else
+#  define log_unit_trace(...)          do {} while (0)
+#  define log_unit_trace_errno(e, ...) (-ERRNO_VALUE(e))
+#endif
+
 #define log_unit_struct_errno(unit, level, error, ...)                  \
         ({                                                              \
                 const Unit *_u = (unit);                                \
