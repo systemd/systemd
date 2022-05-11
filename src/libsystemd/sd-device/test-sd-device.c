@@ -66,7 +66,9 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(r == -ENOENT);
 
         r = sd_device_get_subsystem(d, &subsystem);
-        if (r >= 0) {
+        if (r >= 0 && !streq(subsystem, "gpio")) { /* Unfortunately, there exist /sys/class/gpio and
+                                                    * /sys/bus/gpio. Hence, sd_device_new_from_subsystem_sysname()
+                                                    * and sd_device_new_from_device_id() may not work as expected. */
                 const char *name, *id;
 
                 if (streq(subsystem, "drivers"))
