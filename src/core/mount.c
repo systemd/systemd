@@ -354,26 +354,40 @@ static int mount_add_device_dependencies(Mount *m) {
 
         assert(m);
 
+        log_unit_trace(UNIT(m), "Processing implicit device dependencies");
+
         p = get_mount_parameters(m);
-        if (!p)
+        if (!p) {
+                log_unit_trace(UNIT(m), "Missing mount parameters, skipping implicit device dependencies");
                 return 0;
+        }
 
-        if (!p->what)
+        if (!p->what) {
+                log_unit_trace(UNIT(m), "Missing mount source, skipping implicit device dependencies");
                 return 0;
+        }
 
-        if (mount_is_bind(p))
+        if (mount_is_bind(p)) {
+                log_unit_trace(UNIT(m), "Mount unit is a bind mount, skipping implicit device dependencies");
                 return 0;
+        }
 
-        if (!is_device_path(p->what))
+        if (!is_device_path(p->what)) {
+                log_unit_trace(UNIT(m), "Mount source is not a device path, skipping implicit device dependencies");
                 return 0;
+        }
 
         /* /dev/root is a really weird thing, it's not a real device, but just a path the kernel exports for
          * the root file system specified on the kernel command line. Ignore it here. */
-        if (PATH_IN_SET(p->what, "/dev/root", "/dev/nfs"))
+        if (PATH_IN_SET(p->what, "/dev/root", "/dev/nfs")) {
+                log_unit_trace(UNIT(m), "Mount source is in /dev/root or /dev/nfs, skipping implicit device dependencies");
                 return 0;
+        }
 
-        if (path_equal(m->where, "/"))
+        if (path_equal(m->where, "/")) {
+                log_unit_trace(UNIT(m), "Mount destination is '/', skipping implicit device dependencies");
                 return 0;
+        }
 
         /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
          * races when mounts are established by other tools with different backing devices than what we
@@ -388,13 +402,23 @@ static int mount_add_device_dependencies(Mount *m) {
         r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
         if (r < 0)
                 return r;
+        if (r > 0)
+                log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(dep), p->what);
+
         if (mount_propagate_stop(m)) {
                 r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, mask);
                 if (r < 0)
                         return r;
+                if (r > 0)
+                        log_unit_trace(UNIT(m), "Added %s dependency on %s",
+                                       unit_dependency_to_string(UNIT_STOP_PROPAGATED_FROM), p->what);
         }
 
-        return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
+        r = unit_add_blockdev_dependency(UNIT(m), p->what, mask);
+        if (r > 0)
+                log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(UNIT_AFTER), p->what);
+
+        return r;
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
