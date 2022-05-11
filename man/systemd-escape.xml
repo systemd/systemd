@@ -95,6 +95,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--object</option></term>
+        <term><option>-o</option></term>
+
+        <listitem><para>When escaping or unescaping a string, assume it refers to a D-Bus object path. This
+        eliminates (or adds) escape sequences that are necessary to encode/decode in a D-Bus-frienly manner.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--unescape</option></term>
         <term><option>-u</option></term>
 
@@ -149,6 +158,10 @@ Hallöchen, Meister</programlisting>
     <para>To generate the mount unit for a path:</para>
     <programlisting>$ systemd-escape -p --suffix=mount "/tmp//waldi/foobar/"
 tmp-waldi-foobar.mount</programlisting>
+
+    <para>To generate the D-Bus object path for a unit:</para>
+    <programlisting>$ systemd-escape -o /org/freedesktop/systemd1/unit/dbus-broker.service
+/org/freedesktop/systemd1/unit/dbus_2dbroker_2eservice</programlisting>
 
     <para>To generate instance names of three strings:</para>
     <programlisting>$ systemd-escape --template=systemd-nspawn@.service 'My Container 1' 'containerb' 'container/III'
