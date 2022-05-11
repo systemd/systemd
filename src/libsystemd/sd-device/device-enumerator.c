@@ -537,12 +537,12 @@ static int match_initialized(sd_device_enumerator *enumerator, sd_device *device
                         return true;
 
                 if (sd_device_get_devnum(device, NULL) >= 0)
-                        return true;
+                        return false;
 
                 if (sd_device_get_ifindex(device, NULL) >= 0)
-                        return true;
+                        return false;
 
-                return false;
+                return true;
         }
 
         return (enumerator->match_initialized == MATCH_INITIALIZED_NO) == (r == 0);
