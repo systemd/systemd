@@ -330,7 +330,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           exists and is not empty. Instead, the entire copy operation is
           skipped. If the argument is omitted, files from the source directory
           <filename>/usr/share/factory/</filename> with the same name
-          are copied. Does not follow symlinks.</para></listitem>
+          are copied. Does not follow symlinks. Contents of the directories 
+          are subject to time based cleanup if the age argument is specified.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
