@@ -573,6 +573,8 @@ Features:
   - make macsec/wireguard code in networkd read key via creds logic
   - make gatwayd/remote read key via creds logic
   - add sd_notify() command for flushing out creds not needed anymore
+  - make user manager instances create and use a user-specific key (the one in
+    /var/lib is root-only) and add --user switch to systemd-creds to use it
 
 * add tpm.target or so which is delayed until TPM2 device showed up in case
   firmware indicates there is one.
