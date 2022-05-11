@@ -1421,7 +1421,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         }
 }
 
-static void config_entry_add_from_file(
+static void config_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1652,7 +1652,7 @@ static void config_load_entries(
 
                 err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
                 if (!EFI_ERROR(err))
-                        config_entry_add_from_file(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
+                        config_entry_add_type1(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -2065,7 +2065,7 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
 #endif
 }
 
-static void config_entry_add_linux(
+static void config_entry_add_unified(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
@@ -2245,7 +2245,7 @@ static void config_load_xbootldr(
         if (EFI_ERROR(err))
                 return;
 
-        config_entry_add_linux(config, new_device, root_dir);
+        config_entry_add_unified(config, new_device, root_dir);
         config_load_entries(config, new_device, root_dir, NULL);
 }
 
@@ -2523,7 +2523,7 @@ static void config_load_all_entries(
         config_load_defaults(config, root_dir);
 
         /* scan /EFI/Linux/ directory */
-        config_entry_add_linux(config, loaded_image->DeviceHandle, root_dir);
+        config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
 
         /* scan /loader/entries/\*.conf files */
         config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
