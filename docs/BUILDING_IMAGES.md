@@ -101,7 +101,7 @@ on first boot as needed.
 
 Specifically, the following mechanisms are in place:
 
-1. The `swich-root` logic in systemd, that is used to switch from the initrd
+1. The `switch-root` logic in systemd, that is used to switch from the initrd
    phase to the host will create the basic OS hierarchy skeleton if missing. It
    will create a couple of directories strictly necessary to boot up
    successfully, plus essential symlinks (such as those necessary for the
