@@ -54,7 +54,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         _cleanup_free_ uint8_t *duped = NULL;
 
-        if (size < sizeof(DHCPMessage))
+        if (size < sizeof(DHCPMessage) || size > 600)
                 return 0;
 
         assert_se(duped = memdup(data, size));
