@@ -8,7 +8,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 #include "strv.h"
 
 static int add_pkcs11_encrypted_key(

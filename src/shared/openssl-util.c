@@ -110,6 +110,255 @@ static int rsa_pkey_to_suitable_key_size(
         return 0;
 }
 
+int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
+        _cleanup_free_ void *d = NULL, *h = NULL;
+        int sz, lsz, msz;
+        unsigned umsz;
+        unsigned char *dd;
+
+        /* Calculates a message digest of the DER encoded public key */
+
+        assert(pk);
+        assert(md);
+        assert(ret);
+        assert(ret_size);
+
+        sz = i2d_PublicKey(pk, NULL);
+        if (sz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        dd = d = malloc(sz);
+        if (!d)
+                return log_oom_debug();
+
+        lsz = i2d_PublicKey(pk, &dd);
+        if (lsz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        m = EVP_MD_CTX_new();
+        if (!m)
+                return log_oom_debug();
+
+        if (EVP_DigestInit_ex(m, md, NULL) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(md));
+
+        if (EVP_DigestUpdate(m, d, lsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
+
+        msz = EVP_MD_size(md);
+        assert(msz > 0);
+
+        h = malloc(msz);
+        if (!h)
+                return log_oom_debug();
+
+        umsz = msz;
+        if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
+
+        assert(umsz == (unsigned) msz);
+
+        *ret = TAKE_PTR(h);
+        *ret_size = msz;
+        return 0;
+}
+
+static int pkey_generate_ec_key(int nid, EVP_PKEY **ret_ppkey) {
+
+        assert(ret_ppkey);
+        assert_se(nid != NID_undef);
+
+        int r = 0;
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *pctx = NULL;
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *params = NULL;
+
+        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (pctx == NULL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_paramgen_init(pctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialze pkey parameters context");
+
+        r = EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set pkey context ec curve nid");
+
+        r = EVP_PKEY_paramgen(pctx, &params);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate pkey parameters");
+
+        kctx = EVP_PKEY_CTX_new(params, NULL);
+        if (!kctx)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_keygen_init(kctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey keygen context");
+
+        *ret_ppkey = NULL;
+
+        r = EVP_PKEY_keygen(kctx, ret_ppkey);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate pkey");
+
+        return 0;
+}
+
+static int pkey_ecdh_derive_shared_secret(
+                EVP_PKEY *pkey,
+                EVP_PKEY *peer_key,
+                uint8_t *ret_shared_secret,
+                size_t *ret_shared_secret_len) {
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        int r = 0;
+        size_t secret_len = 0;
+
+        assert(pkey);
+        assert(peer_key);
+        assert(ret_shared_secret_len);
+
+        ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (!ctx)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
+
+        r = EVP_PKEY_derive_init(ctx);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey derive context");
+
+        r = EVP_PKEY_derive_set_peer(ctx, peer_key);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set peer key for derivation");
+
+        r = EVP_PKEY_derive(ctx, NULL, &secret_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get derived key size");
+
+        if (!ret_shared_secret) {
+                *ret_shared_secret_len = secret_len;
+                return 0;
+        }
+
+        r = EVP_PKEY_derive(ctx, ret_shared_secret, ret_shared_secret_len);
+        if (r != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to derive shared secret");
+
+        return 0;
+}
+
+#  if PREFER_OPENSSL
+int string_hashsum(
+                const char *s,
+                size_t len,
+                const EVP_MD *md_algorithm,
+                char **ret) {
+
+        uint8_t hash[EVP_MAX_MD_SIZE];
+        size_t hash_size;
+        char *enc;
+        int r;
+
+        hash_size = EVP_MD_size(md_algorithm);
+        assert(hash_size > 0);
+
+        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        if (r < 0)
+                return r;
+
+        enc = hexmem(hash, hash_size);
+        if (!enc)
+                return -ENOMEM;
+
+        *ret = enc;
+        return 0;
+
+}
+#  endif
+
+/* We use derived shared secret as volume key for EC keys.
+ * The following is the procedure.
+ * First we generate a pair of EC key of the same curve group.
+ * Then we use newly generated private key to derive shared secret
+ * with the public key in the token.
+ * Finally, we simplely forget the private key, store the public key
+ * to pkcs11-key field of LUKS token and use the dervied shared secret
+ * as the volume key (we don't apply any KDF here since LUKS will apply
+ * PBKDF on the key).
+ */
+static int pkey_generate_volume_key_ec(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_savedata,
+                size_t *ret_savedata_size) {
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
+        int nid = NID_undef;
+        int r;
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+        _cleanup_free_ char *curve_name = NULL;
+        size_t len = 0;
+        if (EVP_PKEY_get_group_name(pkey, NULL, 0, &len) != 1 || len == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine PKEY group name length");
+        len += 1;
+        curve_name = malloc(len);
+        if (!curve_name)
+                return log_oom();
+
+        if (!EVP_PKEY_get_group_name(pkey, curve_name, len, &len))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get PKEY group name");
+        nid = OBJ_sn2nid(curve_name);
+#else
+        EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+        if (!ec_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKEY doesn't have EC_KEY associated");
+
+        if (EC_KEY_check_key(ec_key) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "EC_KEY associated with PKEY is not valid");
+
+        nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
+#endif
+
+        r = pkey_generate_ec_key(nid, &pkey_new);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate ec key: %m");
+
+        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, NULL, ret_decrypted_key_size);
+        if (r < 0 || *ret_decrypted_key_size == 0)
+                return log_error_errno(r, "Failed to determine derived shared secret size: %m");
+
+        *ret_decrypted_key = malloc(*ret_decrypted_key_size);
+        if (!*ret_decrypted_key)
+                return log_oom();
+
+        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, *ret_decrypted_key, ret_decrypted_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive shared secret: %m");
+
+        *ret_savedata_size = i2d_PUBKEY(pkey_new, NULL);
+        if (*ret_savedata_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine encoded public key size");
+
+        *ret_savedata = malloc(*ret_savedata_size);
+        if (!*ret_savedata)
+                return log_oom();
+
+        /* i2d_PUBKEY function has a side effect that makes *pp point to end of the allocated buffer */
+        uint8_t *buffer = *ret_savedata;
+        *ret_savedata_size = i2d_PUBKEY(pkey_new, &buffer);
+        if (*ret_savedata_size == 0)
+                return  log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get encoded public key");
+
+        return 0;
+
+}
+
 static int pkey_generate_volume_key_rsa(
                 EVP_PKEY *pkey,
                 void **ret_decrypted_key,
@@ -171,6 +420,8 @@ int X509_certificate_generate_volume_key(
         int type = EVP_PKEY_base_id(pkey);
         if (type == EVP_PKEY_RSA)
                 r = pkey_generate_volume_key_rsa(pkey, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
+        else if (type == EVP_PKEY_EC)
+                r = pkey_generate_volume_key_ec(pkey, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsuported public key type: %s", OBJ_nid2sn(type));
 
@@ -183,92 +434,6 @@ int X509_certificate_generate_volume_key(
         *ret_savedata_size = savedata_size;
         return 0;
 }
-
-int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
-        _cleanup_free_ void *d = NULL, *h = NULL;
-        int sz, lsz, msz;
-        unsigned umsz;
-        unsigned char *dd;
-
-        /* Calculates a message digest of the DER encoded public key */
-
-        assert(pk);
-        assert(md);
-        assert(ret);
-        assert(ret_size);
-
-        sz = i2d_PublicKey(pk, NULL);
-        if (sz < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        dd = d = malloc(sz);
-        if (!d)
-                return log_oom_debug();
-
-        lsz = i2d_PublicKey(pk, &dd);
-        if (lsz < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
-
-        m = EVP_MD_CTX_new();
-        if (!m)
-                return log_oom_debug();
-
-        if (EVP_DigestInit_ex(m, md, NULL) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(md));
-
-        if (EVP_DigestUpdate(m, d, lsz) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
-
-        msz = EVP_MD_size(md);
-        assert(msz > 0);
-
-        h = malloc(msz);
-        if (!h)
-                return log_oom_debug();
-
-        umsz = msz;
-        if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
-
-        assert(umsz == (unsigned) msz);
-
-        *ret = TAKE_PTR(h);
-        *ret_size = msz;
-
-        return 0;
-}
-
-#  if PREFER_OPENSSL
-int string_hashsum(
-                const char *s,
-                size_t len,
-                const EVP_MD *md_algorithm,
-                char **ret) {
-
-        uint8_t hash[EVP_MAX_MD_SIZE];
-        size_t hash_size;
-        char *enc;
-        int r;
-
-        hash_size = EVP_MD_size(md_algorithm);
-        assert(hash_size > 0);
-
-        r = openssl_hash(md_algorithm, s, len, hash, NULL);
-        if (r < 0)
-                return r;
-
-        enc = hexmem(hash, hash_size);
-        if (!enc)
-                return -ENOMEM;
-
-        *ret = enc;
-        return 0;
-
-}
-#  endif
 #endif
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {

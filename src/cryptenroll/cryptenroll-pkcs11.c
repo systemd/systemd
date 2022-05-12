@@ -6,7 +6,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 
 int enroll_pkcs11(
                 struct crypt_device *cd,
