@@ -1708,9 +1708,7 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl) {
 
         new_rr->ttl = new_ttl;
 
-        dns_resource_record_unref(*rr);
-        *rr = new_rr;
-
+        DNS_RR_REPLACE(*rr, new_rr);
         return 1;
 }
 
