@@ -385,9 +385,7 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        dns_answer_ref(answer);
-        dns_answer_unref(i->answer);
-        i->answer = answer;
+        DNS_ANSWER_REPLACE(i->answer, dns_answer_ref(answer));
 
         dns_packet_ref(full_packet);
         dns_packet_unref(i->full_packet);
