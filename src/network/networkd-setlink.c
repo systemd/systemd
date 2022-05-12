@@ -796,20 +796,28 @@ int link_request_to_set_master(Link *link) {
         assert(link->network);
 
         if (link->network->keep_master) {
+                /* When KeepMaster=yes, BatmanAdvanced=, Bond=, Bridge=, and VRF= are ignored. */
                 link->master_set = true;
                 return 0;
-        }
 
-        link->master_set = false;
-
-        if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf)
+        } else if (link->network->batadv || link->network->bond || link->network->bridge || link->network->vrf) {
+                link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_set_master_handler,
                                              NULL);
-        else
+
+        } else if (link->master_ifindex != 0) {
+                /* Unset master only when it is set. */
+                link->master_set = false;
                 return link_request_set_link(link, REQUEST_TYPE_SET_LINK_MASTER,
                                              link_unset_master_handler,
                                              NULL);
+
+        } else {
+                /* Nothing we need to do. */
+                link->master_set = true;
+                return 0;
+        }
 }
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
