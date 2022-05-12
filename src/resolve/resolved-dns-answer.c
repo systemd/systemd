@@ -60,10 +60,7 @@ static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
         m = ordered_set_size(a->items);
         assert(m <= UINT16_MAX); /* We can only place 64K RRs in an answer at max */
 
-        if (n > UINT16_MAX - m)
-                n = UINT16_MAX;
-        else
-                n += m;
+        n = saturate_add(m, n, UINT16_MAX);
 
         /* Higher multipliers give slightly higher efficiency through hash collisions, but the gains
          * quickly drop off after 2. */
@@ -707,10 +704,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         ns = dns_answer_size(*a);
         assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
 
-        if (n_free > UINT16_MAX - ns) /* overflow check */
-                ns = UINT16_MAX;
-        else
-                ns += n_free;
+        ns = saturate_add(ns, n_free, UINT16_MAX);
 
         n = dns_answer_new(ns);
         if (!n)
