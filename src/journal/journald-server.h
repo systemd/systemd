@@ -89,8 +89,8 @@ struct Server {
         sd_event_source *watchdog_event_source;
         sd_event_source *idle_event_source;
 
-        ManagedJournalFile *runtime_journal;
-        ManagedJournalFile *system_journal;
+        ManagedJournalFile *volatile_journal;
+        ManagedJournalFile *persistent_journal;
         OrderedHashmap *user_journals;
 
         uint64_t seqnum;
@@ -102,8 +102,8 @@ struct Server {
         usec_t ratelimit_interval;
         unsigned ratelimit_burst;
 
-        JournalStorage runtime_storage;
-        JournalStorage system_storage;
+        JournalStorage volatile_storage;
+        JournalStorage persistent_storage;
 
         JournalCompressOptions compress;
         bool seal;
