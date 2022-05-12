@@ -7,7 +7,9 @@
 #include <string.h>
 #include <syslog.h>
 
+#include "list.h"
 #include "macro.h"
+#include "stdio-util.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
@@ -367,3 +369,59 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+/*
+ * The log context allows attaching extra metadata to log messages written to the journal via log.h. We keep
+ * track of a thread local log context onto which we can push extra metadata fields that should be logged.
+ *
+ * LOG_CONTEXT_PUSH() will add the provided field to the log context and will remove it again when the
+ * current block ends. LOG_CONTEXT_PUSH_STRV() will do the same but for all fields in the given strv.
+ * LOG_CONTEXT_PUSHF() is like LOG_CONTEXT_PUSH() but takes a format string and arguments.
+ *
+ * Using the macros is as simple as putting them anywhere inside a block to add a field to all following log
+ * messages logged from inside that block.
+ *
+ * void myfunction(...) {
+ *         ...
+ *
+ *         LOG_CONTEXT_PUSHF("MYMETADATA=%s", "abc");
+ *
+ *         // Every journal message logged will now have the MYMETADATA=abc
+ *         // field included.
+ * }
+ *
+ * One special case to note is async code, where we use callbacks that are invoked to continue processing
+ * when some event occurs. For async code, there's usually an associated "userdata" struct containing all the
+ * information associated with the async operation. In this "userdata" struct, we can store a log context
+ * allocated with log_context_new() and freed with log_context_free(). We can then add and remove fields to
+ * the `fields` member of the log context object and all those fields will be logged along with each log
+ * message.
+ */
+
+typedef struct LogContext {
+        char **fields;
+        LIST_FIELDS(struct LogContext, ll);
+} LogContext;
+
+extern thread_local LIST_HEAD(LogContext, _log_context);
+
+LogContext* log_context_attach(LogContext *c);
+LogContext* log_context_detach(LogContext *c);
+
+LogContext* log_context_new(char **fields);
+LogContext* log_context_free(LogContext *c);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_detach);
+DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_free);
+
+#define LOG_CONTEXT_PUSH(...) \
+        LOG_CONTEXT_PUSH_STRV(STRV_MAKE(__VA_ARGS__))
+
+#define LOG_CONTEXT_PUSHF(...) \
+        LOG_CONTEXT_PUSH(snprintf_ok((char[LINE_MAX]) {}, LINE_MAX, __VA_ARGS__))
+
+#define _LOG_CONTEXT_PUSH_STRV(strv, c) \
+        _unused_ _cleanup_(log_context_detachp) LogContext *c = log_context_attach(&(LogContext) { .fields = strv });
+
+#define LOG_CONTEXT_PUSH_STRV(strv) \
+        _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))
