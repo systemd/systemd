@@ -1365,8 +1365,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
          * field is later replaced by the DNSSEC validated subset. The 'answer_auxiliary' field carries the
          * original complete record set, including RRSIG and friends. We use this when passing data to
          * clients that ask for DNSSEC metadata. */
-        dns_answer_unref(t->answer);
-        t->answer = dns_answer_ref(p->answer);
+        DNS_ANSWER_REPLACE(t->answer, dns_answer_ref(p->answer));
         t->answer_rcode = DNS_PACKET_RCODE(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
@@ -3453,8 +3452,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 break;
         }
 
-        dns_answer_unref(t->answer);
-        t->answer = TAKE_PTR(validated);
+        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
 
         /* At this point the answer only contains validated
          * RRsets. Now, let's see if it actually answers the question

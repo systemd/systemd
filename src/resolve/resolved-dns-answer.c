@@ -490,9 +490,7 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
         if (r < 0)
                 return r;
 
-        dns_answer_unref(*a);
-        *a = merged;
-
+        DNS_ANSWER_REPLACE(*a, merged);
         return 0;
 }
 
@@ -714,8 +712,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         if (r < 0)
                 return r;
 
-        dns_answer_unref(*a);
-        *a = TAKE_PTR(n);
+        DNS_ANSWER_REPLACE(*a, TAKE_PTR(n));
         return 0;
 }
 

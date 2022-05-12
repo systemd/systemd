@@ -850,9 +850,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 q->answer_query_flags |= dns_transaction_source_to_query_flags(t->answer_source);
                         } else {
                                 /* Override non-successful previous answers */
-                                dns_answer_unref(q->answer);
-                                q->answer = dns_answer_ref(t->answer);
-
+                                DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                                 q->answer_query_flags = dns_transaction_source_to_query_flags(t->answer_source);
                         }
 
@@ -896,8 +894,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                             !FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 continue;
 
-                        dns_answer_unref(q->answer);
-                        q->answer = dns_answer_ref(t->answer);
+                        DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
