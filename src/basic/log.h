@@ -7,6 +7,7 @@
 #include <string.h>
 #include <syslog.h>
 
+#include "list.h"
 #include "macro.h"
 
 /* Some structures we reference but don't want to pull in headers for */
@@ -367,3 +368,62 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+/*
+ * The log context allows attaching extra metadata to log messages written to the journal via log.h. We keep
+ * track of a thread local log context onto which we can push extra metadata fields that should be logged.
+ *
+ * LOG_CONTEXT_PUSH() will add the provided field to the log context and will remove it again when the
+ * current block ends. LOG_CONTEXT_PUSH_STRV() will do the same but for all fields in the given strv.
+ *
+ * Using the macros is as simple as putting them anywhere inside a block to add a field to all following log
+ * messages logged from inside that block.
+ *
+ * void myfunction(...) {
+ *         ...
+ *
+ *         LOG_CONTEXT_PUSH("MYMETADATA=abc");
+ *
+ *         // Every journal message logged will now have the MYMETADATA=abc
+ *         // field included.
+ * }
+ *
+ * One special case to note is async code, where we use callbacks that are invoked to continue processing
+ * when some event occurs. For async code, there's usually an associated "userdata" struct containing all the
+ * information associated with the async operation. In this "userdata" struct, we can store an extra
+ * "log_fields" field which is a strv containing extra fields to be attached to log messages. At the start of
+ * each callback invoked during the async operation, we can then call
+ * "LOG_CONTEXT_PUSH_STRV(userdata->log_fields)" which makes sure the fields are attached for the duration of
+ * the callback.
+ *
+ * Note that the macros do not take ownership of any strings pushed onto the log context. The caller is still
+ * responsible for making sure any strings pushed onto the log context get cleaned up correctly.
+ */
+
+struct log_context {
+        const char *const *fields;
+        LIST_FIELDS(struct log_context, ll);
+};
+
+extern thread_local LIST_HEAD(struct log_context, _log_context);
+
+static inline void _log_context_pop(struct log_context **c) {
+        assert(c);
+
+        if (!*c)
+                return;
+
+        LIST_REMOVE(ll, _log_context, *c);
+}
+
+#define LOG_CONTEXT_PUSH(...) \
+        LOG_CONTEXT_PUSH_STRV(STRV_MAKE_CONST(__VA_ARGS__))
+
+#define _LOG_CONTEXT_PUSH_STRV(strv, c)                                             \
+        _cleanup_(_log_context_pop) struct log_context *c = &(struct log_context) { \
+                .fields = (const char *const *) (strv),                             \
+        };                                                                          \
+        LIST_PREPEND(ll, _log_context, c)
+
+#define LOG_CONTEXT_PUSH_STRV(strv) \
+        _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))

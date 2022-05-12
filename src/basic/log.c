@@ -32,12 +32,14 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
+#define IOVEC_MAX 128
 
 static log_syntax_callback_t log_syntax_callback = NULL;
 static void *log_syntax_callback_userdata = NULL;
@@ -66,6 +68,8 @@ static bool prohibit_ipc = false;
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
+
+thread_local LIST_HEAD(struct log_context, _log_context) = NULL;
 
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
@@ -588,6 +592,20 @@ static int log_do_header(
         return 0;
 }
 
+static void log_do_context(struct iovec *iovec, size_t iovec_len, size_t *n) {
+        assert(iovec);
+        assert(n);
+
+        LIST_FOREACH(ll, c, _log_context)
+                STRV_FOREACH(s, c->fields) {
+                        if (*n >= iovec_len - 2)
+                                return;
+
+                        iovec[(*n)++] = IOVEC_MAKE_STRING(*s);
+                        iovec[(*n)++] = IOVEC_MAKE_STRING("\n");
+                }
+}
+
 static int write_to_journal(
                 int level,
                 int error,
@@ -607,15 +625,19 @@ static int write_to_journal(
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        struct iovec iovec[4] = {
+        struct iovec iovec[IOVEC_MAX] = {
                 IOVEC_MAKE_STRING(header),
                 IOVEC_MAKE_STRING("MESSAGE="),
                 IOVEC_MAKE_STRING(buffer),
                 IOVEC_MAKE_STRING("\n"),
         };
+        size_t n = 4;
+
+        log_do_context(iovec, ELEMENTSOF(iovec), &n);
+
         const struct msghdr msghdr = {
                 .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
+                .msg_iovlen = n,
         };
 
         if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
@@ -950,7 +972,7 @@ int log_struct_internal(
 
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
-                        struct iovec iovec[17];
+                        struct iovec iovec[IOVEC_MAX];
                         size_t n = 0;
                         int r;
                         bool fallback = false;
@@ -959,6 +981,9 @@ int log_struct_internal(
                          * Do not report the errno if it is synthetic. */
                         log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
                         iovec[n++] = IOVEC_MAKE_STRING(header);
+
+                        log_do_context(iovec, ELEMENTSOF(iovec), &n);
+                        size_t m = n;
 
                         va_start(ap, format);
                         r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, true, error, format, ap);
@@ -974,7 +999,7 @@ int log_struct_internal(
                         }
 
                         va_end(ap);
-                        for (size_t i = 1; i < n; i += 2)
+                        for (size_t i = m; i < n; i += 2)
                                 free(iovec[i].iov_base);
 
                         if (!fallback) {
@@ -1045,16 +1070,24 @@ int log_struct_iovec_internal(
                 char header[LINE_MAX];
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
 
-                struct iovec iovec[1 + n_input_iovec*2];
-                iovec[0] = IOVEC_MAKE_STRING(header);
+                /* Each input iovec translates to 2 iovecs in our iovec array because we need to add a newline. */
+                if (n_input_iovec * 2 >= IOVEC_MAX)
+                        return -E2BIG;
+
+                struct iovec iovec[IOVEC_MAX];
+                size_t n = 0;
+
+                iovec[n++] = IOVEC_MAKE_STRING(header);
                 for (size_t i = 0; i < n_input_iovec; i++) {
-                        iovec[1+i*2] = input_iovec[i];
-                        iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
+                        iovec[n++] = input_iovec[i];
+                        iovec[n++] = IOVEC_MAKE_STRING("\n");
                 }
+
+                log_do_context(iovec, ELEMENTSOF(iovec), &n);
 
                 const struct msghdr msghdr = {
                         .msg_iov = iovec,
-                        .msg_iovlen = 1 + n_input_iovec*2,
+                        .msg_iovlen = n,
                 };
 
                 if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) >= 0)
