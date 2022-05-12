@@ -571,6 +571,10 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                         r = 0;
         }
 
+        if (arg_new) {
+                printf("%s", arg_template);
+        }
+
 end:
         STRV_FOREACH_PAIR(original, tmp, paths) {
                 (void) unlink(*tmp);
