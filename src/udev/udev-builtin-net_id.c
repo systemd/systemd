@@ -126,7 +126,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                 const char *n, *s;
 
                 n = startswith(de->d_name, "virtfn");
-                if (!n)
+                if (isempty(n))
                         continue;
 
                 if (sd_device_new_child(&virtfn_pcidev, physfn_pcidev, de->d_name) < 0)
