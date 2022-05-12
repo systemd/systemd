@@ -70,6 +70,54 @@ static void test_log_syntax(void) {
         assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
 }
 
+static void test_log_context(void) {
+        char *strv[] = { (char*) "MYDATA=abc", NULL };
+        size_t i = 0;
+
+        {
+                LOG_CONTEXT_PUSH("MYDATA=abc");
+                LOG_CONTEXT_PUSH("MYDATA=def");
+                LOG_CONTEXT_PUSH_STRV(strv);
+                LOG_CONTEXT_PUSH_STRV(strv);
+
+                /* Test that the log context was set up correctly. */
+                LIST_FOREACH(ll, c, _log_context)
+                        i++;
+
+                assert(i == 4);
+
+                /* Test that everything still works with modifications to the log context. */
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+
+                {
+                        LOG_CONTEXT_PUSH("MYFIELD=123");
+                        LOG_CONTEXT_PUSH_STRV(strv);
+
+                        /* Check that our nested fields got added correctly. */
+                        i = 0;
+                        LIST_FOREACH(ll, c, _log_context)
+                                i++;
+                        assert(i == 6);
+
+                        /* Test that everything still works in a nested block. */
+                        test_log_struct();
+                        test_long_lines();
+                        test_log_syntax();
+                }
+
+                /* Check that only the fields from the nested block got removed. */
+                i = 0;
+                LIST_FOREACH(ll, c, _log_context)
+                        i++;
+                assert(i == 4);
+        }
+
+        /* Check that the log context is cleaned up correctly. */
+        assert(_log_context == NULL);
+}
+
 int main(int argc, char* argv[]) {
         test_file();
 
@@ -82,6 +130,7 @@ int main(int argc, char* argv[]) {
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
+                test_log_context();
         }
 
         return 0;
