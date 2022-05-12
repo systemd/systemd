@@ -421,6 +421,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_NEW,
         };
 
         static const struct option options[] = {
@@ -481,6 +482,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
+                { "new",                 optional_argument, NULL, ARG_NEW                 },
                 {}
         };
 
@@ -905,6 +907,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_MARKED:
                         arg_marked = true;
+                        break;
+
+                case ARG_NEW:
+                        if(optarg) {
+                                printf("%s", optarg); /* To be replaced with function that will handle
+                                                                       template copy to unit in systemctl-edit*/
+                        } else
+                                printf("No arg");    /* To be replaced with function that will set
+                                                                       template to default template and then rest same*/
                         break;
 
                 case '.':
