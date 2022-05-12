@@ -11,6 +11,9 @@
 #  include <openssl/pkcs7.h>
 #  include <openssl/ssl.h>
 #  include <openssl/x509v3.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+#include <openssl/core_names.h>
+#endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
@@ -36,9 +39,7 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
 
 int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *ret_hash, size_t *ret_hash_len);
 
-int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
-
-int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+int X509_certificate_generate_volume_key(X509 *cert, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_savedata, size_t *ret_savedata_size);
 #endif
 
 #if PREFER_OPENSSL
