@@ -45,6 +45,14 @@ DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
+#define DNS_ANSWER_REPLACE(a, b)                \
+        do {                                    \
+                typeof(a)* _a = &(a);           \
+                typeof(b) _b = (b);             \
+                dns_answer_unref(*_a);          \
+                *_a = _b;                       \
+        } while(0)
+
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
 int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex);
