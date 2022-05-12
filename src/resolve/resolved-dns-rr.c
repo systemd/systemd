@@ -360,13 +360,10 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
                 return false;
 
         /* Keep the one which already has more references. */
-        if ((*a)->n_ref > (*b)->n_ref) {
-                dns_resource_key_unref(*b);
-                *b = dns_resource_key_ref(*a);
-        } else {
-                dns_resource_key_unref(*a);
-                *a = dns_resource_key_ref(*b);
-        }
+        if ((*a)->n_ref > (*b)->n_ref)
+                DNS_RESOURCE_KEY_REPLACE(*b, dns_resource_key_ref(*a));
+        else
+                DNS_RESOURCE_KEY_REPLACE(*a, dns_resource_key_ref(*b));
 
         return true;
 }
