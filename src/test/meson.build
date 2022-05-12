@@ -478,6 +478,10 @@ tests += [
 
         [files('test-date.c')],
 
+        [files('test-sbat.c'),
+         [], [], [], 'HAVE_GNU_EFI', '',
+         ['-I@0@'.format(efi_config_h_dir)]],
+
         [files('test-sleep.c')],
 
         [files('test-tpm2.c')],
