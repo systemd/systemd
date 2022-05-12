@@ -171,6 +171,7 @@ endif
 efi_config_h = configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
+efi_config_h_dir = meson.current_build_dir()
 
 efi_cflags = cc.get_supported_arguments(
         basic_disabled_warnings +
