@@ -1236,7 +1236,10 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
          * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
          * do not expect non-NUL terminated file system path. */
         if (l+1 > sizeof(ret->sun_path))
-                return -EINVAL;
+                return path[0] == '@' ? -EINVAL : -ENAMETOOLONG; /* return a recognizable error if this is
+                                                                  * too long to fit into a sockaddr_un, but
+                                                                  * is a file system path, and thus might be
+                                                                  * connectible via O_PATH indirection. */
 
         *ret = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
@@ -1422,4 +1425,52 @@ int socket_get_mtu(int fd, int af, size_t *ret) {
 
         *ret = (size_t) mtu;
         return 0;
+}
+
+int connect_unix_path(int fd, int dir_fd, const char *path) {
+        _cleanup_close_ int inode_fd = -1;
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
+        size_t path_len;
+        socklen_t salen;
+
+        assert(fd >= 0);
+        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
+        assert(path);
+
+        /* Connects to the specified AF_UNIX socket in the file system. Works around the 108 byte size limit
+         * in sockaddr_un, by going via O_PATH if needed. This hence works for any kind of path. */
+
+        path_len = strlen(path);
+
+        /* Refuse zero length path early, to make sure AF_UNIX stack won't mistake this for an abstract
+         * namespace path, since first char is NUL */
+        if (path_len <= 0)
+                return -EINVAL;
+
+        if (dir_fd == AT_FDCWD && path_len < sizeof(sa.un.sun_path)) {
+                memcpy(sa.un.sun_path, path, path_len + 1);
+                salen = offsetof(struct sockaddr_un, sun_path) + path_len + 1;
+        } else {
+                const char *proc;
+                size_t proc_len;
+
+                /* If dir_fd is specified, then we need to go the indirect O_PATH route, because connectat()
+                 * does not exist. If the path is too long, we also need to take the indirect route, since we
+                 * can't fit this into a sockaddr_un directly. */
+
+                inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+                if (inode_fd < 0)
+                        return -errno;
+
+                proc = FORMAT_PROC_FD_PATH(inode_fd);
+                proc_len = strlen(proc);
+
+                assert(proc_len < sizeof(sa.un.sun_path));
+                memcpy(sa.un.sun_path, proc, proc_len + 1);
+                salen = offsetof(struct sockaddr_un, sun_path) + proc_len + 1;
+        }
+
+        return RET_NERRNO(connect(fd, &sa.sa, salen));
 }
