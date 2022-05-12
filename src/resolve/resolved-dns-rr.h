@@ -319,6 +319,15 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
 DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+
+#define DNS_RR_REPLACE(a, b)                    \
+        do {                                    \
+                typeof(a)* _a = &(a);           \
+                typeof(b) _b = (b);             \
+                dns_resource_record_unref(*_a); \
+                *_a = _b;                       \
+        } while(0)
+
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);

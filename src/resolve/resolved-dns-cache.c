@@ -378,9 +378,7 @@ static void dns_cache_item_update_positive(
 
                 assert_se(hashmap_replace(c->by_key, rr->key, i) >= 0);
 
-        dns_resource_record_ref(rr);
-        dns_resource_record_unref(i->rr);
-        i->rr = rr;
+        DNS_RR_REPLACE(i->rr, dns_resource_record_ref(rr));
 
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
