@@ -114,6 +114,9 @@ All tools:
   for example in `systemd-nspawn`, will be logged to the audit log, if the
   kernel supports this.
 
+* `$SYSTEMD_ENABLE_LOG_CONTEXT` — if set, extra fields will always be logged to
+the journal instead of only when logging in debug mode.
+
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
