@@ -73,7 +73,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct in6_addr hint = { { { 0x3f, 0xfe, 0x05, 0x01, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } };
         static const char *v1_data = "hogehoge", *v2_data = "foobar";
 
-        if (size > 65536)
+        if (outside_size_range(size, 0, 65536))
                 return 0;
 
         assert_se(sd_event_new(&e) >= 0);

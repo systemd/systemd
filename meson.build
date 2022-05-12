@@ -41,6 +41,11 @@ else
 endif
 conf.set10('LOG_MESSAGE_VERIFICATION', verification)
 
+# If we're building *not* for actual fuzzing, allow input samples of any size
+# (for testing and for reproduction of issues discovered with previously-higher
+# limits).
+conf.set10('FUZZ_IGNORE_SIZE_LIMIT', !fuzzer_build)
+
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
 if want_ossfuzz and want_libfuzzer
