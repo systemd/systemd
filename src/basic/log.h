@@ -367,3 +367,37 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+struct log_context {
+        char *const *fields;
+        struct log_context *prev;
+};
+
+extern thread_local struct log_context *_log_context;
+
+static inline void _log_context_pop(struct log_context **c) {
+        if (!*c)
+                return;
+
+        _log_context = (*c)->prev ?: NULL;
+}
+
+#define _LOG_CONTEXT_PUSH(s, c)                                                     \
+        _cleanup_(_log_context_pop) struct log_context *c = &(struct log_context) { \
+                .fields = (char*[]) { (char *) (s), NULL },                         \
+                .prev = _log_context,                                               \
+        };                                                                          \
+        _log_context = c
+
+#define LOG_CONTEXT_PUSH(s) \
+        _LOG_CONTEXT_PUSH(s, UNIQ_T(c, UNIQ))
+
+#define _LOG_CONTEXT_PUSH_STRV(strv, c)                                             \
+        _cleanup_(_log_context_pop) struct log_context *c = &(struct log_context) { \
+                .fields = (strv),                                                   \
+                .prev = _log_context,                                               \
+        };                                                                          \
+        _log_context = c
+
+#define LOG_CONTEXT_PUSH_STRV(strv) \
+        _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))
