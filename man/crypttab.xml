@@ -104,10 +104,14 @@
       see above and below.</para></listitem>
 
       <listitem><para>The key may be acquired via a PKCS#11 compatible hardware security token or
-      smartcard. In this case an encrypted key is stored on disk/removable media, acquired via
-      <constant>AF_UNIX</constant>, or stored in the LUKS2 JSON token metadata header. The encrypted key is
-      then decrypted by the PKCS#11 token with an RSA key stored on it, and then used to unlock the encrypted
-      volume. Use the <option>pkcs11-uri=</option> option described below to use this mechanism.</para></listitem>
+      smartcard. In this case a savedata used in unlock process is stored on disk/removable media, acquired via
+      <constant>AF_UNIX</constant>, or stored in the LUKS2 JSON token metadata header.</para>
+      <para>For RSA private key, the savedata is an encrypted key. The encrypted key is then decrypted by
+      the PKCS#11 token with an RSA key stored on it, and then used to unlock the encrypted volume.</para>
+      <para> For EC private key, the savedata is the generated public key in enrollment process. The public key
+      is then used to derive shared secret with the private key stored in the PKCS#11 token. Then the derived
+      shared secret is used to unlock the volume.</para><para>Use the <option>pkcs11-uri=</option> option
+      described below to use this mechanism.</para></listitem>
 
       <listitem><para>Similar, the key may be acquired via a FIDO2 compatible hardware security token (which
       must implement the "hmac-secret" extension). In this case a (during enrollment) randomly generated key
@@ -548,7 +552,7 @@
         <term><option>pkcs11-uri=</option></term>
 
         <listitem><para>Takes either the special value <literal>auto</literal> or an <ulink
-        url="https://tools.ietf.org/html/rfc7512">RFC7512 PKCS#11 URI</ulink> pointing to a private RSA key
+        url="https://tools.ietf.org/html/rfc7512">RFC7512 PKCS#11 URI</ulink> pointing to a private key
         which is used to decrypt the encrypted key specified in the third column of the line. This is useful
         for unlocking encrypted volumes through PKCS#11 compatible security tokens or smartcards. See below
         for an example how to set up this mechanism for unlocking a LUKS2 volume with a YubiKey security
@@ -562,11 +566,11 @@
         <literal>auto</literal>. In this mode the third column of the line should remain empty (that is,
         specified as <literal>-</literal>).</para>
 
-        <para>The specified URI can refer directly to a private RSA key stored on a token or alternatively
-        just to a slot or token, in which case a search for a suitable private RSA key will be performed.  In
-        this case if multiple suitable objects are found the token is refused. The encrypted key configured
-        in the third column of the line is passed as is (i.e. in binary form, unprocessed) to RSA
-        decryption. The resulting decrypted key is then Base64 encoded before it is used to unlock the LUKS
+        <para>The specified URI can refer directly to a private key stored on a token or alternatively
+        just to a slot or token, in which case a search for a suitable private key will be performed.  In
+        this case if multiple suitable objects are found the token is refused. The savedata configured
+        in the third column of the line is passed as is (i.e. in binary form, unprocessed) to unlock
+        process. The resulting decrypted key is then Base64 encoded before it is used to unlock the LUKS
         volume.</para>
 
         <para>Use <command>systemd-cryptenroll --pkcs11-token-uri=list</command> to list all suitable PKCS#11
@@ -792,7 +796,7 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       <title>Yubikey-based PKCS#11 Volume Unlocking Example</title>
 
       <para>The PKCS#11 logic allows hooking up any compatible security token that is capable of storing RSA
-      decryption keys for unlocking an encrypted volume. Here's an example how to set up a Yubikey security
+      or EC decryption keys for unlocking an encrypted volume. Here's an example how to set up a Yubikey security
       token for this purpose on a LUKS2 volume, using <citerefentry
       project='debian'><refentrytitle>ykmap</refentrytitle><manvolnum>1</manvolnum></citerefentry> from the
       yubikey-manager project to initialize the token and
