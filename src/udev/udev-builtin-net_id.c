@@ -127,7 +127,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                 const char *n;
 
                 n = startswith(de->d_name, "virtfn");
-                if (!n)
+                if (isempty(n))
                         continue;
 
                 virtfn_link_file = path_join(physfn_syspath, de->d_name);
