@@ -50,6 +50,11 @@ endif
 skip_deps = want_ossfuzz or get_option('skip-deps')
 fuzzer_build = want_ossfuzz or want_libfuzzer
 
+# If we're building *not* for actual fuzzing, allow input samples of any size
+# (for testing and for reproduction of issues discovered with previously-higher
+# limits).
+conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
+
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
 summary({'build mode' : get_option('mode')})
