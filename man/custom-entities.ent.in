@@ -15,5 +15,5 @@
 <!ENTITY HIGH_RLIMIT_NOFILE "{{HIGH_RLIMIT_NOFILE}}">
 <!ENTITY DEFAULT_DNSSEC_MODE "{{DEFAULT_DNSSEC_MODE_STR}}">
 <!ENTITY DEFAULT_DNS_OVER_TLS_MODE "{{DEFAULT_DNS_OVER_TLS_MODE_STR}}">
-<!ENTITY fedora_latest_version "35">
-<!ENTITY fedora_cloud_release "1.2">
+<!ENTITY fedora_latest_version "36">
+<!ENTITY fedora_cloud_release "1.5">
