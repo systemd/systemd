@@ -3,6 +3,8 @@
 conf.set10('ENABLE_EFI', get_option('efi'))
 conf.set10('HAVE_GNU_EFI', false)
 
+efi_config_h_dir = meson.current_build_dir()
+
 if not get_option('efi') or get_option('gnu-efi') == 'false'
         if get_option('gnu-efi') == 'true'
                 error('gnu-efi support requested, but general efi support is disabled')
