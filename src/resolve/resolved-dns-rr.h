@@ -292,6 +292,15 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+
+#define DNS_RESOURCE_KEY_REPLACE(a, b)          \
+        do {                                    \
+                typeof(a)* _a = &(a);           \
+                typeof(b) _b = (b);             \
+                dns_resource_key_unref(*_a);    \
+                *_a = _b;                       \
+        } while(0)
+
 const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);

@@ -568,8 +568,7 @@ int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
 
                 /* Let's remember this entry's RR key, to optimize the loop a bit: if we have an RRset with
                  * more than one item then we don't need to remove the key multiple times */
-                dns_resource_key_unref(prev);
-                prev = dns_resource_key_ref(item->rr->key);
+                DNS_RESOURCE_KEY_REPLACE(prev, dns_resource_key_ref(item->rr->key));
         }
 
         return 0;

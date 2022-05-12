@@ -380,8 +380,7 @@ static void dns_cache_item_update_positive(
 
         DNS_RR_REPLACE(i->rr, dns_resource_record_ref(rr));
 
-        dns_resource_key_unref(i->key);
-        i->key = dns_resource_key_ref(rr->key);
+        DNS_RESOURCE_KEY_REPLACE(i->key, dns_resource_key_ref(rr->key));
 
         DNS_ANSWER_REPLACE(i->answer, dns_answer_ref(answer));
 
