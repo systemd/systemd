@@ -1097,10 +1097,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 assert_not_reached();
         }
 
-        if (t->received != p) {
-                dns_packet_unref(t->received);
-                t->received = dns_packet_ref(p);
-        }
+        if (t->received != p)
+                DNS_PACKET_REPLACE(t->received, dns_packet_ref(p));
 
         t->answer_source = DNS_TRANSACTION_NETWORK;
 

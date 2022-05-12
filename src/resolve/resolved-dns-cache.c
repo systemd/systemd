@@ -384,9 +384,7 @@ static void dns_cache_item_update_positive(
 
         DNS_ANSWER_REPLACE(i->answer, dns_answer_ref(answer));
 
-        dns_packet_ref(full_packet);
-        dns_packet_unref(i->full_packet);
-        i->full_packet = full_packet;
+        DNS_PACKET_REPLACE(i->full_packet, dns_packet_ref(full_packet));
 
         i->until = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false);
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;

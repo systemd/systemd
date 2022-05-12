@@ -201,6 +201,14 @@ DnsPacket *dns_packet_unref(DnsPacket *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 
+#define DNS_PACKET_REPLACE(a, b)                \
+        do {                                    \
+                typeof(a)* _a = &(a);           \
+                typeof(b) _b = (b);             \
+                dns_packet_unref(*_a);          \
+                *_a = _b;                       \
+        } while(0)
+
 int dns_packet_validate(DnsPacket *p);
 int dns_packet_validate_reply(DnsPacket *p);
 int dns_packet_validate_query(DnsPacket *p);
