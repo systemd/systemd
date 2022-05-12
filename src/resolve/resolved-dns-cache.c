@@ -378,20 +378,13 @@ static void dns_cache_item_update_positive(
 
                 assert_se(hashmap_replace(c->by_key, rr->key, i) >= 0);
 
-        dns_resource_record_ref(rr);
-        dns_resource_record_unref(i->rr);
-        i->rr = rr;
+        DNS_RR_REPLACE(i->rr, dns_resource_record_ref(rr));
 
-        dns_resource_key_unref(i->key);
-        i->key = dns_resource_key_ref(rr->key);
+        DNS_RESOURCE_KEY_REPLACE(i->key, dns_resource_key_ref(rr->key));
 
-        dns_answer_ref(answer);
-        dns_answer_unref(i->answer);
-        i->answer = answer;
+        DNS_ANSWER_REPLACE(i->answer, dns_answer_ref(answer));
 
-        dns_packet_ref(full_packet);
-        dns_packet_unref(i->full_packet);
-        i->full_packet = full_packet;
+        DNS_PACKET_REPLACE(i->full_packet, dns_packet_ref(full_packet));
 
         i->until = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false);
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;

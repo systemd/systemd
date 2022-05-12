@@ -60,10 +60,7 @@ static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
         m = ordered_set_size(a->items);
         assert(m <= UINT16_MAX); /* We can only place 64K RRs in an answer at max */
 
-        if (n > UINT16_MAX - m)
-                n = UINT16_MAX;
-        else
-                n += m;
+        n = saturate_add(m, n, UINT16_MAX);
 
         /* Higher multipliers give slightly higher efficiency through hash collisions, but the gains
          * quickly drop off after 2. */
@@ -192,16 +189,11 @@ int dns_answer_add(
 
                 /* Entry already exists, keep the entry with the higher TTL. */
                 if (rr->ttl > exist->rr->ttl) {
-                        dns_resource_record_ref(rr);
-                        dns_resource_record_unref(exist->rr);
-                        exist->rr = rr;
+                        DNS_RR_REPLACE(exist->rr, dns_resource_record_ref(rr));
 
                         /* Update RRSIG and RR at the same time */
-                        if (rrsig) {
-                                dns_resource_record_ref(rrsig);
-                                dns_resource_record_unref(exist->rrsig);
-                                exist->rrsig = rrsig;
-                        }
+                        if (rrsig)
+                                DNS_RR_REPLACE(exist->rrsig, dns_resource_record_ref(rrsig));
                 }
 
                 exist->flags |= flags;
@@ -493,9 +485,7 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
         if (r < 0)
                 return r;
 
-        dns_answer_unref(*a);
-        *a = merged;
-
+        DNS_ANSWER_REPLACE(*a, merged);
         return 0;
 }
 
@@ -578,8 +568,7 @@ int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
 
                 /* Let's remember this entry's RR key, to optimize the loop a bit: if we have an RRset with
                  * more than one item then we don't need to remove the key multiple times */
-                dns_resource_key_unref(prev);
-                prev = dns_resource_key_ref(item->rr->key);
+                DNS_RESOURCE_KEY_REPLACE(prev, dns_resource_key_ref(item->rr->key));
         }
 
         return 0;
@@ -707,10 +696,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         ns = dns_answer_size(*a);
         assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
 
-        if (n_free > UINT16_MAX - ns) /* overflow check */
-                ns = UINT16_MAX;
-        else
-                ns += n_free;
+        ns = saturate_add(ns, n_free, UINT16_MAX);
 
         n = dns_answer_new(ns);
         if (!n)
@@ -720,8 +706,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         if (r < 0)
                 return r;
 
-        dns_answer_unref(*a);
-        *a = TAKE_PTR(n);
+        DNS_ANSWER_REPLACE(*a, TAKE_PTR(n));
         return 0;
 }
 

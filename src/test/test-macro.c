@@ -6,6 +6,15 @@
 #include "macro.h"
 #include "tests.h"
 
+TEST(saturate_add) {
+        assert_se(saturate_add(1, 2, UINT8_MAX) == 3);
+        assert_se(saturate_add(1, UINT8_MAX-2, UINT8_MAX) == UINT8_MAX-1);
+        assert_se(saturate_add(1, UINT8_MAX-1, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(1, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(2, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(60, 60, 50) == 50);
+}
+
 TEST(align_power2) {
         unsigned long i, p2;
 
