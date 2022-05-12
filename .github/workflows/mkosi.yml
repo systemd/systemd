@@ -39,7 +39,7 @@ jobs:
           - distro: ubuntu
             release: focal
           - distro: fedora
-            release: "35"
+            release: "36"
           - distro: opensuse
             release: tumbleweed
           - distro: centos_epel

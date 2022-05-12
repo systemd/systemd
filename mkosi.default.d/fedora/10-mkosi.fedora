@@ -38,7 +38,6 @@ BuildPackages=
         pkgconfig(libfido2)
         pkgconfig(libgcrypt)
         pkgconfig(libidn2)
-        pkgconfig(libiptc)
         pkgconfig(libkmod)
         pkgconfig(liblz4)
         pkgconfig(liblzma)
@@ -65,6 +64,7 @@ BuildPackages=
         /usr/bin/xsltproc
 
 Packages=
+        acl
         gdb
         nano
         # procps-ng provides a set of useful utilities (ps, free, etc)
