@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
-
 /* The head of the linked list. Use this in the structure that shall
  * contain the head of the linked list */
 #define LIST_HEAD(t,name)                                               \
