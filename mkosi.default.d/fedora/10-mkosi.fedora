@@ -65,6 +65,7 @@ BuildPackages=
         /usr/bin/xsltproc
 
 Packages=
+        acl
         gdb
         nano
         # procps-ng provides a set of useful utilities (ps, free, etc)
