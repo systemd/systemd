@@ -38,7 +38,6 @@ BuildPackages=
         pkgconfig(libfido2)
         pkgconfig(libgcrypt)
         pkgconfig(libidn2)
-        pkgconfig(libiptc)
         pkgconfig(libkmod)
         pkgconfig(liblz4)
         pkgconfig(liblzma)
