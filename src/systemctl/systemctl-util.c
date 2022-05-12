@@ -547,7 +547,7 @@ int unit_find_paths(
                         *ret_dropin_paths = NULL;
         }
 
-        if (r == 0 && !arg_force)
+        if (r == 0 && !arg_force && !arg_new) /*If user wants to create new unit, arg_new will be set to true*/
                 log_error("No files found for %s.", unit_name);
 
         return r;
