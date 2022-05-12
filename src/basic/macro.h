@@ -457,8 +457,15 @@ static inline int __coverity_check_and_return__(int condition) {
                 _copy;                                                  \
         })
 
+#define saturate_add(x, y, limit)                                       \
+        ({                                                              \
+                typeof(limit) _x = (x);                                 \
+                typeof(limit) _y = (y);                                 \
+                _x > (limit) || _y >= (limit) - _x ? (limit) : _x + _y; \
+        })
+
 static inline size_t size_add(size_t x, size_t y) {
-        return y >= SIZE_MAX - x ? SIZE_MAX : x + y;
+        return saturate_add(x, y, SIZE_MAX);
 }
 
 typedef struct {
