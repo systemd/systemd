@@ -187,7 +187,7 @@ static int device_coldplug(Unit *u) {
          *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
          *   other units, or (b) generated when uevents are received.
          *
-         * - On switch-root, the udev databse may be cleared, except for devices with sticky bit, i.e.
+         * - On switch-root, the udev database may be cleared, except for devices with sticky bit, i.e.
          *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
          *   we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found must be
          *   ignored, as udev rules in initramfs and the main system are often different. If the deserialized
