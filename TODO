@@ -87,7 +87,7 @@ Features:
   are not directly belonging to the user's UID. Goal: we shouldn't place more
   privileged dirs inside of unprivileged dirs, and thus containers really
   should not be placed inside of traditional UNIX home dirs (which are owned by
-  users themselves) but somewher else, that is separate, but still close
+  users themselves) but somewhere else, that is separate, but still close
   by. Inform user code about path to this companion dir via env var, so that
   container managers find it. the ~/.identity file is also a candidate for a
   file to move there, since it is managed by privileged code (i.e. homed) and
