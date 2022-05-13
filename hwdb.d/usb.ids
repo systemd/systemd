@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2022.05.03
-# Date:    2022-05-03 20:34:10
+# Version: 2022.05.09
+# Date:    2022-05-09 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -21558,6 +21558,12 @@
 	061d  PCTV Deluxe (NTSC) Device
 	061e  PCTV Deluxe (PAL) Device
 	2304  1689
+2309  TimeLink Technology Co., Ltd
+	1001  Touch Device(hid)
+	1005  Touch Device
+	1006  Touch Device(2)
+	1007  MulTouch Device(hid)
+	1009  Touch Device(hid)
 230d  Teracom
 	0103  Huwaii 3g wireless modem
 2314  INQ Mobile

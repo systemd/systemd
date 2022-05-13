@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2022.05.03
-#	Date:    2022-05-03 03:15:01
+#	Version: 2022.05.09
+#	Date:    2022-05-09 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -70,6 +70,8 @@
 018a  LevelOne
 	0106  FPC-0106TX misprogrammed [RTL81xx]
 01de  Oxide Computer Company
+	0000  Propolis NVMe Controller
+	0001  Propolis xHCI Controller
 # probably misprogrammed Intel Atom C2338 on Dell 0K8Y0N board
 0200  Dell (wrong ID)
 # 021b is not Compaq but there is a board misprogrammed
@@ -743,7 +745,7 @@
 		1028 213e  PERC H765i MX
 		1028 213f  PERC H365i Adapter
 		1028 2140  PERC H365i Front
-		1028 2141  PERC H360 MX
+		1028 2141  PERC H365i MX
 		1028 2142  HBA465e Adapter
 		1028 2209  HBA465i Adapter
 		1028 220a  HBA465i Front
@@ -6821,6 +6823,8 @@
 	3505  SH7751 PCI Controller (PCIC)
 	350e  SH7751R PCI Controller (PCIC)
 1055  Microchip Technology / SMSC
+	7430  LAN7430
+	7431  LAN7431
 	9130  SLC90E66 [Victory66] IDE
 	9460  SLC90E66 [Victory66] ISA
 	9462  SLC90E66 [Victory66] USB
@@ -12479,8 +12483,9 @@
 	223f  GA102GL
 	228b  GA104 High Definition Audio Controller
 	2296  Tegra PCIe Endpoint Virtual Network
-	2302  GA103
-	2321  GA103
+	2302  GH100
+	2321  GH100
+	2336  GH100 [H100 96GB]
 	2414  GA103 [GeForce RTX 3060 Ti]
 	2420  GA103M [GeForce RTX 3080 Ti Mobile]
 	2438  GA103GLM [RTX A5500 Laptop GPU]
@@ -17216,8 +17221,42 @@
 	5190  9200 ECO NVMe SSD
 	5191  9200 PRO NVMe SSD
 	5192  9200 MAX NVMe SSD
-	51a2  9300 PRO NVMe SSD
-	51a3  9300 MAX NVMe SSD
+	51a2  7300 PRO NVMe SSD
+	51a3  7300 MAX NVMe SSD
+	51b1  9300 PRO NVMe SSD
+		1344 4000  3.84TB U.2
+		1344 5000  7.68TB U.2
+		1344 6000  15.36TB U.2
+	51b2  9300 MAX NVMe SSD
+		1344 4000  3.2TB U.2
+		1344 5000  6.4 TB U.2
+		1344 6000  12.8TB U.2
+	51c0  7400 PRO NVMe SSD
+		1344 1100  M.2 480GB
+		1344 2000  U.3 960GB
+		1344 2100  M.2 960GB
+		1344 2600  E1.S 960GB
+		1344 2b00  M.2 1920GB
+		1344 2d00  E1.2 1920GB
+		1344 3000  U.3 1920GB
+		1344 3e00  M.2 3840GB
+		1344 3f00  E1.S 3840GB
+		1344 4000  U.3 3840GB
+		1344 5000  U.3 7680GB
+	51c1  7400 MAX NVMe SSD
+		1344 1100  M.2 400GB
+		1344 2000  U.3 800GB
+		1344 2100  M.2 800GB
+		1344 2600  E1.S 800GB
+		1344 2b00  M.2 1600GB
+		1344 2d00  E1.S 1600GB
+		1344 3000  U.3 1600GB
+		1344 3e00  M.2 3200GB
+		1344 3f00  E1.S 3200GB
+		1344 4000  U.3 3200GB
+		1344 5000  U.3 6400GB
+	51c3  7450 PRO NVMe SSD
+	51c4  7450 MAX NVMe SSD
 1345  Arescom Inc
 1347  Odetics
 1349  Sumitomo Electric Industries, Ltd.
@@ -18734,6 +18773,8 @@
 	6088  T62100-6088 Unified Wire Ethernet Controller
 	6089  T62100-6089 Unified Wire Ethernet Controller
 	608a  T62100-608a Unified Wire Ethernet Controller
+	6092  T62100-KR Unified Wire Ethernet Controller
+		01de fff9  Gimlet T6
 	6401  T6225-CR Unified Wire Ethernet Controller
 	6402  T6225-SO-CR Unified Wire Ethernet Controller
 	6403  T6425-CR Unified Wire Ethernet Controller
@@ -18758,6 +18799,8 @@
 	6488  T62100-6088 Unified Wire Ethernet Controller
 	6489  T62100-6089 Unified Wire Ethernet Controller
 	648a  T62100-608a Unified Wire Ethernet Controller
+	6492  T62100-KR Unified Wire Ethernet Controller
+		01de fff9  Gimlet T6
 	6501  T6225-CR Unified Wire Storage Controller
 	6502  T6225-SO-CR Unified Wire Storage Controller
 	6503  T6425-CR Unified Wire Storage Controller
@@ -18782,6 +18825,7 @@
 	6588  T62100-6088 Unified Wire Storage Controller
 	6589  T62100-6089 Unified Wire Storage Controller
 	658a  T62100-608a Unified Wire Storage Controller
+	6592  T62100-KR Unified Wire Storage Controller
 	6601  T6225-CR Unified Wire Storage Controller
 	6602  T6225-SO-CR Unified Wire Storage Controller
 	6603  T6425-CR Unified Wire Storage Controller
@@ -18806,6 +18850,7 @@
 	6688  T62100-6088 Unified Wire Storage Controller
 	6689  T62100-6089 Unified Wire Storage Controller
 	668a  T62100-608a Unified Wire Storage Controller
+	6692  T62100-KR Unified Wire Storage Controller
 	6801  T6225-CR Unified Wire Ethernet Controller [VF]
 	6802  T6225-SO-CR Unified Wire Ethernet Controller [VF]
 	6803  T6425-CR Unified Wire Ethernet Controller [VF]
@@ -23434,7 +23479,9 @@
 # nee Qumranet, Inc.
 1af4  Red Hat, Inc.
 	1000  Virtio network device
+		01de fffb  Propolis Virtio network device
 	1001  Virtio block device
+		01de fffa  Propolis Virtio block device
 	1002  Virtio memory balloon
 	1003  Virtio console
 	1004  Virtio SCSI
@@ -24749,6 +24796,45 @@
 		1f2f 6115  KM660 U.2 3.2TB NVMe SSD
 		1f2f 6116  KM560 U.2 3.84TB NVMe SSD
 		1f2f 6118  KM560 U.2 7.68TB NVMe SSD
+1f3f  3SNIC Ltd
+	2100  3SRAID SAS/SATA HBA
+		1f3f 0120  HBA 32 Ports
+		1f3f 0125  HBA 40 Ports
+		1f3f 0180  HBA 16 Ports
+		1f3f 0185  HBA 8 Ports
+	2200  3SRAID RAID controller
+		1f3f 0185  RAID Controller 16 Ports with 2G Cache
+		1f3f 01a1  RAID Controller 40 Ports with 2G Cache
+		1f3f 01a4  RAID Controller 16 Ports with 4G Cache
+		1f3f 01a8  RAID Controller 32 Ports with 4G Cache
+		1f3f 01ad  RAID Controller 40 Ports with 4G Cache
+	9001  Ethernet VF
+		1f3f 1000  Ethernet VF
+	9002  Ethernet VF Hyper-V
+		1f3f 1000  Ethernet VF Hyper-V
+	9003  Ethernet SDI VF
+		1f3f 1000  Ethernet SDI VF
+	9004  Ethernet SDI VF Hyper-V
+		1f3f 1000  Ethernet SDI VF Hyper-V
+	9008  3SFC VF
+		1f3f 1000  3SFC VF
+	9009  3SFC VF Hyper-V
+		1f3f 1000  3SFC VF Hyper-V
+	9010  3SFC FC Controller
+		1f3f 0041  Dual Port 16GE FC to PCIe Gen4 x16 Adapter
+		1f3f 0061  Dual Port 32GE FC to PCIe Gen4 x16 Adapter
+	9020  Ethernet Network Adapter
+		1f3f 0051  Dual Port 25GE Ethernet Network Adapter
+		1f3f 0052  Quad Port 25GE Ethernet Network Adapter
+		1f3f 00a1  Dual Port 100GE Ethernet Network Adapter
+	9030  IPU
+		1f3f 0051  Dual Port 25GE IPU
+	9031  SDI5.0
+		1f3f 0051  Dual Port 25GE SDI5.0lite
+		1f3f 00a1  Dual Port 100GE SDI5.0
+	9032  SDI5.1
+		1f3f 00a1  Dual Port 100GE SDI5.1
+1faa  Hexaflake (Shanghai) Information Technology Co., Ltd.
 1fab  Unifabrix Ltd.
 	0000  Nexus Alpha IVPU
 # nee Tumsan Oy
@@ -25278,8 +25364,6 @@
 5168  Animation Technologies Inc.
 	0300  FlyDVB-S
 	0301  FlyDVB-T
-51d8  Alder Lake-P Serial IO I2C Controller #2
-51d9  Alder Lake-P Serial IO I2C Controller #3
 5301  Alliance Semiconductor Corp.
 	0001  ProMotion aT3D
 5333  S3 Graphics Ltd.
@@ -25498,11 +25582,11 @@
 	1800  CooVOX TDM BRI Module
 6766  Glenfly Tech Co., Ltd.
 	3d00  Arise-GT-10C0
-	3d02  Arise 1020
+	3d02  Arise1020
 	3d03  Arise-GT-1040
 	3d04  Arise1010
 	3d40  Arise-GT-10C0 High Definition Audio Controller
-	3d41  Arise 1020 High Definition Audio Controller
+	3d41  Arise1020 High Definition Audio Controller
 6899  ZT Systems
 # nee Qumranet
 6900  Red Hat, Inc.
@@ -27378,6 +27462,7 @@
 	1234  430MX - 82371MX Mobile PCI I/O IDE Xcelerator (MPIIX)
 	1235  430MX - 82437MX Mob. System Ctrlr (MTSC) & 82438MX Data Path (MTDP)
 	1237  440FX - 82441FX PMC [Natoma]
+		01de fffe  Propolis Virtual 440FX
 		1af4 1100  Qemu virtual machine
 	1239  82371FB PIIX IDE Interface
 	123b  82380PB PCI to PCI Docking Bridge
@@ -32754,6 +32839,7 @@
 	6ffd  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Caching Agent
 	6ffe  Xeon E7 v4/Xeon E5 v4/Xeon E3 v4/Xeon D Caching Agent
 	7000  82371SB PIIX3 ISA [Natoma/Triton II]
+		01de fffd  Propolis Virtual PIIX3 ISA Controller
 		1af4 1100  Qemu virtual machine
 	7010  82371SB PIIX3 IDE [Natoma/Triton II]
 		1af4 1100  Qemu virtual machine
@@ -32771,6 +32857,7 @@
 		15ad 1976  Virtual Machine Chipset
 		1af4 1100  QEMU Virtual Machine
 	7113  82371AB/EB/MB PIIX4 ACPI
+		01de fffc  Propolis Virtual PIIX4 PM Controller
 		15ad 1976  Virtual Machine Chipset
 		1af4 1100  Qemu virtual machine
 	7120  82810 GMCH (Graphics Memory Controller Hub)
@@ -32845,6 +32932,9 @@
 	7aa4  Alder Lake-S PCH SPI Controller
 	7aa7  Alder Lake-S PCH Shared SRAM
 	7ab4  Alder Lake-S PCH PCI Express Root Port #13
+	7ab8  Alder Lake-S PCH PCI Express Root Port #1
+	7ab9  Alder Lake-S PCH PCI Express Root Port #2
+	7abc  Alder Lake-S PCH PCI Express Root Port #5
 	7abd  Alder Lake-S PCH PCI Express Root Port #6
 	7acc  Alder Lake-S PCH I2C Controller #0
 	7ad0  Alder Lake-S HD Audio Controller
