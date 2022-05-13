@@ -64613,6 +64613,24 @@ usb:v2304p061E*
 usb:v2304p2304*
  ID_MODEL_FROM_DATABASE=1689
 
+usb:v2309*
+ ID_VENDOR_FROM_DATABASE=TimeLink Technology Co., Ltd
+
+usb:v2309p1001*
+ ID_MODEL_FROM_DATABASE=Touch Device(hid)
+
+usb:v2309p1005*
+ ID_MODEL_FROM_DATABASE=Touch Device
+
+usb:v2309p1006*
+ ID_MODEL_FROM_DATABASE=Touch Device(2)
+
+usb:v2309p1007*
+ ID_MODEL_FROM_DATABASE=MulTouch Device(hid)
+
+usb:v2309p1009*
+ ID_MODEL_FROM_DATABASE=Touch Device(hid)
+
 usb:v230D*
  ID_VENDOR_FROM_DATABASE=Teracom
 
