@@ -512,6 +512,14 @@ evdev:input:b0003v0458p0708*
  KEYBOARD_KEY_0900fc=screenlock
 
 ###########################################################
+# Google
+###########################################################
+
+# Google Hangouts Meet speakermic
+evdev:input:b0003v18D1p8001*
+ KEYBOARD_KEY_b002f=reserved                            # Disable micmute key
+
+###########################################################
 # Hewlett Packard
 ###########################################################
 
