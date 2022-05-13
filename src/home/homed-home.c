@@ -402,11 +402,9 @@ static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
         /* Free the deactivation retry event source if we won't need it anymore. Specifically, we'll free the
          * event source whenever the home directory is already deactivated (and we thus where successful) or
          * if we start executing an operation that indicates that the home directory is going to be used or
-         * operated on again. Also, if the home is referenced again stop the timer */
+         * operated on again. Also, if the home is referenced again stop the timer. */
 
-        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) &&
-            !h->ref_event_source_dont_suspend &&
-            !h->ref_event_source_please_suspend)
+        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) && !home_is_referenced(h))
                 return;
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
@@ -454,7 +452,7 @@ static void home_start_retry_deactivate(Home *h) {
                 return;
 
         /* If the home directory is being used now don't start the timer */
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (home_is_referenced(h))
                 return;
 
         r = sd_event_add_time_relative(
@@ -2590,7 +2588,7 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         if (h->ref_event_source_dont_suspend == s)
                 h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
 
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (home_is_referenced(h))
                 return 0;
 
         log_info("Got notification that all sessions of user %s ended, deactivating automatically.", h->user_name);
@@ -2718,6 +2716,19 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         return 1;
 }
 
+bool home_is_referenced(Home *h) {
+        assert(h);
+
+        return h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend;
+}
+
+bool home_shall_suspend(Home *h) {
+        assert(h);
+
+        /* Suspend if there's at least one client referencing this home directory that wants a suspend and none who does not. */
+        return h->ref_event_source_please_suspend && !h->ref_event_source_dont_suspend;
+}
+
 static int home_dispatch_release(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2726,7 +2737,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_RELEASE);
 
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (home_is_referenced(h))
                 /* If there's now a reference again, then let's abort the release attempt */
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_BUSY, "Home %s is currently referenced.", h->user_name);
         else {
@@ -2863,7 +2874,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_PIPE_EOF);
 
-        if (h->ref_event_source_please_suspend || h->ref_event_source_dont_suspend)
+        if (home_is_referenced(h))
                 return 1; /* Hmm, there's a reference again, let's cancel this */
 
         switch (home_get_state(h)) {

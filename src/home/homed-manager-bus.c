@@ -595,10 +595,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 
         HASHMAP_FOREACH(h, m->homes_by_name) {
 
-                /* Automatically suspend all homes that have at least one client referencing it that asked
-                 * for "please suspend", and no client that asked for "please do not suspend". */
-                if (h->ref_event_source_dont_suspend ||
-                    !h->ref_event_source_please_suspend)
+                if (!home_shall_suspend(h))
                         continue;
 
                 if (!o) {
