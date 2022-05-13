@@ -903,6 +903,20 @@ itself.
 `fileSystemType` → The file system type backing the home directory: a short
 string, such as "btrfs", "ext4", "xfs".
 
+`fallbackShell`, `fallbackHomeDirectory` → These fields have the same contents
+and format as the `shell` and `homeDirectory` fields (see above). When the
+`useFallback` field (see below) is set to true, the data from these fields
+should override the fields of the same name without the `fallback` prefix.
+
+`useFallback` → A boolean that allows choosing between the regular `shell` and
+`homeDirectory` fields or the fallback fields of the same name (see above). If
+`true` the fallback fields should be used in place of the regular fields, if
+`false` or unset the regular fields should be used. This mechanism is used for
+enable subsystems such as SSH to allow logins into user accounts, whose homd
+directories need further unlocking (because the SSH native authentication
+cannot release a suitabable disk encryption key), which the fallback shell
+provides.
+
 ## Fields in the `signature` section
 
 As mentioned, the `signature` section of the user record may contain one or
