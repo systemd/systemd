@@ -776,7 +776,7 @@ int read_full_file_full(
 
                 /* Seeking is not supported on AF_UNIX sockets */
                 if (offset != UINT64_MAX)
-                        return -ESPIPE;
+                        return -ENXIO;
 
                 if (dir_fd == AT_FDCWD)
                         r = sockaddr_un_set_path(&sa.un, filename);
@@ -809,7 +809,7 @@ int read_full_file_full(
                                 return r;
 
                         if (bind(sk, &bsa.sa, r) < 0)
-                                return r;
+                                return -errno;
                 }
 
                 if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
