@@ -52,6 +52,8 @@ typedef struct Link {
         int ifindex;
         int master_ifindex;
         int dsa_master_ifindex;
+        int phys_port_ifindex; /* The ifindex of the corresponding SR-IOV PF. Initially 0, and will later be
+                                * set to either -1 (when the link is not a SR-IOV VF) or positive. */
         char *ifname;
         char **alternative_names;
         char *kind;

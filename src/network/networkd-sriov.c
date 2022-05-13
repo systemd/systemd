@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
+#include "chase-symlinks.h"
+#include "device-enumerator-private.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -102,4 +106,129 @@ int link_request_sr_iov_vfs(Link *link) {
                 log_link_debug(link, "Configuring SR-IOV");
 
         return 0;
+}
+
+static int link_find_sr_iov_phys_port(Link *link, Link **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *pci_dev = NULL, *pci_physfn_dev = NULL;
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        const char *pci_syspath, *pci_physfn_syspath, *dev_port;
+        _cleanup_closedir_ DIR *dir = NULL;
+        sd_device **devices;
+        size_t n_devices;
+        bool found = false;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        if (link->phys_port_ifindex > 0)
+                return link_get_by_index(link->manager, link->phys_port_ifindex, ret);
+
+        if (link->phys_port_ifindex < 0) /* Previously parsed, and not found. */
+                return -ENODEV;
+
+        link->phys_port_ifindex = -1;
+
+        if (!link->sd_device)
+                return -ENODEV;
+
+        r = sd_device_get_sysattr_value(link->sd_device, "dev_port", &dev_port);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_parent_with_subsystem_devtype(link->sd_device, "pci", NULL, &pci_dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(pci_dev, &pci_syspath);
+        if (r < 0)
+                return r;
+
+        pci_physfn_syspath = strjoina(pci_syspath, "/physfn");
+        r = sd_device_new_from_syspath(&pci_physfn_dev, pci_physfn_syspath);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(pci_physfn_dev, &pci_physfn_syspath);
+        if (r < 0)
+                return r;
+
+        dir = opendir(pci_physfn_syspath);
+        if (!dir)
+                return -errno;
+
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                _cleanup_free_ char *virtfn_link_file = NULL, *virtfn_pci_syspath = NULL;
+
+                if (isempty(startswith(de->d_name, "virtfn")))
+                        continue;
+
+                virtfn_link_file = path_join(pci_physfn_syspath, de->d_name);
+                if (!virtfn_link_file)
+                        return -ENOMEM;
+
+                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath, NULL) < 0)
+                        continue;
+
+                if (path_equal(pci_syspath, virtfn_pci_syspath)) {
+                        found = true;
+                        break;
+                }
+        }
+        if (!found)
+                return -ENODEV;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, pci_physfn_dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "net", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "dev_port", dev_port, true);
+        if (r < 0)
+                return r;
+
+        r = device_enumerator_scan_devices(e);
+        if (r < 0)
+                return r;
+
+        devices = device_enumerator_get_devices(e, &n_devices);
+        if (!devices || n_devices <= 0)
+                return -ENODEV;
+        if (n_devices > 1)
+                return -ENXIO;
+
+        r = sd_device_get_ifindex(devices[0], &link->phys_port_ifindex);
+        if (r < 0)
+                return r;
+
+        assert(link->phys_port_ifindex > 0);
+        log_link_debug(link,
+                       "Found SR-IOV PF device '%s' and its physical network interface %i.",
+                       pci_physfn_syspath, link->phys_port_ifindex);
+
+        return link_get_by_index(link->manager, link->phys_port_ifindex, ret);
+}
+
+bool sr_iov_vf_is_ready_to_configure(Link *link) {
+        Link *sr_iov_phys_port;
+
+        assert(link);
+
+        /* If PF becomes down, then VFs also become down, and may fail to configure VFs. See issue #23315. */
+
+        if (link_find_sr_iov_phys_port(link, &sr_iov_phys_port) < 0)
+                return true;
+
+        return link_is_ready_to_configure(sr_iov_phys_port, /* allow_unmanaged = */ true);
 }
