@@ -325,6 +325,10 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
  EVDEV_ABS_35=::10
  EVDEV_ABS_36=::10
 
+# Google Hangouts Meet speakermic
+evdev:input:b0003v18D1p8001*
+ KEYBOARD_KEY_b002f=reserved
+
 #########################################
 # HP
 #########################################
