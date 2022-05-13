@@ -126,8 +126,11 @@ bool link_ipv6_enabled(Link *link) {
         return false;
 }
 
-bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
+static bool link_is_ready_to_configure_one(Link *link, bool allow_unmanaged) {
         assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return false;
 
         if (!link->network) {
                 if (!allow_unmanaged)
@@ -135,9 +138,6 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
 
                 return link_has_carrier(link);
         }
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
 
         if (!link->network->configure_without_carrier) {
                 if (link->set_flags_messages > 0)
@@ -152,6 +152,33 @@ bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
 
         if (!link->activated)
                 return false;
+
+        return true;
+}
+
+bool link_is_ready_to_configure(Link *link, bool allow_unmanaged) {
+        assert(link);
+
+        if (!link_is_ready_to_configure_one(link, allow_unmanaged))
+                return false;
+
+        /* Some driver may make VF ports become down when their PF port becomes down, and may fail to
+         * configure VF ports. Also, when a VF port becomes up/down, its PF port and other VF ports may
+         * become down. See issue #23315. */
+
+        Link *pf;
+        if (link_find_sr_iov_phys_port(link, &pf) >= 0) {
+                if (!link_is_ready_to_configure_one(pf, /* allow_unmanaged = */ true))
+                        return false;
+
+                link = pf; /* If this link is a VF port, then also check other VFs. */
+        }
+
+        _cleanup_free_ Link **vfs = NULL;
+        int n = link_find_sr_iov_virt_ports(link, &vfs);
+        for (int i = 0; i < n; i++)
+                if (!link_is_ready_to_configure_one(vfs[i], /* allow_unmanaged = */ true))
+                        return false;
 
         return true;
 }
@@ -2037,7 +2064,7 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
         if (link->master_ifindex == 0)
                 log_link_debug(link, "Joined to master interface: %i", master_ifindex);
         else if (master_ifindex == 0)
-                log_link_debug(link, "Leaved from master interface: %i", link->master_ifindex);
+                log_link_debug(link, "Left from master interface: %i", link->master_ifindex);
         else
                 log_link_debug(link, "Master interface is changed: %i → %i", link->master_ifindex, master_ifindex);
 
