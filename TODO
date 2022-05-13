@@ -79,6 +79,51 @@ Janitorial Clean-ups:
 
 Features:
 
+* homed/userdb: maybe define a "companion" dir for home directories where apps
+  can safely put privileged stuff in. Would not be writable by the user, but
+  still conceptually belong to the user. Would be included in user's quota if
+  possible, even if files are not owned by UID of user. Usecase: container
+  images that owned by arbitrary UIDs, and are owned/managed by the users, but
+  are not directly belonging to the user's UID. Goal: we shouldn't place more
+  privileged dirs inside of unprivileged dirs, and thus containers really
+  should not be placed inside of traditional UNIX home dirs (which are owned by
+  users themselves) but somewher else, that is separate, but still close
+  by. Inform user code about path to this companion dir via env var, so that
+  container managers find it. the ~/.identity file is also a candidate for a
+  file to move there, since it is managed by privileged code (i.e. homed) and
+  not unprivileged code.
+
+* given that /etc/ssh/ssh_config.d/ is a thing now, ship a drop-in for that
+  that hooks up userbdctl ssh-key stuff.
+
+* allow embedding a signature blob for PCR hashes into separate section in
+  unified kernel binaries. This section should be picked up by sd-stub, and
+  passed in a file to the booted kernel (via initrd cpio, as usual). Usecase:
+  this way we can implement disk encryption policies that bind to specific
+  kernel PCR state, without breaking things on every kernel update. As long as
+  the kernel includes the PCR signature blob we should be good, as disk
+  encryption can then pass the signature to the TPM to unlock their secrets.
+  Why do this via a separate PE section? That's because the PCR state depends
+  on the measured kernel/initrd of course, thus we cannot put the signature
+  into the kernel/initrd itself, because that would require a time machine.
+  Hence we have to find a separate place. A simple solution is a PE section
+  of its own, because then it is next to the kernel and initrd which after all
+  are stored in PE sections of their own too. Building a unified kernel would
+  thus mean, calculating PCR values for the raw kernel image, and raw initrd
+  image, then signing those PCR values with a vendor key, and then combining
+  sd-stub, raw kernel image, raw initrd, and PCR signature into a unified
+  kernel image.
+
+* a new tool "systemd-trust" or so, that can calculate PCR hashes offline, and
+  optionally sign them. for that we should extend our syntax for specifying pcr
+  policies (e.g. the string like "4+7+9") so that it can also include explicit
+  hash values, i.e.
+  4=sha256:0ef149998289474e4bb31813edda6ad7f3c991b2d8dec6e8fe4db7a1f039f2d1+7=sha256:87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7+9=sha256:0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f
+  and file names to calculate hashes from, i.e.
+  4=file:/boot/vmlinuz+7=file:/boot/initrd/+9=file:/etc/fstab"
+  The systemd-trust tool should then be able to resolve any "underspecifed"
+  form into the form with explicit hash values.
+
 * maybe add support for binding and connecting AF_UNIX sockets in the file
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
   inode first, then connect to /proc/self/fd/XYZ. When binding, create symlink
