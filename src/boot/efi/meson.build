@@ -223,7 +223,7 @@ if get_option('b_ndebug') == 'true' or (
         efi_cflags += ['-DNDEBUG']
 endif
 if get_option('b_lto')
-        efi_cflags += ['-flto']
+        efi_cflags += cc.has_argument('-flto=auto') ? ['-flto=auto'] : ['-flto']
 endif
 
 foreach arg : get_option('c_args')
