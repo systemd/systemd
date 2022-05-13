@@ -622,9 +622,6 @@ static int mount_add_extras(Mount *m) {
 
         if (!m->where) {
                 r = unit_name_to_path(u->id, &m->where);
-                if (r == -ENAMETOOLONG)
-                        log_unit_error_errno(u, r, "Failed to derive mount point path from unit name, because unit name is hashed. "
-                                                   "Set \"Where=\" in the unit file explicitly.");
                 if (r < 0)
                         return r;
         }
@@ -1574,14 +1571,14 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = mount_add_non_exec_dependencies(MOUNT(u));
-        if (r < 0)
-                return r;
-
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
          * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
          * to. */
         MOUNT(u)->from_proc_self_mountinfo = true;
+
+        r = mount_add_non_exec_dependencies(MOUNT(u));
+        if (r < 0)
+                return r;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
          * loaded in now. */
@@ -1691,37 +1688,14 @@ static int mount_setup_unit(
         if (!is_path(where))
                 return 0;
 
-        /* Mount unit names have to be (like all other unit names) short enough to fit into file names. This
-         * means there's a good chance that overly long mount point paths after mangling them to look like a
-         * unit name would result in unit names we don't actually consider valid. This should be OK however
-         * as such long mount point paths should not happen on regular systems — and if they appear
-         * nonetheless they are generally synthesized by software, and thus managed by that other
-         * software. Having such long names just means you cannot use systemd to manage those specific mount
-         * points, which should be an OK restriction to make. After all we don't have to be able to manage
-         * all mount points in the world — as long as we don't choke on them when we encounter them. */
         r = unit_name_from_path(where, ".mount", &e);
-        if (r < 0) {
-                static RateLimit rate_limit = { /* Let's log about this at warning level at most once every
-                                                 * 5s. Given that we generate this whenever we read the file
-                                                 * otherwise we probably shouldn't flood the logs with
-                                                 * this */
-                        .interval = 5 * USEC_PER_SEC,
-                        .burst = 1,
-                };
-
-                if (r == -ENAMETOOLONG)
-                        return log_struct_errno(
-                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
-                                        "MOUNT_POINT=%s", where,
-                                        LOG_MESSAGE("Mount point path '%s' too long to fit into unit name, ignoring mount point.", where));
-
+        if (r < 0)
                 return log_struct_errno(
-                                ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                LOG_WARNING, r,
                                 "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
                                 "MOUNT_POINT=%s", where,
-                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m", where));
-        }
+                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m",
+                                            where));
 
         u = manager_get_unit(m, e);
         if (u)
