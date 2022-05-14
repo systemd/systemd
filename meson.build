@@ -2140,13 +2140,16 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                                         librt],
                         link_depends : sym,
                         install : true,
+                        install_tag : 'nss',
                         install_dir : rootlibdir)
 
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
                 meson.add_install_script('sh', '-c',
                                          'rm $DESTDIR@0@/libnss_@1@.so'
-                                         .format(rootlibdir, module))
+                                         .format(rootlibdir, module),
+                                         install_tag : 'nss'
+                                         )
 
                 if want_tests != 'false'
                         test('dlopen-nss_' + module,
