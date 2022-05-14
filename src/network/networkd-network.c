@@ -383,6 +383,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .required_for_online = -1,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
+                .group = -1,
                 .arp = -1,
                 .multicast = -1,
                 .allmulticast = -1,
