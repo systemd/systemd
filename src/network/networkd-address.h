@@ -61,6 +61,9 @@ struct Address {
 
         /* Called when address become ready */
         address_ready_callback_t callback;
+
+        /* NetLabel */
+        Set *netlabels;
 };
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
@@ -135,3 +138,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);
