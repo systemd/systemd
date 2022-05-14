@@ -1661,7 +1661,7 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
                 return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
-                if (sd_is_socket(fd, AF_LOCAL, SOCK_SEQPACKET, -1) > 0) {
+                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0)
                                 return -EINVAL;
                         ctrl_fd = fd;
@@ -1979,7 +1979,7 @@ static int main_loop(Manager *manager) {
         manager->pid = getpid_cached();
 
         /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
 
