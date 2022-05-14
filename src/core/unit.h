@@ -86,6 +86,8 @@ typedef enum UnitDependencyMask {
          * DefaultDependencies= and thus also involving configuration from UNIT_DEPENDENCY_FILE sources */
         UNIT_DEPENDENCY_MOUNTINFO_DEFAULT  = 1 << 6,
 
+        UNIT_DEPENDENCY_MASK_MOUNTINFO     = UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT | UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,
+
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
 
