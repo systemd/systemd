@@ -34,7 +34,7 @@ BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
 if [ "$BOOT_MNT" = '/' ]; then
     ENTRY_DIR="$ENTRY_DIR_ABS"
 else
-    ENTRY_DIR="${ENTRY_DIR_ABS#$BOOT_MNT}"
+    ENTRY_DIR="${ENTRY_DIR_ABS#"$BOOT_MNT"}"
 fi
 
 case "$COMMAND" in
@@ -53,8 +53,10 @@ case "$COMMAND" in
 esac
 
 if [ -r /etc/os-release ]; then
+    # shellcheck source=/dev/null
     . /etc/os-release
 elif [ -r /usr/lib/os-release ]; then
+    # shellcheck source=/dev/null
     . /usr/lib/os-release
 fi
 
