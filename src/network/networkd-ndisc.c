@@ -1120,7 +1120,7 @@ static int ndisc_process_request(Request *req, Link *link, void *userdata) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return 0;
 
         if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
