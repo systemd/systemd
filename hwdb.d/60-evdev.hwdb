@@ -588,6 +588,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen2a:*
  EVDEV_ABS_35=::44
  EVDEV_ABS_36=::52
 
+# Lenovo ThinkPad T15g Gen1
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadT15gGen1**
+ EVDEV_ABS_00=::44
+ EVDEV_ABS_01=::50
+ EVDEV_ABS_35=::44
+ EVDEV_ABS_36=::50
+
 # Lenovo Legion Y9000X2020
 evdev:name:MSFT0001:02 04F3:304B Touchpad:dmi:*svnLENOVO:*pvrLenovoLegionY9000X2020:*
  EVDEV_ABS_00=::31
