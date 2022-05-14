@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-shopt -s nullglob
-
 COMMAND="$1"
 KERNEL_VERSION="$2"
 ENTRY_DIR_ABS="$3"
@@ -105,9 +103,10 @@ install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
 }
 
 shift "$INITRD_OPTIONS_SHIFT"
-# All files listed as arguments, and staged files called "initrd*" are installed as initrds.
+# All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
 for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
     [ -f "$initrd" ] || {
+        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd*" ] && continue
         echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
@@ -139,6 +138,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
 
     have_initrd=
     for initrd in "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+        [ -f "$initrd" ] || continue
         echo "initrd     $ENTRY_DIR/${initrd##*/}"
         have_initrd=yes
     done
