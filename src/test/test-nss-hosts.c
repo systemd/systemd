@@ -324,7 +324,7 @@ static void test_byname(void *handle, const char *module, const char *name) {
         puts("");
         test_gethostbyname3_r(handle, module, name, AF_UNSPEC);
         puts("");
-        test_gethostbyname3_r(handle, module, name, AF_LOCAL);
+        test_gethostbyname3_r(handle, module, name, AF_UNIX);
         puts("");
 
         test_gethostbyname2_r(handle, module, name, AF_INET);
@@ -333,7 +333,7 @@ static void test_byname(void *handle, const char *module, const char *name) {
         puts("");
         test_gethostbyname2_r(handle, module, name, AF_UNSPEC);
         puts("");
-        test_gethostbyname2_r(handle, module, name, AF_LOCAL);
+        test_gethostbyname2_r(handle, module, name, AF_UNIX);
         puts("");
 
         test_gethostbyname_r(handle, module, name);

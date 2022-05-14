@@ -53,7 +53,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         assert(ret);
 
         if (fd < 0) {
-                sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+                sock = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
                 if (sock < 0)
                         return log_error_errno(errno, "Failed to create socket: %m");
         }
