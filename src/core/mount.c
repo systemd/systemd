@@ -1958,7 +1958,7 @@ static int drain_libmount(Manager *m) {
 }
 
 static int mount_process_proc_self_mountinfo(Manager *m) {
-        _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
+        _cleanup_set_free_ Set *gone = NULL;
         const char *what;
         int r;
 
@@ -1989,13 +1989,10 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                          * existed. */
 
                         if (mount->from_proc_self_mountinfo &&
-                            mount->parameters_proc_self_mountinfo.what) {
-
+                            mount->parameters_proc_self_mountinfo.what)
                                 /* Remember that this device might just have disappeared */
-                                if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
-                                    set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
                                         log_oom(); /* we don't care too much about OOM here... */
-                        }
 
                         mount->from_proc_self_mountinfo = false;
                         assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
@@ -2053,25 +2050,17 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
                 if (mount_is_mounted(mount) &&
                     mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what) {
-                        /* Track devices currently used */
-
-                        if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
-                            set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
-                                log_oom();
-                }
+                    mount->parameters_proc_self_mountinfo.what)
+                        /* Exclude devices currently used */
+                        free(set_remove(gone, mount->parameters_proc_self_mountinfo.what));
 
                 /* Reset the flags for later calls */
                 mount->proc_flags = 0;
         }
 
-        SET_FOREACH(what, gone) {
-                if (set_contains(around, what))
-                        continue;
-
+        SET_FOREACH(what, gone)
                 /* Let the device units know that the device is no longer mounted */
                 device_found_node(m, what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
-        }
 
         return 0;
 }
