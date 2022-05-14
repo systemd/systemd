@@ -31,6 +31,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-sriov.h"
 #include "nlmon.h"
 #include "path-lookup.h"
 #include "siphash24.h"
@@ -604,24 +605,67 @@ static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
         return 0;
 }
 
+static bool link_is_ready_to_create_stacked_netdev_one(Link *link, bool allow_unmanaged) {
+        assert(link);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED, LINK_STATE_UNMANAGED))
+                return false;
+
+        if (!link->network)
+                return allow_unmanaged;
+
+        if (link->set_link_messages > 0)
+                return false;
+
+        /* If stacked netdevs are created before the underlying interface being activated, then
+         * the activation policy for the netdevs are ignored. See issue #22593. */
+        if (!link->activated)
+                return false;
+
+        return true;
+}
+
+static bool link_is_ready_to_create_stacked_netdev(Link *link) {
+        assert(link);
+
+        if (!link_is_ready_to_create_stacked_netdev_one(link, /* allow_unmanaged = */ false))
+                return false;
+
+        /* Some drivers make VF ports become down when their PF port becomes down, and may fail to configure
+         * VF ports. Also, when a VF port becomes up/down, its PF port and other VF ports may become down.
+         * See issue #23315. */
+
+        Link *pf;
+        if (link_get_sr_iov_phys_port(link, &pf) > 0) {
+                if (!link_is_ready_to_create_stacked_netdev_one(pf, /* allow_unmanaged = */ true))
+                        return false;
+
+                link = pf; /* If this link is a VF port, then also check other VFs. */
+        }
+
+        _cleanup_free_ int *vfs = NULL;
+        int n = link_get_sr_iov_virt_ports(link, &vfs);
+        for (int i = 0; i < n; i++) {
+                Link *vf;
+
+                if (link_get_by_index(link->manager, vfs[i], &vf) < 0)
+                        continue;
+
+                if (!link_is_ready_to_create_stacked_netdev_one(vf, /* allow_unmanaged = */ true))
+                        return false;
+        }
+
+        return true;
+}
+
 static int netdev_is_ready_to_create(NetDev *netdev, Link *link) {
         assert(netdev);
 
         if (netdev->state != NETDEV_STATE_LOADING)
                 return false;
 
-        if (link) {
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                        return false;
-
-                if (link->set_link_messages > 0)
-                        return false;
-
-                /* If stacked netdevs are created before the underlying interface being activated, then
-                 * the activation policy for the netdevs are ignored. See issue #22593. */
-                if (!link->activated)
-                        return false;
-        }
+        if (link && !link_is_ready_to_create_stacked_netdev(link))
+                return false;
 
         if (NETDEV_VTABLE(netdev)->is_ready_to_create)
                 return NETDEV_VTABLE(netdev)->is_ready_to_create(netdev, link);
