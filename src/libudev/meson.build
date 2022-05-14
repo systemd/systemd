@@ -40,6 +40,7 @@ custom_target(
         output : 'libudev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pkgconfiglibdir != 'no',
+        install_tag : 'devel',
         install_dir : pkgconfiglibdir)
 
 ############################################################
