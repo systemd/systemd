@@ -187,6 +187,7 @@ custom_target(
         output : 'libsystemd.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pkgconfiglibdir != 'no',
+        install_tag : 'devel',
         install_dir : pkgconfiglibdir)
 
 ############################################################
