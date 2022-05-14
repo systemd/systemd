@@ -69,7 +69,7 @@ static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
 
 DnsAnswer *dns_answer_new(size_t n) {
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
-        DnsAnswer *a;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
 
         if (n > UINT16_MAX)
                 n = UINT16_MAX;
@@ -90,7 +90,7 @@ DnsAnswer *dns_answer_new(size_t n) {
         if (dns_answer_reserve_internal(a, n) < 0)
                 return NULL;
 
-        return a;
+        return TAKE_PTR(a);
 }
 
 static DnsAnswer *dns_answer_free(DnsAnswer *a) {
