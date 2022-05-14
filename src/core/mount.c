@@ -882,7 +882,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         dynamic_creds_destroy(&m->dynamic_creds);
 
         /* Any dependencies based on /proc/self/mountinfo are now stale */
-        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MASK_MOUNTINFO);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1646,7 +1646,7 @@ static int mount_setup_existing_unit(
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
 
-                unit_remove_dependencies(u, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+                unit_remove_dependencies(u, UNIT_DEPENDENCY_MASK_MOUNTINFO);
 
                 r = mount_add_non_exec_dependencies(MOUNT(u));
                 if (r < 0)
