@@ -204,7 +204,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t -p /tmp kernel-install.staging.XXXXXXX)"
+KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t kernel-install.staging.XXXXXXX)"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
