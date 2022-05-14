@@ -347,7 +347,6 @@ static int mount_add_mount_dependencies(Mount *m) {
 }
 
 static int mount_add_device_dependencies(Mount *m) {
-        UnitDependencyMask mask;
         MountParameters *p;
         UnitDependency dep;
         int r;
@@ -396,17 +395,14 @@ static int mount_add_device_dependencies(Mount *m) {
          * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        /* We always use 'what' from /proc/self/mountinfo if mounted */
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT : UNIT_DEPENDENCY_FILE;
-
-        r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
+        r = unit_add_node_dependency(UNIT(m), p->what, dep, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r < 0)
                 return r;
         if (r > 0)
                 log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(dep), p->what);
 
         if (mount_propagate_stop(m)) {
-                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, mask);
+                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -414,11 +410,11 @@ static int mount_add_device_dependencies(Mount *m) {
                                        unit_dependency_to_string(UNIT_STOP_PROPAGATED_FROM), p->what);
         }
 
-        r = unit_add_blockdev_dependency(UNIT(m), p->what, mask);
+        r = unit_add_blockdev_dependency(UNIT(m), p->what, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r > 0)
                 log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(UNIT_AFTER), p->what);
 
-        return r;
+        return 0;
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
@@ -607,7 +603,14 @@ static int mount_verify(Mount *m) {
 
 static int mount_add_non_exec_dependencies(Mount *m) {
         int r;
+
         assert(m);
+
+        /* Any dependencies based on /proc/self/mountinfo may be now stale. */
+        unit_remove_dependencies(UNIT(m),
+                                 UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT |
+                                 UNIT_DEPENDENCY_MOUNTINFO_DEFAULT |
+                                 UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
 
         /* Adds in all dependencies directly responsible for ordering the mount, as opposed to dependencies
          * resulting from the ExecContext and such. */
@@ -905,8 +908,9 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         dynamic_creds_destroy(&m->dynamic_creds);
 
-        /* Any dependencies based on /proc/self/mountinfo are now stale */
-        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT | UNIT_DEPENDENCY_MOUNTINFO_DEFAULT);
+        /* Any dependencies based on /proc/self/mountinfo are now stale. Let's re-generate dependencies from
+         * .mount unit. */
+        (void) mount_add_non_exec_dependencies(m);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1669,9 +1673,6 @@ static int mount_setup_existing_unit(
         if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
-
-                unit_remove_dependencies(u, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT | UNIT_DEPENDENCY_MOUNTINFO_DEFAULT);
-
                 r = mount_add_non_exec_dependencies(MOUNT(u));
                 if (r < 0)
                         return r;
