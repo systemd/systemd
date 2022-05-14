@@ -436,7 +436,7 @@ static int add_mount(
 
         /* Order the mount unit we generate relative to the post unit, so that DefaultDependencies= on the
          * target unit won't affect us. */
-        if (post && !FLAGS_SET(flags, MOUNT_NOFAIL))
+        if (!FLAGS_SET(flags, MOUNT_NOFAIL))
                 fprintf(f, "Before=%s\n", post);
 
         if (passno != 0) {

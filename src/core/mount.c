@@ -347,7 +347,6 @@ static int mount_add_mount_dependencies(Mount *m) {
 }
 
 static int mount_add_device_dependencies(Mount *m) {
-        UnitDependencyMask mask;
         MountParameters *p;
         UnitDependency dep;
         int r;
@@ -382,19 +381,17 @@ static int mount_add_device_dependencies(Mount *m) {
          * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        /* We always use 'what' from /proc/self/mountinfo if mounted */
-        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT : UNIT_DEPENDENCY_FILE;
-
-        r = unit_add_node_dependency(UNIT(m), p->what, dep, mask);
+        r = unit_add_node_dependency(UNIT(m), p->what, dep, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
         if (r < 0)
                 return r;
+
         if (mount_propagate_stop(m)) {
-                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, mask);
+                r = unit_add_node_dependency(UNIT(m), p->what, UNIT_STOP_PROPAGATED_FROM, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
+        return unit_add_blockdev_dependency(UNIT(m), p->what, UNIT_DEPENDENCY_MOUNTINFO_OR_FILE);
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
@@ -622,9 +619,6 @@ static int mount_add_extras(Mount *m) {
 
         if (!m->where) {
                 r = unit_name_to_path(u->id, &m->where);
-                if (r == -ENAMETOOLONG)
-                        log_unit_error_errno(u, r, "Failed to derive mount point path from unit name, because unit name is hashed. "
-                                                   "Set \"Where=\" in the unit file explicitly.");
                 if (r < 0)
                         return r;
         }
@@ -885,7 +879,10 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         dynamic_creds_destroy(&m->dynamic_creds);
 
         /* Any dependencies based on /proc/self/mountinfo are now stale */
-        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MASK_MOUNTINFO);
+
+        /* Re-add device dependencies from .mount unit */
+        (void) mount_add_device_dependencies(m);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1574,14 +1571,14 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = mount_add_non_exec_dependencies(MOUNT(u));
-        if (r < 0)
-                return r;
-
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
          * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
          * to. */
         MOUNT(u)->from_proc_self_mountinfo = true;
+
+        r = mount_add_non_exec_dependencies(MOUNT(u));
+        if (r < 0)
+                return r;
 
         /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
          * loaded in now. */
@@ -1649,7 +1646,7 @@ static int mount_setup_existing_unit(
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
 
-                unit_remove_dependencies(u, UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
+                unit_remove_dependencies(u, UNIT_DEPENDENCY_MASK_MOUNTINFO);
 
                 r = mount_add_non_exec_dependencies(MOUNT(u));
                 if (r < 0)
@@ -1691,37 +1688,14 @@ static int mount_setup_unit(
         if (!is_path(where))
                 return 0;
 
-        /* Mount unit names have to be (like all other unit names) short enough to fit into file names. This
-         * means there's a good chance that overly long mount point paths after mangling them to look like a
-         * unit name would result in unit names we don't actually consider valid. This should be OK however
-         * as such long mount point paths should not happen on regular systems — and if they appear
-         * nonetheless they are generally synthesized by software, and thus managed by that other
-         * software. Having such long names just means you cannot use systemd to manage those specific mount
-         * points, which should be an OK restriction to make. After all we don't have to be able to manage
-         * all mount points in the world — as long as we don't choke on them when we encounter them. */
         r = unit_name_from_path(where, ".mount", &e);
-        if (r < 0) {
-                static RateLimit rate_limit = { /* Let's log about this at warning level at most once every
-                                                 * 5s. Given that we generate this whenever we read the file
-                                                 * otherwise we probably shouldn't flood the logs with
-                                                 * this */
-                        .interval = 5 * USEC_PER_SEC,
-                        .burst = 1,
-                };
-
-                if (r == -ENAMETOOLONG)
-                        return log_struct_errno(
-                                        ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
-                                        "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
-                                        "MOUNT_POINT=%s", where,
-                                        LOG_MESSAGE("Mount point path '%s' too long to fit into unit name, ignoring mount point.", where));
-
+        if (r < 0)
                 return log_struct_errno(
-                                ratelimit_below(&rate_limit) ? LOG_WARNING : LOG_DEBUG, r,
+                                LOG_WARNING, r,
                                 "MESSAGE_ID=" SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR,
                                 "MOUNT_POINT=%s", where,
-                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m", where));
-        }
+                                LOG_MESSAGE("Failed to generate valid unit name from mount point path '%s', ignoring mount point: %m",
+                                            where));
 
         u = manager_get_unit(m, e);
         if (u)
@@ -1958,7 +1932,7 @@ static int drain_libmount(Manager *m) {
 }
 
 static int mount_process_proc_self_mountinfo(Manager *m) {
-        _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
+        _cleanup_set_free_ Set *gone = NULL;
         const char *what;
         int r;
 
@@ -1989,13 +1963,10 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                          * existed. */
 
                         if (mount->from_proc_self_mountinfo &&
-                            mount->parameters_proc_self_mountinfo.what) {
-
+                            mount->parameters_proc_self_mountinfo.what)
                                 /* Remember that this device might just have disappeared */
-                                if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
-                                    set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                if (set_put_strdup_full(&gone, &path_hash_ops_free, mount->parameters_proc_self_mountinfo.what) < 0)
                                         log_oom(); /* we don't care too much about OOM here... */
-                        }
 
                         mount->from_proc_self_mountinfo = false;
                         assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
@@ -2053,25 +2024,17 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
                 if (mount_is_mounted(mount) &&
                     mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what) {
-                        /* Track devices currently used */
-
-                        if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
-                            set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
-                                log_oom();
-                }
+                    mount->parameters_proc_self_mountinfo.what)
+                        /* Exclude devices currently used */
+                        free(set_remove(gone, mount->parameters_proc_self_mountinfo.what));
 
                 /* Reset the flags for later calls */
                 mount->proc_flags = 0;
         }
 
-        SET_FOREACH(what, gone) {
-                if (set_contains(around, what))
-                        continue;
-
+        SET_FOREACH(what, gone)
                 /* Let the device units know that the device is no longer mounted */
                 device_found_node(m, what, DEVICE_NOT_FOUND, DEVICE_FOUND_MOUNT);
-        }
 
         return 0;
 }
