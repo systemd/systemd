@@ -26,6 +26,7 @@ __pycache__/
 /.#image.raw.lck
 /image.raw.cache-pre-dev
 /image.raw.cache-pre-inst
+/image.raw.manifest
 /install-tree
 /.mkosi-*
 /mkosi.builddir/
