@@ -9,6 +9,7 @@
 #include "capability-util.h"
 #include "cpu-set-util.h"
 #include "copy.h"
+#include "dev-setup.h"
 #include "dropin.h"
 #include "errno-list.h"
 #include "fd-util.h"
@@ -1221,6 +1222,11 @@ int main(int argc, char *argv[]) {
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
+
+        if (sd_booted() <= 0) {
+                mkdir_p("/run/systemd", 0755);
+                (void) make_inaccessible_nodes(NULL, UID_INVALID, UID_INVALID);
+        }
 
         _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
