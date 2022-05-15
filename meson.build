@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.54.0',
+        meson_version : '>= 0.55.0',
        )
 
 libsystemd_version = '0.34.0'
@@ -641,7 +641,7 @@ foreach prog : progs
                                    '/usr/sbin/' + prog[0],
                                    '/sbin/' + prog[0],
                                    required: false)
-                path = exe.found() ? exe.path() : prog[1]
+                path = exe.found() ? exe.full_path() : prog[1]
         endif
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
@@ -1012,7 +1012,7 @@ else
                 r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
-                        clang = r.path()
+                        clang = r.full_path()
                 endif
                 # Assume that the required flags are supported by the found clang.
                 clang_supports_flags = clang_found
