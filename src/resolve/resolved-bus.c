@@ -1899,12 +1899,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
+        const char *name, *name_template, *type;
         _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
         DnssdService *s = NULL;
-        const char *name;
-        const char *name_template;
-        const char *type;
+        Manager *m = userdata;
         uid_t euid;
         int r;
 
