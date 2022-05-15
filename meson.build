@@ -1012,11 +1012,7 @@ else
                 r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
-                        if meson.version().version_compare('>= 0.55')
-                                clang = [r.full_path()]
-                        else
-                                clang = [r.path()]
-                        endif
+                        clang = r.path()
                 endif
                 # Assume that the required flags are supported by the found clang.
                 clang_supports_flags = clang_found
