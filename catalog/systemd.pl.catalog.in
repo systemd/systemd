@@ -187,6 +187,16 @@ Support: %SUPPORT_URL%
 Zainicjowano wyłączenie systemu. Wyłączenie zostało rozpoczęte i wszystkie
 usługi systemowe zostały zakończone, a wszystkie systemy plików odmontowane.
 
+-- c14aaf76ec284a5fa1f105f88dfb061c
+Subject: Zainicjowano przywrócenie danych fabrycznych systemu
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Zainicjowano przywrócenie danych fabrycznych systemu. Dokładne działanie,
+jakie zostanie wykonane jest określone przez implementację, ale zwykle
+powoduje przywrócenie stanu i konfiguracji systemu do domyślnych wartości
+producenta.
+
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Rozpoczęto wykonywanie zadania uruchamiania dla jednostki @UNIT@
 Defined-By: systemd
@@ -524,3 +534,11 @@ o ich aktualizację tak, aby działały w sposób dynamiczny
 bez zależności od usługi systemd-udev-settle.service:
 
     @OFFENDING_UNITS@
+
+-- 7c8a41f37b764941a0e1780b1be2f037
+Subject: Początkowa synchronizacja zegara
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Po raz pierwszy podczas obecnego uruchomienia uzyskano synchronizację NTP
+i zainicjowano regulację lokalnego zegara systemowego.
