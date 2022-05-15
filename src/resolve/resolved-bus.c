@@ -1900,7 +1900,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         _cleanup_free_ char *path = NULL;
-        _cleanup_free_ char *instance_name = NULL;
         Manager *m = userdata;
         DnssdService *s = NULL;
         const char *name;
@@ -1953,7 +1952,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (!service->type)
                 return log_oom();
 
-        r = dnssd_render_instance_name(service, &instance_name);
+        r = dnssd_render_instance_name(m, service, NULL);
         if (r < 0)
                 return r;
 
