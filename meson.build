@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.53.2',
+        meson_version : '>= 0.60.0',
        )
 
 libsystemd_version = '0.34.0'
@@ -18,7 +18,7 @@ libudev_version = '1.7.4'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
-conf.set('PROJECT_VERSION',    meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
@@ -308,7 +308,7 @@ slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = get_option('install-tests')
 
-if add_languages('cpp', required : fuzzer_build)
+if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
         cxx = meson.get_compiler('cpp')
         cxx_cmd = ' '.join(cxx.cmd_array())
@@ -641,7 +641,7 @@ foreach prog : progs
                                    '/usr/sbin/' + prog[0],
                                    '/sbin/' + prog[0],
                                    required: false)
-                path = exe.found() ? exe.path() : prog[1]
+                path = exe.found() ? exe.full_path() : prog[1]
         endif
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
@@ -1003,8 +1003,8 @@ bpf_framework_required = want_bpf_framework == 'true'
 libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
-if want_bpf_framework == 'false' or not libbpf.found()
-        conf.set10('BPF_FRAMEWORK', 0)
+if want_bpf_framework == 'false' or not libbpf.found() or skip_deps
+        conf.set10('BPF_FRAMEWORK', false)
 else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
@@ -1012,11 +1012,7 @@ else
                 r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
-                        if meson.version().version_compare('>= 0.55')
-                                clang = [r.full_path()]
-                        else
-                                clang = [r.path()]
-                        endif
+                        clang = r.full_path()
                 endif
                 # Assume that the required flags are supported by the found clang.
                 clang_supports_flags = clang_found
@@ -1579,20 +1575,6 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
                         dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_dir)
                 endif
         endif
-endif
-if dbus_interfaces_dir == dbusdatadir / 'interfaces' or dbus_interfaces_dir == 'no'
-        dbus_interfaces_dir_name = 'interfaces'
-        dbus_interfaces_dir_parent = dbusdatadir
-else
-        elements = dbus_interfaces_dir.split('/')
-        dbus_interfaces_dir_name = elements[-1]
-        dbus_interfaces_dir_parent = '/'
-        foreach elem : elements
-                if elem == dbus_interfaces_dir_name and dbus_interfaces_dir == dbus_interfaces_dir_parent / dbus_interfaces_dir_name
-                        break
-                endif
-                dbus_interfaces_dir_parent = dbus_interfaces_dir_parent / elem
-        endforeach
 endif
 
 # We support one or the other. If gcrypt is available, we assume it's there to
@@ -4103,9 +4085,9 @@ alias_target('update-man-rules', update_man_rules)
 if not meson.is_cross_build()
         custom_target(
                 'export-dbus-interfaces',
-                output : dbus_interfaces_dir_name,
+                output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
-                install_dir : dbus_interfaces_dir_parent,
+                install_dir : fs.parent(dbus_interfaces_dir),
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
