@@ -53,7 +53,7 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
 
-int dnssd_render_instance_name(DnssdService *s, char **ret_name);
+int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret);
 int dnssd_load(Manager *manager);
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item);
 int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);

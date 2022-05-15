@@ -136,14 +136,12 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 }
 
 static int specifier_dnssd_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        DnssdService *s  = (DnssdService *) userdata;
+        const Manager *m = ASSERT_PTR(userdata);
         char *n;
 
-        assert(s);
-        assert(s->manager);
-        assert(s->manager->llmnr_hostname);
+        assert(m->llmnr_hostname);
 
-        n = strdup(s->manager->llmnr_hostname);
+        n = strdup(m->llmnr_hostname);
         if (!n)
                 return -ENOMEM;
 
@@ -151,7 +149,7 @@ static int specifier_dnssd_hostname(char specifier, const void *data, const char
         return 0;
 }
 
-int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
+int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret) {
         static const Specifier specifier_table[] = {
                 { 'a', specifier_architecture,   NULL },
                 { 'b', specifier_boot_id,        NULL },
@@ -167,10 +165,11 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         _cleanup_free_ char *name = NULL;
         int r;
 
+        assert(m);
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, s, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, m, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
@@ -179,7 +178,8 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
                                        "Service instance name '%s' is invalid.",
                                        name);
 
-        *ret_name = TAKE_PTR(name);
+        if (ret)
+                *ret = TAKE_PTR(name);
 
         return 0;
 }
@@ -221,7 +221,7 @@ int dnssd_update_rrs(DnssdService *s) {
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
-        r = dnssd_render_instance_name(s, &n);
+        r = dnssd_render_instance_name(s->manager, s, &n);
         if (r < 0)
                 return r;
 
