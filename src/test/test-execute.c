@@ -9,6 +9,7 @@
 #include "capability-util.h"
 #include "cpu-set-util.h"
 #include "copy.h"
+#include "dev-setup.h"
 #include "dropin.h"
 #include "errno-list.h"
 #include "fd-util.h"
@@ -185,20 +186,6 @@ static bool check_user_has_group_with_same_name(const char *name) {
         if (!g ||
             !streq(g->gr_name, name))
                 return false;
-
-        return true;
-}
-
-static bool is_inaccessible_available(void) {
-        FOREACH_STRING(p,
-                       "/run/systemd/inaccessible/reg",
-                       "/run/systemd/inaccessible/dir",
-                       "/run/systemd/inaccessible/chr",
-                       "/run/systemd/inaccessible/blk",
-                       "/run/systemd/inaccessible/fifo",
-                       "/run/systemd/inaccessible/sock")
-                if (access(p, F_OK) < 0)
-                        return false;
 
         return true;
 }
@@ -406,10 +393,6 @@ static void test_exec_privatedevices(Manager *m) {
                 log_notice("Testing in container, skipping %s", __func__);
                 return;
         }
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
 
         test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
@@ -444,10 +427,6 @@ static void test_exec_protectkernelmodules(Manager *m) {
 
         if (detect_container() > 0) {
                 log_notice("Testing in container, skipping %s", __func__);
-                return;
-        }
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
                 return;
         }
 
@@ -487,12 +466,6 @@ static void test_exec_readwritepaths(Manager *m) {
 }
 
 static void test_exec_inaccessiblepaths(Manager *m) {
-
-        if (!is_inaccessible_available()) {
-                log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
-        }
-
         test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 
         if (path_is_read_only_fs("/") > 0) {
@@ -1221,6 +1194,11 @@ int main(int argc, char *argv[]) {
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
+
+        if (sd_booted() <= 0) {
+                mkdir_p("/run/systemd", 0755);
+                (void) make_inaccessible_nodes(NULL, UID_INVALID, UID_INVALID);
+        }
 
         _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
