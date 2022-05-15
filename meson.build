@@ -1004,8 +1004,8 @@ bpf_framework_required = want_bpf_framework == 'true'
 libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
-if want_bpf_framework == 'false' or not libbpf.found()
-        conf.set10('BPF_FRAMEWORK', 0)
+if want_bpf_framework == 'false' or not libbpf.found() or skip_deps
+        conf.set10('BPF_FRAMEWORK', false)
 else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
@@ -1013,11 +1013,7 @@ else
                 r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
-                        if meson.version().version_compare('>= 0.55')
-                                clang = [r.full_path()]
-                        else
-                                clang = [r.path()]
-                        endif
+                        clang = r.path()
                 endif
                 # Assume that the required flags are supported by the found clang.
                 clang_supports_flags = clang_found
