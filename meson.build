@@ -1004,7 +1004,7 @@ libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if want_bpf_framework == 'false' or not libbpf.found()
-        conf.set10('BPF_FRAMEWORK', 0)
+        conf.set10('BPF_FRAMEWORK', false)
 else
         # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
         # (like clang-10/llvm-strip-10)
