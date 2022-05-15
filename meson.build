@@ -1576,20 +1576,6 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
                 endif
         endif
 endif
-if dbus_interfaces_dir == dbusdatadir / 'interfaces' or dbus_interfaces_dir == 'no'
-        dbus_interfaces_dir_name = 'interfaces'
-        dbus_interfaces_dir_parent = dbusdatadir
-else
-        elements = dbus_interfaces_dir.split('/')
-        dbus_interfaces_dir_name = elements[-1]
-        dbus_interfaces_dir_parent = '/'
-        foreach elem : elements
-                if elem == dbus_interfaces_dir_name and dbus_interfaces_dir == dbus_interfaces_dir_parent / dbus_interfaces_dir_name
-                        break
-                endif
-                dbus_interfaces_dir_parent = dbus_interfaces_dir_parent / elem
-        endforeach
-endif
 
 # We support one or the other. If gcrypt is available, we assume it's there to
 # be used, and use it in preference.
@@ -4099,9 +4085,9 @@ alias_target('update-man-rules', update_man_rules)
 if not meson.is_cross_build()
         custom_target(
                 'export-dbus-interfaces',
-                output : dbus_interfaces_dir_name,
+                output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
-                install_dir : dbus_interfaces_dir_parent,
+                install_dir : fs.parent(dbus_interfaces_dir),
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
