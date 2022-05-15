@@ -4849,7 +4849,7 @@ int config_parse_load_credential(
         }
 
         if (isempty(p)) {
-                /* If only one field field is specified take it as shortcut for inheriting a credential named
+                /* If only one field is specified take it as shortcut for inheriting a credential named
                  * the same way from our parent */
                 q = strdup(k);
                 if (!q)
