@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.55.0',
+        meson_version : '>= 0.56.0',
        )
 
 libsystemd_version = '0.34.0'
