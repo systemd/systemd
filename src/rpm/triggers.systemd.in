@@ -72,37 +72,31 @@ end
 -- This script will process files installed in {{SYSUSERS_DIR}} to create
 -- specified users automatically. The priority is set such that it
 -- will run before the tmpfiles file trigger.
-if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.execp("systemd-sysusers"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+pid = posix.fork()
+if pid == 0 then
+    assert(posix.execp("systemd-sysusers"))
+elseif pid > 0 then
+    posix.wait(pid)
 end
 
 %transfiletriggerin -P 1000700 udev -p <lua> -- {{UDEV_HWDB_DIR}}
 -- This script will automatically invoke hwdb update if files have been
 -- installed or updated in {{UDEV_HWDB_DIR}}.
-if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.execp("systemd-hwdb", "update"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+pid = posix.fork()
+if pid == 0 then
+    assert(posix.execp("systemd-hwdb", "update"))
+elseif pid > 0 then
+    posix.wait(pid)
 end
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{SYSTEMD_CATALOG_DIR}}
 -- This script will automatically invoke journal catalog update if files
 -- have been installed or updated in {{SYSTEMD_CATALOG_DIR}}.
-if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.execp("journalctl", "--update-catalog"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+pid = posix.fork()
+if pid == 0 then
+    assert(posix.execp("journalctl", "--update-catalog"))
+elseif pid > 0 then
+    posix.wait(pid)
 end
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{BINFMT_DIR}}
