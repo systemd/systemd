@@ -621,7 +621,7 @@
     <title>Environment</title>
 
     <para>The environment block for the system manager is initially set by the kernel. (In particular,
-    <literal>key=value</literal> assignments on the kernel command line are returned into environment
+    <literal>key=value</literal> assignments on the kernel command line are turned into environment
     variables for PID 1). For the user manager, the system manager sets the environment as described in the
     "Environment Variables in Spawned Processes" section of
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
