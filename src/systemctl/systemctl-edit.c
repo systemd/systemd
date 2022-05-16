@@ -112,11 +112,11 @@ int verb_cat(int argc, char *argv[], void *userdata) {
 
 static int create_edit_temp_file(const char *new_path, const char *original_path, char ** const original_unit_paths, char **ret_tmp_fn) {
         _cleanup_free_ char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(new_path);
         assert(ret_tmp_fn);
-
         r = tempfn_random(new_path, NULL, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
@@ -129,7 +129,6 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 r = mac_selinux_create_file_prepare(new_path, S_IFREG);
                 if (r < 0)
                         return r;
-
                 r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r == -ENOENT) {
                         r = touch(t);
@@ -140,10 +139,27 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                         mac_selinux_create_file_clear();
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+                        if (arg_full){
+                            f = fopen(t, "a");
+                            fseek(f,0,SEEK_END);
+                            fprintf(f,
+                                    "\n"
+                                    EDIT_MARKER_END
+                                    "\n# Editing:  %s\n"
+                                    "# systemctl edit --full <unit-name>\n"
+                                    "# to be used to edit this unit file again.\n\n"
+                                    "# Excluding [--full] option will allow adding/ editing override files.\n\n"
+                                    "# [--user] [--runtime] might be needed to modify user/ runtime unit files.\n\n",
+                                    new_path
+                                    );
+                            fflush_and_check(f);
+                        }
                 }
+
+
+
         } else if (original_unit_paths) {
                 _cleanup_free_ char *new_contents = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
 
                 r = mac_selinux_create_file_prepare(new_path, S_IFREG);
                 if (r < 0)
@@ -198,6 +214,21 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
         }
+         else {
+                    f = fopen(t, "we");
+                    fprintf(f,
+                            "# Creating new unit file: %s\n\n"
+                            EDIT_MARKER_START
+                            "\n\n\n\n"
+                            EDIT_MARKER_END
+                            "\n\n# systemctl edit --full <unit-name>\n"
+                            "# to be used to edit this unit file again.\n"
+                            "# Excluding [--full] option will allow adding/ editing override files.\n\n"
+                            "# [--user] [--runtime] might be needed to modify user/ runtime unit files.\n",
+                            new_path
+                            );
+                    fflush_and_check(f);
+         }
 
         *ret_tmp_fn = TAKE_PTR(t);
 
@@ -404,19 +435,19 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         return r;
 
                 if (!path) {
-                        if (!arg_force) {
-                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
-                                         arg_scope == LOOKUP_SCOPE_GLOBAL ? " --global" :
-                                         arg_scope == LOOKUP_SCOPE_USER ? " --user" : "",
-                                         *name);
-                                return -ENOENT;
-                        }
-
+                    char response;
+                    r = ask_char(&response, "yn", "\"%s\" does not exist. Should new unit be created? [(y)es, (n)o] ", *name);
+                    if (r < 0)
+                        return r;
+                    if (response != 'y')
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "Skipped %s unit creation.", *name);
+                    else if (response == 'y') {
                         /* Create a new unit from scratch */
-                        unit_name = *name;
-                        r = unit_file_create_new(&lp, unit_name,
-                                                 arg_full ? NULL : ".d/override.conf",
+                        //unit_name = *name;
+                        r = unit_file_create_new(&lp, *name,
+                                                 NULL,
                                                  NULL, &new_path, &tmp_path);
+                    }
                 } else {
                         unit_name = basename(path);
                         /* We follow unit aliases, but we need to propagate the instance */
