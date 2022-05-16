@@ -267,6 +267,26 @@ REQUIREMENTS:
         - strace             (used by test/test-functions)
         - capsh              (optional, used by test-execute)
 
+POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
+
+        systemd main branch and latest major or stable releases are generally
+        expected to compile on current versions of popular distributions (at
+        least all non-EOL versions of Fedora, Debian unstable/testing/stable,
+        latest Ubuntu LTS and non-LTS releases, openSUSE Tumbleweed/Leap,
+        CentoOS Stream 8 and 9, up-to-date Arch, etc.)  We will generally
+        attempt to support also other non-EOL versions of various distros.
+        Features which would break compilation on slightly-older distributions
+        will only be introduced if there are significant reasons for this
+        (i.e. supporting them interferes with development or requires too many
+        resources to support). In some cases backports of specific libraries or
+        tools might be required.
+
+        The policy is similar wrt. architecture support. systemd is regularly
+        tested on popular architectures (currently amd64, i386, arm64, ppc64el,
+        and s390x), but should compile and work also on other architectures, for
+        which support has been added. systemd will emit warnings when
+        architecture-specific constants are not defined.
+
 USERS AND GROUPS:
         Default udev rules use the following standard system group names, which
         need to be resolvable by getgrnam() at any time, even in the very early
