@@ -60,7 +60,7 @@ REQUIREMENTS:
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
-        Kernel crypto/hash API
+        Kernel crypto/hash API:
           CONFIG_CRYPTO_USER_API_HASH
           CONFIG_CRYPTO_HMAC
           CONFIG_CRYPTO_SHA256
@@ -71,15 +71,15 @@ REQUIREMENTS:
         Legacy hotplug slows down the system and confuses udev:
           CONFIG_UEVENT_HELPER_PATH=""
 
-        Userspace firmware loading is not supported and should
-        be disabled in the kernel:
+        Userspace firmware loading is not supported and should be disabled in
+        the kernel:
           CONFIG_FW_LOADER_USER_HELPER=n
 
         Some udev rules and virtualization detection relies on it:
           CONFIG_DMIID
 
-        Support for some SCSI devices serial number retrieval, to
-        create additional symlinks in /dev/disk/ and /dev/tape:
+        Support for some SCSI devices serial number retrieval, to create
+        additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
         Required for PrivateNetwork= in service units:
@@ -97,18 +97,18 @@ REQUIREMENTS:
           CONFIG_{TMPFS,EXT4_FS,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
           CONFIG_SECCOMP_FILTER (required for seccomp support)
-          CONFIG_KCMP (for the kcmp() syscall, used to be under CONFIG_CHECKPOINT_RESTORE before ~5.12)
+          CONFIG_KCMP (for the kcmp() syscall, used to be under
+                       CONFIG_CHECKPOINT_RESTORE before ~5.12)
 
-        Required for CPUShares= in resource control unit settings
+        Required for CPUShares= in resource control unit settings:
           CONFIG_CGROUP_SCHED
           CONFIG_FAIR_GROUP_SCHED
 
-        Required for CPUQuota= in resource control unit settings
+        Required for CPUQuota= in resource control unit settings:
           CONFIG_CFS_BANDWIDTH
 
         Required for IPAddressDeny=, IPAddressAllow=, IPIngressFilterPath=,
-        IPEgressFilterPath= in resource control unit settings
-        unit settings
+        IPEgressFilterPath= in resource control unit settings unit settings:
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
           CONFIG_BPF_JIT
@@ -116,7 +116,7 @@ REQUIREMENTS:
           CONFIG_CGROUP_BPF
 
         Required for SocketBind{Allow|Deny}=, RestrictNetworkInterfaces= in
-        resource control unit settings
+        resource control unit settings:
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
           CONFIG_BPF_JIT
@@ -137,22 +137,21 @@ REQUIREMENTS:
           CONFIG_DEBUG_INFO_BTF
           CONFIG_LSM="...,bpf" or kernel booted with lsm="...,bpf".
 
-        We recommend to turn off Real-Time group scheduling in the
-        kernel when using systemd. RT group scheduling effectively
-        makes RT scheduling unavailable for most userspace, since it
-        requires explicit assignment of RT budgets to each unit whose
-        processes making use of RT. As there's no sensible way to
-        assign these budgets automatically this cannot really be
-        fixed, and it's best to disable group scheduling hence.
+        We recommend to turn off Real-Time group scheduling in the kernel when
+        using systemd. RT group scheduling effectively makes RT scheduling
+        unavailable for most userspace, since it requires explicit assignment of
+        RT budgets to each unit whose processes making use of RT. As there's no
+        sensible way to assign these budgets automatically this cannot really be
+        fixed, and it's best to disable group scheduling hence:
            CONFIG_RT_GROUP_SCHED=n
 
         It's a good idea to disable the implicit creation of networking bonding
         devices by the kernel networking bonding module, so that the
         automatically created "bond0" interface doesn't conflict with any such
-        device created by systemd-networkd (or other tools). Ideally there
-        would be a kernel compile-time option for this, but there currently
-        isn't. The next best thing is to make this change through a modprobe.d
-        drop-in. This is shipped by default, see modprobe.d/systemd.conf.
+        device created by systemd-networkd (or other tools). Ideally there would
+        be a kernel compile-time option for this, but there currently isn't. The
+        next best thing is to make this change through a modprobe.d drop-in.
+        This is shipped by default, see modprobe.d/systemd.conf.
 
         Required for systemd-nspawn:
           CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
@@ -160,19 +159,17 @@ REQUIREMENTS:
         Required for systemd-oomd:
           CONFIG_PSI
 
-        Note that kernel auditing is broken when used with systemd's
-        container code. When using systemd in conjunction with
-        containers, please make sure to either turn off auditing at
-        runtime using the kernel command line option "audit=0", or
-        turn it off at kernel compile time using:
+        Note that kernel auditing is broken when used with systemd's container
+        code. When using systemd in conjunction with containers, please make
+        sure to either turn off auditing at runtime using the kernel command
+        line option "audit=0", or turn it off at kernel compile time using:
           CONFIG_AUDIT=n
-        If systemd is compiled with libseccomp support on
-        architectures which do not use socketcall() and where seccomp
-        is supported (this effectively means x86-64 and ARM, but
-        excludes 32-bit x86!), then nspawn will now install a
-        work-around seccomp filter that makes containers boot even
-        with audit being enabled. This works correctly only on kernels
-        3.14 and newer though. TL;DR: turn audit off, still.
+        If systemd is compiled with libseccomp support on architectures which do
+        not use socketcall() and where seccomp is supported (this effectively
+        means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
+        install a work-around seccomp filter that makes containers boot even
+        with audit being enabled. This works correctly only on kernels 3.14 and
+        newer though. TL;DR: turn audit off, still.
 
         glibc >= 2.16
         libcap
@@ -244,21 +241,20 @@ REQUIREMENTS:
         A tarball can be created with:
           v=250 && git archive --prefix=systemd-$v/ v$v | zstd >systemd-$v.tar.zstd
 
-        When systemd-hostnamed is used, it is strongly recommended to
-        install nss-myhostname to ensure that, in a world of
-        dynamically changing hostnames, the hostname stays resolvable
-        under all circumstances. In fact, systemd-hostnamed will warn
-        if nss-myhostname is not installed.
+        When systemd-hostnamed is used, it is strongly recommended to install
+        nss-myhostname to ensure that, in a world of dynamically changing
+        hostnames, the hostname stays resolvable under all circumstances. In
+        fact, systemd-hostnamed will warn if nss-myhostname is not installed.
 
         nss-systemd must be enabled on systemd systems, as that's required for
         DynamicUser= to work. Note that we ship services out-of-the-box that
         make use of DynamicUser= now, hence enabling nss-systemd is not
         optional.
 
-        Note that the build prefix for systemd must be /usr. (Moreover,
-        packages systemd relies on — such as D-Bus — really should use the same
-        prefix, otherwise you are on your own.) -Dsplit-usr=false (which is the
-        default and does not need to be specified) is the recommended setting.
+        Note that the build prefix for systemd must be /usr. (Moreover, packages
+        systemd relies on — such as D-Bus — really should use the same prefix,
+        otherwise you are on your own.) -Dsplit-usr=false (which is the default
+        and does not need to be specified) is the recommended setting.
         -Dsplit-usr=true can be used to give a semblance of support for systems
         with programs installed split between / and /usr. Moving everything
         under /usr is strongly encouraged.
@@ -272,33 +268,30 @@ REQUIREMENTS:
         - capsh              (optional, used by test-execute)
 
 USERS AND GROUPS:
-        Default udev rules use the following standard system group
-        names, which need to be resolvable by getgrnam() at any time,
-        even in the very early boot stages, where no other databases
-        and network are available:
+        Default udev rules use the following standard system group names, which
+        need to be resolvable by getgrnam() at any time, even in the very early
+        boot stages, where no other databases and network are available:
 
         audio, cdrom, dialout, disk, input, kmem, kvm, lp, render, tape, tty, video
 
-        During runtime, the journal daemon requires the
-        "systemd-journal" system group to exist. New journal files will
-        be readable by this group (but not writable), which may be used
-        to grant specific users read access. In addition, system
-        groups "wheel" and "adm" will be given read-only access to
-        journal files using systemd-tmpfiles.service.
+        During runtime, the journal daemon requires the "systemd-journal" system
+        group to exist. New journal files will be readable by this group (but
+        not writable), which may be used to grant specific users read access. In
+        addition, system groups "wheel" and "adm" will be given read-only access
+        to journal files using systemd-tmpfiles.service.
 
-        The journal remote daemon requires the
-        "systemd-journal-remote" system user and group to
-        exist. During execution this network facing service will drop
-        privileges and assume this uid/gid for security reasons.
+        The journal remote daemon requires the "systemd-journal-remote" system
+        user and group to exist. During execution this network facing service
+        will drop privileges and assume this uid/gid for security reasons.
 
-        Similarly, the network management daemon requires the
-        "systemd-network" system user and group to exist.
+        Similarly, the network management daemon requires the "systemd-network"
+        system user and group to exist.
 
-        Similarly, the name resolution daemon requires the
-        "systemd-resolve" system user and group to exist.
+        Similarly, the name resolution daemon requires the "systemd-resolve"
+        system user and group to exist.
 
-        Similarly, the coredump support requires the
-        "systemd-coredump" system user and group to exist.
+        Similarly, the coredump support requires the "systemd-coredump" system
+        user and group to exist.
 
 NSS:
         systemd ships with four glibc NSS modules:
@@ -318,9 +311,9 @@ NSS:
         DynamicUser= setting in unit files.)
 
         To make use of these NSS modules, please add them to the "hosts:",
-        "passwd:" and "group:" lines in /etc/nsswitch.conf. The "resolve"
-        module should replace the glibc "dns" module in this file (and don't
-        worry, it chain-loads the "dns" module if it can't talk to resolved).
+        "passwd:" and "group:" lines in /etc/nsswitch.conf. The "resolve" module
+        should replace the glibc "dns" module in this file (and don't worry, it
+        chain-loads the "dns" module if it can't talk to resolved).
 
         The four modules should be used in the following order:
 
