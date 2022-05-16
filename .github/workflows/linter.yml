@@ -36,11 +36,9 @@ jobs:
           # Excludes:
           #   - man/.* - all snippets in man pages (false positives due to
           #              missing shebangs)
-          #   - kernel-install/.* - false-positives for dropins (and I'm afraid
-          #                         to touch kernel-install)
           #   - .*\.(in|SKELETON) - all template/skeleton files
           #   - tools/coverity\.sh - external file (with some modifications)
-          FILTER_REGEX_EXCLUDE: .*/(man/.*|src/kernel-install/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
+          FILTER_REGEX_EXCLUDE: .*/(man/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
           VALIDATE_GITHUB_ACTIONS: true
