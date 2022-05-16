@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.53.2',
+        meson_version : '>= 0.60.0',
        )
 
 libsystemd_version = '0.34.0'
@@ -18,7 +18,7 @@ libudev_version = '1.7.4'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
-conf.set('PROJECT_VERSION',    meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
@@ -308,7 +308,7 @@ slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = get_option('install-tests')
 
-if add_languages('cpp', required : fuzzer_build)
+if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
         cxx = meson.get_compiler('cpp')
         cxx_cmd = ' '.join(cxx.cmd_array())
@@ -641,7 +641,7 @@ foreach prog : progs
                                    '/usr/sbin/' + prog[0],
                                    '/sbin/' + prog[0],
                                    required: false)
-                path = exe.found() ? exe.path() : prog[1]
+                path = exe.found() ? exe.full_path() : prog[1]
         endif
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
@@ -1012,7 +1012,7 @@ else
                 r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                 clang_found = r.found()
                 if clang_found
-                        clang = r.path()
+                        clang = r.full_path()
                 endif
                 # Assume that the required flags are supported by the found clang.
                 clang_supports_flags = clang_found
@@ -3739,8 +3739,7 @@ foreach tuple : tests
         parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
-        # FIXME: Use fs.stem() with meson >= 0.54.0
-        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
+        name = fs.stem(sources[0])
         if type.startswith('timeout=')
                 timeout = type.split('=')[1].to_int()
                 type = ''
@@ -3851,8 +3850,7 @@ foreach tuple : fuzzers
                 sources += 'src/fuzz/fuzz-main.c'
         endif
 
-        # FIXME: Use fs.stem() with meson >= 0.54.0
-        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
+        name = fs.stem(sources[0])
 
         exe = executable(
                 name,

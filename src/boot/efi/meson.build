@@ -396,10 +396,9 @@ endif
 systemd_boot_objects = []
 stub_objects = []
 foreach file : fundamental_source_paths + common_sources + systemd_boot_sources + stub_sources
-        # FIXME: replace ''.format(file) with fs.name(file) when meson_version requirement is >= 0.59.0
-        o_file = custom_target('@0@.o'.format(file).split('/')[-1],
+        o_file = custom_target(fs.name(file) + '.o',
                                input : file,
-                               output : '@0@.o'.format(file).split('/')[-1],
+                               output : fs.name(file) + '.o',
                                command : [cc.cmd_array(), '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
                                depend_files : efi_headers + fundamental_headers)
         if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
