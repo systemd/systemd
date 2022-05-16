@@ -1107,6 +1107,12 @@ static void test_exec_condition(Manager *m) {
 }
 
 static void test_exec_umask_namespace(Manager *m) {
+        /* exec-specifier-credentials-dir.service creates /run/credentials and enables implicit
+         * InaccessiblePath= for the directory for all later services with mount namespace. */
+        if (!is_inaccessible_available()) {
+                log_notice("Testing without inaccessible, skipping %s", __func__);
+                return;
+        }
         test(m, "exec-umask-namespace.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 }
 
