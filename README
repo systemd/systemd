@@ -235,7 +235,7 @@ REQUIREMENTS:
         Useful commands:
           ninja -C build -v some/target
           meson test -C build/
-          sudo meson install -C build/
+          sudo meson install -C build/ --no-rebuild
           DESTDIR=... meson install -C build/
 
         A tarball can be created with:
