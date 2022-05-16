@@ -2035,11 +2035,11 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
                 return 0;
 
         if (link->master_ifindex == 0)
-                log_link_debug(link, "Joined to master interface: %i", master_ifindex);
+                log_link_debug(link, "Attached to master interface: %i", master_ifindex);
         else if (master_ifindex == 0)
-                log_link_debug(link, "Left from master interface: %i", link->master_ifindex);
+                log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
         else
-                log_link_debug(link, "Master interface is changed: %i → %i", link->master_ifindex, master_ifindex);
+                log_link_debug(link, "Master interface changed: %i → %i", link->master_ifindex, master_ifindex);
 
         link_drop_from_master(link);
 
