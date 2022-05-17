@@ -2211,7 +2211,7 @@ static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const
         return link_negative_trust_anchor_lookup(t->scope->link, name);
 }
 
-static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
+static int dns_transaction_has_negative_answer(DnsTransaction *t) {
         int r;
 
         assert(t);
@@ -2230,14 +2230,7 @@ static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
         r = dns_transaction_negative_trust_anchor_lookup(t, dns_resource_key_name(dns_transaction_key(t)));
         if (r < 0)
                 return r;
-        if (r > 0)
-                return false;
-
-        /* The answer does not contain any RRs that match to the
-         * question. If so, let's see if there are any NSEC/NSEC3 RRs
-         * included. If not, the answer is unsigned. */
-
-        return !dns_answer_contains_nsec_or_nsec3(t->answer);
+        return !r;
 }
 
 static int dns_transaction_is_primary_response(DnsTransaction *t, DnsResourceRecord *rr) {
@@ -2561,14 +2554,15 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
          * we got. Now, let's request what we need to validate what we
          * didn't get... */
 
-        r = dns_transaction_has_unsigned_negative_answer(t);
+        r = dns_transaction_has_negative_answer(t);
         if (r < 0)
                 return r;
         if (r > 0) {
-                const char *name;
+                const char *name, *signed_status;
                 uint16_t type = 0;
 
                 name = dns_resource_key_name(dns_transaction_key(t));
+                signed_status = dns_answer_contains_nsec_or_nsec3(t->answer) ? "signed" : "unsigned";
 
                 /* If this was a SOA or NS request, then check if there's a DS RR for the same domain. Note that this
                  * could also be used as indication that we are not at a zone apex, but in real world setups there are
@@ -2581,21 +2575,21 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_name_parent(&name);
                         if (r > 0) {
                                 type = DNS_TYPE_SOA;
-                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty DS response).",
-                                          name, t->id, dns_resource_key_name(dns_transaction_key(t)));
+                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
+                                          name, t->id, dns_resource_key_name(dns_transaction_key(t)), signed_status);
                         } else
                                 name = NULL;
 
                 } else if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_SOA, DNS_TYPE_NS)) {
 
                         type = DNS_TYPE_DS;
-                        log_debug("Requesting DS (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS response).",
-                                  name, t->id, name);
+                        log_debug("Requesting DS (→ %s) to validate transaction %" PRIu16 " (%s, %s empty SOA/NS response).",
+                                  name, t->id, name, signed_status);
 
                 } else {
                         type = DNS_TYPE_SOA;
-                        log_debug("Requesting SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
-                                  name, t->id, name);
+                        log_debug("Requesting SOA (→ %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
+                                  name, t->id, name, signed_status);
                 }
 
                 if (name) {
