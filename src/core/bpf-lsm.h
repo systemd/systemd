@@ -14,7 +14,7 @@ typedef struct Manager Manager;
 
 typedef struct restrict_fs_bpf restrict_fs_bpf;
 
-int lsm_bpf_supported(void);
+bool lsm_bpf_supported(bool initialize);
 int lsm_bpf_setup(Manager *m);
 int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list);
 int lsm_bpf_cleanup(const Unit *u);
