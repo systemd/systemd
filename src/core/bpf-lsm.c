@@ -125,7 +125,7 @@ static int mac_bpf_use(void) {
         }
 }
 
-int lsm_bpf_supported(void) {
+bool lsm_bpf_supported(void) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
         int r;
@@ -136,44 +136,44 @@ int lsm_bpf_supported(void) {
         r = dlopen_bpf();
         if (r < 0) {
                 log_info_errno(r, "Failed to open libbpf, LSM BPF is not supported: %m");
-                return supported = 0;
+                return (supported = false);
         }
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0) {
                 log_warning_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-                return supported = 0;
+                return (supported = false);
         }
 
         if (r == 0) {
                 log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Not running with unified cgroup hierarchy, LSM BPF is not supported");
-                return supported = 0;
+                return (supported = false);
         }
 
         r = mac_bpf_use();
         if (r < 0) {
                 log_warning_errno(r, "Can't determine whether the BPF LSM module is used: %m");
-                return supported = 0;
+                return (supported = false);
         }
 
         if (r == 0) {
                 log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "BPF LSM hook not enabled in the kernel, LSM BPF not supported");
-                return supported = 0;
+                return (supported = false);
         }
 
         r = prepare_restrict_fs_bpf(&obj);
         if (r < 0)
-                return supported = 0;
+                return (supported = false);
 
         if (!bpf_can_link_lsm_program(obj->progs.restrict_filesystems)) {
                 log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                   "Failed to link BPF program. Assuming BPF is not available");
-                return supported = 0;
+                return (supported = false);
         }
 
-        return supported = 1;
+        return (supported = true);
 }
 
 int lsm_bpf_setup(Manager *m) {
@@ -297,8 +297,8 @@ void lsm_bpf_destroy(struct restrict_fs_bpf *prog) {
         restrict_fs_bpf__destroy(prog);
 }
 #else /* ! BPF_FRAMEWORK */
-int lsm_bpf_supported(void) {
-        return 0;
+bool lsm_bpf_supported(void) {
+        return false;
 }
 
 int lsm_bpf_setup(Manager *m) {
