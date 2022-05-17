@@ -398,6 +398,13 @@
         for details about journal namespaces.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_INITRD=</varname></term>
+
+        <listitem><para>A boolean field (0 or 1). If 0, the log message was processed while systemd-journald
+        was running inside the initrd. If 1, the log message was generated after journald switched root to
+        the root filesystem.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
