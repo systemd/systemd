@@ -96,6 +96,8 @@ extern TimestampStyle arg_timestamp_style;
 extern bool arg_read_only;
 extern bool arg_mkdir;
 extern bool arg_marked;
+extern bool arg_new;
+extern const char *arg_template;
 
 static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";
