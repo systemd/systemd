@@ -54,6 +54,10 @@ apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwqualit
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
+
+# Just to figure out whether # https://github.com/systemd/systemd/issues/23415
+# is the only issue there
+systemctl disable accounts-daemon
 EOF
     sudo lxc-stop -n "$CONTAINER"
 }
