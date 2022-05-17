@@ -1037,6 +1037,8 @@ static void dispatch_message_real(
         if (!isempty(s->namespace_field))
                 iovec[n++] = IOVEC_MAKE_STRING(s->namespace_field);
 
+        iovec[n++] = IOVEC_MAKE_STRING((char *) (in_initrd() ? "_INITRD=1" : "_INITRD=0"));
+
         assert(n <= m);
 
         if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
