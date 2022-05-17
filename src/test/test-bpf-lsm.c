@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        if (!lsm_bpf_supported())
+        if (!lsm_bpf_supported(/* initialize = */ true))
                 return log_tests_skipped("LSM BPF hooks are not supported");
 
         r = enter_cgroup_subroot(NULL);
