@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #ifndef SD_BOOT
-#include <ctype.h>
-
-#include "macro.h"
+#  include <ctype.h>
 #endif
+
+#include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) {
