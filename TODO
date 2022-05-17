@@ -739,8 +739,10 @@ Features:
   with matches, then activate app through that passing socket over
 
 * unify on openssl:
-  - port journald + fsprg over from libgcrypt
-  - when that's done: kill gnutls support in resolved
+  - kill gnutls support in resolved
+  - figure out what to do about libmicrohttpd, which has a hard dependency on
+    gnutls
+  - port fsprg over to a dlopen lib, then switch it to openssl
 
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
