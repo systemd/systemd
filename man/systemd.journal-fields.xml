@@ -398,6 +398,12 @@
         for details about journal namespaces.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_INITRD=</varname></term>
+
+        <listitem><para>Specifies whether the log message was processed while journald was running inside the
+        initrd or not.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
