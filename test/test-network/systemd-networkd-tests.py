@@ -1218,6 +1218,17 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual('balance-tlb 5',     read_link_attr('bond98', 'bonding', 'mode'))
         self.assertEqual('1',                 read_link_attr('bond98', 'bonding', 'tlb_dynamic_lb'))
 
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'bond99', env=env)
+        print(output)
+        self.assertIn('Mode: 802.3ad', output)
+        self.assertIn('Miimon: 1s', output)
+        self.assertIn('Updelay: 2s', output)
+        self.assertIn('Downdelay: 2s', output)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'bond98', env=env)
+        print(output)
+        self.assertIn('Mode: balance-tlb', output)
+
     def test_vlan(self):
         copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev',
                                         '21-vlan.network', '21-vlan-test1.network')
