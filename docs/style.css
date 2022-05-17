@@ -128,7 +128,8 @@ tbody td {
   vertical-align: top;
 }
 
-/* Github Code Highlighting */
+/* Rouge Code Highlight, github style */
+/* Generated with: rougify style github | sed '/background-color: #f8f8f8/d' */
 .highlight table td { padding: 5px; }
 .highlight table pre { margin: 0; }
 .highlight .cm {
@@ -235,6 +236,10 @@ tbody td {
 .highlight .m, .highlight .mb, .highlight .mx {
   color: #009999;
 }
+.highlight .sa {
+  color: #000000;
+  font-weight: bold;
+}
 .highlight .sb {
   color: #d14;
 }
@@ -268,7 +273,7 @@ tbody td {
 .highlight .ss {
   color: #990073;
 }
-.highlight .s, .highlight .sa, .highlight .dl {
+.highlight .s, .highlight .dl {
   color: #d14;
 }
 .highlight .na {
@@ -335,9 +340,6 @@ tbody td {
 .highlight .w {
   color: #bbbbbb;
 }
-.highlight {
-  background-color: #f8f8f8;
-}
 
 
 /* Code Blocks */
@@ -348,8 +350,9 @@ tbody td {
 
   overflow: auto;
 }
-.highlighter-rouge * {
-  background-color: white;
+.highlighter-rouge .highlight .err {
+  background: transparent !important;
+  color: inherit !important;
 }
 
 /* Inline Code */
