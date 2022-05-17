@@ -1,11 +1,13 @@
 ---
-title: Journal Export Format
+title: Journal Export Formats
 category: Interfaces
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Journal Export Format
+# Journal Export Formats
+
+## Journal Export Format
 
 _Note that this document describes the binary serialization format of journals only, as used for transfer across the network.
 For interfacing with web technologies there's the Journal JSON Format, described below.
@@ -118,7 +120,7 @@ _CMDLINE=python3 -c from systemd import journal; journal.send("foo\nbar")
 _SOURCE_REALTIME_TIMESTAMP=1423944916372858
 ```
 
-# Journal JSON Format
+## Journal JSON Format
 
 _Note that this section describes the JSON serialization format of the journal only, as used for interfacing with web technologies.
 For binary transfer of journal data across the network there's the Journal Export Format described above.
