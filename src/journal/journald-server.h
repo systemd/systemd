@@ -179,7 +179,7 @@ struct Server {
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 
 /* Extra fields for any log messages */
-#define N_IOVEC_META_FIELDS 23
+#define N_IOVEC_META_FIELDS 24
 
 /* Extra fields for log messages that contain OBJECT_PID= (i.e. log about another process) */
 #define N_IOVEC_OBJECT_FIELDS 18
