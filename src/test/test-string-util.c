@@ -828,13 +828,24 @@ TEST(string_contains_word) {
         assert_se(!string_contains_word("a:b:cc", ":#", ":cc"));
 }
 
-static void test_strverscmp_improved_one(const char *newer, const char *older) {
-        log_info("/* %s(%s, %s) */", __func__, strnull(newer), strnull(older));
+static void test_strverscmp_improved_one(const char* a, const char *b, int expected) {
+        int r = strverscmp_improved(a, b);
 
-        assert_se(strverscmp_improved(newer, newer) == 0);
-        assert_se(strverscmp_improved(newer, older) >  0);
-        assert_se(strverscmp_improved(older, newer) <  0);
+        log_info("'%s' %s '%s'%s",
+                 strnull(a),
+                 r > 0 ? ">" : r < 0 ? "<" : "==",
+                 strnull(b),
+                 r == expected ? "" : " !!!!!!!!!!!!!");
+        assert_se(r == expected);
+}
+
+static void test_strverscmp_improved_newer(const char *older, const char *newer) {
+        test_strverscmp_improved_one(older, newer, -1);
+
         assert_se(strverscmp_improved(older, older) == 0);
+        assert_se(strverscmp_improved(older, newer) < 0);
+        assert_se(strverscmp_improved(newer, older) > 0);
+        assert_se(strverscmp_improved(newer, newer) == 0);
 }
 
 TEST(strverscmp_improved) {
@@ -868,41 +879,187 @@ TEST(strverscmp_improved) {
 
         STRV_FOREACH(p, versions)
                 STRV_FOREACH(q, p + 1)
-                        test_strverscmp_improved_one(*q, *p);
+                        test_strverscmp_improved_newer(*p, *q);
 
-        test_strverscmp_improved_one("123.45-67.89", "123.45-67.88");
-        test_strverscmp_improved_one("123.45-67.89a", "123.45-67.89");
-        test_strverscmp_improved_one("123.45-67.89", "123.45-67.ab");
-        test_strverscmp_improved_one("123.45-67.89", "123.45-67.9");
-        test_strverscmp_improved_one("123.45-67.89", "123.45-67");
-        test_strverscmp_improved_one("123.45-67.89", "123.45-66.89");
-        test_strverscmp_improved_one("123.45-67.89", "123.45-9.99");
-        test_strverscmp_improved_one("123.45-67.89", "123.42-99.99");
-        test_strverscmp_improved_one("123.45-67.89", "123-99.99");
+        test_strverscmp_improved_newer("123.45-67.88", "123.45-67.89");
+        test_strverscmp_improved_newer("123.45-67.89", "123.45-67.89a");
+        test_strverscmp_improved_newer("123.45-67.ab", "123.45-67.89");
+        test_strverscmp_improved_newer("123.45-67.9", "123.45-67.89");
+        test_strverscmp_improved_newer("123.45-67", "123.45-67.89");
+        test_strverscmp_improved_newer("123.45-66.89", "123.45-67.89");
+        test_strverscmp_improved_newer("123.45-9.99", "123.45-67.89");
+        test_strverscmp_improved_newer("123.42-99.99", "123.45-67.89");
+        test_strverscmp_improved_newer("123-99.99", "123.45-67.89");
 
         /* '~' : pre-releases */
-        test_strverscmp_improved_one("123.45-67.89", "123~rc1-99.99");
-        test_strverscmp_improved_one("123-45.67.89", "123~rc1-99.99");
-        test_strverscmp_improved_one("123~rc2-67.89", "123~rc1-99.99");
-        test_strverscmp_improved_one("123^aa2-67.89", "123~rc1-99.99");
-        test_strverscmp_improved_one("123aa2-67.89", "123~rc1-99.99");
+        test_strverscmp_improved_newer("123~rc1-99.99", "123.45-67.89");
+        test_strverscmp_improved_newer("123~rc1-99.99", "123-45.67.89");
+        test_strverscmp_improved_newer("123~rc1-99.99", "123~rc2-67.89");
+        test_strverscmp_improved_newer("123~rc1-99.99", "123^aa2-67.89");
+        test_strverscmp_improved_newer("123~rc1-99.99", "123aa2-67.89");
 
         /* '-' : separator between version and release. */
-        test_strverscmp_improved_one("123.45-67.89", "123-99.99");
-        test_strverscmp_improved_one("123^aa2-67.89", "123-99.99");
-        test_strverscmp_improved_one("123aa2-67.89", "123-99.99");
+        test_strverscmp_improved_newer("123-99.99", "123.45-67.89");
+        test_strverscmp_improved_newer("123-99.99", "123^aa2-67.89");
+        test_strverscmp_improved_newer("123-99.99", "123aa2-67.89");
 
         /* '^' : patch releases */
-        test_strverscmp_improved_one("123.45-67.89", "123^45-67.89");
-        test_strverscmp_improved_one("123^aa2-67.89", "123^aa1-99.99");
-        test_strverscmp_improved_one("123aa2-67.89", "123^aa2-67.89");
+        test_strverscmp_improved_newer("123^45-67.89", "123.45-67.89");
+        test_strverscmp_improved_newer("123^aa1-99.99", "123^aa2-67.89");
+        test_strverscmp_improved_newer("123^aa2-67.89", "123aa2-67.89");
 
         /* '.' : point release */
-        test_strverscmp_improved_one("123aa2-67.89", "123.aa2-67.89");
-        test_strverscmp_improved_one("123.ab2-67.89", "123.aa2-67.89");
+        test_strverscmp_improved_newer("123.aa2-67.89", "123aa2-67.89");
+        test_strverscmp_improved_newer("123.aa2-67.89", "123.ab2-67.89");
 
         /* invalid characters */
         assert_se(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89") == 0);
+}
+
+#define RPMVERCMP(a, b, c) \
+        test_strverscmp_improved_one(STRINGIFY(a), STRINGIFY(b), (c))
+
+TEST(strverscmp_improved_rpm) {
+        /* Tests copied from rmp's rpmio test suite, under the LGPL license:
+         * https://github.com/rpm-software-management/rpm/blob/master/tests/rpmvercmp.at.
+         * The original form is retained for easy comparisons and updates.
+         */
+
+        RPMVERCMP(1.0, 1.0, 0);
+        RPMVERCMP(1.0, 2.0, -1);
+        RPMVERCMP(2.0, 1.0, 1);
+
+        RPMVERCMP(2.0.1, 2.0.1, 0);
+        RPMVERCMP(2.0, 2.0.1, -1);
+        RPMVERCMP(2.0.1, 2.0, 1);
+
+        RPMVERCMP(2.0.1a, 2.0.1a, 0);
+        RPMVERCMP(2.0.1a, 2.0.1, 1);
+        RPMVERCMP(2.0.1, 2.0.1a, -1);
+
+        RPMVERCMP(5.5p1, 5.5p1, 0);
+        RPMVERCMP(5.5p1, 5.5p2, -1);
+        RPMVERCMP(5.5p2, 5.5p1, 1);
+
+        RPMVERCMP(5.5p10, 5.5p10, 0);
+        RPMVERCMP(5.5p1, 5.5p10, -1);
+        RPMVERCMP(5.5p10, 5.5p1, 1);
+
+        RPMVERCMP(10xyz, 10.1xyz, 1);    /* Note: this is reversed from rpm's vercmp */
+        RPMVERCMP(10.1xyz, 10xyz, -1);   /* Note: this is reversed from rpm's vercmp */
+
+        RPMVERCMP(xyz10, xyz10, 0);
+        RPMVERCMP(xyz10, xyz10.1, -1);
+        RPMVERCMP(xyz10.1, xyz10, 1);
+
+        RPMVERCMP(xyz.4, xyz.4, 0);
+        RPMVERCMP(xyz.4, 8, -1);
+        RPMVERCMP(8, xyz.4, 1);
+        RPMVERCMP(xyz.4, 2, -1);
+        RPMVERCMP(2, xyz.4, 1);
+
+        RPMVERCMP(5.5p2, 5.6p1, -1);
+        RPMVERCMP(5.6p1, 5.5p2, 1);
+
+        RPMVERCMP(5.6p1, 6.5p1, -1);
+        RPMVERCMP(6.5p1, 5.6p1, 1);
+
+        RPMVERCMP(6.0.rc1, 6.0, 1);
+        RPMVERCMP(6.0, 6.0.rc1, -1);
+
+        RPMVERCMP(10b2, 10a1, 1);
+        RPMVERCMP(10a2, 10b2, -1);
+
+        RPMVERCMP(1.0aa, 1.0aa, 0);
+        RPMVERCMP(1.0a, 1.0aa, -1);
+        RPMVERCMP(1.0aa, 1.0a, 1);
+
+        RPMVERCMP(10.0001, 10.0001, 0);
+        RPMVERCMP(10.0001, 10.1, 0);
+        RPMVERCMP(10.1, 10.0001, 0);
+        RPMVERCMP(10.0001, 10.0039, -1);
+        RPMVERCMP(10.0039, 10.0001, 1);
+
+        RPMVERCMP(4.999.9, 5.0, -1);
+        RPMVERCMP(5.0, 4.999.9, 1);
+
+        RPMVERCMP(20101121, 20101121, 0);
+        RPMVERCMP(20101121, 20101122, -1);
+        RPMVERCMP(20101122, 20101121, 1);
+
+        RPMVERCMP(2_0, 2_0, 0);
+        RPMVERCMP(2.0, 2_0, -1);   /* Note: in rpm those compare equal */
+        RPMVERCMP(2_0, 2.0, 1);    /* Note: in rpm those compare equal */
+
+        /* RhBug:178798 case */
+        RPMVERCMP(a, a, 0);
+        RPMVERCMP(a+, a+, 0);
+        RPMVERCMP(a+, a_, 0);
+        RPMVERCMP(a_, a+, 0);
+        RPMVERCMP(+a, +a, 0);
+        RPMVERCMP(+a, _a, 0);
+        RPMVERCMP(_a, +a, 0);
+        RPMVERCMP(+_, +_, 0);
+        RPMVERCMP(_+, +_, 0);
+        RPMVERCMP(_+, _+, 0);
+        RPMVERCMP(+, _, 0);
+        RPMVERCMP(_, +, 0);
+
+        /* Basic testcases for tilde sorting */
+        RPMVERCMP(1.0~rc1, 1.0~rc1, 0);
+        RPMVERCMP(1.0~rc1, 1.0, -1);
+        RPMVERCMP(1.0, 1.0~rc1, 1);
+        RPMVERCMP(1.0~rc1, 1.0~rc2, -1);
+        RPMVERCMP(1.0~rc2, 1.0~rc1, 1);
+        RPMVERCMP(1.0~rc1~git123, 1.0~rc1~git123, 0);
+        RPMVERCMP(1.0~rc1~git123, 1.0~rc1, -1);
+        RPMVERCMP(1.0~rc1, 1.0~rc1~git123, 1);
+
+        /* Basic testcases for caret sorting */
+        RPMVERCMP(1.0^, 1.0^, 0);
+        RPMVERCMP(1.0^, 1.0, 1);
+        RPMVERCMP(1.0, 1.0^, -1);
+        RPMVERCMP(1.0^git1, 1.0^git1, 0);
+        RPMVERCMP(1.0^git1, 1.0, 1);
+        RPMVERCMP(1.0, 1.0^git1, -1);
+        RPMVERCMP(1.0^git1, 1.0^git2, -1);
+        RPMVERCMP(1.0^git2, 1.0^git1, 1);
+        RPMVERCMP(1.0^git1, 1.01, -1);
+        RPMVERCMP(1.01, 1.0^git1, 1);
+        RPMVERCMP(1.0^20160101, 1.0^20160101, 0);
+        RPMVERCMP(1.0^20160101, 1.0.1, -1);
+        RPMVERCMP(1.0.1, 1.0^20160101, 1);
+        RPMVERCMP(1.0^20160101^git1, 1.0^20160101^git1, 0);
+        RPMVERCMP(1.0^20160102, 1.0^20160101^git1, 1);
+        RPMVERCMP(1.0^20160101^git1, 1.0^20160102, -1);
+
+        /* Basic testcases for tilde and caret sorting */
+        RPMVERCMP(1.0~rc1^git1, 1.0~rc1^git1, 0);
+        RPMVERCMP(1.0~rc1^git1, 1.0~rc1, 1);
+        RPMVERCMP(1.0~rc1, 1.0~rc1^git1, -1);
+        RPMVERCMP(1.0^git1~pre, 1.0^git1~pre, 0);
+        RPMVERCMP(1.0^git1, 1.0^git1~pre, 1);
+        RPMVERCMP(1.0^git1~pre, 1.0^git1, -1);
+
+        /* These are included here to document current, arguably buggy behaviors
+         * for reference purposes and for easy checking against unintended
+         * behavior changes. */
+        log_info("/* RPM version comparison oddities */");
+        /* RhBug:811992 case */
+        RPMVERCMP(1b.fc17, 1b.fc17, 0);
+        RPMVERCMP(1b.fc17, 1.fc17, 1); /* Note: this is reversed from rpm's vercmp, WAT! */
+        RPMVERCMP(1.fc17, 1b.fc17, -1);
+        RPMVERCMP(1g.fc17, 1g.fc17, 0);
+        RPMVERCMP(1g.fc17, 1.fc17, 1);
+        RPMVERCMP(1.fc17, 1g.fc17, -1);
+
+        /* Non-ascii characters are considered equal so these are all the same, eh… */
+        RPMVERCMP(1.1.α, 1.1.α, 0);
+        RPMVERCMP(1.1.α, 1.1.β, 0);
+        RPMVERCMP(1.1.β, 1.1.α, 0);
+        RPMVERCMP(1.1.αα, 1.1.α, 0);
+        RPMVERCMP(1.1.α, 1.1.ββ, 0);
+        RPMVERCMP(1.1.ββ, 1.1.αα, 0);
 }
 
 TEST(strextendf) {
