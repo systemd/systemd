@@ -9,6 +9,8 @@ systemd_analyze_sources = files(
         'analyze-capability.h',
         'analyze-cat-config.c',
         'analyze-cat-config.h',
+        'analyze-compare-versions.c',
+        'analyze-compare-versions.h',
         'analyze-condition.c',
         'analyze-condition.h',
         'analyze-critical-chain.c',

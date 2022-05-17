@@ -35,6 +35,7 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-compare-versions.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -199,6 +200,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
+               "  compare-versions VERSION1 [OP] VERSION2\n"
+               "                             Compare two version strings\n"
                "  verify FILE...             Check unit files for correctness\n"
                "  calendar SPEC...           Validate repetitive calendar time\n"
                "                             events\n"
@@ -564,6 +567,7 @@ static int run(int argc, char *argv[]) {
                 { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
                 { "filesystems",       VERB_ANY, VERB_ANY, 0,            verb_filesystems       },
                 { "condition",         VERB_ANY, VERB_ANY, 0,            verb_condition         },
+                { "compare-versions",  3,        4,        0,            verb_compare_versions  },
                 { "verify",            2,        VERB_ANY, 0,            verb_verify            },
                 { "calendar",          2,        VERB_ANY, 0,            verb_calendar          },
                 { "timestamp",         2,        VERB_ANY, 0,            verb_timestamp         },
