@@ -224,3 +224,38 @@ it does not delay boot. It is usually easier to write such a service in a
 be (re-)established, but is instead started when the network has connectivity,
 and if the network goes away, it fails and relies on the system manager to
 restart it if appropriate.
+
+## Modyfing the meaning of `network-online.target`
+
+As described above, the meaning of this target is defined first by which
+implementing services are enabled (`NetworkManager-wait-online.service`,
+`systemd-networkd-wait-online.service`, …), and second by the configuration
+specific to those services.
+
+For example, `systemd-networkd-wait-online.service` will wait until all
+interfaces that are present and managed by
+[systemd-networkd.service(8)](http://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html).
+are fully configured or failed and at least one link is online; see
+[systemd-networkd-wait-online.service(8)](http://www.freedesktop.org/software/systemd/man/systemd-networkd-wait-online.service.html)
+for details. Those conditions are affected by the presence of configuration
+that matches various links, but also by settings like
+`Unmanaged=`, `RequiredForOnline=`, `RequiredFamilyForOnline=`; see
+[systemd.network(5)](http://www.freedesktop.org/software/systemd/man/systemd.socket.html).
+
+It is also possible to plug in additional checks for network state. For
+example, to delay `network-online.target` until some a specific host is
+reachable (the name can be resolved over DNS and the appropriate route has been
+established), the following simple service could be used:
+
+```ini
+[Unit]
+DefaultDependencies=no
+After=nss-lookup.target
+Before=network-online.target
+
+[Service]
+ExecStart=sh -c 'while ! ping -c 1 example.com; do sleep 1; done'
+
+[Install]
+WantedBy=network-online.target
+```
