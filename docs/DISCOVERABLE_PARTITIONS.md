@@ -34,9 +34,8 @@ Note that the OS side of this specification is currently implemented in
 [systemd](https://systemd.io/) 211 and newer in the
 [systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
 generator tool. Note that automatic discovery of the root only works if the
-boot loader communicates this information to the OS, by implementing the [Boot
-Loader
-Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
+boot loader communicates this information to the OS, by implementing the
+[Boot Loader Interface](BOOT_LOADER_INTERFACE.md).
 
 ## Defined Partition Type UUIDs
 
@@ -151,7 +150,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Verity Signature Partition (amd64/x86_64)_ | `e7bb33fb-06cf-4e81-8273-e543b413e2e2` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (x86)_ | `974a71c0-de41-43c3-be5d-5c5ccd1ad2c0` | ditto | ditto |
 | _EFI System Partition_ | `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` | VFAT | The ESP used for the current boot is automatically mounted to `/efi/` (or `/boot/` as fallback), unless a different partition is mounted there (possibly via `/etc/fstab`, or because the Extended Boot Loader Partition — see below — exists) or the directory is non-empty on the root disk.  This partition type is defined by the [UEFI Specification](http://www.uefi.org/specifications). |
-| _Extended Boot Loader Partition_ | `bc13c2ff-59e6-4262-a352-b275fd6f7172` | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to `/boot/`, unless a different partition is mounted there (possibly via `/etc/fstab`) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION). |
+| _Extended Boot Loader Partition_ | `bc13c2ff-59e6-4262-a352-b275fd6f7172` | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to `/boot/`, unless a different partition is mounted there (possibly via `/etc/fstab`) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md). |
 | _Swap_ | `0657fd6d-a4ab-43c4-84e5-0933c84b4f4f` | Swap, optionally in LUKS | All swap partitions on the disk containing the root partition are automatically enabled. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/swap`. This partition type predates the Discoverable Partitions Specification. |
 | _Home Partition_ | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
 | _Server Data Partition_ | `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
@@ -410,9 +409,9 @@ The `gdisk` tool (from version 1.0.5 onward) and its variants (`sgdisk`,
 
 ## Links
 
-[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
-[Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE)<br>
-[Safely Building Images](https://systemd.io/BUILDING_IMAGES)<br>
+[Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md)<br>
+[Boot Loader Interface](BOOT_LOADER_INTERFACE.md)<br>
+[Safely Building Images](BUILDING_IMAGES.md)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
 [`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

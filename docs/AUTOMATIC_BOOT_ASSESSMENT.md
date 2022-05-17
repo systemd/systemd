@@ -11,7 +11,7 @@ systemd provides support for automatically reverting back to the previous
 version of the OS or kernel in case the system consistently fails to boot. This
 support is built into various of its components. When used together these
 components provide a complete solution on UEFI systems, built as add-on to the
-[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION).
+[Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md).
 However, the different components may also be used independently, and in
 combination with other software, to implement similar schemes, for example with
 other boot loaders or for non-UEFI systems. Here's a brief overview of the

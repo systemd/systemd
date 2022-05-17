@@ -72,7 +72,7 @@ variables. All EFI variables use the vendor UUID
   * `1 << 1` → The boot loader honours `LoaderConfigTimeoutOneShot` when set.
   * `1 << 2` → The boot loader honours `LoaderEntryDefault` when set.
   * `1 << 3` → The boot loader honours `LoaderEntryOneShot` when set.
-  * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT).
+  * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](AUTOMATIC_BOOT_ASSESSMENT.md).
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
 
@@ -115,8 +115,8 @@ the identifiers as passed in `LoaderEntries`, `LoaderEntryDefault`,
 `LoaderEntryOneShot`, `LoaderEntrySelected`, and possibly show nicely localized
 names for them in UIs.
 
-1. When boot loader entries are defined through [Boot Loader
-   Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION) drop-in files
+1. When boot loader entries are defined through
+   [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md) drop-in files
    the identifier should be derived directly from the drop-in snippet name, but
    with the `.conf` (or `.efi` in case of Type #2 entries) suffix removed.
 
@@ -146,8 +146,8 @@ names for them in UIs.
 
 ## Links
 
-[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
-[Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
+[Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md)<br>
+[Discoverable Partitions Specification](DISCOVERABLE_PARTITIONS.md)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
 [`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

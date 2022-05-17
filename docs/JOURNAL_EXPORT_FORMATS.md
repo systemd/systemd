@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 _Note that this document describes the binary serialization format of journals only, as used for transfer across the network.
 For interfacing with web technologies there's the Journal JSON Format, described below.
-The binary format on disk is documented as the [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT/)._
+The binary format on disk is documented as the [Journal File Format](JOURNAL_FILE_FORMAT.md)._
 
 _Before reading on, please make sure you are aware of the [basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html), in particular realize that they may include binary non-text data (though usually don't), and the same field might have multiple values assigned within the same entry (though usually hasn't)._
 
@@ -122,7 +122,7 @@ _SOURCE_REALTIME_TIMESTAMP=1423944916372858
 
 _Note that this section describes the JSON serialization format of the journal only, as used for interfacing with web technologies.
 For binary transfer of journal data across the network there's the Journal Export Format described above.
-The binary format on disk is documented as [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT)._
+The binary format on disk is documented as [Journal File Format](JOURNAL_FILE_FORMAT.md)._
 
 _Before reading on, please make sure you are aware of the [basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html), in particular realize that they may include binary non-text data (though usually don't), and the same field might have multiple values assigned within the same entry (though usually hasn't)._
 

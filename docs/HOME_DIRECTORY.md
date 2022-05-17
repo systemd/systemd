@@ -18,8 +18,8 @@ mechanism used.
 ## General Structure
 
 Inside of the home directory a file `~/.identity` contains the JSON formatted
-user record of the user. It follows the format defined in [`JSON User
-Records`](https://systemd.io/USER_RECORD). It is recommended to bring the
+user record of the user. It follows the format defined in
+[`JSON User Records`](USER_RECORD.md). It is recommended to bring the
 record into 'normalized' form (i.e. all objects should contain their fields
 sorted alphabetically by their key) before storing it there, though this is not
 required nor enforced. Since the user record is cryptographically signed, the
