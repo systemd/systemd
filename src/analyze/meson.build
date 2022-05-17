@@ -45,6 +45,8 @@ systemd_analyze_sources = files(
         'analyze-unit-files.h',
         'analyze-unit-paths.c',
         'analyze-unit-paths.h',
+        'analyze-vercmp.c',
+        'analyze-vercmp.h',
         'analyze-verify.c',
         'analyze-verify.h',
         'analyze-verify-util.c',
