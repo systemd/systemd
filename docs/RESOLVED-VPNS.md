@@ -112,7 +112,7 @@ and another one with `~corp.company.example` — both suffixes match a lookup fo
 `foo.corp.company.example`, but the latter interface wins, since the match is
 for four labels, while the other is for zero labels.
 
-# Putting it Together
+## Putting it Together
 
 Let's discuss how the three DNS routing concepts above are best used for a
 reasonably complex scenario consisting of:
@@ -159,7 +159,7 @@ else.  If `privacy0` is then downed again, `wifi0` will get the regular DNS
 traffic again, and `company0` will still get the company's internal domain and
 IP subnet traffic and nothing else. Everything hence works as intended.
 
-# How to Implement this in Your VPN Software
+## How to Implement this in Your VPN Software
 
 Most likely you want to expose a boolean in some way that declares whether a
 specific VPN is of the *corporate* or the *privacy* kind:
@@ -177,7 +177,7 @@ specific VPN is of the *corporate* or the *privacy* kind:
 traditional, i.e. with any search domains as acquired, do not set `~.` though,
 and do not disable `default-route`.)
 
-# The APIs
+## The APIs
 
 Now we determined how we want to configure things, but how do you actually get
 the configuration to `systemd-resolved.service`? There are three relevant
@@ -222,7 +222,7 @@ interfaces:
    propagate the `default-route` boolean, nor can be used to configure the
    `~….in-addr.arpa` or `~.ip6.arpa` routing domains.
 
-# Ordering
+## Ordering
 
 When configuring per-interface DNS configuration settings it is wise to
 configure everything *before* actually upping the interface. Once the interface
@@ -235,7 +235,7 @@ as the former without the latter has no effect, but the latter without the
 former will result in DNS traffic possibly being generated, in a non-desirable
 way given that the routing information is not set yet.
 
-# Downgrading Search Domains to Routing Domains
+## Downgrading Search Domains to Routing Domains
 
 Many VPN implementations provide a way how VPN servers can inform VPN clients
 about search domains to use. In some cases it might make sense to install those

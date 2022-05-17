@@ -5,19 +5,21 @@ layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Code Map
+# The systemd Repository Architecture
+
+## Code Map
 
 This section will attempt to provide a high-level overview of the various
 components of the systemd repository.
 
-# Source Code
+## Source Code
 
 Directories in `src/` provide the implementation of all daemons, libraries and
 command-line tools shipped by the project. There are many, and more are
 constantly added, so we will not enumerate them all here — the directory
 names are self-explanatory.
 
-## Shared Code
+### Shared Code
 
 You might wonder what kind of common code belongs in `src/shared/` and what
 belongs in `src/basic/`. The split is like this: anything that is used to
@@ -44,14 +46,14 @@ To summarize:
 `src/journal/` that end up in `libjournal-client.a` convenience library.
 - may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
 
-## PID 1
+### PID 1
 
 Code located in `src/core/` implements the main logic of the systemd system (and user)
 service manager.
 
 BPF helpers written in C and used by PID 1 can be found under `src/core/bpf/`.
 
-### Implementing Unit Settings
+#### Implementing Unit Settings
 
 The system and session manager supports a large number of unit settings. These can generally
 be configured in three ways:
@@ -73,12 +75,12 @@ D-Bus messages in `src/shared/bus-unit-util.c`
 So that they are exercised by the fuzzing CI, new unit settings should also be listed in the
 text files under `test/fuzz/fuzz-unit-file/`.
 
-## systemd-udev
+### systemd-udev
 
 Sources for the udev daemon and command-line tool (single binary) can be found under
 `src/udev/`.
 
-## Unit Tests
+### Unit Tests
 
 Source files found under `src/test/` implement unit-level testing, mostly for
 modules found in `src/basic/` and `src/shared/`, but not exclusively. Each test
@@ -91,7 +93,7 @@ and generally safe to run on the host without side effects.
 Ideally, every module in `src/basic/` and `src/shared/` should have a
 corresponding unit test under `src/test/`, exercising every helper function.
 
-## Fuzzing
+### Fuzzing
 
 Fuzzers are a type of unit tests that execute code on an externally-supplied
 input sample. Fuzzers are called `fuzz-*`. Fuzzers for `src/basic/` and
@@ -117,7 +119,7 @@ parallelization; see the links for oss-fuzz in [Code
 quality](https://systemd.io/CODE_QUALITY). For testing and debugging, fuzzers
 can be executed as any other program, including under `valgrind` or `gdb`.
 
-# Integration Tests
+## Integration Tests
 
 Sources in `test/TEST-*` implement system-level testing for executables,
 libraries and daemons that are shipped by the project. They require privileges
@@ -131,40 +133,40 @@ is the case.
 
 See `test/README.testsuite` for more specific details.
 
-# hwdb
+## hwdb
 
 Rules built in the static hardware database shipped by the project can be found
 under `hwdb.d/`. Some of these files are updated automatically, some are filled
 by contributors.
 
-# Documentation
+## Documentation
 
-## systemd.io
+### systemd.io
 
 Markdown files found under `docs/` are automatically published on the
 [systemd.io](https://systemd.io) website using Github Pages. A minimal unit test
 to ensure the formatting doesn't have errors is included in the
 `meson test -C build/ github-pages` run as part of the CI.
 
-## Man pages
+### Man pages
 
 Manpages for binaries and libraries, and the DBUS interfaces, can be found under
 `man/` and should ideally be kept in sync with changes to the corresponding
 binaries and libraries.
 
-## Translations
+### Translations
 
 Translations files for binaries and daemons, provided by volunteers, can be found
 under `po/` in the usual format. They are kept up to date by contributors and by
 automated tools.
 
-# System Configuration files and presets
+## System Configuration files and presets
 
 Presets (or templates from which they are generated) for various daemons and tools
 can be found under various directories such as `factory/`, `modprobe.d/`, `network/`,
 `presets/`, `rules.d/`, `shell-completion/`, `sysctl.d/`, `sysusers.d/`, `tmpfiles.d/`.
 
-# Utilities for Developers
+## Utilities for Developers
 
 `tools/`, `coccinelle/`, `.github/`, `.semaphore/`, `.lgtm/`, `.mkosi/` host various
 utilities and scripts that are used by maintainers and developers. They are not
