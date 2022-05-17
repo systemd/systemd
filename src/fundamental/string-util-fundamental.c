@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #ifndef SD_BOOT
-#include <ctype.h>
-
-#include "macro.h"
+#  include <ctype.h>
 #endif
+
+#include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) {
@@ -93,20 +93,22 @@ static sd_bool is_valid_version_char(sd_char a) {
 }
 
 sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
-
-        /* This is based on RPM's rpmvercmp(). But this explicitly handles '-' and '.', as we usually
-         * want to directly compare strings which contain both version and release; e.g.
-         * '247.2-3.1.fc33.x86_64' or '5.11.0-0.rc5.20210128git76c057c84d28.137.fc34'.
-         * Unlike rpmvercmp(), this distiguishes e.g. 123a and 123.a, and 123a is newer.
+        /* This function is similar to strverscmp(3), but it treats '-' and '.' as separators.
          *
-         * This splits the input strings into segments. Each segment is numeric or alpha, and may be
+         * The logic is based on rpm's rpmvercmp(), but unlike rpmvercmp(), it distiguishes e.g.
+         * '123a' and '123.a', with '123a' being newer.
+         *
+         * It allows direct comparison of strings which contain both a version and a release; e.g.
+         * '247.2-3.1.fc33.x86_64' or '5.11.0-0.rc5.20210128git76c057c84d28.137.fc34'.
+         *
+         * The input string is split into segments. Each segment is numeric or alphabetic, and may be
          * prefixed with the following:
          *  '~' : used for pre-releases, a segment prefixed with this is the oldest,
          *  '-' : used for the separator between version and release,
          *  '^' : used for patched releases, a segment with this is newer than one with '-'.
          *  '.' : used for point releases.
-         * Note, no prefix segment is the newest. All non-supported characters are dropped, and
-         * handled as a separator of segments, e.g., 123_a is equivalent to 123a.
+         * Note that no prefix segment is the newest. All non-supported characters are dropped, and
+         * handled as a separator of segments, e.g., '123_a' is equivalent to '123a'.
          *
          * By using this, version strings can be sorted like following:
          *  (older) 122.1
@@ -124,7 +126,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
          */
 
         if (isempty(a) || isempty(b))
-                return strcmp_ptr(a, b);
+                return CMP(strcmp_ptr(a, b), 0);
 
         for (;;) {
                 const sd_char *aa, *bb;
@@ -206,7 +208,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
 
                         /* Then, compare them as strings. */
-                        r = strncmp(a, b, aa - a);
+                        r = CMP(strncmp(a, b, aa - a), 0);
                         if (r != 0)
                                 return r;
                 } else {
@@ -217,7 +219,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 ;
 
                         /* Note that the segments are usually not NUL-terminated. */
-                        r = strncmp(a, b, MIN(aa - a, bb - b));
+                        r = CMP(strncmp(a, b, MIN(aa - a, bb - b)), 0);
                         if (r != 0)
                                 return r;
 
