@@ -51,7 +51,10 @@ h1 {
 }
 h2 {
   margin-top: 3rem;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
+}
+h3 {
+  font-size: 1.15rem;
 }
 a {
   font-weight: 600;
