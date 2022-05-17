@@ -24,6 +24,7 @@
   --sd-gray: hsl(30, 10%, 85%);
   --sd-gray-dark: hsl(257, 23%, 20%);
   --sd-gray-extradark: hsl(257, 23%, 16%); /* #241f31 */
+  --sd-blue: hsl(200, 66%, 55%);
 
   --sd-highlight-bg-light: rgba(255, 255, 255, 1);
   --sd-highlight-bg-dark: rgba(0, 0, 0, .6);
@@ -131,6 +132,20 @@ hr {
   max-width: 720px;
 }
 
+/* Custom content */
+.intro-code-block {
+  background-color: var(--sd-brand-black);
+  color: var(--sd-brand-white);
+  font-size: 0.875rem;
+  padding: 1em;
+  overflow-x: auto;
+}
+@media (prefers-color-scheme: dark) {
+  .intro-code-block {
+    background-color: var(--sd-highlight-bg);
+  }
+}
+
 /* Singletons */
 .page-logo {
   display: block;
@@ -154,7 +169,15 @@ hr {
 
 .brand-black {
   background-color: var(--sd-brand-black);
-  color: var(--sd-white);
+  color: var(--sd-brand-white);
+}
+
+.color-green {
+  color: var(--sd-brand-green);
+}
+
+.color-blue {
+  color: var(--sd-blue);
 }
 
 .page-link::after {
