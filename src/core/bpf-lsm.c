@@ -125,13 +125,15 @@ static int mac_bpf_use(void) {
         }
 }
 
-bool lsm_bpf_supported(void) {
+bool lsm_bpf_supported(bool initialize) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
         if (supported >= 0)
                 return supported;
+        if (!initialize)
+                return false;
 
         r = dlopen_bpf();
         if (r < 0) {
@@ -267,7 +269,8 @@ int lsm_bpf_cleanup(const Unit *u) {
         assert(u);
         assert(u->manager);
 
-        if (!lsm_bpf_supported())
+        /* If we never successfully detected support, there is nothing to clean up. */
+        if (!lsm_bpf_supported(/* initialize = */ false))
                 return 0;
 
         if (!u->manager->restrict_fs)
@@ -297,7 +300,7 @@ void lsm_bpf_destroy(struct restrict_fs_bpf *prog) {
         restrict_fs_bpf__destroy(prog);
 }
 #else /* ! BPF_FRAMEWORK */
-bool lsm_bpf_supported(void) {
+bool lsm_bpf_supported(bool initialize) {
         return false;
 }
 
