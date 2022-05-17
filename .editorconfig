@@ -32,3 +32,11 @@ indent_size = 8
 indent_size = 2
 indent_style = space
 max_line_length = 109
+
+[docs/**/*.css]
+indent_style = space
+indent_size = 2
+
+[docs/**/*.html]
+indent_style = space
+indent_size = 2
