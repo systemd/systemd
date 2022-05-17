@@ -126,7 +126,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
          */
 
         if (isempty(a) || isempty(b))
-                return strcmp_ptr(a, b);
+                return CMP(strcmp_ptr(a, b), 0);
 
         for (;;) {
                 const sd_char *aa, *bb;
@@ -208,7 +208,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
 
                         /* Then, compare them as strings. */
-                        r = strncmp(a, b, aa - a);
+                        r = CMP(strncmp(a, b, aa - a), 0);
                         if (r != 0)
                                 return r;
                 } else {
@@ -219,7 +219,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 ;
 
                         /* Note that the segments are usually not NUL-terminated. */
-                        r = strncmp(a, b, MIN(aa - a, bb - b));
+                        r = CMP(strncmp(a, b, MIN(aa - a, bb - b)), 0);
                         if (r != 0)
                                 return r;
 
