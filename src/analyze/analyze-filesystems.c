@@ -221,5 +221,5 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
                         first = false;
                 }
 
-        return 0;
+        return EXIT_SUCCESS;
 }

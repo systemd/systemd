@@ -176,7 +176,7 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                         first = false;
                 }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 #else

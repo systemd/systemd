@@ -16,5 +16,5 @@ int verb_unit_paths(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(p, paths.search_path)
                 puts(*p);
 
-        return 0;
+        return EXIT_SUCCESS;
 }

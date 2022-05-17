@@ -42,5 +42,5 @@ int verb_cat_config(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }

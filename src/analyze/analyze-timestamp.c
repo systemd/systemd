@@ -79,16 +79,18 @@ static int test_timestamp_one(const char *p) {
 }
 
 int verb_timestamp(int argc, char *argv[], void *userdata) {
-        int ret = 0, r;
+        int r = 0;
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
-                r = test_timestamp_one(*p);
-                if (ret == 0 && r < 0)
-                        ret = r;
+                int k;
 
-                if (*(p + 1))
+                k = test_timestamp_one(*p);
+                if (r == 0 && k < 0)
+                        r = k;
+
+                if (p[1])
                         putchar('\n');
         }
 
-        return ret;
+        return r;
 }

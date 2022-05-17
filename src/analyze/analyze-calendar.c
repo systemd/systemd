@@ -123,7 +123,7 @@ static int test_calendar_one(usec_t n, const char *p) {
 }
 
 int verb_calendar(int argc, char *argv[], void *userdata) {
-        int ret = 0, r;
+        int r = 0;
         usec_t n;
 
         if (arg_base_time != USEC_INFINITY)
@@ -132,13 +132,15 @@ int verb_calendar(int argc, char *argv[], void *userdata) {
                 n = now(CLOCK_REALTIME); /* We want to use the same "base" for all expressions */
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
-                r = test_calendar_one(n, *p);
-                if (ret == 0 && r < 0)
-                        ret = r;
+                int k;
 
-                if (*(p + 1))
+                k = test_calendar_one(n, *p);
+                if (r == 0 && k < 0)
+                        r = k;
+
+                if (p[1])
                         putchar('\n');
         }
 
-        return ret;
+        return r;
 }

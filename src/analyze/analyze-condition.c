@@ -137,5 +137,11 @@ static int verify_conditions(char **lines, LookupScope scope, const char *unit, 
 }
 
 int verb_condition(int argc, char *argv[], void *userdata) {
-        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        int r;
+
+        r = verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }
