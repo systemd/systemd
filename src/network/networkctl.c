@@ -1814,13 +1814,13 @@ static int link_status_one(
                                    TABLE_STRING, bond_mode_to_string(info->mode),
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Miimon:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->miimon),
+                                   TABLE_TIMESPAN_MSEC, info->miimon * USEC_PER_MSEC,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Updelay:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->updelay),
+                                   TABLE_TIMESPAN_MSEC, info->updelay * USEC_PER_MSEC,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Downdelay:",
-                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->downdelay));
+                                   TABLE_TIMESPAN_MSEC, info->downdelay * USEC_PER_MSEC);
                 if (r < 0)
                         return table_log_add_error(r);
 
