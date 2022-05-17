@@ -1595,20 +1595,20 @@ if dns_over_tls != 'false'
                 error('Sorry, -Ddns-over-tls=gnutls is not supported when openssl is used as the cryptolib')
         endif
 
-        if dns_over_tls == 'openssl' or conf.get('PREFER_OPENSSL') == 1
-                have_gnutls = false
-        else
-                have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0'))
-                if dns_over_tls == 'gnutls' and not have_gnutls
-                        error('DNS-over-TLS support was requested with gnutls, but dependencies are not available')
-                endif
-        endif
-        if dns_over_tls == 'gnutls' or have_gnutls
+        if dns_over_tls == 'gnutls'
                 have_openssl = false
         else
                 have_openssl = conf.get('HAVE_OPENSSL') == 1
-                if dns_over_tls != 'auto' and not have_openssl
-                        str = dns_over_tls == 'openssl' ? ' with openssl' : ''
+                if dns_over_tls == 'openssl' and not have_openssl
+                        error('DNS-over-TLS support was requested with openssl, but dependencies are not available')
+                endif
+        endif
+        if dns_over_tls == 'openssl' or have_openssl
+                have_gnutls = false
+        else
+                have_gnutls = conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0')
+                if dns_over_tls != 'auto' and not have_gnutls
+                        str = dns_over_tls == 'gnutls' ? ' with gnutls' : ''
                         error('DNS-over-TLS support was requested@0@, but dependencies are not available'.format(str))
                 endif
         endif
