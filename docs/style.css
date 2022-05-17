@@ -21,7 +21,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  font-size: 16px;
+  font-size: 1rem;
   font-family: "Heebo", sans-serif;
   font-weight: 400;
   line-height: 1.6;
@@ -31,13 +31,13 @@ body {
   background-color: #f6f5f4;
 }
 h1, h2, h3, h4, h5, h6 {
-  margin: 1rem 0 10px;
+  margin: 1rem 0 0.625rem;
   font-weight: 600;
   line-height: 1.25;
 }
 h1 {
   text-align: center;
-  font-size: 30px;
+  font-size: 1.87rem;
   font-weight: 400;
   font-style: normal;
   margin-bottom: 2rem;
@@ -46,12 +46,12 @@ h1 {
   h1 {
     margin-left: 10%;
     margin-right: 10%;
-    font-size: 38px;
+    font-size: 2.375em;
   }
 }
 h2 {
-  margin-top: 3rem;
   font-size: 1.25rem;
+  margin-top: 2.5em;
 }
 h3 {
   font-size: 1.15rem;
@@ -92,6 +92,8 @@ hr {
 }
 .page-logo > img {
   display: block;
+  width: 12.625em;
+  height: auto;
   margin: 0 auto;
 }
 
