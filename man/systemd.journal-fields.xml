@@ -398,6 +398,14 @@
         for details about journal namespaces.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_SYSTEM_CONTEXT=</varname></term>
+
+        <listitem><para>A string field that specifies the context in which the message was logged. If
+        <literal>initrd</literal>, the log message was processed while systemd-journald
+        was running inside the initrd. If <literal>main</literal>, the log message was generated after
+        journald switched root to the root filesystem.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
