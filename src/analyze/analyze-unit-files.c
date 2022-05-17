@@ -46,5 +46,5 @@ int verb_unit_files(int argc, char *argv[], void *userdata) {
                 printf("aliases: %s ← %s\n", k, j);
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }

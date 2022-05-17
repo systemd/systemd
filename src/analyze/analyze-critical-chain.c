@@ -226,5 +226,5 @@ int verb_critical_chain(int argc, char *argv[], void *userdata) {
         else
                 list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
 
-        return 0;
+        return EXIT_SUCCESS;
 }
