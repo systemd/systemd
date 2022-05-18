@@ -2746,7 +2746,7 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
 
         r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to reload network settings: %m");
+                return log_error_errno(r, "Failed to reload network settings: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -2777,8 +2777,9 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 index = PTR_TO_INT(p);
                 r = bus_call_method(bus, bus_network_mgr, "ReconfigureLink", &error, NULL, "i", index);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
-                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
+                        return log_error_errno(r, "Failed to reconfigure network interface %s: %s",
+                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX),
+                                               bus_error_message(&error, r));
         }
 
         return 0;
