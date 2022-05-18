@@ -8,8 +8,12 @@
 #include "path-util.h"
 #include "sort-util.h"
 #include "special.h"
+#include "static-destruct.h"
 #include "strv.h"
 #include "terminal-util.h"
+
+static Hashmap *unit_times_hashmap = NULL;
+STATIC_DESTRUCTOR_REGISTER(unit_times_hashmap, hashmap_freep);
 
 static int list_dependencies_print(
                 const char *name,
@@ -53,8 +57,6 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
         return bus_get_unit_property_strv(bus, path, "After", deps);
 }
-
-static Hashmap *unit_times_hashmap;
 
 static int list_dependencies_compare(char *const *a, char *const *b) {
         usec_t usa = 0, usb = 0;
@@ -197,7 +199,6 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 int verb_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
-        Hashmap *h;
         int n, r;
 
         r = acquire_bus(&bus, NULL);
@@ -208,16 +209,11 @@ int verb_critical_chain(int argc, char *argv[], void *userdata) {
         if (n <= 0)
                 return n;
 
-        h = hashmap_new(&string_hash_ops);
-        if (!h)
-                return log_oom();
-
         for (UnitTimes *u = times; u->has_data; u++) {
-                r = hashmap_put(h, u->name, u);
+                r = hashmap_ensure_put(&unit_times_hashmap, &string_hash_ops, u->name, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add entry to hashmap: %m");
         }
-        unit_times_hashmap = h;
 
         pager_open(arg_pager_flags);
 
@@ -230,6 +226,5 @@ int verb_critical_chain(int argc, char *argv[], void *userdata) {
         else
                 list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
 
-        h = hashmap_free(h);
         return 0;
 }
