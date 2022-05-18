@@ -2162,7 +2162,7 @@ meson.add_install_script(meson_make_symlink,
                          rootlibexecdir / 'systemd',
                          rootsbindir / 'init')
 
-public_programs += executable(
+exe = executable(
         'systemd-analyze',
         systemd_analyze_sources,
         include_directories : core_includes,
@@ -2172,6 +2172,13 @@ public_programs += executable(
                         libseccomp],
         install_rpath : rootlibexecdir,
         install : conf.get('ENABLE_ANALYZE'))
+public_programs += exe
+
+if want_tests != 'false'
+        test('test-compare-versions',
+             test_compare_versions_sh,
+             args : exe.full_path())
+endif
 
 executable(
         'systemd-journald',
