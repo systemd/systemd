@@ -429,6 +429,7 @@ if get_option('buildtype') != 'debug'
         possible_cc_flags += [
                 '-ffunction-sections',
                 '-fdata-sections',
+                '-fno-semantic-interposition',
         ]
 
         possible_link_flags += '-Wl,--gc-sections'
