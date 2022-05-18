@@ -331,7 +331,7 @@ debug and set "processId" to "${command:pickProcess}". Now, when starting the de
 the PID of the process you want to debug. Run `systemctl show --property MainPID --value <component>` in the
 container to figure out the PID and enter it when asked and VSCode will attach to that process instead.
 
-# Debugging systemd-boot
+## Debugging systemd-boot
 
 During boot, systemd-boot and the stub loader will output a message like `systemd-boot@0x0A,0x0B`,
 providing the location of the text and data sections. These location can then be used to attach
