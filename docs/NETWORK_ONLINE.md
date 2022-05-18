@@ -47,7 +47,7 @@ themselves. Services using the network should hence simply place an
 
 ## Network connectivity has been estabilished: `network-online.target`
 
-`network-online.target` is a target that actively waits until the nework is
+`network-online.target` is a target that actively waits until the network is
 "up", where the definition of "up" is defined by the network management
 software. Usually it indicates a configured, routable IP address of some
 kind. Its primary purpose is to actively delay activation of services until the
@@ -170,7 +170,7 @@ will be enabled too, which means that `network-online.target` will include
 `systemd-networkd-wait-online.service` when and only when
 `systemd-networkd.service` is enabled.  `NetworkManager-wait-online.service` is
 set up similarly. This means that the "wait" services do not need to be enabled
-explicitly. They will be enabled automaticaly when the "main" service is
+explicitly. They will be enabled automatically when the "main" service is
 enabled, though they will not be *used* unless something else pulls in
 `network-online.target`.
 
@@ -186,7 +186,7 @@ enabled
 Please note that `network-online.target` means that the network connectivity
 *has been* reached, not that it is currently available. By the very nature and
 design of the network, connectivity may briefly or permanently disappear, so
-for reasonble user experience, services need to handle temporary lack of
+for reasonable user experience, services need to handle temporary lack of
 connectivity.
 
 If you are a developer, instead of wondering what to do about `network.target`,
