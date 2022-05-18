@@ -335,14 +335,14 @@ CHANGES WITH 251:
           this way can be turned off via the new
           `systemd.import_credentials=no` kernel command line option.
 
-        * LoadCredential= will now automatically search for credentials to
-          import in the /etc/credstore/, /run/credstore/, /usr/lib/credstore/
-          directories if no or a relative source filename is passed. Similar
-          LoadCredentialEncrypted= will search in these same directories, plus
+        * LoadCredential= will now automatically look for credentials in the
+          /etc/credstore/, /run/credstore/, /usr/lib/credstore/ directories if
+          the argument is not an absolute path. Similarly,
+          LoadCredentialEncrypted= will check the same directories plus
           /etc/credstore.encrypted/, /run/credstore.encrypted/ and
-          /usr/lib/credstore.encrypted/. The idea is that these directories are
-          now the recommended system-wide location to place credentials for
-          automatic pick-up by services in.
+          /usr/lib/credstore.encrypted/. The idea is to use those directories
+          as the system-wide location for credentials that services should pick
+          up automatically.
 
         * System and service credentials are described in great detail in a new
           document:
