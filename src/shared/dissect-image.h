@@ -203,6 +203,9 @@ typedef enum DissectImageFlags {
 } DissectImageFlags;
 
 struct DissectedImage {
+        int fd;                    /* Backing fd */
+        int n_partitions;          /* Total number of partitions */
+
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */

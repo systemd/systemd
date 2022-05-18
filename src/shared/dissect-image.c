@@ -198,6 +198,23 @@ static int ioctl_partition_add(
         return RET_NERRNO(ioctl(fd, BLKPG, &ba));
 }
 
+static int ioctl_partition_remove(int fd, int nr) {
+        assert(fd >= 0);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_DEL_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
+
 static int make_partition_devname(
                 const char *whole_devname,
                 int nr,
@@ -245,7 +262,7 @@ int dissect_image(
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL, *sysname = NULL, *devname = NULL;
         blkid_partlist pl;
-        int r, generic_nr = -1, n_partitions;
+        int r, generic_nr = -1;
         struct stat st;
 
         assert(fd >= 0);
@@ -332,8 +349,13 @@ int dissect_image(
                 return -ENOMEM;
 
         *m = (DissectedImage) {
+                .fd = -1,
                 .has_init_system = -1,
         };
+
+        m->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (m->fd < 0)
+                return r;
 
         r = sd_device_get_sysname(d, &sysname);
         if (r < 0)
@@ -455,11 +477,11 @@ int dissect_image(
                 return errno_or_else(ENOMEM);
 
         errno = 0;
-        n_partitions = blkid_partlist_numof_partitions(pl);
-        if (n_partitions < 0)
+        m->n_partitions = blkid_partlist_numof_partitions(pl);
+        if (m->n_partitions < 0)
                 return errno_or_else(EIO);
 
-        for (int i = 0; i < n_partitions; i++) {
+        for (int i = 0; i < m->n_partitions; i++) {
                 _cleanup_free_ char *node = NULL;
                 unsigned long long pflags;
                 blkid_loff_t start, size;
@@ -1177,9 +1199,20 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
 
+#if HAVE_BLKID
+        for (int nr = 0; nr < m->n_partitions; nr++) {
+                int r;
+
+                r = ioctl_partition_remove(m->fd, nr);
+                if (r < 0)
+                        log_debug_errno(r, "BLKPG_DEL_PARTITION failed: %m");
+        }
+#endif
+
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
                 dissected_partition_done(m->partitions + i);
 
+        safe_close(m->fd);
         free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
