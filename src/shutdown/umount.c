@@ -648,6 +648,17 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
 
                         if (r == -EBUSY && last_try)
                                 log_umount_blockers(m->path);
+
+                        /* If API filesystems under /oldroot cannot be unmounted we can still lazily unmount
+                         * them to unblock /oldroot. They serve no function to us anymore and should be
+                         * memory-only and hence safe to unmount like this. */
+                        if (in_initrd() &&
+                            PATH_STARTSWITH_SET(m->path, "/oldroot/dev", "/oldroot/proc", "/oldroot/sys")) {
+                                log_info("Lazily unmounting '%s' instead.", m->path);
+                                r = umount2(m->path, MNT_FORCE | MNT_DETACH);
+                                if (r < 0)
+                                        log_error_errno(errno, "Failed to lazily unmount %s: %m", m->path);
+                        }
                 }
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
