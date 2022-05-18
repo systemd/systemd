@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
-#include "strv.h"
+#include "analyze.h"
+#include "bus-error.h"
 #include "copy.h"
 #include "path-util.h"
-#include "terminal-util.h"
 #include "sort-util.h"
 #include "special.h"
-#include "bus-error.h"
+#include "strv.h"
+#include "terminal-util.h"
 
 static int list_dependencies_print(
                 const char *name,
