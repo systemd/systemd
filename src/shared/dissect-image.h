@@ -31,6 +31,7 @@ struct DissectedPartition {
         char *mount_options;
         uint64_t size;
         uint64_t offset;
+        bool relinquished;
 };
 
 typedef enum PartitionDesignator {
@@ -203,6 +204,8 @@ typedef enum DissectImageFlags {
 } DissectImageFlags;
 
 struct DissectedImage {
+        int fd;                    /* Backing fd */
+
         bool encrypted:1;
         bool has_verity:1;         /* verity available in image, but not necessarily used */
         bool has_verity_sig:1;     /* pkcs#7 signature embedded in image */
@@ -258,6 +261,7 @@ int dissect_image_and_warn(int fd, const char *name, const VeritySettings *verit
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
+void dissected_image_relinquish(DissectedImage *m);
 
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags, DecryptedImage **ret);

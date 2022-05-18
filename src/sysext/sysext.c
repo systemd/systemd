@@ -584,6 +584,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
                         }
 
+                        dissected_image_relinquish(m);
                         loop_device_relinquish(d);
                         break;
                 }

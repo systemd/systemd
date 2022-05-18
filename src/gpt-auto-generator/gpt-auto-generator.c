@@ -768,6 +768,8 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
+        dissected_image_relinquish(m);
+
         return r;
 }
 
