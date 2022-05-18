@@ -530,7 +530,6 @@ static int extract_image_and_extensions(
         int r;
 
         assert(name_or_path);
-        assert(matches);
 
         r = image_find_harder(IMAGE_PORTABLE, name_or_path, NULL, &image);
         if (r < 0)
