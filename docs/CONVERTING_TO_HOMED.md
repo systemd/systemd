@@ -16,10 +16,10 @@ it might be desirable to convert an existing, traditional user account to a
 
 Before continuing, please read up on these basic concepts:
 
-* [Home Directories](https://systemd.io/HOME_DIRECTORY)
-* [JSON User Records](https://systemd.io/USER_RECORD)
-* [JSON Group Records](https://systemd.io/GROUP_RECORD)
-* [User/Group Record Lookup API via Varlink](https://systemd.io/USER_GROUP_API)
+* [Home Directories](HOME_DIRECTORY.md)
+* [JSON User Records](USER_RECORD.md)
+* [JSON Group Records](GROUP_RECORD.md)
+* [User/Group Record Lookup API via Varlink](USER_GROUP_API.md)
 
 ## Caveat
 

@@ -108,10 +108,9 @@ to find a different solution to your problem._
 
 The recommended way to distinguish between run-from-initrd and run-from-rootfs
 for a daemon is to check for `/etc/initrd-release` (which exists on all modern
-initrd implementations, see the [initrd
-Interface](https://systemd.io/INITRD_INTERFACE) for details) which when exists
-results in `argv[0][0]` being set to `@`, and otherwise doesn't. Something like
-this:
+initrd implementations, see the [initrd Interface](INITRD_INTERFACE.md) for
+details) which when exists results in `argv[0][0]` being set to `@`, and
+otherwise doesn't. Something like this:
 
 ```c
 #include <unistd.h>
@@ -191,4 +190,4 @@ few additional notes for supporting these setups:
   program consult this blog story: [Socket
   Activation](http://0pointer.de/blog/projects/socket-activation.html)
 
-* Consider having a look at the [initrd Interface of systemd](https://systemd.io/INITRD_INTERFACE).
+* Consider having a look at the [initrd Interface of systemd](INITRD_INTERFACE.md).
