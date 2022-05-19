@@ -37,5 +37,5 @@ int verb_service_watchdogs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }

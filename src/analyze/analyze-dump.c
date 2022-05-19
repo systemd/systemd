@@ -60,5 +60,9 @@ int verb_dump(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         fflush(stdout);
-        return copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
+        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }

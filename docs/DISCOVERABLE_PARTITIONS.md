@@ -332,11 +332,11 @@ directory is found to be populated already in the root partition, the automatic
 discovery _must not_ mount any discovered file system over it. Optionally, in
 case of the root, `/usr/` and their Verity partitions instead of strictly
 mounting the first suitable partition an OS might choose to mount the partition
-whose label compares the highest according to `strverscmp()` or a similar
-logic, in order to implement a simple partition-based A/B versioning
-scheme. The precise rules are left for the implementation to decide, but when
-in doubt earlier partitions (by their index) should always win over later
-partitions if the label comparison is inconclusive.
+whose label compares the highest according to `strverscmp()` or similar logic,
+in order to implement a simple partition-based A/B versioning scheme. The
+precise rules are left for the implementation to decide, but when in doubt
+earlier partitions (by their index) should always win over later partitions if
+the label comparison is inconclusive.
 
 A *container* *manager* should automatically discover and mount the root,
 `/usr/`, `/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container
