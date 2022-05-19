@@ -103,19 +103,44 @@ layout=
 initrd_generator=
 
 if [ -r "/etc/kernel/install.conf" ]; then
-    . /etc/kernel/install.conf
+    install_conf="/etc/kernel/install.conf"
 elif [ -r "/usr/lib/kernel/install.conf" ]; then
-    . /usr/lib/kernel/install.conf
+    install_conf="/usr/lib/kernel/install.conf"
+else
+    install_conf=
 fi
+
+if [ -n "$install_conf" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Reading $install_conf…"
+    . "$install_conf"
+    # FIXME: This may override configuration in environment variables, e.g. $BOOT_ROOT.
+fi
+
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$layout" ] && \
+    echo "$install_conf configures layout=$layout"
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$initrd_generator" ] && \
+    echo "$install_conf configures initrd_generator=$initrd_generator"
+
+[ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+    echo "machine-id $MACHINE_ID set via environment or install.conf"
+[ -n "$BOOT_ROOT" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+    echo "BOOT_ROOT=$BOOT_ROOT set via environment or install.conf"
 
 # If /etc/machine-id is initialized we'll use it, otherwise we'll use a freshly
 # generated one. If the user configured an explicit machine ID to use in
 # /etc/machine-info to use for our purpose, we'll use that instead (for
 # compatibility).
-[ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
-[ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]   && read -r MACHINE_ID </etc/machine-id
+if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"; then
+    [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "machine-id $MACHINE_ID acquired from /etc/machine-info"
+fi
+if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id; then
+    [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "machine-id $MACHINE_ID acquired from /etc/machine-id"
+fi
 if [ -z "$MACHINE_ID" ]; then
     MACHINE_ID="$(systemd-id128 new)" || exit 1
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "new machine-id $MACHINE_ID generated"
 fi
 
 # Now that we determined the machine ID to use, let's determine the "token" for
@@ -123,7 +148,10 @@ fi
 # $BOOT where we want to place the kernel/initrd and related resources, as well
 # for naming the .conf boot loader spec entry. Typically this is just the
 # machine ID, but it can be anything else, too, if we are told so.
-[ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token
+if [ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "entry-token \"$ENTRY_TOKEN\" acquired from /etc/kernel/entry-token"
+fi
 if [ -z "$ENTRY_TOKEN" ]; then
     # If not configured explicitly, then use a few candidates: the machine ID,
     # the IMAGE_ID= and ID= fields from /etc/os-release and finally the fixed
@@ -136,6 +164,7 @@ if [ -z "$ENTRY_TOKEN" ]; then
 else
     ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN"
 fi
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Entry-token candidates: $ENTRY_TOKEN_SEARCH"
 
 # NB: The $MACHINE_ID is guaranteed to be a valid machine ID, but
 #     $ENTRY_TOKEN can be any string that fits into a VFAT filename, though
@@ -146,7 +175,12 @@ fi
         if [ -d "$pref/$suff" ]; then
             BOOT_ROOT="$pref"
             ENTRY_TOKEN="$suff"
+
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "$pref/$suff exists, using BOOT_ROOT=$BOOT_ROOT, ENTRY_TOKEN=$ENTRY_TOKEN"
             break 2
+        else
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/$suff not found…"
         fi
     done
 done
@@ -154,20 +188,37 @@ done
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot" "/boot/efi"; do
     if [ -d "$pref/loader/entries" ]; then
         BOOT_ROOT="$pref"
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
         break
+    else
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/loader/entries not found…"
     fi
 done
 
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
     if mountpoint -q "$pref"; then
         BOOT_ROOT="$pref"
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "$pref is a mount point, using BOOT_ROOT=$BOOT_ROOT"
         break
+    else
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref is not a mount point…"
     fi
 done
 
-[ -z "$BOOT_ROOT" ] && BOOT_ROOT="/boot"
+if [ -z "$BOOT_ROOT" ]; then
+    BOOT_ROOT="/boot"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "KERNEL_INSTALL_BOOT_ROOT autodection yielded no candidates, using \"$BOOT_ROOT\""
+fi
 
-[ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$MACHINE_ID"
+if [ -z "$ENTRY_TOKEN" ]; then
+    ENTRY_TOKEN="$MACHINE_ID"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "No entry-token candidate matched, using \"$ENTRY_TOKEN\" from machine-id"
+fi
 
 if [ -z "$layout" ]; then
     # No layout configured by the administrator. Let's try to figure it out
@@ -185,19 +236,27 @@ if [ -z "$layout" ]; then
             # have no idea what that means, let's stay away from it by default.
             layout="other"
         fi
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "$BOOT_ROOT/loader/entries.srel with '$ENTRIES_SREL' found, using layout=$layout"
+
     elif [ -d "$BOOT_ROOT/$ENTRY_TOKEN" ]; then
         # If the metadata in $BOOT_ROOT doesn't tell us anything, then check if
         # the entry token directory already exists. If so, let's assume it's
         # the standard boot loader spec, too.
         layout="bls"
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$BOOT_ROOT/$ENTRY_TOKEN exists, using layout=$layout"
     else
         # There's no metadata in $BOOT_ROOT, and apparently no entry token
         # directory installed? Then we really don't know anything.
         layout="other"
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Entry-token directory not found, using layout=$layout"
     fi
 fi
 
 ENTRY_DIR_ABS="$BOOT_ROOT/$ENTRY_TOKEN/$KERNEL_VERSION"
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Using ENTRY_DIR_ABS=$ENTRY_DIR_ABS"
 
 # Provide a directory where to store generated initrds
 cleanup() {
@@ -227,6 +286,8 @@ PLUGINS="$(
 )"
 IFS="
 "
+
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo -e "Plugin files:\n$PLUGINS"
 
 case "$COMMAND" in
     add)
