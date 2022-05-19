@@ -105,8 +105,6 @@ static void device_init(Unit *u) {
         u->job_running_timeout = u->manager->default_timeout_start_usec;
 
         u->ignore_on_isolate = true;
-
-        d->deserialized_state = _DEVICE_STATE_INVALID;
 }
 
 static void device_done(Unit *u) {
@@ -156,73 +154,32 @@ static void device_set_state(Device *d, DeviceState state) {
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
-static int device_coldplug(Unit *u) {
-        Device *d = DEVICE(u);
-
-        assert(d);
-        assert(d->state == DEVICE_DEAD);
-
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
-        if (d->deserialized_state < 0)
-                return 0;
-
-        Manager *m = u->manager;
-        DeviceFound found = d->deserialized_found;
-        DeviceState state = d->deserialized_state;
-
-        /* On initial boot, switch-root, reload, reexecute, the following happen:
-         * 1. MANAGER_IS_RUNNING() == false
-         * 2. enumerate devices: manager_enumerate() -> device_enumerate()
-         *    Device.enumerated_found is set.
-         * 3. deserialize devices: manager_deserialize() -> device_deserialize()
-         *    Device.deserialize_state and Device.deserialized_found are set.
-         * 4. coldplug devices: manager_coldplug() -> device_coldplug()
-         *    deserialized properties are copied to the main properties.
-         * 5. MANAGER_IS_RUNNING() == true: manager_ready()
-         * 6. catchup devices: manager_catchup() -> device_catchup()
-         *    Device.enumerated_found is applied to Device.found, and state is updated based on that.
-         *
-         * Notes:
-         * - On initial boot, no udev database exists. Hence, no devices are enumerated in the step 2.
-         *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
-         *   other units, or (b) generated when uevents are received.
-         *
-         * - On switch-root, the udev database may be cleared, except for devices with sticky bit, i.e.
-         *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
-         *   we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found must be
-         *   ignored, as udev rules in initramfs and the main system are often different. If the deserialized
-         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (or DEVICE_DEAD if nobody
-         *   sees the device). Unlike the other starting mode, Manager.honor_device_enumeration == false
-         *   (maybe, it is better to rename the flag) when device_coldplug() and device_catchup() are called.
-         *   Hence, let's conditionalize the operations by using the flag. After switch-root, systemd-udevd
-         *   will (re-)process all devices, and the Device.found and Device.state will be adjusted.
-         *
-         * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
-         *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
-         *   device_catchup() or uevents. */
-
-        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m)) {
-                found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
-                if (state == DEVICE_PLUGGED)
-                        state = DEVICE_TENTATIVE; /* downgrade state */
-                if (found == DEVICE_NOT_FOUND)
-                        state = DEVICE_DEAD; /* If nobody sees the device, downgrade more */
-        }
-
-        if (d->found == found && d->state == state)
-                return 0;
-
-        d->found = found;
-        device_set_state(d, state);
-        return 0;
-}
-
 static void device_catchup(Unit *u) {
         Device *d = DEVICE(u);
 
         assert(d);
 
-        /* Second, let's update the state with the enumerated state */
+        /* If the device appeared on our radar during the enumeration step, initialize its state */
+        if (d->state < 0)
+                d->state = DEVICE_DEAD;
+
+        if (!FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV) &&
+            MANAGER_IS_SWITCHING_ROOT(u->manager)) {
+
+                /* The device is no more present in udev DB. When this happens (due to PID1
+                 * switching root), udev is inactive and its DB has been cleared, hence we can't
+                 * trust the enumeration step anymore until udev DB is repopulated again. Until
+                 * this mechanism is used during initrd transitions, we have no other choice than
+                 * forgetting all devices and relying on a full retriggering of events (based on
+                 * the host set of udev rules this time). Hence we avoid generating wrong device
+                 * state transitions by not assuming wrongly that devices missing in udev DB were
+                 * unplugged. The downside is that PID1 won't generate plugged->dead transitions
+                 * for devices that were unplugged during the initrd transition. */
+
+                d->found = DEVICE_NOT_FOUND;
+                d->state = DEVICE_DEAD;
+        }
+
         device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
 }
 
@@ -320,10 +277,10 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (state < 0)
                         log_unit_debug(u, "Failed to parse state value, ignoring: %s", value);
                 else
-                        d->deserialized_state = state;
+                        d->state = state;
 
         } else if (streq(key, "found")) {
-                r = device_found_from_string_many(value, &d->deserialized_found);
+                r = device_found_from_string_many(value, &d->found);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to parse found value '%s', ignoring: %m", value);
 
@@ -1078,7 +1035,6 @@ const UnitVTable device_vtable = {
         .done = device_done,
         .load = device_load,
 
-        .coldplug = device_coldplug,
         .catchup = device_catchup,
 
         .serialize = device_serialize,
