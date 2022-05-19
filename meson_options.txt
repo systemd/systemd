@@ -38,7 +38,7 @@ option('static-libsystemd', type : 'combo',
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
-option('standalone-binaries', type : 'boolean', value : 'false',
+option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
@@ -51,7 +51,7 @@ option('rc-local', type : 'string',
        value : '/etc/rc.local')
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
-option('compat-mutable-uid-boundaries', type : 'boolean', value : 'false',
+option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
 option('nscd', type : 'boolean',
        description : 'build support for flushing of the nscd caches')
@@ -222,7 +222,7 @@ option('status-unit-format-default', type : 'combo',
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
-option('clock-valid-range-usec-max', type : 'integer', value : '473364000000000', # 15 years
+option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
@@ -442,7 +442,7 @@ option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('efi-tpm-pcr-compat', type : 'boolean', value : 'false',
+option('efi-tpm-pcr-compat', type : 'boolean', value : false,
        description : 'Measure kernel command line also into TPM PCR 8 (in addition to 12)')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
@@ -472,11 +472,11 @@ option('zshcompletiondir', type : 'string',
 
 option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
-option('slow-tests', type : 'boolean', value : 'false',
+option('slow-tests', type : 'boolean', value : false,
        description : 'run the slow tests by default')
-option('fuzz-tests', type : 'boolean', value : 'false',
+option('fuzz-tests', type : 'boolean', value : false,
        description : 'run the fuzzer regression tests by default (with sanitizers)')
-option('install-tests', type : 'boolean', value : 'false',
+option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'do fake printf() calls to verify format strings')
@@ -488,18 +488,18 @@ option('ok-color', type : 'combo',
                   'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
-option('urlify', type : 'boolean', value : 'true',
+option('urlify', type : 'boolean', value : true,
        description : 'enable pager Hyperlink ANSI sequence support')
-option('fexecve', type : 'boolean', value : 'false',
+option('fexecve', type : 'boolean', value : false,
        description : 'use fexecve() to spawn children')
 
-option('oss-fuzz', type : 'boolean', value : 'false',
+option('oss-fuzz', type : 'boolean', value : false,
        description : 'build against oss-fuzz')
-option('llvm-fuzz', type : 'boolean', value : 'false',
+option('llvm-fuzz', type : 'boolean', value : false,
        description : 'build against LLVM libFuzzer')
-option('kernel-install', type: 'boolean', value: 'true',
+option('kernel-install', type: 'boolean', value: true,
        description : 'install kernel-install and associated files')
-option('analyze', type: 'boolean', value: 'true',
+option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 
 option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
@@ -507,5 +507,5 @@ option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
 
-option('skip-deps', type : 'boolean', value : 'false',
+option('skip-deps', type : 'boolean', value : false,
        description : 'skip optional dependencies')
