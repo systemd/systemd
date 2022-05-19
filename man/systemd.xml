@@ -1292,7 +1292,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://systemd.io/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
