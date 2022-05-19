@@ -75,7 +75,7 @@ fi
 export KERNEL_INSTALL_VERBOSE=0
 if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
     shift
-    KERNEL_INSTALL_VERBOSE=1
+    export KERNEL_INSTALL_VERBOSE=1
 fi
 
 if [ "${0##*/}" = "installkernel" ]; then
