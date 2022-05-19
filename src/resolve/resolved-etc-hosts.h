@@ -9,6 +9,7 @@ typedef struct EtcHostsItem {
         struct in_addr_data address;
 
         char **names;
+        size_t n_names;
 } EtcHostsItem;
 
 typedef struct EtcHostsItemByName {
