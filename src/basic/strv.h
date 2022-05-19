@@ -35,18 +35,36 @@ size_t strv_length(char * const *l) _pure_;
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
 int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix);
 int strv_prepend(char ***l, const char *value);
-int strv_extend(char ***l, const char *value);
+
+/* _with_size() are lower-level functions where the size can be provided externally,
+ * which allows us to skip iterating over the strv to find the end, which saves
+ * a bit of time and reduces the complexity of appending from O(n²) to O(n). */
+
+int strv_extend_with_size(char ***l, size_t *n, const char *value);
+static inline int strv_extend(char ***l, const char *value) {
+        return strv_extend_with_size(l, NULL, value);
+}
+
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,0);
 int strv_extend_front(char ***l, const char *value);
-int strv_push(char ***l, char *value);
+
+int strv_push_with_size(char ***l, size_t *n, char *value);
+static inline int strv_push(char ***l, char *value) {
+        return strv_push_with_size(l, NULL, value);
+}
 int strv_push_pair(char ***l, char *a, char *b);
+
 int strv_insert(char ***l, size_t position, char *value);
 
 static inline int strv_push_prepend(char ***l, char *value) {
         return strv_insert(l, 0, value);
 }
 
-int strv_consume(char ***l, char *value);
+int strv_consume_with_size(char ***l, size_t *n, char *value);
+static inline int strv_consume(char ***l, char *value) {
+        return strv_consume_with_size(l, NULL, value);
+}
+
 int strv_consume_pair(char ***l, char *a, char *b);
 int strv_consume_prepend(char ***l, char *value);
 

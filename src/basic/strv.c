@@ -403,27 +403,33 @@ char* strv_join_full(char * const *l, const char *separator, const char *prefix,
         return r;
 }
 
-int strv_push(char ***l, char *value) {
-        char **c;
-        size_t n;
+int strv_push_with_size(char ***l, size_t *n, char *value) {
+        /* n is a pointer to a variable to store the size of l.
+         * If not given (i.e. n is NULL or *n is SIZE_MAX), size will be calculated using strv_length().
+         * If n is not NULL, the size after the push will be returned.
+         * If value is empty, no action is taken and *n is not set. */
 
         if (!value)
                 return 0;
 
-        n = strv_length(*l);
+        size_t size = n ? *n : SIZE_MAX;
+        if (size == SIZE_MAX)
+                size = strv_length(*l);
 
         /* Check for overflow */
-        if (n > SIZE_MAX-2)
+        if (size > SIZE_MAX-2)
                 return -ENOMEM;
 
-        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + 2), sizeof(char*));
+        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(size + 2), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
-        c[n] = value;
-        c[n+1] = NULL;
+        c[size] = value;
+        c[size+1] = NULL;
 
         *l = c;
+        if (n)
+                *n = size + 1;
         return 0;
 }
 
@@ -484,10 +490,10 @@ int strv_insert(char ***l, size_t position, char *value) {
         return free_and_replace(*l, c);
 }
 
-int strv_consume(char ***l, char *value) {
+int strv_consume_with_size(char ***l, size_t *n, char *value) {
         int r;
 
-        r = strv_push(l, value);
+        r = strv_push_with_size(l, n, value);
         if (r < 0)
                 free(value);
 
@@ -529,7 +535,7 @@ int strv_prepend(char ***l, const char *value) {
         return strv_consume_prepend(l, v);
 }
 
-int strv_extend(char ***l, const char *value) {
+int strv_extend_with_size(char ***l, size_t *n, const char *value) {
         char *v;
 
         if (!value)
@@ -539,7 +545,7 @@ int strv_extend(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        return strv_consume(l, v);
+        return strv_consume_with_size(l, n, v);
 }
 
 int strv_extend_front(char ***l, const char *value) {
