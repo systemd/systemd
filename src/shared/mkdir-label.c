@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "mkdir-label.h"
 #include "selinux-util.h"
 #include "smack-util.h"
