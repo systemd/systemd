@@ -11,7 +11,7 @@ service
 [Unit]
 Description=Virtual Machine and Container Registration Service
 Documentation=man:systemd-machined.service(8)
-Documentation=https://www.freedesktop.org/wiki/Software/systemd/machined
+Documentation=man:org.freedesktop.machine1(5)
 Wants=machine.slice
 After=machine.slice
 RequiresMountsFor=/var/lib/machines
