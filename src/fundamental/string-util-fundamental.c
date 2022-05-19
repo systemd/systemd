@@ -77,19 +77,18 @@ sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
         return (sd_char*) s + sl - pl;
 }
 
-#ifdef SD_BOOT
-static sd_bool isdigit(sd_char a) {
+static sd_bool is_digit(sd_char a) {
+        /* Locale-independent version of isdigit(). */
         return a >= '0' && a <= '9';
 }
-#endif
 
 static sd_bool is_alpha(sd_char a) {
-        /* Locale independent version of isalpha(). */
+        /* Locale-independent version of isalpha(). */
         return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
 }
 
 static sd_bool is_valid_version_char(sd_char a) {
-        return isdigit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
+        return is_digit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
 }
 
 sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
@@ -187,7 +186,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                         b++;
                 }
 
-                if (isdigit(*a) || isdigit(*b)) {
+                if (is_digit(*a) || is_digit(*b)) {
                         /* Skip leading '0', to make 00123 equivalent to 123. */
                         while (*a == '0')
                                 a++;
@@ -196,9 +195,9 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
 
                         /* Find the leading numeric segments. One may be an empty string. So,
                          * numeric segments are always newer than alpha segments. */
-                        for (aa = a; isdigit(*aa); aa++)
+                        for (aa = a; is_digit(*aa); aa++)
                                 ;
-                        for (bb = b; isdigit(*bb); bb++)
+                        for (bb = b; is_digit(*bb); bb++)
                                 ;
 
                         /* To compare numeric segments without parsing their values, first compare the

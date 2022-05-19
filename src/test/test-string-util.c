@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
+
 #include "alloc-util.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -914,6 +916,13 @@ TEST(strverscmp_improved) {
 
         /* invalid characters */
         assert_se(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89") == 0);
+
+        /* non-ASCII digits */
+        (void) setlocale(LC_NUMERIC, "ar_YE.utf8");
+        assert_se(strverscmp_improved("1٠١٢٣٤٥٦٧٨٩", "1") == 0);
+
+        (void) setlocale(LC_NUMERIC, "th_TH.utf8");
+        assert_se(strverscmp_improved("1๐๑๒๓๔๕๖๗๘๙", "1") == 0);
 }
 
 #define RPMVERCMP(a, b, c) \
