@@ -4,6 +4,7 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "user-util.h"
+#include <sys/stat.h>
 
 int mkdirat_label(int dirfd, const char *path, mode_t mode) {
         int r;
