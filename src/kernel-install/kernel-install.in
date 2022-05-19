@@ -114,7 +114,9 @@ fi
 # compatibility).
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ]   && read -r MACHINE_ID </etc/machine-id
-[ -z "$MACHINE_ID" ] && MACHINE_ID="$(systemd-id128 new)"
+if [ -z "$MACHINE_ID" ]; then
+    MACHINE_ID="$(systemd-id128 new)" || exit 1
+fi
 
 # Now that we determined the machine ID to use, let's determine the "token" for
 # the boot loader entry to generate. We use that for naming the directory below
