@@ -31,7 +31,7 @@
     project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with various
     extensions, partially documented in the <ulink
     url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG Base Directory
-    Specification</ulink> and <ulink url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs/">XDG User
+    Specification</ulink> and <ulink url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs">XDG User
     Directories</ulink>. This manual page describes a more generalized, though minimal and modernized subset of these
     specifications that defines more strictly the suggestions and restrictions systemd makes on the file system
     hierarchy.</para>
@@ -499,7 +499,7 @@
     url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
     Base Directory Specification</ulink>. Additional locations for
     high-level user resources are defined by <ulink
-    url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs/">xdg-user-dirs</ulink>.</para>
+    url="https://www.freedesktop.org/wiki/Software/xdg-user-dirs">xdg-user-dirs</ulink>.</para>
 
     <variablelist>
       <varlistentry>

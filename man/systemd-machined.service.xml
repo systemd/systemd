@@ -95,7 +95,7 @@
     <para>If you are interested in writing a VM or container manager that makes use of machined, please have
     look at <ulink url="https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers">Writing
     Virtual Machine or Container Managers</ulink>. Also see the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
     Interfaces</ulink>.</para>
 
     <para>The daemon provides both a C library interface

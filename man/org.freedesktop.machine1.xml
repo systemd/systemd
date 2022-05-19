@@ -330,7 +330,7 @@ node /org/freedesktop/machine1 {
       unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
       it. The method returns an object path for the registered machine object that implements the
       <interfacename>org.freedesktop.machine1.Machine</interfacename> interface (see below). Also see the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interfaces</ulink> for details about scope units and how to alter resource control settings on the
       created machine at runtime.</para>
 

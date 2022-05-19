@@ -25,7 +25,7 @@ interfaces are currently used by dracut and the ArchLinux initrds.
 * It's highly recommended that the initrd also mounts `/usr/` (if split off) as
   appropriate and passes it pre-mounted to the main system, to avoid the
   problems described in [Booting without /usr is
-  Broken](http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
+  Broken](https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
 
 * If the executable `/run/initramfs/shutdown` exists systemd will use it to
   jump back into the initrd on shutdown. `/run/initramfs/` should be a usable
