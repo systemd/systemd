@@ -208,7 +208,7 @@ static int device_coldplug(Unit *u) {
                 found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
                 if (state == DEVICE_PLUGGED)
                         state = DEVICE_TENTATIVE; /* downgrade state */
-                if (found == DEVICE_NOT_FOUND)
+                if (found == DEVICE_NOT_FOUND && d->enumerated_found == DEVICE_NOT_FOUND)
                         state = DEVICE_DEAD; /* If nobody sees the device, downgrade more */
         }
 
