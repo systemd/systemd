@@ -148,10 +148,44 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
+
+static int ioctl_partition_remove(int fd, const char *name, int nr) {
+        assert(fd >= 0);
+        assert(name);
+        assert(nr > 0);
+
+        struct blkpg_partition bp = {
+                .pno = nr,
+        };
+
+        struct blkpg_ioctl_arg ba = {
+                .op = BLKPG_DEL_PARTITION,
+                .data = &bp,
+                .datalen = sizeof(bp),
+        };
+
+        if (strlen(name) >= sizeof(bp.devname))
+                return -EINVAL;
+
+        strcpy(bp.devname, name);
+
+        return RET_NERRNO(ioctl(fd, BLKPG, &ba));
+}
 #endif
 
-static void dissected_partition_done(DissectedPartition *p) {
+static void dissected_partition_done(int fd, DissectedPartition *p) {
+        assert(fd >= 0);
         assert(p);
+
+#if HAVE_BLKID
+        if (p->node && p->partno > 0 && !p->relinquished) {
+                int r;
+
+                r = ioctl_partition_remove(fd, p->node, p->partno);
+                if (r < 0)
+                        log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
+        }
+#endif
 
         free(p->fstype);
         free(p->node);
@@ -332,8 +366,13 @@ int dissect_image(
                 return -ENOMEM;
 
         *m = (DissectedImage) {
+                .fd = -1,
                 .has_init_system = -1,
         };
+
+        m->fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (m->fd < 0)
+                return -errno;
 
         r = sd_device_get_sysname(d, &sysname);
         if (r < 0)
@@ -790,10 +829,14 @@ int dissect_image(
                                          * scheme in OS images. */
 
                                         if (!PARTITION_DESIGNATOR_VERSIONED(designator) ||
-                                            strverscmp_improved(m->partitions[designator].label, label) >= 0)
+                                            strverscmp_improved(m->partitions[designator].label, label) >= 0) {
+                                                r = ioctl_partition_remove(fd, node, nr);
+                                                if (r < 0)
+                                                        log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
                                                 continue;
+                                        }
 
-                                        dissected_partition_done(m->partitions + designator);
+                                        dissected_partition_done(fd, m->partitions + designator);
                                 }
 
                                 if (fstype) {
@@ -863,8 +906,12 @@ int dissect_image(
                                 const char *sid, *options = NULL;
 
                                 /* First one wins */
-                                if (m->partitions[PARTITION_XBOOTLDR].found)
+                                if (m->partitions[PARTITION_XBOOTLDR].found) {
+                                        r = ioctl_partition_remove(fd, node, nr);
+                                        if (r < 0)
+                                                log_debug_errno(r, "BLKPG_DEL_PARTITION failed, ignoring: %m");
                                         continue;
+                                }
 
                                 sid = blkid_partition_get_uuid(pp);
                                 if (sid)
@@ -1178,8 +1225,9 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 return NULL;
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
-                dissected_partition_done(m->partitions + i);
+                dissected_partition_done(m->fd, m->partitions + i);
 
+        safe_close(m->fd);
         free(m->image_name);
         free(m->hostname);
         strv_free(m->machine_info);
@@ -1187,6 +1235,16 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         strv_free(m->extension_release);
 
         return mfree(m);
+}
+
+void dissected_image_relinquish(DissectedImage *m) {
+        assert(m);
+
+        /* Partitions are automatically removed when the underlying loop device is closed. We just need to
+         * make sure we don't try to remove the partitions early. */
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                m->partitions[i].relinquished = true;
 }
 
 static int is_loop_device(const char *path) {
@@ -3023,6 +3081,7 @@ int mount_image_privately_interactively(
                         return log_error_errno(r, "Failed to relinquish DM devices: %m");
         }
 
+        dissected_image_relinquish(dissected_image);
         loop_device_relinquish(d);
 
         *ret_directory = TAKE_PTR(created_dir);
@@ -3183,6 +3242,7 @@ int verity_dissect_and_mount(
                         return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
         }
 
+        dissected_image_relinquish(dissected_image);
         loop_device_relinquish(loop_device);
 
         return 0;
