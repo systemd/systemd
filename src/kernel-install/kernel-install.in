@@ -170,11 +170,18 @@ fi
 #     $ENTRY_TOKEN can be any string that fits into a VFAT filename, though
 #     typically is just the machine ID.
 
-[ -z "$BOOT_ROOT" ] && for suff in $ENTRY_TOKEN_SEARCH; do
-    for pref in "/efi" "/boot" "/boot/efi"; do
+if [ -n "$BOOT_ROOT" ]; then
+    # If this was already configured, don't try to guess
+    BOOT_ROOT_SEARCH="$BOOT_ROOT"
+else
+    BOOT_ROOT_SEARCH="/efi /boot /boot/efi"
+fi
+
+for suff in $ENTRY_TOKEN_SEARCH; do
+    for pref in $BOOT_ROOT_SEARCH; do
         if [ -d "$pref/$suff" ]; then
-            BOOT_ROOT="$pref"
-            ENTRY_TOKEN="$suff"
+            [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
+            [ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$suff"
 
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
                 echo "$pref/$suff exists, using BOOT_ROOT=$BOOT_ROOT, ENTRY_TOKEN=$ENTRY_TOKEN"
