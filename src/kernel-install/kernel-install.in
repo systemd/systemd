@@ -177,8 +177,8 @@ else
     BOOT_ROOT_SEARCH="/efi /boot /boot/efi"
 fi
 
-for suff in $ENTRY_TOKEN_SEARCH; do
-    for pref in $BOOT_ROOT_SEARCH; do
+for pref in $BOOT_ROOT_SEARCH; do
+    for suff in $ENTRY_TOKEN_SEARCH; do
         if [ -d "$pref/$suff" ]; then
             [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
             [ -z "$ENTRY_TOKEN" ] && ENTRY_TOKEN="$suff"
@@ -189,19 +189,16 @@ for suff in $ENTRY_TOKEN_SEARCH; do
         else
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/$suff not found…"
         fi
+
+        if [ -d "$pref/loader/entries" ]; then
+            [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
+            break 2
+        else
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/loader/entries not found…"
+        fi
     done
-done
-
-[ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot" "/boot/efi"; do
-    if [ -d "$pref/loader/entries" ]; then
-        BOOT_ROOT="$pref"
-
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
-        break
-    else
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/loader/entries not found…"
-    fi
 done
 
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
