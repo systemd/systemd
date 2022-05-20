@@ -1105,27 +1105,21 @@ int bus_image_object_find(
                 void **found,
                 sd_bus_error *error) {
 
+        _cleanup_(sd_bus_error_free) sd_bus_error unused_error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         Image *image = NULL;
-        int r;
 
         assert(bus);
         assert(path);
         assert(interface);
         assert(found);
 
-        r = sd_bus_path_decode(path, "/org/freedesktop/portable1/image", &e);
-        if (r < 0)
-                return 0;
-        if (r == 0)
+        if (sd_bus_path_decode(path, "/org/freedesktop/portable1/image", &e) <= 0)
                 goto not_found;
 
-        r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
-        if (r == -ENOENT)
+        if (bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, &unused_error) < 0)
                 goto not_found;
-        if (r < 0)
-                return r;
 
         *found = image;
         return 1;
