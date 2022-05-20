@@ -1602,13 +1602,13 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the time we load
-         * the unit file for it (and thus add in extra deps right after) we know what source to attributes the deps
-         * to. */
+        /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the
+         * time we load the unit file for it (and thus add in extra deps right after) we know what source to
+         * attributes the deps to. */
         MOUNT(u)->from_proc_self_mountinfo = true;
 
-        /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything else is
-         * loaded in now. */
+        /* We have only allocated the stub now, let's enqueue this unit for loading now, so that everything
+         * else is loaded in now. */
         unit_add_to_load_queue(u);
 
         *ret_flags = MOUNT_PROC_IS_MOUNTED | MOUNT_PROC_JUST_MOUNTED | MOUNT_PROC_JUST_CHANGED;
@@ -1751,8 +1751,8 @@ static int mount_setup_unit(
         if (u)
                 r = mount_setup_existing_unit(u, what, where, options, fstype, &flags);
         else
-                /* First time we see this mount point meaning that it's not been initiated by a mount unit but rather
-                 * by the sysadmin having called mount(8) directly. */
+                /* First time we see this mount point meaning that it's not been initiated by a mount unit
+                 * but rather by the sysadmin having called mount(8) directly. */
                 r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
