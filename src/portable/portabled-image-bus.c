@@ -1120,6 +1120,9 @@ int bus_image_object_find(
                 return 0;
         if (r == 0)
                 goto not_found;
+        if (isempty(e))
+                /* The path is "/org/freedesktop/portable1/image" itself */
+                goto not_found;
 
         r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
         if (r == -ENOENT)
