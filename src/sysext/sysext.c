@@ -478,6 +478,10 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         "SYSEXT_LEVEL", &host_os_release_sysext_level);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
+        if (isempty(host_os_release_id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m",
+                                       empty_to_root(arg_root));
 
         /* Let's now mount all images */
         HASHMAP_FOREACH(img, images) {
