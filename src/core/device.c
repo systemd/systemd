@@ -201,7 +201,8 @@ static int device_coldplug(Unit *u) {
          *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
          *   device_catchup() or uevents. */
 
-        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m)) {
+        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m) &&
+            !FLAGS_SET(d->enumerated_found, DEVICE_FOUND_UDEV)) {
                 found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
                 if (state == DEVICE_PLUGGED)
                         state = DEVICE_TENTATIVE; /* downgrade state */
