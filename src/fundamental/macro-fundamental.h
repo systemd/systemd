@@ -62,6 +62,7 @@
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
         #endif
+        #define static_assert _Static_assert
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
 
         #define memcpy(a, b, c) CopyMem((a), (b), (c))
@@ -83,15 +84,8 @@
                 _expr_;                         \
         })
 
-#if defined(static_assert)
-#define assert_cc(expr)                                                 \
-        static_assert(expr, #expr)
-#else
-#define assert_cc(expr)                                                 \
-        struct CONCATENATE(_assert_struct_, __COUNTER__) {              \
-                char x[(expr) ? 0 : -1];                                \
-        }
-#endif
+#define assert_cc(expr) static_assert(expr, #expr)
+
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
