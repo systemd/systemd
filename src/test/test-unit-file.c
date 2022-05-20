@@ -26,8 +26,7 @@ TEST(unit_validate_alias_symlink_and_warn) {
 
 TEST(unit_file_build_name_map) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_obstructed = NULL, *unit_names = NULL;
         const char *k, *dst;
         char **v, **ids;
         usec_t mtime = 0;
@@ -37,10 +36,13 @@ TEST(unit_file_build_name_map) {
 
         assert_se(lookup_paths_init(&lp, LOOKUP_SCOPE_SYSTEM, 0, NULL) >= 0);
 
-        assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL) == 1);
+        assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_obstructed, &unit_names, NULL) == 1);
 
         HASHMAP_FOREACH_KEY(dst, k, unit_ids)
                 log_info("ids: %s → %s", k, dst);
+
+        HASHMAP_FOREACH_KEY(dst, k, unit_obstructed)
+                log_info("obstructed path: %s → %s", k, dst);
 
         HASHMAP_FOREACH_KEY(v, k, unit_names) {
                 _cleanup_free_ char *j = strv_join(v, ", ");
@@ -50,7 +52,7 @@ TEST(unit_file_build_name_map) {
         char buf[FORMAT_TIMESTAMP_MAX];
         log_debug("Last modification time: %s", format_timestamp(buf, sizeof buf, mtime));
 
-        r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL);
+        r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_obstructed, &unit_names, NULL);
         assert_se(IN_SET(r, 0, 1));
         if (r == 0)
                 log_debug("Cache rebuild skipped based on mtime.");
