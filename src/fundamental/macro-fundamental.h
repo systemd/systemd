@@ -53,7 +53,7 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
-        void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
+        _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
                 #define assert(expr)
