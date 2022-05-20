@@ -187,7 +187,7 @@ efi_cflags = cc.get_supported_arguments(
         ]
 ) + [
         '-nostdlib',
-        '-std=gnu99',
+        '-std=gnu11',
         '-ffreestanding',
         '-fshort-wchar',
         '-fvisibility=hidden',
