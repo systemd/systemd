@@ -3973,6 +3973,10 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
                 return 0;
         }
 
+        /* Note that 'e' might be an empty string here. That's expected. E.g. a case where the subtree
+         * corresponds to a subtree on a disk, and we want to return something that represents the root
+         * of the filesystem. */
+
         ret = bus_label_unescape(e);
         if (!ret)
                 return -ENOMEM;
