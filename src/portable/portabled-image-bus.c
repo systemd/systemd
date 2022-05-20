@@ -1045,19 +1045,23 @@ int bus_image_acquire(
                 /* If it's a short name, let's search for it */
                 r = image_find(IMAGE_PORTABLE, name_or_path, NULL, &loaded);
                 if (r == -ENOENT)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE, "No image '%s' found.", name_or_path);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE,
+                                                 "No image '%s' found.", name_or_path);
 
                 /* other errors are handled below… */
         } else {
                 /* Don't accept path if this is always forbidden */
                 if (mode == BUS_IMAGE_REFUSE_BY_PATH)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Expected image name, not path in place of '%s'.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Expected image name, not path in place of '%s'.", name_or_path);
 
                 if (!path_is_absolute(name_or_path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is not valid or not a valid path.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image name '%s' is not valid or not a valid path.", name_or_path);
 
                 if (!path_is_normalized(name_or_path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image path '%s' is not normalized.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image path '%s' is not normalized.", name_or_path);
 
                 if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
                         r = bus_verify_polkit_async(
@@ -1080,7 +1084,9 @@ int bus_image_acquire(
                 r = image_from_path(name_or_path, &loaded);
         }
         if (r == -EMEDIUMTYPE) {
-                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE, "Typ of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.", name_or_path);
+                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE,
+                                  "Type of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.",
+                                  name_or_path);
                 return r;
         }
         if (r < 0)
@@ -1119,6 +1125,9 @@ int bus_image_object_find(
         if (r < 0)
                 return 0;
         if (r == 0)
+                goto not_found;
+        if (isempty(e))
+                /* The path is "/org/freedesktop/portable1/image" itself */
                 goto not_found;
 
         r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
