@@ -152,6 +152,18 @@ umount /tmp/rootdir
 umount /tmp/app0
 umount /tmp/app1
 
+# Lack of ID field in os-release should be rejected, but it caused a crash in the past instead
+mkdir -p /tmp/emptyroot/usr/lib
+mkdir -p /tmp/emptyext/usr/lib/extension-release.d
+touch /tmp/emptyroot/usr/lib/os-release
+touch /tmp/emptyext/usr/lib/extension-release.d/extension-release.emptyext
+
+set +e
+res=$(portablectl attach --extension /tmp/emptyext /tmp/emptyroot)
+set -e
+
+echo "${res}" | grep -q -v "Remote peer disconnected"
+
 echo OK >/testok
 
 exit 0
