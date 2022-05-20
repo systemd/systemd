@@ -3968,7 +3968,7 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
         assert_return(external_id, -EINVAL);
 
         e = object_path_startswith(path, prefix);
-        if (!e) {
+        if (isempty(e)) {
                 *external_id = NULL;
                 return 0;
         }
