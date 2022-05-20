@@ -26,10 +26,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file whose name ends in
-    <literal>.automount</literal> encodes information about a file
-    system automount point controlled and supervised by
-    systemd.</para>
+    <para>A unit configuration file whose name ends in <literal>.automount</literal> encodes information
+    about a file system automount point controlled and supervised by systemd. Automount units may be used to
+    implement on-demand mounting as well as parallelized mounting of file systems.</para>
 
     <para>This man page lists the configuration options specific to
     this unit type. See
@@ -55,9 +54,6 @@
     accesses <filename>/home/lennart</filename> the mount unit
     <filename>home-lennart.mount</filename> will be activated.</para>
 
-    <para>Automount units may be used to implement on-demand mounting
-    as well as parallelized mounting of file systems.</para>
-
     <para>Note that automount units are separate from the mount itself, so you
     should not set <varname>After=</varname> or <varname>Requires=</varname>
     for mount dependencies here. For example, you should not set
@@ -65,8 +61,8 @@
     filesystems. Doing so may result in an ordering cycle.</para>
 
     <para>Note that automount support on Linux is privileged, automount units are hence only available in the
-    system service manager (and root's user service manager), but not in unprivileged user's service
-    manager.</para>
+    system service manager (and root's user service manager), but not in unprivileged users' service
+    managers.</para>
   </refsect1>
 
   <refsect1>
@@ -78,12 +74,12 @@
       <para>The following dependencies are implicitly added:</para>
 
       <itemizedlist>
-        <listitem><para>If an automount unit is beneath another mount unit in the
-        file system hierarchy, both a requirement and an ordering
-        dependency between both units are created automatically.</para></listitem>
+        <listitem><para>If an automount unit is beneath another mount unit in the file system hierarchy, a
+        requirement and ordering dependencies are created to the on the unit higher in the hierarchy.
+        </para></listitem>
 
-        <listitem><para>An implicit <varname>Before=</varname> dependency is created
-        between an automount unit and the mount unit it activates.</para></listitem>
+        <listitem><para>An implicit <varname>Before=</varname> dependency is created between an automount
+        unit and the mount unit it activates.</para></listitem>
       </itemizedlist>
     </refsect2>
 
