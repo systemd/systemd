@@ -18,7 +18,11 @@ int extension_release_validate(
         const char *extension_release_id = NULL, *extension_release_sysext_level = NULL;
 
         assert(name);
-        assert(!isempty(host_os_release_id));
+
+        if (isempty(host_os_release_id)) {
+                log_debug("Extension '%s' does not have valid ID, ignoring extension.", name);
+                return 0;
+        }
 
         /* Now that we can look into the extension image, let's see if the OS version is compatible */
         if (strv_isempty(extension_release)) {
@@ -51,13 +55,13 @@ int extension_release_validate(
         extension_release_id = strv_env_pairs_get(extension_release, "ID");
         if (isempty(extension_release_id)) {
                 log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s'",
-                          name, strna(host_os_release_id));
+                          name, host_os_release_id);
                 return 0;
         }
 
-        if (!streq_ptr(host_os_release_id, extension_release_id)) {
+        if (!streq(host_os_release_id, extension_release_id)) {
                 log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
-                          name, strna(extension_release_id), strna(host_os_release_id));
+                          name, extension_release_id, host_os_release_id);
                 return 0;
         }
 
