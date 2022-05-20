@@ -215,6 +215,20 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
         }
          else {
+                    //TODO: unit_template can be used to populate the text in following fprintf
+                    //const char *un = unit_type_suffix(new_path);
+                    //char unit_template[100];
+                    //snprintf(unit_template,100,"%s.%s","TEMPLATE",un);
+                    //UnitType ut = unit_name_to_type(unit_template);
+                    //printf("\n"
+                    //        " new_path: %s\n"
+                    //        " type: %d\n"
+                    //        " type_str: %s\n"
+                    //        " unit_template: %s\n"
+                    //        "\n",
+                    //        new_path,
+                    //        ut, un, unit_template);
+
                     f = fopen(t, "we");
                     fprintf(f,
                             "# Creating new unit file: %s\n\n"
