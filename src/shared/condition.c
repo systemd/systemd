@@ -102,8 +102,6 @@ Condition* condition_free_list_type(Condition *head, ConditionType type) {
 
 static int condition_test_kernel_command_line(Condition *c, char **env) {
         _cleanup_free_ char *line = NULL;
-        const char *p;
-        bool equal;
         int r;
 
         assert(c);
@@ -114,9 +112,9 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        equal = strchr(c->parameter, '=');
+        bool equal = strchr(c->parameter, '=');
 
-        for (p = line;;) {
+        for (const char *p = line;;) {
                 _cleanup_free_ char *word = NULL;
                 bool found;
 
@@ -156,7 +154,6 @@ typedef enum {
 } OrderOperator;
 
 static OrderOperator parse_order(const char **s) {
-
         static const char *const prefix[_ORDER_MAX] = {
                 [ORDER_LOWER_OR_EQUAL] = "<=",
                 [ORDER_GREATER_OR_EQUAL] = ">=",
@@ -166,9 +163,7 @@ static OrderOperator parse_order(const char **s) {
                 [ORDER_UNEQUAL] = "!=",
         };
 
-        OrderOperator i;
-
-        for (i = 0; i < _ORDER_MAX; i++) {
+        for (OrderOperator i = 0; i < _ORDER_MAX; i++) {
                 const char *e;
 
                 e = startswith(*s, prefix[i]);
@@ -212,7 +207,6 @@ static bool test_order(int k, OrderOperator p) {
 static int condition_test_kernel_version(Condition *c, char **env) {
         OrderOperator order;
         struct utsname u;
-        const char *p;
         bool first = true;
 
         assert(c);
@@ -221,9 +215,7 @@ static int condition_test_kernel_version(Condition *c, char **env) {
 
         assert_se(uname(&u) >= 0);
 
-        p = c->parameter;
-
-        for (;;) {
+        for (const char *p = c->parameter;;) {
                 _cleanup_free_ char *word = NULL;
                 const char *s;
                 int r;
@@ -268,14 +260,12 @@ static int condition_test_kernel_version(Condition *c, char **env) {
 }
 
 static int condition_test_osrelease(Condition *c, char **env) {
-        const char *parameter = c->parameter;
         int r;
 
         assert(c);
-        assert(c->parameter);
         assert(c->type == CONDITION_OS_RELEASE);
 
-        for (;;) {
+        for (const char *parameter = ASSERT_PTR(c->parameter);;) {
                 _cleanup_free_ char *key = NULL, *condition = NULL, *actual_value = NULL;
                 OrderOperator order;
                 const char *word;
@@ -682,7 +672,6 @@ static int condition_test_capability(Condition *c, char **env) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -690,9 +679,9 @@ static int condition_test_capability(Condition *c, char **env) {
                 if (r == 0)
                         break;
 
-                p = startswith(line, "CapBnd:");
+                const char *p = startswith(line, "CapBnd:");
                 if (p) {
-                        if (sscanf(line+7, "%llx", &capabilities) != 1)
+                        if (sscanf(p, "%llx", &capabilities) != 1)
                                 return -EIO;
 
                         break;
