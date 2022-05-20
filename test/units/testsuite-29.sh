@@ -40,10 +40,12 @@ systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
 portablectl list | grep -q -F "minimal_1"
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
 portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl list | grep -q -F "No images."
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 # portablectl also works with directory paths rather than images
 
@@ -63,10 +65,12 @@ systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
 portablectl list | grep -q -F "minimal_1"
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
 portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 portablectl list | grep -q -F "No images."
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
 
