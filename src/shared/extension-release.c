@@ -18,7 +18,11 @@ int extension_release_validate(
         const char *extension_release_id = NULL, *extension_release_sysext_level = NULL;
 
         assert(name);
-        assert(!isempty(host_os_release_id));
+
+        if (isempty(host_os_release_id)) {
+                log_debug("Extension '%s' does not have valid ID, ignoring extension.", name);
+                return 0;
+        }
 
         /* Now that we can look into the extension image, let's see if the OS version is compatible */
         if (strv_isempty(extension_release)) {
