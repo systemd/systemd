@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2022.05.09
-#	Date:    2022-05-09 03:15:02
+#	Version: 2022.05.18
+#	Date:    2022-05-18 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -1054,15 +1054,17 @@
 	131c  Kaveri [Radeon R7 Graphics]
 	131d  Kaveri [Radeon R6 Graphics]
 	13e9  Ariel
-	13fe  Cyan Skillfish
+	13fe  Cyan Skillfish [BC-250]
 	1478  Navi 10 XL Upstream Port of PCI Express Switch
 	1479  Navi 10 XL Downstream Port of PCI Express Switch
+	1506  Mendocino
 	154c  Kryptos [Radeon RX 350]
 		1462 7c28  MS-7C28 Motherboard
 	154e  Garfield
 	1551  Arlene
 	1552  Pooky
 	1561  Anubis
+	15bf  Phoenix
 	15d8  Picasso/Raven 2 [Radeon Vega Series / Radeon Vega Mobile Series]
 		103c 8615  Pavilion Laptop 15-cw1xxx
 		17aa 3181  ThinkCentre M75n IoT
@@ -1092,6 +1094,7 @@
 	1640  Rembrandt Radeon High Definition Audio Controller
 	164c  Lucienne
 	164d  Rembrandt
+	164f  Phoenix
 	1681  Rembrandt [Radeon 680M]
 	1714  BeaverCreek HDMI Audio [Radeon HD 6500D and 6400G-6600G series]
 		103c 168b  ProBook 4535s
@@ -3754,6 +3757,7 @@
 	7310  Navi 10 [Radeon Pro W5700X]
 	7312  Navi 10 [Radeon Pro W5700]
 	7314  Navi 10 USB
+	731e  TDC-150
 	731f  Navi 10 [Radeon RX 5600 OEM/5600 XT / 5700/5700 XT]
 		1002 0b36  Reference RX 5700 XT
 		1458 2313  Radeon RX 5700 XT Gaming OC
@@ -3765,16 +3769,18 @@
 	7341  Navi 14 [Radeon Pro W5500]
 	7347  Navi 14 [Radeon Pro W5500M]
 	734f  Navi 14 [Radeon Pro W5300M]
-	7360  Navi 12 [Radeon Pro 5600M / V520]
+	7360  Navi 12 [Radeon Pro 5600M/V520/BC-160]
 	7362  Navi 12 [Radeon Pro V520]
 	7388  Arcturus GL-XL
 	738c  Arcturus GL-XL [Instinct MI100]
 	738e  Arcturus GL-XL [Instinct MI100]
+	73a1  Navi 21 [Radeon Pro V620]
 	73a2  Navi 21 Pro-XTA [Radeon Pro W6900X]
 	73a3  Navi 21 GL-XL [Radeon PRO W6800]
 	73a4  Navi 21 USB
 	73a5  Navi 21 [Radeon RX 6950 XT]
 	73ab  Navi 21 Pro-XLA [Radeon Pro W6800X/Radeon Pro W6800X Duo]
+	73ae  Navi 21 [Radeon Pro V620 MxGPU]
 	73af  Navi 21 [Radeon RX 6900 XT]
 		148c 2414  Navi 21 XTXH [PowerColor Red Devil RX 6900 XT Ultimate]
 	73bf  Navi 21 [Radeon RX 6800/6800 XT / 6900 XT]
@@ -3784,6 +3790,7 @@
 		1eae 6701  XFX Speedster MERC 319 AMD Radeon RX 6800 XT Black
 	73c3  Navi 22
 	73c4  Navi 22 USB
+	73ce  Navi22-XL SRIOV MxGPU
 	73df  Navi 22 [Radeon RX 6700/6700 XT/6750 XT / 6800M]
 	73e0  Navi 23
 	73e1  Navi 23 WKS-XM [Radeon PRO W6600M]
@@ -3797,6 +3804,8 @@
 	740f  Aldebaran
 	7421  Navi 24 [Radeon PRO W6500M]
 	7422  Navi 24 [Radeon PRO W6400]
+	7423  Navi 24 [Radeon PRO W6300/W6300M]
+	7424  Navi 24 [Radeon RX 6300]
 	743f  Navi 24 [Radeon RX 6400 / 6500 XT]
 		1da2 e457  PULSE AMD Radeon RX 6500 XT
 	7833  RS350 Host Bridge
@@ -4851,6 +4860,7 @@
 	1481  Starship/Matisse IOMMU
 	1482  Starship/Matisse PCIe Dummy Host Bridge
 	1483  Starship/Matisse GPP Bridge
+		01de fff9  Gimlet Baseboard
 	1484  Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B]
 	1485  Starship/Matisse Reserved SPP
 	1486  Starship/Matisse Cryptographic Coprocessor PSPCPP
@@ -5509,6 +5519,7 @@
 		1028 1f24  PERC S300 Controller
 # NV-RAM Adapter used in Dell DR appliances
 	0073  NV-RAM Adapter
+	1028  PCIe Bridge riser
 1029  Siemens Nixdorf IS
 102a  LSI Logic
 	0000  HYDRA
@@ -13010,13 +13021,31 @@
 	3fc4  RME Digi9652 (Hammerfall)
 	3fc5  RME Hammerfall DSP
 	3fc6  RME Hammerfall DSP MADI
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	5000  Alveo U200 XDMA Platform
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	5004  Alveo U250 XDMA Platform
 	5005  Alveo U250
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	500c  Alveo U280 XDMA Platform
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	5020  Alveo U50 XMDA Platform
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	505c  Alveo U55C
 	7038  FPGA Card XC7VX690T
 		17aa 402f  FPGA XC7VX690T-3FFG1157E
 	8019  Memory controller
 		1eec 0201  VSEC10232X Dual-port 100Gb/s Etherent PCIe
 	8380  Ellips ProfiXpress Profibus Master
 	8381  Ellips Santos Frame Grabber
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	d000  Alveo U200 Golden Image
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	d004  Alveo U250 Golden Image
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	d00c  Alveo U280 Golden Image
+# Reference: https://xilinx.github.io/Alveo-Cards/master/management-specification/appendix_a.html
+	d020  Alveo U50 Golden Image
 	d154  Copley Controls CAN card (PCI-CAN-02)
 # SED is assigned Xilinx PCI device IDs ebf0 through ebff
 	ebf0  SED Systems Modulator/Demodulator
@@ -18774,7 +18803,7 @@
 	6089  T62100-6089 Unified Wire Ethernet Controller
 	608a  T62100-608a Unified Wire Ethernet Controller
 	6092  T62100-KR Unified Wire Ethernet Controller
-		01de fff9  Gimlet T6
+		01de fff9  Gimlet Baseboard
 	6401  T6225-CR Unified Wire Ethernet Controller
 	6402  T6225-SO-CR Unified Wire Ethernet Controller
 	6403  T6425-CR Unified Wire Ethernet Controller
@@ -18800,7 +18829,7 @@
 	6489  T62100-6089 Unified Wire Ethernet Controller
 	648a  T62100-608a Unified Wire Ethernet Controller
 	6492  T62100-KR Unified Wire Ethernet Controller
-		01de fff9  Gimlet T6
+		01de fff9  Gimlet Baseboard
 	6501  T6225-CR Unified Wire Storage Controller
 	6502  T6225-SO-CR Unified Wire Storage Controller
 	6503  T6425-CR Unified Wire Storage Controller
@@ -23378,6 +23407,8 @@
 		13c2 3016  TT-budget S2-4200 Twin
 		4254 0552  S952 v3
 1ae0  Google, Inc.
+# NVMe drive in GCP
+	001f  NVMe device
 	0042  Compute Engine Virtual Ethernet [gVNIC]
 	abcd  Airbrush Combined Paintbox IPU/Oscar Edge TPU [Pixel Neural Core]
 1ae3  SANBlaze Technology, Inc.
@@ -23619,6 +23650,7 @@
 		1028 2113  BOSS-N1 Modular
 		1028 2151  BOSS-N1 Modular ET
 		1028 2196  ROR-N100
+		1b4b 2241  Santa Cruz NVMe Host Adapter
 		1d49 0306  ThinkSystem M.2 NVMe 2-Bay RAID Enablement Kit
 		1d49 0307  ThinkSystem 7mm NVMe 2-Bay Rear RAID Enablement Kit
 	9120  88SE9120 SATA 6Gb/s Controller
@@ -24324,6 +24356,7 @@
 	1000  HL-2000 AI Training Accelerator [Gaudi]
 # PCIe accelerator card for Deep Learning training tasks with secured firmware
 	1010  HL-2000 AI Training Accelerator [Gaudi secured]
+1da8  Corigine, Inc.
 1dad  Fungible
 1db2  ATP ELECTRONICS INC
 1db7  Phytium Technology Co., Ltd.
@@ -24834,6 +24867,7 @@
 		1f3f 00a1  Dual Port 100GE SDI5.0
 	9032  SDI5.1
 		1f3f 00a1  Dual Port 100GE SDI5.1
+1f40  Netac Technology Co.,Ltd
 1faa  Hexaflake (Shanghai) Information Technology Co., Ltd.
 1fab  Unifabrix Ltd.
 	0000  Nexus Alpha IVPU
@@ -28042,6 +28076,7 @@
 		8086 000a  Ethernet Network Adapter X710-T4L for OCP 3.0
 		8086 000b  Ethernet Network Adapter X710-T2L for OCP 3.0
 		8086 000c  Ethernet Network Adapter X710-T2L for OCP 3.0
+		8086 000d  Ethernet 10G 2P X710-T2L-t OCP
 		8086 000f  Ethernet Network Adapter X710-T2L for OCP 3.0
 		8086 4009  Ethernet Network Adapter X710-T2L
 		8086 4012  Ethernet Network Adapter X710-T4L for OCP 3.0
@@ -31531,8 +31566,14 @@
 	31a2  Celeron/Pentium Silver Processor Integrated Sensor Solution
 	31a8  Celeron/Pentium Silver Processor USB 3.0 xHCI Controller
 		1849 31a8  Celeron/Pentium Silver Processor USB 3.0 xHCI Controller
-	31ac  Celeron/Pentium Silver Processor Serial IO I2C Host Controller
-	31ae  Celeron/Pentium Silver Processor Serial IO I2C Host Controller
+	31ac  Celeron/Pentium Silver Processor I2C 0
+	31ae  Celeron/Pentium Silver Processor I2C 1
+	31b0  Celeron/Pentium Silver Processor I2C 2
+	31b2  Celeron/Pentium Silver Processor I2C 3
+	31b4  Celeron/Pentium Silver Processor I2C 4
+	31b6  Celeron/Pentium Silver Processor I2C 5
+	31b8  Celeron/Pentium Silver Processor I2C 6
+	31ba  Celeron/Pentium Silver Processor I2C 7
 	31bc  Celeron/Pentium Silver Processor Serial IO UART Host Controller
 	31be  Celeron/Pentium Silver Processor Serial IO UART Host Controller
 	31c0  Celeron/Pentium Silver Processor Serial IO UART Host Controller
@@ -33012,6 +33053,7 @@
 	8817  Platform Controller Hub EG20T I2C Controller
 	8818  Platform Controller Hub EG20T Controller Area Network (CAN) Controller
 	8819  Platform Controller Hub EG20T IEEE 1588 Hardware Assist
+	8a03  Processor Power and Thermal Controller
 	8a0d  Ice Lake Thunderbolt 3 NHI #1
 	8a12  Ice Lake-LP Processor Host Bridge/DRAM Registers
 	8a13  Ice Lake Thunderbolt 3 USB Controller

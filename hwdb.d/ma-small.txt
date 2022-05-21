@@ -4010,9 +4010,6 @@ E6F000-E6FFFF     (base 16)		Amazon Technologies Inc.
 				Reno  NV  89507
 				US
 
-70-B3-D5   (hex)		Private
-11A000-11AFFF     (base 16)		Private
-
 70-B3-D5   (hex)		Mettler Toledo
 4FC000-4FCFFF     (base 16)		Mettler Toledo
 				1571 Northpointe Parkway
@@ -5956,6 +5953,12 @@ C35000-C35FFF     (base 16)		Peter Huber Kaeltemaschinenbau AG
 				Werner-von-Siemens-Str. 1
 				Offenburg  Ba-Wue  77656
 				DE
+
+70-B3-D5   (hex)		Mahindra Electric Mobility Limited
+11A000-11AFFF     (base 16)		Mahindra Electric Mobility Limited
+				690, Gold Hill Square, Hosur Road, Bommanahalli
+				Bangalore  Karnataka  560068
+				IN
 
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
@@ -11753,10 +11756,22 @@ CC6000-CC6FFF     (base 16)		Genius Vision Digital Private Limited
 				Houston  TX  77024-7338
 				US
 
+8C-1F-64   (hex)		GO development GmbH
+7BC000-7BCFFF     (base 16)		GO development GmbH
+				Zeppelinstraße 126
+				Esslingen am Neckar    73730
+				DE
+
 8C-1F-64   (hex)		Abode Systems Inc
 B13000-B13FFF     (base 16)		Abode Systems Inc
 				2625 Middlefield Road
 				Palo Alto  CA  94306
+				US
+
+8C-1F-64   (hex)		Ear Micro LLC
+58C000-58CFFF     (base 16)		Ear Micro LLC
+				4043 Broadway
+				Kansas City  MO  64111
 				US
 
 8C-1F-64   (hex)		DAVE SRL
@@ -11765,11 +11780,35 @@ B13000-B13FFF     (base 16)		Abode Systems Inc
 				PORCIA  PORDENONE  330850
 				IT
 
-8C-1F-64   (hex)		GO development GmbH
-7BC000-7BCFFF     (base 16)		GO development GmbH
-				Zeppelinstraße 126
-				Esslingen am Neckar    73730
-				DE
+8C-1F-64   (hex)		Season Electronics Ltd
+6BB000-6BBFFF     (base 16)		Season Electronics Ltd
+				600 Nest Business Park 
+				Havant  Hampshire  PO9 5TL
+				GB
+
+8C-1F-64   (hex)		Integer.pl S.A.
+D5E000-D5EFFF     (base 16)		Integer.pl S.A.
+				Wielicka 28
+				Krakow    30-552
+				PL
+
+8C-1F-64   (hex)		Abbott Diagnostics Technologies AS
+300000-300FFF     (base 16)		Abbott Diagnostics Technologies AS
+				P. O.  Box 6863 Rodeløkka
+				Oslo    0504
+				NO
+
+8C-1F-64   (hex)		Suzhou Leamore Optronics Co., Ltd.
+662000-662FFF     (base 16)		Suzhou Leamore Optronics Co., Ltd.
+				Block 12-301, NO 99 Jinji Lake Road, Suzhou Industrial Park, Suzhou
+				Suzhou  Jiangsu   215000
+				CN
+
+8C-1F-64   (hex)		Breas Medical AB
+98F000-98FFFF     (base 16)		Breas Medical AB
+				Företagsvägen 1
+				Mölnlycke    SE-435 33
+				SE
 
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
@@ -17534,10 +17573,10 @@ CD2000-CD2FFF     (base 16)		TRUMPF Huttinger GmbH + Co. KG,
 				Göttingen    37075
 				DE
 
-8C-1F-64   (hex)		dinosys
-5CB000-5CBFFF     (base 16)		dinosys
-				501,35,Gwangnaruro 6-gil,
-				Seoul  Seoul  133-832
+8C-1F-64   (hex)		WonATech Co., Ltd.
+890000-890FFF     (base 16)		WonATech Co., Ltd.
+				7, Neunganmal 1-gil
+				Seocho-gu  Seoul  06801
 				KR
 
 8C-1F-64   (hex)		HIROSAWA ELECTRIC Co.,Ltd.
@@ -17546,11 +17585,23 @@ CD2000-CD2FFF     (base 16)		TRUMPF Huttinger GmbH + Co. KG,
 				Otaku  Tokyo  1440034
 				JP
 
-8C-1F-64   (hex)		WonATech Co., Ltd.
-890000-890FFF     (base 16)		WonATech Co., Ltd.
-				7, Neunganmal 1-gil
-				Seocho-gu  Seoul  06801
+8C-1F-64   (hex)		dinosys
+5CB000-5CBFFF     (base 16)		dinosys
+				501,35,Gwangnaruro 6-gil,
+				Seoul  Seoul  133-832
 				KR
+
+8C-1F-64   (hex)		Agramkow A/S
+8D5000-8D5FFF     (base 16)		Agramkow A/S
+				Augustenborg Landevej 19
+				Sønderborg    6400
+				DK
+
+8C-1F-64   (hex)		Gogo BA 
+092000-092FFF     (base 16)		Gogo BA 
+				105 Edgeview Drive
+				Broomfield  CO  80021
+				US
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -23516,6 +23567,12 @@ CAF000-CAFFFF     (base 16)		BRS Sistemas Eletrônicos
 				Porto Alegre  RS  91380-000
 				BR
 
+8C-1F-64   (hex)		DORLET SAU
+1BD000-1BDFFF     (base 16)		DORLET SAU
+				Albert Eistein 34
+				Alava  SPAIN  01510
+				ES
+
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
 				Pol ind cotes
@@ -29251,3 +29308,9 @@ DFE000-DFEFFF     (base 16)		Nuvation Energy
 				651 North Broad StreetSuite 206
 				Middletown  DE  19709
 				US
+
+8C-1F-64   (hex)		Belden India Private Limited
+54A000-54AFFF     (base 16)		Belden India Private Limited
+				Plot No. D-228, Chakan MIDC Phase 2, 
+				Village Bhamboli, Taluka:Khed  Pune, Maharashtra  410 507
+				IN
