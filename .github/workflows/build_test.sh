@@ -76,17 +76,16 @@ if [[ "$COMPILER" == clang ]]; then
     CXX="clang++-$COMPILER_VERSION"
     AR="llvm-ar-$COMPILER_VERSION"
 
-    # ATTOW llvm-11 got into focal-updates, which conflicts with llvm-11
-    # provided by the apt.llvm.org repositories. Let's use the system
-    # llvm package if available in such cases to avoid that.
+    # Prefer the distro version if available
     if ! apt install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
         # Following snippet was partly borrowed from https://apt.llvm.org/llvm.sh
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
         printf "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/%s/   llvm-toolchain-%s-%s  main\n" \
                "$RELEASE" "$RELEASE" "$COMPILER_VERSION" >/etc/apt/sources.list.d/llvm-toolchain.list
-        PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
     fi
+
+    PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
 elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
