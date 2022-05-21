@@ -78,6 +78,10 @@ CHANGES WITH 251:
           Users might need to adjust their files that override tmpfiles.d/systemd.conf
           to account for this change.
 
+        * The requirement for Portable Services images to contain a well-formed
+          os-release file (i.e.: contain at least an ID field) is now enforced.
+          This applies to base images and extensions, and also to systemd-sysext.
+
         Changes in the Boot Loader Specification, kernel-install and sd-boot:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
@@ -525,6 +529,19 @@ CHANGES WITH 251:
           also check $COLORTERM (in addition to $NO_COLOR, $SYSTEMD_COLORS, and
           $TERM).
 
+        * Meson's new install_tag feature is now in use for several components,
+          allowing to build and install select binaries only: pam, nss, devel
+          (pkg-config files), systemd-boot, libsystemd, libudev. Example:
+           $ meson build systemd-boot
+           $ meson install --tags systemd-boot --no-rebuild
+          https://mesonbuild.com/Installing.html#installation-tags
+
+        * A new build configuration option has been added, to allow selecting the
+          default compression algorithm used by systemd-journald and systemd-coredump.
+          This allows to build-in support for decompressing all supported formats,
+          but choose a specific one for compression. E.g.:
+           $ meson -Ddefault-compression=xz
+
         Experimental features:
 
         * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
@@ -580,7 +597,7 @@ CHANGES WITH 251:
         yangmingtai, YmrDtnJu, Yonathan Randolph, Yutsuten, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, наб
 
-        — Warsaw, 2022-03---
+        — Edinburgh, 2022-05-21
 
 CHANGES WITH 250:
 
