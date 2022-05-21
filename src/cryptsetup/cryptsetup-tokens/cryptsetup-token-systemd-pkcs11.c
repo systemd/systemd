@@ -38,7 +38,8 @@ _public_ int cryptsetup_token_open_pin(
 
         /* This must not fail at this moment (internal error) */
         r = crypt_token_json_get(cd, token, &json);
-        assert(token == r);
+        /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
+        assert_se(token == r);
         assert(json);
 
         return acquire_luks2_key(cd, json, usrptr, pin, pin_size, password, password_len);
