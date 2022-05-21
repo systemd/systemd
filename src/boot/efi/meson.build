@@ -351,6 +351,7 @@ common_sources = files(
         'devicetree.c',
         'disk.c',
         'graphics.c',
+        'initrd.c',
         'measure.c',
         'pe.c',
         'secure-boot.c',
@@ -369,7 +370,6 @@ systemd_boot_sources = files(
 
 stub_sources = files(
         'cpio.c',
-        'initrd.c',
         'splash.c',
         'stub.c',
 )
