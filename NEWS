@@ -78,6 +78,10 @@ CHANGES WITH 251:
           Users might need to adjust their files that override tmpfiles.d/systemd.conf
           to account for this change.
 
+        * The requirement for Portable Services images to contain a well-formed
+          os-release file (i.e.: contain at least an ID field) is now enforced.
+          This applies to base images and extensions, and also to systemd-sysext.
+
         Changes in the Boot Loader Specification, kernel-install and sd-boot:
 
         * kernel-install's and bootctl's Boot Loader Specification Type #1
@@ -525,6 +529,19 @@ CHANGES WITH 251:
           also check $COLORTERM (in addition to $NO_COLOR, $SYSTEMD_COLORS, and
           $TERM).
 
+        * Meson's new install_tag feature is now in use for several components,
+          allowing to build and install select binaries only: pam, nss, devel
+          (pkg-config files), systemd-boot, libsystemd, libudev. Example:
+           $ meson build systemd-boot
+           $ meson install --tags systemd-boot --no-rebuild
+          https://mesonbuild.com/Installing.html#installation-tags
+
+        * A new build configuration option has been added, to allow selecting the
+          default compression algorithm used by systemd-journald and systemd-coredump.
+          This allows to build-in support for decompressing all supported formats,
+          but choose a specific one for compression. E.g.:
+           $ meson -Ddefault-compression=xz
+
         Experimental features:
 
         * sd-boot gained a new *experimental* setting "reboot-for-bitlocker" in
@@ -547,38 +564,40 @@ CHANGES WITH 251:
         Alvin Šipraga, amarjargal, Amarjargal, Andrea Pappacoda,
         Andreas Rammhold, Andy Chi, Anita Zhang, Antonio Alvarez Feijoo,
         Arfrever Frehtes Taifersar Arahesis, ash, Bastien Nocera, Be,
-        bearhoney, Ben Efros, Benjamin Berg, Brett Holman,
-        Christian Brauner, Clyde Byrd III, Curtis Klein, Daan De Meyer,
-        Daniele Medri, Daniel Mack, Danilo Krummrich, David, David Bond,
-        Davide Cavalca, David Tardon, davijosw, dependabot[bot],
-        Donald Chan, Dorian Clay, Eduard Tolosa, Elias Probst,
-        Erik Sjölund, Evgeny Vereshchagin, Federico Ceratto, Franck Bui,
-        Frantisek Sumsal, Gaël PORTAY, Georges Basile Stavracas Neto,
-        Gibeom Gwon, Goffredo Baroncelli, Grigori Goronzy, Hans de Goede,
-        Heiko Becker, Hugo Carvalho, Jakob Lell, James Hilliard,
-        Jan Janssen, Jason A. Donenfeld, Joan Bruguera, Joerie de Gram,
-        Josh Triplett, Julia Kartseva, Kazuo Moriwaka, Khem Raj,
-        ksa678491784, Lance, Lan Tian, Laura Barcziova, Lennart Poettering,
-        Leviticoh, licunlong, Lidong Zhong, lincoln auster, Lubomir Rintel,
-        Luca Boccassi, Luca BRUNO, lucagoc, Ludwig Nussel, Marcel Hellwig,
-        march1993, Marco Scardovi, Mario Limonciello, Mariusz Tkaczyk,
-        Markus Weippert, Martin Liska, Martin Wilck, Matija Skala,
+        bearhoney, Ben Efros, Benjamin Berg, Benjamin Franzke,
+        Brett Holman, Christian Brauner, Clyde Byrd III, Curtis Klein,
+        Daan De Meyer, Daniele Medri, Daniel Mack, Danilo Krummrich,
+        David, David Bond, Davide Cavalca, David Tardon, davijosw,
+        dependabot[bot], Donald Chan, Dorian Clay, Eduard Tolosa,
+        Elias Probst, Eli Schwartz, Erik Sjölund, Evgeny Vereshchagin,
+        Federico Ceratto, Franck Bui, Frantisek Sumsal, Gaël PORTAY,
+        Georges Basile Stavracas Neto, Gibeom Gwon, Goffredo Baroncelli,
+        Grigori Goronzy, Hans de Goede, Heiko Becker, Hugo Carvalho,
+        Jakob Lell, James Hilliard, Jan Janssen, Jason A. Donenfeld,
+        Joan Bruguera, Joerie de Gram, Josh Triplett, Julia Kartseva,
+        Kazuo Moriwaka, Khem Raj, ksa678491784, Lance, Lan Tian,
+        Laura Barcziova, Lennart Poettering, Leviticoh, licunlong,
+        Lidong Zhong, lincoln auster, Lubomir Rintel, Luca Boccassi,
+        Luca BRUNO, lucagoc, Ludwig Nussel, Marcel Hellwig, march1993,
+        Marco Scardovi, Mario Limonciello, Mariusz Tkaczyk,
+        Markus Weippert, Martin, Martin Liska, Martin Wilck, Matija Skala,
         Matthew Blythe, Matthias Lisin, Matthijs van Duin, Matt Walton,
         Max Gautier, Michael Biebl, Michael Olbrich, Michal Koutný,
         Michal Sekletár, Mike Gilbert, MkfsSion, Morten Linderud,
-        Nick Rosbrook, Nishal Kulkarni, Noel Kuntze, Peter Hutterer,
-        Peter Morrow, Pigmy-penguin, prumian, Richard Neill,
+        Nick Rosbrook, Nikolai Grigoriev, Nikolai Kostrigin,
+        Nishal Kulkarni, Noel Kuntze, Pablo Ceballos, Peter Hutterer,
+        Peter Morrow, Pigmy-penguin, Piotr Drąg, prumian, Richard Neill,
         Rike-Benjamin Schuppner, rodin-ia, Romain Naour, Ruben Kerkhof,
         Ryan Hendrickson, Santa Wiryaman, Sebastian Pucilowski, Seth Falco,
         Simon Ellmann, Sonali Srivastava, Stefan Seering,
         Stephen Hemminger, tawefogo, techtino, Temuri Doghonadze,
         Thomas Batten, Thomas Haller, Thomas Weißschuh, Tobias Stoeckmann,
-        Tyson Whitehead, Vishal Chillara Srinivas, Vivien Didelot,
-        w30023233, wangyuhang, Weblate, Xiaotian Wu, yangmingtai, YmrDtnJu,
-        Yonathan Randolph, Yutsuten, Yu Watanabe,
+        Tomasz Pala, Tyson Whitehead, Vishal Chillara Srinivas,
+        Vivien Didelot, w30023233, wangyuhang, Weblate, Xiaotian Wu,
+        yangmingtai, YmrDtnJu, Yonathan Randolph, Yutsuten, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, наб
 
-        — Warsaw, 2022-03---
+        — Edinburgh, 2022-05-21
 
 CHANGES WITH 250:
 
