@@ -91,8 +91,6 @@ h1 {
 }
 @media screen and (min-width: 650px) {
   h1 {
-    margin-left: 10%;
-    margin-right: 10%;
     font-size: 2.375em;
   }
 }
@@ -125,11 +123,46 @@ hr {
 }
 
 /* Layout */
-.container {
+.container > * {
   width: 80%;
   margin-left: auto;
   margin-right: auto;
   max-width: 720px;
+}
+
+.container > table {
+  max-width: 1600px;
+  width: auto;
+}
+
+.container > h1 {
+  max-width: 530px;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  margin-top: 2em;
+  margin-bottom: 3em;
+}
+@media screen and (max-width: 767px) {
+  table {
+    overflow-x: auto;
+    display: block; /* required for overflow-x auto on tables */
+    width: max-content; /* use as less line-breaks as possible */
+  }
+}
+
+thead,
+tbody:first-child tr:nth-child(odd),
+thead+tbody tr:nth-child(even) {
+  background-color: var(--sd-highlight-inline-bg);
+}
+
+th, td {
+  vertical-align: top;
+  text-align: left;
+  padding: .5rem;
 }
 
 /* Custom content */
