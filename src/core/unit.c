@@ -5545,8 +5545,6 @@ bool unit_needs_console(Unit *u) {
 }
 
 const char *unit_label_path(const Unit *u) {
-        const char *p;
-
         assert_cc(_UNIT_LOAD_STATE_MAX == 7);
         assert(u);
 
@@ -5556,22 +5554,14 @@ const char *unit_label_path(const Unit *u) {
         if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_MERGED))
                 return NULL; /* Shortcut things if we know there is no real, relevant unit file around */
 
-        p = u->source_path ?: u->fragment_path;
-        if (!p)
-                return NULL;
-
-        if (IN_SET(u->load_state, UNIT_LOADED, UNIT_BAD_SETTING, UNIT_ERROR))
-                return p; /* Shortcut things, if we successfully loaded at least some stuff from the unit file */
-
-        /* Not loaded yet, we need to go to disk */
-        assert(IN_SET(u->load_state, UNIT_STUB, UNIT_MASKED));
-
         /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense.
          * Instead try the obstructed path (which can be NULL) */
-        if (null_or_empty_path(p) > 0)
+        if (u->load_state == UNIT_MASKED)
                 return u->obstructed_path;
 
-        return p;
+        assert(IN_SET(u->load_state, UNIT_LOADED, UNIT_BAD_SETTING, UNIT_ERROR, UNIT_STUB));
+
+        return u->source_path ?: u->fragment_path;
 }
 
 int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
