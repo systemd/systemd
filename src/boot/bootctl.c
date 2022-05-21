@@ -74,6 +74,7 @@ static enum {
 } arg_entry_token_type = ARG_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static bool arg_arch_all = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -411,6 +412,36 @@ finish:
         (void) munmap(buf, st.st_size);
         *v = x;
         return r;
+}
+
+static const char *get_efi_arch(void) {
+        /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32bit
+         * while the kernel is running in 64bit. */
+
+#ifdef __x86_64__
+        _cleanup_free_ char *platform_size = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/firmware/efi/fw_platform_size", &platform_size);
+        if (r == -ENOENT)
+                return EFI_MACHINE_TYPE_NAME;
+        if (r < 0) {
+                log_warning_errno(r, "Error reading EFI firmware word size, assuming '%u': %m", __WORDSIZE);
+                return EFI_MACHINE_TYPE_NAME;
+        }
+
+        if (streq(platform_size, "64"))
+                return EFI_MACHINE_TYPE_NAME;
+        if (streq(platform_size, "32"))
+                return "ia32";
+
+        log_warning(
+                "Unknown EFI firmware word size '%s', using default word size '%u' instead.",
+                platform_size,
+                __WORDSIZE);
+#endif
+
+        return EFI_MACHINE_TYPE_NAME;
 }
 
 static int enumerate_binaries(const char *esp_path, const char *path, const char *prefix) {
@@ -829,7 +860,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         return r;
 }
 
-static int install_binaries(const char *esp_path, bool force) {
+static int install_binaries(const char *esp_path, const char *arch, bool force) {
         _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
 
@@ -837,10 +868,13 @@ static int install_binaries(const char *esp_path, bool force) {
         if (!d)
                 return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
+        const char *suffix = strjoina(arch, ".efi");
+        const char *suffix_signed = strjoina(arch, ".efi.signed");
+
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \""BOOTLIBDIR"\": %m")) {
                 int k;
 
-                if (!endswith_no_case(de->d_name, ".efi") && !endswith_no_case(de->d_name, ".efi.signed"))
+                if (!endswith_no_case(de->d_name, suffix) && !endswith_no_case(de->d_name, suffix_signed))
                         continue;
 
                 /* skip the .efi file, if there's a .signed version of it */
@@ -1327,6 +1361,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Entry token to use for this installation\n"
                "     --json=pretty|short|off\n"
                "                       Generate JSON output\n"
+               "     --all-architectures\n"
+               "                       Install all supported EFI architectures\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1349,6 +1385,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
                 ARG_JSON,
+                ARG_ARCH_ALL,
         };
 
         static const struct option options[] = {
@@ -1368,6 +1405,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "make-machine-id-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY      }, /* Compatibility alias */
                 { "entry-token",               required_argument, NULL, ARG_ENTRY_TOKEN               },
                 { "json",                      required_argument, NULL, ARG_JSON                      },
+                { "all-architectures",         no_argument,       NULL, ARG_ARCH_ALL                  },
                 {}
         };
 
@@ -1470,7 +1508,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
+                        break;
 
+                case ARG_ARCH_ALL:
+                        arg_arch_all = true;
                         break;
 
                 case '?':
@@ -1601,13 +1642,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("System:\n");
-                printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
-                printf("  Secure Boot: %sd (%s)\n",
+                printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
+                printf(" Firmware Arch: %s\n", get_efi_arch());
+                printf("   Secure Boot: %sd (%s)\n",
                        enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
                        secure_boot_mode_to_string(secure));
 
                 s = tpm2_support();
-                printf(" TPM2 Support: %s%s%s\n",
+                printf("  TPM2 Support: %s%s%s\n",
                        FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
                        (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),
                        FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? "yes" :
@@ -1617,14 +1659,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)
-                        printf(" Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
+                        printf("  Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
                 else if (k == 0)
-                        printf(" Boot into FW: supported\n");
+                        printf("  Boot into FW: supported\n");
                 else if (k == -EOPNOTSUPP)
-                        printf(" Boot into FW: not supported\n");
+                        printf("  Boot into FW: not supported\n");
                 else {
                         errno = -k;
-                        printf(" Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                        printf("  Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
                 }
                 printf("\n");
 
@@ -1926,6 +1968,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        const char *arch = arg_arch_all ? "" : get_efi_arch();
+
         RUN_WITH_UMASK(0002) {
                 if (install) {
                         /* Don't create any of these directories when we are just updating. When we update
@@ -1940,7 +1984,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                                 return r;
                 }
 
-                r = install_binaries(arg_esp_path, install);
+                r = install_binaries(arg_esp_path, arch, install);
                 if (r < 0)
                         return r;
 
@@ -1969,13 +2013,16 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
         (void) sync_everything();
 
-        if (arg_touch_variables)
-                r = install_variables(arg_esp_path,
-                                      part, pstart, psize, uuid,
-                                      "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
-                                      install);
+        if (!arg_touch_variables)
+                return 0;
 
-        return r;
+        if (arg_arch_all) {
+                log_info("Not changing EFI variables with --all-architectures.");
+                return 0;
+        }
+
+        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
+        return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install);
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
@@ -2041,7 +2088,13 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (!arg_touch_variables)
                 return r;
 
-        q = remove_variables(uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", true);
+        if (arg_arch_all) {
+                log_info("Not changing EFI variables with --all-architectures.");
+                return r;
+        }
+
+        char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
+        q = remove_variables(uuid, path, true);
         if (q < 0 && r >= 0)
                 r = q;
 
