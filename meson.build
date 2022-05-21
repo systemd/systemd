@@ -17,7 +17,7 @@ libsystemd_version = '0.34.0'
 libudev_version = '1.7.4'
 
 conf = configuration_data()
-conf.set_quoted('PROJECT_URL', 'https://www.freedesktop.org/wiki/Software/systemd')
+conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
 conf.set('PROJECT_VERSION',    meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
 

@@ -1434,7 +1434,7 @@ node /org/freedesktop/systemd1 {
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
       passed as an empty array. See the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
     </refsect2>
@@ -1502,7 +1502,7 @@ node /org/freedesktop/systemd1 {
       known: <literal>split-usr</literal>, <literal>mtab-not-symlink</literal>,
       <literal>cgroups-missing</literal>, <literal>local-hwclock</literal>. <literal>split-usr</literal> is
       set if <filename>/usr/</filename> is not pre-mounted when systemd is first invoked. See
-      <ulink url="http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
       Booting Without /usr is Broken</ulink>
       for details why this is bad. <literal>mtab-not-symlink</literal> indicates that
       <filename>/etc/mtab</filename> is not a symlink to <filename>/proc/self/mounts</filename> as
