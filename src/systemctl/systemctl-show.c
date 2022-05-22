@@ -2070,6 +2070,7 @@ static int get_unit_dbus_path_by_pid(
 
 static int show_all(
                 sd_bus *bus,
+                SystemctlShowMode show_mode,
                 bool *new_line,
                 bool *ellipsized) {
 
@@ -2095,7 +2096,7 @@ static int show_all(
                 if (!p)
                         return log_oom();
 
-                r = show_one(bus, p, u->id, SYSTEMCTL_SHOW_STATUS, new_line, ellipsized);
+                r = show_one(bus, p, u->id, show_mode, new_line, ellipsized);
                 if (r < 0)
                         return r;
                 if (r > 0 && ret == 0)
@@ -2196,17 +2197,28 @@ int verb_show(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        /* If no argument is specified inspect the manager itself */
-        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
-                return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+        if (argc <= 1) {
+                /* If no argument or filter is specified inspect the manager itself:
+                 * systemctl status → we show status of the manager
+                 * systemctl status --all → status of the manager + status of all units
+                 * systemctl status --state=… → status of units in listed states
+                 * systemctl status --type=… → status of units of listed types
+                 * systemctl status --failed → status of failed units, mirroring systemctl list-units --failed
+                 */
 
-        if (show_mode == SYSTEMCTL_SHOW_STATUS && argc <= 1) {
+                if (!arg_states && !arg_types) {
+                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES)
+                                r = show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+                        else
+                                r = show_system_status(bus);
+                        if (r < 0)
+                                return r;
 
-                show_system_status(bus);
-                new_line = true;
+                        new_line = true;
+                }
 
-                if (arg_all)
-                        ret = show_all(bus, &new_line, &ellipsized);
+                if (arg_all || arg_states || arg_types)
+                        ret = show_all(bus, show_mode, &new_line, &ellipsized);
         } else {
                 _cleanup_free_ char **patterns = NULL;
 
