@@ -132,6 +132,7 @@ RouteMTUBytes=
 FallbackLeaseLifetimeSec=
 Use6RD=
 NetLabel=
+NFTSet=
 [DHCPv6]
 UseAddress=
 UseDelegatedPrefix=
@@ -154,6 +155,7 @@ IAID=
 DUIDType=
 DUIDRawData=
 NetLabel=
+NFTSet=
 [DHCPv6PrefixDelegation]
 SubnetId=
 Announce=
@@ -171,6 +173,7 @@ ManageTemporaryAddress=
 Token=
 RouteMetric=
 NetLabel=
+NFTSet=
 [Route]
 Destination=
 Protocol=
@@ -257,6 +260,8 @@ DHCPv6PrefixDelegation=
 DHCPPrefixDelegation=
 BatmanAdvanced=
 IPoIB=
+IPv4NFTSet=
+IPv6NFTSet=
 [IPv6Prefix]
 Prefix=
 OnLink=
@@ -348,6 +353,7 @@ Managed=
 OtherInformation=
 UplinkInterface=
 NetLabel=
+NFTSet=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=
