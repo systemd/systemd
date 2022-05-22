@@ -2785,6 +2785,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DynamicUser = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iss) DynamicUserNFTSet = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
@@ -3331,6 +3333,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property Group is not documented!-->
 
     <!--property DynamicUser is not documented!-->
+
+    <!--property DynamicUserNFTSet is not documented!-->
 
     <!--property RemoveIPC is not documented!-->
 
@@ -3939,6 +3943,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="Group"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DynamicUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DynamicUserNFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveIPC"/>
 
@@ -4679,6 +4685,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DynamicUser = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iss) DynamicUserNFTSet = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
@@ -5249,6 +5257,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property Group is not documented!-->
 
     <!--property DynamicUser is not documented!-->
+
+    <!--property DynamicUserNFTSet is not documented!-->
 
     <!--property RemoveIPC is not documented!-->
 
@@ -5851,6 +5861,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="Group"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DynamicUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DynamicUserNFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveIPC"/>
 
@@ -6480,6 +6492,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DynamicUser = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iss) DynamicUserNFTSet = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
@@ -6978,6 +6992,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property Group is not documented!-->
 
     <!--property DynamicUser is not documented!-->
+
+    <!--property DynamicUserNFTSet is not documented!-->
 
     <!--property RemoveIPC is not documented!-->
 
@@ -7498,6 +7514,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="Group"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DynamicUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DynamicUserNFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveIPC"/>
 
@@ -8254,6 +8272,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DynamicUser = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iss) DynamicUserNFTSet = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveIPC = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(say) SetCredential = [...];
@@ -8738,6 +8758,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property Group is not documented!-->
 
     <!--property DynamicUser is not documented!-->
+
+    <!--property DynamicUserNFTSet is not documented!-->
 
     <!--property RemoveIPC is not documented!-->
 
@@ -9244,6 +9266,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="Group"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DynamicUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DynamicUserNFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveIPC"/>
 

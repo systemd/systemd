@@ -6607,3 +6607,20 @@ int config_parse_cgroup_nft_set(
 
         return config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->nft_set_context, &c->n_nft_set_contexts, u);
 }
+
+int config_parse_dynamic_user_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        ExecContext *c = data;
+        Unit *u = userdata;
+
+        return config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts, u);
+}

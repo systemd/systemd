@@ -3164,6 +3164,40 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
   </refsect1>
 
   <refsect1>
+    <title>Firewall Integration</title>
+    <variablelist class='unit-directives'>
+
+      <varlistentry>
+        <term><varname>DynamicUserNFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem><para>This setting provides a method for integrating <varname>DynamicUser=</varname>
+        configuration into firewall rules with NFT sets. This option expects a whitespace separated list of
+        NFT set definitions. Each definition consists of a colon-separated tuple of NFT address family (one
+        of <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
+        <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
+        and sets must conform to lexical restrictions of NFT table names. When the unit starts, the user ID
+        will be appended to the NFT sets and it will be removed when the unit is stopped. Failures to manage
+        the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Service]
+DynamicUserNFTSet=inet:filter:u</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table inet filter {
+        set u {
+                typeof meta skuid
+        }
+        chain service_output {
+                meta skuid != @u drop
+                accept
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>System V Compatibility</title>
     <variablelist class='unit-directives'>
 
