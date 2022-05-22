@@ -32,6 +32,7 @@
 {{type}}.PassEnvironment,                  config_parse_pass_environ,                   0,                                  offsetof({{type}}, exec_context.pass_environment)
 {{type}}.UnsetEnvironment,                 config_parse_unset_environ,                  0,                                  offsetof({{type}}, exec_context.unset_environment)
 {{type}}.DynamicUser,                      config_parse_bool,                           true,                               offsetof({{type}}, exec_context.dynamic_user)
+{{type}}.DynamicUserNFTSet,                config_parse_dynamic_user_nft_set,           0,                                  offsetof({{type}}, exec_context)
 {{type}}.RemoveIPC,                        config_parse_bool,                           0,                                  offsetof({{type}}, exec_context.remove_ipc)
 {{type}}.StandardInput,                    config_parse_exec_input,                     0,                                  offsetof({{type}}, exec_context)
 {{type}}.StandardOutput,                   config_parse_exec_output,                    0,                                  offsetof({{type}}, exec_context)
