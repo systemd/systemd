@@ -10,6 +10,7 @@
 #include "bridge.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "firewall-util.h"
 #include "hashmap.h"
 #include "ipoib.h"
 #include "net-condition.h"
@@ -160,6 +161,7 @@ struct Network {
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
         char *dhcp_netlabel;
+        NFTSetContexts dhcp_nft_set_contexts;
 
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
@@ -187,6 +189,7 @@ struct Network {
         Set *dhcp6_request_options;
         char *dhcp6_netlabel;
         bool dhcp6_send_release;
+        NFTSetContexts dhcp6_nft_set_contexts;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -245,6 +248,7 @@ struct Network {
         int dhcp_pd_uplink_index;
         char *dhcp_pd_uplink_name;
         char *dhcp_pd_netlabel;
+        NFTSetContexts dhcp_pd_nft_set_contexts;
 
         /* Bridge Support */
         int use_bpdu;
@@ -333,6 +337,7 @@ struct Network {
         Set *ndisc_allow_listed_route_prefix;
         Set *ndisc_tokens;
         char *ndisc_netlabel;
+        NFTSetContexts ndisc_nft_set_contexts;
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */

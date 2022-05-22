@@ -8,6 +8,7 @@
 #include "sd-ipv4acd.h"
 
 #include "conf-parser.h"
+#include "firewall-util.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
@@ -62,6 +63,9 @@ struct Address {
 
         /* Called when address become ready */
         address_ready_callback_t callback;
+
+        NFTSetContexts ipv4_nft_set_contexts;
+        NFTSetContexts ipv6_nft_set_contexts;
 };
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
@@ -134,3 +138,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_ipv4_nft_set_context);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_ipv6_nft_set_context);
