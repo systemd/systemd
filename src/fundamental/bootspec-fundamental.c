@@ -46,7 +46,7 @@ sd_bool bootspec_pick_name_version_sort_key(
         good_version = os_image_version ?: (os_version ?: (os_version_id ? : os_build_id));
         good_sort_key = os_image_id ?: os_id;
 
-        if (!good_name || !good_version)
+        if (!good_name)
                 return sd_false;
 
         if (ret_name)
