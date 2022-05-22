@@ -37,6 +37,8 @@ typedef enum NFTSetSource {
         NFT_SET_SOURCE_PREFIX,
         NFT_SET_SOURCE_IFINDEX,
         NFT_SET_SOURCE_CGROUP,
+        NFT_SET_SOURCE_USER,
+        NFT_SET_SOURCE_GROUP,
         _NFT_SET_SOURCE_MAX,
         _NFT_SET_SOURCE_INVALID = -EINVAL,
 }  NFTSetSource;

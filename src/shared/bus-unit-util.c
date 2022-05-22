@@ -509,7 +509,7 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                 assert(set);
 
                 source = nft_set_source_from_string(source_str);
-                if (source != NFT_SET_SOURCE_CGROUP)
+                if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
 
                 nfproto = nfproto_from_string(nfproto_str);
