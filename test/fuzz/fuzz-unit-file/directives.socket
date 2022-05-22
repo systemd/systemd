@@ -33,6 +33,7 @@ Capabilities=
 CapabilityBoundingSet=
 ConfigurationDirectory=
 ConfigurationDirectoryMode=
+ControlGroupNFTSet=
 CoredumpFilter=
 DefaultMemoryLow=
 DefaultMemoryMin=

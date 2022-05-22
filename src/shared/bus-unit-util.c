@@ -891,6 +891,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (streq(field, "ControlGroupNFTSet"))
+                return bus_append_nft_set(m, field, eq);
+
         return 0;
 }
 

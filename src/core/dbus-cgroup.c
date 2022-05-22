@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
@@ -443,6 +444,36 @@ static int property_get_restrict_network_interfaces(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_cgroup_nft_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        int r;
+        CGroupContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iss)");
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < c->n_nft_set_contexts; i++) {
+                NFTSetContext *s = &c->nft_set_context[i];
+
+                r = sd_bus_message_append(reply, "(iss)", s->nfproto, s->table, s->set);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
@@ -500,6 +531,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
+        SD_BUS_PROPERTY("ControlGroupNFTSet", "a(iss)", property_get_cgroup_nft_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -2061,6 +2093,59 @@ int bus_cgroup_set_property(
 
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))
                 return bus_cgroup_set_transient_property(u, c, name, message, flags, error);
+
+        if (streq(name, "ControlGroupNFTSet")) {
+                int nfproto;
+                const char *table, *set;
+                bool empty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(iss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(iss)", &nfproto, &table, &set)) > 0) {
+                        const char *nfproto_name;
+
+                        nfproto_name = nfproto_to_string(nfproto);
+                        if (!nfproto_name)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid protocol %d.", nfproto);
+
+                        if (nft_identifier_bad(table))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT table name %s.", table);
+
+                        if (nft_identifier_bad(set))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT set name %s.", set);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = nft_set_context_add(&c->nft_set_context, &c->n_nft_set_contexts, nfproto, table, set);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s:%s:%s",
+                                                name,
+                                                nfproto_name,
+                                                table,
+                                                set);
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        c->nft_set_context = nft_set_context_free_many(c->nft_set_context, &c->n_nft_set_contexts);
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+        }
 
         return 0;
 }
