@@ -188,13 +188,15 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           <term><command>status</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…]</optional></term>
 
           <listitem>
-            <para>Show terse runtime status information about one or
-            more units, followed by most recent log data from the
-            journal. If no units are specified, show system status. If
-            combined with <option>--all</option>, also show the status of
-            all units (subject to limitations specified with
-            <option>-t</option>). If a PID is passed, show information
-            about the unit the process belongs to.</para>
+            <para>Show runtime status information about the whole system or about one or more units followed
+            by most recent log data from the journal. If no positional arguments are specified, and no unit
+            filter is given with <option>--type=</option>, <option>--state=</option>, or
+            <option>--failed</option>, shows the status of the whole system. If combined with
+            <option>--all</option>, follows that with the status of all units. If positional arguments are
+            specified, each positional argument is treated as either a unit name to show, or a glob pattern
+            to show units whose names match that pattern, or a PID to show the unit containing that PID. When
+            <option>--type=</option>, <option>--state=</option>, or <option>--failed</option> are used, units
+            are additionally filtered by the TYPE and ACTIVE state.</para>
 
             <para>This function is intended to generate human-readable
             output. If you are looking for computer-parsable output,
@@ -1621,18 +1623,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--type=</option></term>
 
         <listitem>
-          <para>The argument should be a comma-separated list of unit
-          types such as <option>service</option> and
-          <option>socket</option>.
-          </para>
+          <para>The argument is a comma-separated list of unit types such as <option>service</option> and
+          <option>socket</option>. When units are listed with <command>list-units</command>,
+          <command>show</command>, or <command>status</command>, only units of the specified types will be
+          shown. By default, units of all types are shown.</para>
 
-          <para>If one of the arguments is a unit type, when listing
-          units, limit display to certain unit types. Otherwise, units
-          of all types will be shown.</para>
-
-          <para>As a special case, if one of the arguments is
-          <option>help</option>, a list of allowed values will be
-          printed and the program will exit.</para>
+          <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
+          will be printed and the program will exit.</para>
         </listitem>
       </varlistentry>
 
@@ -1640,14 +1637,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--state=</option></term>
 
         <listitem>
-          <para>The argument should be a comma-separated list of unit
-          LOAD, SUB, or ACTIVE states. When listing units, show only
-          those in the specified states. Use <option>--state=failed</option>
-          to show only failed units.</para>
+          <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
+          units with <command>list-units</command>, <command>show</command>, or <command>status</command>,
+          show only those in the specified states. Use <option>--state=failed</option> or
+          <option>--failed</option> to show only failed units.</para>
 
-          <para>As a special case, if one of the arguments is
-          <option>help</option>, a list of allowed values will be
-          printed and the program will exit.</para>
+          <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
+          will be printed and the program will exit.</para>
         </listitem>
       </varlistentry>
 
