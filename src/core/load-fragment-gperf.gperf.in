@@ -241,6 +241,7 @@
 {{type}}.SocketBindAllow,                  config_parse_cgroup_socket_bind,             0,                                  offsetof({{type}}, cgroup_context.socket_bind_allow)
 {{type}}.SocketBindDeny,                   config_parse_cgroup_socket_bind,             0,                                  offsetof({{type}}, cgroup_context.socket_bind_deny)
 {{type}}.RestrictNetworkInterfaces,        config_parse_restrict_network_interfaces,    0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.ControlGroupNFTSet,               config_parse_cgroup_nft_set,                 0,                                  offsetof({{type}}, cgroup_context)
 {%- endmacro -%}
 
 %{
