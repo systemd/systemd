@@ -31,7 +31,7 @@ CHANGES WITH 251:
 
         * All kernels supported by systemd mix RDRAND (or similar) into the
           entropy pool at early boot. This means that on those systems, even if
-          /dev/urandom is not yet initialized, it still returns bytes that that
+          /dev/urandom is not yet initialized, it still returns bytes that
           are at least as high quality as RDRAND. For that reason, we no longer
           have reason to invoke RDRAND from systemd itself, which has
           historically been a source of bugs. Furthermore, kernels ≥5.6 provide
@@ -54,15 +54,15 @@ CHANGES WITH 251:
           If enabled, the measurement is done twice: into the new-style PCR 12
           *and* the old-style PCR 8. It's strongly advised to migrate all users
           to PCR 12 for this purpose in the long run, as we intend to remove
-          this compatibility feature in two year's time.
+          this compatibility feature in two years' time.
 
         * busctl capture now writes output in the newer pcapng format instead
           of pcap.
 
-        * An udev rule that imported hwdb matches for USB devices with
+        * A udev rule that imported hwdb matches for USB devices with
           lowercase hexadecimal vendor/product ID digits was added in systemd
           250. This has been reverted, since uppercase hexadecimal digits are
-          supposed to be used, and we already had a rule that with the
+          supposed to be used, and we already had a rule for that with the
           appropriate match.
 
           Users might need to adjust their local hwdb entries.
@@ -216,7 +216,7 @@ CHANGES WITH 251:
 
         * The sd-id128 API gained a new call sd_id128_to_uuid_string() that is
           similar to sd_id128_to_string() but formats the ID in RFC 4122 UUID
-          format instead of simple series of hex characters.
+          format instead of as a simple series of hex characters.
 
         * The sd-device API gained two new calls sd_device_new_from_devname()
           and sd_device_new_from_path() which permit allocating an sd_device
@@ -311,8 +311,8 @@ CHANGES WITH 251:
 
         * A new "unmerged-usr" taint flag has been added that is set whenever
           running on systems where /bin/ + /sbin/ are *not* symlinks to their
-          counterparts in /usr/, i.e. on systems where the /usr/-merge has been
-          completed.
+          counterparts in /usr/, i.e. on systems where the /usr/-merge has not
+          been completed.
 
         * Generators invoked by PID 1 will now have a couple of useful
           environment variables set describing the execution context a
