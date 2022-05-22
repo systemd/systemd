@@ -158,6 +158,8 @@ Address.DuplicateAddressDetection,           config_parse_duplicate_address_dete
 Address.Scope,                               config_parse_address_scope,                               0,                             0
 Address.RouteMetric,                         config_parse_address_route_metric,                        0,                             0
 Address.NetLabel,                            config_parse_address_netlabel,                            0,                             0
+Address.IPv4NFTSet,                          config_parse_address_ipv4_nft_set_context,                0,                             0
+Address.IPv6NFTSet,                          config_parse_address_ipv6_nft_set_context,                0,                             0
 IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0
 IPv6AddressLabel.Label,                      config_parse_address_label,                               0,                             0
 Neighbor.Address,                            config_parse_neighbor_address,                            0,                             0
@@ -246,6 +248,7 @@ DHCPv4.RouteMTUBytes,                        config_parse_mtu,                  
 DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_lifetime,                0,                             0
 DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
 DHCPv4.NetLabel,                             config_parse_netlabel,                                    0,                             offsetof(Network, dhcp_netlabels)
+DHCPv4.NFTSet,                               config_parse_dhcp_nft_set_context,                        0,                             0
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
 DHCPv6.UseDNS,                               config_parse_dhcp_use_dns,                                AF_INET6,                      0
@@ -264,6 +267,7 @@ DHCPv6.IAID,                                 config_parse_iaid,                 
 DHCPv6.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, dhcp6_duid)
 DHCPv6.DUIDRawData,                          config_parse_duid_rawdata,                                0,                             offsetof(Network, dhcp6_duid)
 DHCPv6.NetLabel,                             config_parse_netlabel,                                    0,                             offsetof(Network, dhcp6_netlabels)
+DHCPv6.NFTSet,                               config_parse_dhcp6_nft_set_context,                       0,                             0
 IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_gateway)
 IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_route_prefix)
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
@@ -282,6 +286,7 @@ IPv6AcceptRA.RouteAllowList,                 config_parse_in_addr_prefixes,     
 IPv6AcceptRA.RouteDenyList,                  config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_route_prefix)
 IPv6AcceptRA.Token,                          config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
 IPv6AcceptRA.NetLabel,                       config_parse_netlabel,                                    0,                             offsetof(Network, ndisc_netlabels)
+IPv6AcceptRA.NFTSet,                         config_parse_ndisc_nft_set_context,                       0,                             0
 DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
 DHCPServer.UplinkInterface,                  config_parse_uplink,                                      0,                             0
 DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
@@ -349,6 +354,7 @@ DHCPPrefixDelegation.ManageTemporaryAddress, config_parse_bool,                 
 DHCPPrefixDelegation.Token,                  config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp_pd_tokens)
 DHCPPrefixDelegation.RouteMetric,            config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
 DHCPPrefixDelegation.NetLabel,               config_parse_netlabel,                                    0,                             offsetof(Network, dhcp_pd_netlabels)
+DHCPPrefixDelegation.NFTSet,                 config_parse_dhcp_pd_nft_set_context,                     0,                             0
 IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
