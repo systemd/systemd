@@ -1877,6 +1877,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);
 
+        /* Delete DynamicUserNFTSet= */
+        exec_delete_dynamic_user_nft_set(&s->exec_context, s->dynamic_creds.user);
+
         /* Release the user, and destroy it if we are the only remaining owner */
         dynamic_creds_destroy(&s->dynamic_creds);
 
