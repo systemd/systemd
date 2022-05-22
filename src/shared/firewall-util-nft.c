@@ -1203,6 +1203,8 @@ static const char *const nft_set_source_table[] = {
         [NFT_SET_SOURCE_PREFIX]  = "prefix",
         [NFT_SET_SOURCE_IFINDEX] = "ifindex",
         [NFT_SET_SOURCE_CGROUP]  = "cgroup",
+        [NFT_SET_SOURCE_USER]    = "user",
+        [NFT_SET_SOURCE_GROUP]   = "group",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int);
@@ -1223,7 +1225,7 @@ int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *
         _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
 
         assert(s);
-        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX, NFT_SET_SOURCE_CGROUP));
+        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP));
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);

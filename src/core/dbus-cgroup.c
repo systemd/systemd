@@ -2238,7 +2238,7 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(iiss)", &source, &nfproto, &table, &set)) > 0) {
                         const char *source_name, *nfproto_name;
 
-                        if (source != NFT_SET_SOURCE_CGROUP)
+                        if (!IN_SET(source, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid source %d.", source);
 
                         source_name = nft_set_source_to_string(source);
