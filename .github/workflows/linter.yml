@@ -41,4 +41,10 @@ jobs:
           FILTER_REGEX_EXCLUDE: .*/(man/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
-          VALIDATE_GITHUB_ACTIONS: true
+          # FIXME: temporarily disable validation of GH Action files, since
+          #        the current version of super-linter doesn't recognize
+          #        ubuntu-22.04 as a valid runner specification. This should
+          #        be fixed once https://github.com/github/super-linter/pull/2897
+          #        is merged, which includes
+          #        https://github.com/rhysd/actionlint/commit/09a60b0f5761c2d066def294e541c25a89756eea
+          #VALIDATE_GITHUB_ACTIONS: true

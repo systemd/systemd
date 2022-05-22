@@ -24,7 +24,7 @@ env:
 
 jobs:
   ci:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
@@ -37,7 +37,7 @@ jobs:
           - distro: debian
             release: testing
           - distro: ubuntu
-            release: focal
+            release: jammy
           - distro: fedora
             release: "36"
           - distro: opensuse
