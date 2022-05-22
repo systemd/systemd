@@ -1141,6 +1141,39 @@ NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
           and the reverse operation when the IPv4 address is deconfigured.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <term><varname>IPv6NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>These settings provide a method for integrating dynamic network configuration into firewall
+          rules with NFT sets. These options expect a whitespace separated list of NFT set definitions. Each
+          definition consists of a colon-separated tuple of NFT address family (one of
+          <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
+          <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
+          and sets must conform to lexical restrictions of NFT table names. When an interface is configured
+          with IP addresses, the addresses and subnetwork masks will be appended to the NFT sets. They will
+          be removed when the interface is deconfigured. Failures to manage the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+IPv4NFTSet=netdev:filter:eth_ipv4_address
+IPv6NFTSet=netdev:filter:eth_ipv6_address</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table netdev filter {
+        set eth_ipv4_address {
+                type ipv4_addr
+                flags interval
+        }
+        chain eth_ingress {
+                type filter hook ingress device "eth0" priority filter; policy drop;
+                ip daddr != @eth_ipv4_address drop
+                accept
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2089,6 +2122,14 @@ NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
           <para>As in [Address] section.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>As in [Address] section. The type in NFT set definition must be
+          <literal>ipv4_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2208,6 +2249,14 @@ NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>As in [DHCPv4] section. The type in NFT set definition must be
+          <literal>ipv6_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
@@ -2309,6 +2358,14 @@ NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
         <term><varname>NetLabel=</varname></term>
         <listitem>
           <para>As in [Address] section.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>As in [DHCPv6] section. The type in NFT set definition must be
+          <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2573,6 +2630,13 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>NetLabel=</varname></term>
         <listitem>
           <para>As in [Address] section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>As in [DHCPv6] section. The type in NFT set definition must be
+          <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -690,6 +690,8 @@ static Network *network_free(Network *network) {
         strv_free(network->dhcp6_vendor_class);
         set_free(network->dhcp_netlabels);
         set_free(network->dhcp6_netlabels);
+        nft_set_context_free_many(network->dhcp_nft_set_context, &network->n_dhcp_nft_set_contexts);
+        nft_set_context_free_many(network->dhcp6_nft_set_context, &network->n_dhcp6_nft_set_contexts);
 
         strv_free(network->ntp);
         for (unsigned i = 0; i < network->n_dns; i++)
@@ -758,6 +760,8 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_tokens);
         set_free(network->dhcp_pd_netlabels);
         set_free(network->ndisc_netlabels);
+        nft_set_context_free_many(network->dhcp_pd_nft_set_context, &network->n_dhcp_pd_nft_set_contexts);
+        nft_set_context_free_many(network->ndisc_nft_set_context, &network->n_ndisc_nft_set_contexts);
 
         return mfree(network);
 }
@@ -1300,6 +1304,90 @@ int config_parse_ignore_carrier_loss(
         network->ignore_carrier_loss_set = true;
         network->ignore_carrier_loss_usec = usec;
         return 0;
+}
+
+int config_parse_dhcp_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp_nft_set_context, &network->n_dhcp_nft_set_contexts);
+}
+
+int config_parse_dhcp6_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp6_nft_set_context, &network->n_dhcp6_nft_set_contexts);
+}
+
+int config_parse_dhcp_pd_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->dhcp_pd_nft_set_context, &network->n_dhcp_pd_nft_set_contexts);
+}
+
+int config_parse_ndisc_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &network->ndisc_nft_set_context, &network->n_ndisc_nft_set_contexts);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily,

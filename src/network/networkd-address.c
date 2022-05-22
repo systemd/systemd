@@ -139,6 +139,8 @@ Address *address_free(Address *address) {
         config_section_free(address->section);
         free(address->label);
         set_free(address->netlabels);
+        nft_set_context_free_many(address->ipv4_nft_set_context, &address->n_ipv4_nft_set_contexts);
+        nft_set_context_free_many(address->ipv6_nft_set_context, &address->n_ipv6_nft_set_contexts);
         return mfree(address);
 }
 
@@ -450,6 +452,102 @@ static int address_set_masquerade(Address *address, bool add) {
         return 0;
 }
 
+static void address_add_nft_set_context(const Address *address, const NFTSetContext *nft_set_context, size_t n_nft_set_contexts) {
+        assert(address);
+
+        for (size_t i = 0; i < n_nft_set_contexts; i++) {
+                int r;
+
+                r = nft_set_element_add_in_addr(&nft_set_context[i], address->family,
+                                                &address->in_addr, address->prefixlen);
+                if (r < 0) {
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
+
+                        log_warning_errno(r, "Adding NFT family %s table %s set %s for IP address %s failed, ignoring",
+                                          nfproto_to_string(nft_set_context[i].nfproto),
+                                          nft_set_context[i].table,
+                                          nft_set_context[i].set,
+                                          strna(addr_str));
+                }
+        }
+}
+
+static void address_del_nft_set_context(const Address *address, const NFTSetContext *nft_set_context, size_t n_nft_set_contexts) {
+        assert(address);
+
+        for (size_t i = 0; i < n_nft_set_contexts; i++) {
+                int r;
+
+                r = nft_set_element_del_in_addr(&nft_set_context[i], address->family,
+                                                &address->in_addr, address->prefixlen);
+                if (r < 0) {
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
+
+                        log_warning_errno(r, "Deleting NFT family %s table %s set %s for IP address %s failed, ignoring",
+                                          nfproto_to_string(nft_set_context[i].nfproto),
+                                          nft_set_context[i].table,
+                                          nft_set_context[i].set,
+                                          strna(addr_str));
+                }
+        }
+}
+
+static void address_add_nft_set(const Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network || !IN_SET(address->family, AF_INET, AF_INET6))
+                return;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                return address_add_nft_set_context(address, address->link->network->dhcp_nft_set_context, address->link->network->n_dhcp_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                return address_add_nft_set_context(address, address->link->network->dhcp6_nft_set_context, address->link->network->n_dhcp6_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                return address_add_nft_set_context(address, address->link->network->dhcp_pd_nft_set_context, address->link->network->n_dhcp_pd_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                return address_add_nft_set_context(address, address->link->network->ndisc_nft_set_context, address->link->network->n_ndisc_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                if (address->family == AF_INET)
+                        return address_add_nft_set_context(address, address->ipv4_nft_set_context, address->n_ipv4_nft_set_contexts);
+                else
+                        return address_add_nft_set_context(address, address->ipv6_nft_set_context, address->n_ipv6_nft_set_contexts);
+        default:
+                return;
+        }
+}
+
+static void address_del_nft_set(const Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->network || !IN_SET(address->family, AF_INET, AF_INET6))
+                return;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                return address_del_nft_set_context(address, address->link->network->dhcp_nft_set_context, address->link->network->n_dhcp_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                return address_del_nft_set_context(address, address->link->network->dhcp6_nft_set_context, address->link->network->n_dhcp6_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                return address_del_nft_set_context(address, address->link->network->dhcp_pd_nft_set_context, address->link->network->n_dhcp_pd_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                return address_del_nft_set_context(address, address->link->network->ndisc_nft_set_context, address->link->network->n_ndisc_nft_set_contexts);
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                if (address->family == AF_INET)
+                        return address_del_nft_set_context(address, address->ipv4_nft_set_context, address->n_ipv4_nft_set_contexts);
+                else
+                        return address_del_nft_set_context(address, address->ipv6_nft_set_context, address->n_ipv6_nft_set_contexts);
+        default:
+                return;
+        }
+}
+
 static int address_add(Link *link, Address *address) {
         int r;
 
@@ -496,6 +594,8 @@ static int address_update(Address *address) {
 
         address_add_netlabel(address);
 
+        address_add_nft_set(address);
+
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
                 if (r < 0)
@@ -521,6 +621,8 @@ static int address_drop(Address *address) {
         r = address_set_masquerade(address, false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
+
+        address_del_nft_set(address);
 
         address_del_netlabel(address);
 
@@ -2083,4 +2185,72 @@ int network_drop_invalid_addresses(Network *network) {
         }
 
         return 0;
+}
+
+int config_parse_address_ipv4_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+        assert(network);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->ipv4_nft_set_context, &n->n_ipv4_nft_set_contexts);
+}
+
+int config_parse_address_ipv6_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+        assert(network);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        return config_parse_nft_set_context(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->ipv6_nft_set_context, &n->n_ipv6_nft_set_contexts);
 }
