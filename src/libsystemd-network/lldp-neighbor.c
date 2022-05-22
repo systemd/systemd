@@ -5,6 +5,7 @@
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
+#include "json.h"
 #include "lldp-neighbor.h"
 #include "memory-util.h"
 #include "missing_network.h"
@@ -793,4 +794,25 @@ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_
 
         *ret = triple_timestamp_by_clock(&n->timestamp, clock);
         return 0;
+}
+
+_public_ int sd_lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
+        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
+        uint16_t cc = 0;
+        bool valid_cc;
+
+        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+
+        valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("neighbor", JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR("chassisId", JSON_BUILD_STRING(chassis_id)),
+                                                JSON_BUILD_PAIR("systemName", JSON_BUILD_STRING(system_name)),
+                                                JSON_BUILD_PAIR_CONDITION(valid_cc, "enabledCapabilities", JSON_BUILD_UNSIGNED(cc)),
+                                                JSON_BUILD_PAIR("portId", JSON_BUILD_STRING(port_id)),
+                                                JSON_BUILD_PAIR_CONDITION(port_description, "portDescription", JSON_BUILD_STRING(port_description))))));
 }

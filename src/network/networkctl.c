@@ -36,6 +36,7 @@
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
+#include "json.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -62,6 +63,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "unit-def.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -2422,21 +2424,24 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static char *lldp_capabilities_to_string(uint16_t x) {
+static char *lldp_capabilities_to_string(uint16_t x, bool dots) {
         static const char characters[] = {
                 'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
         };
         char *ret;
-        unsigned i;
+        unsigned i, j;
 
         ret = new(char, ELEMENTSOF(characters) + 1);
         if (!ret)
                 return NULL;
 
-        for (i = 0; i < ELEMENTSOF(characters); i++)
-                ret[i] = (x & (1U << i)) ? characters[i] : '.';
+        for (i = 0, j = 0; i < ELEMENTSOF(characters); i++)
+                if (x & (1U << i))
+                        ret[j++] = characters[i];
+                else if (dots)
+                        ret[j++] = '.';
 
-        ret[i] = 0;
+        ret[j] = 0;
         return ret;
 }
 
@@ -2472,13 +2477,131 @@ static void lldp_capabilities_legend(uint16_t x) {
         puts("");
 }
 
+typedef struct LLDPNeighborEntry {
+        uint32_t capabilities;
+        char *chassis_id;
+        char *port_id;
+        char *system_name;
+        char *port_description;
+} LLDPNeighborEntry;
+
+static void lldp_neighbor_entry_free(LLDPNeighborEntry *e) {
+        if (!e)
+                return;
+
+        free(e->chassis_id);
+        free(e->port_id);
+        free(e->system_name);
+        free(e->port_description);
+}
+
+typedef struct LLDPUserdata {
+        int neighbors_count;
+        uint16_t capabilities_all;
+
+        Table *table;
+        JsonVariant *json;
+
+        char *link_name;
+} LLDPUserdata;
+
+static void lldp_userdata_freep(LLDPUserdata* p) {
+        table_unref(p->table);
+        json_variant_unref(p->json);
+}
+
+static int lldp_neighbors_varlink_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+        int r;
+        _cleanup_free_ char *capabilities = NULL;
+        LLDPUserdata *udata;
+        _cleanup_(lldp_neighbor_entry_free) LLDPNeighborEntry entry = {};
+
+        static const JsonDispatch dispatch_table[] = {
+                { "chassisId",           JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LLDPNeighborEntry, chassis_id),       0 },
+                { "portId",              JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LLDPNeighborEntry, port_id),          0 },
+                { "systemName",          JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LLDPNeighborEntry, system_name),      0 },
+                { "enabledCapabilities", JSON_VARIANT_UNSIGNED, json_dispatch_uint32, offsetof(LLDPNeighborEntry, capabilities),     0 },
+                { "portDescription",     JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LLDPNeighborEntry, port_description), 0 },
+                {}
+        };
+
+        udata = userdata;
+
+        assert(udata);
+        assert(udata->link_name);
+
+        r = json_dispatch(json_variant_by_key(parameters, "neighbor"), dispatch_table, NULL, 0, &entry);
+        if (r < 0)
+                return r;
+
+        if (udata->table) {
+                capabilities = lldp_capabilities_to_string(entry.capabilities, true);
+
+                r = table_add_many(udata->table,
+                                TABLE_STRING, udata->link_name,
+                                TABLE_STRING, entry.chassis_id,
+                                TABLE_STRING, entry.system_name,
+                                TABLE_STRING, capabilities,
+                                TABLE_STRING, entry.port_id,
+                                TABLE_STRING, entry.port_description);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        udata->neighbors_count += 1;
+        udata->capabilities_all |= entry.capabilities;
+
+        if (udata->json) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *neighbors = NULL;
+
+                capabilities = lldp_capabilities_to_string(entry.capabilities, false);
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("neighbor", JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_CONDITION(entry.chassis_id, "chassisId", JSON_BUILD_STRING(entry.chassis_id)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.port_id, "portId", JSON_BUILD_STRING(entry.port_id)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.system_name, "systemName", JSON_BUILD_STRING(entry.system_name)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.port_description, "portDescription", JSON_BUILD_STRING(entry.port_description)),
+                                        JSON_BUILD_PAIR_CONDITION(entry.capabilities, "enabledCapabilities", JSON_BUILD_STRING(capabilities))))));
+                if (r < 0)
+                        return r;
+
+
+                neighbors = json_variant_ref(json_variant_by_key(udata->json, udata->link_name));
+
+                r = json_variant_append_array(&neighbors, v);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_set_field(&udata->json, udata->link_name, neighbors);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
+        static const char *address = "/run/systemd/netif/io.systemd.Network";
+        static const char *method = "io.systemd.Network.LLDPNeighbors";
+
+        int r, c;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        int r, c, m = 0;
-        uint16_t all = 0;
-        TableCell *cell;
+        _cleanup_(lldp_userdata_freep) LLDPUserdata udata = {};
+
+        r = varlink_connect_address(&link, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to %s: %m", address);
+
+        (void) varlink_set_description(link, "network");
+        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
+
+        r = varlink_bind_reply(link, lldp_neighbors_varlink_reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind reply callback: %m");
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -2489,80 +2612,66 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 return c;
 
         pager_open(arg_pager_flags);
+        if (arg_json_format_flags == JSON_FORMAT_OFF) {
+                TableCell *cell;
 
-        table = table_new("link",
-                          "chassis-id",
-                          "system-name",
-                          "caps",
-                          "port-id",
-                          "port-description");
-        if (!table)
-                return log_oom();
+                udata.table = table_new("link",
+                                        "chassis-id",
+                                        "system-name",
+                                        "caps",
+                                        "port-id",
+                                        "port-description");
+                if (!udata.table)
+                        return log_oom();
 
-        if (arg_full)
-                table_set_width(table, 0);
+                if (arg_full)
+                        table_set_width(udata.table, 0);
 
-        table_set_header(table, arg_legend);
+                table_set_header(udata.table, arg_legend);
 
-        assert_se(cell = table_get_cell(table, 0, 3));
-        table_set_minimum_width(table, cell, 11);
+                assert_se(cell = table_get_cell(udata.table, 0, 3));
+                table_set_minimum_width(udata.table, cell, 11);
 
-        for (int i = 0; i < c; i++) {
-                _cleanup_fclose_ FILE *f = NULL;
-
-                r = open_lldp_neighbors(links[i].ifindex, &f);
-                if (r == -ENOENT)
-                        continue;
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", links[i].ifindex);
-                        continue;
-                }
-
-                for (;;) {
-                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
-                        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
-                        _cleanup_free_ char *capabilities = NULL;
-                        uint16_t cc;
-
-                        r = next_lldp_neighbor(f, &n);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to read neighbor data: %m");
-                                break;
-                        }
-                        if (r == 0)
-                                break;
-
-                        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
-                        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
-                        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
-                        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
-
-                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
-                                capabilities = lldp_capabilities_to_string(cc);
-                                all |= cc;
-                        }
-
-                        r = table_add_many(table,
-                                           TABLE_STRING, links[i].name,
-                                           TABLE_STRING, strna(chassis_id),
-                                           TABLE_STRING, strna(system_name),
-                                           TABLE_STRING, strna(capabilities),
-                                           TABLE_STRING, strna(port_id),
-                                           TABLE_STRING, strna(port_description));
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                        m++;
-                }
+                if (table_set_empty_string(udata.table, "n/a") < 0)
+                        return log_oom();
+        } else {
+                r = json_build(&udata.json, JSON_BUILD_EMPTY_OBJECT);
+                if (r < 0)
+                        return r;
         }
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
+        varlink_set_userdata(link, &udata);
 
-        if (arg_legend) {
-                lldp_capabilities_legend(all);
-                printf("\n%i neighbors listed.\n", m);
+        for (int i = 0; i < c; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *cparams = NULL;
+
+                udata.link_name = links[i].name;
+
+                r = json_build(&cparams, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("ifindex", JSON_BUILD_UNSIGNED(links[i].ifindex))));
+                if (r < 0)
+                        return r;
+
+                r = varlink_observe(link, method, cparams);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+
+                r = varlink_observe_complete(link);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_json_format_flags == JSON_FORMAT_OFF) {
+                r = table_print(udata.table, NULL);
+                if (r < 0)
+                        return table_log_print_error(r);
+
+                if (arg_legend) {
+                        lldp_capabilities_legend(udata.capabilities_all);
+                        printf("\n%i neighbors listed.\n", udata.neighbors_count);
+                }
+        } else {
+                json_variant_dump(udata.json, arg_json_format_flags, NULL, NULL);
         }
 
         return 0;
