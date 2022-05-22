@@ -15,7 +15,7 @@ CXX="$6"
 # Locate ninja binary, on CentOS 7 it is called ninja-build, so
 # use that name if available.
 ninja="ninja"
-if which ninja-build >/dev/null 2>&1 ; then
+if command -v ninja-build >/dev/null ; then
     ninja="ninja-build"
 fi
 
