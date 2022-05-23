@@ -149,7 +149,7 @@ static BOOLEAN line_edit(
 
         assert(line_in);
 
-        len = strlen_ptr(*line_in);
+        len = strlen16(*line_in);
         size = len + 1024;
         line = xnew(CHAR16, size);
         print = xnew(CHAR16, x_max + 1);
@@ -662,7 +662,7 @@ static BOOLEAN menu_run(
                         /* length of the longest entry */
                         line_width = 0;
                         for (UINTN i = 0; i < config->entry_count; i++)
-                                line_width = MAX(line_width, StrLen(config->entries[i]->title_show));
+                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
@@ -686,7 +686,7 @@ static BOOLEAN menu_run(
                                 UINTN j, padding;
 
                                 lines[i] = xnew(CHAR16, line_width + 1);
-                                padding = (line_width - MIN(StrLen(config->entries[i]->title_show), line_width)) / 2;
+                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
                                         lines[i][j] = ' ';
@@ -750,7 +750,7 @@ static BOOLEAN menu_run(
                          * input. Therefore, draw one less character then we could for the status message.
                          * Note that the same does not apply for the separator line as it will never be drawn
                          * on the last line. */
-                        UINTN len = StrnLen(status, x_max - 1);
+                        UINTN len = strnlen16(status, x_max - 1);
                         UINTN x = (x_max - len) / 2;
                         status[len] = '\0';
                         print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
@@ -1277,13 +1277,13 @@ static void config_entry_parse_tries(
          * foobar+4-0.efi → foobar+3-1.efi → foobar+2-2.efi → foobar+1-3.efi → foobar+0-4.efi → STOP!
          */
 
-        i = StrLen(file);
+        i = strlen16(file);
 
         /* Chop off any suffix such as ".conf" or ".efi" */
         if (suffix) {
                 UINTN suffix_length;
 
-                suffix_length = StrLen(suffix);
+                suffix_length = strlen16(suffix);
                 if (i < suffix_length)
                         return;
 
@@ -1829,7 +1829,7 @@ static void config_title_generate(Config *config) {
                 config->entries[i]->title_show = xpool_print(
                         L"%s (%.*s)",
                         t,
-                        StrnLen(config->entries[i]->machine_id, 8),
+                        strnlen16(config->entries[i]->machine_id, 8),
                         config->entries[i]->machine_id);
         }
 
