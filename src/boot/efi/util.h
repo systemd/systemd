@@ -3,10 +3,9 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <stddef.h>
 
 #include "string-util-fundamental.h"
-
-#define offsetof(type, member) __builtin_offsetof(type, member)
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
