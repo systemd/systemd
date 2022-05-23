@@ -7,9 +7,7 @@
 #  define TEST_STATIC
 #else
 /* Provide our own "EFI API" if we are running as a unit test. */
-#  include <stddef.h>
-#  include <stdint.h>
-#  include <uchar.h>
+#  include "efi-string.h"
 #  include "string-util-fundamental.h"
 
 #  define CHAR8 char
@@ -19,7 +17,6 @@
 #  define UINT32 uint32_t
 #  define UINT64 uint64_t
 #  define UINTN size_t
-#  define strlena(s) strlen(s)
 #  define strncaseeqa(a, b, n) strncaseeq((a), (b), (n))
 #  define TEST_STATIC static
 #endif
@@ -168,7 +165,7 @@ static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const
                 return NULL;
 
         if (*name) {
-                if (strncaseeqa(name, key->key_name, key->key_name_len) && strlena(name) == key->key_name_len)
+                if (strncaseeqa(name, key->key_name, key->key_name_len) && strlen8((const char *) name) == key->key_name_len)
                         name += key->key_name_len;
                 else
                         return NULL;
@@ -213,7 +210,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
                 if (BAD_OFFSET(kv->data_offset, kv->data_size, bcd_len))
                         continue;
 
-                if (strncaseeqa(name, kv->name, kv->name_len) && strlena(name) == kv->name_len)
+                if (strncaseeqa(name, kv->name, kv->name_len) && strlen8((const char *) name) == kv->name_len)
                         return kv;
         }
 

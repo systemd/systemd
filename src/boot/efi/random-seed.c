@@ -220,7 +220,7 @@ static void validate_sha256(void) {
                 uint8_t result[HASH_VALUE_SIZE];
 
                 sha256_init_ctx(&hash);
-                sha256_process_bytes(array[i].string, strlena((const CHAR8*) array[i].string), &hash);
+                sha256_process_bytes(array[i].string, strlen8(array[i].string), &hash);
                 sha256_finish_ctx(&hash, result);
 
                 assert(CompareMem(result, array[i].hash, HASH_VALUE_SIZE) == 0);
