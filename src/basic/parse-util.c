@@ -750,3 +750,38 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
 
         return store_loadavg_fixed_point(i, f, ret);
 }
+
+static bool nft_first_char_bad(const char c) {
+        if ((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z'))
+                return false;
+        return true;
+}
+
+static bool nft_next_char_bad(const char c) {
+        if ((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == '/' || c == '\\' || c == '_' || c == '.')
+                return false;
+        return true;
+}
+
+/* Limitations are described in https://www.netfilter.org/projects/nftables/manpage.html and
+ * https://bugzilla.netfilter.org/show_bug.cgi?id=1175 */
+bool nft_identifier_bad(const char *id) {
+        assert(id);
+
+        size_t len;
+        len = strlen(id);
+        if (len == 0 || len > 31)
+                return true;
+
+        if (nft_first_char_bad(id[0]))
+                return true;
+
+        for (size_t i = 1; i < len; i++)
+                if (nft_next_char_bad(id[i]))
+                        return true;
+        return false;
+}
