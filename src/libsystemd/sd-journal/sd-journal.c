@@ -826,6 +826,10 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
+        if (j->current_location.type == LOCATION_TAIL && direction == DIRECTION_DOWN ||
+            j->current_location.type == LOCATION_HEAD && direction == DIRECTION_UP)
+                return 0;
+
         r = iterated_cache_get(j->files_cache, NULL, &files, &n_files);
         if (r < 0)
                 return r;
@@ -843,6 +847,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         f->location_type = LOCATION_TAIL;
                         continue;
                 }
+
+                j->current_location.type = LOCATION_SEEK;
 
                 if (!new_file)
                         found = true;
