@@ -37,8 +37,9 @@ jobs:
           #   - man/.* - all snippets in man pages (false positives due to
           #              missing shebangs)
           #   - .*\.(in|SKELETON) - all template/skeleton files
+          #                         except kernel-install
           #   - tools/coverity\.sh - external file (with some modifications)
-          FILTER_REGEX_EXCLUDE: .*/(man/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
+          FILTER_REGEX_EXCLUDE: .*/(man/.*|([^k]|k(k|ek)*([^ek]|e[^kr]))*(k(k|ek)*e?)?\.(in|SKELETON)|tools/coverity\.sh)$
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
           # FIXME: temporarily disable validation of GH Action files, since

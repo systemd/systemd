@@ -112,6 +112,7 @@ fi
 
 if [ -n "$install_conf" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Reading $install_conf…"
+    # shellcheck source=/dev/null
     . "$install_conf"
     # FIXME: This may override configuration in environment variables, e.g. $BOOT_ROOT.
 fi
@@ -130,6 +131,7 @@ fi
 # generated one. If the user configured an explicit machine ID to use in
 # /etc/machine-info to use for our purpose, we'll use that instead (for
 # compatibility).
+# shellcheck source=/dev/null
 if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"; then
     [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "machine-id $MACHINE_ID acquired from /etc/machine-info"
@@ -157,6 +159,7 @@ if [ -z "$ENTRY_TOKEN" ]; then
     # the IMAGE_ID= and ID= fields from /etc/os-release and finally the fixed
     # string "Default"
     ENTRY_TOKEN_SEARCH="$MACHINE_ID"
+    # shellcheck source=/dev/null
     [ -r /etc/os-release ] && . /etc/os-release
     [ -n "$IMAGE_ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $IMAGE_ID"
     [ -n "$ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $ID"
@@ -291,7 +294,7 @@ PLUGINS="$(
 IFS="
 "
 
-[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo -e "Plugin files:\n$PLUGINS"
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && printf '%s\n' "Plugin files:" "$PLUGINS"
 
 case "$COMMAND" in
     add)
