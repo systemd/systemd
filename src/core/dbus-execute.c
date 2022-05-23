@@ -22,6 +22,7 @@
 #include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio-util.h"
@@ -1138,6 +1139,37 @@ static int bus_property_get_exec_dir_symlink(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_dynamic_user_nft_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iss)");
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < c->n_dynamic_user_nft_set_contexts; i++) {
+                NFTSetContext *s = &c->dynamic_user_nft_set_context[i];
+
+                r = sd_bus_message_append(reply, "(iss)", s->nfproto, s->table, s->set);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1232,6 +1264,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DynamicUserNFTSet", "a(iss)", property_get_dynamic_user_nft_set, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3498,6 +3531,58 @@ int bus_exec_context_set_transient_property(
                         c->temporary_filesystems = NULL;
                         c->n_temporary_filesystems = 0;
 
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+
+        } else if (streq(name, "DynamicUserNFTSet")) {
+                int nfproto;
+                const char *table, *set;
+                bool empty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(iss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(iss)", &nfproto, &table, &set)) > 0) {
+                        const char *nfproto_name;
+
+                        nfproto_name = nfproto_to_string(nfproto);
+                        if (!nfproto_name)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid protocol %d.", nfproto);
+
+                        if (nft_identifier_bad(table))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT table name %s.", table);
+
+                        if (nft_identifier_bad(set))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT set name %s.", set);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = nft_set_context_add(&c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts, nfproto, table, set);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s:%s:%s",
+                                                name,
+                                                nfproto_name,
+                                                table,
+                                                set);
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        c->dynamic_user_nft_set_context = nft_set_context_free_many(c->dynamic_user_nft_set_context, &c->n_dynamic_user_nft_set_contexts);
                         unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
