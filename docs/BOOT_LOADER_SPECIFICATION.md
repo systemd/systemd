@@ -139,7 +139,7 @@ freely but should be unique enough to avoid clashes between OS installations.
 More specifically, it is suggested to include the machine ID (`/etc/machine-id`
 or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel
 version (as returned by `uname -r`) and an OS identifier (the `ID=` field of
-`/etc/os-release`).
+[os-release](https://www.freedesktop.org/software/systemd/man/os-release.html)).
 
 Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
 
@@ -163,10 +163,11 @@ The following keys are recognized:
 
 * `title` is a human-readable title for this menu item to be displayed in the
   boot menu. It is a good idea to initialize this from the `PRETTY_NAME=` of
-  `/etc/os-release`. This name should be descriptive and does not have to be
-  unique. If a boot loader discovers two entries with the same title it should
-  show more than just the raw title in the UI, for example by appending the
-  `version` field. This field is optional.
+  [os-release](https://www.freedesktop.org/software/systemd/man/os-release.html).
+  This name should be descriptive and does not have to be unique. If a boot
+  loader discovers two entries with the same title it should show more than
+  just the raw title in the UI, for example by appending the `version`
+  field. This field is optional.
 
   Example: `title Fedora 18 (Spherical Cow)`
 
@@ -190,14 +191,14 @@ The following keys are recognized:
 
 * `sort-key` is a short string used for sorting entries on display. This should
   typically be initialized from the `IMAGE_ID=` or `ID=` fields of
-  `/etc/os-release`, possibly with an additional suffix. This field is
-  optional. If set, it is used as primary sorting key for the entries on
-  display (lexicographically increasing). It does not have to be unique (and
-  usually is not). If non-unique the the `machine-id` (lexicographically
-  increasing) and `version` (lexicographically decreasing, i.e. newest version
-  first) fields described above are used as secondary/ternary sorting keys. If
-  this field is not set entries are typically sorted by the `.conf` file name
-  of the entry.
+  [os-release](https://www.freedesktop.org/software/systemd/man/os-release.html),
+  possibly with an additional suffix. This field is optional. If set, it is
+  used as primary sorting key for the entries on display (lexicographically
+  increasing). It does not have to be unique (and usually is not). If
+  non-unique the the `machine-id` (lexicographically increasing) and `version`
+  (lexicographically decreasing, i.e. newest version first) fields described
+  above are used as secondary/ternary sorting keys. If this field is not set
+  entries are typically sorted by the `.conf` file name of the entry.
 
   Example: `sort-key fedora`
 
