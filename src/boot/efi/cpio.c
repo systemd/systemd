@@ -81,12 +81,12 @@ static EFI_STATUS pack_cpio_one(
 
         l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name*/
 
-        target_dir_prefix_size = strlena(target_dir_prefix);
+        target_dir_prefix_size = strlen8((const char *) target_dir_prefix);
         if (l > UINTN_MAX - target_dir_prefix_size)
                 return EFI_OUT_OF_RESOURCES;
         l += target_dir_prefix_size;
 
-        fname_size = StrLen(fname);
+        fname_size = strlen16(fname);
         if (l > UINTN_MAX - fname_size)
                 return EFI_OUT_OF_RESOURCES;
         l += fname_size; /* append space for file name */
@@ -182,7 +182,7 @@ static EFI_STATUS pack_cpio_dir(
 
         l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name*/
 
-        path_size = strlena(path);
+        path_size = strlen8((const char *) path);
         if (l > UINTN_MAX - path_size)
                 return EFI_OUT_OF_RESOURCES;
         l += path_size;
@@ -388,7 +388,7 @@ EFI_STATUS pack_cpio(
                         continue;
                 if (!is_ascii(dirent->FileName))
                         continue;
-                if (StrLen(dirent->FileName) > 255) /* Max filename size on Linux */
+                if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
                         continue;
 
                 d = xstrdup(dirent->FileName);

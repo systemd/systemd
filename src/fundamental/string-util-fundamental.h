@@ -2,23 +2,24 @@
 #pragma once
 
 #ifdef SD_BOOT
-#include <efi.h>
-#include <efilib.h>
+#  include <efi.h>
+#  include <efilib.h>
+#  include "efi-string.h"
 #else
-#include <string.h>
+#  include <string.h>
 #endif
 
 #include "macro-fundamental.h"
 
 #ifdef SD_BOOT
-#define strlen(a)        StrLen((a))
-#define strcmp(a, b)     StrCmp((a), (b))
-#define strncmp(a, b, n) StrnCmp((a), (b), (n))
-#define strcasecmp(a, b) StriCmp((a), (b))
-#define STR_C(str)       (L ## str)
-#define memcmp(a, b, n)  CompareMem(a, b, n)
+#  define strlen(a)        strlen16((a))
+#  define strcmp(a, b)     StrCmp((a), (b))
+#  define strncmp(a, b, n) StrnCmp((a), (b), (n))
+#  define strcasecmp(a, b) StriCmp((a), (b))
+#  define STR_C(str)       (L ## str)
+#  define memcmp(a, b, n)  CompareMem(a, b, n)
 #else
-#define STR_C(str)       (str)
+#  define STR_C(str)       (str)
 #endif
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
