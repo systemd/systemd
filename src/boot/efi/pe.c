@@ -154,7 +154,7 @@ static void locate_sections(
                 const struct PeSectionHeader *sect = section_table + i;
 
                 for (UINTN j = 0; sections[j]; j++) {
-                        if (CompareMem(sect->Name, sections[j], strlena(sections[j])) != 0)
+                        if (CompareMem(sect->Name, sections[j], strlen8((const char *) sections[j])) != 0)
                                 continue;
 
                         if (addrs)

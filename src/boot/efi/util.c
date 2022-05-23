@@ -306,7 +306,7 @@ CHAR16 *xstra_to_str(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlena(stra);
+        len = strlen8((const char *) stra);
         str = xnew(CHAR16, len + 1);
 
         strlen = 0;
@@ -336,7 +336,7 @@ CHAR16 *xstra_to_path(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlena(stra);
+        len = strlen8((const char *) stra);
         str = xnew(CHAR16, len + 2);
 
         str[0] = '\\';
@@ -572,19 +572,6 @@ EFI_STATUS readdir_harder(
         return EFI_SUCCESS;
 }
 
-UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
-        UINTN c;
-
-        if (!p)
-                return 0;
-
-        for (c = 0; c < maxlen; c++)
-                if (p[c] == 0)
-                        break;
-
-        return c;
-}
-
 INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
         if (!a || !b)
                 return CMP(a, b);
@@ -615,7 +602,7 @@ CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
 
         assert(p || sz == 0);
 
-        sz = strnlena(p, sz);
+        sz = strnlen8((const char *) p, sz);
 
         n = xallocate_pool(sz + 1);
 
