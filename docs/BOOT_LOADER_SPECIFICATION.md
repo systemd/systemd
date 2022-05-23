@@ -27,7 +27,7 @@ The target audience for this specification is:
 * Firmware developers, to add generic boot loading support directly to the
   firmware itself
 * OS installer developers, to create appropriate partitions and set up the
-  initial drop-in directory
+  initial boot loader configuration
 * Distribution developers, to create appropriate configuration snippets when
   installing or updating kernel packages
 * UI developers, to implement user interfaces that list and select among the
@@ -118,28 +118,28 @@ multiple users of the file system unlikely.
 
 ### Type #1 Boot Loader Specification Entries
 
-This specification defines two directories below `$BOOT`:
-
-* `$BOOT/loader/` is the directory containing all files needed for Type #1
-  entries
-
-* `$BOOT/loader/entries/` is the directory containing the drop-in
-  snippets. This directory contains one `.conf` file for each boot menu item.
+`$BOOT/loader/` is the main directory containing the configuration for the boot
+loader.
 
 **Note:** _In all cases the `/loader/` directory should be located directly in
 the root of the file system. Specifically, if `$BOOT` is the ESP, then
 `/loader/` directory should be located directly in the root directory of the
 ESP, and not in the `/EFI/` subdirectory._
 
-Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or
-more configuration snippets with the suffix `.conf`, one for each boot menu
-item. The file name of the file is used for identification of the boot item but
-shall never be presented to the user in the UI. The file name may be chosen
-freely but should be unique enough to avoid clashes between OS installations.
-More specifically, it is suggested to include the machine ID (`/etc/machine-id`
-or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel
-version (as returned by `uname -r`) and an OS identifier (the `ID=` field of
-[os-release](https://www.freedesktop.org/software/systemd/man/os-release.html)).
+`$BOOT/loader/entries/` is the directory containing the drop-in snippets
+defining boot entries, one `.conf` file for each boot menu item. Each OS may
+provide one or more such entries.
+
+The file name is used for identification of the boot item but shall never be
+presented to the user in the UI. The file name may be chosen freely but should
+be unique enough to avoid clashes between OS installations. More specifically,
+it is suggested to include the `entry-token` (see
+[kernel-install](https://www.freedesktop.org/software/systemd/man/kernel-install.html))
+or machine ID (see
+[/etc/machine-id](https://www.freedesktop.org/software/systemd/man/machine-id.html)),
+and the kernel version (as returned by `uname -r`, including the OS
+identifier), so that the whole filename is
+`$BOOT/loader/entries/<entry-token-or-machine-id>-<version>.conf`.
 
 Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
 
@@ -271,16 +271,25 @@ i.e. it is a good idea that both images shipped as UEFI PE images and those
 which are not don't make unnecessary assumption on the underlying firmware,
 i.e. don't hard depend on legacy BIOS calls or UEFI boot services.
 
-Note that these configuration snippets may only reference kernels (and EFI
-programs) that reside on the same file system as the configuration snippets,
-i.e. everything referenced must be contained in the same file system. This is
-by design, as referencing other partitions or devices would require a
-non-trivial language for denoting device paths. If kernels/initrds are to be
-read from other partitions/disks the boot loader can do this in its own native
-configuration, using its own specific device path language, and this is out of
-focus for this specification. More specifically, on non-EFI systems
-configuration snippets following this specification cannot be used to spawn
-other operating systems (such as Windows).
+When Type #1 configuration snippets refer to other files (for `linux`,
+`initrd`, `efi`, `devicetree`, and `devicetree-overlay`), those files must be
+located on the same partition. The naming of those files can be chosen by
+the installer. A recommended scheme is described in the next section.
+
+### Recommended Directory Layout for Additional Files
+
+It is recommened to place the kernel and other other files comprising a single
+boot loader entry in a separate directory:
+`/<entry-token-or-machine-id>/<version>/`. This naming scheme uses the same
+elements as the boot loader configuration snippet, providing the same level of
+uniqueness.
+
+Example: `$BOOT/6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux`
+         `$BOOT/6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd`
+
+Other naming schemes are possible. In particular, traditionally a flat naming
+scheme with files in the root directory was used. This is not recommended
+because it is hard to avoid conflicts in a multi-boot installation.
 
 ### Standard-conformance Marker File
 
@@ -483,6 +492,13 @@ There are a couple of items that are out of focus for this specification:
   one) to the distributions. The simplest solution might be to simply continue
   with the old scheme for old installations and use this new scheme only for
   new installations.
+
+* Referencing kernels or initrds on other partitions other than the partition
+  containing the Type #1 boot loader entry. This is by design, as specifying
+  other partitions or devices would require a non-trivial language for denoting
+  device paths. In particular this means that on non-EFI systems configuration
+  snippets following this specification cannot be used to spawn other operating
+  systems (such as Windows).
 
 
 ## Links
