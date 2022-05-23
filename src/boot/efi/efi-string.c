@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-
 #include "efi-string.h"
+#include "macro-fundamental.h"
 
 /* String functions for both char and char16_t that should behave the same way as their respective
  * counterpart in userspace. Where it makes sense, these accept NULL and do something sensible whereas
@@ -43,4 +42,72 @@ size_t strlen8(const char *s) {
 
 size_t strlen16(const char16_t *s) {
         STRNLEN_U(true, 0);
+}
+
+#define TOLOWER(c) ((c >= 'A' && c <= 'Z') ? c + ('a' - 'A') : c)
+
+char tolower8(char c) {
+        return TOLOWER(c);
+}
+
+char16_t tolower16(char16_t c) {
+        return TOLOWER(c);
+}
+
+#define STRNCASECMP_U(tolower, until_nul, n)      \
+        ({                                        \
+                if (!s1 || !s2)                   \
+                        return CMP(s1, s2);       \
+                                                  \
+                size_t _n = n;                    \
+                while (until_nul || _n > 0) {     \
+                        __auto_type c1 = *s1;     \
+                        __auto_type c2 = *s2;     \
+                        if (tolower) {            \
+                                c1 = TOLOWER(c1); \
+                                c2 = TOLOWER(c2); \
+                        }                         \
+                                                  \
+                        int r = CMP(c1, c2);      \
+                        if (r != 0 || !c1)        \
+                                return r;         \
+                                                  \
+                        s1++;                     \
+                        s2++;                     \
+                        _n--;                     \
+                }                                 \
+                                                  \
+                return 0;                         \
+        })
+
+int strncmp8(const char *s1, const char *s2, size_t n) {
+        STRNCASECMP_U(false, false, n);
+}
+
+int strncmp16(const char16_t *s1, const char16_t *s2, size_t n) {
+        STRNCASECMP_U(false, false, n);
+}
+
+int strcmp8(const char *s1, const char *s2) {
+        STRNCASECMP_U(false, true, 0);
+}
+
+int strcmp16(const char16_t *s1, const char16_t *s2) {
+        STRNCASECMP_U(false, true, 0);
+}
+
+int strncasecmp8(const char *s1, const char *s2, size_t n) {
+        STRNCASECMP_U(true, false, n);
+}
+
+int strncasecmp16(const char16_t *s1, const char16_t *s2, size_t n) {
+        STRNCASECMP_U(true, false, n);
+}
+
+int strcasecmp8(const char *s1, const char *s2) {
+        STRNCASECMP_U(true, true, 0);
+}
+
+int strcasecmp16(const char16_t *s1, const char16_t *s2) {
+        STRNCASECMP_U(true, true, 0);
 }
