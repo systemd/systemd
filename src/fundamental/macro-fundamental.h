@@ -2,7 +2,8 @@
 #pragma once
 
 #ifndef SD_BOOT
-#include <assert.h>
+#  include <assert.h>
+#  include <stddef.h>
 #endif
 
 #include <limits.h>

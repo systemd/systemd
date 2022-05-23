@@ -108,6 +108,14 @@ endif
 
 ############################################################
 
+test_compare_versions_sh = files('test-compare-versions.sh')
+if install_tests
+        install_data(test_compare_versions_sh,
+                     install_dir : testsdir)
+endif
+
+############################################################
+
 rule_syntax_check_py = find_program('rule-syntax-check.py')
 if want_tests != 'false'
         test('rule-syntax-check',
