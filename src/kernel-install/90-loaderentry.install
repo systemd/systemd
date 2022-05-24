@@ -108,7 +108,7 @@ shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
 for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
     [ -f "$initrd" ] || {
-        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd*" ] && continue
+        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd" ] && continue
         echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
