@@ -41,6 +41,24 @@ TEST(strnlen16) {
         assert_se(strnlen16(u"12\0004", 5) == 2);
 }
 
+TEST(strsize8) {
+        assert_se(strsize8(NULL) == 0);
+        assert_se(strsize8("") == 1);
+        assert_se(strsize8("1") == 2);
+        assert_se(strsize8("11") == 3);
+        assert_se(strsize8("123456789") == 10);
+        assert_se(strsize8("12\0004") == 3);
+}
+
+TEST(strsize16) {
+        assert_se(strsize16(NULL) == 0);
+        assert_se(strsize16(u"") == 2);
+        assert_se(strsize16(u"1") == 4);
+        assert_se(strsize16(u"11") == 6);
+        assert_se(strsize16(u"123456789") == 20);
+        assert_se(strsize16(u"12\0004") == 6);
+}
+
 TEST(strtolower8) {
         char s[] = "\0001234abcDEF!\0zZ";
 
