@@ -248,7 +248,7 @@ static EFI_STATUS pack_cpio_prefix(
         for (const CHAR8 *p = path;;) {
                 const CHAR8 *e;
 
-                e = strchra(p, '/');
+                e = (const CHAR8 *) strchr8((const char *) p, '/');
                 if (!e)
                         break;
 
