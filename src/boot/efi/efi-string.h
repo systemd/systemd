@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <uchar.h>
 
+#include "macro-fundamental.h"
+
 size_t strnlen8(const char *s, size_t n);
 size_t strnlen16(const char16_t *s, size_t n);
 
@@ -71,3 +73,18 @@ char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
 
 char *strchr8(const char *s, char c);
 char16_t *strchr16(const char16_t *s, char16_t c);
+
+#ifdef SD_BOOT
+/* The compiler normaly has knowledge about standard functions such as memcmp, but this is not the case when
+ * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
+ * optimizations again. Note that we still need to provide implementations as the compiler is free to not
+ * inline its own implementation and instead issue a library call. */
+#  define memcmp __builtin_memcmp
+#  define memcpy __builtin_memcpy
+#  define memset __builtin_memset
+#endif
+
+/* The actual implementations of builtins with efi_ prefix so we can unit test them. */
+int efi_memcmp(const void *p1, const void *p2, size_t n);
+void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
+void *efi_memset(void *p, int c, size_t n);

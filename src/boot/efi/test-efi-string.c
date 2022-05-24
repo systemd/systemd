@@ -240,4 +240,55 @@ TEST(strchr16) {
         assert_se(strchr16(str, 'B') == &str[4]);
 }
 
+TEST(efi_memcmp) {
+        assert_se(efi_memcmp(NULL, NULL, 0) == 0);
+        assert_se(efi_memcmp(NULL, NULL, 1) == 0);
+        assert_se(efi_memcmp(NULL, "", 1) < 0);
+        assert_se(efi_memcmp("", NULL, 1) > 0);
+        assert_se(efi_memcmp("", "", 0) == 0);
+        assert_se(efi_memcmp("", "", 1) == 0);
+        assert_se(efi_memcmp("1", "1", 1) == 0);
+        assert_se(efi_memcmp("1", "2", 1) < 0);
+        assert_se(efi_memcmp("A", "a", 1) < 0);
+        assert_se(efi_memcmp("a", "A", 1) > 0);
+        assert_se(efi_memcmp("abc", "ab", 2) == 0);
+        assert_se(efi_memcmp("ab", "abc", 3) < 0);
+        assert_se(efi_memcmp("ab\000bd", "ab\000bd", 6) == 0);
+        assert_se(efi_memcmp("ab\000b\0", "ab\000bd", 6) < 0);
+}
+
+TEST(efi_memcpy) {
+        char buf[10];
+
+        assert_se(!efi_memcpy(NULL, NULL, 0));
+        assert_se(!efi_memcpy(NULL, "", 1));
+        assert_se(efi_memcpy(buf, NULL, 0) == buf);
+        assert_se(efi_memcpy(buf, NULL, 1) == buf);
+        assert_se(efi_memcpy(buf, "a", 0) == buf);
+
+        assert_se(efi_memcpy(buf, "", 1) == buf);
+        assert_se(memcmp(buf, "", 1) == 0);
+        assert_se(efi_memcpy(buf, "1", 1) == buf);
+        assert_se(memcmp(buf, "1", 1) == 0);
+        assert_se(efi_memcpy(buf, "23", 3) == buf);
+        assert_se(memcmp(buf, "23", 3) == 0);
+        assert_se(efi_memcpy(buf, "45\0ab\0\0\0c", 9) == buf);
+        assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
+}
+
+TEST(efi_memset) {
+        char buf[10];
+
+        assert_se(!efi_memset(NULL, '1', 0));
+        assert_se(!efi_memset(NULL, '1', 1));
+        assert_se(efi_memset(buf, '1', 0) == buf);
+
+        assert_se(efi_memset(buf, '2', 1) == buf);
+        assert_se(memcmp(buf, "2", 1) == 0);
+        assert_se(efi_memset(buf, '4', 4) == buf);
+        assert_se(memcmp(buf, "4444", 4) == 0);
+        assert_se(efi_memset(buf, 'a', 10) == buf);
+        assert_se(memcmp(buf, "aaaaaaaaaa", 10) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
