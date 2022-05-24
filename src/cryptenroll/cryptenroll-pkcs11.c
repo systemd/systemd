@@ -50,7 +50,7 @@ int enroll_pkcs11(
         if (!decrypted_key)
                 return log_oom();
 
-        r = genuine_random_bytes(decrypted_key, decrypted_key_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random key: %m");
 
