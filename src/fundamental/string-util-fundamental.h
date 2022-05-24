@@ -18,7 +18,6 @@
 #  define strcasecmp strcasecmp16
 #  define strncasecmp strncasecmp16
 #  define STR_C(str)       (L ## str)
-#  define memcmp(a, b, n)  CompareMem(a, b, n)
 #else
 #  define STR_C(str)       (str)
 #endif
