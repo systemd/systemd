@@ -162,7 +162,7 @@ static BOOLEAN line_edit(
                 UINTN cursor_color = TEXT_ATTR_SWAP(COLOR_EDIT);
 
                 j = MIN(len - first, x_max);
-                CopyMem(print, line + first, j * sizeof(CHAR16));
+                memcpy(print, line + first, j * sizeof(CHAR16));
                 while (clear > 0 && j < x_max) {
                         clear--;
                         print[j++] = ' ';
@@ -1866,7 +1866,7 @@ static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const CHAR16 *loader_path) {
         if (EFI_ERROR(err) || size != read)
                 return FALSE;
 
-        return CompareMem(content, magic, sizeof(magic)) == 0;
+        return memcmp(content, magic, sizeof(magic)) == 0;
 }
 
 static ConfigEntry *config_entry_add_loader_auto(
@@ -1986,7 +1986,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 if (EFI_ERROR(err))
                         continue;
 
-                if (CompareMem(buf + 3, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
+                if (memcmp(buf + 3, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
                         found = TRUE;
                         break;
                 }
@@ -2434,7 +2434,7 @@ static void config_write_entries_to_variable(Config *config) {
                 UINTN l;
 
                 l = strsize16(config->entries[i]->id);
-                CopyMem(p, config->entries[i]->id, l);
+                memcpy(p, config->entries[i]->id, l);
 
                 p += l;
         }

@@ -145,9 +145,9 @@ EFI_STATUS linux_exec(
         if (EFI_ERROR(err))
                 return EFI_OUT_OF_RESOURCES;
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
-        CopyMem(new_buffer, linux_buffer, linux_length);
+        memcpy(new_buffer, linux_buffer, linux_length);
         /* zero out rest of memory (probably not needed, but BSS section should be 0) */
-        SetMem((UINT8 *)new_buffer + linux_length, kernel_size_of_image - linux_length, 0);
+        memset((UINT8 *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
 
         /* get the entry point inside the relocated kernel */
         kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)new_buffer + kernel_entry_address);
