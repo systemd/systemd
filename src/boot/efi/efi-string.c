@@ -155,3 +155,25 @@ char *strcpy8(char * restrict dest, const char * restrict src) {
 char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src) {
         STRCPY_U;
 }
+
+#define STRCHR_U                                       \
+        ({                                             \
+                if (!s)                                \
+                        return NULL;                   \
+                                                       \
+                while (*s) {                           \
+                        if (*s == c)                   \
+                                return (typeof(&c)) s; \
+                        s++;                           \
+                }                                      \
+                                                       \
+                return NULL;                           \
+        })
+
+char *strchr8(const char *s, char c) {
+        STRCHR_U;
+}
+
+char16_t *strchr16(const char16_t *s, char16_t c) {
+        STRCHR_U;
+}
