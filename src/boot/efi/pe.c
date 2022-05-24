@@ -119,12 +119,12 @@ struct PeSectionHeader {
 
 static inline BOOLEAN verify_dos(const struct DosFileHeader *dos) {
         assert(dos);
-        return CompareMem(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
+        return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
 }
 
 static inline BOOLEAN verify_pe(const struct PeFileHeader *pe, BOOLEAN allow_compatibility) {
         assert(pe);
-        return CompareMem(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
+        return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
                 (allow_compatibility && pe->FileHeader.Machine == TARGET_MACHINE_TYPE_COMPATIBILITY)) &&
                pe->FileHeader.NumberOfSections > 0 &&
@@ -154,7 +154,7 @@ static void locate_sections(
                 const struct PeSectionHeader *sect = section_table + i;
 
                 for (UINTN j = 0; sections[j]; j++) {
-                        if (CompareMem(sect->Name, sections[j], strlen8((const char *) sections[j])) != 0)
+                        if (memcmp(sect->Name, sections[j], strlen8((const char *) sections[j])) != 0)
                                 continue;
 
                         if (addrs)

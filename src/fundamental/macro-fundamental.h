@@ -77,7 +77,6 @@
         #define static_assert _Static_assert
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
 
-        #define memcpy(a, b, c) CopyMem((a), (b), (c))
         #define free(a) FreePool(a)
 #endif
 

@@ -23,8 +23,10 @@
 
 /* Written by Ulrich Drepper <drepper@redhat.com>, 2007.  */
 
-#ifndef SD_BOOT
-#include <string.h>
+#ifdef SD_BOOT
+#  include "efi-string.h"
+#else
+#  include <string.h>
 #endif
 
 #include "macro-fundamental.h"

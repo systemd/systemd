@@ -117,7 +117,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         /* Make sure a terminating NUL is available at the end */
         val = xallocate_pool(size + sizeof(CHAR16));
 
-        CopyMem(val, buf, size);
+        memcpy(val, buf, size);
         val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
 
         *value = val;
@@ -397,7 +397,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
                 return err;
 
         /* Note that handle->Read() changes size to reflect the actually bytes read. */
-        ZeroMem(buf + size, extra);
+        memset(buf + size, 0, extra);
 
         *ret = TAKE_PTR(buf);
         if (ret_size)
@@ -566,7 +566,7 @@ CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
         n = xallocate_pool(sz + 1);
 
         if (sz > 0)
-                CopyMem(n, p, sz);
+                memcpy(n, p, sz);
         n[sz] = 0;
 
         return n;

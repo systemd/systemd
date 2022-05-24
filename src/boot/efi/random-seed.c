@@ -223,7 +223,7 @@ static void validate_sha256(void) {
                 sha256_process_bytes(array[i].string, strlen8(array[i].string), &hash);
                 sha256_finish_ctx(&hash, result);
 
-                assert(CompareMem(result, array[i].hash, HASH_VALUE_SIZE) == 0);
+                assert(memcmp(result, array[i].hash, HASH_VALUE_SIZE) == 0);
         }
 
 #endif

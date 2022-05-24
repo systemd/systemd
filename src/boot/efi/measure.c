@@ -32,7 +32,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 .PCRIndex = pcrindex,
                 .EventType = EV_IPL,
         };
-        CopyMem(tcg_event->Event, description, desc_len);
+        memcpy(tcg_event->Event, description, desc_len);
 
         return tcg->HashLogExtendEvent(
                         (EFI_TCG *) tcg,
@@ -66,7 +66,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 .Header.EventType = EV_IPL,
         };
 
-        CopyMem(tcg_event->Event, description, desc_len);
+        memcpy(tcg_event->Event, description, desc_len);
 
         return tcg->HashLogExtendEvent(
                         tcg,

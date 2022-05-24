@@ -51,7 +51,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
                 if (EFI_ERROR(err))
                         return err;
 
-                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, len);
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), oldptr, len);
                 err = BS->FreePages(oldaddr, oldpages);
                 if (EFI_ERROR(err))
                         return err;
@@ -122,7 +122,7 @@ EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
         if (EFI_ERROR(err))
                 return err;
 
-        CopyMem(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
+        memcpy(PHYSICAL_ADDRESS_TO_POINTER(state->addr), dtb_buffer, dtb_length);
 
         err = devicetree_fixup(state, dtb_length);
         if (EFI_ERROR(err))
