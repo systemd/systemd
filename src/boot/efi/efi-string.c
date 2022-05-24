@@ -98,3 +98,26 @@ int strcasecmp8(const char *s1, const char *s2) {
 int strcasecmp16(const char16_t *s1, const char16_t *s2) {
         return strncasecmp16(s1, s2, SIZE_MAX);
 }
+
+#define DEFINE_STRCPY(type, name)                                     \
+        type *name(type * restrict dest, const type * restrict src) { \
+                assert(dest);                                         \
+                type *ret = dest;                                     \
+                                                                      \
+                if (!src) {                                           \
+                        *dest = '\0';                                 \
+                        return ret;                                   \
+                }                                                     \
+                                                                      \
+                while (*src) {                                        \
+                        *dest = *src;                                 \
+                        dest++;                                       \
+                        src++;                                        \
+                }                                                     \
+                                                                      \
+                *dest = '\0';                                         \
+                return ret;                                           \
+        }
+
+DEFINE_STRCPY(char, strcpy8);
+DEFINE_STRCPY(char16_t, strcpy16);

@@ -57,3 +57,6 @@ static inline bool strcaseeq8(const char *s1, const char *s2) {
 static inline bool strcaseeq16(const char16_t *s1, const char16_t *s2) {
         return strcasecmp16(s1, s2) == 0;
 }
+
+char *strcpy8(char * restrict dest, const char * restrict src);
+char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
