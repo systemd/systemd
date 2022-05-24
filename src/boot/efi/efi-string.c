@@ -125,3 +125,31 @@ int strcasecmp8(const char *s1, const char *s2) {
 int strcasecmp16(const char16_t *s1, const char16_t *s2) {
         STRNCASECMP_U(true, true, 0);
 }
+
+#define STRCPY_U                           \
+        ({                                 \
+                assert(dest);              \
+                typeof(*dest) *ret = dest; \
+                                           \
+                if (!src) {                \
+                        *dest = '\0';      \
+                        return ret;        \
+                }                          \
+                                           \
+                while (*src) {             \
+                        *dest = *src;      \
+                        dest++;            \
+                        src++;             \
+                }                          \
+                                           \
+                *dest = '\0';              \
+                return ret;                \
+        })
+
+char *strcpy8(char * restrict dest, const char * restrict src) {
+        STRCPY_U;
+}
+
+char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src) {
+        STRCPY_U;
+}
