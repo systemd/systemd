@@ -61,7 +61,6 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
-CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
 CHAR16 *xstra_to_path(const CHAR8 *stra);
 CHAR16 *xstra_to_str(const CHAR8 *stra);
 

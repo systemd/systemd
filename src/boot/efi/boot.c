@@ -1092,7 +1092,7 @@ static CHAR8 *line_get_key_value(
                         return NULL;
 
                 linelen = 0;
-                while (line[linelen] && !strchra((CHAR8 *) "\n\r", line[linelen]))
+                while (line[linelen] && !strchr8("\n\r", line[linelen]))
                         linelen++;
 
                 /* move pos to next line */
@@ -1108,13 +1108,13 @@ static CHAR8 *line_get_key_value(
                 line[linelen] = '\0';
 
                 /* remove leading whitespace */
-                while (strchra((CHAR8 *) " \t", *line)) {
+                while (strchr8(" \t", *line)) {
                         line++;
                         linelen--;
                 }
 
                 /* remove trailing whitespace */
-                while (linelen > 0 && strchra((CHAR8 *) " \t", line[linelen - 1]))
+                while (linelen > 0 && strchr8(" \t", line[linelen - 1]))
                         linelen--;
                 line[linelen] = '\0';
 
@@ -1123,13 +1123,13 @@ static CHAR8 *line_get_key_value(
 
                 /* split key/value */
                 value = line;
-                while (*value && !strchra(sep, *value))
+                while (*value && !strchr8((char *) sep, *value))
                         value++;
                 if (*value == '\0')
                         continue;
                 *value = '\0';
                 value++;
-                while (*value && strchra(sep, *value))
+                while (*value && strchr8((char *) sep, *value))
                         value++;
 
                 /* unquote */
