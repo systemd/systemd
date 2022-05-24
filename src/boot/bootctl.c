@@ -1805,7 +1805,7 @@ static int install_random_seed(const char *esp) {
         if (!buffer)
                 return log_oom();
 
-        r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
+        r = crypto_random_bytes(buffer, sz);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -1892,7 +1892,7 @@ static int install_random_seed(const char *esp) {
                 log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sz);
         }
 
-        r = genuine_random_bytes(buffer, sz, RANDOM_BLOCK);
+        r = crypto_random_bytes(buffer, sz);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
