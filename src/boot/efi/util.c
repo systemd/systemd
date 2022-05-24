@@ -40,7 +40,7 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         assert(vendor);
         assert(name);
 
-        return efivar_set_raw(vendor, name, value, value ? StrSize(value) : 0, flags);
+        return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
