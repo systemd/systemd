@@ -359,18 +359,6 @@ CHAR16 *xstra_to_path(const CHAR8 *stra) {
         return str;
 }
 
-CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
-        if (!s)
-                return NULL;
-
-        do {
-                if (*s == c)
-                        return (CHAR8*) s;
-        } while (*s++);
-
-        return NULL;
-}
-
 EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_freepool_ CHAR8 *buf = NULL;
