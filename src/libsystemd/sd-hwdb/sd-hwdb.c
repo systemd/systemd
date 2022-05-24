@@ -281,9 +281,9 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
         return 0;
 }
 
-_public_ int sd_hwdb_new(sd_hwdb **ret) {
+static int hwdb_new(const char *path, sd_hwdb **ret) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        const char *hwdb_bin_path;
+        const char *hwdb_bin_path = NULL;
         const char sig[] = HWDB_SIG;
 
         assert_return(ret, -EINVAL);
@@ -294,19 +294,26 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
 
         hwdb->n_ref = 1;
 
-        /* find hwdb.bin in hwdb_bin_paths */
-        NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
-                log_debug("Trying to open \"%s\"...", hwdb_bin_path);
-                hwdb->f = fopen(hwdb_bin_path, "re");
-                if (hwdb->f)
-                        break;
-                if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to open %s: %m", hwdb_bin_path);
-        }
+        /* find hwdb.bin in hwdb_bin_paths, or from an explicit path if provided */
+        if (!isempty(path)) {
+                log_debug("Trying to open \"%s\"...", path);
+                hwdb->f = fopen(path, "re");
+                if (!hwdb->f)
+                        return log_debug_errno(errno, "Failed to open %s: %m", path);
+        } else {
+                NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
+                        log_debug("Trying to open \"%s\"...", hwdb_bin_path);
+                        hwdb->f = fopen(hwdb_bin_path, "re");
+                        if (hwdb->f)
+                                break;
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to open %s: %m", hwdb_bin_path);
+                }
 
-        if (!hwdb->f)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "hwdb.bin does not exist, please run 'systemd-hwdb update'");
+                if (!hwdb->f)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "hwdb.bin does not exist, please run 'systemd-hwdb update'");
+        }
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0)
                 return log_debug_errno(errno, "Failed to stat %s: %m", hwdb_bin_path);
@@ -337,6 +344,16 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         *ret = TAKE_PTR(hwdb);
 
         return 0;
+}
+
+_public_ int sd_hwdb_new_from_path(const char *path, sd_hwdb **ret) {
+        assert_return(!isempty(path), -EINVAL);
+
+        return hwdb_new(path, ret);
+}
+
+_public_ int sd_hwdb_new(sd_hwdb **ret) {
+        return hwdb_new(NULL, ret);
 }
 
 static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
