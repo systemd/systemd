@@ -643,6 +643,7 @@ global:
         sd_hwdb_unref;
 
         sd_hwdb_new;
+        sd_hwdb_new_from_path;
 
         sd_hwdb_get;
 
