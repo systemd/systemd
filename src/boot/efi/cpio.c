@@ -116,7 +116,7 @@ static EFI_STATUS pack_cpio_one(
         *cpio_buffer = a;
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
+        memcpy(a, "070701", 6); /* magic ID */
         a += 6;
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
@@ -139,7 +139,7 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, target_dir_prefix, target_dir_prefix_size);
+        memcpy(a, target_dir_prefix, target_dir_prefix_size);
         a += target_dir_prefix_size;
         *(a++) = '/';
         a = mangle_filename(a, fname);
@@ -147,7 +147,7 @@ static EFI_STATUS pack_cpio_one(
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        CopyMem(a, contents, contents_size);
+        memcpy(a, contents, contents_size);
         a += contents_size;
 
         /* Pad to next multiple of 4 */
@@ -198,7 +198,7 @@ static EFI_STATUS pack_cpio_dir(
         *cpio_buffer = a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
+        memcpy(a, "070701", 6); /* magic ID */
         a += 6;
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
@@ -215,7 +215,7 @@ static EFI_STATUS pack_cpio_dir(
         a = write_cpio_word(a, path_size + 1);                              /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, path, path_size + 1);
+        memcpy(a, path, path_size + 1);
         a += path_size + 1;
 
         /* Pad to next multiple of 4 */
@@ -298,7 +298,7 @@ static EFI_STATUS pack_cpio_trailer(
         assert_cc(sizeof(trailer) % 4 == 0);
 
         *cpio_buffer = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
-        CopyMem((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
+        memcpy((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
         return EFI_SUCCESS;
