@@ -1170,7 +1170,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 }
 
                 if (streq8((char *) key, "default")) {
-                        if (value[0] == '@' && !streq8((char *) value, "@saved")) {
+                        if (value[0] == '@' && !strcaseeq8((char *) value, "@saved")) {
                                 log_error_stall(L"Unsupported special entry identifier: %a", value);
                                 continue;
                         }
@@ -1606,6 +1606,11 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
         (void) efivar_get(LOADER_GUID, L"LoaderEntryDefault", &config->entry_default_efivar);
 
+        strtolower16(config->entry_default_config);
+        strtolower16(config->entry_default_efivar);
+        strtolower16(config->entry_oneshot);
+        strtolower16(config->entry_saved);
+
         config->use_saved_entry = streq16(config->entry_default_config, L"@saved");
         config->use_saved_entry_efivar = streq16(config->entry_default_efivar, L"@saved");
         if (config->use_saved_entry || config->use_saved_entry_efivar)
@@ -1710,14 +1715,16 @@ static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return CMP(a->tries_done, b->tries_done);
 }
 
-static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
+static UINTN config_entry_find(Config *config, const CHAR16 *pattern) {
         assert(config);
 
-        if (!needle)
+        /* We expect pattern and entry IDs to be already case folded. */
+
+        if (!pattern)
                 return IDX_INVALID;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
+                if (efi_fnmatch(pattern, config->entries[i]->id))
                         return i;
 
         return IDX_INVALID;
