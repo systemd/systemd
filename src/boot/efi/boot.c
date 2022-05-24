@@ -153,7 +153,7 @@ static BOOLEAN line_edit(
         size = len + 1024;
         line = xnew(CHAR16, size);
         print = xnew(CHAR16, x_max + 1);
-        StrCpy(line, strempty(*line_in));
+        strcpy16(line, strempty(*line_in));
 
         for (;;) {
                 EFI_STATUS err;
@@ -1399,7 +1399,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
                 return;
 
         /* And rename the file */
-        StrCpy(file_info->FileName, entry->next_name);
+        strcpy16(file_info->FileName, entry->next_name);
         err = handle->SetInfo(handle, &GenericFileInfo, file_info_size, file_info);
         if (EFI_ERROR(err)) {
                 log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, err);
