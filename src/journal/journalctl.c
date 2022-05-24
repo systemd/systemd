@@ -1909,9 +1909,7 @@ static int setup_keys(void) {
         state = alloca_safe(state_size);
 
         log_info("Generating seed...");
-        r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
+        crypto_random_bytes(seed, seed_size);
 
         log_info("Generating key pair...");
         FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);

@@ -75,7 +75,6 @@ int make_recovery_key(char **ret) {
         _cleanup_(erase_and_freep) char *formatted = NULL;
         _cleanup_(erase_and_freep) uint8_t *key = NULL;
         size_t j = 0;
-        int r;
 
         assert(ret);
 
@@ -83,9 +82,7 @@ int make_recovery_key(char **ret) {
         if (!key)
                 return -ENOMEM;
 
-        r = genuine_random_bytes(key, RECOVERY_KEY_MODHEX_RAW_LENGTH, RANDOM_BLOCK);
-        if (r < 0)
-                return r;
+        crypto_random_bytes(key, RECOVERY_KEY_MODHEX_RAW_LENGTH);
 
         /* Let's now format it as 64 modhex chars, and after each 8 chars insert a dash */
         formatted = new(char, RECOVERY_KEY_MODHEX_FORMATTED_LENGTH);

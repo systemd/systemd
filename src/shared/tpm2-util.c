@@ -929,12 +929,7 @@ int tpm2_seal(
         (void) tpm2_credit_random(c.esys_context);
 
         log_debug("Generating secret key data.");
-
-        r = genuine_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size, RANDOM_BLOCK);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate secret key: %m");
-                goto finish;
-        }
+        crypto_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
 
         log_debug("Creating HMAC key.");
 

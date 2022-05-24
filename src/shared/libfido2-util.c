@@ -596,9 +596,7 @@ int fido2_generate_hmac_hash(
         if (!salt)
                 return log_oom();
 
-        r = genuine_random_bytes(salt, FIDO2_SALT_SIZE, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate salt: %m");
+        crypto_random_bytes(salt, FIDO2_SALT_SIZE);
 
         d = sym_fido_dev_new();
         if (!d)
