@@ -60,3 +60,6 @@ static inline bool strcaseeq16(const char16_t *s1, const char16_t *s2) {
 
 char *strcpy8(char * restrict dest, const char * restrict src);
 char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
+
+char *strchr8(const char *s, char c);
+char16_t *strchr16(const char16_t *s, char16_t c);
