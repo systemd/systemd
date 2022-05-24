@@ -173,6 +173,86 @@ char16_t *xstrdup16(const char16_t *s) {
         return xstrndup16(s, SIZE_MAX);
 }
 
+bool metaimatch(const char16_t *haystack, const char16_t *pattern) {
+        assert(pattern);
+        assert(haystack);
+
+        for (;;) {
+                char16_t h = TOLOWER(*haystack), p = TOLOWER(*pattern);
+
+                switch (p) {
+                case '\0':
+                        /* End of pattern. Check that haystack is now empty. */
+                        return h == '\0';
+
+                case '?':
+                        if (h == '\0')
+                                /* Premature end of haystack. */
+                                return false;
+                        break;
+
+                case '*':
+                        do {
+                                /* Try matching haystack with remaining pattern. */
+                                if (metaimatch(haystack, pattern + 1))
+                                        return true;
+
+                                /* Otherwise, we match one char here. */
+                                haystack++;
+                        } while (*haystack);
+
+                        /* End of haystack. Pattern needs to be empty too for a match. */
+                        return *(pattern + 1) == '\0';
+
+                case '[':
+                        if (h == '\0')
+                                /* Premature end of haystack. */
+                                return false;
+
+                        for (char16_t low = 0;;) {
+                                pattern++;
+                                p = TOLOWER(*pattern);
+                                if (!p || p == ']')
+                                        /* Invalid pattern or no match in set. */
+                                        return false;
+
+                                if (p == '-') {
+                                        /* Range pattern. */
+                                        pattern++;
+                                        p = TOLOWER(*pattern);
+                                        if (!low || !p || p == ']')
+                                                /* Invalid pattern. */
+                                                return false;
+
+                                        if (h >= low && h <= p)
+                                                /* Range match. */
+                                                break;
+
+                                        low = 0;
+                                } else if (p == h)
+                                        /* Single char match. */
+                                        break;
+                                else
+                                        low = p;
+                        }
+
+                        /* We have a match, seek to the end of set. */
+                        pattern = strchr16(pattern, ']');
+                        if (!pattern)
+                                return false;
+                        break;
+
+                default:
+                        if (p != h)
+                                /* Single char mismatch. */
+                                return false;
+                }
+
+                pattern++;
+                haystack++;
+        }
+}
+
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
         if (!p1 || !p2)
                 return CMP(p1, p2);

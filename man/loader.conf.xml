@@ -110,7 +110,14 @@
               </row>
             </tbody>
           </tgroup>
-        </table></listitem>
+        </table>
+
+        <para>Note that the patterns supported are limited compared to
+        <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>: Only
+        <literal>?</literal>, <literal>*</literal> and <literal>[]</literal> (including ranges) are
+        supported. In particular, quoting of special pattern characters, set negation and named character
+        classes are not supported. The matching is done case-insensitively on the entry ID (as shown by
+        <command>bootctl list</command>).</para></listitem>
       </varlistentry>
 
       <varlistentry>

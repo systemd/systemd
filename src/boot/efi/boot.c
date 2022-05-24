@@ -1717,7 +1717,7 @@ static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
                 return IDX_INVALID;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
+                if (metaimatch(config->entries[i]->id, needle))
                         return i;
 
         return IDX_INVALID;
