@@ -68,28 +68,28 @@ static EFI_STATUS combine_initrd(
 
                 /* Order matters, the real initrd must come first, since it might include microcode updates
                  * which the kernel only looks for in the first cpio archive */
-                CopyMem(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
+                memcpy(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
                 p += initrd_size;
 
                 pad = ALIGN_TO(initrd_size, 4) - initrd_size;
                 if (pad > 0)  {
-                        ZeroMem(p, pad);
+                        memset(p, 0, pad);
                         p += pad;
                 }
         }
 
         if (credential_initrd) {
-                CopyMem(p, credential_initrd, credential_initrd_size);
+                memcpy(p, credential_initrd, credential_initrd_size);
                 p += credential_initrd_size;
         }
 
         if (global_credential_initrd) {
-                CopyMem(p, global_credential_initrd, global_credential_initrd_size);
+                memcpy(p, global_credential_initrd, global_credential_initrd_size);
                 p += global_credential_initrd_size;
         }
 
         if (sysext_initrd) {
-                CopyMem(p, sysext_initrd, sysext_initrd_size);
+                memcpy(p, sysext_initrd, sysext_initrd_size);
                 p += sysext_initrd_size;
         }
 
