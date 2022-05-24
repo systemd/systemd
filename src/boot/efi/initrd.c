@@ -61,7 +61,7 @@ EFIAPI EFI_STATUS initrd_load_file(
                 return EFI_BUFFER_TOO_SMALL;
         }
 
-        CopyMem(buffer, loader->address, loader->length);
+        memcpy(buffer, loader->address, loader->length);
         *buffer_size = loader->length;
         return EFI_SUCCESS;
 }
