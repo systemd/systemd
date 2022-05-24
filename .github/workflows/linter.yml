@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: github/super-linter/slim@ae4e373c56efad95924d9cc6b89624fdb2333007
+        uses: github/super-linter/slim@431ee7836e8cdce5a460b0db682d9169563d919b
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
@@ -42,10 +42,4 @@ jobs:
           FILTER_REGEX_EXCLUDE: .*/(man/.*|([^k]|k(k|ek)*([^ek]|e[^kr]))*(k(k|ek)*e?)?\.(in|SKELETON)|tools/coverity\.sh)$
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
-          # FIXME: temporarily disable validation of GH Action files, since
-          #        the current version of super-linter doesn't recognize
-          #        ubuntu-22.04 as a valid runner specification. This should
-          #        be fixed once https://github.com/github/super-linter/pull/2897
-          #        is merged, which includes
-          #        https://github.com/rhysd/actionlint/commit/09a60b0f5761c2d066def294e541c25a89756eea
-          #VALIDATE_GITHUB_ACTIONS: true
+          VALIDATE_GITHUB_ACTIONS: true
