@@ -272,13 +272,10 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
 
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
         sd_id128_t t;
-        int r;
 
         assert_return(ret, -EINVAL);
 
-        r = genuine_random_bytes(&t, sizeof(t), 0);
-        if (r < 0)
-                return r;
+        random_bytes(&t, sizeof(t));
 
         /* Turn this into a valid v4 UUID, to be nice. Note that we
          * only guarantee this for newly generated UUIDs, not for
