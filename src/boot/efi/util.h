@@ -121,10 +121,6 @@ EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *re
 EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz);
-INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen);
-static inline BOOLEAN strncaseeqa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
-        return strncasecmpa(a, b, maxlen) == 0;
-}
 
 BOOLEAN is_ascii(const CHAR16 *f);
 
