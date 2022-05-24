@@ -121,3 +121,20 @@ int strcasecmp16(const char16_t *s1, const char16_t *s2) {
 
 DEFINE_STRCPY(char, strcpy8);
 DEFINE_STRCPY(char16_t, strcpy16);
+
+#define DEFINE_STRCHR(type, name)                  \
+        type *name(const type *s, type c) {        \
+                if (!s)                            \
+                        return NULL;               \
+                                                   \
+                while (*s) {                       \
+                        if (*s == c)               \
+                                return (type *) s; \
+                        s++;                       \
+                }                                  \
+                                                   \
+                return NULL;                       \
+        }
+
+DEFINE_STRCHR(char, strchr8);
+DEFINE_STRCHR(char16_t, strchr16);

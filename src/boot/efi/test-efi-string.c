@@ -200,4 +200,26 @@ TEST(strcpy16) {
         assert_se(streq16(buf, u""));
 }
 
+TEST(strchr8) {
+        assert_se(!strchr8(NULL, 'a'));
+        assert_se(!strchr8("", 'a'));
+        assert_se(!strchr8("123", 'a'));
+
+        const char str[] = "abcaBc";
+        assert_se(strchr8(str, 'a') == &str[0]);
+        assert_se(strchr8(str, 'c') == &str[2]);
+        assert_se(strchr8(str, 'B') == &str[4]);
+}
+
+TEST(strchr16) {
+        assert_se(!strchr16(NULL, 'a'));
+        assert_se(!strchr16(u"", 'a'));
+        assert_se(!strchr16(u"123", 'a'));
+
+        const char16_t str[] = u"abcaBc";
+        assert_se(strchr16(str, 'a') == &str[0]);
+        assert_se(strchr16(str, 'c') == &str[2]);
+        assert_se(strchr16(str, 'B') == &str[4]);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
