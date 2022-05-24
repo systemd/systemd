@@ -25,7 +25,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         assert(tcg);
         assert(description);
 
-        desc_len = StrSize(description);
+        desc_len = strsize16(description);
         tcg_event = xallocate_zero_pool(offsetof(TCG_PCR_EVENT, Event) + desc_len);
         *tcg_event = (TCG_PCR_EVENT) {
                 .EventSize = desc_len,
@@ -56,7 +56,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
         assert(tcg);
         assert(description);
 
-        desc_len = StrSize(description);
+        desc_len = strsize16(description);
         tcg_event = xallocate_zero_pool(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
         *tcg_event = (EFI_TCG2_EVENT) {
                 .Size = offsetof(EFI_TCG2_EVENT, Event) + desc_len,
@@ -171,7 +171,7 @@ EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
 
                 err = tpm_log_event(pcr,
                                     POINTER_TO_PHYSICAL_ADDRESS(load_options),
-                                    StrSize(load_options), load_options);
+                                    strsize16(load_options), load_options);
                 if (EFI_ERROR(err))
                         return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r", pcr, err);
         }
