@@ -35,7 +35,7 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
         h = &gpt_header_buffer->gpt_header;
 
         /* Some superficial validation of the GPT header */
-        if (CompareMem(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature) != 0))
+        if (CompareMem(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
                 return FALSE;
 
         if (h->Header.HeaderSize < 92 || h->Header.HeaderSize > 512)
