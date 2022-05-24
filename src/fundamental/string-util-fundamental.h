@@ -12,10 +12,11 @@
 #include "macro-fundamental.h"
 
 #ifdef SD_BOOT
-#  define strlen(a)        strlen16((a))
-#  define strcmp(a, b)     StrCmp((a), (b))
-#  define strncmp(a, b, n) StrnCmp((a), (b), (n))
-#  define strcasecmp(a, b) StriCmp((a), (b))
+#  define strlen strlen16
+#  define strcmp strcmp16
+#  define strncmp strncmp16
+#  define strcasecmp strcasecmp16
+#  define strncasecmp strncasecmp16
 #  define STR_C(str)       (L ## str)
 #  define memcmp(a, b, n)  CompareMem(a, b, n)
 #else
@@ -25,9 +26,7 @@
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
 #define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
-#ifndef SD_BOOT
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
-#endif
 
 static inline sd_int strcmp_ptr(const sd_char *a, const sd_char *b) {
         if (a && b)

@@ -271,7 +271,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         assert(content);
 
         if (!background) {
-                if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
+                if (strcaseeq16(u"Apple", ST->FirmwareVendor)) {
                         pixel.Red = 0xc0;
                         pixel.Green = 0xc0;
                         pixel.Blue = 0xc0;
