@@ -852,8 +852,8 @@ static void test_strverscmp_improved_newer(const char *older, const char *newer)
 
 TEST(strverscmp_improved) {
         static const char * const versions[] = {
-                "",
                 "~1",
+                "",
                 "ab",
                 "abb",
                 "abc",
@@ -916,6 +916,29 @@ TEST(strverscmp_improved) {
 
         /* invalid characters */
         assert_se(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89") == 0);
+
+        /* some corner cases */
+        assert_se(strverscmp_improved("123.", "123") > 0);     /* One more version segment */
+        assert_se(strverscmp_improved("12_3", "123") < 0);     /* 12 < 123 */
+        assert_se(strverscmp_improved("12_3", "12") > 0);      /* 3 > '' */
+        assert_se(strverscmp_improved("12_3", "12.3") > 0);    /* 3 > '' */
+        assert_se(strverscmp_improved("123.0", "123") > 0);    /* 0 > '' */
+        assert_se(strverscmp_improved("123_0", "123") > 0);    /* 0 > '' */
+        assert_se(strverscmp_improved("123..0", "123.0") < 0); /* '' < 0 */
+
+        /* empty strings or strings with ignored characters only */
+        assert_se(strverscmp_improved("", NULL) == 0);
+        assert_se(strverscmp_improved(NULL, "") == 0);
+        assert_se(strverscmp_improved("0_", "0") == 0);
+        assert_se(strverscmp_improved("_0_", "0") == 0);
+        assert_se(strverscmp_improved("_0", "0") == 0);
+        assert_se(strverscmp_improved("0", "0___") == 0);
+        assert_se(strverscmp_improved("", "_") == 0);
+        assert_se(strverscmp_improved("_", "") == 0);
+        assert_se(strverscmp_improved("_", "_") == 0);
+        assert_se(strverscmp_improved("", "~") > 0);
+        assert_se(strverscmp_improved("~", "") < 0);
+        assert_se(strverscmp_improved("~", "~") == 0);
 
         /* non-ASCII digits */
         (void) setlocale(LC_NUMERIC, "ar_YE.utf8");
