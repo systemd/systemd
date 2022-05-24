@@ -655,7 +655,7 @@ TEST(memory_deny_write_execute_shmat) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (!have_seccomp_privs()) {
+        if (!have_seccomp_privs() || have_effective_cap(CAP_IPC_OWNER) <= 0) {
                 log_notice("Not privileged, skipping %s", __func__);
                 return;
         }
