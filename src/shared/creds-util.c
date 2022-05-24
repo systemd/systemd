@@ -158,7 +158,7 @@ static int make_credential_host_secret(
                 .machine_id = machine_id,
         };
 
-        r = genuine_random_bytes(buf.data, sizeof(buf.data), RANDOM_BLOCK);
+        r = crypto_random_bytes(buf.data, sizeof(buf.data));
         if (r < 0)
                 goto finish;
 
@@ -642,7 +642,7 @@ int encrypt_credential_and_warn(
                 if (!iv)
                         return log_oom();
 
-                r = genuine_random_bytes(iv, ivsz, RANDOM_BLOCK);
+                r = crypto_random_bytes(iv, ivsz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquired randomized IV: %m");
         }

@@ -25,7 +25,7 @@ static void test_v6(FirewallContext *ctx) {
         assert_se(in_addr_from_string(AF_INET6, "1c3::c01d", &u2) >= 0);
 
         prefixlen = random_u64_range(128 + 1 - 8) + 8;
-        pseudo_random_bytes(&u3, sizeof(u3));
+        random_bytes(&u3, sizeof(u3));
 
         assert_se(fw_add_masquerade(&ctx, true, AF_INET6, &u1, 128) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET6, &u1, 128) >= 0);

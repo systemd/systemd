@@ -2594,7 +2594,7 @@ static int partition_encrypt(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(volume_key, volume_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
