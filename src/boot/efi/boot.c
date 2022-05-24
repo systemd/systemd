@@ -2375,7 +2375,7 @@ static EFI_STATUS image_start(
         CHAR16 *options = options_initrd ?: entry->options;
         if (options) {
                 loaded_image->LoadOptions = options;
-                loaded_image->LoadOptionsSize = StrSize(options);
+                loaded_image->LoadOptionsSize = strsize16(options);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 (void) tpm_log_load_options(options);
@@ -2426,14 +2426,14 @@ static void config_write_entries_to_variable(Config *config) {
         assert(config);
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                sz += StrSize(config->entries[i]->id);
+                sz += strsize16(config->entries[i]->id);
 
         p = buffer = xallocate_pool(sz);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN l;
 
-                l = StrSize(config->entries[i]->id);
+                l = strsize16(config->entries[i]->id);
                 CopyMem(p, config->entries[i]->id, l);
 
                 p += l;
