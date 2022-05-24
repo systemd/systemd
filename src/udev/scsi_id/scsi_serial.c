@@ -789,7 +789,6 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
         int retval;
 
         memzero(dev_scsi->serial, len);
-        initialize_srand();
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
@@ -797,7 +796,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;
-                duration.tv_nsec = (200 * 1000 * 1000) + (rand() % 100 * 1000 * 1000);
+                duration.tv_nsec = (200 * 1000 * 1000) + (random_u32() % 100 * 1000 * 1000);
                 nanosleep(&duration, NULL);
         }
         if (fd < 0)
