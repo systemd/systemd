@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #include "efi-string.h"
-#include "macro-fundamental.h"
 
 /* String functions for both char and char16_t that should behave the same way as their respective
  * counterpart in userspace. Where it makes sense, these accept NULL and do something sensible whereas
@@ -138,3 +137,62 @@ DEFINE_STRCPY(char16_t, strcpy16);
 
 DEFINE_STRCHR(char, strchr8);
 DEFINE_STRCHR(char16_t, strchr16);
+
+int efi_memcmp(const void *p1, const void *p2, size_t n) {
+        if (!p1 || !p2)
+                return CMP(p1, p2);
+
+        const uint8_t *up1 = p1, *up2 = p2;
+        while (n > 0) {
+                if (*up1 != *up2)
+                        return *up1 - *up2;
+
+                up1++;
+                up2++;
+                n--;
+        }
+
+        return 0;
+}
+
+void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
+        if (!dest || !src || n == 0)
+                return dest;
+
+        uint8_t *d = dest;
+        const uint8_t *s = src;
+
+        while (n > 0) {
+                *d = *s;
+                d++;
+                s++;
+                n--;
+        }
+
+        return dest;
+}
+
+void *efi_memset(void *p, int c, size_t n) {
+        if (!p || n == 0)
+                return p;
+
+        uint8_t *q = p;
+        while (n > 0) {
+                *q = c;
+                q++;
+                n--;
+        }
+
+        return p;
+}
+
+#ifdef SD_BOOT
+#  undef memcmp
+#  undef memcpy
+#  undef memset
+/* Provide the actual implementation for the builtins. To prevent a linker error, we mark memcpy/memset as
+ * weak, because gnu-efi is currently providing them. */
+__attribute__((alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
+__attribute__((weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+__attribute__((weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
+#endif
