@@ -95,7 +95,7 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_test)
-                return hwdb_query(arg_test);
+                return hwdb_query(arg_test, NULL);
 
         return 0;
 }
