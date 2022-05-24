@@ -174,4 +174,30 @@ TEST(strncasecmp16) {
         assert_se(strncasecmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ 0 }, 1) > 0);
 }
 
+TEST(strcpy8) {
+        char buf[128];
+
+        assert_se(strcpy8(buf, "123") == buf);
+        assert_se(streq8(buf, "123"));
+        assert_se(strcpy8(buf, "") == buf);
+        assert_se(streq8(buf, ""));
+        assert_se(strcpy8(buf, "A") == buf);
+        assert_se(streq8(buf, "A"));
+        assert_se(strcpy8(buf, NULL) == buf);
+        assert_se(streq8(buf, ""));
+}
+
+TEST(strcpy16) {
+        char16_t buf[128];
+
+        assert_se(strcpy16(buf, u"123") == buf);
+        assert_se(streq16(buf, u"123"));
+        assert_se(strcpy16(buf, u"") == buf);
+        assert_se(streq16(buf, u""));
+        assert_se(strcpy16(buf, u"A") == buf);
+        assert_se(streq16(buf, u"A"));
+        assert_se(strcpy16(buf, NULL) == buf);
+        assert_se(streq16(buf, u""));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
