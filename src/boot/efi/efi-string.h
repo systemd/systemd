@@ -12,6 +12,14 @@ size_t strnlen16(const char16_t *s, size_t n);
 size_t strlen8(const char *s);
 size_t strlen16(const char16_t *s);
 
+static inline size_t strsize8(const char *s) {
+        return s ? (strlen8(s) + 1) * sizeof(*s) : 0;
+}
+
+static inline size_t strsize16(const char16_t *s) {
+        return s ? (strlen16(s) + 1) * sizeof(*s) : 0;
+}
+
 char tolower8(char c);
 char16_t tolower16(char16_t c);
 
