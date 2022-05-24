@@ -150,7 +150,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                 }
 
                 /* If at least one string reaches the end, then longer is newer.
-                 * Note that except for '~' prefixed segments, a string has more segments is newer.
+                 * Note that except for '~' prefixed segments, a string which has more segments is newer.
                  * So, this check must be after the '~' check. */
                 if (*a == '\0' || *b == '\0')
                         return CMP(*a, *b);
@@ -233,7 +233,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
                 }
 
-                /* The current segments are equivalent. Let's compare the next one. */
+                /* The current segments are equivalent. Let's move to the next one. */
                 a = aa;
                 b = bb;
         }
