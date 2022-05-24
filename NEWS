@@ -29,19 +29,19 @@ CHANGES WITH 251:
           and backward compatibility broken instead on the assumption that
           nobody can be affected given the current state of this interface.
 
-        * All kernels supported by systemd mix RDRAND (or similar) into the
-          entropy pool at early boot. This means that on those systems, even if
-          /dev/urandom is not yet initialized, it still returns bytes that
-          are at least as high quality as RDRAND. For that reason, we no longer
-          have reason to invoke RDRAND from systemd itself, which has
-          historically been a source of bugs. Furthermore, kernels ≥5.6 provide
-          the getrandom(GRND_INSECURE) interface for returning random bytes
-          before the entropy pool is initialized without warning into kmsg,
-          which is what we attempt to use if available. systemd's direct usage
-          of RDRAND has been removed. x86 systems ≥Broadwell that are running
-          an older kernel may experience kmsg warnings that were not seen with
-          250. For newer kernels, non-x86 systems, or older x86 systems, there
-          should be no visible changes.
+        * All kernels supported by systemd mix bytes returned by RDRAND (or
+          similar) into the entropy pool at early boot. This means that on
+          those systems, even if /dev/urandom is not yet initialized, it still
+          returns bytes that are of at least RDRAND quality. For that reason,
+          we no longer have reason to invoke RDRAND from systemd itself, which
+          has historically been a source of bugs. Furthermore, kernels ≥5.6
+          provide the getrandom(GRND_INSECURE) interface for returning random
+          bytes before the entropy pool is initialized without warning into
+          kmsg, which is what we attempt to use if available. systemd's direct
+          usage of RDRAND has been removed. x86 systems ≥Broadwell that are
+          running an older kernel may experience kmsg warnings that were not
+          seen with 250. For newer kernels, non-x86 systems, or older x86
+          systems, there should be no visible changes.
 
         * sd-boot will now measure the kernel command line into TPM PCR 12
           rather than PCR 8. This improves usefulness of the measurements on
@@ -59,11 +59,10 @@ CHANGES WITH 251:
         * busctl capture now writes output in the newer pcapng format instead
           of pcap.
 
-        * A udev rule that imported hwdb matches for USB devices with
-          lowercase hexadecimal vendor/product ID digits was added in systemd
-          250. This has been reverted, since uppercase hexadecimal digits are
-          supposed to be used, and we already had a rule for that with the
-          appropriate match.
+        * A udev rule that imported hwdb matches for USB devices with lowercase
+          hexadecimal vendor/product ID digits was added in systemd 250. This
+          has been reverted, since uppercase hexadecimal digits are supposed to
+          be used, and we already had a rule with the appropriate match.
 
           Users might need to adjust their local hwdb entries.
 

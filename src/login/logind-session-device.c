@@ -120,7 +120,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
         assert(sd->node);
 
-        /* open device and try to get an udev_device from it */
+        /* open device and try to get a udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
