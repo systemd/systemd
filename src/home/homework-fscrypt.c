@@ -409,10 +409,7 @@ static int fscrypt_slot_set(
         const EVP_CIPHER *cc;
         size_t encrypted_size;
 
-        r = genuine_random_bytes(salt, sizeof(salt), RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate salt: %m");
-
+        crypto_random_bytes(salt, sizeof(salt));
         if (PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, sizeof(salt),
@@ -540,10 +537,7 @@ int home_create_fscrypt(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire volume key: %m");
-
+        crypto_random_bytes(volume_key, volume_key_size);
         log_info("Generated volume key of size %zu.", volume_key_size);
 
         policy = (struct fscrypt_policy) {

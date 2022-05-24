@@ -949,9 +949,7 @@ static int format_luks_token_text(
                 if (!iv)
                         return log_oom();
 
-                r = genuine_random_bytes(iv, iv_size, RANDOM_BLOCK);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate IV: %m");
+                crypto_random_bytes(iv, iv_size);
         }
 
         context = EVP_CIPHER_CTX_new();
@@ -1738,9 +1736,7 @@ static int luks_format(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate volume key: %m");
+        crypto_random_bytes(volume_key, volume_key_size);
 
 #if HAVE_CRYPT_SET_METADATA_SIZE
         /* Increase the metadata space to 4M, the largest LUKS2 supports */
