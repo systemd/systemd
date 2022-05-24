@@ -159,7 +159,7 @@ EFI_STATUS linux_exec(
                 return err;
 
         boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
-        ZeroMem(boot_params, 0x4000);
+        memset(boot_params, 0, 0x4000);
         boot_params->hdr = image_params->hdr;
         boot_params->hdr.type_of_loader = 0xff;
         setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
@@ -176,7 +176,7 @@ EFI_STATUS linux_exec(
                 if (EFI_ERROR(err))
                         return err;
 
-                CopyMem(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
+                memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
                 ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
                 boot_params->hdr.cmd_line_ptr = (UINT32) addr;
         }
