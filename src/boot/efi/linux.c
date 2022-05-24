@@ -45,7 +45,7 @@ static EFI_STATUS loaded_image_register(
         /* if a cmdline is set convert it to UCS2 */
         if (cmdline) {
                 loaded_image->LoadOptions = xstra_to_str(cmdline);
-                loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
+                loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
         }
 
         /* install a new LoadedImage protocol. ret_handle is a new image handle */
