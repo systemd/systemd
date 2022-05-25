@@ -1887,7 +1887,17 @@ static int run(int argc, char *argv[]) {
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
                         if (!key_file && !key_data) {
-                                r = crypt_activate_by_token(cd, volume, CRYPT_ANY_TOKEN, NULL, flags);
+                                r = crypt_activate_by_token_pin_ask_password(
+                                                cd,
+                                                volume,
+                                                NULL,
+                                                until,
+                                                arg_headless,
+                                                NULL,
+                                                flags,
+                                                "Please enter LUKS2 token PIN:",
+                                                "luks2-pin",
+                                                "cryptsetup.luks2-pin");
                                 if (r >= 0) {
                                         log_debug("Volume %s activated with LUKS token id %i.", volume, r);
                                         return 0;
