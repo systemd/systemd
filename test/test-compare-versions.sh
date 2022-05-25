@@ -17,9 +17,10 @@ $ANALYZE compare-versions 1 '!=' 2
 ( ! $ANALYZE compare-versions 1 gt 2 )
 ( ! $ANALYZE compare-versions 1 '>' 2 )
 
-$ANALYZE compare-versions 1 2 | grep ' < '
-$ANALYZE compare-versions 2 2 | grep ' == '
-$ANALYZE compare-versions 2 1 | grep ' > '
+test "$($ANALYZE compare-versions 1 2)" = '1 < 2'
+test "$($ANALYZE compare-versions 2 2)" = '2 == 2'
+test "$($ANALYZE compare-versions 2 1)" = '2 > 1'
+test "$($ANALYZE compare-versions '' '')" = "'' == ''"
 
 set +e
 
