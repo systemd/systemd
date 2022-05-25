@@ -718,10 +718,13 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
                                         to);
 
         r = compare_version(a, b);
+        log_debug("Comparing versions: \"%s\" %s \"%s", a, comparison_operator(r), b);
         if (r < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since newer boot loader version in place already.", to);
-        else if (r == 0)
-                return log_info_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since same boot loader version in place already.", to);
+                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE),
+                                         "Skipping \"%s\", since newer boot loader version in place already.", to);
+        if (r == 0)
+                return log_info_errno(SYNTHETIC_ERRNO(ESTALE),
+                                      "Skipping \"%s\", since same boot loader version in place already.", to);
 
         return 0;
 }
