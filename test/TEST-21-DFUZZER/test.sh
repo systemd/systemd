@@ -5,6 +5,7 @@ set -e
 TEST_DESCRIPTION="Fuzz our D-Bus interfaces with dfuzzer"
 TEST_NO_NSPAWN=1
 TEST_MASK_SERVICES=0
+QEMU_TIMEOUT=1800
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
