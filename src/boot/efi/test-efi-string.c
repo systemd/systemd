@@ -214,6 +214,42 @@ TEST(strchr16) {
         assert_se(strchr16(str, 'B') == &str[4]);
 }
 
+TEST(xstrdup8) {
+        char *s = NULL;
+
+        assert_se(xstrdup8(NULL) == NULL);
+
+        assert_se(s = xstrdup8(""));
+        assert_se(streq8(s, ""));
+        free(s);
+
+        assert_se(s = xstrdup8("1"));
+        assert_se(streq8(s, "1"));
+        free(s);
+
+        assert_se(s = xstrdup8("123abcDEF"));
+        assert_se(streq8(s, "123abcDEF"));
+        free(s);
+}
+
+TEST(xstrdup16) {
+        char16_t *s = NULL;
+
+        assert_se(xstrdup16(NULL) == NULL);
+
+        assert_se(s = xstrdup16(u""));
+        assert_se(streq16(s, u""));
+        free(s);
+
+        assert_se(s = xstrdup16(u"1"));
+        assert_se(streq16(s, u"1"));
+        free(s);
+
+        assert_se(s = xstrdup16(u"123abcDEF"));
+        assert_se(streq16(s, u"123abcDEF"));
+        free(s);
+}
+
 TEST(efi_memcmp) {
         assert_se(efi_memcmp(NULL, NULL, 0) == 0);
         assert_se(efi_memcmp(NULL, NULL, 1) == 0);
