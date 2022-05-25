@@ -255,7 +255,7 @@ static EFI_STATUS pack_cpio_prefix(
                 if (e > p) {
                         _cleanup_freepool_ CHAR8 *t = NULL;
 
-                        t = xstrndup8(path, e - path);
+                        t = (CHAR8 *) xstrndup8((const char *) path, e - path);
                         if (!t)
                                 return EFI_OUT_OF_RESOURCES;
 
