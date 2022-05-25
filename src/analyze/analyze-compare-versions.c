@@ -17,7 +17,7 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
                 r = strverscmp_improved(ASSERT_PTR(argv[1]), ASSERT_PTR(argv[2]));
                 printf("%s %s %s\n",
                        isempty(argv[1]) ? "''" : argv[1],
-                       r < 0 ? "<" : r > 0 ? ">" : "==",
+                       comparison_operator(r),
                        isempty(argv[2]) ? "''" : argv[2]);
 
                 /* This matches the exit convention used by rpmdev-vercmp.
