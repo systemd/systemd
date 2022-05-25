@@ -22,6 +22,7 @@ int acquire_luks2_key(
                 const void *policy_hash,
                 size_t policy_hash_size,
                 TPM2Flags flags,
+                const char *pin,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -42,22 +43,15 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
-        r = getenv_steal_erase("PIN", &pin_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
-        if (!r) {
-                /* PIN entry is not supported by plugin, let it fallback, possibly to sd-cryptsetup's
-                 * internal handling. */
-                if (flags & TPM2_FLAGS_USE_PIN)
-                        return -EOPNOTSUPP;
-        }
+        if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
+                return -ENOANO;
 
         return tpm2_unseal(
                         device,
                         pcr_mask, pcr_bank,
                         primary_alg,
                         key_data, key_data_size,
-                        policy_hash, policy_hash_size, pin_str,
+                        policy_hash, policy_hash_size, pin,
                         ret_decrypted_key, ret_decrypted_key_size);
 }
 
