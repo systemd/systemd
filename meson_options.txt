@@ -267,6 +267,8 @@ option('kvm-gid', type : 'integer', value : '-1',
        description : 'soft-static allocation for the "kvm" group')
 option('lp-gid', type : 'integer', value : '-1',
        description : 'soft-static allocation for the "lp" group')
+option('mail-gid', type : 'integer', value : '-1',
+       description : 'soft-static allocation for the "mail" group')
 option('render-gid', type : 'integer', value : '-1',
        description : 'soft-static allocation for the "render" group')
 option('sgx-gid', type : 'integer', value : '-1',
