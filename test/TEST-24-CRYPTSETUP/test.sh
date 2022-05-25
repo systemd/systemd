@@ -10,6 +10,13 @@ TEST_FORCE_NEWIMAGE=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+PART_UUID="deadbeef-dead-dead-beef-000000000000"
+DM_NAME="test24_varcrypt"
+# Mount the keyfile only in initrd (hence rd.luks.key), since it resides on
+# the rootfs and we would get a (harmless) error when trying to mount it after
+# switching root (since rootfs is already mounted)
+KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME rd.luks.key=$PART_UUID=/etc/varkey:LABEL=systemd_boot"
+
 check_result_qemu() {
     local ret=1
 
@@ -17,13 +24,13 @@ check_result_qemu() {
     [[ -e "${initdir:?}/testok" ]] && ret=0
     [[ -f "$initdir/failed" ]] && cp -a "$initdir/failed" "${TESTDIR:?}"
 
-    cryptsetup luksOpen "${LOOPDEV:?}p2" varcrypt <"$TESTDIR/keyfile"
-    mount /dev/mapper/varcrypt "$initdir/var"
+    cryptsetup luksOpen "${LOOPDEV:?}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
+    mount "/dev/mapper/$DM_NAME" "$initdir/var"
     save_journal "$initdir/var/log/journal"
     check_coverage_reports "${initdir:?}" || ret=5
     _umount_dir "$initdir/var"
     _umount_dir "$initdir"
-    cryptsetup luksClose /dev/mapper/varcrypt
+    cryptsetup luksClose "/dev/mapper/$DM_NAME"
 
     [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
     echo "${JOURNAL_LIST:-No journals were saved}"
@@ -36,45 +43,35 @@ test_create_image() {
     create_empty_image_rootdir
 
     echo -n test >"${TESTDIR:?}/keyfile"
-    cryptsetup -q luksFormat --pbkdf pbkdf2 --pbkdf-force-iterations 1000 "${LOOPDEV:?}p2" "$TESTDIR/keyfile"
-    cryptsetup luksOpen "${LOOPDEV}p2" varcrypt <"$TESTDIR/keyfile"
-    mkfs.ext4 -L var /dev/mapper/varcrypt
+    cryptsetup -q luksFormat --uuid="$PART_UUID" --pbkdf pbkdf2 --pbkdf-force-iterations 1000 "${LOOPDEV:?}p2" "$TESTDIR/keyfile"
+    cryptsetup luksOpen "${LOOPDEV}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
+    mkfs.ext4 -L var "/dev/mapper/$DM_NAME"
     mkdir -p "${initdir:?}/var"
-    mount /dev/mapper/varcrypt "$initdir/var"
+    mount "/dev/mapper/$DM_NAME" "$initdir/var"
 
-    # Create what will eventually be our root filesystem onto an overlay
-    (
-        LOG_LEVEL=5
-        # shellcheck source=/dev/null
-        source <(udevadm info --export --query=env --name=/dev/mapper/varcrypt)
-        # shellcheck source=/dev/null
-        source <(udevadm info --export --query=env --name="${LOOPDEV}p2")
+    LOG_LEVEL=5
 
-        setup_basic_environment
-        mask_supporting_services
+    setup_basic_environment
+    mask_supporting_services
 
-        install_dmevent
-        generate_module_dependencies
-        cat >"$initdir/etc/crypttab" <<EOF
-$DM_NAME UUID=$ID_FS_UUID /etc/varkey
-EOF
-        echo -n test >"$initdir/etc/varkey"
-        ddebug <"$initdir/etc/crypttab"
+    install_dmevent
+    generate_module_dependencies
 
-        cat >>"$initdir/etc/fstab" <<EOF
-/dev/mapper/varcrypt    /var    ext4    defaults 0 1
+    echo -n test >"$initdir/etc/varkey"
+
+    cat >>"$initdir/etc/fstab" <<EOF
+/dev/mapper/$DM_NAME    /var    ext4    defaults 0 1
 EOF
 
-        # Forward journal messages to the console, so we have something
-        # to investigate even if we fail to mount the encrypted /var
-        echo ForwardToConsole=yes >> "$initdir/etc/systemd/journald.conf"
-    )
+    # Forward journal messages to the console, so we have something
+    # to investigate even if we fail to mount the encrypted /var
+    echo ForwardToConsole=yes >> "$initdir/etc/systemd/journald.conf"
 }
 
 cleanup_root_var() {
     ddebug "umount ${initdir:?}/var"
     mountpoint "$initdir/var" && umount "$initdir/var"
-    [[ -b /dev/mapper/varcrypt ]] && cryptsetup luksClose /dev/mapper/varcrypt
+    [[ -b "/dev/mapper/${DM_NAME:?}" ]] && cryptsetup luksClose "/dev/mapper/$DM_NAME"
 }
 
 test_cleanup() {
