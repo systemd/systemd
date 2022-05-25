@@ -83,7 +83,7 @@ int make_recovery_key(char **ret) {
         if (!key)
                 return -ENOMEM;
 
-        r = genuine_random_bytes(key, RECOVERY_KEY_MODHEX_RAW_LENGTH, RANDOM_BLOCK);
+        r = crypto_random_bytes(key, RECOVERY_KEY_MODHEX_RAW_LENGTH);
         if (r < 0)
                 return r;
 
