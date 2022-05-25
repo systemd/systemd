@@ -892,7 +892,7 @@ add_symlink:
                      DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                 return log_oom();
 
-        (void) mkdir_parents(sl, 0755);
+        (void) mkdir_parents_label(sl, 0755);
 
         t = strjoina("../", bn);
         if (symlink(t, sl) < 0)
@@ -921,7 +921,7 @@ static int mount_private_dev(MountEntry *m) {
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
 
         dev = strjoina(temporary_mount, "/dev");
-        (void) mkdir(dev, 0755);
+        (void) mkdir_label(dev, 0755);
         r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV);
         if (r < 0)
                 goto fail;
@@ -933,7 +933,7 @@ static int mount_private_dev(MountEntry *m) {
         }
 
         devpts = strjoina(temporary_mount, "/dev/pts");
-        (void) mkdir(devpts, 0755);
+        (void) mkdir_label(devpts, 0755);
         r = mount_nofollow_verbose(LOG_DEBUG, "/dev/pts", devpts, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto fail;
@@ -959,17 +959,17 @@ static int mount_private_dev(MountEntry *m) {
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
-        (void) mkdir(devshm, 0755);
+        (void) mkdir_label(devshm, 0755);
         r = mount_nofollow_verbose(LOG_DEBUG, "/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto fail;
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
-        (void) mkdir(devmqueue, 0755);
+        (void) mkdir_label(devmqueue, 0755);
         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
-        (void) mkdir(devhugepages, 0755);
+        (void) mkdir_label(devhugepages, 0755);
         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strjoina(temporary_mount, "/dev/log");
@@ -1479,7 +1479,7 @@ static int apply_one_mount(
                         /* Hmm, either the source or the destination are missing. Let's see if we can create
                            the destination, then try again. */
 
-                        (void) mkdir_parents(mount_entry_path(m), 0755);
+                        (void) mkdir_parents_label(mount_entry_path(m), 0755);
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
                         if (q < 0 && q != -EEXIST)
@@ -2388,12 +2388,12 @@ int setup_namespace(
 
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
-                (void) mkdir_p(propagate_dir, 0600);
+                (void) mkdir_p_label(propagate_dir, 0600);
 
         if (n_extension_images > 0 || !strv_isempty(extension_directories))
                 /* ExtensionImages/Directories mountpoint directories will be created while parsing the
                  * mounts to create, so have the parent ready */
-                (void) mkdir_p(extension_dir, 0600);
+                (void) mkdir_p_label(extension_dir, 0600);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
@@ -2681,7 +2681,7 @@ static int make_tmp_prefix(const char *prefix) {
                 return -errno;
 
         RUN_WITH_UMASK(000)
-                r = mkdir_parents(prefix, 0755);
+                r = mkdir_parents_label(prefix, 0755);
         if (r < 0)
                 return r;
 
@@ -2751,7 +2751,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                         return -ENOMEM;
 
                 RUN_WITH_UMASK(0000)
-                        if (mkdir(y, 0777 | S_ISVTX) < 0)
+                        if (mkdir_label(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
 
                 r = label_fix_container(y, prefix, 0);
@@ -2765,7 +2765,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
                  * file system. */
                 RUN_WITH_UMASK(0000)
-                        r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
+                        r = mkdir_p_label(RUN_SYSTEMD_EMPTY, 0500);
                 if (r < 0)
                         return r;
 
