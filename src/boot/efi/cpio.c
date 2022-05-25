@@ -391,7 +391,7 @@ EFI_STATUS pack_cpio(
                 if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
                         continue;
 
-                d = xstrdup(dirent->FileName);
+                d = xstrdup16(dirent->FileName);
 
                 if (n_items+2 > n_allocated) {
                         UINTN m;

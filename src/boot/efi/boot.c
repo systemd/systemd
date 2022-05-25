@@ -418,11 +418,11 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
 
         switch (*t) {
         case TIMEOUT_UNSET:
-                return xstrdup(L"Menu timeout defined by configuration file.");
+                return xstrdup16(u"Menu timeout defined by configuration file.");
         case TIMEOUT_MENU_FORCE:
-                return xstrdup(L"Timeout disabled, menu will always be shown.");
+                return xstrdup16(u"Timeout disabled, menu will always be shown.");
         case TIMEOUT_MENU_HIDDEN:
-                return xstrdup(L"Menu disabled. Hold down key at bootup to show menu.");
+                return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
         default:
                 return xpool_print(L"Menu timeout set to %u s.", *t);
         }
@@ -861,7 +861,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
-                        status = xstrdup(L"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
+                        status = xstrdup16(u"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -873,13 +873,13 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != idx_highlight) {
                                 FreePool(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup(config->entries[idx_highlight]->id);
+                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
                                 config->idx_default_efivar = idx_highlight;
-                                status = xstrdup(L"Default boot entry selected.");
+                                status = xstrdup16(u"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
                                 config->idx_default_efivar = IDX_INVALID;
-                                status = xstrdup(L"Default boot entry cleared.");
+                                status = xstrdup16(u"Default boot entry cleared.");
                         }
                         config->use_saved_entry_efivar = FALSE;
                         refresh = TRUE;
@@ -1360,13 +1360,13 @@ good:
         entry->tries_left = left;
         entry->tries_done = done;
 
-        entry->path = xstrdup(path);
-        entry->current_name = xstrdup(file);
+        entry->path = xstrdup16(path);
+        entry->current_name = xstrdup16(file);
 
         next_left = left <= 0 ? 0 : left - 1;
         next_done = done >= (UINTN) -2 ? (UINTN) -2 : done + 1;
 
-        prefix = xstrdup(file);
+        prefix = xstrdup16(file);
         prefix[i] = 0;
 
         entry->next_name = xpool_print(L"%s+%" PRIuN L"-%" PRIuN L"%s", prefix, next_left, next_done, strempty(suffix));
@@ -1547,7 +1547,7 @@ static void config_entry_add_type1(
                 return;
 
         entry->device = device;
-        entry->id = xstrdup(file);
+        entry->id = xstrdup16(file);
         strtolower16(entry->id);
 
         config_add_entry(config, entry);
@@ -1792,7 +1792,7 @@ static void config_title_generate(Config *config) {
         for (UINTN i = 0; i < config->entry_count; i++) {
                 assert(!config->entries[i]->title_show);
                 unique[i] = TRUE;
-                config->entries[i]->title_show = xstrdup(config->entries[i]->title ?: config->entries[i]->id);
+                config->entries[i]->title_show = xstrdup16(config->entries[i]->title ?: config->entries[i]->id);
         }
 
         if (entries_unique(config->entries, unique, config->entry_count))
@@ -1911,11 +1911,11 @@ static ConfigEntry *config_entry_add_loader_auto(
 
         ConfigEntry *entry = xnew(ConfigEntry, 1);
         *entry = (ConfigEntry) {
-                .id = xstrdup(id),
+                .id = xstrdup16(id),
                 .type = LOADER_AUTO,
-                .title = xstrdup(title),
+                .title = xstrdup16(title),
                 .device = device,
-                .loader = xstrdup(loader),
+                .loader = xstrdup16(loader),
                 .key = key,
                 .tries_done = UINTN_MAX,
                 .tries_left = UINTN_MAX,
@@ -2197,13 +2197,13 @@ static void config_entry_add_unified(
 
                 ConfigEntry *entry = xnew(ConfigEntry, 1);
                 *entry = (ConfigEntry) {
-                        .id = xstrdup(f->FileName),
+                        .id = xstrdup16(f->FileName),
                         .type = LOADER_UNIFIED_LINUX,
-                        .title = xstrdup(good_name),
-                        .version = good_version ? xstrdup(good_version) : NULL,
+                        .title = xstrdup16(good_name),
+                        .version = xstrdup16(good_version),
                         .device = device,
                         .loader = xpool_print(L"\\EFI\\Linux\\%s", f->FileName),
-                        .sort_key = good_sort_key ? xstrdup(good_sort_key) : NULL,
+                        .sort_key = xstrdup16(good_sort_key),
                         .key = 'l',
                         .tries_done = UINTN_MAX,
                         .tries_left = UINTN_MAX,
@@ -2545,8 +2545,8 @@ static void config_load_all_entries(
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                 ConfigEntry *entry = xnew(ConfigEntry, 1);
                 *entry = (ConfigEntry) {
-                        .id = xstrdup(L"auto-reboot-to-firmware-setup"),
-                        .title = xstrdup(L"Reboot Into Firmware Interface"),
+                        .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
+                        .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = reboot_into_firmware,
                         .tries_done = UINTN_MAX,
                         .tries_left = UINTN_MAX,
