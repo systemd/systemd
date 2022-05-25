@@ -835,7 +835,7 @@ static void test_strverscmp_improved_one(const char* a, const char *b, int expec
 
         log_info("'%s' %s '%s'%s",
                  strnull(a),
-                 r > 0 ? ">" : r < 0 ? "<" : "==",
+                 comparison_operator(r),
                  strnull(b),
                  r == expected ? "" : " !!!!!!!!!!!!!");
         assert_se(r == expected);

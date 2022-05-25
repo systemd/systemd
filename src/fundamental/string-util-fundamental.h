@@ -76,6 +76,10 @@ static inline const sd_char *yes_no(sd_bool b) {
         return b ? STR_C("yes") : STR_C("no");
 }
 
+static inline const sd_char* comparison_operator(int result) {
+        return result < 0 ? STR_C("<") : result > 0 ? STR_C(">") : STR_C("==");
+}
+
 sd_int strverscmp_improved(const sd_char *a, const sd_char *b);
 
 /* Like startswith(), but operates on arbitrary memory blocks */
