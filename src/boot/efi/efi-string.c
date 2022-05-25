@@ -2,6 +2,15 @@
 
 #include "efi-string.h"
 
+#ifdef SD_BOOT
+#  include "util.h"
+#  define xmalloc(n) xallocate_pool(n)
+#else
+#  include <stdlib.h>
+#  include "macro.h"
+#  define xmalloc(n) ASSERT_SE_PTR(malloc(n))
+#endif
+
 /* String functions for both char and char16_t that should behave the same way as their respective
  * counterpart in userspace. Where it makes sense, these accept NULL and do something sensible whereas
  * userspace does not allow for this (strlen8(NULL) returns 0 like strlen_ptr(NULL) for example). To make it
@@ -171,6 +180,37 @@ char *strchr8(const char *s, char c) {
 
 char16_t *strchr16(const char16_t *s, char16_t c) {
         STRCHR_U(char16_t *);
+}
+
+#define STRNDUP_U(type, _len)                             \
+        ({                                                \
+                if (!s)                                   \
+                        return NULL;                      \
+                                                          \
+                size_t len = _len;                        \
+                size_t size = len * sizeof(type);         \
+                                                          \
+                type *dup = xmalloc(size + sizeof(type)); \
+                efi_memcpy(dup, s, size);                 \
+                dup[len] = '\0';                          \
+                                                          \
+                return dup;                               \
+        })
+
+char *xstrndup8(const char *s, size_t n) {
+        STRNDUP_U(char, strnlen8(s, n));
+}
+
+char16_t *xstrndup16(const char16_t *s, size_t n) {
+        STRNDUP_U(char16_t, strnlen16(s, n));
+}
+
+char *xstrdup8(const char *s) {
+        STRNDUP_U(char, strlen8(s));
+}
+
+char16_t *xstrdup16(const char16_t *s) {
+        STRNDUP_U(char16_t, strlen16(s));
 }
 
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
