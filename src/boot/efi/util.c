@@ -552,26 +552,6 @@ EFI_STATUS readdir_harder(
         return EFI_SUCCESS;
 }
 
-CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
-        CHAR8 *n;
-
-        /* Following efilib's naming scheme this function would be called strndupa(), but we already have a
-         * function named like this in userspace, and it does something different there, hence to minimize
-         * confusion, let's pick a different name here */
-
-        assert(p || sz == 0);
-
-        sz = strnlen8((const char *) p, sz);
-
-        n = xallocate_pool(sz + 1);
-
-        if (sz > 0)
-                memcpy(n, p, sz);
-        n[sz] = 0;
-
-        return n;
-}
-
 BOOLEAN is_ascii(const CHAR16 *f) {
         if (!f)
                 return FALSE;
