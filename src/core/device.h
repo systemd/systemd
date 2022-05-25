@@ -21,13 +21,14 @@ struct Device {
         Unit meta;
 
         char *sysfs;
+        char *path; /* syspath, device node, alias, or devlink */
 
         /* In order to be able to distinguish dependencies on different device nodes we might end up creating multiple
          * devices for the same sysfs path. We chain them up here. */
         LIST_FIELDS(struct Device, same_sysfs);
 
         DeviceState state, deserialized_state;
-        DeviceFound found, deserialized_found, enumerated_found;
+        DeviceFound found, deserialized_found, enumerated_found, enumerated_mask;
 
         bool bind_mounts;
 
