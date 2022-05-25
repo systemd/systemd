@@ -1276,11 +1276,11 @@ static int make_tpm2_device_monitor(
 static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
+                usec_t until,
+                bool headless,
                 uint32_t flags) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        int r;
-
         systemd_tpm2_plugin_params params = {
                 .search_pcr_mask = arg_tpm2_pcr_mask,
                 .device = arg_tpm2_device
@@ -1290,11 +1290,17 @@ static int attach_luks2_by_tpm2_via_plugin(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Libcryptsetup has external plugins support disabled.");
 
-        r = crypt_activate_by_token_pin(cd, name, "systemd-tpm2", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
-        if (r > 0) /* returns unlocked keyslot id on success */
-                r = 0;
-
-        return r;
+        return crypt_activate_by_token_pin_ask_password(
+                        cd,
+                        name,
+                        "systemd-tpm2",
+                        until,
+                        headless,
+                        &params,
+                        flags,
+                        "Please enter TPM2 PIN:",
+                        "tpm2-pin",
+                        "cryptsetup.tpm2-pin");
 #else
         return -EOPNOTSUPP;
 #endif
@@ -1355,7 +1361,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
                         }
                 } else {
-                        r = attach_luks2_by_tpm2_via_plugin(cd, name, flags);
+                        r = attach_luks2_by_tpm2_via_plugin(cd, name, until, arg_headless, flags);
+                        if (r >= 0)
+                                return 0;
                         /* EAGAIN     means: no tpm2 chip found
                          * EOPNOTSUPP means: no libcryptsetup plugins support */
                         if (r == -ENXIO)
