@@ -152,6 +152,12 @@ portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | 
 
 portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
+# Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
+# Provides coverage for https://github.com/systemd/systemd/issues/23481
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
+# This is expected to fail, but it shouldn't leak memory
+portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0 && false
+
 umount /tmp/rootdir
 umount /tmp/app0
 umount /tmp/app1
