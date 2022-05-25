@@ -3,10 +3,9 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <stddef.h>
 
 #include "string-util-fundamental.h"
-
-#define offsetof(type, member) __builtin_offsetof(type, member)
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
@@ -42,7 +41,6 @@ assert_cc(sizeof(int) == sizeof(UINT32));
 #define xallocate_zero_pool(size) ASSERT_SE_PTR(AllocateZeroPool(size))
 #define xreallocate_pool(p, old_size, new_size) ASSERT_SE_PTR(ReallocatePool((p), (old_size), (new_size)))
 #define xpool_print(fmt, ...) ((CHAR16 *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
-#define xstrdup(str) ((CHAR16 *) ASSERT_SE_PTR(StrDuplicate(str)))
 #define xnew(type, n) xnew_alloc(type, (n), xallocate_pool)
 #define xnew0(type, n) xnew_alloc(type, (n), xallocate_zero_pool)
 
@@ -62,7 +60,6 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
-CHAR8 *strchra(const CHAR8 *s, CHAR8 c);
 CHAR16 *xstra_to_path(const CHAR8 *stra);
 CHAR16 *xstra_to_str(const CHAR8 *stra);
 
@@ -121,12 +118,7 @@ EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *re
 
 EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
-UINTN strnlena(const CHAR8 *p, UINTN maxlen);
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz);
-INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen);
-static inline BOOLEAN strncaseeqa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
-        return strncasecmpa(a, b, maxlen) == 0;
-}
 
 BOOLEAN is_ascii(const CHAR16 *f);
 
