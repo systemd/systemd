@@ -29,6 +29,14 @@ env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm
 # Check failure with wrong PIN
 env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
 
+# Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
+if cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in'; then
+    env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
+    /usr/lib/systemd/systemd-cryptsetup detach test-volume
+else
+    echo 'cryptsetup has no LUKS2 token plugin support, skipping'
+fi
+
 # Check failure with wrong PCR (and correct PIN)
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
 env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
