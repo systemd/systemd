@@ -41,7 +41,6 @@ assert_cc(sizeof(int) == sizeof(UINT32));
 #define xallocate_zero_pool(size) ASSERT_SE_PTR(AllocateZeroPool(size))
 #define xreallocate_pool(p, old_size, new_size) ASSERT_SE_PTR(ReallocatePool((p), (old_size), (new_size)))
 #define xpool_print(fmt, ...) ((CHAR16 *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
-#define xstrdup(str) ((CHAR16 *) ASSERT_SE_PTR(StrDuplicate(str)))
 #define xnew(type, n) xnew_alloc(type, (n), xallocate_pool)
 #define xnew0(type, n) xnew_alloc(type, (n), xallocate_zero_pool)
 

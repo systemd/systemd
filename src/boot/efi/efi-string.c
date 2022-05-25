@@ -182,7 +182,7 @@ char16_t *strchr16(const char16_t *s, char16_t c) {
         STRCHR_U(char16_t *);
 }
 
-static void *xstrdup_u(const void *s, size_t size) {
+static void *xstrdup(const void *s, size_t size) {
         if (size == 0)
                 return NULL;
 
@@ -191,11 +191,11 @@ static void *xstrdup_u(const void *s, size_t size) {
 }
 
 char *xstrdup8(const char *s) {
-        return xstrdup_u(s, strsize8(s));
+        return xstrdup(s, strsize8(s));
 }
 
 char16_t *xstrdup16(const char16_t *s) {
-        return xstrdup_u(s, strsize16(s));
+        return xstrdup(s, strsize16(s));
 }
 
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
