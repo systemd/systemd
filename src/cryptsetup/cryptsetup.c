@@ -851,20 +851,25 @@ static int acquire_pins_from_env_variable(char ***ret_pins) {
 }
 #endif
 
-static int attach_luks2_by_fido2_via_plugin(
+static int crypt_activate_by_token_pin_ask_password(
                 struct crypt_device *cd,
                 const char *name,
+                const char *type,
                 usec_t until,
                 bool headless,
                 void *usrptr,
-                uint32_t activation_flags) {
+                uint32_t activation_flags,
+                const char *message,
+                const char *key_name,
+                const char *credential_name
+                ) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
+        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
         if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -875,7 +880,7 @@ static int attach_luks2_by_fido2_via_plugin(
                 return r;
 
         STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
                         r = 0;
                 if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -887,12 +892,12 @@ static int attach_luks2_by_fido2_via_plugin(
 
         for (;;) {
                 pins = strv_free_erase(pins);
-                r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", "cryptsetup.fido2-pin", until, flags, &pins);
+                r = ask_password_auto(message, "drive-harddisk", NULL, key_name, credential_name, until, flags, &pins);
                 if (r < 0)
                         return r;
 
                 STRV_FOREACH(p, pins) {
-                        r = crypt_activate_by_token_pin(cd, name, "systemd-fido2", CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
                                 r = 0;
                         if (r != -ENOANO) /* needs pin or pin is wrong */
@@ -905,6 +910,27 @@ static int attach_luks2_by_fido2_via_plugin(
 #else
         return -EOPNOTSUPP;
 #endif
+}
+
+static int attach_luks2_by_fido2_via_plugin(
+                struct crypt_device *cd,
+                const char *name,
+                usec_t until,
+                bool headless,
+                void *usrptr,
+                uint32_t activation_flags) {
+
+        return crypt_activate_by_token_pin_ask_password(
+                        cd,
+                        name,
+                        "systemd-fido2",
+                        until,
+                        headless,
+                        usrptr,
+                        activation_flags,
+                        "Please enter security token PIN:",
+                        "fido2-pin",
+                        "cryptsetup.fido2-pin");
 }
 
 static int attach_luks_or_plain_or_bitlk_by_fido2(
