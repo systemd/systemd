@@ -116,6 +116,7 @@ static void device_done(Unit *u) {
 
         device_unset_sysfs(d);
         d->wants_property = strv_free(d->wants_property);
+        d->path = mfree(d->path);
 }
 
 static int device_load(Unit *u) {
@@ -162,14 +163,6 @@ static int device_coldplug(Unit *u) {
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
-        if (d->deserialized_state < 0)
-                return 0;
-
-        Manager *m = u->manager;
-        DeviceFound found = d->deserialized_found;
-        DeviceState state = d->deserialized_state;
-
         /* On initial boot, switch-root, reload, reexecute, the following happen:
          * 1. MANAGER_IS_RUNNING() == false
          * 2. enumerate devices: manager_enumerate() -> device_enumerate()
@@ -187,34 +180,57 @@ static int device_coldplug(Unit *u) {
          *   Also, there is no deserialized device. Device units are (a) generated based on dependencies of
          *   other units, or (b) generated when uevents are received.
          *
-         * - On switch-root, the udev database may be cleared, except for devices with sticky bit, i.e.
-         *   OPTIONS="db_persist". Hence, almost no devices are enumerated in the step 2. However, in general,
-         *   we have several serialized devices. So, DEVICE_FOUND_UDEV bit in the deserialized_found must be
-         *   ignored, as udev rules in initramfs and the main system are often different. If the deserialized
-         *   state is DEVICE_PLUGGED, we need to downgrade it to DEVICE_TENTATIVE (or DEVICE_DEAD if nobody
-         *   sees the device). Unlike the other starting mode, Manager.honor_device_enumeration == false
-         *   (maybe, it is better to rename the flag) when device_coldplug() and device_catchup() are called.
-         *   Hence, let's conditionalize the operations by using the flag. After switch-root, systemd-udevd
-         *   will (re-)process all devices, and the Device.found and Device.state will be adjusted.
+         * - On switch-root (or reload/reexecute triggered soon after switch-root and systemd-udevd has not
+         *   finished to re-process devices yet, see issue #12953), the udev database may be cleared, except
+         *   for devices with sticky bit, i.e. OPTIONS="db_persist". Hence, almost no devices are enumerated
+         *   in the step 2. However, in general, we have several serialized devices. To make the devices not
+         *   enter dead state needlessly, we need to mask DEVICE_FOUND_UDEV bit in Device.enumerated_found.
+         *   See device_found_mask_on_catchup() for more details. After switch-root, systemd-udevd will
+         *   (re-)process all devices, and the Device.found and Device.state will be adjusted.
          *
          * - On reload or reexecute, we can trust enumerated_found, deserialized_found, and deserialized_state.
          *   Of course, deserialized parameters may be outdated, but the unit state can be adjusted later by
          *   device_catchup() or uevents. */
 
-        if (!m->honor_device_enumeration && !MANAGER_IS_USER(m)) {
-                found &= ~DEVICE_FOUND_UDEV; /* ignore DEVICE_FOUND_UDEV bit */
-                if (state == DEVICE_PLUGGED)
-                        state = DEVICE_TENTATIVE; /* downgrade state */
-                if (found == DEVICE_NOT_FOUND)
-                        state = DEVICE_DEAD; /* If nobody sees the device, downgrade more */
-        }
-
-        if (d->found == found && d->state == state)
+        /* First, let's put the deserialized state and found mask into effect, if we have it. */
+        if (d->deserialized_state < 0)
                 return 0;
 
-        d->found = found;
-        device_set_state(d, state);
+        if (d->found == d->deserialized_found && d->state == d->deserialized_state)
+                return 0;
+
+        d->found = d->deserialized_found;
+        device_set_state(d, d->deserialized_state);
         return 0;
+}
+
+static bool device_found_mask_on_catchup(Device *d) {
+        assert(d);
+
+        /* On switching root or PID1 is reloaded before the device is processed by the systemd-udevd, the
+         * database for the device may not exist, or the device itself may be removed from the sysfs. The
+         * function device_enumerate() cannot distinguish the two cases. Let's explicitly check if the
+         * device is still around. */
+
+        if (FLAGS_SET(d->enumerated_mask, DEVICE_FOUND_UDEV))
+                /* The device is already enumerated. Let's use the all bits in enumerated_found. */
+                return DEVICE_FOUND_MASK;
+
+        if (!d->path)
+                /* We have no way to check if the device exists. Assume the device is unplugged. */
+                return DEVICE_FOUND_MASK;
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        if (sd_device_new_from_path(&dev, d->path) < 0)
+                /* The device does not exist any more. Note, device units generated from SYSTEMD_ALIAS=
+                 * without udev database are always assumed as removed, as we have no way to get original
+                 * syspath from the alias. */
+                return DEVICE_FOUND_MASK;
+
+        /* The device still exists in sysfs, but is not ready yet. In that case, we will receive a uevent
+         * for the device when the device is re-processed by systemd-udevd or unplugged. Let's ignore the
+         * DEVICE_FOUND_UDEV bit in enumerated_found now. */
+        return DEVICE_FOUND_MASK & ~DEVICE_FOUND_UDEV;
 }
 
 static void device_catchup(Unit *u) {
@@ -223,7 +239,7 @@ static void device_catchup(Unit *u) {
         assert(d);
 
         /* Second, let's update the state with the enumerated state */
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        device_update_found_one(d, d->enumerated_found, device_found_mask_on_catchup(d));
 }
 
 static const struct {
@@ -295,6 +311,9 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        if (d->path)
+                (void) serialize_item(f, "path", d->path);
+
         (void) serialize_item(f, "state", device_state_to_string(d->state));
 
         if (device_found_to_string_many(d->found, &s) >= 0)
@@ -313,7 +332,14 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
-        if (streq(key, "state")) {
+        if (streq(key, "path")) {
+                if (!d->path) {
+                        d->path = strdup(value);
+                        if (!d->path)
+                                log_oom_debug();
+                }
+
+        } else if (streq(key, "state")) {
                 DeviceState state;
 
                 state = device_state_from_string(value);
@@ -343,9 +369,11 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sDevice State: %s\n"
+                "%sDevice Path: %s\n"
                 "%sSysfs Path: %s\n"
                 "%sFound: %s\n",
                 prefix, device_state_to_string(d->state),
+                prefix, strna(d->path),
                 prefix, strna(d->sysfs),
                 prefix, strna(s));
 
@@ -568,6 +596,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 unit_add_to_load_queue(u);
         }
 
+        if (!DEVICE(u)->path) {
+                DEVICE(u)->path = strdup(path);
+                if (!DEVICE(u)->path)
+                        return log_oom();
+        }
+
         /* If this was created via some dependency and has not actually been seen yet ->sysfs will not be
          * initialized. Hence initialize it if necessary. */
         if (sysfs) {
@@ -703,10 +737,12 @@ static void device_update_found_one(Device *d, DeviceFound found, DeviceFound ma
                 d->found = n;
 
                 device_found_changed(d, previous, n);
-        } else
+        } else {
                 /* We aren't running yet, let's apply the new mask to the shadow variable instead, which we'll apply as
                  * soon as we catch-up with the state. */
                 d->enumerated_found = (d->enumerated_found & ~mask) | (found & mask);
+                d->enumerated_mask |= mask;
+        }
 }
 
 static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
