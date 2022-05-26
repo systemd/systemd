@@ -63,6 +63,9 @@
     <para>Note that automount support on Linux is privileged, automount units are hence only available in the
     system service manager (and root's user service manager), but not in unprivileged users' service
     managers.</para>
+
+    <para>Note that automount units should not be nested. (The establishment of the inner automount point
+    would unconditionally pin the outer mount point, defeating its purpose.)</para>
   </refsect1>
 
   <refsect1>
@@ -157,6 +160,7 @@
         creating these directories. Takes an access mode in octal
         notation. Defaults to 0755.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><varname>TimeoutIdleSec=</varname></term>
         <listitem><para>Configures an idle timeout. Once the mount has been
