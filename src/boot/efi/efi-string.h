@@ -11,6 +11,9 @@ size_t strnlen16(const char16_t *s, size_t n);
 size_t strlen8(const char *s);
 size_t strlen16(const char16_t *s);
 
+void strtolower8(char *s);
+void strtolower16(char16_t *s);
+
 int strncmp8(const char *s1, const char *s2, size_t n);
 int strncmp16(const char16_t *s1, const char16_t *s2, size_t n);
 
