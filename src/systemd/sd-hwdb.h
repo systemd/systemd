@@ -27,6 +27,7 @@ sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb);
 sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb);
 
 int sd_hwdb_new(sd_hwdb **ret);
+int sd_hwdb_new_from_path(const char *path, sd_hwdb **ret);
 
 int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **value);
 
