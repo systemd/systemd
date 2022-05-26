@@ -178,19 +178,6 @@ static inline bool BUS_MESSAGE_IS_GVARIANT(sd_bus_message *m) {
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 
-int bus_message_from_header(
-                sd_bus *bus,
-                void *header,
-                size_t header_accessible,
-                void *footer,
-                size_t footer_accessible,
-                size_t message_size,
-                int *fds,
-                size_t n_fds,
-                const char *label,
-                size_t extra,
-                sd_bus_message **ret);
-
 int bus_message_from_malloc(
                 sd_bus *bus,
                 void *buffer,

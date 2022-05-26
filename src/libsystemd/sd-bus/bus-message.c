@@ -413,7 +413,7 @@ static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
         }
 }
 
-int bus_message_from_header(
+static int bus_message_from_header(
                 sd_bus *bus,
                 void *header,
                 size_t header_accessible,
