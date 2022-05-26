@@ -81,12 +81,12 @@ static EFI_STATUS pack_cpio_one(
 
         l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name*/
 
-        target_dir_prefix_size = strlena(target_dir_prefix);
+        target_dir_prefix_size = strlen8((const char *) target_dir_prefix);
         if (l > UINTN_MAX - target_dir_prefix_size)
                 return EFI_OUT_OF_RESOURCES;
         l += target_dir_prefix_size;
 
-        fname_size = StrLen(fname);
+        fname_size = strlen16(fname);
         if (l > UINTN_MAX - fname_size)
                 return EFI_OUT_OF_RESOURCES;
         l += fname_size; /* append space for file name */
@@ -116,7 +116,7 @@ static EFI_STATUS pack_cpio_one(
         *cpio_buffer = a;
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
+        memcpy(a, "070701", 6); /* magic ID */
         a += 6;
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
@@ -139,7 +139,7 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, target_dir_prefix, target_dir_prefix_size);
+        memcpy(a, target_dir_prefix, target_dir_prefix_size);
         a += target_dir_prefix_size;
         *(a++) = '/';
         a = mangle_filename(a, fname);
@@ -147,7 +147,7 @@ static EFI_STATUS pack_cpio_one(
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        CopyMem(a, contents, contents_size);
+        memcpy(a, contents, contents_size);
         a += contents_size;
 
         /* Pad to next multiple of 4 */
@@ -182,7 +182,7 @@ static EFI_STATUS pack_cpio_dir(
 
         l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name*/
 
-        path_size = strlena(path);
+        path_size = strlen8((const char *) path);
         if (l > UINTN_MAX - path_size)
                 return EFI_OUT_OF_RESOURCES;
         l += path_size;
@@ -198,7 +198,7 @@ static EFI_STATUS pack_cpio_dir(
         *cpio_buffer = a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
+        memcpy(a, "070701", 6); /* magic ID */
         a += 6;
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
@@ -215,7 +215,7 @@ static EFI_STATUS pack_cpio_dir(
         a = write_cpio_word(a, path_size + 1);                              /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, path, path_size + 1);
+        memcpy(a, path, path_size + 1);
         a += path_size + 1;
 
         /* Pad to next multiple of 4 */
@@ -248,7 +248,7 @@ static EFI_STATUS pack_cpio_prefix(
         for (const CHAR8 *p = path;;) {
                 const CHAR8 *e;
 
-                e = strchra(p, '/');
+                e = (const CHAR8 *) strchr8((const char *) p, '/');
                 if (!e)
                         break;
 
@@ -298,7 +298,7 @@ static EFI_STATUS pack_cpio_trailer(
         assert_cc(sizeof(trailer) % 4 == 0);
 
         *cpio_buffer = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
-        CopyMem((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
+        memcpy((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
         return EFI_SUCCESS;
@@ -388,10 +388,10 @@ EFI_STATUS pack_cpio(
                         continue;
                 if (!is_ascii(dirent->FileName))
                         continue;
-                if (StrLen(dirent->FileName) > 255) /* Max filename size on Linux */
+                if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
                         continue;
 
-                d = xstrdup(dirent->FileName);
+                d = xstrdup16(dirent->FileName);
 
                 if (n_items+2 > n_allocated) {
                         UINTN m;
@@ -418,7 +418,7 @@ EFI_STATUS pack_cpio(
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
-        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) StrCmp);
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */

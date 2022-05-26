@@ -12,22 +12,14 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
-        if (strcmpa(v, (CHAR8 *)"1") == 0 ||
-            strcmpa(v, (CHAR8 *)"yes") == 0 ||
-            strcmpa(v, (CHAR8 *)"y") == 0 ||
-            strcmpa(v, (CHAR8 *)"true") == 0 ||
-            strcmpa(v, (CHAR8 *)"t") == 0 ||
-            strcmpa(v, (CHAR8 *)"on") == 0) {
+        if (streq8((char *) v, "1") || streq8((char *) v, "yes") || streq8((char *) v, "y") ||
+            streq8((char *) v, "true") || streq8((char *) v, "t") || streq8((char *) v, "on")) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
 
-        if (strcmpa(v, (CHAR8 *)"0") == 0 ||
-            strcmpa(v, (CHAR8 *)"no") == 0 ||
-            strcmpa(v, (CHAR8 *)"n") == 0 ||
-            strcmpa(v, (CHAR8 *)"false") == 0 ||
-            strcmpa(v, (CHAR8 *)"f") == 0 ||
-            strcmpa(v, (CHAR8 *)"off") == 0) {
+        if (streq8((char *) v, "0") || streq8((char *) v, "no") || streq8((char *) v, "n") ||
+            streq8((char *) v, "false") || streq8((char *) v, "f") || streq8((char *) v, "off")) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
@@ -48,7 +40,7 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
         assert(vendor);
         assert(name);
 
-        return efivar_set_raw(vendor, name, value, value ? StrSize(value) : 0, flags);
+        return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
@@ -125,7 +117,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         /* Make sure a terminating NUL is available at the end */
         val = xallocate_pool(size + sizeof(CHAR16));
 
-        CopyMem(val, buf, size);
+        memcpy(val, buf, size);
         val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
 
         *value = val;
@@ -306,7 +298,7 @@ CHAR16 *xstra_to_str(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlena(stra);
+        len = strlen8((const char *) stra);
         str = xnew(CHAR16, len + 1);
 
         strlen = 0;
@@ -336,7 +328,7 @@ CHAR16 *xstra_to_path(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlena(stra);
+        len = strlen8((const char *) stra);
         str = xnew(CHAR16, len + 2);
 
         str[0] = '\\';
@@ -365,18 +357,6 @@ CHAR16 *xstra_to_path(const CHAR8 *stra) {
         }
         str[strlen] = '\0';
         return str;
-}
-
-CHAR8 *strchra(const CHAR8 *s, CHAR8 c) {
-        if (!s)
-                return NULL;
-
-        do {
-                if (*s == c)
-                        return (CHAR8*) s;
-        } while (*s++);
-
-        return NULL;
 }
 
 EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
@@ -417,7 +397,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
                 return err;
 
         /* Note that handle->Read() changes size to reflect the actually bytes read. */
-        ZeroMem(buf + size, extra);
+        memset(buf + size, 0, extra);
 
         *ret = TAKE_PTR(buf);
         if (ret_size)
@@ -572,40 +552,6 @@ EFI_STATUS readdir_harder(
         return EFI_SUCCESS;
 }
 
-UINTN strnlena(const CHAR8 *p, UINTN maxlen) {
-        UINTN c;
-
-        if (!p)
-                return 0;
-
-        for (c = 0; c < maxlen; c++)
-                if (p[c] == 0)
-                        break;
-
-        return c;
-}
-
-INTN strncasecmpa(const CHAR8 *a, const CHAR8 *b, UINTN maxlen) {
-        if (!a || !b)
-                return CMP(a, b);
-
-        while (maxlen > 0) {
-                CHAR8 ca = *a, cb = *b;
-                if (ca >= 'A' && ca <= 'Z')
-                        ca += 'a' - 'A';
-                if (cb >= 'A' && cb <= 'Z')
-                        cb += 'a' - 'A';
-                if (!ca || ca != cb)
-                        return ca - cb;
-
-                a++;
-                b++;
-                maxlen--;
-        }
-
-        return 0;
-}
-
 CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
         CHAR8 *n;
 
@@ -615,12 +561,12 @@ CHAR8 *xstrndup8(const CHAR8 *p, UINTN sz) {
 
         assert(p || sz == 0);
 
-        sz = strnlena(p, sz);
+        sz = strnlen8((const char *) p, sz);
 
         n = xallocate_pool(sz + 1);
 
         if (sz > 0)
-                CopyMem(n, p, sz);
+                memcpy(n, p, sz);
         n[sz] = 0;
 
         return n;
