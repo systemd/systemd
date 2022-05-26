@@ -153,14 +153,28 @@ corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
 The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`. You should also confirm that the fuzzer runs in the
-OSS-Fuzz environment by checking out the OSS-Fuzz repo, and then running
-commands like this:
+`tools/oss-fuzz.sh`. You should also confirm that the fuzzers can be built and
+run using
+[the OSS-Fuzz toolchain](https://google.github.io/oss-fuzz/advanced-topics/reproducing/#building-using-docker):
 
 ```
-python infra/helper.py build_image systemd
-python infra/helper.py build_fuzzers --sanitizer memory systemd ../systemd
-python infra/helper.py run_fuzzer systemd fuzz-foo
+path_to_systemd=...
+
+git clone --depth=1 https://github.com/google/oss-fuzz
+cd oss-fuzz
+
+for sanitizer in address undefined memory; do
+  for engine in libfuzzer afl honggfuzz; do
+    ./infra/helper.py build_fuzzers --sanitizer "$sanitizer" --engine "$engine" \
+       --clean systemd "$path_to_systemd"
+
+    ./infra/helper.py check_build --sanitizer "$sanitizer" --engine "$engine" \
+      -e ALLOWED_BROKEN_TARGETS_PERCENTAGE=0 systemd
+  done
+done
+
+./infra/helper.py build_fuzzers --clean --sanitizer coverage systemd "$path_to_systemd"
+./infra/helper.py coverage --no-corpus-download systemd
 ```
 
 If you find a bug that impacts the security of systemd, please follow the
