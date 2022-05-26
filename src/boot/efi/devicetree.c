@@ -41,7 +41,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 
         assert(state);
 
-        err = LibLocateProtocol(&EfiDtFixupProtocol, (void **)&fixup);
+        err = BS->LocateProtocol(&EfiDtFixupProtocol, NULL, (void **) &fixup);
         if (EFI_ERROR(err))
                 return log_error_status_stall(EFI_SUCCESS,
                                               L"Could not locate device tree fixup protocol, skipping.");

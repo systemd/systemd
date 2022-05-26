@@ -279,7 +279,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                 background = &pixel;
         }
 
-        err = LibLocateProtocol(&GraphicsOutputProtocol, (void **)&GraphicsOutput);
+        err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
 

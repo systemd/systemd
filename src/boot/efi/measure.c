@@ -84,7 +84,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         UINT32 features;
         EFI_TCG *tcg;
 
-        status = LibLocateProtocol((EFI_GUID*) EFI_TCG_GUID, (void **) &tcg);
+        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
         if (EFI_ERROR(status))
                 return NULL;
 
@@ -113,7 +113,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_STATUS status;
         EFI_TCG2 *tcg;
 
-        status = LibLocateProtocol((EFI_GUID*) EFI_TCG2_GUID, (void **) &tcg);
+        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
         if (EFI_ERROR(status))
                 return NULL;
 

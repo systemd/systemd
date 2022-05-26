@@ -26,7 +26,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = LibLocateProtocol((EFI_GUID*) EFI_RNG_GUID, (void**) &rng);
+        err = BS->LocateProtocol((EFI_GUID *) EFI_RNG_GUID, NULL, (void **) &rng);
         if (EFI_ERROR(err))
                 return err;
         if (!rng)
