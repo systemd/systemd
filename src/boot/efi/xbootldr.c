@@ -154,9 +154,10 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         assert(device);
         assert(ret_device_path);
 
-        EFI_DEVICE_PATH *partition_path = DevicePathFromHandle(device);
-        if (!partition_path)
-                return EFI_NOT_FOUND;
+        EFI_DEVICE_PATH *partition_path;
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &partition_path);
+        if (err != EFI_SUCCESS)
+                return err;
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
