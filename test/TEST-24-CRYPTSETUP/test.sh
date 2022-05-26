@@ -66,6 +66,28 @@ EOF
     # Forward journal messages to the console, so we have something
     # to investigate even if we fail to mount the encrypted /var
     echo ForwardToConsole=yes >> "$initdir/etc/systemd/journald.conf"
+
+    if [[ -z "$INITRD" ]]; then
+        INITRD="${TESTDIR:?}/initrd.img"
+        dinfo "Generating custom initrd with dm-crypt support in '${INITRD:?}'"
+
+        if command -v dracut >/dev/null; then
+            dracut -f -v -a crypt "$INITRD"
+        elif command -v mkinitcpio >/dev/null; then
+            mkinitcpio -A sd-encrypt -g "$INITRD"
+        elif command -v update-initramfs >/dev/null; then
+            # The cryptroot hook is provided by the cryptsetup-initramfs package
+            if ! dpkg-query -s cryptsetup-initramfs; then
+                derror "Missing 'cryptsetup-initramfs' package for dm-crypt support in initrd"
+                return 1
+            fi
+
+            mkinitramfs -k "$INITRD"
+        else
+            dfatal "Unrecognized initrd generator, can't continue"
+            return 1
+        fi
+    fi
 }
 
 cleanup_root_var() {
