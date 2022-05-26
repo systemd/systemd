@@ -113,7 +113,7 @@ EFI_STATUS log_oom(void);
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str);
 void clear_screen(UINTN attr);
 
-typedef INTN (*compare_pointer_func_t)(const void *a, const void *b);
+typedef int (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, UINTN n_members, compare_pointer_func_t compare);
 
 EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *ret_size);
