@@ -41,6 +41,32 @@ TEST(strnlen16) {
         assert_se(strnlen16(u"12\0004", 5) == 2);
 }
 
+TEST(strtolower8) {
+        char s[] = "\0001234abcDEF!\0zZ";
+
+        strtolower8(NULL);
+
+        strtolower8(s);
+        assert_se(memcmp(s, "\0001234abcDEF!\0zZ", sizeof(s)) == 0);
+
+        s[0] = '#';
+        strtolower8(s);
+        assert_se(memcmp(s, "#1234abcdef!\0zZ", sizeof(s)) == 0);
+}
+
+TEST(strtolower16) {
+        char16_t s[] = u"\0001234abcDEF!\0zZ";
+
+        strtolower16(NULL);
+
+        strtolower16(s);
+        assert_se(memcmp(s, u"\0001234abcDEF!\0zZ", sizeof(s)) == 0);
+
+        s[0] = '#';
+        strtolower16(s);
+        assert_se(memcmp(s, u"#1234abcdef!\0zZ", sizeof(s)) == 0);
+}
+
 TEST(strncmp8) {
         assert_se(strncmp8(NULL, "", 10) < 0);
         assert_se(strncmp8("", NULL, 10) > 0);
