@@ -406,7 +406,7 @@ static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
                 return message_append_field_uint64(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, cookie);
         else {
                 /* 64bit cookies are not supported on dbus1 */
-                if (cookie > 0xffffffffUL)
+                if (cookie > UINT32_MAX)
                         return -EOPNOTSUPP;
 
                 return message_append_field_uint32(m, BUS_MESSAGE_HEADER_REPLY_SERIAL, (uint32_t) cookie);
@@ -2913,7 +2913,7 @@ _public_ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t ti
         if (m->poisoned)
                 return -ESTALE;
 
-        if (cookie > 0xffffffffULL &&
+        if (cookie > UINT32_MAX &&
             !BUS_MESSAGE_IS_GVARIANT(m))
                 return -EOPNOTSUPP;
 
