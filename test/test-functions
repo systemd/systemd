@@ -337,6 +337,11 @@ qemu_min_version() {
 # Return 0 if qemu did run (then you must check the result state/logs for actual
 # success), or 1 if qemu is not available.
 run_qemu() {
+    # If the test provided its own initrd, use it (e.g. TEST-24)
+    if [[ -z "$INITRD" && -f "${TESTDIR:?}/initrd.img" ]]; then
+        INITRD="$TESTDIR/initrd.img"
+    fi
+
     if [ -f /etc/machine-id ]; then
         read -r MACHINE_ID </etc/machine-id
         [ -z "$INITRD" ] && [ -e "$EFI_MOUNT/$MACHINE_ID/$KERNEL_VER/initrd" ] \
