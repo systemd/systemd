@@ -211,7 +211,9 @@ tests += [
 
         [files('test-mkdir.c')],
 
-        [files('test-json.c')],
+        [files('test-json.c'),
+         [],
+         [libm]],
 
         [files('test-modhex.c')],
 
@@ -275,7 +277,9 @@ tests += [
 
         [files('test-parse-helpers.c')],
 
-        [files('test-parse-util.c')],
+        [files('test-parse-util.c'),
+         [],
+         [libm]],
 
         [files('test-sysctl-util.c')],
 
