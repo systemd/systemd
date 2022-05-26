@@ -66,6 +66,16 @@ EOF
     # Forward journal messages to the console, so we have something
     # to investigate even if we fail to mount the encrypted /var
     echo ForwardToConsole=yes >> "$initdir/etc/systemd/journald.conf"
+
+    if [[ -z "$INITRD" ]]; then
+        if command -v dracut >/dev/null; then
+            dracut --add crypt "$TESTDIR/initrd.img"
+            INITRD="$TESTDIR/initrd.img"
+        elif command -v mkinitcpio >/dev/null; then
+            mkinitcpio --addhooks sd-encrypt --generate "$TESTDIR/initrd.img"
+            INITRD="$TESTDIR/initrd.img"
+        fi
+    fi
 }
 
 cleanup_root_var() {
