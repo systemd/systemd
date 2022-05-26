@@ -255,9 +255,9 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
         if (EFI_ERROR(err))
                 return err;
 
-        root_dir = LibOpenRoot(new_device);
-        if (!root_dir)
-                return EFI_NOT_FOUND;
+        err = open_volume(new_device, &root_dir);
+        if (err != EFI_SUCCESS)
+                return err;
 
         *ret_device = new_device;
         *ret_root_dir = root_dir;
