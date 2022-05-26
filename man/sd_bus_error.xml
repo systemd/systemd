@@ -246,9 +246,14 @@
     values in <parameter>e</parameter>, if <parameter>e</parameter> has been set with an error value before.
     Otherwise, it will return immediately. If the strings in <parameter>e</parameter> were set using
     <function>sd_bus_error_set_const()</function>, they will be shared. Otherwise, they will be
-    copied. Returns a converted <varname>errno</varname>-like, negative error code or <constant>0</constant>.
-    Before this call, <parameter>dst</parameter> must be unset, i.e. either freshly initialized with
+    copied. Before this call, <parameter>dst</parameter> must be unset, i.e. either freshly initialized with
     <constant>NULL</constant> or reset using <function>sd_bus_error_free()</function>.</para>
+
+    <para><function>sd_bus_error_copy()</function> generally returns <constant>0</constant> or a negative
+    <varname>errno</varname>-like value based on the input parameter <parameter>e</parameter>:
+    <constant>0</constant> if it was unset and a negative integer if it was set to some error, similarly to
+    <function>sd_bus_error_set()</function>. It may however also return an error generated internally, for
+    example <constant>-ENOMEM</constant> if a memory allocation fails.</para>
 
     <para><function>sd_bus_error_move()</function> is similar to <function>sd_bus_error_copy()</function>,
     but will move any error information from <parameter>e</parameter> into <parameter>dst</parameter>,
@@ -287,6 +292,18 @@
   </refsect1>
 
   <refsect1>
+    <title>Reference ownership</title>
+
+    <para><structname>sd_bus_error</structname> is not reference-counted. Users should destroy resources held
+    by it by calling <function>sd_bus_error_free()</function>. Usually, error structures are allocated on the
+    stack or passed in as function parameters, but they may also be allocated dynamically, in which case it
+    is the duty of the caller to <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry> the memory
+    held by the structure itself after freeing its contents with
+    <function>sd_bus_error_free()</function>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Return Value</title>
 
     <para>The functions <function>sd_bus_error_set()</function>, <function>sd_bus_error_setf()</function>,
@@ -297,7 +314,8 @@
     <function>sd_bus_error_set_errnofv()</function>, return <constant>0</constant> when the specified error
     value is <constant>0</constant>, and a negative errno-like value corresponding to the
     <parameter>error</parameter> parameter otherwise. If an error occurs internally, one of the negative
-    error values listed below will be returned.</para>
+    error values listed below will be returned. This allows those functions to be conveniently used in a
+    <constant>return</constant> statement, see the example below.</para>
 
     <para><function>sd_bus_error_get_errno()</function> returns
     <constant>false</constant> when <parameter>e</parameter> is
@@ -305,7 +323,9 @@
     <parameter>e-&gt;name</parameter> otherwise.</para>
 
     <para><function>sd_bus_error_copy()</function> and <function>sd_bus_error_move()</function> return a
-    negative error value converted from the source error, and zero if the error has not been set.</para>
+    negative error value converted from the source error, and zero if the error has not been set.  This
+    allows those functions to be conveniently used in a <constant>return</constant> statement, see the
+    example below.</para>
 
     <para><function>sd_bus_error_is_set()</function> returns a
     non-zero value when <parameter>e</parameter> and the
@@ -316,32 +336,18 @@
     <function>sd_bus_error_has_names_sentinel()</function> return a non-zero value when <parameter>e</parameter> is
     non-<constant>NULL</constant> and the <structfield>name</structfield> field is equal to one of the given
     names, zero otherwise.</para>
-  </refsect1>
-
-  <refsect1>
-    <title>Reference ownership</title>
-    <para><structname>sd_bus_error</structname> is not reference
-    counted. Users should destroy resources held by it by calling
-    <function>sd_bus_error_free()</function>. Usually, error structures
-    are allocated on the stack or passed in as function parameters,
-    but they may also be allocated dynamically, in which case it is
-    the duty of the caller to <citerefentry
-    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    the memory held by the structure itself after freeing its contents
-    with <function>sd_bus_error_free()</function>.</para>
 
     <refsect2>
       <title>Errors</title>
 
-      <para>Returned errors may indicate the following problems:</para>
+      <para>Return value may indicate the following problems in the invocation of the function itself:</para>
 
       <variablelist>
-
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>Error was already set in <structname>sd_bus_error</structname> structure when one
-          the error-setting functions was called.</para></listitem>
+          <listitem><para>Error was already set in the <structname>sd_bus_error</structname> structure when
+          one the error-setting functions was called.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -350,7 +356,27 @@
           <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
       </variablelist>
+
+      <para>On success, <function>sd_bus_error_set()</function>, <function>sd_bus_error_setf()</function>,
+      <function>sd_bus_error_set_const()</function>, <function>sd_bus_error_set_errno()</function>,
+      <function>sd_bus_error_set_errnof()</function>, <function>sd_bus_error_set_errnofv()</function>,
+      <function>sd_bus_error_copy()</function>, and <function>sd_bus_error_move()</function> will return a
+      negative converted <varname>errno</varname>-style value, or <constant>0</constant> if the error
+      parameter is <constant>NULL</constant> or unset. D-Bus errors are converted to the integral
+      <varname>errno</varname>-style value, and the mapping mechanism is extensible, see the discussion
+      above. This effectively means that almost any negative <varname>errno</varname>-style value can be
+      returned.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Using the negative return value to propagate an error</title>
+
+      <programlisting><xi:include href="sd_bus_error-example.c" parse="text" /></programlisting>
+    </example>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
