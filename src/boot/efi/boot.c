@@ -1548,7 +1548,7 @@ static void config_entry_add_type1(
 
         entry->device = device;
         entry->id = xstrdup(file);
-        StrLwr(entry->id);
+        strtolower16(entry->id);
 
         config_add_entry(config, entry);
 
@@ -2209,7 +2209,7 @@ static void config_entry_add_unified(
                         .tries_left = UINTN_MAX,
                 };
 
-                StrLwr(entry->id);
+                strtolower16(entry->id);
                 config_add_entry(config, entry);
                 config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
 
