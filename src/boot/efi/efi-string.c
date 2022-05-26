@@ -54,6 +54,22 @@ char16_t tolower16(char16_t c) {
         return TOLOWER(c);
 }
 
+#define STRTOLOWER                        \
+        ({                                \
+                if (!s)                   \
+                        return;           \
+                for (; *s; s++)           \
+                        *s = TOLOWER(*s); \
+        })
+
+void strtolower8(char *s) {
+        STRTOLOWER;
+}
+
+void strtolower16(char16_t *s) {
+        STRTOLOWER;
+}
+
 #define STRNCASECMP_U(tolower, until_nul, n)      \
         ({                                        \
                 if (!s1 || !s2)                   \
