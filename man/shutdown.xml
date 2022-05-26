@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>shutdown</refname>
-    <refpurpose>Halt, power-off or reboot the machine</refpurpose>
+    <refpurpose>Halt, power off or reboot the machine</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,8 +33,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>shutdown</command> may be used to halt, power-off
-    or reboot the machine.</para>
+    <para><command>shutdown</command> may be used to halt, power off, or reboot the machine.</para>
 
     <para>The first argument may be a time string (which is usually
     <literal>now</literal>). Optionally, this may be followed by a
@@ -81,47 +80,41 @@
         <term><option>-P</option></term>
         <term><option>--poweroff</option></term>
 
-        <listitem><para>Power-off the machine (the
-        default).</para></listitem>
+        <listitem><para>Power the machine off (the default).</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-r</option></term>
         <term><option>--reboot</option></term>
 
-        <listitem><para>Reboot the
-        machine.</para></listitem>
+        <listitem><para>Reboot the machine.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-h</option></term>
 
-        <listitem><para>Equivalent to <option>--poweroff</option>,
-        unless <option>--halt</option> is specified.</para></listitem>
+        <listitem><para>The same as <option>--poweroff</option>, but does not override the action to take if
+        it is "halt". E.g. <command>shutdown --reboot -h</command> means "poweroff", but <command>shutdown
+        --halt -h</command> means "halt".</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-k</option></term>
 
-        <listitem><para>Do not halt, power-off, reboot, just write
-        wall message.</para></listitem>
+        <listitem><para>Do not halt, power off, or reboot, but just write the wall message.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--no-wall</option></term>
 
-        <listitem><para>Do not send wall
-        message before
-        halt, power-off, reboot.</para></listitem>
+        <listitem><para>Do not send wall message before halt, power off, or reboot.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-c</option></term>
 
-        <listitem><para>Cancel a pending shutdown. This may be used
-        to cancel the effect of an invocation of
-        <command>shutdown</command> with a time argument that is not
-        <literal>+0</literal> or
+        <listitem><para>Cancel a pending shutdown. This may be used to cancel the effect of an invocation of
+        <command>shutdown</command> with a time argument that is not <literal>+0</literal> or
         <literal>now</literal>.</para></listitem>
       </varlistentry>
 
