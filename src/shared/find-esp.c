@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -474,16 +475,18 @@ static int verify_xbootldr_blkid(
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
-        const char *v;
+        const char *type, *v;
         int r;
 
         r = device_path_make_major_minor(S_IFBLK, devid, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
+                return log_error_errno(r, "Failed to format block device path for %u:%u: %m",
+                                       major(devid), minor(devid));
+
         errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", node);
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "%s: Failed to create blkid probe: %m", node);
 
         blkid_probe_enable_partitions(b, 1);
         blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
@@ -491,50 +494,50 @@ static int verify_xbootldr_blkid(
         errno = 0;
         r = blkid_do_safeprobe(b);
         if (r == -2)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "%s: File system is ambiguous.", node);
         else if (r == 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "%s: File system does not contain a label.", node);
         else if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe file system: %m", node);
 
         errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &type, NULL);
         if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme of \"%s\": %m", node);
-        if (streq(v, "gpt")) {
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_SCHEME: %m", node);
+        if (streq(type, "gpt")) {
 
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (id128_equal_string(v, GPT_XBOOTLDR) <= 0)
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
+                                              "%s: Partitition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
 
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID of \"%s\": %m", node);
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_UUID: %m", node);
                 r = sd_id128_from_string(v, &uuid);
                 if (r < 0)
-                        return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
+                        return log_error_errno(r, "%s: Partition has invalid UUID PART_ENTRY_TYPE=%s: %m", node, v);
 
-        } else if (streq(v, "dos")) {
+        } else if (streq(type, "dos")) {
 
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID of \"%s\": %m", node);
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (!streq(v, "0xea"))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
+                                              "%s: Wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
 
         } else
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                      "File system \"%s\" is not on a GPT or DOS partition table.", node);
+                                      "%s: Not on a GPT or DOS partition table (PART_ENTRY_SCHEME=%s).", node, type);
 #endif
 
         if (ret_uuid)
@@ -551,55 +554,63 @@ static int verify_xbootldr_udev(
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *node = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
-        const char *v;
+        const char *type, *v;
         int r;
 
         r = device_path_make_major_minor(S_IFBLK, devid, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
+                return log_error_errno(r, "Failed to format block device path for %u:%u: %m",
+                                       major(devid), minor(devid));
 
         r = sd_device_new_from_devnum(&d, 'b', devid);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device from device number: %m");
+                return log_error_errno(r, "%s: Failed to get block device: %m", node);
 
-        r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &v);
+        r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &type);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_SCHEME: %m");
 
-        if (streq(v, "gpt")) {
+        if (streq(type, "gpt")) {
 
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
+                        return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_TYPE: %m");
 
                 r = id128_equal_string(v, GPT_XBOOTLDR);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse ID_PART_ENTRY_TYPE=%s: %m", v);
+                        return log_device_error_errno(d, r, "Failed to parse ID_PART_ENTRY_TYPE=%s: %m", v);
                 if (r == 0)
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
+                        return log_device_full_errno(
+                                        d,
+                                        searching ? LOG_DEBUG : LOG_ERR,
+                                        searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                        "Parition has wrong ID_PART_ENTRY_TYPE=%s for XBOOTLDR partition.", v);
 
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_UUID", &v);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
+                        return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_UUID: %m");
                 r = sd_id128_from_string(v, &uuid);
                 if (r < 0)
-                        return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
+                        return log_device_error_errno(d, r, "Partition has invalid UUID ID_PART_ENTRY_TYPE=%s: %m", v);
 
-        } else if (streq(v, "dos")) {
+        } else if (streq(type, "dos")) {
 
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get device property: %m");
+                        return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_TYPE: %m");
                 if (!streq(v, "0xea"))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "File system \"%s\" has wrong type for extended boot loader partition.", node);
+                        return log_device_full_errno(
+                                        d,
+                                        searching ? LOG_DEBUG : LOG_ERR,
+                                        searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                        "Wrong ID_PART_ENTRY_TYPE=%s for XBOOTLDR partition.", v);
+
         } else
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                      "File system \"%s\" is not on a GPT or DOS partition table.", node);
+                return log_device_full_errno(
+                                d,
+                                searching ? LOG_DEBUG : LOG_ERR,
+                                searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                "Not on a GPT or DOS partition table (ID_PART_ENTRY_SCHEME=%s).", type);
 
         if (ret_uuid)
                 *ret_uuid = uuid;
