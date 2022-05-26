@@ -1356,7 +1356,6 @@ Features:
   - longer term: priority inheritance
   - dbus spec updates:
        - NameLost/NameAcquired obsolete
-       - GVariant
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
 
