@@ -571,7 +571,11 @@ static int verify_xbootldr_udev(
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get device property: %m");
-                if (id128_equal_string(v, GPT_XBOOTLDR))
+
+                r = id128_equal_string(v, GPT_XBOOTLDR);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse ID_PART_ENTRY_TYPE=%s: %m", v);
+                if (r == 0)
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "File system \"%s\" has wrong type for extended boot loader partition.", node);
