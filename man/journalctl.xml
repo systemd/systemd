@@ -409,6 +409,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--truncate</option></term>
+
+        <listitem><para>Truncate each message so that only the first line is displayed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--utc</option></term>
 
         <listitem><para>Express time in Coordinated Universal Time

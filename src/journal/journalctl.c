@@ -93,6 +93,7 @@ static bool arg_all = false;
 static PagerFlags arg_pager_flags = 0;
 static int arg_lines = ARG_LINES_DEFAULT;
 static bool arg_no_tail = false;
+static bool arg_truncate = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
 static bool arg_boot = false;
@@ -360,6 +361,7 @@ static int help(void) {
                "  -e --pager-end             Immediately jump to the end in the pager\n"
                "  -f --follow                Follow the journal\n"
                "  -n --lines[=INTEGER]       Number of journal entries to show\n"
+               "     --truncate              Truncate entries by first newline character\n"
                "     --no-tail               Show all lines, even in follow mode\n"
                "  -r --reverse               Show the newest entries first\n"
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
@@ -452,6 +454,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RELINQUISH_VAR,
                 ARG_SMART_RELINQUISH_VAR,
                 ARG_ROTATE,
+                ARG_TRUNCATE,
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
@@ -472,6 +475,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",                 no_argument,       NULL, 'l'                      },
                 { "no-full",              no_argument,       NULL, ARG_NO_FULL              },
                 { "lines",                optional_argument, NULL, 'n'                      },
+                { "truncate",             no_argument,       NULL, ARG_TRUNCATE             },
                 { "no-tail",              no_argument,       NULL, ARG_NO_TAIL              },
                 { "new-id128",            no_argument,       NULL, ARG_NEW_ID128            }, /* deprecated */
                 { "quiet",                no_argument,       NULL, 'q'                      },
@@ -533,7 +537,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:su:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -631,6 +635,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_TAIL:
                         arg_no_tail = true;
+                        break;
+
+                case ARG_TRUNCATE:
+                        arg_truncate = true;
                         break;
 
                 case ARG_NEW_ID128:
@@ -2750,6 +2758,7 @@ int main(int argc, char *argv[]) {
                                 colors_enabled() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG |
                                 arg_utc * OUTPUT_UTC |
+                                arg_truncate * OUTPUT_TRUNCATE |
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = show_journal_entry(stdout, j, arg_output, 0, flags,
