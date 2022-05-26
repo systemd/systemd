@@ -122,9 +122,10 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (EFI_ERROR(status))
                 return status;
 
-        _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(h);
-        if (!root)
-                return EFI_NOT_FOUND;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        status = open_volume(h, &root);
+        if (status != EFI_SUCCESS)
+                return status;
 
         dev_path_str = DevicePathToStr(dp);
         if (!dev_path_str)

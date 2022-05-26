@@ -682,3 +682,22 @@ void beep(UINTN beep_count) {
         }
 }
 #endif
+
+EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
+        EFI_STATUS err;
+        EFI_FILE *file;
+        EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *volume;
+
+        assert(ret_file);
+
+        err = BS->HandleProtocol(device, &FileSystemProtocol, (void **) &volume);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        err = volume->OpenVolume(volume, &file);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_file = file;
+        return EFI_SUCCESS;
+}

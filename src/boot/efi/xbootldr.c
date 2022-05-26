@@ -247,17 +247,17 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
         assert(ret_root_dir);
 
         err = find_device(device, &partition_path);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         EFI_DEVICE_PATH *dp = partition_path;
         err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
-        root_dir = LibOpenRoot(new_device);
-        if (!root_dir)
-                return EFI_NOT_FOUND;
+        err = open_volume(new_device, &root_dir);
+        if (err != EFI_SUCCESS)
+                return err;
 
         *ret_device = new_device;
         *ret_root_dir = root_dir;
