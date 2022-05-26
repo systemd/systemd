@@ -47,6 +47,17 @@ char16_t tolower16(char16_t c) {
         return TOLOWER(c);
 }
 
+#define DEFINE_STRTOLOWER(type, name)     \
+        void name(type *s) {              \
+                if (!s)                   \
+                        return;           \
+                for (; *s; s++)           \
+                        *s = TOLOWER(*s); \
+        }
+
+DEFINE_STRTOLOWER(char, strtolower8);
+DEFINE_STRTOLOWER(char16_t, strtolower16);
+
 #define DEFINE_STRNCASECMP(type, name, tolower)              \
         int name(const type *s1, const type *s2, size_t n) { \
                 if (!s1 || !s2)                              \
