@@ -80,12 +80,13 @@ fi
 
 if [ "${0##*/}" = "installkernel" ]; then
     COMMAND=add
-    # make install doesn't pass any initrds
-    no_initrds=1
+    # kernel's install.sh invokes us as
+    #   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
+    # We ignore the last two arguments.
+    set -- "$1"
 else
     COMMAND="$1"
     [ $# -ge 1 ] && shift
-    no_initrds=0
 fi
 
 if [ "$COMMAND" = "inspect" ]; then
@@ -323,16 +324,8 @@ case "$COMMAND" in
         fi
 
         for f in $PLUGINS; do
-            if [ "$no_initrds" = 1 ]; then
-                # kernel's install.sh invokes us as
-                #   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
-                # We ignore the last two arguments.
-                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $1"
-                "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$1"
-            else
-                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $*"
-                "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
-            fi
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $*"
+            "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
 
             err=$?
             [ $err -eq $skip_remaining ] && break
