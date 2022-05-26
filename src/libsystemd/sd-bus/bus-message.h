@@ -14,20 +14,15 @@
 
 struct bus_container {
         char enclosing;
-        bool need_offsets:1;
 
-        /* Indexes into the signature  string */
+        /* Indexes into the signature string */
         unsigned index, saved_index;
         char *signature;
 
         size_t before, begin, end;
 
-        /* dbus1: pointer to the array size value, if this is a value */
+        /* pointer to the array size value, if this is a value */
         uint32_t *array_size;
-
-        /* gvariant: list of offsets to end of children if this is struct/dict entry/array */
-        size_t *offsets, n_offsets, offset_index;
-        size_t item_size;
 
         char *peeked_signature;
 };
@@ -86,13 +81,8 @@ struct sd_bus_message {
         bool poisoned:1;
         bool sensitive:1;
 
-        /* The first and last bytes of the message */
+        /* The first bytes of the message */
         struct bus_header *header;
-        void *footer;
-
-        /* How many bytes are accessible in the above pointers */
-        size_t header_accessible;
-        size_t footer_accessible;
 
         size_t fields_size;
         size_t body_size;
@@ -148,10 +138,7 @@ static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
 }
 
 static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
-        if (m->header->version == 2)
-                return BUS_MESSAGE_BSWAP64(m, m->header->dbus2.cookie);
-
-        return BUS_MESSAGE_BSWAP32(m, m->header->dbus1.serial);
+        return BUS_MESSAGE_BSWAP32(m, m->header->serial);
 }
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
@@ -169,10 +156,6 @@ static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
 
 static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
         return (uint8_t*) m->header + sizeof(struct bus_header);
-}
-
-static inline bool BUS_MESSAGE_IS_GVARIANT(sd_bus_message *m) {
-        return m->header->version == 2;
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
