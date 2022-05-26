@@ -324,7 +324,7 @@ case "$COMMAND" in
         fi
 
         for f in $PLUGINS; do
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $*"
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS" "$@"
             "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
 
             err=$?
@@ -358,8 +358,8 @@ case "$COMMAND" in
 
         # Assert that ENTRY_DIR_ABS actually matches what we are printing here
         [ "${ENTRY_DIR_ABS%/*}" = "$KERNEL_INSTALL_BOOT_ROOT/$ENTRY_TOKEN" ] || { echo "Assertion didn't pass." >&2; exit 1; }
-
         ;;
+
     *)
         echo "Error: unknown command '$COMMAND'" >&2
         exit 1
