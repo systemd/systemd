@@ -508,18 +508,55 @@ int pkcs11_token_read_x509_certificate(
 }
 #endif
 
+static int pkcs11_token_find_private_key_from_template(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_ATTRIBUTE_PTR template,
+                CK_ULONG templateCount,
+                CK_OBJECT_HANDLE_PTR objects,
+                CK_ULONG objectCount,
+                CK_ULONG *ret_nobjects) {
+
+        CK_RV rv, rv2;
+
+        assert(m);
+        assert(session);
+        assert(template);
+        assert(templateCount);
+        assert(objects);
+        assert(objectCount);
+        assert(ret_nobjects);
+
+        rv = m->C_FindObjectsInit(session, template, templateCount);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to initialize object find call: %s", p11_kit_strerror(rv));
+
+        rv = m->C_FindObjects(session, objects, objectCount, ret_nobjects);
+        rv2 = m->C_FindObjectsFinal(session);
+        if (rv2 != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to finalize object find call: %s", p11_kit_strerror(rv));
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to find objects: %s", p11_kit_strerror(rv));
+
+        return 0;
+}
+
 int pkcs11_token_find_private_key(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
                 P11KitUri *search_uri,
                 CK_OBJECT_HANDLE *ret_object) {
 
-        bool found_decrypt = false, found_class = false, found_key_type = false;
+        bool found_decrypt = false, found_class = false, found_derive = false;
         _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
         CK_ULONG n_attributes, a, n_objects;
         CK_ATTRIBUTE *attributes = NULL;
         CK_OBJECT_HANDLE objects[2];
-        CK_RV rv, rv2;
+        static const CK_BBOOL yes = true;
+        int r;
 
         assert(m);
         assert(search_uri);
@@ -556,96 +593,270 @@ int pkcs11_token_find_private_key(
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_DECRYPT attribute size.");
 
                         memcpy(&b, attributes[a].pValue, sizeof(b));
+
                         if (!b)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Selected PKCS#11 object is not suitable for decryption, refusing.");
+                                log_debug("Selected PKCS#11 object is not suitable for decryption.");
 
-                        found_decrypt = true;
+                        found_decrypt = b;
                         break;
                 }
+                case CKA_DERIVE: {
+                        CK_BBOOL b;
 
-                case CKA_KEY_TYPE: {
-                        CK_KEY_TYPE t;
+                        if (attributes[a].ulValueLen != sizeof(b))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_DERIVE attribute size.");
 
-                        if (attributes[a].ulValueLen != sizeof(t))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_KEY_TYPE attribute size.");
+                        memcpy(&b, attributes[a].pValue, sizeof(b));
 
-                        memcpy(&t, attributes[a].pValue, sizeof(t));
-                        if (t != CKK_RSA)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected PKCS#11 object is not an RSA key, refusing.");
+                        if (!b)
+                                log_debug("Selected PKCS#11 object is not suitable for key derivation.");
 
-                        found_key_type = true;
-                        break;
-                }}
+                        found_derive = b;
+                }};
         }
 
-        if (!found_decrypt || !found_class || !found_key_type) {
-                /* Hmm, let's slightly extend the attribute list we search for */
+        attributes_buffer = new(CK_ATTRIBUTE, n_attributes + !found_class + !(found_decrypt || found_derive));
+        if (!attributes_buffer)
+                return log_oom();
 
-                attributes_buffer = new(CK_ATTRIBUTE, n_attributes + !found_decrypt + !found_class + !found_key_type);
-                if (!attributes_buffer)
-                        return log_oom();
+        memcpy(attributes_buffer, attributes, sizeof(CK_ATTRIBUTE) * n_attributes);
+        attributes = attributes_buffer;
 
-                memcpy(attributes_buffer, attributes, sizeof(CK_ATTRIBUTE) * n_attributes);
+        /* Hmm, let's slightly extend the attribute list we search for */
+        if (!found_class) {
+                static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
 
-                if (!found_decrypt) {
-                        static const CK_BBOOL yes = true;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_DECRYPT,
-                                .pValue = (CK_BBOOL*) &yes,
-                                .ulValueLen = sizeof(yes),
-                        };
-                }
-
-                if (!found_class) {
-                        static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_CLASS,
-                                .pValue = (CK_OBJECT_CLASS*) &class,
-                                .ulValueLen = sizeof(class),
-                        };
-                }
-
-                if (!found_key_type) {
-                        static const CK_KEY_TYPE type = CKK_RSA;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_KEY_TYPE,
-                                .pValue = (CK_KEY_TYPE*) &type,
-                                .ulValueLen = sizeof(type),
-                        };
-                }
-
-                attributes = attributes_buffer;
+                attributes[n_attributes++] = (CK_ATTRIBUTE) {
+                        .type = CKA_CLASS,
+                        .pValue = (CK_OBJECT_CLASS*) &class,
+                        .ulValueLen = sizeof(class),
+                };
         }
 
-        rv = m->C_FindObjectsInit(session, attributes, n_attributes);
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize object find call: %s", p11_kit_strerror(rv));
+        if (!found_decrypt && !found_derive) {
+                /* First we try to search for decryption key */
+                attributes[n_attributes++] = (CK_ATTRIBUTE) {
+                        .type = CKA_DECRYPT,
+                        .pValue = (CK_BBOOL *) &yes,
+                        .ulValueLen = sizeof(yes)
+                };
 
-        rv = m->C_FindObjects(session, objects, ELEMENTSOF(objects), &n_objects);
-        rv2 = m->C_FindObjectsFinal(session);
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to find objects: %s", p11_kit_strerror(rv));
-        if (rv2 != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", p11_kit_strerror(rv));
+                r = pkcs11_token_find_private_key_from_template(m, session, attributes, n_attributes, objects, ELEMENTSOF(objects), &n_objects);
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find private key from template with CKA_DECRYPT");
+
+                if (n_objects != 1) {
+                        if (n_objects > 1)
+                                log_debug("Configured private key URI matches multiple decyption keys, skip.");
+
+                        if (n_objects == 0)
+                                log_debug("Failed to find selected private key suitable for decryption on token, skip.");
+
+                        /* Try again for search for private key suitable for key derivation */
+                        attributes[n_attributes - 1] = (CK_ATTRIBUTE) {
+                                .type = CKA_DERIVE,
+                                .pValue = (CK_BBOOL *) &yes,
+                                .ulValueLen = sizeof(yes)
+                        };
+
+                        r = pkcs11_token_find_private_key_from_template(m, session, attributes, n_attributes, objects, ELEMENTSOF(objects), &n_objects);
+                }
+        } else
+                r = pkcs11_token_find_private_key_from_template(m, session, attributes, n_attributes, objects, ELEMENTSOF(objects), &n_objects);
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to find private key");
+
         if (n_objects == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Failed to find selected private key suitable for decryption on token.");
+                                       "Failed to find selected private key suitable for decryption or derivation on token.");
         if (n_objects > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                       "Configured private key URI matches multiple keys, refusing.");
+                                       "Configured private key URI matches multiple derivation keys, refusing.");
 
         *ret_object = objects[0];
         return 0;
 }
 
-int pkcs11_token_decrypt_data(
+static inline void pkcs11_token_destroy_session_object(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE handle) {
+        assert(m);
+
+        CK_RV rv = m->C_DestroyObject(session, handle);
+        if (rv != CKR_OK)
+                log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to destroy object, ignoring.");
+}
+
+#if HAVE_OPENSSL
+static int pkcs11_token_ecdh_derive_shared_secret(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                EVP_PKEY *peer_key,
+                uint8_t *ret_shared_secret,
+                size_t *ret_shared_secret_len) {
+
+        assert(m);
+        assert(peer_key);
+        assert(ret_shared_secret_len);
+
+        _cleanup_free_ uint8_t *buffer = NULL;
+        size_t shared_secret_len = 0, public_data_len = 0;
+        static const CK_BBOOL yes = CK_TRUE, no = CK_FALSE;
+        CK_OBJECT_HANDLE shared_secret_handle = CK_INVALID_HANDLE;
+        static const CK_OBJECT_CLASS shared_secret_class = CKO_SECRET_KEY;
+        static const CK_KEY_TYPE shared_secret_type = CKK_GENERIC_SECRET;
+        CK_RV rv;
+        CK_ECDH1_DERIVE_PARAMS params = {
+                .kdf = CKD_NULL,
+                .pSharedData = NULL,
+                .ulSharedDataLen = 0,
+        };
+        CK_ATTRIBUTE shared_secret_template[] = {
+                {CKA_TOKEN, (void *)&no, sizeof(no)},
+                {CKA_CLASS, (void *)&shared_secret_class, sizeof(shared_secret_class)},
+                {CKA_KEY_TYPE, (void *)&shared_secret_type, sizeof(shared_secret_type)},
+                {CKA_VALUE_LEN, (void *)&shared_secret_len, sizeof(shared_secret_len)},
+                {CKA_SENSITIVE, (void *)&no, sizeof(no)},
+                {CKA_EXTRACTABLE, (void *)&yes, sizeof(yes)},
+                {CKA_ENCRYPT, (void *)&yes, sizeof(yes)},
+                {CKA_DECRYPT, (void *)&yes, sizeof(yes)}
+        };
+        CK_ATTRIBUTE shared_secret_attr = {
+                .type = CKA_VALUE,
+        };
+        CK_MECHANISM mechanism = {
+                .mechanism = CKM_ECDH1_DERIVE,
+                .pParameter = &params,
+                .ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS)
+        };
+
+        if (EVP_PKEY_base_id(peer_key) != EVP_PKEY_EC)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ECDH peer key is not a EC key");
+
+        /* Curves like secp521r1 will return 521 for EVP_PKEY_bits call,
+         * We need round it up to a size that can hold the generated shared secret */
+        shared_secret_len = (EVP_PKEY_bits(peer_key) + 7) / 8;
+
+        if (!ret_shared_secret)
+                *ret_shared_secret_len = shared_secret_len;
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+        if(EVP_PKEY_set_utf8_string_param(peer_key,
+                                          OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
+                                          OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_UNCOMPRESSED) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                                       "Failed to set \"" OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT "\" to \""
+                                                       OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_UNCOMPRESSED "\"");
+
+        public_data_len = EVP_PKEY_get1_encoded_public_key(peer_key, &buffer);
+        if (len == 0 || buffer == NULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get encoded public key");
+#else
+        EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(peer_key);
+        if (!ec_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Peer key doesn't have associated EC_KEY");
+
+        if (EC_KEY_check_key(ec_key) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "EC_KEY associated with PKEY is not valid");
+
+        public_data_len = EC_POINT_point2oct(EC_KEY_get0_group(ec_key),
+                                             EC_KEY_get0_public_key(ec_key),
+                                             POINT_CONVERSION_UNCOMPRESSED,
+                                             NULL, 0, NULL);
+        if (public_data_len == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine public data size");
+
+        buffer = malloc(public_data_len);
+        if(!buffer)
+                return log_oom();
+
+        public_data_len = EC_POINT_point2oct(EC_KEY_get0_group(ec_key),
+                                             EC_KEY_get0_public_key(ec_key),
+                                             POINT_CONVERSION_UNCOMPRESSED,
+                                             buffer, public_data_len, NULL);
+        if (public_data_len == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get public key data");
+#endif
+
+        params.pPublicData = buffer;
+        params.ulPublicDataLen = public_data_len;
+
+        rv = m->C_DeriveKey(session, &mechanism, object, shared_secret_template, ELEMENTSOF(shared_secret_template), &shared_secret_handle);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to derive shared secret: %s", p11_kit_strerror(rv));
+
+        rv = m->C_GetAttributeValue(session, shared_secret_handle, &shared_secret_attr, 1);
+        if (rv != CKR_OK) {
+                pkcs11_token_destroy_session_object(m, session, shared_secret_handle);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve shared secret length: %s", p11_kit_strerror(rv));
+        }
+
+        if (shared_secret_attr.ulValueLen != shared_secret_len) {
+                pkcs11_token_destroy_session_object(m, session, shared_secret_handle);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Shared secret length mismatch");
+        }
+
+        shared_secret_attr.pValue = ret_shared_secret;
+
+        rv = m->C_GetAttributeValue(session, shared_secret_handle, &shared_secret_attr, 1);
+        if (rv != CKR_OK) {
+                pkcs11_token_destroy_session_object(m, session, shared_secret_handle);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve shared secret: %s", p11_kit_strerror(rv));
+        }
+
+        *ret_shared_secret_len = shared_secret_len;
+
+        return 0;
+}
+
+static int pkcs11_token_decrypt_data_ec(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const void *encrypted_data,
+                size_t encrypted_data_size,
+                void **ret_decrypted_data,
+                size_t *ret_decrypted_data_size) {
+        assert(m);
+        assert(encrypted_data);
+        assert(encrypted_data_size > 0);
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        uint8_t *shared_secret = NULL;
+        size_t shared_secret_len = 0;
+        int r;
+
+        d2i_PUBKEY(&pkey, (const uint8_t **)encrypted_data, encrypted_data_size);
+        if (!pkey)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to decode encoded SubjectPublicKeyInfo structure");
+
+        r = pkcs11_token_ecdh_derive_shared_secret(m, session, object, pkey, NULL, &shared_secret_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine shared secret length: %m");
+        if (shared_secret_len == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid shared secret length");
+
+        shared_secret = malloc(shared_secret_len);
+        if (!shared_secret)
+                return log_oom();
+
+        r = pkcs11_token_ecdh_derive_shared_secret(m, session, object, pkey, shared_secret, &shared_secret_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive shared secret in token: %m");
+
+        *ret_decrypted_data = shared_secret;
+        *ret_decrypted_data_size = shared_secret_len;
+        return 0;
+}
+#endif
+
+static int pkcs11_token_decrypt_data_rsa(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
                 CK_OBJECT_HANDLE object,
@@ -657,7 +868,7 @@ int pkcs11_token_decrypt_data(
         static const CK_MECHANISM mechanism = {
                  .mechanism = CKM_RSA_PKCS
         };
-        _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
+        CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
 
@@ -691,10 +902,57 @@ int pkcs11_token_decrypt_data(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to decrypt key on security token: %s", p11_kit_strerror(rv));
 
+        *ret_decrypted_data = dbuffer;
+        *ret_decrypted_data_size = dbuffer_size;
+        return 0;
+}
+
+int pkcs11_token_decrypt_data(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const void *encrypted_data,
+                size_t encrypted_data_size,
+                void **ret_decrypted_data,
+                size_t *ret_decrypted_data_size) {
+
+        _cleanup_(erase_and_freep) void *decrypted_data = NULL;
+        size_t decrypted_data_size = 0;
+        CK_KEY_TYPE key_type;
+        CK_ATTRIBUTE key_type_template = {
+                .type = CKA_KEY_TYPE,
+                .pValue = &key_type,
+                .ulValueLen = sizeof(key_type)
+        };
+        CK_RV rv;
+        int r;
+
+        assert(m);
+        assert(encrypted_data);
+        assert(encrypted_data_size > 0);
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
+
+        rv = m->C_GetAttributeValue(session, object, &key_type_template, 1);
+        if (rv != CKR_OK)
+                return log_error_errno(EIO, "Failed to retrieve private key type");
+
+        if (key_type == CKK_RSA)
+                r = pkcs11_token_decrypt_data_rsa(m, session, object, encrypted_data, encrypted_data_size, &decrypted_data, &decrypted_data_size);
+#if HAVE_OPENSSL
+        else if (key_type == CKK_EC)
+                r = pkcs11_token_decrypt_data_ec(m, session, object, encrypted_data, encrypted_data_size, &decrypted_data, &decrypted_data_size);
+#endif
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported private key type");
+
+        if (r < 0)
+                return r;
+
         log_info("Successfully decrypted key with security token.");
 
-        *ret_decrypted_data = TAKE_PTR(dbuffer);
-        *ret_decrypted_data_size = dbuffer_size;
+        *ret_decrypted_data = TAKE_PTR(decrypted_data);
+        *ret_decrypted_data_size = decrypted_data_size;
         return 0;
 }
 
