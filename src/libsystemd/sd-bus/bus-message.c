@@ -506,7 +506,9 @@ int bus_message_from_header(
                 m->fields_size = BUS_MESSAGE_BSWAP32(m, h->dbus1.fields_size);
                 m->body_size = BUS_MESSAGE_BSWAP32(m, h->dbus1.body_size);
 
-                if (sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size != message_size)
+                assert(message_size >= sizeof(struct bus_header));
+                if (ALIGN8(m->fields_size) > message_size - sizeof(struct bus_header)) ||
+                    m->body_size != message_size - sizeof(struct bus_header) - ALIGN8(m->fields_size))
                         return -EBADMSG;
         }
 
@@ -3068,8 +3070,14 @@ static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align,
         assert(align > 0);
 
         start = ALIGN_TO((size_t) *rindex, align);
-        end = start + nbytes;
+        if (start > sz)
+                return -EBADMSG;
 
+        /* Avoid overflow below */
+        if (nbytes > SIZE_MAX - start)
+                return -EBADMSG;
+
+        end = start + nbytes;
         if (end > sz)
                 return -EBADMSG;
 
@@ -3273,9 +3281,16 @@ static int message_peek_body(
         assert(align > 0);
 
         start = ALIGN_TO((size_t) *rindex, align);
-        padding = start - *rindex;
-        end = start + nbytes;
+        if (start > m->user_body_size)
+                return -EBADMSG;
 
+        padding = start - *rindex;
+
+        /* Avoid overflow below */
+        if (nbytes > SIZE_MAX - start)
+                return -EBADMSG;
+
+        end = start + nbytes;
         if (end > m->user_body_size)
                 return -EBADMSG;
 
