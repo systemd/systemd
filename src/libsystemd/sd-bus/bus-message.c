@@ -3068,6 +3068,11 @@ static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align,
         assert(align > 0);
 
         start = ALIGN_TO((size_t) *rindex, align);
+
+        /* Avoid overflow below */
+        if (nbytes >= SIZE_MAX - start)
+                return -EBADMSG;
+
         end = start + nbytes;
 
         if (end > sz)
