@@ -1940,8 +1940,9 @@ static void config_entry_add_osx(Config *config) {
                 return;
 
         for (UINTN i = 0; i < n_handles; i++) {
-                _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
-                if (!root)
+                _cleanup_(file_closep) EFI_FILE *root = NULL;
+
+                if (open_volume(handles[i], &root) != EFI_SUCCESS)
                         continue;
 
                 if (config_entry_add_loader_auto(
@@ -2242,7 +2243,7 @@ static void config_load_xbootldr(
         assert(device);
 
         err = xbootldr_open(device, &new_device, &root_dir);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return;
 
         config_entry_add_unified(config, new_device, root_dir);
@@ -2337,9 +2338,10 @@ static EFI_STATUS image_start(
         if (entry->call)
                 (void) entry->call();
 
-        _cleanup_(file_closep) EFI_FILE *image_root = LibOpenRoot(entry->device);
-        if (!image_root)
-                return log_error_status_stall(EFI_DEVICE_ERROR, L"Error opening root path.");
+        _cleanup_(file_closep) EFI_FILE *image_root = NULL;
+        err = open_volume(entry->device, &image_root);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error opening root path: %r", err);
 
         path = FileDevicePath(entry->device, entry->loader);
         if (!path)
@@ -2595,9 +2597,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
-        root_dir = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root_dir)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.", EFI_LOAD_ERROR);
+        err = open_volume(loaded_image->DeviceHandle, &root_dir);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Unable to open root directory: %r", err);
 
         if (secure_boot_enabled() && shim_loaded()) {
                 err = security_policy_install();
