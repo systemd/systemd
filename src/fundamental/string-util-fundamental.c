@@ -124,8 +124,8 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
          *  (newer) 124-1
          */
 
-        if (isempty(a) || isempty(b))
-                return CMP(strcmp_ptr(a, b), 0);
+        a = strempty(a);
+        b = strempty(b);
 
         for (;;) {
                 const sd_char *aa, *bb;
@@ -150,7 +150,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                 }
 
                 /* If at least one string reaches the end, then longer is newer.
-                 * Note that except for '~' prefixed segments, a string has more segments is newer.
+                 * Note that except for '~' prefixed segments, a string which has more segments is newer.
                  * So, this check must be after the '~' check. */
                 if (*a == '\0' || *b == '\0')
                         return CMP(*a, *b);
@@ -187,18 +187,23 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                 }
 
                 if (is_digit(*a) || is_digit(*b)) {
-                        /* Skip leading '0', to make 00123 equivalent to 123. */
-                        while (*a == '0')
-                                a++;
-                        while (*b == '0')
-                                b++;
-
                         /* Find the leading numeric segments. One may be an empty string. So,
                          * numeric segments are always newer than alpha segments. */
                         for (aa = a; is_digit(*aa); aa++)
                                 ;
                         for (bb = b; is_digit(*bb); bb++)
                                 ;
+
+                        /* Check if one of the strings was empty, but the other not. */
+                        r = CMP(a != aa, b != bb);
+                        if (r != 0)
+                                return r;
+
+                        /* Skip leading '0', to make 00123 equivalent to 123. */
+                        while (*a == '0')
+                                a++;
+                        while (*b == '0')
+                                b++;
 
                         /* To compare numeric segments without parsing their values, first compare the
                          * lengths of the segments. Eg. 12345 vs 123, longer is newer. */
@@ -228,7 +233,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
                 }
 
-                /* The current segments are equivalent. Let's compare the next one. */
+                /* The current segments are equivalent. Let's move to the next one. */
                 a = aa;
                 b = bb;
         }
