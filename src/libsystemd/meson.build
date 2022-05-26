@@ -222,7 +222,8 @@ tests += [
           libglib,
           libgobject,
           libgio,
-          libdbus]],
+          libdbus,
+          libm]],
 
         [files('sd-bus/test-bus-signature.c'),
          [],
