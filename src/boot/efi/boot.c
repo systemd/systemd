@@ -1656,8 +1656,8 @@ static void config_load_entries(
         }
 }
 
-static INTN config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
-        INTN r;
+static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
+        int r;
 
         assert(a);
         assert(b);
