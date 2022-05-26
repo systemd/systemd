@@ -515,8 +515,9 @@ evdev:input:b0003v0458p0708*
 # Google
 ###########################################################
 
-# Google Hangouts Meet speakermic
+# Google Hangouts Meet speakermic and Google Meet speakermic
 evdev:input:b0003v18D1p8001*
+evdev:input:b0003v18D1p8007*
  KEYBOARD_KEY_b002f=reserved                            # Disable micmute key
 
 ###########################################################
