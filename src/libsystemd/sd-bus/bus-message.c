@@ -22,6 +22,7 @@
 #include "utf8.h"
 
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
+static int message_parse_fields(sd_bus_message *m);
 
 static void *adjust_pointer(const void *p, void *old_base, size_t sz, void *new_base) {
 
@@ -413,7 +414,7 @@ static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
         }
 }
 
-int bus_message_from_header(
+static int message_from_header(
                 sd_bus *bus,
                 void *header,
                 size_t header_accessible,
@@ -543,7 +544,7 @@ int bus_message_from_malloc(
         size_t sz;
         int r;
 
-        r = bus_message_from_header(
+        r = message_from_header(
                         bus,
                         buffer, length, /* in this case the initial bytes and the final bytes are the same */
                         buffer, length,
@@ -567,7 +568,7 @@ int bus_message_from_malloc(
         m->iovec = m->iovec_fixed;
         m->iovec[0] = IOVEC_MAKE(buffer, length);
 
-        r = bus_message_parse_fields(m);
+        r = message_parse_fields(m);
         if (r < 0)
                 return r;
 
@@ -5162,7 +5163,7 @@ static int message_skip_fields(
         }
 }
 
-int bus_message_parse_fields(sd_bus_message *m) {
+static int message_parse_fields(sd_bus_message *m) {
         size_t ri;
         int r;
         uint32_t unix_fds = 0;
