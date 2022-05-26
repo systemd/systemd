@@ -12,10 +12,8 @@ TEST_FORCE_NEWIMAGE=1
 
 PART_UUID="deadbeef-dead-dead-beef-000000000000"
 DM_NAME="test24_varcrypt"
-# Mount the keyfile only in initrd (hence rd.luks.key), since it resides on
-# the rootfs and we would get a (harmless) error when trying to mount it after
-# switching root (since rootfs is already mounted)
-KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME rd.luks.key=$PART_UUID=/etc/varkey:LABEL=systemd_boot"
+KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"
 
 check_result_qemu() {
     local ret=1
@@ -57,7 +55,13 @@ test_create_image() {
     install_dmevent
     generate_module_dependencies
 
-    echo -n test >"$initdir/etc/varkey"
+    # Create a keydev
+    dd if=/dev/zero of="${STATEDIR:?}/keydev.img" bs=1M count=16
+    mkfs.ext4 -L varcrypt_keydev "$STATEDIR/keydev.img"
+    mkdir -p "$STATEDIR/keydev"
+    mount "$STATEDIR/keydev.img" "$STATEDIR/keydev"
+    echo -n test >"$STATEDIR/keydev/keyfile"
+    umount "$STATEDIR/keydev"
 
     cat >>"$initdir/etc/fstab" <<EOF
 /dev/mapper/$DM_NAME    /var    ext4    defaults 0 1
