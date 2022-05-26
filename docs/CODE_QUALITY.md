@@ -56,9 +56,12 @@ available functionality:
     in regular intervals. The reports are available
     [online](https://scan.coverity.com/projects/systemd).
 
-11. [oss-fuzz](https://oss-fuzz.com/) is continuously fuzzing the
+11. [OSS-Fuzz](https://github.com/google/oss-fuzz) is continuously fuzzing the
     codebase. Reports are available
-    [online](https://oss-fuzz.com/v2/testcases?project=systemd).
+    [online](https://oss-fuzz.com/testcases?project=systemd&open=yes).
+    It also builds
+    [coverage reports](https://oss-fuzz.com/coverage-report/job/libfuzzer_asan_systemd/latest)
+    daily.
 
 12. Our tree includes `.editorconfig`, `.dir-locals.el` and `.vimrc` files, to
     ensure that editors follow the right indentiation styles automatically.
