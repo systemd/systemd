@@ -57,7 +57,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
-int user_start(User *u);
+int user_start(User *u, bool need_user_instance);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
 UserState user_get_state(User *u);
