@@ -73,7 +73,7 @@ def run(args):
 
         logger.info("waiting for reboot")
 
-        console.expect('H login: ', 10)
+        console.expect('H login: ', 30)
         console.sendline('root')
         console.expect('bash.*# ', 10)
 
