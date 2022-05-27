@@ -5,6 +5,8 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "errno.h"
+#include "hwdb-internal.h"
+#include "nulstr-util.h"
 #include "tests.h"
 
 TEST(failed_enumerate) {
@@ -50,6 +52,24 @@ TEST(basic_enumerate) {
         }
 
         assert_se(len1 == len2);
+}
+
+TEST(sd_hwdb_new_from_path) {
+        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        const char *hwdb_bin_path = NULL;
+        int r;
+
+        assert_se(sd_hwdb_new_from_path(NULL, &hwdb) == -EINVAL);
+        assert_se(sd_hwdb_new_from_path("", &hwdb) == -EINVAL);
+        assert_se(sd_hwdb_new_from_path("/path/that/should/not/exist", &hwdb) < 0);
+
+        NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
+                r = sd_hwdb_new_from_path(hwdb_bin_path, &hwdb);
+                if (r >= 0)
+                        break;
+        }
+
+        assert_se(r >= 0);
 }
 
 static int intro(void) {

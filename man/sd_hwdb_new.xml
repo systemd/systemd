@@ -16,6 +16,7 @@
 
   <refnamediv>
     <refname>sd_hwdb_new</refname>
+    <refname>sd_hwdb_new_from_path</refname>
     <refname>sd_hwdb_ref</refname>
     <refname>sd_hwdb_unref</refname>
 
@@ -28,6 +29,12 @@
 
       <funcprototype>
         <funcdef>int <function>sd_hwdb_new</function></funcdef>
+        <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_hwdb_new_from_path</function></funcdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>sd_hwdb **<parameter>hwdb</parameter></paramdef>
       </funcprototype>
 
@@ -50,6 +57,9 @@
     database. Upon initialization, the file containing the binary representation of the hardware database is
     located and opened. The new object is returned in <parameter>hwdb</parameter>.</para>
 
+    <para><function>sd_hwdb_new_from_path()</function> may be used to specify the path from which the binary
+    hardware database should be opened.</para>
+
     <para>The <parameter>hwdb</parameter> object is reference counted. <function>sd_hwdb_ref()</function> and
     <function>sd_hwdb_unref()</function> may be used to get a new reference or destroy an existing reference
     to an object. The caller must dispose of the reference acquired with <function>sd_hwdb_new()</function>
@@ -65,8 +75,8 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_hwdb_new()</function> returns a non-negative integer. On
-    failure, it returns a negative errno-style error code.</para>
+    <para>On success, <function>sd_hwdb_new()</function> and <function>sd_hwdb_new_from_path()</function>
+    return a non-negative integer. On failure, a negative errno-style error code is returned.</para>
 
     <para><function>sd_hwdb_ref()</function> always returns the argument.
     </para>
