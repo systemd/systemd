@@ -1041,7 +1041,6 @@ static int manager_startup(Manager *m) {
         int r;
         Seat *seat;
         Session *session;
-        User *user;
         Button *button;
         Inhibitor *inhibitor;
 
@@ -1118,9 +1117,7 @@ static int manager_startup(Manager *m) {
         HASHMAP_FOREACH(seat, m->seats)
                 (void) seat_start(seat);
 
-        HASHMAP_FOREACH(user, m->users)
-                (void) user_start(user);
-
+        /* Users are started by respective sessions */
         HASHMAP_FOREACH(session, m->sessions)
                 (void) session_start(session, NULL, NULL);
 
