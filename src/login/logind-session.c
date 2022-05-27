@@ -665,12 +665,12 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                                 STRV_MAKE(s->user->runtime_dir_service,
-                                          s->user->service),
+                                          s->class != SESSION_BACKGROUND ? s->user->service : NULL),
                                 /* And order us after some more */
                                 STRV_MAKE("systemd-logind.service",
                                           "systemd-user-sessions.service",
                                           s->user->runtime_dir_service,
-                                          s->user->service),
+                                          s->class != SESSION_BACKGROUND ? s->user->service : NULL),
                                 user_record_home_directory(s->user->user_record),
                                 properties,
                                 error,
@@ -701,7 +701,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->started)
                 return 0;
 
-        r = user_start(s->user);
+        r = user_start(s->user, s->class != SESSION_BACKGROUND);
         if (r < 0)
                 return r;
 
