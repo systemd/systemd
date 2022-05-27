@@ -194,6 +194,7 @@ efi_cflags = cc.get_supported_arguments(
         '-isystem', efi_incdir,
         '-isystem', efi_incdir / efi_arch[1],
         '-I', fundamental_path,
+        '-I', meson.current_source_dir(),
         '-DSD_BOOT',
         '-DGNU_EFI_USE_MS_ABI',
         '-include', efi_config_h,
@@ -331,6 +332,7 @@ efi_headers = files(
         'devicetree.h',
         'disk.h',
         'drivers.h',
+        'efi-string.h',
         'graphics.h',
         'initrd.h',
         'linux.h',
@@ -350,6 +352,7 @@ common_sources = files(
         'assert.c',
         'devicetree.c',
         'disk.c',
+        'efi-string.c',
         'graphics.c',
         'initrd.c',
         'measure.c',
@@ -380,18 +383,22 @@ else
         stub_sources += files('linux.c')
 endif
 
+tests += [
+        [files('test-efi-string.c', 'efi-string.c')],
+]
+
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
         tests += [
-                [files('test-bcd.c'),
+                [files('test-bcd.c', 'efi-string.c'),
                  [],
                  [libzstd],
                  [],
                  'HAVE_ZSTD'],
         ]
         fuzzers += [
-                [files('fuzz-bcd.c')],
+                [files('fuzz-bcd.c', 'efi-string.c')],
         ]
 endif
 
