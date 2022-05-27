@@ -34,7 +34,7 @@ enum {
         _SD_BUS_VTABLE_WRITABLE_PROPERTY = 'W'
 };
 
-enum {
+__extension__ enum {
         SD_BUS_VTABLE_DEPRECATED                   = 1ULL << 0,
         SD_BUS_VTABLE_HIDDEN                       = 1ULL << 1,
         SD_BUS_VTABLE_UNPRIVILEGED                 = 1ULL << 2,
@@ -51,7 +51,7 @@ enum {
 #define SD_BUS_VTABLE_CAPABILITY(x) ((uint64_t) (((x)+1) & 0xFFFF) << 40)
 
 enum {
-        _SD_BUS_VTABLE_PARAM_NAMES     = 1 << 0,
+        _SD_BUS_VTABLE_PARAM_NAMES     = 1 << 0
 };
 
 extern const unsigned sd_bus_object_vtable_format;
@@ -67,8 +67,8 @@ struct sd_bus_vtable {
         /* Please do not initialize this structure directly, use the
          * macros below instead */
 
-        uint8_t type:8;
-        uint64_t flags:56;
+        __extension__ uint8_t type:8;
+        __extension__ uint64_t flags:56;
         union {
                 struct {
                         size_t element_size;
