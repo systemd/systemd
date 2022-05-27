@@ -31,7 +31,7 @@ _SD_BEGIN_DECLARATIONS;
 enum {
         SD_IPV4ACD_EVENT_STOP           = 0,
         SD_IPV4ACD_EVENT_BIND           = 1,
-        SD_IPV4ACD_EVENT_CONFLICT       = 2,
+        SD_IPV4ACD_EVENT_CONFLICT       = 2
 };
 
 typedef struct sd_ipv4acd sd_ipv4acd;
@@ -50,7 +50,7 @@ int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *interface_name);
 int sd_ipv4acd_get_ifname(sd_ipv4acd *acd, const char **ret);
 int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address);
 int sd_ipv4acd_is_running(sd_ipv4acd *acd);
-int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts);
+__extension__ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts);
 int sd_ipv4acd_stop(sd_ipv4acd *acd);
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd);
 sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd);
