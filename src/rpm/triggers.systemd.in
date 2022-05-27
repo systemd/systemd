@@ -72,32 +72,17 @@ end
 -- This script will process files installed in {{SYSUSERS_DIR}} to create
 -- specified users automatically. The priority is set such that it
 -- will run before the tmpfiles file trigger.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.execp("systemd-sysusers"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("systemd-sysusers"))
 
 %transfiletriggerin -P 1000700 udev -p <lua> -- {{UDEV_HWDB_DIR}}
 -- This script will automatically invoke hwdb update if files have been
 -- installed or updated in {{UDEV_HWDB_DIR}}.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.execp("systemd-hwdb", "update"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("systemd-hwdb", "update"))
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{SYSTEMD_CATALOG_DIR}}
 -- This script will automatically invoke journal catalog update if files
 -- have been installed or updated in {{SYSTEMD_CATALOG_DIR}}.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.execp("journalctl", "--update-catalog"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("journalctl", "--update-catalog"))
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{BINFMT_DIR}}
 -- This script will automatically apply binfmt rules if files have been
@@ -115,25 +100,13 @@ end
 -- This script will process files installed in {{TMPFILES_DIR}} to create
 -- tmpfiles automatically. The priority is set such that it will run
 -- after the sysusers file trigger, but before any other triggers.
-if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.execp("systemd-tmpfiles", "--create"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
-end
+assert(rpm.execute("systemd-tmpfiles", "--create"))
 
 %transfiletriggerin -P 1000600 udev -p <lua> -- {{UDEV_RULES_DIR}}
 -- This script will automatically update udev with new rules if files
 -- have been installed or updated in {{UDEV_RULES_DIR}}.
 if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.execp("udevadm", "control", "--reload"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+    assert(rpm.execute("udevadm", "control", "--reload"))
 end
 
 %transfiletriggerin -P 1000500 -p <lua> -- {{SYSCTL_DIR}}
