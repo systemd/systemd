@@ -507,8 +507,7 @@ int bus_message_from_header(
                 m->body_size = BUS_MESSAGE_BSWAP32(m, h->dbus1.body_size);
 
                 assert(message_size >= sizeof(struct bus_header));
-                if (m->fields_size > message_size - sizeof(struct bus_header) ||
-                    ALIGN8(m->fields_size) > message_size - sizeof(struct bus_header) ||
+                if (ALIGN8(m->fields_size) > message_size - sizeof(struct bus_header) ||
                     m->body_size != message_size - sizeof(struct bus_header) - ALIGN8(m->fields_size))
                         return -EBADMSG;
         }
