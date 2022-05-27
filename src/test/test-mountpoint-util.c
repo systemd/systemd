@@ -54,8 +54,6 @@ TEST(mnt_id) {
         void *k;
         int r;
 
-        log_info("/* %s */", __func__);
-
         assert_se(f = fopen("/proc/self/mountinfo", "re"));
         assert_se(h = hashmap_new(&trivial_hash_ops));
 
