@@ -36,7 +36,7 @@ enum {
         SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE             = 10,
         SD_DHCP6_CLIENT_EVENT_RETRANS_MAX               = 11,
         SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE                = 12,
-        SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST       = 13,
+        SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST       = 13
 };
 
 /* https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-2 */
@@ -183,7 +183,7 @@ enum {
         SD_DHCP6_OPTION_SLAP_QUAD                  = 140, /* RFC 8948 */
         SD_DHCP6_OPTION_V6_DOTS_RI                 = 141, /* RFC 8973 */
         SD_DHCP6_OPTION_V6_DOTS_ADDRESS            = 142, /* RFC 8973 */
-        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143, /* RFC 6153 */
+        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143 /* RFC 6153 */
         /* option codes 144-65535 are unassigned */
 };
 

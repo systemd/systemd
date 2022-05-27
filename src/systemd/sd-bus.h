@@ -55,7 +55,7 @@ typedef struct {
 
 /* Flags */
 
-enum {
+__extension__ enum {
         SD_BUS_CREDS_PID                = 1ULL << 0,
         SD_BUS_CREDS_TID                = 1ULL << 1,
         SD_BUS_CREDS_PPID               = 1ULL << 2,
@@ -94,15 +94,15 @@ enum {
         _SD_BUS_CREDS_ALL               = (1ULL << 34) -1
 };
 
-enum {
+__extension__ enum {
         SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
         SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
         SD_BUS_NAME_QUEUE             = 1ULL << 2
 };
 
-enum {
+__extension__ enum {
         SD_BUS_MESSAGE_DUMP_WITH_HEADER  = 1ULL << 0,
-        SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1,
+        SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1
 };
 
 /* Callbacks */

@@ -40,8 +40,8 @@ enum {
         SD_DHCP_CLIENT_EVENT_EXPIRED            = 3,
         SD_DHCP_CLIENT_EVENT_RENEW              = 4,
         SD_DHCP_CLIENT_EVENT_SELECTING          = 5,
-        SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE  = 6, /* Sent when we have not received a reply after the first few attempts.
-                                                      * The client may want to start acquiring link-local addresses. */
+        SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE  = 6 /* Sent when we have not received a reply after the first few attempts.
+                                                     * The client may want to start acquiring link-local addresses. */
 };
 
 /* https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#options */
@@ -212,13 +212,13 @@ enum {
         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE = 249, /* [RFC7844] */
         SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY    = 252, /* [RFC7844] */
         SD_DHCP_OPTION_PRIVATE_LAST                   = 254,
-        SD_DHCP_OPTION_END                            = 255, /* [RFC2132] */
+        SD_DHCP_OPTION_END                            = 255 /* [RFC2132] */
 };
 
 /* Suboptions for SD_DHCP_OPTION_RELAY_AGENT_INFORMATION option */
 enum {
         SD_DHCP_RELAY_AGENT_CIRCUIT_ID             = 1,
-        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2,
+        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2
 };
 
 typedef struct sd_dhcp_client sd_dhcp_client;
@@ -256,14 +256,14 @@ int sd_dhcp_client_set_client_id(
                 uint8_t type,
                 const uint8_t *data,
                 size_t data_len);
-int sd_dhcp_client_set_iaid_duid(
+__extension__ int sd_dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
-int sd_dhcp_client_set_iaid_duid_llt(
+__extension__ int sd_dhcp_client_set_iaid_duid_llt(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,

@@ -32,7 +32,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_dhcp_server sd_dhcp_server;
 
 enum {
-        SD_DHCP_SERVER_EVENT_LEASE_CHANGED                      = 1 << 0,
+        SD_DHCP_SERVER_EVENT_LEASE_CHANGED                      = 1 << 0
 };
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
