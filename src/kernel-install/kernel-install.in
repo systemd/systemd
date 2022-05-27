@@ -336,7 +336,7 @@ case "$COMMAND" in
 
             err=$?
             [ $err -eq $skip_remaining ] && break
-            ret=$(( ret + err ))
+            [ $err -ne 0 ] && exit $err
         done
         ;;
 
@@ -346,7 +346,7 @@ case "$COMMAND" in
             "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
             err=$?
             [ $err -eq $skip_remaining ] && break
-            ret=$(( ret + err ))
+            [ $err -ne 0 ] && exit $err
         done
 
         if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
