@@ -86,6 +86,9 @@ foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
                              '-Wall',
                              '-Wextra',
                              '-Werror',
+                             '-pedantic',
+                             '-Wno-long-long',
+                             '-Wno-variadic-macros',
                              '-include', meson.current_source_dir() / header,
                              '-o/dev/null',
                              '/dev/null'])
