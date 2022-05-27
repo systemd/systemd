@@ -1330,7 +1330,7 @@ static void *message_extend_body(
         if (m->poisoned)
                 return NULL;
 
-        start_body = ALIGN_TO((size_t) m->body_size, align);
+        start_body = ALIGN_TO(m->body_size, align);
         end_body = start_body + sz;
 
         padding = start_body - m->body_size;
