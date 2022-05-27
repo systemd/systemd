@@ -32,14 +32,14 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
-typedef enum sd_lldp_rx_event_t {
+__extension__ typedef enum sd_lldp_rx_event_t {
         SD_LLDP_RX_EVENT_ADDED,
         SD_LLDP_RX_EVENT_REMOVED,
         SD_LLDP_RX_EVENT_UPDATED,
         SD_LLDP_RX_EVENT_REFRESHED,
         _SD_LLDP_RX_EVENT_MAX,
         _SD_LLDP_RX_EVENT_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(LLDP_RX_EVENT),
+        _SD_ENUM_FORCE_S64(LLDP_RX_EVENT)
 } sd_lldp_rx_event_t;
 
 typedef void (*sd_lldp_rx_callback_t)(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata);

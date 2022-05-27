@@ -31,13 +31,13 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_lldp_tx sd_lldp_tx;
 
-typedef enum sd_lldp_multicast_mode_t {
+__extension__ typedef enum sd_lldp_multicast_mode_t {
         SD_LLDP_MULTICAST_MODE_NEAREST_BRIDGE,
         SD_LLDP_MULTICAST_MODE_NON_TPMR_BRIDGE,
         SD_LLDP_MULTICAST_MODE_CUSTOMER_BRIDGE,
         _SD_LLDP_MULTICAST_MODE_MAX,
         _SD_LLDP_MULTICAST_MODE_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(LLDP_TX_MODE),
+        _SD_ENUM_FORCE_S64(LLDP_TX_MODE)
 } sd_lldp_multicast_mode_t;
 
 int sd_lldp_tx_new(sd_lldp_tx **ret);

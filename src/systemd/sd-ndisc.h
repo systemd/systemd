@@ -42,25 +42,25 @@ enum {
         SD_NDISC_OPTION_RDNSS              = 25,
         SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
         SD_NDISC_OPTION_DNSSL              = 31,
-        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
+        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
 enum {
         SD_NDISC_PREFERENCE_LOW    = 3U,
         SD_NDISC_PREFERENCE_MEDIUM = 0U,
-        SD_NDISC_PREFERENCE_HIGH   = 1U,
+        SD_NDISC_PREFERENCE_HIGH   = 1U
 };
 
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_ndisc_router sd_ndisc_router;
 
-typedef enum sd_ndisc_event_t {
+__extension__ typedef enum sd_ndisc_event_t {
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
         _SD_NDISC_EVENT_MAX,
         _SD_NDISC_EVENT_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(NDISC_EVENT),
+        _SD_ENUM_FORCE_S64(NDISC_EVENT)
 } sd_ndisc_event_t;
 
 typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata);
