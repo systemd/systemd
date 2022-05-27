@@ -4,8 +4,9 @@
 
 import argparse
 import logging
-import pexpect
 import sys
+
+import pexpect
 
 
 def run(args):
@@ -21,7 +22,7 @@ def run(args):
     if args.verbose:
         console.logfile = sys.stdout
 
-    logger.debug("child pid %d" % console.pid)
+    logger.debug("child pid %d", console.pid)
 
     try:
         logger.info("waiting for login prompt")
@@ -88,13 +89,12 @@ def run(args):
         ret = 0
     except Exception as e:
         logger.error(e)
-        logger.info("killing child pid %d" % console.pid)
+        logger.info("killing child pid %d", console.pid)
         console.terminate()
 
     return ret
 
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='test logind shutdown feature')
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose")
     parser.add_argument("command", help="command to run")
@@ -109,6 +109,9 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=level)
 
-    sys.exit(run(args))
+    return run(args)
+
+if __name__ == '__main__':
+    sys.exit(main())
 
 # vim: sw=4 et
