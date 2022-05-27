@@ -290,6 +290,89 @@ TEST(foreach_pointer) {
         assert_se(k == 11);
 }
 
+TEST(align) {
+        assert_se(ALIGN4((size_t) 0) == 0);
+        assert_se(ALIGN4((size_t) 1) == 4);
+        assert_se(ALIGN4((size_t) 2) == 4);
+        assert_se(ALIGN4((size_t) 3) == 4);
+        assert_se(ALIGN4((size_t) 4) == 4);
+        assert_se(ALIGN4((size_t) 5) == 8);
+        assert_se(ALIGN4((size_t) SIZE_MAX-4) == SIZE_MAX-3);
+        assert_se(ALIGN4((size_t) SIZE_MAX-3) == SIZE_MAX-3);
+        assert_se(ALIGN4((size_t) SIZE_MAX-2) == SIZE_MAX);
+        assert_se(ALIGN4((size_t) SIZE_MAX-1) == SIZE_MAX);
+        assert_se(ALIGN4((size_t) SIZE_MAX) == SIZE_MAX);
+
+        assert_se(ALIGN4((unsigned) 0) == 0);
+        assert_se(ALIGN4((unsigned) 1) == 4);
+        assert_se(ALIGN4((unsigned) 2) == 4);
+        assert_se(ALIGN4((unsigned) 3) == 4);
+        assert_se(ALIGN4((unsigned) 4) == 4);
+        assert_se(ALIGN4((unsigned) 5) == 8);
+        assert_se(ALIGN4((unsigned) UINT_MAX-4) == UINT_MAX-3);
+        assert_se(ALIGN4((unsigned) UINT_MAX-3) == UINT_MAX-3);
+        assert_se(ALIGN4((unsigned) UINT_MAX-2) == UINT_MAX);
+        assert_se(ALIGN4((unsigned) UINT_MAX-1) == UINT_MAX);
+        assert_se(ALIGN4((unsigned) UINT_MAX) == UINT_MAX);
+
+        assert_se(ALIGN4((uint64_t) 0) == 0);
+        assert_se(ALIGN4((uint64_t) 1) == 4);
+        assert_se(ALIGN4((uint64_t) 2) == 4);
+        assert_se(ALIGN4((uint64_t) 3) == 4);
+        assert_se(ALIGN4((uint64_t) 4) == 4);
+        assert_se(ALIGN4((uint64_t) 5) == 8);
+        assert_se(ALIGN4((uint64_t) UINT64_MAX-4) == UINT64_MAX-3);
+        assert_se(ALIGN4((uint64_t) UINT64_MAX-3) == UINT64_MAX-3);
+        assert_se(ALIGN4((uint64_t) UINT64_MAX-2) == UINT64_MAX);
+        assert_se(ALIGN4((uint64_t) UINT64_MAX-1) == UINT64_MAX);
+        assert_se(ALIGN4((uint64_t) UINT64_MAX) == UINT64_MAX);
+
+        assert_se(ALIGN8((size_t) 0) == 0);
+        assert_se(ALIGN8((size_t) 1) == 8);
+        assert_se(ALIGN8((size_t) 2) == 8);
+        assert_se(ALIGN8((size_t) 3) == 8);
+        assert_se(ALIGN8((size_t) 4) == 8);
+        assert_se(ALIGN8((size_t) 8) == 8);
+        assert_se(ALIGN8((size_t) 9) == 16);
+        assert_se(ALIGN8((size_t) SIZE_MAX-8) == SIZE_MAX-7);
+        assert_se(ALIGN8((size_t) SIZE_MAX-7) == SIZE_MAX-7);
+        assert_se(ALIGN8((size_t) SIZE_MAX-4) == SIZE_MAX);
+        assert_se(ALIGN8((size_t) SIZE_MAX-3) == SIZE_MAX);
+        assert_se(ALIGN8((size_t) SIZE_MAX-2) == SIZE_MAX);
+        assert_se(ALIGN8((size_t) SIZE_MAX-1) == SIZE_MAX);
+        assert_se(ALIGN8((size_t) SIZE_MAX) == SIZE_MAX);
+
+        assert_se(ALIGN8((unsigned) 0) == 0);
+        assert_se(ALIGN8((unsigned) 1) == 8);
+        assert_se(ALIGN8((unsigned) 2) == 8);
+        assert_se(ALIGN8((unsigned) 3) == 8);
+        assert_se(ALIGN8((unsigned) 4) == 8);
+        assert_se(ALIGN8((unsigned) 8) == 8);
+        assert_se(ALIGN8((unsigned) 9) == 16);
+        assert_se(ALIGN8((unsigned) UINT_MAX-8) == UINT_MAX-7);
+        assert_se(ALIGN8((unsigned) UINT_MAX-7) == UINT_MAX-7);
+        assert_se(ALIGN8((unsigned) UINT_MAX-4) == UINT_MAX);
+        assert_se(ALIGN8((unsigned) UINT_MAX-3) == UINT_MAX);
+        assert_se(ALIGN8((unsigned) UINT_MAX-2) == UINT_MAX);
+        assert_se(ALIGN8((unsigned) UINT_MAX-1) == UINT_MAX);
+        assert_se(ALIGN8((unsigned) UINT_MAX) == UINT_MAX);
+
+        assert_se(ALIGN8((uint64_t) 0) == 0);
+        assert_se(ALIGN8((uint64_t) 1) == 8);
+        assert_se(ALIGN8((uint64_t) 2) == 8);
+        assert_se(ALIGN8((uint64_t) 3) == 8);
+        assert_se(ALIGN8((uint64_t) 4) == 8);
+        assert_se(ALIGN8((uint64_t) 8) == 8);
+        assert_se(ALIGN8((uint64_t) 9) == 16);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-8) == UINT64_MAX-7);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-7) == UINT64_MAX-7);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-4) == UINT64_MAX);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-3) == UINT64_MAX);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-2) == UINT64_MAX);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX-1) == UINT64_MAX);
+        assert_se(ALIGN8((uint64_t) UINT64_MAX) == UINT64_MAX);
+}
+
 TEST(align_to) {
         assert_se(ALIGN_TO(0, 1) == 0);
         assert_se(ALIGN_TO(1, 1) == 1);
