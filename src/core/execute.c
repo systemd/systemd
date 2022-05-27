@@ -1213,6 +1213,10 @@ static int setup_pam(
 
                 if (getttyname_malloc(STDIN_FILENO, &q) >= 0)
                         tty = strjoina("/dev/", q);
+                else
+                        /* If everything else failed then let's just use value "systemd". This will cause that session
+                         * isn't going to be marked as "background" and user manager will be started. */
+                        tty = "systemd";
         }
 
         if (tty) {
