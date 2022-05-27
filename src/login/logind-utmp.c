@@ -47,6 +47,15 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
         const char *p;
 
         assert(m);
+        assert(m->scheduled_shutdown_action);
+
+        if (IN_SET(m->scheduled_shutdown_action->handle,
+                HANDLE_SUSPEND,
+                HANDLE_HIBERNATE,
+                HANDLE_HYBRID_SLEEP,
+                HANDLE_SUSPEND_THEN_HIBERNATE) &&
+                path_startswith(tty, "/dev/pts/"))
+                return false;
 
         if (!m->scheduled_shutdown_tty)
                 return true;
