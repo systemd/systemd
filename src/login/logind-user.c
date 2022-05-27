@@ -442,7 +442,7 @@ static int user_update_slice(User *u) {
         return 0;
 }
 
-int user_start(User *u) {
+int user_start(User *u, bool need_user_instance) {
         assert(u);
 
         if (u->started && !u->stopping)
@@ -465,7 +465,8 @@ int user_start(User *u) {
         (void) user_update_slice(u);
 
         /* Start user@UID.service */
-        user_start_service(u);
+        if (need_user_instance)
+                user_start_service(u);
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
@@ -498,6 +499,7 @@ static void user_stop_service(User *u, bool force) {
 }
 
 int user_stop(User *u, bool force) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r = 0;
 
         assert(u);
@@ -523,7 +525,11 @@ int user_stop(User *u, bool force) {
                         r = k;
         }
 
-        user_stop_service(u, force);
+        r = manager_unit_is_active(u->manager, u->service, &error);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
+        if (r != 0)
+                user_stop_service(u, force);
 
         u->stopping = true;
 
