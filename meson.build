@@ -351,6 +351,7 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=undef',
         '-Wfloat-equal',
+        '-Wimplicit-fallthrough', # clang
         '-Wimplicit-fallthrough=5',
         '-Winit-self',
         '-Wlogical-op',
