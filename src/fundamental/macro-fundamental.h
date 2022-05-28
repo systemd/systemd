@@ -10,22 +10,41 @@
 #include "types-fundamental.h"
 
 #define _align_(x) __attribute__((__aligned__(x)))
-#define _const_ __attribute__((__const__))
-#define _pure_ __attribute__((__pure__))
-#define _section_(x) __attribute__((__section__(x)))
-#define _packed_ __attribute__((__packed__))
-#define _retain_ __attribute__((__retain__))
-#define _used_ __attribute__((__used__))
-#define _unused_ __attribute__((__unused__))
+#define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
+#define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _const_ __attribute__((__const__))
+#define _deprecated_ __attribute__((__deprecated__))
+#define _destructor_ __attribute__((__destructor__))
+#define _hidden_ __attribute__((__visibility__("hidden")))
 #define _likely_(x) (__builtin_expect(!!(x), 1))
-#define _unlikely_(x) (__builtin_expect(!!(x), 0))
-#if __GNUC__ >= 7
-#define _fallthrough_ __attribute__((__fallthrough__))
-#else
-#define _fallthrough_
-#endif
+#define _malloc_ __attribute__((__malloc__))
 #define _noreturn_ _Noreturn
+#define _packed_ __attribute__((__packed__))
+#define _printf_(a, b) __attribute__((__format__(printf, a, b)))
+#define _public_ __attribute__((__visibility__("default")))
+#define _pure_ __attribute__((__pure__))
+#define _retain_ __attribute__((__retain__))
+#define _section_(x) __attribute__((__section__(x)))
+#define _sentinel_ __attribute__((__sentinel__))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
+#define _unused_ __attribute__((__unused__))
+#define _used_ __attribute__((__used__))
+#define _warn_unused_result_ __attribute__((__warn_unused_result__))
+#define _weak_ __attribute__((__weak__))
+#define _weakref_(x) __attribute__((__weakref__(#x)))
+
+#ifdef __clang__
+#  define _alloc_(...)
+#else
+#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
+#endif
+
+#if __GNUC__ >= 7
+#  define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#  define _fallthrough_
+#endif
 
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)

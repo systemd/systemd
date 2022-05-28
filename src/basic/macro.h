@@ -11,24 +11,6 @@
 
 #include "macro-fundamental.h"
 
-#define _printf_(a, b) __attribute__((__format__(printf, a, b)))
-#ifdef __clang__
-#  define _alloc_(...)
-#else
-#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
-#endif
-#define _sentinel_ __attribute__((__sentinel__))
-#define _destructor_ __attribute__((__destructor__))
-#define _deprecated_ __attribute__((__deprecated__))
-#define _malloc_ __attribute__((__malloc__))
-#define _weak_ __attribute__((__weak__))
-#define _public_ __attribute__((__visibility__("default")))
-#define _hidden_ __attribute__((__visibility__("hidden")))
-#define _weakref_(x) __attribute__((__weakref__(#x)))
-#define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
-#define _alignptr_ __attribute__((__aligned__(sizeof(void*))))
-#define _warn_unused_result_ __attribute__((__warn_unused_result__))
-
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
 #  if defined(__has_feature)
 #    if __has_feature(memory_sanitizer)
