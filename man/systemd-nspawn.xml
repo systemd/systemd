@@ -105,7 +105,7 @@
 
     <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
     processes in them see each other. The PID namespace separation of the two containers is complete and the containers
-    will share very few runtime objects except for the underlying file system. Use
+    will share very few runtime objects except for the underlying file system. Rather use
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>login</command> or <command>shell</command> commands to request an additional login session in a running
     container.</para>
