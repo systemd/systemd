@@ -30,6 +30,48 @@ assert_cc(sizeof(int) == sizeof(UINT32));
 #  error "Unexpected pointer size"
 #endif
 
+static inline void free(void *p) {
+        if (!p)
+                return;
+
+        /* Debugging an invalid free requires trace logging to find the call site or a debugger attached. For
+         * release builds it is not worth the bother to even warn when we cannot even print a call stack. */
+#ifdef EFI_DEBUG
+        assert_se(BS->FreePool(p) == EFI_SUCCESS);
+#else
+        (void) BS->FreePool(p);
+#endif
+}
+
+static inline void freep(void *p) {
+        free(*(void **) p);
+}
+
+#define _cleanup_freepool_ _cleanup_free_
+#define _cleanup_free_ _cleanup_(freep)
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+static inline void *xmalloc(size_t size) {
+        void *p;
+        assert_se(BS->AllocatePool(EfiBootServicesData, size, &p) == EFI_SUCCESS);
+        return p;
+}
+
+_malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
+static inline void *xmalloc_multiply(size_t n, size_t size) {
+        assert_se(!__builtin_mul_overflow(n, size, &size));
+        return xmalloc(size);
+}
+
+/* Use malloc attribute as this never returns p like userspace realloc. */
+_malloc_ _alloc_(3) _returns_nonnull_ _warn_unused_result_
+static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
+        void *r = xmalloc(new_size);
+        memcpy(r, p, MIN(old_size, new_size));
+        free(p);
+        return r;
+}
+
 #define xnew_alloc(type, n, alloc)                                           \
         ({                                                                   \
                 UINTN _alloc_size;                                           \
@@ -64,17 +106,6 @@ CHAR16 *xstra_to_path(const CHAR8 *stra);
 CHAR16 *xstra_to_str(const CHAR8 *stra);
 
 EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
-
-static inline void free_poolp(void *p) {
-        void *q = *(void**) p;
-
-        if (!q)
-                return;
-
-        (void) BS->FreePool(q);
-}
-
-#define _cleanup_freepool_ _cleanup_(free_poolp)
 
 static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
