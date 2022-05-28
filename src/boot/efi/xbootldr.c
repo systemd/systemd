@@ -17,7 +17,7 @@ static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) 
         assert(node);
 
         UINTN len = (UINT8 *) node - (UINT8 *) path;
-        EFI_DEVICE_PATH *chopped = xallocate_pool(len + END_DEVICE_PATH_LENGTH);
+        EFI_DEVICE_PATH *chopped = xmalloc(len + END_DEVICE_PATH_LENGTH);
 
         memcpy(chopped, path, len);
         SetDevicePathEndNode((EFI_DEVICE_PATH *) ((UINT8 *) chopped + len));
@@ -101,7 +101,7 @@ static EFI_STATUS try_gpt(
 
         /* Now load the GPT entry table */
         size = ALIGN_TO((UINTN) gpt.gpt_header.SizeOfPartitionEntry * (UINTN) gpt.gpt_header.NumberOfPartitionEntries, 512);
-        entries = xallocate_pool(size);
+        entries = xmalloc(size);
 
         err = block_io->ReadBlocks(
                         block_io,
