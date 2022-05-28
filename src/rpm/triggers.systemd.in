@@ -105,7 +105,7 @@ assert(rpm.execute("systemd-tmpfiles", "--create"))
 %transfiletriggerin -P 1000600 udev -p <lua> -- {{UDEV_RULES_DIR}}
 -- This script will automatically update udev with new rules if files
 -- have been installed or updated in {{UDEV_RULES_DIR}}.
-if posix.access("/run/systemd/system") then
+if posix.access("/run/udev/control") then
     assert(rpm.execute("udevadm", "control", "--reload"))
 end
 
