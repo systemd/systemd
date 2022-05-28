@@ -111,7 +111,7 @@ static EFI_STATUS pack_cpio_one(
 
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
-        a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
+        a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
 
         *cpio_buffer = a;
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
@@ -195,7 +195,7 @@ static EFI_STATUS pack_cpio_dir(
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
-        *cpio_buffer = a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
+        *cpio_buffer = a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
         a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
 
         memcpy(a, "070701", 6); /* magic ID */
@@ -297,7 +297,7 @@ static EFI_STATUS pack_cpio_trailer(
         assert(cpio_buffer_size);
         assert_cc(sizeof(trailer) % 4 == 0);
 
-        *cpio_buffer = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
+        *cpio_buffer = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
         memcpy((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
@@ -401,7 +401,7 @@ EFI_STATUS pack_cpio(
                                 return log_oom();
 
                         m = n_items + 16;
-                        items = xreallocate_pool(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
+                        items = xrealloc(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
                         n_allocated = m;
                 }
 
