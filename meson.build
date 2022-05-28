@@ -351,6 +351,9 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=undef',
         '-Wfloat-equal',
+        # gperf prevents us from enabling this because it does not emit fallthrough
+        # attribute with clang.
+        #'-Wimplicit-fallthrough',
         '-Wimplicit-fallthrough=5',
         '-Winit-self',
         '-Wlogical-op',
