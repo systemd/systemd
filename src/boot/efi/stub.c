@@ -214,7 +214,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
             *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
-                cmdline = cmdline_owned = xallocate_pool(cmdline_len);
+                cmdline = cmdline_owned = xmalloc(cmdline_len);
 
                 for (UINTN i = 0; i < cmdline_len; i++)
                         cmdline[i] = ((CHAR16 *) loaded_image->LoadOptions)[i];

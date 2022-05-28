@@ -7,7 +7,6 @@
 
 #ifdef SD_BOOT
 #  include "util.h"
-#  define xmalloc(n) xallocate_pool(n)
 #else
 #  include <stdlib.h>
 #  include "macro.h"
