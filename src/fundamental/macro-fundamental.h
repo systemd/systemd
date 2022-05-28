@@ -25,6 +25,7 @@
 #define _public_ __attribute__((__visibility__("default")))
 #define _pure_ __attribute__((__pure__))
 #define _retain_ __attribute__((__retain__))
+#define _returns_nonnull_ __attribute__((__returns_nonnull__))
 #define _section_(x) __attribute__((__section__(x)))
 #define _sentinel_ __attribute__((__sentinel__))
 #define _unlikely_(x) (__builtin_expect(!!(x), 0))
@@ -76,8 +77,6 @@
         #endif
         #define static_assert _Static_assert
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
-
-        #define free(a) FreePool(a)
 #endif
 
 /* This passes the argument through after (if asserts are enabled) checking that it is not null. */
