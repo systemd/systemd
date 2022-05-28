@@ -115,7 +115,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = xallocate_pool(size + sizeof(CHAR16));
+        val = xmalloc(size + sizeof(CHAR16));
 
         memcpy(val, buf, size);
         val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
@@ -189,7 +189,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         assert(name);
 
         l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
-        buf = xallocate_pool(l);
+        buf = xmalloc(l);
 
         err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
@@ -391,7 +391,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         /* Allocate some extra bytes to guarantee the result is NUL-terminated for CHAR8 and CHAR16 strings. */
         UINTN extra = size % sizeof(CHAR16) + sizeof(CHAR16);
 
-        buf = xallocate_pool(size + extra);
+        buf = xmalloc(size + extra);
         err = handle->Read(handle, &size, buf);
         if (EFI_ERROR(err))
                 return err;
@@ -486,11 +486,11 @@ EFI_STATUS get_file_info_harder(
 
         /* A lot like LibFileInfo() but with useful error propagation */
 
-        fi = xallocate_pool(size);
+        fi = xmalloc(size);
         err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
-                FreePool(fi);
-                fi = xallocate_pool(size);  /* GetInfo tells us the required size, let's use that now */
+                free(fi);
+                fi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
                 err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
@@ -527,15 +527,15 @@ EFI_STATUS readdir_harder(
                  * file name length.
                  * As a side effect, most readdir_harder() calls will now be slightly faster. */
                 sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(CHAR16);
-                *buffer = xallocate_pool(sz);
+                *buffer = xmalloc(sz);
                 *buffer_size = sz;
         } else
                 sz = *buffer_size;
 
         err = handle->Read(handle, &sz, *buffer);
         if (err == EFI_BUFFER_TOO_SMALL) {
-                FreePool(*buffer);
-                *buffer = xallocate_pool(sz);
+                free(*buffer);
+                *buffer = xmalloc(sz);
                 *buffer_size = sz;
                 err = handle->Read(handle, &sz, *buffer);
         }
@@ -544,7 +544,7 @@ EFI_STATUS readdir_harder(
 
         if (sz == 0) {
                 /* End of directory */
-                FreePool(*buffer);
+                free(*buffer);
                 *buffer = NULL;
                 *buffer_size = 0;
         }
@@ -568,9 +568,9 @@ CHAR16 **strv_free(CHAR16 **v) {
                 return NULL;
 
         for (CHAR16 **i = v; *i; i++)
-                FreePool(*i);
+                free(*i);
 
-        FreePool(v);
+        free(v);
         return NULL;
 }
 

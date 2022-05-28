@@ -32,7 +32,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         if (!rng)
                 return EFI_UNSUPPORTED;
 
-        data = xallocate_pool(size);
+        data = xmalloc(size);
 
         err = rng->GetRNG(rng, NULL, size, data);
         if (EFI_ERROR(err))
@@ -99,7 +99,7 @@ static EFI_STATUS hash_many(
         /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
          * range counter_start…counter_start+n-1. */
 
-        output = xallocate_pool(n * HASH_VALUE_SIZE);
+        output = xmalloc_multiply(HASH_VALUE_SIZE, n);
 
         for (UINTN i = 0; i < n; i++)
                 hash_once(old_seed, rng, size,
@@ -274,7 +274,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (size > RANDOM_MAX_SIZE_MAX)
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
 
-        seed = xallocate_pool(size);
+        seed = xmalloc(size);
 
         rsize = size;
         err = handle->Read(handle, &rsize, seed);

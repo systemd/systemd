@@ -103,7 +103,7 @@ EFI_STATUS initrd_register(
                         &EfiLoadFile2Protocol, loader,
                         NULL);
         if (EFI_ERROR(err))
-                FreePool(loader);
+                free(loader);
 
         return err;
 }
@@ -135,6 +135,6 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                 return err;
 
         initrd_handle = NULL;
-        FreePool(loader);
+        free(loader);
         return EFI_SUCCESS;
 }
