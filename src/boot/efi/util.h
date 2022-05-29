@@ -187,3 +187,4 @@ static inline void beep(UINTN beep_count) {}
 #endif
 
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
+EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);

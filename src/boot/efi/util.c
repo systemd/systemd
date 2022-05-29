@@ -701,3 +701,40 @@ EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
         *ret_file = file;
         return EFI_SUCCESS;
 }
+
+EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *dp;
+
+        assert(file);
+        assert(ret_dp);
+
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        EFI_DEVICE_PATH *end_node = dp;
+        while (!IsDevicePathEnd(end_node))
+                end_node = NextDevicePathNode(end_node);
+
+        size_t file_size = strsize16(file);
+        size_t dp_size = ((uint8_t *) end_node - (uint8_t *) dp) + END_DEVICE_PATH_LENGTH;
+
+        /* Make a copy that can also hold a file media device path. */
+        *ret_dp = xmalloc(dp_size + file_size + SIZE_OF_FILEPATH_DEVICE_PATH);
+        memcpy(*ret_dp, dp, dp_size);
+
+        /* Point dp to the end node of the copied device path. */
+        dp = (EFI_DEVICE_PATH *) ((uint8_t *) *ret_dp + dp_size - END_DEVICE_PATH_LENGTH);
+
+        /* Replace end node with file media device path. */
+        FILEPATH_DEVICE_PATH *file_dp = (FILEPATH_DEVICE_PATH *) dp;
+        file_dp->Header.Type = MEDIA_DEVICE_PATH;
+        file_dp->Header.SubType = MEDIA_FILEPATH_DP;
+        memcpy(&file_dp->PathName, file, file_size);
+        SetDevicePathNodeLength(&file_dp->Header, SIZE_OF_FILEPATH_DEVICE_PATH + file_size);
+
+        dp = NextDevicePathNode(dp);
+        SetDevicePathEndNode(dp);
+        return EFI_SUCCESS;
+}
