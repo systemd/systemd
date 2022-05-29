@@ -2342,9 +2342,9 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error opening root path: %r", err);
 
-        path = FileDevicePath(entry->device, entry->loader);
-        if (!path)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
+        err = make_file_device_path(entry->device, entry->loader, &path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error making file device path: %r", err);
 
         UINTN initrd_size = 0;
         _cleanup_freepool_ void *initrd = NULL;
