@@ -112,8 +112,23 @@
 
 /* Rounds up */
 
-#define ALIGN4(l) (((l) + 3) & ~3)
-#define ALIGN8(l) (((l) + 7) & ~7)
+#define _ALIGN(l, ali)                                          \
+        ({                                                      \
+                typeof(l) _l = -1;                              \
+                                                                \
+                assert_cc(ali == 4 || ali == 8);                \
+                assert(_l > 0); /* check unsigned */            \
+                                                                \
+                _l = (l);                                       \
+                if (_l > ((typeof(_l)) -1) - (ali - 1))         \
+                        _l = (typeof(_l)) -1;                   \
+                else                                            \
+                        _l = (_l + (ali - 1)) & ~(ali - 1);     \
+                _l;                                             \
+        })
+
+#define ALIGN4(l) _ALIGN(l, 4)
+#define ALIGN8(l) _ALIGN(l, 8)
 
 #if __SIZEOF_POINTER__ == 8
 #define ALIGN(l) ALIGN8(l)
