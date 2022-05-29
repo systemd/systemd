@@ -18,7 +18,7 @@ libudev_version = '1.7.6'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION',    meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
