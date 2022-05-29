@@ -173,6 +173,9 @@ for sanitizer in address undefined memory; do
   done
 done
 
+./infra/helper.py build_fuzzers --clean --architecture i386 systemd "$path_to_systemd"
+./infra/helper.py check_build --architecture i386 systemd
+
 ./infra/helper.py build_fuzzers --clean --sanitizer coverage systemd "$path_to_systemd"
 ./infra/helper.py coverage --no-corpus-download systemd
 ```
