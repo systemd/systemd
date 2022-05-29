@@ -21,9 +21,9 @@ static EFI_STATUS load_one_driver(
         assert(fname);
 
         spath = xpool_print(L"\\EFI\\systemd\\drivers\\%s", fname);
-        path = FileDevicePath(loaded_image->DeviceHandle, spath);
-        if (!path)
-                return log_oom();
+        err = make_file_device_path(loaded_image->DeviceHandle, spath, &path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error making file device path: %r", err);
 
         err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
