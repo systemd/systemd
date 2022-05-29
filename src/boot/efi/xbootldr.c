@@ -25,6 +25,20 @@ static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) 
         return chopped;
 }
 
+static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
+        assert(dp);
+
+        const EFI_DEVICE_PATH *node = dp;
+        size_t size = 0;
+        while (!IsDevicePathEnd(node)) {
+                size += DevicePathNodeLength(node);
+                node = NextDevicePathNode(node);
+        }
+        size += DevicePathNodeLength(node);
+
+        return memcpy(xmalloc(size), dp, size);
+}
+
 static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
         EFI_PARTITION_TABLE_HEADER *h;
         UINT32 crc32, crc32_saved;
@@ -227,7 +241,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 }
 
                 /* Patch in the data we found */
-                EFI_DEVICE_PATH *xboot_path = ASSERT_SE_PTR(DuplicateDevicePath(partition_path));
+                EFI_DEVICE_PATH *xboot_path = path_dup(partition_path);
                 memcpy((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
                 *ret_device_path = xboot_path;
                 return EFI_SUCCESS;
