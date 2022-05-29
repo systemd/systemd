@@ -1966,10 +1966,8 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
          * want to interfere with the real sender's serial numbers we
-         * pick a fixed, artificial one. We use UINT32_MAX rather
-         * than UINT64_MAX since dbus1 only had 32bit identifiers,
-         * even though kdbus can do 64bit. */
-        return sd_bus_message_seal(m, 0xFFFFFFFFULL, 0);
+         * pick a fixed, artificial one. */
+        return sd_bus_message_seal(m, UINT32_MAX, 0);
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
