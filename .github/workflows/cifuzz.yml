@@ -25,12 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'systemd/systemd'
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ matrix.architecture }}-${{ github.ref }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
         sanitizer: [address, undefined, memory]
+        architecture: [x86_64]
+        include:
+          - sanitizer: address
+            architecture: i386
     steps:
       - name: Build Fuzzers (${{ matrix.sanitizer }})
         id: build
@@ -42,6 +46,7 @@ jobs:
           # keep-unaffected-fuzz-targets should be removed once https://github.com/google/oss-fuzz/issues/7011 is fixed
           keep-unaffected-fuzz-targets: true
           sanitizer: ${{ matrix.sanitizer }}
+          architecture: ${{ matrix.architecture }}
       - name: Run Fuzzers (${{ matrix.sanitizer }})
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
         with:
@@ -53,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         if: failure() && steps.build.outcome == 'success'
         with:
-          name: ${{ matrix.sanitizer }}-artifacts
+          name: ${{ matrix.sanitizer }}-${{ matrix.architecture }}-artifacts
           path: ./out/artifacts
