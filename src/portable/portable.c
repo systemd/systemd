@@ -1560,7 +1560,6 @@ int portable_detach(
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 _cleanup_free_ char *marker = NULL;
-                UnitFileState state;
 
                 if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                         continue;
@@ -1577,12 +1576,6 @@ int portable_detach(
                         return r;
                 if (r == 0)
                         continue;
-
-                r = unit_file_lookup_state(LOOKUP_SCOPE_SYSTEM, &paths, de->d_name, &state);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
-                if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_RUNTIME, UNIT_FILE_LINKED_RUNTIME))
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is in state '%s', can't detach.", de->d_name, unit_file_state_to_string(state));
 
                 r = unit_file_is_active(bus, de->d_name, error);
                 if (r < 0)
