@@ -1497,7 +1497,7 @@ endif
 conf.set10('HAVE_XKBCOMMON', have)
 
 want_pcre2 = get_option('pcre2')
-if want_pcre2 != 'false'
+if want_pcre2 != 'false' and not skip_deps
         libpcre2 = dependency('libpcre2-8',
                               required : want_pcre2 == 'true')
         have = libpcre2.found()
