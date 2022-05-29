@@ -1934,8 +1934,8 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
-        if (EFI_ERROR(err))
+        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
                 return;
 
         for (UINTN i = 0; i < n_handles; i++) {
