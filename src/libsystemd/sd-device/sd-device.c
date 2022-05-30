@@ -2150,7 +2150,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                         return r;
 
                 /* drop trailing newlines */
-                while (size > 0 && strchr(NEWLINE, value[--size]))
+                while (size > 0 && value[--size] == NEWLINE)
                         value[size] = '\0';
         }
 
