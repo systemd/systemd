@@ -357,11 +357,13 @@ int cg_kill(
                 Set *s,
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
-        int r;
+        int r, r2;
 
         r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.procs");
         if (r < 0 || sig != SIGKILL)
                 return r;
+
+        r2 = r;
 
         /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
            a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
@@ -370,7 +372,11 @@ int cg_kill(
         if (r <= 0)
                 return r;
 
-        return cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
+        r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
+        if (r < 0)
+                return r;
+
+        return r > 0 || r2 > 0;
 }
 
 int cg_kill_kernel_sigkill(const char *controller, const char *path) {
