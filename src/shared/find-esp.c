@@ -584,7 +584,7 @@ static int verify_xbootldr_udev(
                                         d,
                                         searching ? LOG_DEBUG : LOG_ERR,
                                         searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                        "Parition has wrong ID_PART_ENTRY_TYPE=%s for XBOOTLDR partition.", v);
+                                        "Partition has wrong ID_PART_ENTRY_TYPE=%s for XBOOTLDR partition.", v);
 
                 r = sd_device_get_property_value(d, "ID_PART_ENTRY_UUID", &v);
                 if (r < 0)
