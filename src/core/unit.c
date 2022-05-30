@@ -3062,7 +3062,7 @@ int unit_add_dependency(
 
         /* Helper to know whether sending a notification is necessary or not: if the dependency is already
          * there, no need to notify! */
-        bool noop;
+        bool notify, notify_other = false;
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
@@ -3119,34 +3119,33 @@ int unit_add_dependency(
         r = unit_add_dependency_hashmap(&u->dependencies, d, other, mask, 0);
         if (r < 0)
                 return r;
-        noop = !r;
+        notify = r > 0;
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
                 r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
                 if (r < 0)
                         return r;
-                if (r)
-                        noop = false;
+                notify_other = r > 0;
         }
 
         if (add_reference) {
                 r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other, mask, 0);
                 if (r < 0)
                         return r;
-                if (r)
-                        noop = false;
+                notify = notify || r > 0;
 
                 r = unit_add_dependency_hashmap(&other->dependencies, UNIT_REFERENCED_BY, u, 0, mask);
                 if (r < 0)
                         return r;
-                if (r)
-                        noop = false;
+                notify_other = notify_other || r > 0;
         }
 
-        if (!noop)
+        if (notify)
                 unit_add_to_dbus_queue(u);
+        if (notify_other)
+                unit_add_to_dbus_queue(other);
 
-        return 1;
+        return notify || notify_other;
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
