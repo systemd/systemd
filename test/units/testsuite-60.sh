@@ -3,6 +3,56 @@
 set -eux
 set -o pipefail
 
+test_issue_20329() {
+    local tmpdir unit
+    tmpdir="$(mktemp -d)"
+    unit=$(systemd-escape --suffix mount --path "$tmpdir")
+
+    # Set up test mount unit
+    cat > /run/systemd/system/"$unit" <<EOF
+[Mount]
+What=tmpfs
+Where=$tmpdir
+Type=tmpfs
+Options=defaults,nofail
+EOF
+
+    # Start the unit
+    systemctl daemon-reload
+    systemctl start "$unit"
+
+    [[ "$(systemctl show --property SubState --value "$unit")" = "mounted" ]] || {
+        echo >&2 "Test mount \"$unit\" unit isn't mounted"
+        return 1
+    }
+    mountpoint -q "$tmpdir"
+
+    trap 'systemctl stop $unit' RETURN
+
+    # Trigger the mount ratelimiting
+    cd "$(mktemp -d)"
+    mkdir foo
+    for ((i=0;i<50;++i)); do
+        mount --bind foo foo
+        umount foo
+    done
+
+    # Unmount the test mount and start it immediately again via systemd
+    umount "$tmpdir"
+    systemctl start "$unit"
+
+    # Make sure it is seen as mounted by systemd and it actually is mounted
+    [[ "$(systemctl show --property SubState --value "$unit")" = "mounted" ]] || {
+        echo >&2 "Test mount \"$unit\" unit isn't in \"mounted\" state"
+        return 1
+    }
+
+    mountpoint -q "$tmpdir" || {
+        echo >&2 "Test mount \"$unit\" is in \"mounted\" state, actually is not mounted"
+        return 1
+    }
+}
+
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
@@ -86,6 +136,9 @@ sleep 60
 if systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; then
     exit 42
 fi
+
+# test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
+test_issue_20329
 
 systemd-analyze log-level info
 
