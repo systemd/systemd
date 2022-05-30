@@ -32,6 +32,7 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_pcr_file = NULL;
 static bool arg_tpm2_pin = false;
 static char *arg_node = NULL;
 static int *arg_wipe_slots = NULL;
@@ -108,6 +109,8 @@ static int help(void) {
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                       Specify TPM2 PCRs to seal against\n"
+               "     --tpm2-pcr-file=PATH\n"
+               "                       Use PCR values from a file\n"
                "     --tpm2-with-pin=BOOL\n"
                "                       Whether to require entering a PIN to unlock the volume\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
@@ -131,6 +134,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_DEVICE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
+                ARG_TPM2_PCR_FILE,
                 ARG_TPM2_PIN,
                 ARG_WIPE_SLOT,
                 ARG_FIDO2_WITH_PIN,
@@ -152,6 +156,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV    },
                 { "tpm2-device",                  required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",                    required_argument, NULL, ARG_TPM2_PCRS        },
+                { "tpm2-pcr-file",                required_argument, NULL, ARG_TPM2_PCR_FILE    },
                 { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_PIN         },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT        },
                 {}
@@ -318,6 +323,11 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 arg_tpm2_pcr_mask |= mask;
 
+                        break;
+                }
+
+                case ARG_TPM2_PCR_FILE: {
+                        arg_tpm2_pcr_file = strdup(optarg);
                         break;
                 }
 
@@ -585,7 +595,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pcr_file, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
