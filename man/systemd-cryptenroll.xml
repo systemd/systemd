@@ -321,6 +321,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-pcr-file=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>When enrolling a TPM2 device, bind against the PCR values in a file insead of the
+        current PCR values in the TPM. The file should contain a JSON object like this:</para>
+
+        <programlisting>
+{
+    "tpm2-pcr-bank" : "sha256",
+    "tpm2-pcrs" : {
+        "0" : "0000000000000000000000000000000000000000000000000000000000000000",
+        "7" : "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+    }
+}
+        </programlisting>
+
+        <para>Field <literal>tpm2-pcr-bank</literal> must be <literal>sha1</literal> or
+        <literal>sha256</literal>.</para>
+        <para>Field <literal>tpm2-pcrs</literal> must be an object who's keys are the indices of PCR
+        registers, and who's values are (case insensitive) hex-strings of the desired PCR values.</para>
+        <para>Note that which PCRs to bind against is controlled by <option>--tpm2-pcrs</option>, not this
+        file. PCRs with an entry in the file that are not listed in <option>--tpm2-pcrs</option> are
+        ignored. Passing a file that lacks an entry for a PCR listed in <option>--tpm2-pcrs</option> is an
+        error. You cannot bind partially against the current PCR values and partially against fixed PCR
+        values by passing a file that lacks entries for some PCRs.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-with-pin=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>When enrolling a TPM2 device, controls whether to require the user to enter a PIN

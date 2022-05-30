@@ -666,11 +666,16 @@ static int tpm2_make_pcr_session(
                 ESYS_TR tpmKey,
                 ESYS_TR parent_session,
                 uint32_t pcr_mask,
+                const TPM2B_DIGEST *pcr_digest,
                 uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 bool use_pin,
+                bool is_trial,
                 ESYS_TR *ret_session,
                 TPM2B_DIGEST **ret_policy_digest,
                 TPMI_ALG_HASH *ret_pcr_bank) {
+
+        if (is_trial && (!pcr_digest || pcr_bank == UINT16_MAX))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Trial sessions must set both the expected PCR digest and the PCR bank");
 
         static const TPMT_SYM_DEF symmetric = {
                 .algorithm = TPM2_ALG_AES,
@@ -695,8 +700,13 @@ static int tpm2_make_pcr_session(
                 r = tpm2_pcr_mask_good(c, pcr_bank, pcr_mask);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        log_notice("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
+                if (r == 0) {
+                        if (!is_trial) {
+                                log_notice("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
+                        } else {
+                                log_warning("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. This may make this keyslot impossible to unlock. Proceeding anyway.");
+                        }
+                }
 
                 tpm2_pcr_mask_to_selecion(pcr_mask, pcr_bank, &pcr_selection);
         } else {
@@ -719,7 +729,7 @@ static int tpm2_make_pcr_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
-                        TPM2_SE_POLICY,
+                        is_trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY,
                         &symmetric,
                         TPM2_ALG_SHA256,
                         &session);
@@ -735,7 +745,7 @@ static int tpm2_make_pcr_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        pcr_digest,
                         &pcr_selection);
         if (rc != TSS2_RC_SUCCESS) {
                 r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -821,6 +831,9 @@ static void hash_pin(const char *pin, size_t len, uint8_t ret_digest[static SHA2
 int tpm2_seal(
                 const char *device,
                 uint32_t pcr_mask,
+                const void *pcr_digest,
+                size_t pcr_digest_size,
+                uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
                 const char *pin,
                 void **ret_secret,
                 size_t *ret_secret_size,
@@ -838,11 +851,11 @@ int tpm2_seal(
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
+        _cleanup_free_ TPM2B_DIGEST *pcr_digest_struct = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
         size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
@@ -888,8 +901,18 @@ int tpm2_seal(
         if (r < 0)
                 goto finish;
 
-        r = tpm2_make_pcr_session(c.esys_context, primary, session, pcr_mask, UINT16_MAX, !!pin, NULL,
-                                  &policy_digest, &pcr_bank);
+        if (pcr_digest) {
+                pcr_digest_struct = malloc(pcr_digest_size + 2);
+                if (!pcr_digest_struct)
+                        return log_oom();
+
+                pcr_digest_struct->size = pcr_digest_size;
+                memcpy(&pcr_digest_struct->buffer, pcr_digest, pcr_digest_size);
+        }
+
+        r = tpm2_make_pcr_session(c.esys_context, primary, session, pcr_mask,
+                                  pcr_digest_struct, pcr_bank, !!pin, !!pcr_digest,
+                                  NULL, &policy_digest, &pcr_bank);
         if (r < 0)
                 goto finish;
 
@@ -1101,7 +1124,8 @@ int tpm2_unseal(
         if (r < 0)
                 goto finish;
 
-        r = tpm2_make_pcr_session(c.esys_context, primary, hmac_session, pcr_mask, pcr_bank, !!pin, &session,
+        r = tpm2_make_pcr_session(c.esys_context, primary, hmac_session, pcr_mask,
+                                  NULL, pcr_bank, !!pin, false, &session,
                                   &policy_digest, NULL);
         if (r < 0)
                 goto finish;

@@ -577,6 +577,8 @@ int encrypt_credential_and_warn(
         if (try_tpm2) {
                 r = tpm2_seal(tpm2_device,
                               tpm2_pcr_mask,
+                              NULL, 0,
+                              UINT16_MAX,
                               NULL,
                               &tpm2_key,
                               &tpm2_key_size,
