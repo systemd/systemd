@@ -129,7 +129,7 @@ int manager_handle_action(
                 bool is_edge) {
 
         static const char * const message_table[_HANDLE_ACTION_MAX] = {
-                [HANDLE_POWEROFF]               = "Powering Off...",
+                [HANDLE_POWEROFF]               = "Powering off...",
                 [HANDLE_REBOOT]                 = "Rebooting...",
                 [HANDLE_HALT]                   = "Halting...",
                 [HANDLE_KEXEC]                  = "Rebooting via kexec...",
