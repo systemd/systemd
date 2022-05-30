@@ -120,7 +120,7 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
                         --val;
 
                 /* IN_SET() cannot be used in assert_cc(). */
-                assert_cc(sizeof(unsigned long) == 4 || sizeof(unsigned long) == 8);
+                assert_cc(IN_SET(sizeof(unsigned long), 4, 8));
                 for (unsigned long j = 0; j < val; j++)
                         log_device_debug(pdev,
                                          sizeof(unsigned long) == 4 ? "  bit %4lu: %08lX\n" : "  bit %4lu: %016lX\n",
