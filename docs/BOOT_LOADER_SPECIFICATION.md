@@ -276,7 +276,7 @@ installer. A recommended scheme is described in the next section.
 
 ### Recommended Directory Layout for Additional Files
 
-It is recommened to place the kernel and other other files comprising a single
+It is recommended to place the kernel and other other files comprising a single
 boot loader entry in a separate directory:
 `/<entry-token-or-machine-id>/<version>/`. This naming scheme uses the same
 elements as the boot loader configuration snippet, providing the same level of
@@ -414,7 +414,7 @@ use a different direction (or none at all) during display._
 
 Free-form strings and machine IDs should be compared using a method equivalent
 to [strcmp(3)](https://man7.org/linux/man-pages/man3/strcmp.3.html) on their
-UTF-8 represenations. If just one of the strings is unspecified or empty, it
+UTF-8 representations. If just one of the strings is unspecified or empty, it
 compares lower. If both strings are unspecified or empty, they compare equal.
 
 ### Version order
@@ -534,7 +534,7 @@ This specification brings the following advantages:
 
 EFI is not ubiquitous, especially not in embedded systems. But even on systems
 with EFI, which provides a boot options logic that can offer similar
-functionality, this specfication is still needed for the following reasons:
+functionality, this specification is still needed for the following reasons:
 
 * The various EFI implementations implement the boot order/boot item logic to
   different levels. Some firmware implementations do not offer a boot menu at
@@ -548,7 +548,7 @@ functionality, this specfication is still needed for the following reasons:
   configuration is lost.
 
 * Harddisk images should be movable between machines and be bootable without
-  requiring firmare configuration. This also requires that the list
+  requiring firmware configuration. This also requires that the list
   of boot options is defined on disk, and not in EFI variables alone.
 
 * EFI is not universal yet (especially on non-x86 platforms), this
@@ -559,7 +559,7 @@ functionality, this specfication is still needed for the following reasons:
   useful if the OS UI has a standardized way to discover available boot options
   which can be booted to.
 
-### Why is the version comparsion logic so complicated?
+### Why is the version comparison logic so complicated?
 
 The `sort-key` allows us to group entries by "operating system", e.g. all
 versions of Fedora together, no matter if they identify themselves as "Fedora
