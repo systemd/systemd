@@ -251,6 +251,22 @@ int manager_handle_action(
         return 1;
 }
 
+static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
+        [HANDLE_IGNORE]                 = "do nothing",
+        [HANDLE_POWEROFF]               = "power off",
+        [HANDLE_REBOOT]                 = "reboot",
+        [HANDLE_HALT]                   = "halt",
+        [HANDLE_KEXEC]                  = "kexec",
+        [HANDLE_SUSPEND]                = "suspend",
+        [HANDLE_HIBERNATE]              = "hibernate",
+        [HANDLE_HYBRID_SLEEP]           = "enter hybrid sleep",
+        [HANDLE_SUSPEND_THEN_HIBERNATE] = "suspend and later hibernate",
+        [HANDLE_FACTORY_RESET]          = "perform a factory reset",
+        [HANDLE_LOCK]                   = "be locked",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
+
 static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_IGNORE]                 = "ignore",
         [HANDLE_POWEROFF]               = "poweroff",

@@ -2355,7 +2355,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                 }
 
                 username = uid_to_name(uid);
-                utmp_wall("The system shutdown has been cancelled",
+                utmp_wall("System shutdown has been cancelled",
                           username, tty, logind_wall_tty_filter, m);
         }
 

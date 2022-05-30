@@ -54,7 +54,7 @@ def run(args):
         console.send('0')
         logger.info("verify broadcast message")
         console.expect('Broadcast message from root@H on %s' % pty, 2)
-        console.expect('The system is going down for reboot at %s' % date, 2)
+        console.expect('The system will reboot at %s' % date, 2)
 
         logger.info("check show output")
         console.sendline('shutdown --show')
@@ -64,13 +64,13 @@ def run(args):
         console.sendline('shutdown -c')
         console.sendcontrol('a')
         console.send('1')
-        console.expect('The system shutdown has been cancelled', 2)
+        console.expect('System shutdown has been cancelled', 2)
 
         logger.info("call for reboot")
         console.sendline('sleep 10; shutdown -r now')
         console.sendcontrol('a')
         console.send('0')
-        console.expect("The system is going down for reboot NOW!", 12)
+        console.expect("The system will reboot now!", 12)
 
         logger.info("waiting for reboot")
 

@@ -78,11 +78,11 @@ static int warn_wall(Manager *m, usec_t n) {
 
         left = m->scheduled_shutdown_timeout > n;
 
-        r = asprintf(&l, "%s%sThe system is going down for %s %s%s!",
+        r = asprintf(&l, "%s%sThe system will %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
-                     handle_action_to_string(m->scheduled_shutdown_action->handle),
-                     left ? "at " : "NOW",
+                     handle_action_verb_to_string(m->scheduled_shutdown_action->handle),
+                     left ? "at " : "now",
                      left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
         if (r < 0) {
                 log_oom();

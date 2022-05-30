@@ -49,6 +49,8 @@ int manager_handle_action(
                 bool ignore_inhibited,
                 bool is_edge);
 
+const char* handle_action_verb_to_string(HandleAction h) _const_;
+
 const char* handle_action_to_string(HandleAction h) _const_;
 HandleAction handle_action_from_string(const char *s) _pure_;
 
