@@ -10,7 +10,7 @@
 int verb_compare_versions(int argc, char *argv[], void *userdata) {
         int r;
 
-        assert(argc == 3 || argc == 4);
+        assert(IN_SET(argc, 3, 4));
         assert(argv);
 
         if (argc == 3) {
