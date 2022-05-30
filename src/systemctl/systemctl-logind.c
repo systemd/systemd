@@ -15,16 +15,11 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-int logind_set_wall_message(void) {
+static int logind_set_wall_message(sd_bus *bus) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus;
         _cleanup_free_ char *m = NULL;
         int r;
-
-        r = acquire_bus(BUS_FULL, &bus);
-        if (r < 0)
-                return r;
 
         m = strv_join(arg_wall, " ");
         if (!m)
@@ -72,7 +67,7 @@ int logind_reboot(enum action a) {
                 return r;
 
         polkit_agent_open_maybe();
-        (void) logind_set_wall_message();
+        (void) logind_set_wall_message(bus);
 
         log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", actions[a].method);
 
@@ -310,7 +305,7 @@ int logind_schedule_shutdown(void) {
         if (arg_dry_run)
                 action = strjoina("dry-", action);
 
-        (void) logind_set_wall_message();
+        (void) logind_set_wall_message(bus);
 
         r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
         if (r < 0)
@@ -336,7 +331,7 @@ int logind_cancel_shutdown(void) {
         if (r < 0)
                 return r;
 
-        (void) logind_set_wall_message();
+        (void) logind_set_wall_message(bus);
 
         r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, NULL, NULL);
         if (r < 0)
