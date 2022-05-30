@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 252:
+        Backwards-incompatible changes:
+
+        * systemd-logind's background session class, which is by default used
+          for sessions started via cron, is no longer going to start systemd
+          --user instance. Other session types remain unaffected.
+
 CHANGES WITH 251:
 
         Backwards-incompatible changes:
