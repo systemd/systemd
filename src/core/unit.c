@@ -1244,6 +1244,8 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(u);
         assert(c);
 
+        /* Unlike unit_add_dependency() or friends, this always returns 0 on success. */
+
         if (c->working_directory && !c->working_directory_missing_ok) {
                 r = unit_require_mounts_for(u, c->working_directory, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
@@ -1502,6 +1504,7 @@ static int unit_add_slice_dependencies(Unit *u) {
 static int unit_add_mount_dependencies(Unit *u) {
         UnitDependencyInfo di;
         const char *path;
+        bool changed = false;
         int r;
 
         assert(u);
@@ -1537,22 +1540,23 @@ static int unit_add_mount_dependencies(Unit *u) {
                         r = unit_add_dependency(u, UNIT_AFTER, m, true, di.origin_mask);
                         if (r < 0)
                                 return r;
+                        changed = changed || r > 0;
 
                         if (m->fragment_path) {
                                 r = unit_add_dependency(u, UNIT_REQUIRES, m, true, di.origin_mask);
                                 if (r < 0)
                                         return r;
+                                changed = changed || r > 0;
                         }
                 }
         }
 
-        return 0;
+        return changed;
 }
 
 static int unit_add_oomd_dependencies(Unit *u) {
         CGroupContext *c;
         bool wants_oomd;
-        int r;
 
         assert(u);
 
@@ -1567,11 +1571,7 @@ static int unit_add_oomd_dependencies(Unit *u) {
         if (!wants_oomd)
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "systemd-oomd.service", true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "systemd-oomd.service", true, UNIT_DEPENDENCY_FILE);
 }
 
 static int unit_add_startup_units(Unit *u) {
@@ -3149,7 +3149,7 @@ int unit_add_dependency(
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
-        int r;
+        int r, s;
 
         assert(u);
 
@@ -3157,7 +3157,11 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
         if (r < 0)
                 return r;
 
-        return unit_add_dependency(u, e, other, add_reference, mask);
+        s = unit_add_dependency(u, e, other, add_reference, mask);
+        if (s < 0)
+                return s;
+
+        return r > 0 || s > 0;
 }
 
 static int resolve_template(Unit *u, const char *name, char **buf, const char **ret) {
