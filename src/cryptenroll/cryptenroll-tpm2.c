@@ -7,6 +7,8 @@
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
+#include "sha256.h"
+#include "stdio-util.h"
 #include "tpm2-util.h"
 
 static int search_policy_hash(
@@ -126,11 +128,111 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         return 0;
 }
 
+static int parse_pcr_file(const char *pcr_file,
+                   uint32_t pcr_mask,
+                   void **ret_pcr_digest,
+                   size_t *ret_pcr_digest_size,
+                   uint16_t *ret_pcr_bank) {
+        _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+        JsonVariant *v, *w;
+        unsigned line, column;
+        _cleanup_free_ void *pcr_digest = NULL, *pcr_value = NULL;
+        size_t pcr_digest_size = 0, pcr_value_size = 0;
+        uint16_t pcr_bank;
+        size_t pcr_value_expected_size = 0;
+        struct sha256_ctx hash;
+        int r, i;
+
+        r = json_parse_file(NULL, pcr_file, 0, &json, &line, &column);
+        if (r < 0)
+                return log_error_errno(
+                                r,
+                                "Couldn't parse PCR file, error at line %d, col %d",
+                                line, column);
+        if (!json_variant_is_object(json))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Top level object in PCR file must be an object");
+
+        v = json_variant_by_key(json, "tpm2-pcr-bank");
+        if (!v)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "PCR file must have 'tpm2-pcr-bank' field");
+        if (!json_variant_is_string(v))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'tpm2-pcr-bank' field must be a string");
+
+        r = tpm2_pcr_bank_from_string(json_variant_string(v));
+        if (r < 0)
+                return log_error_errno(r, "TPM2 PCR bank invalid or not supported: %s", json_variant_string(v));
+        pcr_bank = r;
+
+        if (pcr_bank == TPM2_ALG_SHA256)
+                pcr_value_expected_size = TPM2_SHA256_DIGEST_SIZE;
+        else if (pcr_bank == TPM2_ALG_SHA1)
+                pcr_value_expected_size = TPM2_SHA1_DIGEST_SIZE;
+        else
+                log_warning("Don't know how long PCR values should be (this is a bug)");
+
+        v = json_variant_by_key(json, "tpm2-pcrs");
+        if (!v)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "PCR file must have 'tpm2-pcrs' field");
+        if (!json_variant_is_object(v))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'tpm2-pcrs' field must be an object");
+
+        // Note that the algorithm here is the *authentication session* hash, not the PCR hash, and this is
+        // always SHA256.
+        sha256_init_ctx(&hash);
+        pcr_digest = malloc(SHA256_DIGEST_SIZE);
+        pcr_digest_size = SHA256_DIGEST_SIZE;
+        if (!pcr_digest)
+                return log_oom();
+
+        for (i = 0; i < 24; i++) {
+                char key[10];
+
+                if (!((1 << i) & pcr_mask))
+                        continue;
+
+                xsprintf(key, "%d", i);
+
+                w = json_variant_by_key(v, key);
+                if (!w)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR %d in mask, but not in file", i);
+                if (!json_variant_is_string(w))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR %d value is not a string", i);
+
+                r = unhexmem(json_variant_string(w), strlen(json_variant_string(w)),
+                             &pcr_value, &pcr_value_size);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR %d is not a hex string", i);
+                if (pcr_value_expected_size && pcr_value_size != pcr_value_expected_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR %d value should be %ld bytes, is %ld",
+                                               i, pcr_value_expected_size, pcr_value_size);
+
+                sha256_process_bytes(pcr_value, pcr_value_size, &hash);
+                freep(&pcr_value);
+        }
+
+        sha256_finish_ctx(&hash, pcr_digest);
+
+        *ret_pcr_digest = TAKE_PTR(pcr_digest);
+        *ret_pcr_digest_size = pcr_digest_size;
+        *ret_pcr_bank = pcr_bank;
+        return 0;
+}
+
 int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
                 uint32_t pcr_mask,
+                const char *pcr_file,
                 bool use_pin) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
@@ -138,7 +240,9 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         size_t secret_size, secret2_size, blob_size, hash_size;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        uint16_t pcr_bank, primary_alg;
+        _cleanup_free_ void *pcr_digest = NULL;
+        size_t pcr_digest_size = 0;
+        uint16_t pcr_bank = UINT16_MAX, primary_alg;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         int r, keyslot;
@@ -157,7 +261,27 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        if (pcr_file) {
+                r = parse_pcr_file(pcr_file, pcr_mask, &pcr_digest, &pcr_digest_size, &pcr_bank);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tpm2_seal(
+                        device,
+                        pcr_mask,
+                        pcr_digest,
+                        pcr_digest_size,
+                        pcr_bank,
+                        pin_str,
+                        &secret,
+                        &secret_size,
+                        &blob,
+                        &blob_size,
+                        &hash,
+                        &hash_size,
+                        &pcr_bank,
+                        &primary_alg);
         if (r < 0)
                 return r;
 
@@ -172,14 +296,18 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all. */
-        log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
-        if (r < 0)
-                return r;
+        if (pcr_file == NULL) {
+                /* Quick verification that everything is in order, we are not in a hurry after all. */
+                log_debug("Unsealing for verification...");
+                r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
+                if (r < 0)
+                        return r;
 
-        if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
+                if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
+        } else {
+                log_info("Not checking if new token can be unsealed because --tpm2-pcr-file is set.");
+        }
 
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
         r = base64mem(secret, secret_size, &base64_encoded);
