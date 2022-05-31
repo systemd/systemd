@@ -146,7 +146,7 @@ static sd_bus_message* message_free(sd_bus_message *m) {
         return mfree(m);
 }
 
-static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, bool add_offset) {
+static void *message_extend_fields(sd_bus_message *m, size_t sz, bool add_offset) {
         void *op, *np;
         size_t old_size, new_size, start;
 
@@ -156,7 +156,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
                 return NULL;
 
         old_size = sizeof(struct bus_header) + m->fields_size;
-        start = ALIGN_TO(old_size, align);
+        start = ALIGN8(old_size);
         new_size = start + sz;
 
         if (new_size < start || new_size > UINT32_MAX)
@@ -237,7 +237,7 @@ static int message_append_field_string(
         /* Signature "(yv)" where the variant contains "s" */
 
         /* (field id byte + (signature length + signature 's' + NUL) + (string length + string + NUL)) */
-        p = message_extend_fields(m, 8, 4 + 4 + l + 1, false);
+        p = message_extend_fields(m, 4 + 4 + l + 1, false);
         if (!p)
                 return -ENOMEM;
 
@@ -278,7 +278,7 @@ static int message_append_field_signature(
         /* Signature "(yv)" where the variant contains "g" */
 
         /* (field id byte + (signature length + signature 'g' + NUL) + (string length + string + NUL)) */
-        p = message_extend_fields(m, 8, 4 + 1 + l + 1, false);
+        p = message_extend_fields(m, 4 + 1 + l + 1, false);
         if (!p)
                 return -ENOMEM;
 
@@ -305,7 +305,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint64_t h, uint32_t x
                 return -EINVAL;
 
         /* (field id byte + (signature length + signature 'u' + NUL) + value) */
-        p = message_extend_fields(m, 8, 4 + 4, false);
+        p = message_extend_fields(m, 4 + 4, false);
         if (!p)
                 return -ENOMEM;
 
