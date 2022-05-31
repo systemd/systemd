@@ -60,14 +60,13 @@ DEFINE_STRTOLOWER(char16_t, strtolower16);
                         return CMP(s1, s2);                  \
                                                              \
                 while (n > 0) {                              \
-                        int c1 = *s1;                        \
-                        int c2 = *s2;                        \
+                        type c1 = *s1, c2 = *s2;             \
                         if (tolower) {                       \
                                 c1 = TOLOWER(c1);            \
                                 c2 = TOLOWER(c2);            \
                         }                                    \
                         if (!c1 || c1 != c2)                 \
-                                return c1 - c2;              \
+                                return CMP(c1, c2);          \
                                                              \
                         s1++;                                \
                         s2++;                                \
@@ -141,13 +140,16 @@ DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
 
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
+        const uint8_t *up1 = p1, *up2 = p2;
+        int r;
+
         if (!p1 || !p2)
                 return CMP(p1, p2);
 
-        const uint8_t *up1 = p1, *up2 = p2;
         while (n > 0) {
-                if (*up1 != *up2)
-                        return *up1 - *up2;
+                r = CMP(*up1, *up2);
+                if (r != 0)
+                        return r;
 
                 up1++;
                 up2++;
