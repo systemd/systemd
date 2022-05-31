@@ -1370,11 +1370,33 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ERSPANVersion=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN version number. Takes 0 for version 0 (a.k.a. type I), 1 for version 1
+          (a.k.a. type II), or 2 for version 2 (a.k.a. type III). Defaults to 1.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ERSPANIndex=</varname></term>
         <listitem>
-          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1…1048575 associated with
-          the ERSPAN traffic's source port and direction. This field is mandatory.
-          </para>
+          <para>Specifies the ERSPAN v1 index field for the interface. Takes an integer in the range
+          0…1048575, which is associated with the ERSPAN traffic's source port and direction. Only used when
+          <varname>ERSPANVersion=1</varname>. Defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANDirection=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN v2 mirrored traffic's direction. Takes <literal>ingress</literal> or
+          <literal>egress</literal>. Only used when <varname>ERSPANVersion=2</varname>. Defaults to
+          <literal>ingress</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANHardwareId=</varname></term>
+        <listitem>
+          <para>Specifies an unique identifier of the ERSPAN v2 engine. Takes an integer in the range 0…63.
+          Only used when <varname>ERSPANVersion=2</varname>. Defaults to 0.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -993,8 +993,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bridge.netdev',
         '25-bridge-configure-without-carrier.network',
         '25-bridge.network',
-        '25-erspan-tunnel-local-any.netdev',
-        '25-erspan-tunnel.netdev',
+        '25-erspan0-tunnel-local-any.netdev',
+        '25-erspan0-tunnel.netdev',
+        '25-erspan1-tunnel-local-any.netdev',
+        '25-erspan1-tunnel.netdev',
+        '25-erspan2-tunnel-local-any.netdev',
+        '25-erspan2-tunnel.netdev',
         '25-fou-gretap.netdev',
         '25-fou-gre.netdev',
         '25-fou-ipip.netdev',
@@ -1796,28 +1800,93 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '6rd-prefix 2602::/24')
 
     @expectedFailureIfERSPANModuleIsNotAvailable()
-    def test_erspan_tunnel(self):
+    def test_erspan_tunnel_v0(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
-                                        '25-erspan-tunnel.netdev', '25-tunnel.network',
-                                        '25-erspan-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+                                        '25-erspan0-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan0-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
         self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show erspan99')
         print(output)
-        self.assertRegex(output, 'erspan remote 172.16.1.100 local 172.16.1.200')
-        self.assertRegex(output, 'ikey 0.0.0.101')
-        self.assertRegex(output, 'okey 0.0.0.101')
-        self.assertRegex(output, 'iseq')
-        self.assertRegex(output, 'oseq')
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 0', output)
+        self.assertNotIn('erspan_index 123', output)
+        self.assertNotIn('erspan_dir ingress', output)
+        self.assertNotIn('erspan_hwid 1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('iseq', output)
         output = check_output('ip -d link show erspan98')
         print(output)
-        self.assertRegex(output, 'erspan remote 172.16.1.100 local any')
-        self.assertRegex(output, '102')
-        self.assertRegex(output, 'ikey 0.0.0.102')
-        self.assertRegex(output, 'okey 0.0.0.102')
-        self.assertRegex(output, 'iseq')
-        self.assertRegex(output, 'oseq')
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 0', output)
+        self.assertNotIn('erspan_index 124', output)
+        self.assertNotIn('erspan_dir egress', output)
+        self.assertNotIn('erspan_hwid 2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+
+    @expectedFailureIfERSPANModuleIsNotAvailable()
+    def test_erspan_tunnel_v1(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
+                                        '25-erspan1-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan1-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        start_networkd()
+        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+
+        output = check_output('ip -d link show erspan99')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 1', output)
+        self.assertIn('erspan_index 123', output)
+        self.assertNotIn('erspan_dir ingress', output)
+        self.assertNotIn('erspan_hwid 1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('okey 0.0.0.101', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+        output = check_output('ip -d link show erspan98')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 1', output)
+        self.assertIn('erspan_index 124', output)
+        self.assertNotIn('erspan_dir egress', output)
+        self.assertNotIn('erspan_hwid 2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('okey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+
+    @expectedFailureIfERSPANModuleIsNotAvailable()
+    def test_erspan_tunnel_v2(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
+                                        '25-erspan2-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan2-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        start_networkd()
+        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+
+        output = check_output('ip -d link show erspan99')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 2', output)
+        self.assertNotIn('erspan_index 123', output)
+        self.assertIn('erspan_dir ingress', output)
+        self.assertIn('erspan_hwid 0x1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('okey 0.0.0.101', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+        output = check_output('ip -d link show erspan98')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 2', output)
+        self.assertNotIn('erspan_index 124', output)
+        self.assertIn('erspan_dir egress', output)
+        self.assertIn('erspan_hwid 0x2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('okey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
 
     def test_tunnel_independent(self):
         copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', '26-netdev-link-local-addressing-yes.network')

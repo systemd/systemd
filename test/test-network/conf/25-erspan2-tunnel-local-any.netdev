@@ -4,7 +4,11 @@ Name=erspan98
 Kind=erspan
 
 [Tunnel]
+ERSPANVersion=2
+# ERSPANIndex= will be ignored
 ERSPANIndex=124
+ERSPANDirection=egress
+ERSPANHardwareId=0x2f
 Local = any
 Remote = 172.16.1.100
 Key=102
