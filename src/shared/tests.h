@@ -88,7 +88,7 @@ static inline int run_test_table(void) {
         if (!__start_SYSTEMD_TEST_TABLE)
                 return r;
 
-        const TestFunc *t = ALIGN_TO_PTR(__start_SYSTEMD_TEST_TABLE, sizeof(TestFunc*));
+        const TestFunc *t = ALIGN_PTR(__start_SYSTEMD_TEST_TABLE);
         while (t < __stop_SYSTEMD_TEST_TABLE) {
 
                 if (t->sd_booted && sd_booted() <= 0) {
@@ -106,7 +106,7 @@ static inline int run_test_table(void) {
                                 t->f.void_func();
                 }
 
-                t = ALIGN_TO_PTR(t + 1, sizeof(TestFunc*));
+                t = ALIGN_PTR(t + 1);
         }
 
         return r;

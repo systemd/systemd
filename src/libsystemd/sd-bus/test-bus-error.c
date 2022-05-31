@@ -131,11 +131,11 @@ static int dump_mapping_table(void) {
         const sd_bus_error_map *m;
 
         printf("----- errno mappings ------\n");
-        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
+        m = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
         while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
 
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_TO_PTR(m + 1, sizeof(void*));
+                        m = ALIGN_PTR(m + 1);
                         continue;
                 }
 
