@@ -337,7 +337,7 @@ int utmp_wall(
         const char *message,
         const char *username,
         const char *origin_tty,
-        bool (*match_tty)(const char *tty, void *userdata),
+        bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
         _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
@@ -381,17 +381,20 @@ int utmp_wall(
                 if (u->ut_type != USER_PROCESS || u->ut_user[0] == 0)
                         continue;
 
-                /* this access is fine, because STRLEN("/dev/") << 32 (UT_LINESIZE) */
+                /* This access is fine, because strlen("/dev/") < 32 (UT_LINESIZE) */
                 if (path_startswith(u->ut_line, "/dev/"))
                         path = u->ut_line;
                 else {
                         if (asprintf(&buf, "/dev/%.*s", (int) sizeof(u->ut_line), u->ut_line) < 0)
                                 return -ENOMEM;
-
                         path = buf;
                 }
 
-                if (!match_tty || match_tty(path, userdata)) {
+                /* It seems that the address field is always set for remote logins.
+                 * For local logins and other local entries, we get [0,0,0,0]. */
+                bool is_local = memeqzero(u->ut_addr_v6, sizeof(u->ut_addr_v6));
+
+                if (!match_tty || match_tty(path, is_local, userdata)) {
                         q = write_to_terminal(path, text);
                         if (q < 0)
                                 r = q;

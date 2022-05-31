@@ -42,7 +42,7 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
         return left % USEC_PER_HOUR;
 }
 
-bool logind_wall_tty_filter(const char *tty, void *userdata) {
+bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
         Manager *m = userdata;
         const char *p;
 
