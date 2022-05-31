@@ -39,27 +39,23 @@ static int logind_set_wall_message(sd_bus *bus) {
 /* Ask systemd-logind, which might grant access to unprivileged users through polkit */
 int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
-        static const struct {
-                const char *method;
-                const char *description;
-        } actions[_ACTION_MAX] = {
-                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
-                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
-                [ACTION_KEXEC]                  = { "Reboot",               "kexec reboot system"             },
-                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
-                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
-                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
-                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
-                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+        static const char* actions[_ACTION_MAX] = {
+                [ACTION_POWEROFF]               = "PowerOff",
+                [ACTION_REBOOT]                 = "Reboot",
+                [ACTION_KEXEC]                  = "Reboot",
+                [ACTION_HALT]                   = "Halt",
+                [ACTION_SUSPEND]                = "Suspend",
+                [ACTION_HIBERNATE]              = "Hibernate",
+                [ACTION_HYBRID_SLEEP]           = "HybridSleep",
+                [ACTION_SUSPEND_THEN_HIBERNATE] = "SuspendThenHibernate",
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *method_with_flags;
         uint64_t flags = 0;
         sd_bus *bus;
         int r;
 
-        if (a < 0 || a >= _ACTION_MAX || !actions[a].method)
+        if (a < 0 || a >= _ACTION_MAX || !actions[a])
                 return -EINVAL;
 
         r = acquire_bus(BUS_FULL, &bus);
@@ -69,7 +65,10 @@ int logind_reboot(enum action a) {
         polkit_agent_open_maybe();
         (void) logind_set_wall_message(bus);
 
-        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", actions[a].method);
+        const char *method_with_flags = strjoina(actions[a], "WithFlags");
+
+        log_debug("%s org.freedesktop.login1.Manager %s dbus call.",
+                  arg_dry_run ? "Would execute" : "Executing", method_with_flags);
 
         if (arg_dry_run)
                 return 0;
@@ -77,21 +76,19 @@ int logind_reboot(enum action a) {
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
         SET_FLAG(flags, SD_LOGIND_REBOOT_VIA_KEXEC, a == ACTION_KEXEC);
 
-        method_with_flags = strjoina(actions[a].method, "WithFlags");
-
         r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
         if (r >= 0)
                 return 0;
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
-                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+                return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
 
-        /* Fallback to original methods in case there is older version of systemd-logind */
-        log_debug("Method %s not available: %s. Falling back to %s", method_with_flags, bus_error_message(&error, r), actions[a].method);
+        /* Fall back to original methods in case there is an older version of systemd-logind */
+        log_debug("Method %s not available: %s. Falling back to %s", method_with_flags, bus_error_message(&error, r), actions[a]);
         sd_bus_error_free(&error);
 
-        r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
+        r = bus_call_method(bus, bus_login_mgr, actions[a], &error, NULL, "b", arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
+                return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
 
         return 0;
 #else
