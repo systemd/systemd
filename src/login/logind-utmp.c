@@ -42,20 +42,18 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
         return left % USEC_PER_HOUR;
 }
 
-bool logind_wall_tty_filter(const char *tty, void *userdata) {
-        Manager *m = userdata;
-        const char *p;
+bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
-
-        if (!m->scheduled_shutdown_tty)
-                return true;
-
-        p = path_startswith(tty, "/dev/");
+        const char *p = path_startswith(tty, "/dev/");
         if (!p)
                 return true;
 
-        return !streq(p, m->scheduled_shutdown_tty);
+        /* Do not write to local pseudo-terminals */
+        if (startswith(tty, "pts/") && is_local)
+                return false;
+
+        return !streq_ptr(p, m->scheduled_shutdown_tty);
 }
 
 static int warn_wall(Manager *m, usec_t n) {
