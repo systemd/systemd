@@ -2343,13 +2343,17 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
 
                         /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
                          * cached. Hence mark only those RRs as cacheable by default, but not the ones from
-                         * the Additional or Authority sections. */
+                         * the Additional or Authority sections.
+                         * This restriction does not apply to mDNS records (RFC 6762). */
                         if (i < DNS_PACKET_ANCOUNT(p))
                                 flags |= DNS_ANSWER_CACHEABLE|DNS_ANSWER_SECTION_ANSWER;
                         else if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p))
                                 flags |= DNS_ANSWER_SECTION_AUTHORITY;
-                        else
+                        else {
                                 flags |= DNS_ANSWER_SECTION_ADDITIONAL;
+                                if (p->protocol == DNS_PROTOCOL_MDNS)
+                                        flags |= DNS_ANSWER_CACHEABLE;
+                        }
 
                         r = dns_answer_add(answer, rr, p->ifindex, flags, NULL);
                         if (r < 0)
