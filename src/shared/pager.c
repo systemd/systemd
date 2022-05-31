@@ -219,31 +219,30 @@ void pager_open(PagerFlags flags) {
                 /* Debian's alternatives command for pagers is called 'pager'. Note that we do not call
                  * sensible-pagers here, since that is just a shell script that implements a logic that is
                  * similar to this one anyway, but is Debian-specific. */
-                FOREACH_STRING(exe, "pager", "less", "more") {
-                        /* Only less implements secure mode right now. */
-                        if (use_secure_mode && !streq(exe, "less"))
+                static const char* pagers[] = { "pager", "less", "more", "(built-in)" };
+
+                for (unsigned i = 0; i < ELEMENTSOF(pagers); i++) {
+                        /* Only less (and our trivial fallback) implement secure mode right now. */
+                        if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "(built-in)"))
                                 continue;
 
-                        r = loop_write(exe_name_pipe[1], exe, strlen(exe) + 1, false);
-                        if (r  < 0) {
+                        r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1, false);
+                        if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
                         }
-                        execlp(exe, exe, NULL);
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed to execute '%s', using next fallback pager: %m", exe);
-                }
 
-                /* Our builtin is also very secure. */
-                r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in)") + 1, false);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to write pager name to socket: %m");
-                        _exit(EXIT_FAILURE);
+                        if (i < ELEMENTSOF(pagers) - 1) {
+                                execlp(pagers[i], pagers[i], NULL);
+                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                               "Failed to execute '%s', will try '%s' next: %m", pagers[i], pagers[i+1]);
+                        } else {
+                                /* Close pipe to signal the parent to start sending data */
+                                safe_close_pair(exe_name_pipe);
+                                pager_fallback();
+                                assert_not_reached();
+                        }
                 }
-                /* Close pipe to signal the parent to start sending data */
-                safe_close_pair(exe_name_pipe);
-                pager_fallback();
-                /* not reached */
         }
 
         /* Return in the parent */
