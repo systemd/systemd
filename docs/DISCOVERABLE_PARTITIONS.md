@@ -340,7 +340,7 @@ the label comparison is inconclusive.
 
 A *container* *manager* should automatically discover and mount the root,
 `/usr/`, `/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container
-disk image.  It may choose to mount any discovered ESP and/or XBOOOTLDR
+disk image.  It may choose to mount any discovered ESP and/or XBOOTLDR
 partition to `/efi/` or `/boot/`. It should ignore any swap should they be
 included in a container disk image.
 
