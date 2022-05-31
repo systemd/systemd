@@ -335,6 +335,7 @@ TEST(efi_memcmp) {
         assert_se(efi_memcmp("a", "A", 1) > 0);
         assert_se(efi_memcmp("abc", "ab", 2) == 0);
         assert_se(efi_memcmp("ab", "abc", 3) < 0);
+        assert_se(efi_memcmp("abc", "ab", 3) > 0);
         assert_se(efi_memcmp("ab\000bd", "ab\000bd", 6) == 0);
         assert_se(efi_memcmp("ab\000b\0", "ab\000bd", 6) < 0);
 }
