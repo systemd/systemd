@@ -1123,7 +1123,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
-                        log_debug_errno(r, "Failed to install systemc call filter for architecture %s, skipping: %m",
+                        log_debug_errno(r, "Failed to install system call filter for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
         }
 
