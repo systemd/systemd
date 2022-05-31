@@ -81,7 +81,7 @@ char *xstrdup8(const char *s);
 char16_t *xstrdup16(const char16_t *s);
 
 #ifdef SD_BOOT
-/* The compiler normaly has knowledge about standard functions such as memcmp, but this is not the case when
+/* The compiler normally has knowledge about standard functions such as memcmp, but this is not the case when
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
  * optimizations again. Note that we still need to provide implementations as the compiler is free to not
  * inline its own implementation and instead issue a library call. */
