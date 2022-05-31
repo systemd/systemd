@@ -344,9 +344,7 @@ TEST(efi_memcpy) {
         char buf[10];
 
         assert_se(!efi_memcpy(NULL, NULL, 0));
-        assert_se(!efi_memcpy(NULL, "", 1));
         assert_se(efi_memcpy(buf, NULL, 0) == buf);
-        assert_se(efi_memcpy(buf, NULL, 1) == buf);
         assert_se(efi_memcpy(buf, "a", 0) == buf);
 
         assert_se(efi_memcpy(buf, "", 1) == buf);
@@ -363,7 +361,6 @@ TEST(efi_memset) {
         char buf[10];
 
         assert_se(!efi_memset(NULL, '1', 0));
-        assert_se(!efi_memset(NULL, '1', 1));
         assert_se(efi_memset(buf, '1', 0) == buf);
 
         assert_se(efi_memset(buf, '2', 1) == buf);

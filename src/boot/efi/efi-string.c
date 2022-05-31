@@ -160,8 +160,11 @@ int efi_memcmp(const void *p1, const void *p2, size_t n) {
 }
 
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
-        if (!dest || !src || n == 0)
+        if (n == 0)
                 return dest;
+
+        assert(dest);
+        assert(src);
 
         uint8_t *d = dest;
         const uint8_t *s = src;
@@ -177,8 +180,10 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
 }
 
 void *efi_memset(void *p, int c, size_t n) {
-        if (!p || n == 0)
+        if (n == 0)
                 return p;
+
+        assert(p);
 
         uint8_t *q = p;
         while (n > 0) {
