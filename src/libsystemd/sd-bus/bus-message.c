@@ -3064,37 +3064,6 @@ void bus_body_part_unmap(struct bus_body_part *part) {
         return;
 }
 
-static int buffer_peek(const void *p, size_t sz, size_t *rindex, size_t align, size_t nbytes, void **r) {
-        size_t k, start, end;
-
-        assert(rindex);
-        assert(align > 0);
-
-        start = ALIGN_TO(*rindex, align);
-        if (start > sz)
-                return -EBADMSG;
-
-        /* Avoid overflow below */
-        if (nbytes > SIZE_MAX - start)
-                return -EBADMSG;
-
-        end = start + nbytes;
-        if (end > sz)
-                return -EBADMSG;
-
-        /* Verify that padding is 0 */
-        for (k = *rindex; k < start; k++)
-                if (((const uint8_t*) p)[k] != 0)
-                        return -EBADMSG;
-
-        if (r)
-                *r = (uint8_t*) p + start;
-
-        *rindex = end;
-
-        return 1;
-}
-
 static bool message_end_of_signature(sd_bus_message *m) {
         struct bus_container *c;
 
@@ -4863,11 +4832,35 @@ static int message_peek_fields(
                 size_t nbytes,
                 void **ret) {
 
+        size_t start, end;
+
         assert(m);
         assert(rindex);
         assert(align > 0);
 
-        return buffer_peek(BUS_MESSAGE_FIELDS(m), m->fields_size, rindex, align, nbytes, ret);
+        start = ALIGN_TO(*rindex, align);
+        if (start > m->fields_size)
+                return -EBADMSG;
+
+        /* Avoid overflow below */
+        if (nbytes > SIZE_MAX - start)
+                return -EBADMSG;
+
+        end = start + nbytes;
+        if (end > m->fields_size)
+                return -EBADMSG;
+
+        /* Verify that padding is 0 */
+        uint8_t *p = BUS_MESSAGE_FIELDS(m);
+        for (size_t k = *rindex; k < start; k++)
+                if (p[k] != 0)
+                        return -EBADMSG;
+
+        if (ret)
+                *ret = p + start;
+
+        *rindex = end;
+        return 1;
 }
 
 static int message_peek_field_uint32(
