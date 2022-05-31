@@ -699,8 +699,10 @@ class Utilities():
             check_output(*args, env=env)
         except subprocess.CalledProcessError:
             for link in links_with_operstate:
-                output = check_output(*networkctl_cmd, '-n', '0', 'status', link.split(':')[0], env=env)
-                print(output)
+                name = link.split(':')[0]
+                if link_exists(name):
+                    output = check_output(*networkctl_cmd, '-n', '0', 'status', name, env=env)
+                    print(output)
             raise
         if not bool_any and setup_state:
             for link in links_with_operstate:
