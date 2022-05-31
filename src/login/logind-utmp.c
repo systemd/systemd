@@ -42,20 +42,28 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
         return left % USEC_PER_HOUR;
 }
 
-bool logind_wall_tty_filter(const char *tty, void *userdata) {
-        Manager *m = userdata;
-        const char *p;
+bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        assert(m->scheduled_shutdown_action);
 
-        assert(m);
-
-        if (!m->scheduled_shutdown_tty)
-                return true;
-
-        p = path_startswith(tty, "/dev/");
+        const char *p = path_startswith(tty, "/dev/");
         if (!p)
                 return true;
 
-        return !streq(p, m->scheduled_shutdown_tty);
+        /* Do not information about events which do not destroy local sessions to local pseudo-terminals.
+         * We assume that the if the system enters sleep or hibernation, this will be visible in an
+         * obvious way for any local user. And once the systems exits sleep or hibernation, the notication
+         * would be just noise. */
+        if (is_local &&
+            startswith(p, "pts/") &&
+            IN_SET(m->scheduled_shutdown_action->handle,
+                   HANDLE_SUSPEND,
+                   HANDLE_HIBERNATE,
+                   HANDLE_HYBRID_SLEEP,
+                   HANDLE_SUSPEND_THEN_HIBERNATE))
+                return false;
+
+        return !streq_ptr(p, m->scheduled_shutdown_tty);
 }
 
 static int warn_wall(Manager *m, usec_t n) {
