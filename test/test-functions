@@ -169,6 +169,7 @@ BASICTOOLS=(
     rev
     rm
     rmdir
+    rmmod
     sed
     seq
     setfattr
@@ -938,6 +939,7 @@ install_modules() {
     instmods vfat
     instmods nls_ascii =nls
     instmods dummy
+    instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
@@ -1770,6 +1772,7 @@ install_basic_tools() {
     image_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     image_install -o ldconfig.real
+    image_install -o evemu-event
 }
 
 install_debug_tools() {
