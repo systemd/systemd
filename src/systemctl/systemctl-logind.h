@@ -3,8 +3,6 @@
 
 #include "systemctl.h"
 
-int logind_set_wall_message(void);
-
 int logind_reboot(enum action a);
 int logind_check_inhibitors(enum action a);
 

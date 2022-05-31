@@ -21,9 +21,6 @@
 #include "utmp-wtmp.h"
 
 _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
-
-        usec_t left;
-        unsigned i;
         static const int wall_timers[] = {
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                 25, 40, 55, 70, 100, 130, 150, 180,
@@ -33,9 +30,9 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
         if (n >= elapse)
                 return 0;
 
-        left = elapse - n;
+        usec_t left = elapse - n;
 
-        for (i = 1; i < ELEMENTSOF(wall_timers); i++)
+        for (unsigned i = 1; i < ELEMENTSOF(wall_timers); i++)
                 if (wall_timers[i] * USEC_PER_MINUTE >= left)
                         return left - wall_timers[i-1] * USEC_PER_MINUTE;
 
@@ -59,8 +56,6 @@ bool logind_wall_tty_filter(const char *tty, void *userdata) {
 }
 
 static int warn_wall(Manager *m, usec_t n) {
-        _cleanup_free_ char *l = NULL, *username = NULL;
-        usec_t left;
         int r;
 
         assert(m);
@@ -68,13 +63,15 @@ static int warn_wall(Manager *m, usec_t n) {
         if (!m->enable_wall_messages || !m->scheduled_shutdown_action)
                 return 0;
 
-        left = m->scheduled_shutdown_timeout > n;
+        usec_t left = m->scheduled_shutdown_timeout > n;
 
-        r = asprintf(&l, "%s%sThe system is going down for %s %s%s!",
+        _cleanup_free_ char *l = NULL, *username = NULL;
+
+        r = asprintf(&l, "%s%sThe system will %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
-                     handle_action_to_string(m->scheduled_shutdown_action->handle),
-                     left ? "at " : "NOW",
+                     handle_action_verb_to_string(m->scheduled_shutdown_action->handle),
+                     left ? "at " : "now",
                      left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
         if (r < 0) {
                 log_oom();
@@ -92,20 +89,18 @@ static int wall_message_timeout_handler(
                         uint64_t usec,
                         void *userdata) {
 
-        Manager *m = userdata;
-        usec_t n, next;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
-        assert(m);
         assert(s == m->wall_message_timeout_source);
 
-        n = now(CLOCK_REALTIME);
+        usec_t n = now(CLOCK_REALTIME);
 
         r = warn_wall(m, n);
         if (r == 0)
                 return 0;
 
-        next = when_wall(n, m->scheduled_shutdown_timeout);
+        usec_t next = when_wall(n, m->scheduled_shutdown_timeout);
         if (next > 0) {
                 r = sd_event_source_set_time(s, n + next);
                 if (r < 0)
@@ -120,14 +115,12 @@ static int wall_message_timeout_handler(
 }
 
 int manager_setup_wall_message_timer(Manager *m) {
-
-        usec_t n, elapse;
         int r;
 
         assert(m);
 
-        n = now(CLOCK_REALTIME);
-        elapse = m->scheduled_shutdown_timeout;
+        usec_t n = now(CLOCK_REALTIME);
+        usec_t elapse = m->scheduled_shutdown_timeout;
 
         /* wall message handling */
 
