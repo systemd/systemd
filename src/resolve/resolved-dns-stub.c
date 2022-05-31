@@ -528,18 +528,26 @@ static int dns_stub_send(
         if (s)
                 r = dns_stream_write_packet(s, reply);
         else {
-                int fd;
+                int fd, ifindex;
 
                 fd = find_socket_fd(m, l, p->family, &p->sender, SOCK_DGRAM);
                 if (fd < 0)
                         return fd;
 
+                if (address_is_proxy(p->family, &p->destination))
+                        /* Force loopback iface if this is the loopback proxy stub
+                         * and ifindex was normalized to 0 by manager_recv(). */
+                        ifindex = p->ifindex ?: LOOPBACK_IFINDEX;
+                else
+                        /* Force loopback iface if this is the main listener stub. */
+                        ifindex = l ? p->ifindex : LOOPBACK_IFINDEX;
+
                 /* Note that it is essential here that we explicitly choose the source IP address for this
                  * packet. This is because otherwise the kernel will choose it automatically based on the
-                 * routing table and will thus pick 127.0.0.1 rather than 127.0.0.53. */
+                 * routing table and will thus pick 127.0.0.1 rather than 127.0.0.53/54. */
                 r = manager_send(m,
                                  fd,
-                                 l || address_is_proxy(p->family, &p->destination) ? p->ifindex : LOOPBACK_IFINDEX, /* force loopback iface if this is the main listener stub */
+                                 ifindex,
                                  p->family, &p->sender, p->sender_port, &p->destination,
                                  reply);
         }
