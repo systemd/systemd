@@ -165,10 +165,12 @@ BASICTOOLS=(
     mv
     nc
     nproc
+    pkill
     readlink
     rev
     rm
     rmdir
+    rmmod
     sed
     seq
     setfattr
@@ -193,6 +195,8 @@ BASICTOOLS=(
     umount
     uname
     unshare
+    useradd
+    userdel
     wc
     xargs
     xzcat
@@ -945,6 +949,8 @@ install_modules() {
     instmods vfat
     instmods nls_ascii =nls
     instmods dummy
+    # for TEST-35-LOGIN
+    instmods scsi_debug uinput
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
@@ -1777,6 +1783,8 @@ install_basic_tools() {
     image_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     image_install -o ldconfig.real
+    # for TEST-35-LOGIN
+    image_install -o evemu-device evemu-event
 }
 
 install_debug_tools() {
