@@ -34,7 +34,7 @@ static EFI_STATUS combine_initrd(
 
         /* Combines four initrds into one, by simple concatenation in memory */
 
-        n = ALIGN_TO(initrd_size, 4); /* main initrd might not be padded yet */
+        n = ALIGN4(initrd_size); /* main initrd might not be padded yet */
         if (credential_initrd) {
                 if (n > UINTN_MAX - credential_initrd_size)
                         return EFI_OUT_OF_RESOURCES;
@@ -71,7 +71,7 @@ static EFI_STATUS combine_initrd(
                 memcpy(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
                 p += initrd_size;
 
-                pad = ALIGN_TO(initrd_size, 4) - initrd_size;
+                pad = ALIGN4(initrd_size) - initrd_size;
                 if (pad > 0)  {
                         memset(p, 0, pad);
                         p += pad;
