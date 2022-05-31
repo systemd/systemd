@@ -94,7 +94,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         return (int) n;
 }
 
-static bool wall_tty_match(const char *path, void *userdata) {
+static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
