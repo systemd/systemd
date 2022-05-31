@@ -1868,6 +1868,10 @@ int unit_start(Unit *u) {
 
         assert(u);
 
+        /* Let's hold off running start jobs for mount units when /proc/self/mountinfo monitor is rate limited. */
+        if (u->type == UNIT_MOUNT && sd_event_source_is_ratelimited(u->manager->mount_event_source))
+                return -EAGAIN;
+
         /* If this is already started, then this will succeed. Note that this will even succeed if this unit
          * is not startable by the user. This is relied on to detect when we need to wait for units and when
          * waiting is finished. */
