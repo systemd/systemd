@@ -83,7 +83,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         r = restrict_fs_bpf__load(obj);
         assert(r <= 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to load BPF object");
+                return log_error_errno(r, "Failed to load BPF object: %m");
 
         *ret_obj = TAKE_PTR(obj);
 

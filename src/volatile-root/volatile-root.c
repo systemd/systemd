@@ -127,7 +127,7 @@ static int run(int argc, char *argv[]) {
 
         r = query_volatile_mode(&m);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine volatile mode from kernel command line.");
+                return log_error_errno(r, "Failed to determine volatile mode from kernel command line: %m");
         if (r == 0 && argc >= 2) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
                 m = volatile_mode_from_string(argv[1]);
