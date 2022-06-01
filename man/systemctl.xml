@@ -1924,23 +1924,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--check-inhibitors=</option></term>
 
         <listitem>
-          <para>When system shutdown or sleep state is request, this option controls how to deal with
-          inhibitor locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
+          <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
+          locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
           <literal>no</literal>. Defaults to <literal>auto</literal>, which will behave like
-          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal>
-          for non-interactive invocations.
-          <literal>yes</literal> will let the request respect inhibitor locks.
-          <literal>no</literal> will let the request ignore inhibitor locks.
-          </para>
-          <para>Applications can establish inhibitor locks to avoid that certain important operations
-          (such as CD burning or suchlike) are interrupted by system shutdown or a sleep state. Any user may
-          take these locks and privileged users may override these locks.
-          If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged)
-          and a list of active locks is printed.
-          However, if <literal>no</literal> is specified or <literal>auto</literal> is specified on a
-          non-interactive requests, the established locks are ignored and not shown, and the operation
-          attempted anyway, possibly requiring additional privileges.
-          May be overridden by <option>--force</option>.</para>
+          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal> for
+          non-interactive invocations. <literal>yes</literal> lets the request respect inhibitor locks.
+          <literal>no</literal> lets the request ignore inhibitor locks.</para>
+
+          <para>Applications can establish inhibitor locks to prevent certain important operations (such as
+          CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
+          privileged users may override these locks. If any locks are taken, shutdown and sleep state
+          requests will normally fail (unless privileged). However, if <literal>no</literal> is specified or
+          <literal>auto</literal> is specified on a non-interactive requests, the operation will be
+          attempted. If locks are present, the operation may require additional privileges.</para>
+
+          <para>Option <option>--force</option> provides another way to override inhibitors.</para>
         </listitem>
       </varlistentry>
 
