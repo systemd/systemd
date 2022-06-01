@@ -95,8 +95,6 @@ libsystemd_sources = files(
         'sd-bus/bus-dump.h',
         'sd-bus/bus-error.c',
         'sd-bus/bus-error.h',
-        'sd-bus/bus-gvariant.c',
-        'sd-bus/bus-gvariant.h',
         'sd-bus/bus-internal.c',
         'sd-bus/bus-internal.h',
         'sd-bus/bus-introspect.c',
@@ -261,12 +259,6 @@ tests += [
 
         [files('sd-bus/test-bus-vtable.c',
                'sd-bus/test-vtable-data.h')],
-
-        [files('sd-bus/test-bus-gvariant.c'),
-         [],
-         [libglib,
-          libgobject,
-          libgio]],
 
         [files('sd-bus/test-bus-creds.c')],
 

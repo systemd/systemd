@@ -92,7 +92,7 @@ static int bus_error_name_to_errno(const char *name) {
                                 }
                         }
 
-        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
+        m = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
         while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
                 /* For magic ELF error maps, the end marker might
                  * appear in the middle of things, since multiple maps
@@ -101,7 +101,7 @@ static int bus_error_name_to_errno(const char *name) {
                  * boundary, which is the selected alignment for the
                  * arrays. */
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_TO_PTR(m + 1, sizeof(void*));
+                        m = ALIGN_PTR(m + 1);
                         continue;
                 }
 
