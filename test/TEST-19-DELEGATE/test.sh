@@ -11,4 +11,8 @@ TEST_NO_NSPAWN=1
 QEMU_TIMEOUT=600
 UNIFIED_CGROUP_HIERARCHY=yes
 
+test_append_files() {
+     image_install useradd
+ }
+
 do_test "$@"
