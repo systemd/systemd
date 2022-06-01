@@ -61,9 +61,6 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         assert_se(r == 0);
 
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
         r = bpf_firewall_supported();
         if (r == BPF_FIREWALL_UNSUPPORTED)
                 return log_tests_skipped("BPF firewalling not supported");
