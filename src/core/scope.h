@@ -34,6 +34,9 @@ struct Scope {
         bool was_abandoned;
 
         sd_event_source *timer_event_source;
+
+        char *user;
+        char *group;
 };
 
 extern const UnitVTable scope_vtable;
