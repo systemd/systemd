@@ -553,7 +553,7 @@ static int run(int argc, char *argv[]) {
 
                                 parent = getppid();
                                 if (parent <= 1)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parent already died?");
+                                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent already died?");
 
                                 if (kill(parent, SIGUSR2) < 0)
                                         return log_error_errno(errno, "Failed to kill our own parent: %m");
