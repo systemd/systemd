@@ -186,6 +186,12 @@ int bus_scope_set_property(
                 r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
                 if (r != 0)
                         return r;
+
+                if (streq(name, "User"))
+                        return bus_set_transient_user_relaxed(u, name, &s->user , message, flags, error);
+
+                if (streq(name, "Group"))
+                        return bus_set_transient_user_relaxed(u, name, &s->group, message, flags, error);
         }
 
         return 0;
