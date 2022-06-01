@@ -8,7 +8,6 @@
 
 extern struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
 extern struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
-extern long (*sym_libbpf_get_error)(const void *);
 extern int (*sym_bpf_link__fd)(const struct bpf_link *);
 extern int (*sym_bpf_link__destroy)(struct bpf_link *);
 extern int (*sym_bpf_map__fd)(const struct bpf_map *);
@@ -27,6 +26,8 @@ extern void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 extern void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
 extern bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
 extern const char* (*sym_bpf_program__name)(const struct bpf_program *);
+extern libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
+extern long (*sym_libbpf_get_error)(const void *);
 
 #endif
 
