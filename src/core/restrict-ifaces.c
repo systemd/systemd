@@ -9,7 +9,7 @@
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-
+#include "bpf-util.h"
 #include "bpf/restrict_ifaces/restrict-ifaces-skel.h"
 
 static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifaces_bpf *obj) {
@@ -78,29 +78,21 @@ int restrict_network_interfaces_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-        if (r == 0) {
-                log_debug("Not running with unified cgroup hierarchy, BPF is not supported");
-                return supported = 0;
-        }
-
-        if (dlopen_bpf() < 0)
-                return false;
+        if (!cgroup_bpf_supported())
+                return (supported = false);
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*ifindex=*/0)) {
                 log_debug("BPF program type cgroup_skb is not supported");
-                return supported = 0;
+                return (supported = false);
         }
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "Failed to load BPF object: %m");
-                return supported = 0;
+                return (supported = false);
         }
 
-        return supported = bpf_can_link_program(obj->progs.sd_restrictif_i);
+        return (supported = bpf_can_link_program(obj->progs.sd_restrictif_i));
 }
 
 static int restrict_network_interfaces_install_impl(Unit *u) {

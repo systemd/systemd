@@ -26,6 +26,7 @@
 /* libbpf, clang and llc compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
+#include "bpf-util.h"
 #include "bpf/restrict_fs/restrict-fs-skel.h"
 
 #define CGROUP_HASH_SIZE_MAX 2048
@@ -135,23 +136,8 @@ bool lsm_bpf_supported(bool initialize) {
         if (!initialize)
                 return false;
 
-        r = dlopen_bpf();
-        if (r < 0) {
-                log_info_errno(r, "Failed to open libbpf, LSM BPF is not supported: %m");
+        if (!cgroup_bpf_supported())
                 return (supported = false);
-        }
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0) {
-                log_warning_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-                return (supported = false);
-        }
-
-        if (r == 0) {
-                log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Not running with unified cgroup hierarchy, LSM BPF is not supported");
-                return (supported = false);
-        }
 
         r = mac_bpf_use();
         if (r < 0) {
