@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
+#include "exit-status.h"
 #include "load-dropin.h"
 #include "log.h"
 #include "process-util.h"
@@ -18,6 +19,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = UNIT_INACTIVE,
@@ -39,6 +41,7 @@ static void scope_init(Unit *u) {
         s->runtime_max_usec = USEC_INFINITY;
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
         u->ignore_on_isolate = true;
+        s->user = s->group = NULL;
 }
 
 static void scope_done(Unit *u) {
@@ -50,6 +53,9 @@ static void scope_done(Unit *u) {
         s->controller_track = sd_bus_track_unref(s->controller_track);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+
+        s->user = mfree(s->user);
+        s->group = mfree(s->group);
 }
 
 static usec_t scope_running_timeout(Scope *s) {
@@ -107,7 +113,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
+        if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL, SCOPE_CHOWN_CGROUP))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
         if (IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
@@ -353,26 +359,76 @@ fail:
         scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
 }
 
-static int scope_start(Unit *u) {
-        Scope *s = SCOPE(u);
+static int scope_enter_chown_cgroup(Scope *s) {
+        Unit *u = UNIT(s);
+        pid_t pid;
         int r;
 
         assert(s);
 
-        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                return -EPERM;
+        (void) unit_realize_cgroup(u);
+        (void) unit_reset_accounting(u);
 
-        if (s->state == SCOPE_FAILED)
-                return -EPERM;
+        r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), 30*USEC_PER_SEC));
+        if (r < 0)
+                return r;
 
-        /* We can't fulfill this right now, please try again later */
-        if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
-                return -EAGAIN;
+        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pid);
+        if (r < 0)
+                goto fail;
 
-        assert(s->state == SCOPE_DEAD);
+        if (r == 0) {
+                uid_t uid = UID_INVALID;
+                gid_t gid = GID_INVALID;
 
-        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
-                return -ENOENT;
+                if (!isempty(s->user)) {
+                        const char *user = s->user;
+
+                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user \"%s\": %m", user);
+                                _exit(EXIT_USER);
+                        }
+                }
+
+                if (!isempty(s->group)) {
+                        const char *group = s->group;
+
+                        r = get_group_creds(&group, &gid, 0);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", group);
+                                _exit(EXIT_GROUP);
+                        }
+                }
+
+                if (uid_is_valid(uid) && unit_cgroup_delegate(u)) {
+                        r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, uid, gid);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
+                                _exit(EXIT_CGROUP);
+                        }
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = unit_watch_pid(UNIT(s), pid, true);
+        if (r < 0)
+                goto fail;
+
+        scope_set_state(s, SCOPE_CHOWN_CGROUP);
+
+        return 1;
+fail:
+        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        return r;
+}
+
+static int scope_enter_running(Scope *s) {
+        Unit *u = UNIT(s);
+        int r;
+
+        assert(s);
 
         (void) bus_scope_track_controller(s);
 
@@ -380,8 +436,10 @@ static int scope_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        (void) unit_realize_cgroup(u);
-        (void) unit_reset_accounting(u);
+        if (!u->cgroup_realized) {
+                (void) unit_realize_cgroup(u);
+                (void) unit_reset_accounting(u);
+        }
 
         unit_export_state_files(u);
 
@@ -414,6 +472,32 @@ static int scope_start(Unit *u) {
         /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
         (void) unit_enqueue_rewatch_pids(u);
         return 1;
+}
+
+static int scope_start(Unit *u) {
+        Scope *s = SCOPE(u);
+
+        assert(s);
+
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                return -EPERM;
+
+        if (s->state == SCOPE_FAILED)
+                return -EPERM;
+
+        /* We can't fulfill this right now, please try again later */
+        if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
+                return -EAGAIN;
+
+        assert(s->state == SCOPE_DEAD);
+
+        if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
+                return -ENOENT;
+
+        if (s->user)
+                return scope_enter_chown_cgroup(s);
+
+        return scope_enter_running(s);
 }
 
 static int scope_stop(Unit *u) {
@@ -547,7 +631,17 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 }
 
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        assert(u);
+        Scope *s = SCOPE(u);
+
+        assert(s);
+
+        if (s->state == SCOPE_CHOWN_CGROUP) {
+                if (!is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
+                        scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+                else
+                        scope_enter_running(s);
+                return;
+        }
 
         /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to
          * watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
@@ -582,6 +676,11 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case SCOPE_STOP_SIGKILL:
                 log_unit_warning(UNIT(s), "Still around after SIGKILL. Ignoring.");
+                scope_enter_dead(s, SCOPE_FAILURE_TIMEOUT);
+                break;
+
+        case SCOPE_CHOWN_CGROUP:
+                log_unit_warning(UNIT(s), "User lookup timed out. Entering failed mode.");
                 scope_enter_dead(s, SCOPE_FAILURE_TIMEOUT);
                 break;
 
