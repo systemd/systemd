@@ -485,4 +485,4 @@ libshared = shared_library(
                       libsystemd_static],
         dependencies : libshared_deps,
         install : true,
-        install_dir : rootlibexecdir)
+        install_dir : rootpkglibdir)
