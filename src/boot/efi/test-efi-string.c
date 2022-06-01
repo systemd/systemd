@@ -370,6 +370,60 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
 }
 
+TEST(parse_number8) {
+        uint64_t u;
+        const char *tail;
+
+        assert_se(!parse_number8(NULL, &u, NULL));
+        assert_se(!parse_number8("", &u, NULL));
+        assert_se(!parse_number8("a1", &u, NULL));
+        assert_se(!parse_number8("1a", &u, NULL));
+        assert_se(!parse_number8("-42", &u, NULL));
+        assert_se(!parse_number8("18446744073709551616", &u, NULL));
+
+        assert_se(parse_number8("0", &u, NULL));
+        assert_se(u == 0);
+        assert_se(parse_number8("1", &u, NULL));
+        assert_se(u == 1);
+        assert_se(parse_number8("999", &u, NULL));
+        assert_se(u == 999);
+        assert_se(parse_number8("18446744073709551615", &u, NULL));
+        assert_se(u == UINT64_MAX);
+        assert_se(parse_number8("42", &u, &tail));
+        assert_se(u == 42);
+        assert_se(streq8(tail, ""));
+        assert_se(parse_number8("54321rest", &u, &tail));
+        assert_se(u == 54321);
+        assert_se(streq8(tail, "rest"));
+}
+
+TEST(parse_number16) {
+        uint64_t u;
+        const char16_t *tail;
+
+        assert_se(!parse_number16(NULL, &u, NULL));
+        assert_se(!parse_number16(u"", &u, NULL));
+        assert_se(!parse_number16(u"a1", &u, NULL));
+        assert_se(!parse_number16(u"1a", &u, NULL));
+        assert_se(!parse_number16(u"-42", &u, NULL));
+        assert_se(!parse_number16(u"18446744073709551616", &u, NULL));
+
+        assert_se(parse_number16(u"0", &u, NULL));
+        assert_se(u == 0);
+        assert_se(parse_number16(u"1", &u, NULL));
+        assert_se(u == 1);
+        assert_se(parse_number16(u"999", &u, NULL));
+        assert_se(u == 999);
+        assert_se(parse_number16(u"18446744073709551615", &u, NULL));
+        assert_se(u == UINT64_MAX);
+        assert_se(parse_number16(u"42", &u, &tail));
+        assert_se(u == 42);
+        assert_se(streq16(tail, u""));
+        assert_se(parse_number16(u"54321rest", &u, &tail));
+        assert_se(u == 54321);
+        assert_se(streq16(tail, u"rest"));
+}
+
 TEST(efi_memcmp) {
         assert_se(efi_memcmp(NULL, NULL, 0) == 0);
         assert_se(efi_memcmp(NULL, NULL, 1) == 0);
