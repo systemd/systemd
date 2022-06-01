@@ -1159,10 +1159,12 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else if (streq8((char *) value, "menu-hidden"))
                                 config->timeout_sec_config = TIMEOUT_MENU_HIDDEN;
                         else {
-                                _cleanup_freepool_ CHAR16 *s = NULL;
-
-                                s = xstra_to_str(value);
-                                config->timeout_sec_config = MIN(Atoi(s), TIMEOUT_TYPE_MAX);
+                                uint64_t u;
+                                if (!parse_number8((char *) value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
+                                        log_error_stall(L"Error parsing 'timeout' config option: %a", value);
+                                        continue;
+                                }
+                                config->timeout_sec_config = u;
                         }
                         config->timeout_sec = config->timeout_sec_config;
                         continue;
@@ -1221,10 +1223,12 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         else if (streq8((char *) value, "keep"))
                                 config->console_mode = CONSOLE_MODE_KEEP;
                         else {
-                                _cleanup_freepool_ CHAR16 *s = NULL;
-
-                                s = xstra_to_str(value);
-                                config->console_mode = MIN(Atoi(s), (UINTN)CONSOLE_MODE_RANGE_MAX);
+                                uint64_t u;
+                                if (!parse_number8((char *) value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
+                                        log_error_stall(L"Error parsing 'console-mode' config option: %a", value);
+                                        continue;
+                                }
+                                config->console_mode = u;
                         }
                         continue;
                 }
