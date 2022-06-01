@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (detect_container() > 0)
-                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+                return log_tests_skipped("test-socket-bind fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("socket-bind is not supported");
 
         if (find_netcat_executable(&netcat_path) != 0)
-                return log_tests_skipped("Can not find netcat executable");
+                return log_tests_skipped("Cannot find netcat executable");
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
