@@ -240,6 +240,38 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
         return efi_fnmatch_internal(pattern, haystack, 32);
 }
 
+#define DEFINE_PARSE_NUMBER(type, name)                                    \
+        bool name(const type *s, uint64_t *ret_u, const type **ret_tail) { \
+                assert(ret_u);                                             \
+                                                                           \
+                if (!s)                                                    \
+                        return false;                                      \
+                                                                           \
+                /* Need at least one digit. */                             \
+                if (*s < '0' || *s > '9')                                  \
+                        return false;                                      \
+                                                                           \
+                uint64_t u = 0;                                            \
+                while (*s >= '0' && *s <= '9') {                           \
+                        if (__builtin_mul_overflow(u, 10, &u))             \
+                                return false;                              \
+                        if (__builtin_add_overflow(u, *s - '0', &u))       \
+                                return false;                              \
+                        s++;                                               \
+                }                                                          \
+                                                                           \
+                if (!ret_tail && *s != '\0')                               \
+                        return false;                                      \
+                                                                           \
+                *ret_u = u;                                                \
+                if (ret_tail)                                              \
+                        *ret_tail = s;                                     \
+                return true;                                               \
+        }
+
+DEFINE_PARSE_NUMBER(char, parse_number8);
+DEFINE_PARSE_NUMBER(char16_t, parse_number16);
+
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;
         int r;
