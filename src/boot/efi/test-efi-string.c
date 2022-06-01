@@ -322,6 +322,43 @@ TEST(xstrdup16) {
         free(s);
 }
 
+TEST(metaimatch) {
+        assert_se(metaimatch(u"", u""));
+        assert_se(metaimatch(u"a", u"a"));
+        assert_se(metaimatch(u"A", u"a"));
+        assert_se(metaimatch(u"a", u"A"));
+        assert_se(metaimatch( u"abc", u"abc"));
+        assert_se(!metaimatch(u"b", u"a"));
+        assert_se(!metaimatch(u"", u"a"));
+        assert_se(!metaimatch(u"ab", u"a"));
+        assert_se(metaimatch(u"abc", u"a?c"));
+        assert_se(metaimatch(u"azc", u"a?c"));
+        assert_se(metaimatch(u"a??.?c", u"a????c"));
+        assert_se(!metaimatch(u"1", u"1?"));
+        assert_se(metaimatch(u"", u"*"));
+        assert_se(metaimatch(u"123", u"*"));
+        assert_se(metaimatch(u"", u"**"));
+        assert_se(metaimatch(u"abcd", u"**"));
+        assert_se(metaimatch(u"abcd", u"*b*"));
+        assert_se(metaimatch(u"linux.conf", u"*.conf"));
+        assert_se(metaimatch(u"DEBIAN-WHEEZY.CONF", u"debian-*.conf"));
+        assert_se(metaimatch(u"DEBIAN-JESSY.EFI", u"debian-*.*"));
+        assert_se(metaimatch(u"arch-lts1.CONF", u"arch-lts*.CONF"));
+        assert_se(!metaimatch(u"", u"[]"));
+        assert_se(metaimatch(u"c", u"[abc]"));
+        assert_se(metaimatch(u"b", u"[ABC]"));
+        assert_se(!metaimatch(u"1", u"[abc]"));
+        assert_se(metaimatch(u"4", u"[2-8]"));
+        assert_se(metaimatch(u"F", u"[a-g]"));
+        assert_se(metaimatch(u"F", u"[1-3a-g]"));
+        assert_se(!metaimatch(u"m", u"[f-l]"));
+        assert_se(!metaimatch(u"b", u"[z-a]"));
+        assert_se(metaimatch(u",", u"[+-/]"));
+        assert_se(!metaimatch(u"+", u"[-@]"));
+        assert_se(!metaimatch(u"8", u"[1-7-9]"));
+        assert_se(metaimatch(u"!", u"[!@#$%^&*()]"));
+}
+
 TEST(efi_memcmp) {
         assert_se(efi_memcmp(NULL, NULL, 0) == 0);
         assert_se(efi_memcmp(NULL, NULL, 1) == 0);

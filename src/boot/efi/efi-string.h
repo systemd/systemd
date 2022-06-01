@@ -80,6 +80,8 @@ char16_t *xstrndup16(const char16_t *s, size_t n);
 char *xstrdup8(const char *s);
 char16_t *xstrdup16(const char16_t *s);
 
+bool metaimatch(const char16_t *haystack, const char16_t *pattern);
+
 #ifdef SD_BOOT
 /* The compiler normaly has knowledge about standard functions such as memcmp, but this is not the case when
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
