@@ -135,6 +135,13 @@ libcore_sources = files(
         'unit.h',
 )
 
+if conf.get('BPF_FRAMEWORK') == 1
+        libcore_sources += files(
+                'bpf-util.c',
+                'bpf-util.h',
+        )
+endif
+
 subdir('bpf')
 
 subdir('bpf/socket_bind')

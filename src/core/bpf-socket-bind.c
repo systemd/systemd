@@ -11,8 +11,9 @@
 /* libbpf, clang, llvm and bpftool compile time dependencies are satisfied */
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/socket_bind/socket-bind-skel.h"
+#include "bpf-util.h"
 #include "bpf/socket_bind/socket-bind-api.bpf.h"
+#include "bpf/socket_bind/socket-bind-skel.h"
 
 static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj) {
         /* socket_bind_bpf__destroy handles object == NULL case */
@@ -116,15 +117,7 @@ int bpf_socket_bind_supported(void) {
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         int r;
 
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_debug_errno(r, "Can't determine whether the unified hierarchy is used: %m");
-        if (r == 0) {
-                log_debug("Not running with unified cgroup hierarchy, BPF is not supported");
-                return false;
-        }
-
-        if (dlopen_bpf() < 0)
+        if (!cgroup_bpf_supported())
                 return false;
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0)) {
