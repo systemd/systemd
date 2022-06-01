@@ -530,7 +530,7 @@ static int dns_stub_send(
         else {
                 int fd, ifindex;
 
-                fd = find_socket_fd(m, l, p->family, &p->sender, SOCK_DGRAM);
+                fd = find_socket_fd(m, l, p->family, &p->destination, SOCK_DGRAM);
                 if (fd < 0)
                         return fd;
 
