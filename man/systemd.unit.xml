@@ -1734,6 +1734,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertCPUFeature=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>
