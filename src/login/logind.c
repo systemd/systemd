@@ -972,7 +972,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
                 if (n >= since.monotonic + m->idle_action_usec &&
                     (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
-                        log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
+                        log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
 
                         manager_handle_action(m, 0, m->idle_action, false, false);
                         m->idle_action_not_before_usec = n;
