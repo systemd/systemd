@@ -318,7 +318,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (!streq16(line, *line_in)) {
-                                FreePool(*line_in);
+                                free(*line_in);
                                 *line_in = TAKE_PTR(line);
                         }
                         return TRUE;
@@ -741,7 +741,7 @@ static BOOLEAN menu_run(
                 }
 
                 if (timeout_remain > 0) {
-                        FreePool(status);
+                        free(status);
                         status = xpool_print(L"Boot in %u s.", timeout_remain);
                 }
 
@@ -872,7 +872,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != idx_highlight) {
-                                FreePool(config->entry_default_efivar);
+                                free(config->entry_default_efivar);
                                 config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
                                 config->idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Default boot entry selected.");
@@ -1037,11 +1037,10 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         assert(config->entry_count < IDX_MAX);
 
         if ((config->entry_count & 15) == 0) {
-                UINTN i = config->entry_count + 16;
-                config->entries = xreallocate_pool(
+                config->entries = xrealloc(
                                 config->entries,
                                 sizeof(void *) * config->entry_count,
-                                sizeof(void *) * i);
+                                sizeof(void *) * (config->entry_count + 16));
         }
         config->entries[config->entry_count++] = entry;
 }
@@ -1050,20 +1049,20 @@ static void config_entry_free(ConfigEntry *entry) {
         if (!entry)
                 return;
 
-        FreePool(entry->id);
-        FreePool(entry->title_show);
-        FreePool(entry->title);
-        FreePool(entry->sort_key);
-        FreePool(entry->version);
-        FreePool(entry->machine_id);
-        FreePool(entry->loader);
-        FreePool(entry->devicetree);
-        FreePool(entry->options);
+        free(entry->id);
+        free(entry->title_show);
+        free(entry->title);
+        free(entry->sort_key);
+        free(entry->version);
+        free(entry->machine_id);
+        free(entry->loader);
+        free(entry->devicetree);
+        free(entry->options);
         strv_free(entry->initrd);
-        FreePool(entry->path);
-        FreePool(entry->current_name);
-        FreePool(entry->next_name);
-        FreePool(entry);
+        free(entry->path);
+        free(entry->current_name);
+        free(entry->next_name);
+        free(entry);
 }
 
 static inline void config_entry_freep(ConfigEntry **entry) {
@@ -1174,7 +1173,7 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 log_error_stall(L"Unsupported special entry identifier: %a", value);
                                 continue;
                         }
-                        FreePool(config->entry_default_config);
+                        free(config->entry_default_config);
                         config->entry_default_config = xstra_to_str(value);
                         continue;
                 }
@@ -1416,7 +1415,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
 
         /* If the file we just renamed is the loader path, then let's update that. */
         if (streq16(entry->loader, old_path)) {
-                FreePool(entry->loader);
+                free(entry->loader);
                 entry->loader = TAKE_PTR(new_path);
         }
 }
@@ -1451,31 +1450,31 @@ static void config_entry_add_type1(
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (streq8((char *) key, "title")) {
-                        FreePool(entry->title);
+                        free(entry->title);
                         entry->title = xstra_to_str(value);
                         continue;
                 }
 
                 if (streq8((char *) key, "sort-key")) {
-                        FreePool(entry->sort_key);
+                        free(entry->sort_key);
                         entry->sort_key = xstra_to_str(value);
                         continue;
                 }
 
                 if (streq8((char *) key, "version")) {
-                        FreePool(entry->version);
+                        free(entry->version);
                         entry->version = xstra_to_str(value);
                         continue;
                 }
 
                 if (streq8((char *) key, "machine-id")) {
-                        FreePool(entry->machine_id);
+                        free(entry->machine_id);
                         entry->machine_id = xstra_to_str(value);
                         continue;
                 }
 
                 if (streq8((char *) key, "linux")) {
-                        FreePool(entry->loader);
+                        free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstra_to_path(value);
                         entry->key = 'l';
@@ -1484,7 +1483,7 @@ static void config_entry_add_type1(
 
                 if (streq8((char *) key, "efi")) {
                         entry->type = LOADER_EFI;
-                        FreePool(entry->loader);
+                        free(entry->loader);
                         entry->loader = xstra_to_path(value);
 
                         /* do not add an entry for ourselves */
@@ -1505,13 +1504,13 @@ static void config_entry_add_type1(
                 }
 
                 if (streq8((char *) key, "devicetree")) {
-                        FreePool(entry->devicetree);
+                        free(entry->devicetree);
                         entry->devicetree = xstra_to_path(value);
                         continue;
                 }
 
                 if (streq8((char *) key, "initrd")) {
-                        entry->initrd = xreallocate_pool(
+                        entry->initrd = xrealloc(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(UINT16 *),
                                 (n_initrd + 2) * sizeof(UINT16 *));
@@ -1528,7 +1527,7 @@ static void config_entry_add_type1(
                                 CHAR16 *s;
 
                                 s = xpool_print(L"%s %s", entry->options, new);
-                                FreePool(entry->options);
+                                free(entry->options);
                                 entry->options = s;
                         } else
                                 entry->options = TAKE_PTR(new);
@@ -1717,7 +1716,7 @@ static UINTN config_entry_find(Config *config, const CHAR16 *needle) {
                 return IDX_INVALID;
 
         for (UINTN i = 0; i < config->entry_count; i++)
-                if (MetaiMatch(config->entries[i]->id, (CHAR16*) needle))
+                if (metaimatch(config->entries[i]->id, needle))
                         return i;
 
         return IDX_INVALID;
@@ -1935,13 +1934,14 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
-        if (EFI_ERROR(err))
+        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
                 return;
 
         for (UINTN i = 0; i < n_handles; i++) {
-                _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(handles[i]);
-                if (!root)
+                _cleanup_(file_closep) EFI_FILE *root = NULL;
+
+                if (open_volume(handles[i], &root) != EFI_SUCCESS)
                         continue;
 
                 if (config_entry_add_loader_auto(
@@ -2133,49 +2133,49 @@ static void config_entry_add_unified(
                 /* read properties from the embedded os-release file */
                 while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
                         if (streq8((char *) key, "PRETTY_NAME")) {
-                                FreePool(os_pretty_name);
+                                free(os_pretty_name);
                                 os_pretty_name = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "IMAGE_ID")) {
-                                FreePool(os_image_id);
+                                free(os_image_id);
                                 os_image_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "NAME")) {
-                                FreePool(os_name);
+                                free(os_name);
                                 os_name = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "ID")) {
-                                FreePool(os_id);
+                                free(os_id);
                                 os_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "IMAGE_VERSION")) {
-                                FreePool(os_image_version);
+                                free(os_image_version);
                                 os_image_version = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "VERSION")) {
-                                FreePool(os_version);
+                                free(os_version);
                                 os_version = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "VERSION_ID")) {
-                                FreePool(os_version_id);
+                                free(os_version_id);
                                 os_version_id = xstra_to_str(value);
                                 continue;
                         }
 
                         if (streq8((char *) key, "BUILD_ID")) {
-                                FreePool(os_build_id);
+                                free(os_build_id);
                                 os_build_id = xstra_to_str(value);
                                 continue;
                         }
@@ -2300,7 +2300,7 @@ static EFI_STATUS initrd_prepare(
                 UINTN new_size, read_size = info->FileSize;
                 if (__builtin_add_overflow(size, read_size, &new_size))
                         return EFI_OUT_OF_RESOURCES;
-                initrd = xreallocate_pool(initrd, size, new_size);
+                initrd = xrealloc(initrd, size, new_size);
 
                 err = handle->Read(handle, &read_size, initrd + size);
                 if (EFI_ERROR(err))
@@ -2337,13 +2337,14 @@ static EFI_STATUS image_start(
         if (entry->call)
                 (void) entry->call();
 
-        _cleanup_(file_closep) EFI_FILE *image_root = LibOpenRoot(entry->device);
-        if (!image_root)
-                return log_error_status_stall(EFI_DEVICE_ERROR, L"Error opening root path.");
+        _cleanup_(file_closep) EFI_FILE *image_root = NULL;
+        err = open_volume(entry->device, &image_root);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error opening root path: %r", err);
 
-        path = FileDevicePath(entry->device, entry->loader);
-        if (!path)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Error getting device path.");
+        err = make_file_device_path(entry->device, entry->loader, &path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error making file device path: %r", err);
 
         UINTN initrd_size = 0;
         _cleanup_freepool_ void *initrd = NULL;
@@ -2413,9 +2414,9 @@ static void config_free(Config *config) {
         assert(config);
         for (UINTN i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
-        FreePool(config->entries);
-        FreePool(config->entry_default_config);
-        FreePool(config->entry_oneshot);
+        free(config->entries);
+        free(config->entry_default_config);
+        free(config->entry_oneshot);
 }
 
 static void config_write_entries_to_variable(Config *config) {
@@ -2428,7 +2429,7 @@ static void config_write_entries_to_variable(Config *config) {
         for (UINTN i = 0; i < config->entry_count; i++)
                 sz += strsize16(config->entries[i]->id);
 
-        p = buffer = xallocate_pool(sz);
+        p = buffer = xmalloc(sz);
 
         for (UINTN i = 0; i < config->entry_count; i++) {
                 UINTN l;
@@ -2595,9 +2596,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
-        root_dir = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root_dir)
-                return log_error_status_stall(EFI_LOAD_ERROR, L"Unable to open root directory.", EFI_LOAD_ERROR);
+        err = open_volume(loaded_image->DeviceHandle, &root_dir);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Unable to open root directory: %r", err);
 
         if (secure_boot_enabled() && shim_loaded()) {
                 err = security_policy_install();
