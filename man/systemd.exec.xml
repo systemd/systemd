@@ -1421,7 +1421,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <listitem><para>Specifies the access mode of the directories specified in <varname>RuntimeDirectory=</varname>,
         <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, or
         <varname>ConfigurationDirectory=</varname>, respectively, as an octal number.  Defaults to
-        <constant>0755</constant>. See "Permissions" in <citerefentry
+        <constant>0750</constant>. See "Permissions" in <citerefentry
         project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
         discussion of the meaning of permission bits.</para></listitem>
       </varlistentry>
