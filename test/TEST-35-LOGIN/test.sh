@@ -4,6 +4,7 @@ set -e
 
 TEST_DESCRIPTION="LOGIN"
 IMAGE_NAME="default"
+TEST_SAVE_JOURNAL="yes"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
