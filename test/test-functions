@@ -803,20 +803,7 @@ if [[ ! -e "$ASAN_RT_PATH" ]]; then
     exit 1
 fi
 
-# Suppress certain leaks reported by LSan (either in external tools or bogus
-# ones)
-# Docs: # https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
-#
-# - fsck is called by systemd-homed and is reporting a leak we're not interested
-#   in
-# - libLLVM is a "side effect" caused by the previous fsck leak
-cat >/systemd-lsan.supp <<INNER_EOF
-leak:/bin/fsck$
-leak:/sbin/fsck$
-leak:/lib/libLLVM
-INNER_EOF
-
-DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-}:suppressions=/systemd-lsan.supp
+DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-exitcode=0}
 DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
 DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
 DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS LSAN_OPTIONS=\$DEFAULT_LSAN_OPTIONS"
@@ -882,23 +869,6 @@ cat >/etc/udev/rules.d/00-set-LD_PRELOAD.rules <<INNER_EOF
 SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
 INNER_EOF
 chmod 0644 /etc/udev/rules.d/00-set-LD_PRELOAD.rules
-
-# The 'mount' utility doesn't behave well under libasan, causing unexpected
-# fails during boot and subsequent test results check:
-# bash-5.0# mount -o remount,rw -v /
-# mount: /dev/sda1 mounted on /.
-# bash-5.0# echo \$?
-# 1
-# Let's workaround this by clearing the previously set LD_PRELOAD env variable,
-# so the libasan library is not loaded for this particular service
-unset_ld_preload() {
-    local _dropin_dir="/etc/systemd/system/\$1.service.d"
-    mkdir -p "\$_dropin_dir"
-    printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$_dropin_dir/unset_ld_preload.conf"
-}
-
-unset_ld_preload systemd-remount-fs
-unset_ld_preload testsuite-
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec "$ROOTLIBDIR/systemd" "\$@"
