@@ -65,8 +65,8 @@ typedef struct {
         CHAR16 **initrd;
         CHAR16 key;
         EFI_STATUS (*call)(void);
-        UINTN tries_done;
-        UINTN tries_left;
+        int tries_done;
+        int tries_left;
         CHAR16 *path;
         CHAR16 *current_name;
         CHAR16 *next_name;
@@ -567,9 +567,9 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
                 ps_string(L"       options: %s\n", entry->options);
                   ps_bool(L" internal call: %s\n", !!entry->call);
 
-                  ps_bool(L"counting boots: %s\n", entry->tries_left != UINTN_MAX);
-                if (entry->tries_left != UINTN_MAX) {
-                    Print(L"         tries: %" PRIuN L" done, %" PRIuN L" left\n", entry->tries_done, entry->tries_left);
+                  ps_bool(L"counting boots: %s\n", entry->tries_left >= 0);
+                if (entry->tries_left >= 0) {
+                    Print(L"         tries: %u left, %u done\n", entry->tries_left, entry->tries_done);
                     Print(L"  current path: %s\\%s\n",  entry->path, entry->current_name);
                     Print(L"     next path: %s\\%s\n",  entry->path, entry->next_name);
                 }
@@ -1262,12 +1262,10 @@ static void config_entry_parse_tries(
                 const CHAR16 *file,
                 const CHAR16 *suffix) {
 
-        UINTN left = UINTN_MAX, done = UINTN_MAX, factor = 1, i, next_left, next_done;
-        _cleanup_freepool_ CHAR16 *prefix = NULL;
-
         assert(entry);
         assert(path);
         assert(file);
+        assert(suffix);
 
         /*
          * Parses a suffix of two counters (one going down, one going up) in the form "+LEFT-DONE" from the end of the
@@ -1280,99 +1278,46 @@ static void config_entry_parse_tries(
          * foobar+4-0.efi → foobar+3-1.efi → foobar+2-2.efi → foobar+1-3.efi → foobar+0-4.efi → STOP!
          */
 
-        i = strlen16(file);
-
-        /* Chop off any suffix such as ".conf" or ".efi" */
-        if (suffix) {
-                UINTN suffix_length;
-
-                suffix_length = strlen16(suffix);
-                if (i < suffix_length)
-                        return;
-
-                i -= suffix_length;
-        }
-
-        /* Go backwards through the string and parse everything we encounter */
+        const char16_t *counter = NULL;
         for (;;) {
-                if (i == 0)
-                        return;
-
-                i--;
-
-                switch (file[i]) {
-
-                case '+':
-                        if (left == UINTN_MAX) /* didn't read at least one digit for 'left'? */
-                                return;
-
-                        if (done == UINTN_MAX) /* no 'done' counter? If so, it's equivalent to 0 */
-                                done = 0;
-
-                        goto good;
-
-                case '-':
-                        if (left == UINTN_MAX) /* didn't parse any digit yet? */
-                                return;
-
-                        if (done != UINTN_MAX) /* already encountered a dash earlier? */
-                                return;
-
-                        /* So we encountered a dash. This means this counter is of the form +LEFT-DONE. Let's assign
-                         * what we already parsed to 'done', and start fresh for the 'left' part. */
-
-                        done = left;
-                        left = UINTN_MAX;
-                        factor = 1;
+                char16_t *plus = strchr16(counter ?: file, '+');
+                if (plus) {
+                        /* We want the last "+". */
+                        counter = plus + 1;
+                        continue;
+                }
+                if (counter)
                         break;
 
-                case '0'...'9': {
-                        UINTN new_factor;
-
-                        if (left == UINTN_MAX)
-                                left = file[i] - '0';
-                        else {
-                                UINTN new_left, digit;
-
-                                digit = file[i] - '0';
-                                if (digit > UINTN_MAX / factor) /* overflow check */
-                                        return;
-
-                                new_left = left + digit * factor;
-                                if (new_left < left) /* overflow check */
-                                        return;
-
-                                if (new_left == UINTN_MAX) /* don't allow us to be confused */
-                                        return;
-                        }
-
-                        new_factor = factor * 10;
-                        if (new_factor < factor) /* overflow check */
-                                return;
-
-                        factor = new_factor;
-                        break;
-                }
-
-                default:
-                        return;
-                }
+                /* No boot counter found. */
+                return;
         }
 
-good:
-        entry->tries_left = left;
-        entry->tries_done = done;
+        uint64_t tries_left, tries_done = 0;
+        size_t prefix_len = counter - file;
 
+        if (!parse_number16(counter, &tries_left, &counter) || tries_left > INT_MAX)
+                return;
+
+        /* Parse done counter only if present. */
+        if (*counter == '-' && (!parse_number16(counter + 1, &tries_done, &counter) || tries_done > INT_MAX))
+                return;
+
+        /* Boot counter in the middle of the name? */
+        if (!streq16(counter, suffix))
+                return;
+
+        entry->tries_left = tries_left;
+        entry->tries_done = tries_done;
         entry->path = xstrdup16(path);
         entry->current_name = xstrdup16(file);
-
-        next_left = left <= 0 ? 0 : left - 1;
-        next_done = done >= (UINTN) -2 ? (UINTN) -2 : done + 1;
-
-        prefix = xstrdup16(file);
-        prefix[i] = 0;
-
-        entry->next_name = xpool_print(L"%s+%" PRIuN L"-%" PRIuN L"%s", prefix, next_left, next_done, strempty(suffix));
+        entry->next_name = xpool_print(
+                        L"%.*s%u-%u%s",
+                        prefix_len,
+                        file,
+                        LESS_BY(tries_left, 1),
+                        MIN(tries_done + 1, INT_MAX),
+                        suffix);
 }
 
 static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
@@ -1385,7 +1330,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         assert(entry);
         assert(root_dir);
 
-        if (entry->tries_left == UINTN_MAX)
+        if (entry->tries_left < 0)
                 return;
 
         if (!entry->path || !entry->current_name || !entry->next_name)
@@ -1448,8 +1393,8 @@ static void config_entry_add_type1(
 
         entry = xnew(ConfigEntry, 1);
         *entry = (ConfigEntry) {
-                .tries_done = UINTN_MAX,
-                .tries_left = UINTN_MAX,
+                .tries_done = -1,
+                .tries_left = -1,
         };
 
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
@@ -1706,7 +1651,7 @@ static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         if (r != 0)
                 return r;
 
-        if (a->tries_left == UINTN_MAX || b->tries_left == UINTN_MAX)
+        if (a->tries_left < 0 || b->tries_left < 0)
                 return 0;
 
         /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
@@ -1927,8 +1872,8 @@ static ConfigEntry *config_entry_add_loader_auto(
                 .device = device,
                 .loader = xstrdup16(loader),
                 .key = key,
-                .tries_done = UINTN_MAX,
-                .tries_left = UINTN_MAX,
+                .tries_done = -1,
+                .tries_left = -1,
         };
 
         config_add_entry(config, entry);
@@ -2216,8 +2161,8 @@ static void config_entry_add_unified(
                         .loader = xpool_print(L"\\EFI\\Linux\\%s", f->FileName),
                         .sort_key = xstrdup16(good_sort_key),
                         .key = 'l',
-                        .tries_done = UINTN_MAX,
-                        .tries_left = UINTN_MAX,
+                        .tries_done = -1,
+                        .tries_left = -1,
                 };
 
                 strtolower16(entry->id);
@@ -2560,8 +2505,8 @@ static void config_load_all_entries(
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = reboot_into_firmware,
-                        .tries_done = UINTN_MAX,
-                        .tries_left = UINTN_MAX,
+                        .tries_done = -1,
+                        .tries_left = -1,
                 };
                 config_add_entry(config, entry);
         }
