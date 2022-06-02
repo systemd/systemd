@@ -354,6 +354,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         Manager *m = userdata;
         DnsScope *scope;
         int r;
+        bool unsolicited_packet = true;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
         if (r <= 0)
@@ -410,15 +411,21 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         }
                 }
 
+                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
+
                 LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
                         r = dns_answer_match_key(p->answer, t->key, NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to match resource key, ignoring: %m");
-                        else if (r > 0) /* This packet matches the transaction, let's pass it on as reply */
+                        else if (r > 0) { /* This packet matches the transaction, let's pass it on as reply */
+                                unsolicited_packet = false;
                                 dns_transaction_process_reply(t, p, false);
+                        }
                 }
 
-                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
+                /* Check incoming packet key matches with active clients if yes update the same */
+                if (unsolicited_packet)
+                        mdns_notify_subscribers_unsolicited_updates(m, p->answer, p->family);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
