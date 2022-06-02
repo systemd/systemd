@@ -277,5 +277,7 @@ test_suspend_on_lid
 test_shutdown
 test_acl
 
+exit 1
+
 touch /testok
 rm /failed
