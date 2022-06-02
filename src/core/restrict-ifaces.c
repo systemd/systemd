@@ -34,19 +34,19 @@ static int prepare_restrict_ifaces_bpf(
 
         obj = restrict_ifaces_bpf__open();
         if (!obj)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "Failed to open BPF object: %m");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "restrict-interfaces: Failed to open BPF object: %m");
 
         r = sym_bpf_map__resize(obj->maps.sd_restrictif, MAX(set_size(restrict_network_interfaces), 1u));
         if (r != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
-                                "Failed to resize BPF map '%s': %m",
+                                "restrict-interfaces: Failed to resize BPF map '%s': %m",
                                 sym_bpf_map__name(obj->maps.sd_restrictif));
 
         obj->rodata->is_allow_list = is_allow_list;
 
         r = restrict_ifaces_bpf__load(obj);
         if (r != 0)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, r, "Failed to load BPF object: %m");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, r, "restrict-interfaces: Failed to load BPF object: %m");
 
         map_fd = sym_bpf_map__fd(obj->maps.sd_restrictif);
 
@@ -56,13 +56,15 @@ static int prepare_restrict_ifaces_bpf(
 
                 ifindex = rtnl_resolve_interface(&rtnl, iface);
                 if (ifindex < 0) {
-                        log_unit_warning_errno(u, ifindex, "Couldn't find index of network interface '%s', ignoring: %m", iface);
+                        log_unit_warning_errno(u, ifindex,
+                                               "restrict-interfaces: Couldn't find index of network interface '%s', ignoring: %m",
+                                               iface);
                         continue;
                 }
 
                 if (sym_bpf_map_update_elem(map_fd, &ifindex, &dummy, BPF_ANY))
                         return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
-                                                   "Failed to update BPF map '%s' fd: %m",
+                                                   "restrict-interfaces: Failed to update BPF map '%s' fd: %m",
                                                    sym_bpf_map__name(obj->maps.sd_restrictif));
         }
 
@@ -82,13 +84,13 @@ int restrict_network_interfaces_supported(void) {
                 return (supported = false);
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SKB, /*ifindex=*/0)) {
-                log_debug("BPF program type cgroup_skb is not supported");
+                log_debug("restrict-interfaces: BPF program type cgroup_skb is not supported");
                 return (supported = false);
         }
 
         r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
         if (r < 0) {
-                log_debug_errno(r, "Failed to load BPF object: %m");
+                log_debug_errno(r, "restrict-interfaces: Failed to load BPF object: %m");
                 return (supported = false);
         }
 
@@ -109,7 +111,7 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_path);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get cgroup path: %m");
+                return log_unit_error_errno(u, r, "restrict-interfaces: Failed to get cgroup path: %m");
 
         if (!cc->restrict_network_interfaces)
                 return 0;
@@ -128,12 +130,12 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
         ingress_link = sym_bpf_program__attach_cgroup(obj->progs.sd_restrictif_i, cgroup_fd);
         r = sym_libbpf_get_error(ingress_link);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to create ingress cgroup link: %m");
+                return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create ingress cgroup link: %m");
 
         egress_link = sym_bpf_program__attach_cgroup(obj->progs.sd_restrictif_e, cgroup_fd);
         r = sym_libbpf_get_error(egress_link);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to create egress cgroup link: %m");
+                return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create egress cgroup link: %m");
 
         u->restrict_ifaces_ingress_bpf_link = TAKE_PTR(ingress_link);
         u->restrict_ifaces_egress_bpf_link = TAKE_PTR(egress_link);
@@ -172,7 +174,8 @@ int restrict_network_interfaces_add_initial_link_fd(Unit *u, int fd) {
 
         r = fdset_put(u->initial_restric_ifaces_link_fds, fd);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to put restrict-ifaces-bpf-fd %d to restored fdset: %m", fd);
+                return log_unit_error_errno(u, r,
+                        "restrict-interfaces: Failed to put restrict-ifaces-bpf-fd %d to restored fdset: %m", fd);
 
         return 0;
 }
@@ -184,7 +187,7 @@ int restrict_network_interfaces_supported(void) {
 
 int restrict_network_interfaces_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                        "Failed to install RestrictInterfaces: BPF programs built from source code are not supported: %m");
+                        "restrict-interfaces: Failed to install; BPF programs built from source code are not supported: %m");
 }
 
 int serialize_restrict_network_interfaces(Unit *u, FILE *f, FDSet *fds) {

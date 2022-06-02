@@ -69,27 +69,27 @@ static int prepare_socket_bind_bpf(
 
         if (allow_count > SOCKET_BIND_MAX_RULES)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                           "Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
+                                           "bpf-socket-bind: Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
 
         if (deny_count > SOCKET_BIND_MAX_RULES)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
-                                           "Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
+                                           "bpf-socket-bind: Maximum number of socket bind rules=%u is exceeded", SOCKET_BIND_MAX_RULES);
 
         obj = socket_bind_bpf__open();
         if (!obj)
-                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "Failed to open BPF object: %m");
+                return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno, "bpf-socket-bind: Failed to open BPF object: %m");
 
         if (sym_bpf_map__resize(obj->maps.sd_bind_allow, MAX(allow_count, 1u)) != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
-                                           "Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_allow));
+                                           "bpf-socket-bind: Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_allow));
 
         if (sym_bpf_map__resize(obj->maps.sd_bind_deny, MAX(deny_count, 1u)) != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, errno,
-                                           "Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_deny));
+                                           "bpf-socket-bind: Failed to resize BPF map '%s': %m", sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         if (socket_bind_bpf__load(obj) != 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_DEBUG, errno,
-                                           "Failed to load BPF object: %m");
+                                           "bpf-socket-bind: Failed to load BPF object: %m");
 
         allow_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_allow);
         assert(allow_map_fd >= 0);
@@ -97,7 +97,7 @@ static int prepare_socket_bind_bpf(
         r = update_rules_map(allow_map_fd, allow);
         if (r < 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
-                                           "Failed to put socket bind allow rules into BPF map '%s'",
+                                           "bpf-socket-bind: Failed to put socket bind allow rules into BPF map '%s'",
                                            sym_bpf_map__name(obj->maps.sd_bind_allow));
 
         deny_map_fd = sym_bpf_map__fd(obj->maps.sd_bind_deny);
@@ -106,7 +106,7 @@ static int prepare_socket_bind_bpf(
         r = update_rules_map(deny_map_fd, deny);
         if (r < 0)
                 return log_unit_full_errno(u, u ? LOG_ERR : LOG_WARNING, r,
-                                           "Failed to put socket bind deny rules into BPF map '%s'",
+                                           "bpf-socket-bind: Failed to put socket bind deny rules into BPF map '%s'",
                                            sym_bpf_map__name(obj->maps.sd_bind_deny));
 
         *ret_obj = TAKE_PTR(obj);
@@ -121,13 +121,13 @@ int bpf_socket_bind_supported(void) {
                 return false;
 
         if (!sym_bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0)) {
-                log_debug("BPF program type cgroup_sock_addr is not supported");
+                log_debug("bpf-socket-bind: BPF program type cgroup_sock_addr is not supported");
                 return false;
         }
 
         r = prepare_socket_bind_bpf(/*unit=*/NULL, /*allow_rules=*/NULL, /*deny_rules=*/NULL, &obj);
         if (r < 0) {
-                log_debug_errno(r, "BPF based socket_bind is not supported: %m");
+                log_debug_errno(r, "bpf-socket-bind: socket bind filtering is not supported: %m");
                 return false;
         }
 
@@ -147,7 +147,7 @@ int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
 
         r = fdset_put(u->initial_socket_bind_link_fds, fd);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to put socket-bind BPF link fd %d to initial fdset", fd);
+                return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to put BPF fd %d to initial fdset", fd);
 
         return 0;
 }
@@ -168,29 +168,29 @@ static int socket_bind_install_impl(Unit *u) {
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_path);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to get cgroup path: %m");
+                return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to get cgroup path: %m");
 
         if (!cc->socket_bind_allow && !cc->socket_bind_deny)
                 return 0;
 
         r = prepare_socket_bind_bpf(u, cc->socket_bind_allow, cc->socket_bind_deny, &obj);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to load BPF object: %m");
+                return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to load BPF object: %m");
 
         cgroup_fd = open(cgroup_path, O_RDONLY | O_CLOEXEC, 0);
         if (cgroup_fd < 0)
-                return log_unit_error_errno(u, errno, "Failed to open cgroup=%s for reading: %m", cgroup_path);
+                return log_unit_error_errno(u, errno, "bpf-socket-bind: Failed to open cgroup %s for reading: %m", cgroup_path);
 
         ipv4 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
         r = sym_libbpf_get_error(ipv4);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program: %m",
+                return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind4));
 
         ipv6 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind6, cgroup_fd);
         r = sym_libbpf_get_error(ipv6);
         if (r != 0)
-                return log_unit_error_errno(u, r, "Failed to link '%s' cgroup-bpf program: %m",
+                return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind6));
 
         u->ipv4_socket_bind_link = TAKE_PTR(ipv4);
@@ -234,7 +234,8 @@ int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
 }
 
 int bpf_socket_bind_install(Unit *u) {
-        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to install socket bind: BPF framework is not supported");
+        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                    "bpf-socket-bind: Failed to install; BPF framework is not supported");
 }
 
 int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
