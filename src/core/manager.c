@@ -216,7 +216,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
         unsigned cylon_pos;
-        uint64_t x;
+        uint64_t timeout = 0;
 
         assert(m);
         assert(m->n_running_jobs > 0);
@@ -245,7 +245,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (m->n_running_jobs > 1)
                 xsprintf(job_of_n, "(%u of %u) ", counter, m->n_running_jobs);
 
-        bool have_timeout = job_get_timeout(j, &x) > 0;
+        (void) job_get_timeout(j, &timeout);
 
         /* We want to use enough information for the user to identify previous lines talking about the same
          * unit, but keep the message as short as possible. So if 'Starting foo.service' or 'Starting
@@ -255,7 +255,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         const char *ident = unit_status_string(j->unit, NULL);
 
         const char *time = FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - j->begin_usec, 1*USEC_PER_SEC);
-        const char *limit = have_timeout ? FORMAT_TIMESPAN(x - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
+        const char *limit = timeout > 0 ? FORMAT_TIMESPAN(timeout - j->begin_usec, 1*USEC_PER_SEC) : "no limit";
 
         if (m->status_unit_format == STATUS_UNIT_FORMAT_DESCRIPTION)
                 /* When using 'Description', we effectively don't have enough space to show the nested status
