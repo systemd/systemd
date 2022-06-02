@@ -34,7 +34,7 @@
     supports tokens and credentials of the following kind to be enrolled:</para>
 
     <orderedlist>
-      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA key pair (e.g. various
+      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA or EC key pair (e.g. various
       YubiKeys)</para></listitem>
 
       <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most
@@ -108,8 +108,13 @@
         be specified, in order to automatically determine the URI of a currently plugged in security token
         (of which there must be exactly one). The special value <literal>list</literal> may be used to
         enumerate all suitable PKCS#11 tokens currently plugged in. The security token must contain an RSA
-        key pair which is used to encrypt the randomly generated key that is used to unlock the LUKS2
-        volume. The encrypted key is then stored in the LUKS2 JSON token header area.</para>
+        or EC key pair which is used to generate LUKS2 volume key.</para><para>For RSA key, the private key
+        is ued to encrypt the randomly generated key that is used to unlock the LUKS2 volume. The encrypted key
+        is the savedata.</para><para>For EC key, we first generate a pair of EC key in same EC group. Then we
+        use the newly generated private key to derive shared secret with the public key in the PKCS#11 token.
+        Finally the shared secret is used to unlock the LUKS2 volume. The newly generated public key is the
+        savedata and the private key is simplely erased.</para><para>The savedata is then stored in the
+        LUKS2 JSON token header area.</para>
 
         <para>In order to unlock a LUKS2 volume with an enrolled PKCS#11 security token, specify the
         <option>pkcs11-uri=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
