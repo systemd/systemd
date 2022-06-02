@@ -452,6 +452,7 @@ run_qemu() {
         -nographic
         -kernel "$KERNEL_BIN"
         -drive "format=raw,cache=unsafe,file=$image"
+        -device "virtio-rng-pci,max-bytes=1024,period=1000"
     )
 
     if [[ -n "${QEMU_OPTIONS:=}" ]]; then
