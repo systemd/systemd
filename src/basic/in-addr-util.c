@@ -460,14 +460,11 @@ int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned 
         assert(ret);
 
         if (family == AF_INET)
-                l = INET_ADDRSTRLEN + 3;
+                l = INET_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(unsigned);
         else if (family == AF_INET6)
-                l = INET6_ADDRSTRLEN + 4;
+                l = INET6_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(unsigned);
         else
                 return -EAFNOSUPPORT;
-
-        if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
-                return -EINVAL;
 
         x = new(char, l);
         if (!x)
