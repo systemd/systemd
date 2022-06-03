@@ -1454,7 +1454,6 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         for (;;) {
-                                _cleanup_free_ char *str = NULL;
                                 uint32_t prefixlen;
                                 int32_t family;
                                 const void *ap;
@@ -1491,10 +1490,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
                                         continue;
 
-                                if (in_addr_prefix_to_string(family, (const union in_addr_union*) ap, prefixlen, &str) < 0)
-                                        continue;
-
-                                if (!strextend_with_separator(&addresses, " ", str))
+                                if (!strextend_with_separator(&addresses, " ",
+                                                              IN_ADDR_PREFIX_TO_STRING(family, ap, prefixlen)))
                                         return log_oom();
                         }
 

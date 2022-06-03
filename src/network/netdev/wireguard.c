@@ -712,13 +712,11 @@ int config_parse_wireguard_allowed_ips(
 
                 masked = addr;
                 assert_se(in_addr_mask(family, &masked, prefixlen) >= 0);
-                if (!in_addr_equal(family, &masked, &addr)) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in_addr_prefix_to_string(family, &masked, prefixlen, &buf);
+                if (!in_addr_equal(family, &masked, &addr))
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Specified address '%s' is not properly masked, assuming '%s'.", word, strna(buf));
-                }
+                                   "Specified address '%s' is not properly masked, assuming '%s'.",
+                                   word,
+                                   IN_ADDR_PREFIX_TO_STRING(family, &masked, prefixlen));
 
                 ipmask = new(WireguardIPmask, 1);
                 if (!ipmask)

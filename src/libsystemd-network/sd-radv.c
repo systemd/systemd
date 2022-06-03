@@ -572,7 +572,6 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 }
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
-        _cleanup_free_ char *addr_p = NULL;
         sd_radv_prefix *found = NULL;
         int r;
 
@@ -583,10 +582,9 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         if (in6_addr_is_null(&p->opt.in6_addr))
                 return -ENOEXEC;
 
-        (void) in6_addr_prefix_to_string(&p->opt.in6_addr, p->opt.prefixlen, &addr_p);
+        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-
                 r = in_addr_prefix_intersect(AF_INET6,
                                              (const union in_addr_union*) &cur->opt.in6_addr,
                                              cur->opt.prefixlen,
@@ -602,11 +600,10 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                         break;
                 }
 
-                _cleanup_free_ char *addr_cur = NULL;
-                (void) in6_addr_prefix_to_string(&cur->opt.in6_addr, cur->opt.prefixlen, &addr_cur);
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
                                       "IPv6 prefix %s conflicts with %s, ignoring.",
-                                      strna(addr_p), strna(addr_cur));
+                                      addr_p,
+                                      IN6_ADDR_PREFIX_TO_STRING(&cur->opt.in6_addr, cur->opt.prefixlen));
         }
 
         if (found) {
@@ -621,7 +618,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 LIST_APPEND(prefix, ra->prefixes, p);
 
                 log_radv(ra, "Updated/replaced IPv6 prefix %s (preferred: %s, valid: %s)",
-                         strna(addr_p),
+                         addr_p,
                          FORMAT_TIMESPAN(p->lifetime_preferred_usec, USEC_PER_SEC),
                          FORMAT_TIMESPAN(p->lifetime_valid_usec, USEC_PER_SEC));
         } else {
@@ -631,7 +628,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 LIST_APPEND(prefix, ra->prefixes, p);
                 ra->n_prefixes++;
 
-                log_radv(ra, "Added prefix %s", strna(addr_p));
+                log_radv(ra, "Added prefix %s", addr_p);
         }
 
         if (ra->state == RADV_STATE_IDLE)
@@ -643,10 +640,9 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
         r = radv_send(ra, NULL, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s: %m",
-                               strna(addr_p));
+                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s: %m", addr_p);
         else
-                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", strna(addr_p));
+                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", addr_p);
 
         return 0;
 }
@@ -677,17 +673,15 @@ void sd_radv_remove_prefix(
 }
 
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
-        _cleanup_free_ char *addr_p = NULL;
         sd_radv_route_prefix *found = NULL;
         int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
 
-        (void) in6_addr_prefix_to_string(&p->opt.in6_addr, p->opt.prefixlen, &addr_p);
+        const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->route_prefixes) {
-
                 r = in_addr_prefix_intersect(AF_INET6,
                                              (const union in_addr_union*) &cur->opt.in6_addr,
                                              cur->opt.prefixlen,
@@ -703,11 +697,10 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                         break;
                 }
 
-                _cleanup_free_ char *addr_cur = NULL;
-                (void) in6_addr_prefix_to_string(&cur->opt.in6_addr, cur->opt.prefixlen, &addr_cur);
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
                                       "IPv6 route prefix %s conflicts with %s, ignoring.",
-                                      strna(addr_p), strna(addr_cur));
+                                      addr_p,
+                                      IN6_ADDR_PREFIX_TO_STRING(&cur->opt.in6_addr, cur->opt.prefixlen));
         }
 
         if (found) {

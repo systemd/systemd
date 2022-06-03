@@ -577,23 +577,15 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                                 FORMAT_BYTES(b->wbps));
         }
 
-        SET_FOREACH(iaai, c->ip_address_allow) {
-                _cleanup_free_ char *k = NULL;
-
-                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
-                fprintf(f, "%sIPAddressAllow: %s\n", prefix, strnull(k));
-        }
-
-        SET_FOREACH(iaai, c->ip_address_deny) {
-                _cleanup_free_ char *k = NULL;
-
-                (void) in_addr_prefix_to_string(iaai->family, &iaai->address, iaai->prefixlen, &k);
-                fprintf(f, "%sIPAddressDeny: %s\n", prefix, strnull(k));
-        }
+        SET_FOREACH(iaai, c->ip_address_allow)
+                fprintf(f, "%sIPAddressAllow: %s\n", prefix,
+                        IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
+        SET_FOREACH(iaai, c->ip_address_deny)
+                fprintf(f, "%sIPAddressDeny: %s\n", prefix,
+                        IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
 
         STRV_FOREACH(path, c->ip_filters_ingress)
                 fprintf(f, "%sIPIngressFilterPath: %s\n", prefix, *path);
-
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
 
