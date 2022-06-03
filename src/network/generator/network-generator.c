@@ -1081,48 +1081,23 @@ void context_clear(Context *context) {
 }
 
 static int address_dump(Address *address, FILE *f) {
-        _cleanup_free_ char *addr = NULL, *peer = NULL;
-        int r;
-
-        r = in_addr_prefix_to_string(address->family, &address->address, address->prefixlen, &addr);
-        if (r < 0)
-                return r;
-
-        if (in_addr_is_set(address->family, &address->peer)) {
-                r = in_addr_to_string(address->family, &address->peer, &peer);
-                if (r < 0)
-                        return r;
-        }
-
         fprintf(f,
                 "\n[Address]\n"
                 "Address=%s\n",
-                addr);
-
-        if (peer)
-                fprintf(f, "Peer=%s\n", peer);
-
+                IN_ADDR_PREFIX_TO_STRING(address->family, &address->address, address->prefixlen));
+        if (in_addr_is_set(address->family, &address->peer))
+                fprintf(f, "Peer=%s\n",
+                        IN_ADDR_TO_STRING(address->family, &address->peer));
         return 0;
 }
 
 static int route_dump(Route *route, FILE *f) {
-        _cleanup_free_ char *dest = NULL, *gateway = NULL;
-        int r;
-
-        if (in_addr_is_set(route->family, &route->dest)) {
-                r = in_addr_prefix_to_string(route->family, &route->dest, route->prefixlen, &dest);
-                if (r < 0)
-                        return r;
-        }
-
-        r = in_addr_to_string(route->family, &route->gateway, &gateway);
-        if (r < 0)
-                return r;
-
         fputs("\n[Route]\n", f);
-        if (dest)
-                fprintf(f, "Destination=%s\n", dest);
-        fprintf(f, "Gateway=%s\n", gateway);
+        if (in_addr_is_set(route->family, &route->dest))
+                fprintf(f, "Destination=%s\n",
+                        IN_ADDR_PREFIX_TO_STRING(route->family, &route->dest, route->prefixlen));
+        fprintf(f, "Gateway=%s\n",
+                IN_ADDR_TO_STRING(route->family, &route->gateway));
 
         return 0;
 }
