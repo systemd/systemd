@@ -174,23 +174,13 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
  * is compatible with _FORTIFY_SOURCES. If _FORTIFY_SOURCES is used many memory operations will take the
  * object size as returned by __builtin_object_size() into account. Hence, let's return the smaller size of
  * malloc_usable_size() and __builtin_object_size() here, so that we definitely operate in safe territory by
- * both the compiler's and libc's standards. Note that _FORTIFY_SOURCES=3 handles also dynamically allocated
- * objects and thus it's safer using __builtin_dynamic_object_size if _FORTIFY_SOURCES=3 is used (#22801).
- * Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
+ * both the compiler's and libc's standards. Note that __builtin_object_size() evaluates to SIZE_MAX if the
+ * size cannot be determined, hence the MIN() expression should be safe with dynamically sized memory,
+ * too. Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
  * __builtin_object_size() returns SIZE_MAX too, hence we also return a sensible value of 0 in this corner
  * case. */
-
-#if defined __has_builtin
-#  if __has_builtin(__builtin_dynamic_object_size)
-#    define MALLOC_SIZEOF_SAFE(x) \
-        MIN(malloc_usable_size(x), __builtin_dynamic_object_size(x, 0))
-#  endif
-#endif
-
-#ifndef MALLOC_SIZEOF_SAFE
 #define MALLOC_SIZEOF_SAFE(x) \
         MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
-#endif
 
 /* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
  * that fit into the specified memory block */
