@@ -119,13 +119,9 @@ static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, Request *req) {
         assert(link->manager);
         assert(req);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *a = NULL;
-
-                (void) in_addr_to_string(mdb->family, &mdb->group_addr, &a);
+        if (DEBUG_LOGGING)
                 log_link_debug(link, "Configuring bridge MDB entry: MulticastGroupAddress=%s, VLANId=%u",
-                               strna(a), mdb->vlan_id);
-        }
+                               IN_ADDR_TO_STRING(mdb->family, &mdb->group_addr), mdb->vlan_id);
 
         entry = (struct br_mdb_entry) {
                 /* If MDB entry is added on bridge master, then the state must be MDB_TEMPORARY.
