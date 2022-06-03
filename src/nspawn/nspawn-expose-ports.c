@@ -141,14 +141,9 @@ int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *
         if (in_addr_equal(af, exposed, &new_exposed))
                 return 0;
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *pretty = NULL;
-                in_addr_to_string(af, &new_exposed, &pretty);
-                log_debug("New container IP is %s.", strna(pretty));
-        }
+        log_debug("New container IP is %s.", IN_ADDR_TO_STRING(af, &new_exposed));
 
         LIST_FOREACH(ports, p, l) {
-
                 r = fw_add_local_dnat(fw_ctx,
                                       true,
                                       af,

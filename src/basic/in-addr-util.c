@@ -444,7 +444,7 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
                 return -ENOMEM;
 
         errno = 0;
-        if (!inet_ntop(family, u, x, l))
+        if (!typesafe_inet_ntop(family, u, x, l))
                 return errno_or_else(EINVAL);
 
         *ret = TAKE_PTR(x);

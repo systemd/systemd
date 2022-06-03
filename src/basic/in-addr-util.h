@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stddef.h>
 #include <sys/socket.h>
@@ -68,10 +69,30 @@ int in_addr_prefix_range(
                 unsigned prefixlen,
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end);
+
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 static inline int in6_addr_to_string(const struct in6_addr *u, char **ret) {
         return in_addr_to_string(AF_INET6, (const union in_addr_union*) u, ret);
 }
+
+static inline const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len) {
+        return inet_ntop(family, a, buf, len);
+}
+static inline const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET, a, buf, len);
+}
+static inline const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len) {
+        return inet_ntop(AF_INET6, a, buf, len);
+}
+
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define IN_ADDR_MAX CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)
+#define IN_ADDR_TO_STRING(family, addr) typesafe_inet_ntop(family, addr, (char[IN_ADDR_MAX]){}, IN_ADDR_MAX)
+#define IN4_ADDR_TO_STRING(addr) typesafe_inet_ntop4(addr, (char[INET_ADDRSTRLEN]){}, INET_ADDRSTRLEN)
+#define IN6_ADDR_TO_STRING(addr) typesafe_inet_ntop6(addr, (char[INET6_ADDRSTRLEN]){}, INET6_ADDRSTRLEN)
+
 int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret);
 static inline int in6_addr_prefix_to_string(const struct in6_addr *u, unsigned prefixlen, char **ret) {
         return in_addr_prefix_to_string(AF_INET6, (const union in_addr_union*) u, prefixlen, ret);
