@@ -1817,25 +1817,16 @@ int bus_cgroup_set_property(
                                 fputs(name, f);
                                 fputs("=\n", f);
                         } else {
-                                struct in_addr_prefix *p;
-
                                 *reduced = false;
 
                                 r = in_addr_prefixes_merge(prefixes, new_prefixes);
                                 if (r < 0)
                                         return r;
 
-                                SET_FOREACH(p, new_prefixes) {
-                                        _cleanup_free_ char *buffer = NULL;
-
-                                        r = in_addr_prefix_to_string(p->family, &p->address, p->prefixlen, &buffer);
-                                        if (r == -ENOMEM)
-                                                return r;
-                                        if (r < 0)
-                                                continue;
-
-                                        fprintf(f, "%s=%s\n", name, buffer);
-                                }
+                                const struct in_addr_prefix *p;
+                                SET_FOREACH(p, new_prefixes)
+                                        fprintf(f, "%s=%s\n", name,
+                                                IN_ADDR_PREFIX_TO_STRING(p->family, &p->address, p->prefixlen));
                         }
 
                         r = fflush_and_check(f);
