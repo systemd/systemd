@@ -63,6 +63,9 @@ TEST_QEMU_ONLY=1
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
 
+TEST_PREFER_QEMU=1
+    Run all tests that supports qemu under qemu, and skip to run under systemd-nspawn
+
 TEST_PREFER_NSPAWN=1
     Run all tests that do not require qemu under systemd-nspawn
 
