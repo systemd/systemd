@@ -83,10 +83,30 @@ static inline int in6_addr_to_string(const struct in6_addr *u, char **ret) {
 #define IN4_ADDR_TO_STRING(addr) IN_ADDR_TO_STRING(AF_INET, addr)
 #define IN6_ADDR_TO_STRING(addr) IN_ADDR_TO_STRING(AF_INET6, addr)
 
-int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret);
-static inline int in6_addr_prefix_to_string(const struct in6_addr *u, unsigned prefixlen, char **ret) {
-        return in_addr_prefix_to_string(AF_INET6, (const union in_addr_union*) u, prefixlen, ret);
+int in_addr_prefix_to_string(
+                int family,
+                const union in_addr_union *u,
+                unsigned prefixlen,
+                char *buf,
+                size_t buf_len);
+
+static inline const char* _in_addr_prefix_to_string(
+                int family,
+                const union in_addr_union *u,
+                unsigned prefixlen,
+                char *buf,
+                size_t buf_len) {
+        if (in_addr_prefix_to_string(family, u, prefixlen, buf, buf_len) < 0)
+                return NULL;
+        return buf;
 }
+
+#define IN_ADDR_PREFIX_MAX (IN_ADDR_MAX + 1 + DECIMAL_STR_MAX(unsigned))
+#define IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen) \
+        _in_addr_prefix_to_string(family, addr, prefixlen, (char[IN_ADDR_PREFIX_MAX]){}, IN_ADDR_PREFIX_MAX)
+#define IN4_ADDR_PREFIX_TO_STRING(addr, prefixlen) IN_ADDR_PREFIX_TO_STRING(AF_INET, (const union in_addr_union*) addr, prefixlen)
+#define IN6_ADDR_PREFIX_TO_STRING(addr, prefixlen) IN_ADDR_PREFIX_TO_STRING(AF_INET6, (const union in_addr_union*) addr, prefixlen)
+
 int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u, uint16_t port, int ifindex, const char *server_name, char **ret);
 static inline int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
         return in_addr_port_ifindex_name_to_string(family, u, 0, ifindex, NULL, ret);
