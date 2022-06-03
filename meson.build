@@ -929,15 +929,6 @@ ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
 
 default_locale = get_option('default-locale')
-if default_locale == ''
-        if not meson.is_cross_build()
-                choose_default_locale_sh = find_program('tools/choose-default-locale.sh')
-                default_locale = run_command(choose_default_locale_sh,
-                                             check : true).stdout().strip()
-        else
-                default_locale = 'C.UTF-8'
-        endif
-endif
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
 localegen_path = get_option('localegen-path')
