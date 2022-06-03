@@ -1040,24 +1040,18 @@ static int dump_gateways(
                 return n;
 
         for (int i = 0; i < n; i++) {
-                _cleanup_free_ char *gateway = NULL, *description = NULL;
-
-                r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
-                if (r < 0)
-                        return log_oom();
+                _cleanup_free_ char *description = NULL;
 
                 r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway, ignoring: %m");
 
-                if (description) {
-                        if (!strextend(&gateway, " (", description, ")"))
-                                return log_oom();
-                }
-
                 /* Show interface name for the entry if we show entries for all interfaces */
-                r = strv_extendf(&buf, "%s%s%s",
-                                 gateway,
+                r = strv_extendf(&buf, "%s%s%s%s%s%s",
+                                 IN_ADDR_TO_STRING(local[i].family, &local[i].address),
+                                 description ? " (" : "",
+                                 strempty(description),
+                                 description ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
                                  ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
@@ -1089,29 +1083,17 @@ static int dump_addresses(
                 (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
         for (int i = 0; i < n; i++) {
-                _cleanup_free_ char *pretty = NULL;
+                struct in_addr server_address;
+                bool dhcp4 = false;
 
-                r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
-                if (r < 0)
-                        return r;
+                if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address))
+                        dhcp4 = sd_dhcp_lease_get_server_identifier(lease, &server_address) >= 0;
 
-                if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address)) {
-                        struct in_addr server_address;
-                        char *p, s[INET_ADDRSTRLEN];
-
-                        r = sd_dhcp_lease_get_server_identifier(lease, &server_address);
-                        if (r >= 0 && inet_ntop(AF_INET, &server_address, s, sizeof(s)))
-                                p = strjoin(pretty, " (DHCP4 via ", s, ")");
-                        else
-                                p = strjoin(pretty, " (DHCP4)");
-                        if (!p)
-                                return log_oom();
-
-                        free_and_replace(pretty, p);
-                }
-
-                r = strv_extendf(&buf, "%s%s%s",
-                                 pretty,
+                r = strv_extendf(&buf, "%s%s%s%s%s%s",
+                                 IN_ADDR_TO_STRING(local[i].family, &local[i].address),
+                                 dhcp4 ? " (DHCP4 via " : "",
+                                 dhcp4 ? IN4_ADDR_TO_STRING(&server_address) : "",
+                                 dhcp4 ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
                                  ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
@@ -1160,7 +1142,6 @@ static int dump_address_labels(sd_netlink *rtnl) {
         (void) table_set_align_percent(table, cell, 100);
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
-                _cleanup_free_ char *pretty = NULL;
                 union in_addr_union prefix = IN_ADDR_NULL;
                 uint8_t prefixlen;
                 uint32_t label;
@@ -1181,10 +1162,6 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         continue;
 
-                r = in_addr_to_string(AF_INET6, &prefix, &pretty);
-                if (r < 0)
-                        continue;
-
                 r = sd_rtnl_message_addrlabel_get_prefixlen(m, &prefixlen);
                 if (r < 0)
                         continue;
@@ -1193,7 +1170,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_cell_stringf(table, NULL, "%s/%u", pretty, prefixlen);
+                r = table_add_cell_stringf(table, NULL, "%s/%u", IN6_ADDR_TO_STRING(&prefix), prefixlen);
                 if (r < 0)
                         return table_log_add_error(r);
         }

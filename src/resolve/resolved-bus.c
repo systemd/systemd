@@ -596,11 +596,9 @@ static void bus_method_resolve_address_complete(DnsQuery *query) {
         }
 
         if (added <= 0) {
-                _cleanup_free_ char *ip = NULL;
-
-                (void) in_addr_to_string(q->request_family, &q->request_address, &ip);
                 r = reply_method_errorf(q, BUS_ERROR_NO_SUCH_RR,
-                                               "Address '%s' does not have any RR of requested type", strnull(ip));
+                                        "Address %s does not have any RR of requested type",
+                                        IN_ADDR_TO_STRING(q->request_family, &q->request_address));
                 goto finish;
         }
 
