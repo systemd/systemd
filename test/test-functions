@@ -2931,6 +2931,10 @@ do_test() {
         exit 0
     fi
 
+    if get_bool "${TEST_PREFER_QEMU:=}" && ! get_bool "${TEST_NO_QEMU:=}" && find_qemu_bin; then
+        TEST_NO_NSPAWN=1
+    fi
+
     if get_bool "${TEST_PREFER_NSPAWN:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         TEST_NO_QEMU=1
     fi
