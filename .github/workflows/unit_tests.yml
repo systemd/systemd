@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_ASAN_UBSAN, CLANG_ASAN_UBSAN_NO_DEPS]
+        run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_RELEASE, CLANG_ASAN_UBSAN, CLANG_ASAN_UBSAN_NO_DEPS]
         cryptolib: [auto]
         include:
           - run_phase: GCC
