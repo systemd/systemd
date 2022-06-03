@@ -412,7 +412,6 @@ static int dns_cache_put_positive(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         DnsCacheItem *existing;
         uint32_t min_ttl;
@@ -469,7 +468,7 @@ static int dns_cache_put_positive(
 
         dns_cache_make_space(c, 1);
 
-        i = new(DnsCacheItem, 1);
+        _cleanup_(dns_cache_item_freep) DnsCacheItem *i = new(DnsCacheItem, 1);
         if (!i)
                 return -ENOMEM;
 
@@ -503,7 +502,7 @@ static int dns_cache_put_positive(
                   af_to_name_short(i->owner_family),
                   IN_ADDR_TO_STRING(i->owner_family, &i->owner_address));
 
-        i = NULL;
+        TAKE_PTR(i);
         return 0;
 }
 
