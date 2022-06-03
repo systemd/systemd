@@ -247,14 +247,12 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         struct in6_addr src;
         triple_timestamp timestamp;
         int r;
-        ssize_t buflen;
-        _cleanup_free_ char *buf = NULL;
 
         assert(s);
         assert(ra);
         assert(ra->event);
 
-        buflen = next_datagram_size_fd(fd);
+        ssize_t buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
                 if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
                         return 0;
@@ -263,7 +261,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
-        buf = new0(char, buflen);
+        _cleanup_free_ char *buf = new0(char, buflen);
         if (!buf)
                 return -ENOMEM;
 
