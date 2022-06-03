@@ -37,14 +37,6 @@
 DEFINE_STRNLEN(char, strnlen8);
 DEFINE_STRNLEN(char16_t, strnlen16);
 
-size_t strlen8(const char *s) {
-        return strnlen8(s, SIZE_MAX);
-}
-
-size_t strlen16(const char16_t *s) {
-        return strnlen16(s, SIZE_MAX);
-}
-
 #define TOLOWER(c)                                                \
         ({                                                        \
                 typeof(c) _c = (c);                               \
@@ -68,14 +60,13 @@ DEFINE_STRTOLOWER(char16_t, strtolower16);
                         return CMP(s1, s2);                  \
                                                              \
                 while (n > 0) {                              \
-                        int c1 = *s1;                        \
-                        int c2 = *s2;                        \
+                        type c1 = *s1, c2 = *s2;             \
                         if (tolower) {                       \
                                 c1 = TOLOWER(c1);            \
                                 c2 = TOLOWER(c2);            \
                         }                                    \
                         if (!c1 || c1 != c2)                 \
-                                return c1 - c2;              \
+                                return CMP(c1, c2);          \
                                                              \
                         s1++;                                \
                         s2++;                                \
@@ -87,25 +78,8 @@ DEFINE_STRTOLOWER(char16_t, strtolower16);
 
 DEFINE_STRNCASECMP(char, strncmp8, false);
 DEFINE_STRNCASECMP(char16_t, strncmp16, false);
-
-int strcmp8(const char *s1, const char *s2) {
-        return strncmp8(s1, s2, SIZE_MAX);
-}
-
-int strcmp16(const char16_t *s1, const char16_t *s2) {
-        return strncmp16(s1, s2, SIZE_MAX);
-}
-
 DEFINE_STRNCASECMP(char, strncasecmp8, true);
 DEFINE_STRNCASECMP(char16_t, strncasecmp16, true);
-
-int strcasecmp8(const char *s1, const char *s2) {
-        return strncasecmp8(s1, s2, SIZE_MAX);
-}
-
-int strcasecmp16(const char16_t *s1, const char16_t *s2) {
-        return strncasecmp16(s1, s2, SIZE_MAX);
-}
 
 #define DEFINE_STRCPY(type, name)                                     \
         type *name(type * restrict dest, const type * restrict src) { \
@@ -165,22 +139,17 @@ DEFINE_STRCHR(char16_t, strchr16);
 DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
 
-char *xstrdup8(const char *s) {
-        return xstrndup8(s, SIZE_MAX);
-}
-
-char16_t *xstrdup16(const char16_t *s) {
-        return xstrndup16(s, SIZE_MAX);
-}
-
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
+        const uint8_t *up1 = p1, *up2 = p2;
+        int r;
+
         if (!p1 || !p2)
                 return CMP(p1, p2);
 
-        const uint8_t *up1 = p1, *up2 = p2;
         while (n > 0) {
-                if (*up1 != *up2)
-                        return *up1 - *up2;
+                r = CMP(*up1, *up2);
+                if (r != 0)
+                        return r;
 
                 up1++;
                 up2++;
