@@ -351,7 +351,7 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
 
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
         assert_se(in_addr_to_string(f, &ua, &r) >= 0);
-        printf("test_in_addr_to_string_one: %s == %s\n", addr, r);
+        printf("%s: %s == %s\n", __func__, addr, r);
         assert_se(streq(addr, r));
 
         assert_se(streq(r, IN_ADDR_TO_STRING(f, &ua)));
