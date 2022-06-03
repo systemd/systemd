@@ -165,10 +165,13 @@ BASICTOOLS=(
     mv
     nc
     nproc
+    passwd
+    pkill
     readlink
     rev
     rm
     rmdir
+    rmmod
     sed
     seq
     setfattr
@@ -193,6 +196,8 @@ BASICTOOLS=(
     umount
     uname
     unshare
+    useradd
+    userdel
     wc
     xargs
     xzcat
@@ -939,6 +944,8 @@ install_modules() {
     instmods vfat
     instmods nls_ascii =nls
     instmods dummy
+    # for TEST-35-LOGIN
+    instmods scsi_debug uinput
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
@@ -1771,6 +1778,8 @@ install_basic_tools() {
     image_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     image_install -o ldconfig.real
+    # for TEST-35-LOGIN
+    image_install -o evemu-device evemu-event
 }
 
 install_debug_tools() {
@@ -2923,6 +2932,10 @@ do_test() {
     if get_bool "${TEST_QEMU_ONLY:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: qemu-only tests requested" >&2
         exit 0
+    fi
+
+    if get_bool "${TEST_PREFER_QEMU:=}" && ! get_bool "${TEST_NO_QEMU:=}" && find_qemu_bin; then
+        TEST_NO_NSPAWN=1
     fi
 
     if get_bool "${TEST_PREFER_NSPAWN:=}" && ! get_bool "$TEST_NO_NSPAWN"; then
