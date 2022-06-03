@@ -3488,10 +3488,7 @@ static int inner_child(
         }
 
         if (arg_start_mode != START_BOOT) {
-                /* If we're running a command in the container, let's default to the C.UTF-8 locale as it's
-                 * part of glibc these days and was backported to most distros a long time before it got
-                 * added to upstream glibc. */
-                envp[n_env] = strdup("LANG=C.UTF-8");
+                envp[n_env] = strdup("LANG=" SYSTEMD_NSPAWN_LOCALE);
                 if (!envp[n_env])
                         return log_oom();
                 n_env++;
