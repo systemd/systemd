@@ -1252,10 +1252,13 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         unsigned ancount = 0;
         DnsCacheItem *i;
+        usec_t t;
         int r;
 
         assert(cache);
         assert(p);
+
+        t = now(CLOCK_BOOTTIME);
 
         HASHMAP_FOREACH(i, cache->by_key)
                 LIST_FOREACH(by_key, j, i) {
@@ -1263,6 +1266,11 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
                                 continue;
 
                         if (!j->shared_owner)
+                                continue;
+
+                        /* RFC6762 7.1: Don't append records with less than
+                         * half the TTL remaining as known answers. */
+                        if ((t >= j->until) || (j->until - t) < (j->rr->ttl * (USEC_PER_SEC / 2)))
                                 continue;
 
                         r = dns_packet_append_rr(p, j->rr, 0, NULL, NULL);
