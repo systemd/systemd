@@ -300,7 +300,7 @@ option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
-option('default-locale', type : 'string', value : '',
+option('default-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used when /etc/locale.conf does not exist')
 option('localegen-path', type : 'string', value : '',
        description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
