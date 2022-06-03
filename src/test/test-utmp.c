@@ -41,10 +41,7 @@ TEST(dump_run_utmp) {
 
                 union in_addr_union addr = {};
                 memcpy(&addr, u->ut_addr_v6, MIN(sizeof(addr), sizeof(u->ut_addr_v6)));
-                _cleanup_free_ char *pretty = NULL;
                 bool is_ipv4 = memeqzero((const uint8_t*) &addr + 4, sizeof(addr) - 4);
-                (void) in_addr_to_string(is_ipv4 ? AF_INET : AF_INET6,
-                                         &addr, &pretty);
 
                 log_info("%14s %10"PID_PRI" line=%-7.*s id=%-4.4s name=%-8.*s session=%lu host=%.*s addr=%s",
                          type,
@@ -54,7 +51,7 @@ TEST(dump_run_utmp) {
                          UT_NAMESIZE, u->ut_user,
                          (long unsigned) u->ut_session,
                          UT_HOSTSIZE, u->ut_host,
-                         strempty(pretty));
+                         IN_ADDR_TO_STRING(is_ipv4 ? AF_INET : AF_INET6, &addr));
         }
 }
 

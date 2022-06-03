@@ -19,23 +19,20 @@
 #include "util.h"
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
-        _cleanup_free_ char *address = NULL;
-        struct in_addr addr = {};
-
         assert_se(ll);
 
-        if (sd_ipv4ll_get_address(ll, &addr) >= 0)
-                assert_se(in_addr_to_string(AF_INET, (const union in_addr_union*) &addr, &address) >= 0);
+        struct in_addr addr;
+        const char *pretty = sd_ipv4ll_get_address(ll, &addr) >= 0 ? IN4_ADDR_TO_STRING(&addr) : NULL;
 
         switch (event) {
         case SD_IPV4LL_EVENT_BIND:
-                log_info("bound %s", strna(address));
+                log_info("bound %s", strna(pretty));
                 break;
         case SD_IPV4LL_EVENT_CONFLICT:
-                log_info("conflict on %s", strna(address));
+                log_info("conflict on %s", strna(pretty));
                 break;
         case SD_IPV4LL_EVENT_STOP:
-                log_error("the client was stopped with address %s", strna(address));
+                log_error("the client was stopped with address %s", strna(pretty));
                 break;
         default:
                 assert_not_reached();
