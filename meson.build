@@ -937,6 +937,9 @@ conf.set_quoted('NTP_SERVERS', ntp_servers)
 default_locale = get_option('default-locale')
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
+nspawn_locale = get_option('nspawn-locale')
+conf.set_quoted('SYSTEMD_NSPAWN_LOCALE', nspawn_locale)
+
 localegen_path = get_option('localegen-path')
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)
