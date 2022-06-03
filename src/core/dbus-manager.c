@@ -1463,6 +1463,11 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
+        if (!MANAGER_IS_FINISHED(m)) {
+                log_warning("daemon-reload request refused during boot time.");
+                return -1;
+        }
+
         r = bus_verify_reload_daemon_async(m, message, error);
         if (r < 0)
                 return r;
