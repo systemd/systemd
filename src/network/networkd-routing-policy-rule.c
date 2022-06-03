@@ -427,14 +427,14 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                 return;
 
         (void) network_config_state_to_string_alloc(rule->state, &state);
-        (void) in_addr_prefix_to_string(rule->family, &rule->from, rule->from_prefixlen, &from);
-        (void) in_addr_prefix_to_string(rule->family, &rule->to, rule->to_prefixlen, &to);
         (void) manager_get_route_table_to_string(m, rule->table, &table);
 
         log_link_debug(link,
                        "%s %s routing policy rule (%s): priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
                        str, strna(network_config_source_to_string(rule->source)), strna(state),
-                       rule->priority, strna(from), strna(to),
+                       rule->priority,
+                       IN_ADDR_PREFIX_TO_STRING(rule->family, &rule->from, rule->from_prefixlen),
+                       IN_ADDR_PREFIX_TO_STRING(rule->family, &rule->to, rule->to_prefixlen),
                        strna(rule->iif), strna(rule->oif), strna(table));
 }
 

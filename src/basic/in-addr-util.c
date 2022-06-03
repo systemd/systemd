@@ -14,6 +14,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "util.h"
@@ -451,34 +452,26 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         return 0;
 }
 
-int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        char *p;
-        size_t l;
+int in_addr_prefix_to_string(
+                int family,
+                const union in_addr_union *u,
+                unsigned prefixlen,
+                char *buf,
+                size_t buf_len) {
 
         assert(u);
-        assert(ret);
+        assert(buf);
 
-        if (family == AF_INET)
-                l = INET_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(unsigned);
-        else if (family == AF_INET6)
-                l = INET6_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(unsigned);
-        else
+        if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        x = new(char, l);
-        if (!x)
-                return -ENOMEM;
-
         errno = 0;
-        if (!inet_ntop(family, u, x, l))
-                return errno_or_else(EINVAL);
+        if (!inet_ntop(family, u, buf, buf_len))
+                return errno_or_else(ENOSPC);
 
-        p = x + strlen(x);
-        l -= strlen(x);
-        (void) strpcpyf(&p, l, "/%u", prefixlen);
-
-        *ret = TAKE_PTR(x);
+        size_t l = strlen(buf);
+        if (!snprintf_ok(buf + l, buf_len - l, "/%u", prefixlen))
+                return -ENOSPC;
         return 0;
 }
 

@@ -1465,11 +1465,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                         r = address_add(link, tmp);
                         if (r < 0) {
-                                _cleanup_free_ char *buf = NULL;
-
-                                (void) in_addr_prefix_to_string(tmp->family, &tmp->in_addr, tmp->prefixlen, &buf);
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       strnull(buf));
+                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));                
                                 return 0;
                         }
 
@@ -2022,12 +2019,11 @@ int network_drop_invalid_addresses(Network *network) {
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
                 dup = set_remove(addresses, address);
                 if (dup) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
-                                    dup->section->filename, strna(buf), address->section->line,
+                                    dup->section->filename,
+                                    IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen),
+                                    address->section->line,
                                     dup->section->line, dup->section->line);
                         /* address_free() will drop the address from addresses_by_section. */
                         address_free(dup);
