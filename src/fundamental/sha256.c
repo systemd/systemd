@@ -60,7 +60,7 @@
 #  define UNALIGNED_P(p) (((size_t) p) % sizeof(uint32_t) != 0)
 # endif
 #else
-# define UNALIGNED_P(p) false
+# define UNALIGNED_P(p) sd_false
 #endif
 
 /* This array contains the bytes used to pad the buffer to the next
