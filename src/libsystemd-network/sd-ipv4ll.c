@@ -240,7 +240,6 @@ int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
 #define PICK_HASH_KEY SD_ID128_MAKE(15,ac,82,a6,d6,3f,49,78,98,77,5d,0c,69,02,94,0b)
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
-        _cleanup_free_ char *address = NULL;
         be32_t addr;
 
         assert(ll);
@@ -257,8 +256,7 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         } while (addr == ll->address ||
                  IN_SET(be32toh(addr) & 0x0000FF00U, 0x0000U, 0xFF00U));
 
-        (void) in_addr_to_string(AF_INET, &(union in_addr_union) { .in.s_addr = addr }, &address);
-        log_ipv4ll(ll, "Picked new IP address %s.", strna(address));
+        log_ipv4ll(ll, "Picked new IP address %s.", IN4_ADDR_TO_STRING((const struct in_addr*) &addr));
 
         return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
 }
