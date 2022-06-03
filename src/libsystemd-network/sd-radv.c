@@ -244,7 +244,6 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_radv *ra = userdata;
-        _cleanup_free_ char *addr = NULL;
         struct in6_addr src;
         triple_timestamp timestamp;
         int r;
@@ -275,8 +274,8 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
-                        log_radv(ra, "Received RS from non-link-local address %s. Ignoring", addr);
+                        log_radv(ra, "Received RS from non-link-local address %s. Ignoring",
+                                 IN6_ADDR_TO_STRING((const union in_addr_union*) &src));
                         break;
 
                 case -EMULTIHOP:
@@ -300,13 +299,13 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
-        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &src, &addr);
+        const char *addr = IN6_ADDR_TO_STRING((const union in_addr_union*) &src);
 
         r = radv_send(ra, &src, ra->lifetime_usec);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", strnull(addr));
+                log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", addr);
         else
-                log_radv(ra, "Sent solicited Router Advertisement to %s", strnull(addr));
+                log_radv(ra, "Sent solicited Router Advertisement to %s", addr);
 
         return 0;
 }
