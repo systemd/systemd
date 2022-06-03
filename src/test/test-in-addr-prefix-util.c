@@ -3,6 +3,29 @@
 #include "in-addr-prefix-util.h"
 #include "tests.h"
 
+static void test_in_addr_prefix_to_string_one(int f, const char *addr, unsigned prefixlen) {
+        union in_addr_union ua;
+        _cleanup_free_ char *r;
+
+        assert_se(in_addr_from_string(f, addr, &ua) >= 0);
+        assert_se(in_addr_prefix_to_string(f, &ua, prefixlen, &r) >= 0);
+        printf("%s: %s/%u == %s\n", __func__, addr, prefixlen, r);
+        assert_se(startswith(r, addr));
+}
+
+TEST(in_addr_to_string_prefix) {
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 0);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 1);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 31);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 32);
+        test_in_addr_prefix_to_string_one(AF_INET, "192.168.0.1", 256);
+        test_in_addr_prefix_to_string_one(AF_INET, "10.11.12.13", UINT_MAX);
+        test_in_addr_prefix_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0);
+        test_in_addr_prefix_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", UINT_MAX);
+        test_in_addr_prefix_to_string_one(AF_INET6, "::1", 11);
+        test_in_addr_prefix_to_string_one(AF_INET6, "fe80::", 33);
+}
+
 static void test_config_parse_in_addr_prefixes_one(int family, const union in_addr_union *addr, uint8_t prefixlen, Set **prefixes) {
         _cleanup_free_ char *str = NULL;
 
