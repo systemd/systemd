@@ -253,17 +253,21 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
         assert_return(ret, -EINVAL);
 
         if (sd_id128_is_null(saved_invocation_id)) {
-                /* We first check the environment. The environment variable is primarily relevant for user
-                 * services, and sufficiently safe as long as no privilege boundary is involved. */
-                r = get_invocation_from_environment(&saved_invocation_id);
-                if (r < 0 && r != -ENXIO)
-                        return r;
-
                 /* The kernel keyring is relevant for system services (as for user services we don't store
                  * the invocation ID in the keyring, as there'd be no trust benefit in that). */
                 r = get_invocation_from_keyring(&saved_invocation_id);
-                if (r < 0)
-                        return r;
+                if (!r) {
+                        *ret = saved_invocation_id;
+                        return 0;
+                }
+
+                /* The environment variable is primarily relevant for user services,
+                 * and sufficiently safe as long as no privilege boundary is involved. */
+                r = get_invocation_from_environment(&saved_invocation_id);
+                if (!r)
+                        *ret = saved_invocation_id;
+
+                return r;
         }
 
         *ret = saved_invocation_id;
