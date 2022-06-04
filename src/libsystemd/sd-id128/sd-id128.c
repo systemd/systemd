@@ -258,6 +258,11 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
                 r = get_invocation_from_environment(&saved_invocation_id);
                 if (r < 0 && r != -ENXIO)
                         return r;
+                else if (!r)
+                {
+                        *ret = saved_invocation_id;
+                        return 0;
+                }
 
                 /* The kernel keyring is relevant for system services (as for user services we don't store
                  * the invocation ID in the keyring, as there'd be no trust benefit in that). */
