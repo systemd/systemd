@@ -8,6 +8,13 @@
 
 #define FDT_V1_SIZE (7*4)
 
+static void *get_dtb_table(void) {
+        for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
+                if (memcmp(&EfiDtbTableGuid, &ST->ConfigurationTable[i].VendorGuid, sizeof(EfiDtbTableGuid)) == 0)
+                        return ST->ConfigurationTable[i].VendorTable;
+        return NULL;
+}
+
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, UINTN size) {
         UINTN pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
@@ -34,7 +41,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 
         assert(state);
 
-        err = LibLocateProtocol(&EfiDtFixupProtocol, (void **)&fixup);
+        err = BS->LocateProtocol(&EfiDtFixupProtocol, NULL, (void **) &fixup);
         if (EFI_ERROR(err))
                 return log_error_status_stall(EFI_SUCCESS,
                                               L"Could not locate device tree fixup protocol, skipping.");
@@ -74,8 +81,8 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         assert(root_dir);
         assert(name);
 
-        err = LibGetSystemConfigurationTable(&EfiDtbTableGuid, &state->orig);
-        if (EFI_ERROR(err))
+        state->orig = get_dtb_table();
+        if (!state->orig)
                 return EFI_UNSUPPORTED;
 
         err = root_dir->Open(root_dir, &handle, name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
@@ -114,8 +121,8 @@ EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
         assert(state);
         assert(dtb_buffer && dtb_length > 0);
 
-        err = LibGetSystemConfigurationTable(&EfiDtbTableGuid, &state->orig);
-        if (EFI_ERROR(err))
+        state->orig = get_dtb_table();
+        if (!state->orig)
                 return EFI_UNSUPPORTED;
 
         err = devicetree_allocate(state, dtb_length);

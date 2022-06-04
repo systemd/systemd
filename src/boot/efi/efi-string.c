@@ -7,7 +7,6 @@
 
 #ifdef SD_BOOT
 #  include "util.h"
-#  define xmalloc(n) xallocate_pool(n)
 #else
 #  include <stdlib.h>
 #  include "macro.h"
@@ -138,6 +137,93 @@ DEFINE_STRCHR(char16_t, strchr16);
 
 DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
+
+/* Patterns are fnmatch-like, but have to be compatible to EDK2 MetaiMatch behavior.
+ * See unit test cases for some corner-case examples. */
+static bool metaimatch_fallback(const char16_t *haystack, const char16_t *pattern, int max_depth) {
+        assert(pattern);
+        assert(haystack);
+
+        if (max_depth == 0)
+                return false;
+
+        for (;;) {
+                char16_t h = TOLOWER(*haystack), p = TOLOWER(*pattern);
+
+                switch (p) {
+                case '\0':
+                        /* End of pattern. Check that haystack is now empty. */
+                        return h == '\0';
+
+                case '?':
+                        if (h == '\0')
+                                /* Premature end of haystack. */
+                                return false;
+                        break;
+
+                case '*':
+                        do {
+                                /* Try matching haystack with remaining pattern. */
+                                if (metaimatch_fallback(haystack, pattern + 1, max_depth - 1))
+                                        return true;
+
+                                /* Otherwise, we match one char here. */
+                                haystack++;
+                        } while (*haystack);
+
+                        /* End of haystack. Pattern needs to be empty too for a match. */
+                        return *(pattern + 1) == '\0';
+
+                case '[':
+                        if (h == '\0')
+                                /* Premature end of haystack. */
+                                return false;
+
+                        for (char16_t low = '\0';;) {
+                                pattern++;
+                                p = TOLOWER(*pattern);
+                                if (IN_SET(p, '\0', ']'))
+                                        /* Invalid pattern or no match in set. */
+                                        return false;
+
+                                if (p == '-') {
+                                        /* Range pattern. */
+                                        p = TOLOWER(*(pattern + 1));
+                                        if (IN_SET(p, '\0', ']'))
+                                                /* Invalid pattern. */
+                                                return false;
+
+                                        if (h >= low && h <= p)
+                                                /* Range match. */
+                                                break;
+                                }
+
+                                low = p;
+                                if (p == h)
+                                        /* Single char match. */
+                                        break;
+                        }
+
+                        /* We have a match, seek to the end of set. */
+                        pattern = strchr16(pattern, ']');
+                        if (!pattern)
+                                return false;
+                        break;
+
+                default:
+                        if (p != h)
+                                /* Single char mismatch. */
+                                return false;
+                }
+
+                pattern++;
+                haystack++;
+        }
+}
+
+bool metaimatch(const char16_t *haystack, const char16_t *pattern) {
+        return metaimatch_fallback(haystack, pattern, 32);
+}
 
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;

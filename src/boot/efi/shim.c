@@ -102,7 +102,6 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
 static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, UINT32 authentication_status,
                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
         EFI_STATUS status;
-        _cleanup_freepool_ EFI_DEVICE_PATH *dev_path = NULL;
         _cleanup_freepool_ CHAR16 *dev_path_str = NULL;
         EFI_HANDLE h;
         _cleanup_freepool_ CHAR8 *file_buffer = NULL;
@@ -113,18 +112,15 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (!device_path_const)
                 return EFI_INVALID_PARAMETER;
 
-        dev_path = DuplicateDevicePath((EFI_DEVICE_PATH*) device_path_const);
-        if (!dev_path)
-                return EFI_OUT_OF_RESOURCES;
-
-        EFI_DEVICE_PATH *dp = dev_path;
+        EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) device_path_const;
         status = BS->LocateDevicePath(&FileSystemProtocol, &dp, &h);
         if (EFI_ERROR(status))
                 return status;
 
-        _cleanup_(file_closep) EFI_FILE *root = LibOpenRoot(h);
-        if (!root)
-                return EFI_NOT_FOUND;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        status = open_volume(h, &root);
+        if (status != EFI_SUCCESS)
+                return status;
 
         dev_path_str = DevicePathToStr(dp);
         if (!dev_path_str)
