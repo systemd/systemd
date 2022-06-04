@@ -3537,7 +3537,7 @@ static int apply_mount_namespace(
         /* Symlinks for exec dirs are set up after other mounts, before they are made read-only. */
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
-                return r;
+                goto finalize;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
