@@ -28,14 +28,12 @@ size_t serialize_in_addrs(FILE *f,
                 with_leading_space = &_space;
 
         for (size_t i = 0; i < size; i++) {
-                char sbuf[INET_ADDRSTRLEN];
-
                 if (predicate && !predicate(&addresses[i]))
                         continue;
 
                 if (*with_leading_space)
                         fputc(' ', f);
-                fputs(inet_ntop(AF_INET, &addresses[i], sbuf, sizeof(sbuf)), f);
+                fputs(IN4_ADDR_TO_STRING(&addresses[i]), f);
                 count++;
                 *with_leading_space = true;
         }
@@ -89,11 +87,9 @@ void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size,
                 with_leading_space = &_space;
 
         for (size_t i = 0; i < size; i++) {
-                char buffer[INET6_ADDRSTRLEN];
-
                 if (*with_leading_space)
                         fputc(' ', f);
-                fputs(inet_ntop(AF_INET6, addresses+i, buffer, sizeof(buffer)), f);
+                fputs(IN6_ADDR_TO_STRING(&addresses[i]), f);
                 *with_leading_space = true;
         }
 }
@@ -143,7 +139,6 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
         fprintf(f, "%s=", key);
 
         for (size_t i = 0; i < size; i++) {
-                char sbuf[INET_ADDRSTRLEN];
                 struct in_addr dest, gw;
                 uint8_t length;
 
@@ -151,8 +146,10 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
                 assert_se(sd_dhcp_route_get_gateway(routes[i], &gw) >= 0);
                 assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
 
-                fprintf(f, "%s/%" PRIu8, inet_ntop(AF_INET, &dest, sbuf, sizeof sbuf), length);
-                fprintf(f, ",%s%s", inet_ntop(AF_INET, &gw, sbuf, sizeof sbuf), i < size - 1 ? " ": "");
+                fprintf(f, "%s,%s%s",
+                        IN4_ADDR_PREFIX_TO_STRING(&dest, length),
+                        IN4_ADDR_TO_STRING(&gw),
+                        i < size - 1 ? " ": "");
         }
 
         fputs("\n", f);
