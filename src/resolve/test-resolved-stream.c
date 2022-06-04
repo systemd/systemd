@@ -127,15 +127,15 @@ static void *tls_dns_server(void *p) {
         int r;
         _cleanup_close_ int fd_server = -1, fd_tls = -1;
         _cleanup_free_ char *cert_path = NULL, *key_path = NULL;
-        _cleanup_free_ char *ip_str = NULL, *bind_str = NULL;
+        _cleanup_free_ char *bind_str = NULL;
 
         assert_se(get_testdata_dir("test-resolve/selfsigned.cert", &cert_path) >= 0);
         assert_se(get_testdata_dir("test-resolve/selfsigned.key", &key_path) >= 0);
 
-        assert_se(in_addr_to_string(server_address.in.sin_family,
-                                    sockaddr_in_addr(&server_address.sa),
-                                    &ip_str) >= 0);
-        assert_se(asprintf(&bind_str, "%s:%d", ip_str, be16toh(server_address.in.sin_port)) >= 0);
+        assert_se(asprintf(&bind_str, "%s:%d",
+                           IN_ADDR_TO_STRING(server_address.in.sin_family,
+                                             sockaddr_in_addr(&server_address.sa)),
+                           be16toh(server_address.in.sin_port)) >= 0);
 
         /* We will hook one of the socketpair ends to OpenSSL's TLS server
          * stdin/stdout, so we will be able to read and write plaintext
