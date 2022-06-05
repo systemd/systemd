@@ -422,6 +422,7 @@ void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str) {
 }
 
 void clear_screen(UINTN attr) {
+        log_wait();
         ST->ConOut->SetAttribute(ST->ConOut, attr);
         ST->ConOut->ClearScreen(ST->ConOut);
 }
