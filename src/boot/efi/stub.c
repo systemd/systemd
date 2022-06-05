@@ -298,7 +298,7 @@ EFI_STATUS main(EFI_HANDLE image) {
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         InitializeLib(image, sys_table);
 
-        debug_hook(L"systemd-stub");
+        debug_hook("systemd-stub");
         /* Uncomment the next line if you need to wait for debugger. */
         // debug_break();
 

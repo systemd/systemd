@@ -629,7 +629,7 @@ static BOOLEAN menu_run(
         ST->ConOut->EnableCursor(ST->ConOut, FALSE);
 
         /* draw a single character to make ClearScreen work on some firmware */
-        Print(L" ");
+        printf(" ");
 
         log_wait();
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
@@ -1970,10 +1970,10 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         for (UINTN i = 0; i < boot_order_size / sizeof(UINT16); i++) {
                 _cleanup_freepool_ CHAR8 *buf = NULL;
-                CHAR16 name[sizeof(L"Boot0000")];
+                CHAR16 name[STRLEN(L"Boot0000") + 1];
                 UINTN buf_size;
 
-                SPrint(name, sizeof(name), L"Boot%04x", (UINT32) boot_order[i]);
+                snprintf(name, ELEMENTSOF(name), "Boot%04x", boot_order[i]);
                 err = efivar_get_raw(EFI_GLOBAL_GUID, name, &buf, &buf_size);
                 if (EFI_ERROR(err))
                         continue;
@@ -2634,7 +2634,7 @@ out:
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         InitializeLib(image, sys_table);
 
-        debug_hook(L"systemd-boot");
+        debug_hook("systemd-boot");
         /* Uncomment the next line if you need to wait for debugger. */
         // debug_break();
 
