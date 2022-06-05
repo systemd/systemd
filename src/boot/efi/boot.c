@@ -3,6 +3,7 @@
 #include <efi.h>
 #include <efigpt.h>
 #include <efilib.h>
+#include <inttypes.h>
 
 #include "bcd.h"
 #include "bootspec-fundamental.h"
@@ -424,7 +425,7 @@ static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
         case TIMEOUT_MENU_HIDDEN:
                 return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
         default:
-                return xpool_print(L"Menu timeout set to %u s.", *t);
+                return xasprintf("Menu timeout set to %u s.", *t);
         }
 }
 
@@ -744,7 +745,7 @@ static BOOLEAN menu_run(
 
                 if (timeout_remain > 0) {
                         free(status);
-                        status = xpool_print(L"Boot in %u s.", timeout_remain);
+                        status = xasprintf("Boot in %u s.", timeout_remain);
                 }
 
                 if (status) {
@@ -923,9 +924,9 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
-                        status = xpool_print(
-                                        L"systemd-boot " GIT_VERSION L" (" EFI_MACHINE_TYPE_NAME L"), "
-                                        L"UEFI Specification %u.%02u, Vendor %s %u.%02u",
+                        status = xasprintf(
+                                        "systemd-boot " GIT_VERSION " (" EFI_MACHINE_TYPE_NAME "), "
+                                        "UEFI Specification %u.%02u, Vendor %ls %u.%02u",
                                         ST->Hdr.Revision >> 16,
                                         ST->Hdr.Revision & 0xffff,
                                         ST->FirmwareVendor,
@@ -947,10 +948,12 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'r'):
                         err = console_set_mode(CONSOLE_MODE_NEXT);
                         if (EFI_ERROR(err))
-                                status = xpool_print(L"Error changing console mode: %r", err);
+                                status = xasprintf_status(err, "Error changing console mode: %m");
                         else {
                                 config->console_mode_efivar = ST->ConOut->Mode->Mode;
-                                status = xpool_print(L"Console mode changed to %ld.", config->console_mode_efivar);
+                                status = xasprintf(
+                                                "Console mode changed to %" PRIi64 ".",
+                                                config->console_mode_efivar);
                         }
                         new_mode = TRUE;
                         break;
@@ -960,10 +963,13 @@ static BOOLEAN menu_run(
                         err = console_set_mode(config->console_mode == CONSOLE_MODE_KEEP ?
                                                console_mode_initial : config->console_mode);
                         if (EFI_ERROR(err))
-                                status = xpool_print(L"Error resetting console mode: %r", err);
+                                status = xasprintf_status(err, "Error resetting console mode: %m");
                         else
-                                status = xpool_print(L"Console mode reset to %s default.",
-                                                     config->console_mode == CONSOLE_MODE_KEEP ? L"firmware" : L"configuration file");
+                                status = xasprintf(
+                                                "Console mode reset to %ls default.",
+                                                config->console_mode == CONSOLE_MODE_KEEP ?
+                                                                u"firmware" :
+                                                                u"configuration file");
                         new_mode = TRUE;
                         break;
 
@@ -976,9 +982,9 @@ static BOOLEAN menu_run(
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                                 firmware_setup = TRUE;
                                 /* Let's make sure the user really wants to do this. */
-                                status = xpool_print(L"Press Enter to reboot into firmware interface.");
+                                status = xstrdup16(u"Press Enter to reboot into firmware interface.");
                         } else
-                                status = xpool_print(L"Reboot into firmware interface not supported.");
+                                status = xstrdup16(u"Reboot into firmware interface not supported.");
                         break;
 
                 default:
@@ -1313,9 +1319,9 @@ static void config_entry_parse_tries(
         entry->tries_done = tries_done;
         entry->path = xstrdup16(path);
         entry->current_name = xstrdup16(file);
-        entry->next_name = xpool_print(
-                        L"%.*s%u-%u%s",
-                        prefix_len,
+        entry->next_name = xasprintf(
+                        "%.*ls%" PRIu64 "-%" PRIu64 "%ls",
+                        (int) prefix_len,
                         file,
                         LESS_BY(tries_left, 1u),
                         MIN(tries_done + 1, (uint64_t) INT_MAX),
@@ -1338,7 +1344,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         if (!entry->path || !entry->current_name || !entry->next_name)
                 return;
 
-        old_path = xpool_print(L"%s\\%s", entry->path, entry->current_name);
+        old_path = xasprintf("%ls\\%ls", entry->path, entry->current_name);
 
         err = root_dir->Open(root_dir, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err))
@@ -1361,7 +1367,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
 
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
-        new_path = xpool_print(L"%s\\%s", entry->path, entry->next_name);
+        new_path = xasprintf("%ls\\%ls", entry->path, entry->next_name);
         efivar_set(LOADER_GUID, L"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
@@ -1477,7 +1483,7 @@ static void config_entry_add_type1(
                         if (entry->options) {
                                 CHAR16 *s;
 
-                                s = xpool_print(L"%s %s", entry->options, new);
+                                s = xasprintf("%ls %ls", entry->options, new);
                                 free(entry->options);
                                 entry->options = s;
                         } else
@@ -1766,7 +1772,7 @@ static void config_title_generate(Config *config) {
                         continue;
 
                 _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xpool_print(L"%s (%s)", t, config->entries[i]->version);
+                config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->version);
         }
 
         if (entries_unique(config->entries, unique, config->entry_count))
@@ -1783,10 +1789,9 @@ static void config_title_generate(Config *config) {
                         continue;
 
                 _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xpool_print(
-                        L"%s (%.*s)",
+                config->entries[i]->title_show = xasprintf(
+                        "%ls (%.8ls)",
                         t,
-                        strnlen16(config->entries[i]->machine_id, 8),
                         config->entries[i]->machine_id);
         }
 
@@ -1799,7 +1804,7 @@ static void config_title_generate(Config *config) {
                         continue;
 
                 _cleanup_freepool_ CHAR16 *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xpool_print(L"%s (%s)", t, config->entries[i]->id);
+                config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
         }
 }
 
@@ -2160,7 +2165,7 @@ static void config_entry_add_unified(
                         .title = xstrdup16(good_name),
                         .version = xstrdup16(good_version),
                         .device = device,
-                        .loader = xpool_print(L"\\EFI\\Linux\\%s", f->FileName),
+                        .loader = xasprintf("\\EFI\\Linux\\%ls", f->FileName),
                         .sort_key = xstrdup16(good_sort_key),
                         .key = 'l',
                         .tries_done = -1,
@@ -2241,9 +2246,9 @@ static EFI_STATUS initrd_prepare(
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_freepool_ CHAR16 *o = options;
                 if (o)
-                        options = xpool_print(L"%s initrd=%s", o, *i);
+                        options = xasprintf("%ls initrd=%ls", o, *i);
                 else
-                        options = xpool_print(L"initrd=%s", *i);
+                        options = xasprintf("initrd=%ls", *i);
 
                 _cleanup_(file_closep) EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
@@ -2271,7 +2276,7 @@ static EFI_STATUS initrd_prepare(
 
         if (entry->options) {
                 _cleanup_freepool_ CHAR16 *o = options;
-                options = xpool_print(L"%s %s", o, entry->options);
+                options = xasprintf("%ls %ls", o, entry->options);
         }
 
         *ret_options = TAKE_PTR(options);
@@ -2452,10 +2457,10 @@ static void export_variables(
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
 
-        infostr = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+        infostr = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", infostr, 0);
 
-        typestr = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+        typestr = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         efivar_set(LOADER_GUID, L"LoaderFirmwareType", typestr, 0);
 
         (void) efivar_set_uint64_le(LOADER_GUID, L"LoaderFeatures", loader_features, 0);
