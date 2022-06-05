@@ -116,14 +116,23 @@ static inline void unload_imagep(EFI_HANDLE *image) {
                 (void) BS->UnloadImage(*image);
 }
 
+/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
+ * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
+ * as non-const, but almost all of them are in fact const. */
+#define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
+
+/* These allow MAKE_GUID_PTR() to work without requiring an extra _GUID in the passed name. We want to
+ * keep the GUID definitions in line with the UEFI spec. */
+#define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
+#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
+
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
 #define LOADER_GUID \
-        &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
-#define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
+        { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
 void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str);
 void clear_screen(UINTN attr);

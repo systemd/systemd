@@ -19,7 +19,7 @@ EFI_STATUS graphics_mode(bool on) {
         BOOLEAN stdin_locked;
         EFI_STATUS err;
 
-        err = BS->LocateProtocol((EFI_GUID *) EFI_CONSOLE_CONTROL_GUID, NULL, (void **) &ConsoleControl);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CONSOLE_CONTROL), NULL, (void **) &ConsoleControl);
         if (err != EFI_SUCCESS)
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
