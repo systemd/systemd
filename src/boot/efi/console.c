@@ -172,6 +172,7 @@ static EFI_STATUS change_mode(int64_t mode) {
         mode = CLAMP(mode, CONSOLE_MODE_RANGE_MIN, CONSOLE_MODE_RANGE_MAX);
         old_mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
 
+        log_wait();
         err = ST->ConOut->SetMode(ST->ConOut, mode);
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
