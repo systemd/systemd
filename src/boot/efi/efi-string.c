@@ -901,7 +901,7 @@ _used_ int memcmp(const void *p1, const void *p2, size_t n) {
         return 0;
 }
 
-_used_ _weak_ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
+_used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n) {
         if (!dest || !src || n == 0)
                 return dest;
 
@@ -928,7 +928,7 @@ _used_ _weak_ void *memcpy(void * restrict dest, const void * restrict src, size
         return dest;
 }
 
-_used_ _weak_ void *memset(void *p, int c, size_t n) {
+_used_ void *memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
 

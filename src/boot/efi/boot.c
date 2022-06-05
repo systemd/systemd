@@ -2747,8 +2747,14 @@ out:
         return err;
 }
 
+EFI_SYSTEM_TABLE *ST;
+EFI_BOOT_SERVICES *BS;
+EFI_RUNTIME_SERVICES *RT;
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        InitializeLib(image, sys_table);
+        ST = sys_table;
+        BS = sys_table->BootServices;
+        RT = sys_table->RuntimeServices;
 
         debug_hook("systemd-boot");
         /* Uncomment the next line if you need to wait for debugger. */
@@ -2757,4 +2763,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_STATUS err = real_main(image);
         log_wait();
         return err;
+}
+
+/* Fedora has a heavily patched gnu-efi that supports elf constructors. It calls into _entry instead. */
+EFI_STATUS _entry(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        return efi_main(image, sys_table);
 }
