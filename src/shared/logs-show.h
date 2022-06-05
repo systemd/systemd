@@ -21,6 +21,7 @@ int show_journal_entry(
                 OutputFlags flags,
                 char **output_fields,
                 const size_t highlight[2],
+                const char *format,
                 bool *ellipsized);
 int show_journal(
                 FILE *f,
@@ -30,6 +31,7 @@ int show_journal(
                 usec_t not_before,
                 unsigned how_many,
                 OutputFlags flags,
+                const char *format,
                 bool *ellipsized);
 
 int add_match_this_boot(sd_journal *j, const char *machine);
@@ -55,6 +57,7 @@ int show_journal_by_unit(
                 OutputFlags flags,
                 int journal_open_flags,
                 bool system_unit,
+                const char *format,
                 bool *ellipsized);
 
 void json_escape(

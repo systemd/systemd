@@ -128,6 +128,7 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
+static char *arg_format = NULL;
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
 static PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
@@ -441,6 +442,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_FORMAT,
         };
 
         static const struct option options[] = {
@@ -508,6 +510,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
+                { "output-format",        required_argument, NULL, ARG_FORMAT               },
                 {}
         };
 
@@ -1034,6 +1037,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_FORMAT:
+                        arg_output = OUTPUT_FORMAT;
+
+                        r = free_and_strdup(&arg_format, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1079,6 +1091,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_system_units = strv_free(arg_system_units);
         }
+
+        if (arg_format && arg_output != OUTPUT_FORMAT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--format= cannot be used with output mode \"%s\"",
+                                       output_mode_to_string(arg_output));
+
+        if (arg_output == OUTPUT_FORMAT && !arg_format)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--output=format cannot be used without --output-format=");
 
         if (arg_pattern) {
                 r = pattern_compile_and_log(arg_pattern, arg_case, &arg_compiled_pattern);
@@ -2672,7 +2693,7 @@ int main(int argc, char *argv[]) {
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized);
+                                               arg_output_fields, highlight, arg_format, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;
