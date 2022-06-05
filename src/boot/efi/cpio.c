@@ -356,8 +356,13 @@ EFI_STATUS pack_cpio(
         if (EFI_ERROR(err))
                 return log_error_status(err, "Unable to open root directory: %m");
 
-        if (!dropin_dir)
-                dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
+        if (!dropin_dir) {
+                _cleanup_free_ char16_t *file_path = NULL;
+                err = device_path_to_text(loaded_image->FilePath, &file_path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Unable to get file path: %m");
+                dropin_dir = rel_dropin_dir = xasprintf("%ls.extra.d", file_path);
+        }
 
         err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND) {

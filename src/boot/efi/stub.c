@@ -120,12 +120,8 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
             loaded_image->FilePath) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = DevicePathToStr(loaded_image->FilePath);
-                if (s)
+                if (device_path_to_text(loaded_image->FilePath, &s) == EFI_SUCCESS)
                         efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
-                else
-                        log_oom();
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */

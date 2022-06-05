@@ -122,9 +122,9 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (status != EFI_SUCCESS)
                 return status;
 
-        dev_path_str = DevicePathToStr(dp);
-        if (!dev_path_str)
-                return EFI_OUT_OF_RESOURCES;
+        status = device_path_to_text(dp, &dev_path_str);
+        if (status != EFI_SUCCESS)
+                return status;
 
         status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
         if (EFI_ERROR(status))
