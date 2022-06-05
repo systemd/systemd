@@ -780,6 +780,7 @@ static void print_status_info(
                                 get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                 SD_JOURNAL_LOCAL_ONLY,
                                 arg_scope == LOOKUP_SCOPE_SYSTEM,
+                                arg_output_format,
                                 ellipsized);
 
         if (i->need_daemon_reload)

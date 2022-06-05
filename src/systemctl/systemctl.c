@@ -99,6 +99,7 @@ BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
 unsigned arg_lines = 10;
 OutputMode arg_output = OUTPUT_SHORT;
+char *arg_output_format = NULL;
 bool arg_plain = false;
 bool arg_firmware_setup = false;
 usec_t arg_boot_loader_menu = USEC_INFINITY;
@@ -421,6 +422,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_OUTPUT_FORMAT,
         };
 
         static const struct option options[] = {
@@ -464,6 +466,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "runtime",             no_argument,       NULL, ARG_RUNTIME             },
                 { "lines",               required_argument, NULL, 'n'                     },
                 { "output",              required_argument, NULL, 'o'                     },
+                { "output-format",       required_argument, NULL, ARG_OUTPUT_FORMAT       },
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
                 { "state",               required_argument, NULL, ARG_STATE               },
                 { "recursive",           no_argument,       NULL, 'r'                     },
@@ -743,6 +746,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
+                case ARG_OUTPUT_FORMAT:
+                        arg_output = OUTPUT_FORMAT;
+
+                        r = free_and_strdup(&arg_output_format, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
                 case 'i':
                         arg_check_inhibitors = 0;
                         break;
@@ -955,6 +966,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "List of units to restart/reload is required.");
         }
+
+        if (arg_output_format && arg_output != OUTPUT_FORMAT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--output-format cannot be used with output mode \"%s\"",
+                                       output_mode_to_string(arg_output));
 
         return 1;
 }
