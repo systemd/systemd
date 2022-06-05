@@ -411,6 +411,15 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         return err;
 }
 
+static unsigned log_count = 0;
+void log_wait(void) {
+        if (log_count == 0)
+                return;
+
+        BS->Stall(MIN(2 * log_count, 8) * 1000 * 1000);
+        log_count = 0;
+}
+
 EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
         assert(format);
 
@@ -429,8 +438,7 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
 
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        /* Give the user a chance to see the message. */
-        BS->Stall(3 * 1000 * 1000);
+        log_count++;
         return status;
 }
 
