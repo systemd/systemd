@@ -2748,3 +2748,8 @@ out:
 }
 
 DEFINE_EFI_MAIN_FUNCTION(real_main, "systemd-boot", /*wait_for_debugger=*/false);
+
+/* Fedora has a heavily patched gnu-efi that supports elf constructors. It calls into _entry instead. */
+EFI_STATUS _entry(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        return efi_main(image, sys_table);
+}
