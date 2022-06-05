@@ -97,9 +97,8 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
 
         for (size_t order = 0;; order++) {
                 _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
-                char16_t order_str[STRLEN("VMMBootOrder") + 4 + 1];
 
-                SPrint(order_str, sizeof(order_str), u"VMMBootOrder%04x", order);
+                _cleanup_free_ char16_t *order_str = xasprintf("VMMBootOrder%04zx", order);
                 dp_err = efivar_get_raw(&(EFI_GUID)VMM_BOOT_ORDER_GUID, order_str, (char**)&dp, NULL);
 
                 for (size_t i = 0; i < n_handles; i++) {

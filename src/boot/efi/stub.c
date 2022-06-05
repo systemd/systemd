@@ -114,14 +114,14 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
-                s = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                s = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
-                s = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
@@ -173,7 +173,7 @@ static bool use_load_options(
         *ret = xstrdup16(shell->Argv[1]);
         for (size_t i = 2; i < shell->Argc; i++) {
                 _cleanup_free_ char16_t *old = *ret;
-                *ret = xpool_print(u"%s %s", old, shell->Argv[i]);
+                *ret = xasprintf("%ls %ls", old, shell->Argv[i]);
         }
 
         mangle_stub_cmdline(*ret);
