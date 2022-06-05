@@ -15,7 +15,7 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]) {
         if (!handle)
                 return EFI_NOT_FOUND;
 
-        err = BS->HandleProtocol(handle, &DevicePathProtocol, (void **) &dp);
+        err = BS->HandleProtocol(handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
                 return err;
 

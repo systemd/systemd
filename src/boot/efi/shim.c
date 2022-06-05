@@ -33,12 +33,12 @@ struct ShimLock {
 };
 
 #define SHIM_LOCK_GUID \
-        &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
+        { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
+        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
 }
 
 static bool shim_validate(
@@ -53,7 +53,8 @@ static bool shim_validate(
 
                 EFI_HANDLE device_handle;
                 EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
-                err = BS->LocateDevicePath(&FileSystemProtocol, &file_dp, &device_handle);
+                err = BS->LocateDevicePath(
+                                MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &file_dp, &device_handle);
                 if (err != EFI_SUCCESS)
                         return false;
 
@@ -75,7 +76,7 @@ static bool shim_validate(
         }
 
         struct ShimLock *shim_lock;
-        err = BS->LocateProtocol((EFI_GUID *) SHIM_LOCK_GUID, NULL, (void **) &shim_lock);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock);
         if (err != EFI_SUCCESS)
                 return false;
 

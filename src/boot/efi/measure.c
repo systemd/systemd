@@ -87,7 +87,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         uint32_t features;
         EFI_TCG *tcg;
 
-        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 
@@ -116,7 +116,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_STATUS err;
         EFI_TCG2 *tcg;
 
-        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG2), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 

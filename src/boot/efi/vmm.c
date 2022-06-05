@@ -12,25 +12,25 @@
 #include "string-util-fundamental.h"
 #include "util.h"
 
-#define QEMU_KERNEL_LOADER_FS_MEDIA_GUID                                \
-        { 0x1428f772, 0xb64a, 0x441e, {0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 }}
+#define QEMU_KERNEL_LOADER_FS_MEDIA_GUID \
+        { 0x1428f772, 0xb64a, 0x441e, { 0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 } }
 
 #define VMM_BOOT_ORDER_GUID \
-        { 0x668f4529, 0x63d0, 0x4bb5, {0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a }}
+        { 0x668f4529, 0x63d0, 0x4bb5, { 0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a } }
 
 /* detect direct boot */
 bool is_direct_boot(EFI_HANDLE device) {
         EFI_STATUS err;
         VENDOR_DEVICE_PATH *dp; /* NB: Alignment of this structure might be quirky! */
 
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
                 return false;
 
         /* 'qemu -kernel systemd-bootx64.efi' */
         if (dp->Header.Type == MEDIA_DEVICE_PATH &&
             dp->Header.SubType == MEDIA_VENDOR_DP &&
-            memcmp(&dp->Guid, &(EFI_GUID)QEMU_KERNEL_LOADER_FS_MEDIA_GUID, sizeof(EFI_GUID)) == 0) /* Don't change to efi_guid_equal() because EFI device path objects are not necessarily aligned! */
+            memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0) /* Don't change to efi_guid_equal() because EFI device path objects are not necessarily aligned! */
                 return true;
 
         /* loaded from firmware volume (sd-boot added to ovmf) */
@@ -91,7 +91,8 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
         (void) reconnect_all_drivers();
 
         /* find all file system handles */
-        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        err = BS->LocateHandleBuffer(
+                        ByProtocol, MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), NULL, &n_handles, &handles);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -99,13 +100,14 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                 _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
 
                 _cleanup_free_ char16_t *order_str = xasprintf("VMMBootOrder%04zx", order);
-                dp_err = efivar_get_raw(&(EFI_GUID)VMM_BOOT_ORDER_GUID, order_str, (char**)&dp, NULL);
+                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (char **) &dp, NULL);
 
                 for (size_t i = 0; i < n_handles; i++) {
                         _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
                         EFI_DEVICE_PATH *fs;
 
-                        err = BS->HandleProtocol(handles[i], &DevicePathProtocol, (void **) &fs);
+                        err = BS->HandleProtocol(
+                                        handles[i], MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &fs);
                         if (err != EFI_SUCCESS)
                                 return err;
 
@@ -202,14 +204,14 @@ typedef struct {
 static void *find_smbios_configuration_table(uint64_t *ret_size) {
         assert(ret_size);
 
-        Smbios3EntryPoint *entry3 = find_configuration_table(&(EFI_GUID) SMBIOS3_TABLE_GUID);
+        Smbios3EntryPoint *entry3 = find_configuration_table(MAKE_GUID_PTR(SMBIOS3_TABLE));
         if (entry3 && memcmp(entry3->anchor_string, "_SM3_", 5) == 0 &&
             entry3->entry_point_length <= sizeof(*entry3)) {
                 *ret_size = entry3->table_maximum_size;
                 return PHYSICAL_ADDRESS_TO_POINTER(entry3->table_address);
         }
 
-        SmbiosEntryPoint *entry = find_configuration_table(&(EFI_GUID) SMBIOS_TABLE_GUID);
+        SmbiosEntryPoint *entry = find_configuration_table(MAKE_GUID_PTR(SMBIOS_TABLE));
         if (entry && memcmp(entry->anchor_string, "_SM_", 4) == 0 &&
             entry->entry_point_length <= sizeof(*entry)) {
                 *ret_size = entry->table_length;

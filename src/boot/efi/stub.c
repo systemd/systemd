@@ -94,9 +94,9 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         assert(loaded_image);
 
         /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
                 if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                        efivar_set(LOADER_GUID, L"LoaderDevicePartUUID", uuid, 0);
+                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 
         /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
          * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
@@ -104,33 +104,33 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
          * in which case there's simple nothing to set for us. (The UEFI spec doesn't really say who's wrong
          * here, i.e. whether FilePath may be NULL or not, hence handle this gracefully and check if FilePath
          * is non-NULL explicitly.) */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
             loaded_image->FilePath) {
                 _cleanup_free_ char16_t *s = NULL;
                 if (device_path_to_str(loaded_image->FilePath, &s) == EFI_SUCCESS)
-                        efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
+                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", s, 0);
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
                 s = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
+                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
                 s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
+                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderFirmwareType", s, 0);
         }
 
 
         /* add StubInfo (this is one is owned by the stub, hence we unconditionally override this with our
          * own data) */
-        (void) efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
+        (void) efivar_set(MAKE_GUID_PTR(LOADER), u"StubInfo", u"systemd-stub " GIT_VERSION, 0);
 
-        (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
+        (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, 0);
 }
 
 static bool use_load_options(
@@ -156,7 +156,7 @@ static bool use_load_options(
         /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
          * LoadOptions starts with the stub binary path which we want to strip off. */
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
-        if (BS->HandleProtocol(stub_image, &(EFI_GUID) EFI_SHELL_PARAMETERS_PROTOCOL_GUID, (void **) &shell)
+        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
             != EFI_SUCCESS) {
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
@@ -196,19 +196,19 @@ static EFI_STATUS real_main(EFI_HANDLE image) {
 
         err = BS->OpenProtocol(
                         image,
-                        &LoadedImageProtocol,
-                        (void **)&loaded_image,
+                        MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
+                        (void **) &loaded_image,
                         image,
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        if (efivar_get_uint64_le(LOADER_GUID, L"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
+        if (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
             !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
                 _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
 
-                err = partition_open(ESP_GUID, loaded_image->DeviceHandle, NULL, &esp_dir);
+                err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
                 if (err == EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
                         (void) process_random_seed(esp_dir);
         }
@@ -257,7 +257,7 @@ static EFI_STATUS real_main(EFI_HANDLE image) {
         /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
          * in it which PCR was used. */
         if (sections_measured > 0)
-                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
 
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
@@ -319,9 +319,9 @@ static EFI_STATUS real_main(EFI_HANDLE image) {
                 sysext_measured = m;
 
         if (parameters_measured > 0)
-                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrKernelParameters", TPM_PCR_INDEX_KERNEL_PARAMETERS, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM_PCR_INDEX_KERNEL_PARAMETERS, 0);
         if (sysext_measured)
-                (void) efivar_set_uint_string(LOADER_GUID, L"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
 
         /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
          * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
