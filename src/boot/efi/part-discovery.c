@@ -173,7 +173,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         assert(ret_device_path);
 
         EFI_DEVICE_PATH *partition_path;
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &partition_path);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &partition_path);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -198,7 +198,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
-        err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &p, &disk_handle);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -206,7 +206,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
          * have to ask the firmware to do just that. */
         (void) BS->ConnectController(disk_handle, NULL, NULL, true);
 
-        err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
+        err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -272,7 +272,7 @@ EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *
                 return err;
 
         EFI_DEVICE_PATH *dp = partition_path;
-        err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &dp, &new_device);
         if (err != EFI_SUCCESS)
                 return err;
 

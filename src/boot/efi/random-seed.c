@@ -13,15 +13,13 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-#define EFI_RNG_GUID &(const EFI_GUID) EFI_RNG_PROTOCOL_GUID
-
 struct linux_efi_random_seed {
         uint32_t size;
         uint8_t seed[];
 };
 
 #define LINUX_EFI_RANDOM_SEED_TABLE_GUID \
-        { 0x1ce1e5bc, 0x7ceb, 0x42f2,  { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
+        { 0x1ce1e5bc, 0x7ceb, 0x42f2, { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
 
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
@@ -40,7 +38,7 @@ static EFI_STATUS acquire_rng(void *ret, UINTN size) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = BS->LocateProtocol((EFI_GUID *) EFI_RNG_GUID, NULL, (void **) &rng);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, (void **) &rng);
         if (err != EFI_SUCCESS)
                 return err;
         if (!rng)
@@ -60,7 +58,7 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret);
         assert(ret_size);
 
-        err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
+        err = efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
                         log_error_status(err, "Failed to read LoaderSystemToken EFI variable: %m");
@@ -146,7 +144,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         /* Some basic domain separation in case somebody uses this data elsewhere */
         sha256_process_bytes(HASH_LABEL, sizeof(HASH_LABEL) - 1, &hash);
 
-        previous_seed_table = find_configuration_table(&(const EFI_GUID) LINUX_EFI_RANDOM_SEED_TABLE_GUID);
+        previous_seed_table = find_configuration_table(MAKE_GUID_PTR(LINUX_EFI_RANDOM_SEED_TABLE));
         if (!previous_seed_table) {
                 size = 0;
                 sha256_process_bytes(&size, sizeof(size), &hash);
@@ -314,7 +312,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         /* new_seed_table->seed = HASH(hash) */
         sha256_finish_ctx(&hash, new_seed_table->seed);
 
-        err = BS->InstallConfigurationTable(&(EFI_GUID)LINUX_EFI_RANDOM_SEED_TABLE_GUID, new_seed_table);
+        err = BS->InstallConfigurationTable(MAKE_GUID_PTR(LINUX_EFI_RANDOM_SEED_TABLE), new_seed_table);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to install EFI table for random seed: %m");
         TAKE_PTR(new_seed_table);

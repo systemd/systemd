@@ -48,14 +48,18 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
         if (!checked) {
                 /* Get the *first* TextInputEx device.*/
-                err = BS->LocateProtocol(&SimpleTextInputExProtocol, NULL, (void **) &extraInEx);
+                err = BS->LocateProtocol(
+                                MAKE_GUID_PTR(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL), NULL, (void **) &extraInEx);
                 if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
                         extraInEx = NULL;
 
                 /* Get the TextInputEx version of ST->ConIn. */
-                err = BS->HandleProtocol(ST->ConsoleInHandle, &SimpleTextInputExProtocol, (void **) &conInEx);
+                err = BS->HandleProtocol(
+                                ST->ConsoleInHandle,
+                                MAKE_GUID_PTR(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL),
+                                (void **) &conInEx);
                 if (err != EFI_SUCCESS || BS->CheckEvent(conInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         conInEx = NULL;
 
@@ -191,7 +195,7 @@ EFI_STATUS query_screen_resolution(uint32_t *ret_w, uint32_t *ret_h) {
         EFI_STATUS err;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *go;
 
-        err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &go);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &go);
         if (err != EFI_SUCCESS)
                 return err;
 
