@@ -21,6 +21,7 @@ int show_journal_entry(
                 OutputFlags flags,
                 char **output_fields,
                 const size_t highlight[2],
+                const char *format,
                 bool *ellipsized);
 int show_journal(
                 FILE *f,
