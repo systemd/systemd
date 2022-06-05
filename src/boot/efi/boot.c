@@ -2646,7 +2646,7 @@ static void config_load_all_entries(
         config_default_entry_select(config);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+static EFI_STATUS main(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
@@ -2655,11 +2655,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         uint64_t init_usec;
         bool menu = false;
 
-        InitializeLib(image, sys_table);
         init_usec = time_usec();
-        debug_hook(L"systemd-boot");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
 
         /* The firmware may skip initializing some devices for the sake of a faster boot. This is especially
          * true for fastboot enabled firmwares. But this means that things we use like input devices or the
@@ -2754,5 +2750,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = EFI_SUCCESS;
 out:
         BS->CloseProtocol(image, &LoadedImageProtocol, image, NULL);
+        return err;
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook(L"systemd-boot");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = main(image);
+        log_wait();
         return err;
 }
