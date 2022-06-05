@@ -5,6 +5,8 @@
 
 #include "log.h"
 
+static unsigned log_count = 0;
+
 void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
         log_error("systemd-boot assertion '%s' failed at %s:%u@%s. Halting.", expr, file, line, function);
         for (;;)
@@ -28,7 +30,14 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        /* Give the user a chance to see the message. */
-        BS->Stall(3 * 1000 * 1000);
+        log_count++;
         return status;
+}
+
+void log_wait(void) {
+        if (log_count == 0)
+                return;
+
+        BS->Stall(MIN(4u, log_count) * 2500 * 1000);
+        log_count = 0;
 }
