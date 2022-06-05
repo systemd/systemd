@@ -745,3 +745,18 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         SetDevicePathEndNode(dp);
         return EFI_SUCCESS;
 }
+
+EFI_STATUS device_path_to_text(const EFI_DEVICE_PATH *dp, char16_t **ret_str) {
+        EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *text;
+        EFI_STATUS err;
+
+        assert(dp);
+        assert(ret_str);
+
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &text);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_str = text->ConvertDevicePathToText(dp, true, true);
+        return EFI_SUCCESS;
+}
