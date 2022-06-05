@@ -562,6 +562,16 @@ int vsnprintf_status(
                                 &pad_zero, &precision, &field_width,
                                 &str8, &str16, &wstr);
 
+                if (*(format + 1) == '?') {
+                        format++;
+                        if (!str8 && !str16 && !wstr) {
+                                /* As a printf extension, discard the whole print buffer if a specifier is
+                                 * followed by a "?" and the formatted value is is empty. */
+                                n = 0;
+                                break;
+                        }
+                }
+
                 /* As extension, we support NULL for strings too. */
                 if (!str8 && !str16 && !wstr)
                         str16 = u"(nil)";

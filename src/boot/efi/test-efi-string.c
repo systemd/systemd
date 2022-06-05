@@ -533,6 +533,12 @@ TEST(vsnprintf_status) {
         /* Non vsnprintf-compatible behavior tests below. */
         char16_t buf[9];
 
+        /* Discard buffer if value is empty. */
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%s?", "") == 0);
+        assert_se(streq16(buf, u""));
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%s?", "abc") == 3);
+        assert_se(streq16(buf, u"abc"));
+
         /* EFI Status codes. */
         assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%m") == 8);
         assert_se(streq16(buf, u"0x000000"));
