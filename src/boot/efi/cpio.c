@@ -360,7 +360,7 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
                 return NULL;
 
         convert_efi_path(file_path_str);
-        return xpool_print(u"%s.extra.d", file_path_str);
+        return xasprintf("%ls.extra.d", file_path_str);
 }
 
 EFI_STATUS pack_cpio(
