@@ -167,5 +167,6 @@ EFI_STATUS linux_exec(
                 return err;
 
         /* call the kernel */
+        log_wait();
         return kernel_entry(loaded_image_handle, ST);
 }

@@ -198,6 +198,7 @@ EFI_STATUS linux_exec_efi_handover(
         boot_params->hdr.ramdisk_size = initrd_length;
         boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
+        log_wait();
         linux_efi_handover(image, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }
