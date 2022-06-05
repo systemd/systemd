@@ -630,11 +630,13 @@ static BOOLEAN menu_run(
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
 
+        log_wait();
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
                                config->console_mode_efivar : config->console_mode);
         if (EFI_ERROR(err)) {
                 clear_screen(COLOR_NORMAL);
                 log_error_status(err, "Error switching console mode: %m");
+                log_wait();
         }
 
         UINTN line_width = 0, entry_padding = 3;
@@ -2522,7 +2524,7 @@ static void config_load_all_entries(
         config_default_entry_select(config);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+EFI_STATUS main(EFI_HANDLE image) {
         EFI_LOADED_IMAGE *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
@@ -2531,11 +2533,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINT64 init_usec;
         BOOLEAN menu = FALSE;
 
-        InitializeLib(image, sys_table);
         init_usec = time_usec();
-        debug_hook(L"systemd-boot");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
 
         err = BS->OpenProtocol(image,
                         &LoadedImageProtocol,
@@ -2612,6 +2610,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir, config.random_seed_mode);
 
+                log_wait();
                 err = image_start(image, entry);
                 if (err != EFI_SUCCESS)
                         /* Not using EFI_ERROR here because positive values are also errors like with any
@@ -2624,5 +2623,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = EFI_SUCCESS;
 out:
         BS->CloseProtocol(image, &LoadedImageProtocol, image, NULL);
+        return err;
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook(L"systemd-boot");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = main(image);
+        log_wait();
         return err;
 }
