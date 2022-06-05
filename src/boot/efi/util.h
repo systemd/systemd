@@ -66,7 +66,6 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
         return r;
 }
 
-#define xpool_print(fmt, ...) ((char16_t *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
 EFI_STATUS parse_boolean(const char *v, bool *b);
