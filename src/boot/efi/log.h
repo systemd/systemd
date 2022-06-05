@@ -3,6 +3,7 @@
 
 #include "efi-string.h"
 
+void log_wait(void);
 _printf_(2, 3) EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...);
 #define log_error_status(status, ...) log_internal(status, __VA_ARGS__)
 #define log_error(...) log_internal(EFI_INVALID_PARAMETER, __VA_ARGS__)
