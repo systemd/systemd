@@ -207,6 +207,7 @@ static inline void beep(UINTN beep_count) {}
 
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
+EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret);
 
 #if defined(__i386__) || defined(__x86_64__)
 bool in_hypervisor(void);
