@@ -124,7 +124,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
 out_deallocate:
         for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++)
-                FreePool(sb_vars[i].buffer);
+                free(sb_vars[i].buffer);
 
         return err;
 }

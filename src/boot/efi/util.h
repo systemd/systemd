@@ -180,8 +180,13 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
 #endif
 
 #define DEFINE_EFI_MAIN_FUNCTION(func, identity, wait_for_debugger)             \
+        EFI_SYSTEM_TABLE *ST;                                                   \
+        EFI_BOOT_SERVICES *BS;                                                  \
+        EFI_RUNTIME_SERVICES *RT;                                               \
         EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) { \
-                InitializeLib(image, system_table);                             \
+                ST = system_table;                                              \
+                BS = system_table->BootServices;                                \
+                RT = system_table->RuntimeServices;                             \
                 notify_debugger((identity), (wait_for_debugger));               \
                 EFI_STATUS err = func(image);                                   \
                 log_wait();                                                     \
