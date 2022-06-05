@@ -10,7 +10,7 @@ bool secure_boot_enabled(void) {
         bool secure = false;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
-        err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
+        err = efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SecureBoot", &secure);
 
         return err == EFI_SUCCESS && secure;
 }
@@ -19,15 +19,15 @@ SecureBootMode secure_boot_mode(void) {
         bool secure, audit = false, deployed = false, setup = false;
         EFI_STATUS err;
 
-        err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
+        err = efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SecureBoot", &secure);
         if (err != EFI_SUCCESS)
                 return SECURE_BOOT_UNSUPPORTED;
 
         /* We can assume false for all these if they are abscent (AuditMode and
          * DeployedMode may not exist on older firmware). */
-        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"AuditMode", &audit);
-        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"DeployedMode", &deployed);
-        (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SetupMode", &setup);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"AuditMode", &audit);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"DeployedMode", &deployed);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SetupMode", &setup);
 
         return decode_secure_boot_mode(secure, audit, deployed, setup);
 }
@@ -195,7 +195,7 @@ void install_security_override(security_validator_t validator, const void *valid
         };
 
         EFI_SECURITY_ARCH_PROTOCOL *security = NULL;
-        err = BS->LocateProtocol(&(EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID, NULL, (void **) &security);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security);
         if (err == EFI_SUCCESS) {
                 security_override.security = security;
                 security_override.original_hook = security->FileAuthenticationState;
@@ -203,7 +203,7 @@ void install_security_override(security_validator_t validator, const void *valid
         }
 
         EFI_SECURITY2_ARCH_PROTOCOL *security2 = NULL;
-        err = BS->LocateProtocol(&(EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID, NULL, (void **) &security2);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security2);
         if (err == EFI_SUCCESS) {
                 security_override.security2 = security2;
                 security_override.original_hook2 = security2->FileAuthentication;
