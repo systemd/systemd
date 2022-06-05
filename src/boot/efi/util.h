@@ -117,6 +117,7 @@ static inline void unload_imagep(EFI_HANDLE *image) {
         &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 #define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
 
+void log_wait(void);
 _printf_(2, 3) EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...);
 #define log_oom() log_internal(EFI_OUT_OF_RESOURCES, "Out of memory.")
 #define log_error(...) log_internal(EFI_INVALID_PARAMETER, __VA_ARGS__)
