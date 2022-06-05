@@ -147,8 +147,7 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-
+EFI_STATUS main(EFI_HANDLE image) {
         enum {
                 SECTION_CMDLINE,
                 SECTION_LINUX,
@@ -179,11 +178,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         char *cmdline = NULL;
         _cleanup_free_ char *cmdline_owned = NULL;
         EFI_STATUS err;
-
-        InitializeLib(image, sys_table);
-        debug_hook(L"systemd-stub");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
 
         err = BS->OpenProtocol(
                         image,
@@ -302,4 +296,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);
         return log_error_status(err, "Execution of embedded linux image failed: %m");
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook(L"systemd-stub");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = main(image);
+        log_wait();
+        return err;
 }
