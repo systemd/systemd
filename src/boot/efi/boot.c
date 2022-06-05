@@ -2626,7 +2626,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
                 return open_volume(loaded_image->DeviceHandle, ret_dir);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+static EFI_STATUS real_main(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
@@ -2635,11 +2635,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         uint64_t init_usec;
         bool menu = false;
 
-        InitializeLib(image, sys_table);
         init_usec = time_usec();
-        debug_hook(L"systemd-boot");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
 
         err = BS->OpenProtocol(image,
                         &LoadedImageProtocol,
@@ -2726,5 +2722,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         err = EFI_SUCCESS;
 out:
         BS->CloseProtocol(image, &LoadedImageProtocol, image, NULL);
+        return err;
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook(L"systemd-boot");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = real_main(image);
+        log_wait();
         return err;
 }
