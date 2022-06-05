@@ -769,6 +769,21 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         return EFI_SUCCESS;
 }
 
+EFI_STATUS device_path_to_text(const EFI_DEVICE_PATH *dp, char16_t **ret_str) {
+        EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *text;
+        EFI_STATUS err;
+
+        assert(dp);
+        assert(ret_str);
+
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &text);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_str = text->ConvertDevicePathToText(dp, true, true);
+        return *ret_str ? EFI_SUCCESS : EFI_OUT_OF_RESOURCES;
+}
+
 #if defined(__i386__) || defined(__x86_64__)
 bool in_hypervisor(void) {
         uint32_t eax, ebx, ecx, edx;
