@@ -2,6 +2,7 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <inttypes.h>
 
 #include "ticks.h"
 #include "util.h"
@@ -44,15 +45,11 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
-        CHAR16 str[32];
-
         assert(vendor);
         assert(name);
 
-        /* Note that SPrint has no native sized length specifier and will always use ValueToString()
-         * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
-         * 64bit machines. */
-        ValueToString(str, FALSE, i);
+        char16_t str[SCRATCH_BUF_SIZE];
+        snprintf(str, SCRATCH_BUF_SIZE, "%zu", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -226,8 +223,6 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
 }
 
 void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
-        CHAR16 str[32];
-
         assert(vendor);
         assert(name);
 
@@ -236,8 +231,8 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
         if (usec == 0)
                 return;
 
-        /* See comment on ValueToString in efivar_set_uint_string(). */
-        ValueToString(str, FALSE, usec);
+        char16_t str[SCRATCH_BUF_SIZE];
+        snprintf(str, SCRATCH_BUF_SIZE, "%" PRIu64, usec);
         efivar_set(vendor, name, str, 0);
 }
 
