@@ -80,7 +80,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         for (OutputMode mode = 0; mode < _OUTPUT_MODE_MAX; mode++) {
                 if (!dev_null)
                         log_info("/* %s */", output_mode_to_string(mode));
-                r = show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, NULL);
+                r = show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, "%m", NULL);
                 assert_se(r >= 0);
 
                 r = sd_journal_seek_head(j);
