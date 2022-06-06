@@ -53,12 +53,16 @@ for phase in "${PHASES[@]}"; do
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             pip3 install -r .github/workflows/requirements.txt --require-hashes
             ;;
-        RUN|RUN_GCC|RUN_CLANG)
-            if [[ "$phase" = "RUN_CLANG" ]]; then
+        RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
+            if [[ "$phase" =~ ^RUN_CLANG ]]; then
                 export CC=clang
                 export CXX=clang++
-                # The docs build is slow and is not affected by compiler/flags, so do it just once
-                MESON_ARGS+=(-Dman=true)
+                if [[ "$phase" == RUN_CLANG ]]; then
+                    # The docs build is slow and is not affected by compiler/flags, so do it just once
+                    MESON_ARGS+=(-Dman=true)
+                else
+                    MESON_ARGS+=(-Dmode=release --optimization=2)
+                fi
             fi
             # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
             # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
