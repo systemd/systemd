@@ -23,6 +23,7 @@ int systemd_installation_has_version(const char *root, const char *minimal_versi
                         */
                        "/lib/systemd/libsystemd-shared-*.so",
                        "/lib64/systemd/libsystemd-shared-*.so",
+                       "/usr/lib/*/systemd/libsystemd-shared-*.so",
                        "/usr/lib/systemd/libsystemd-shared-*.so",
                        "/usr/lib64/systemd/libsystemd-shared-*.so") {
 
@@ -47,7 +48,7 @@ int systemd_installation_has_version(const char *root, const char *minimal_versi
                         /* This is most likely to run only once, hence let's not optimize anything. */
                         char *t, *t2;
 
-                        t = startswith(*name, path);
+                        t = startswith(basename(*name), "libsystemd-shared-");
                         if (!t)
                                 continue;
 
