@@ -59,6 +59,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 { "Sleep", "HybridSleepState",          config_parse_strv,     0, sc->states + SLEEP_HYBRID_SLEEP },
 
                 { "Sleep", "HibernateDelaySec",         config_parse_sec,      0, &sc->hibernate_delay_sec        },
+                { "Sleep", "BatteryEstimateInterval",   config_parse_sec,      0, &sc->battery_estimate_interval  },
                 {}
         };
 
@@ -91,6 +92,8 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
         if (sc->hibernate_delay_sec == 0)
                 sc->hibernate_delay_sec = 2 * USEC_PER_HOUR;
+        if (sc->battery_estimate_interval == 0)
+                sc->battery_estimate_interval = 15 * USEC_PER_MINUTE;
 
         /* ensure values set for all required fields */
         if (!sc->states[SLEEP_SUSPEND] || !sc->modes[SLEEP_HIBERNATE]
@@ -100,6 +103,25 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         *ret_sleep_config = TAKE_PTR(sc);
 
         return 0;
+}
+
+bool is_battery_low(void) {
+        _cleanup_free_ char *bat_cap_level = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity_level", &bat_cap_level);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity_level: %m");
+                return false;
+        }
+
+        log_info("Current battery level : %s", bat_cap_level);
+        /*printf("%s", bat_cap_level);*/
+        if (STR_IN_SET(bat_cap_level, "Critical", "Low"))
+                return true; /*execute s2h somewhere */
+                /*Value Unknown needs to be check somewhere here or will go in else block*/
+        else
+                return false; /*timed wakeup should handle this false to check again based on battery_estimate_interval*/
 }
 
 int can_sleep_state(char **types) {
