@@ -651,24 +651,24 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
 }
 
 static const char* const netlink_family_table[] = {
-        [NETLINK_ROUTE] = "route",
-        [NETLINK_FIREWALL] = "firewall",
-        [NETLINK_INET_DIAG] = "inet-diag",
-        [NETLINK_NFLOG] = "nflog",
-        [NETLINK_XFRM] = "xfrm",
-        [NETLINK_SELINUX] = "selinux",
-        [NETLINK_ISCSI] = "iscsi",
-        [NETLINK_AUDIT] = "audit",
-        [NETLINK_FIB_LOOKUP] = "fib-lookup",
-        [NETLINK_CONNECTOR] = "connector",
-        [NETLINK_NETFILTER] = "netfilter",
-        [NETLINK_IP6_FW] = "ip6-fw",
-        [NETLINK_DNRTMSG] = "dnrtmsg",
+        [NETLINK_ROUTE]          = "route",
+        [NETLINK_FIREWALL]       = "firewall",
+        [NETLINK_INET_DIAG]      = "inet-diag",
+        [NETLINK_NFLOG]          = "nflog",
+        [NETLINK_XFRM]           = "xfrm",
+        [NETLINK_SELINUX]        = "selinux",
+        [NETLINK_ISCSI]          = "iscsi",
+        [NETLINK_AUDIT]          = "audit",
+        [NETLINK_FIB_LOOKUP]     = "fib-lookup",
+        [NETLINK_CONNECTOR]      = "connector",
+        [NETLINK_NETFILTER]      = "netfilter",
+        [NETLINK_IP6_FW]         = "ip6-fw",
+        [NETLINK_DNRTMSG]        = "dnrtmsg",
         [NETLINK_KOBJECT_UEVENT] = "kobject-uevent",
-        [NETLINK_GENERIC] = "generic",
-        [NETLINK_SCSITRANSPORT] = "scsitransport",
-        [NETLINK_ECRYPTFS] = "ecryptfs",
-        [NETLINK_RDMA] = "rdma",
+        [NETLINK_GENERIC]        = "generic",
+        [NETLINK_SCSITRANSPORT]  = "scsitransport",
+        [NETLINK_ECRYPTFS]       = "ecryptfs",
+        [NETLINK_RDMA]           = "rdma",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
@@ -775,10 +775,10 @@ int fd_set_rcvbuf(int fd, size_t n, bool increase) {
 }
 
 static const char* const ip_tos_table[] = {
-        [IPTOS_LOWDELAY] = "low-delay",
-        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_LOWDELAY]    = "low-delay",
+        [IPTOS_THROUGHPUT]  = "throughput",
         [IPTOS_RELIABILITY] = "reliability",
-        [IPTOS_LOWCOST] = "low-cost",
+        [IPTOS_LOWCOST]     = "low-cost",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
