@@ -49,7 +49,7 @@ static int add_epoll(int epoll_fd, int fd) {
 }
 
 static int open_sockets(int *epoll_fd, bool accept) {
-        int n, fd, r, count = 0;
+        int n, r, count = 0;
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -57,7 +57,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         if (n > 0) {
                 log_info("Received %i descriptors via the environment.", n);
 
-                for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+                for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                         r = fd_cloexec(fd, arg_accept);
                         if (r < 0)
                                 return r;
@@ -68,14 +68,11 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         /* Close logging and all other descriptors */
         if (arg_listen) {
-                _cleanup_free_ int *except = NULL;
-                int i;
-
-                except = new(int, n);
+                _cleanup_free_ int *except = new(int, n);
                 if (!except)
                         return log_oom();
 
-                for (i = 0; i < n; i++)
+                for (int i = 0; i < n; i++)
                         except[i] = SD_LISTEN_FDS_START + i;
 
                 log_close();
@@ -90,13 +87,13 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
-                if (fd < 0) {
+                r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
+                if (r < 0) {
                         log_open();
-                        return log_error_errno(fd, "Failed to open '%s': %m", *address);
+                        return log_error_errno(r, "Failed to open '%s': %m", *address);
                 }
 
-                assert(fd == SD_LISTEN_FDS_START + count);
+                assert(r == SD_LISTEN_FDS_START + count);
                 count++;
         }
 
@@ -107,7 +104,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         if (*epoll_fd < 0)
                 return log_error_errno(errno, "Failed to create epoll object: %m");
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
                 _cleanup_free_ char *name = NULL;
 
                 getsockname_pretty(fd, &name);
