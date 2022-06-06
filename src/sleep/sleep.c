@@ -263,40 +263,44 @@ static int execute(
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _cleanup_close_ int tfd = -1;
-        struct itimerspec ts = {};
+        _cleanup_close_ int betfd = -1;
+        struct itimerspec bets = {};
         int r;
 
         assert(sleep_config);
 
-        tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (tfd < 0)
-                return log_error_errno(errno, "Error creating timerfd: %m");
+        do {
+                betfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (betfd < 0)
+                        return log_error_errno(errno, "Error creating timerfd: %m");
 
-        log_debug("Set timerfd wake alarm for %s",
-                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                log_debug("Set timerfd wake battery estimate alarm for %s",
+                        FORMAT_TIMESPAN(sleep_config->battery_estimate_interval, USEC_PER_SEC));
 
-        timespec_store(&ts.it_value, sleep_config->hibernate_delay_sec);
+                timespec_store(&bets.it_value, sleep_config->battery_estimate_interval);
 
-        r = timerfd_settime(tfd, 0, &ts, NULL);
-        if (r < 0)
-                return log_error_errno(errno, "Error setting hibernate timer: %m");
+                r = timerfd_settime(betfd, 0, &bets, NULL);
+                if (r < 0)
+                        return log_error_errno(errno, "Error setting battery estimate timer: %m");
 
-        r = execute(sleep_config, SLEEP_SUSPEND, NULL);
-        if (r < 0)
-                return r;
+                r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                if (r < 0)
+                        return r;
 
-        r = fd_wait_for_event(tfd, POLLIN, 0);
-        if (r < 0)
-                return log_error_errno(r, "Error polling timerfd: %m");
-        if (!FLAGS_SET(r, POLLIN)) /* We woke up before the alarm time, we are done. */
-                return 0;
+                r = fd_wait_for_event(betfd, POLLIN, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Error polling timerfd: %m");
+                if (!FLAGS_SET(r, POLLIN)) /* We woke up before the alarm time, we are done. */
+                        return 0;
 
-        tfd = safe_close(tfd);
+                betfd = safe_close(betfd);
 
-        /* If woken up after alarm time, hibernate */
-        log_debug("Attempting to hibernate after waking from %s timer",
-                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                /* If woken up after alarm time, estimate battery */
+                log_debug("Attempting to estimate battery after waking from %s timer",
+                        FORMAT_TIMESPAN(sleep_config->battery_estimate_interval, USEC_PER_SEC));
+
+        }
+        while (!is_battery_low());
 
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
         if (r < 0) {
@@ -305,7 +309,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 r = execute(sleep_config, SLEEP_SUSPEND, "suspend-after-failed-hibernate");
                 if (r < 0)
                         return r;
-        }
+                }
 
         return 0;
 }
