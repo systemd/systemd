@@ -832,7 +832,7 @@ mount -o remount,rw /
 
 # A lot of services (most notably dbus) won't start without preloading libasan
 # See https://github.com/systemd/systemd/issues/5004
-DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=$ASAN_RT_PATH"
+DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=$ASAN_RT_PATH ASAN_RT_PATH=$ASAN_RT_PATH"
 
 if [[ "$ASAN_COMPILER" == "clang" ]]; then
   # Let's add the ASan DSO's path to the dynamic linker's cache. This is pretty
