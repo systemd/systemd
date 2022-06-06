@@ -58,7 +58,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pcre2-dlopen.h"
+#include "pcre2-util.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "random-util.h"
@@ -167,9 +167,6 @@ typedef struct BootId {
 } BootId;
 
 #if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_match_data*, sym_pcre2_match_data_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);
-
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
         PCRE2_SIZE erroroffset;

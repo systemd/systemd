@@ -2,7 +2,7 @@
 
 #include "dlfcn-util.h"
 #include "log.h"
-#include "pcre2-dlopen.h"
+#include "pcre2-util.h"
 
 #if HAVE_PCRE2
 static void *pcre2_dl = NULL;
