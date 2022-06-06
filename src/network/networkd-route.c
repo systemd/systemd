@@ -544,9 +544,9 @@ void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_a
 }
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
-        _cleanup_free_ char *state = NULL, *dst = NULL, *src = NULL, *gw_alloc = NULL, *prefsrc = NULL,
+        _cleanup_free_ char *state = NULL, *gw_alloc = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
-        const char *gw = NULL;
+        const char *gw = NULL, *dst, *src;
 
         assert(route);
         assert(str);
@@ -558,10 +558,12 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                 return;
 
         (void) network_config_state_to_string_alloc(route->state, &state);
-        if (in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0)
-                (void) in_addr_prefix_to_string(route->family, &route->dst, route->dst_prefixlen, &dst);
-        if (in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0)
-                (void) in_addr_prefix_to_string(route->family, &route->src, route->src_prefixlen, &src);
+
+        dst = in_addr_is_set(route->family, &route->dst) || route->dst_prefixlen > 0 ?
+                IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen) : NULL;
+        src = in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0 ?
+                IN_ADDR_PREFIX_TO_STRING(route->family, &route->src, route->src_prefixlen) : NULL;
+
         if (in_addr_is_set(route->gw_family, &route->gw)) {
                 (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
                 gw = gw_alloc;

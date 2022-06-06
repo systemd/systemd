@@ -711,15 +711,11 @@ static int prefix_section_verify(Prefix *p) {
                                          p->section->filename, p->prefixlen, p->section->line);
 
         if (p->prefixlen > 64) {
-                _cleanup_free_ char *str = NULL;
-
-                if (p->assign)
-                        (void) in6_addr_prefix_to_string(&p->prefix, p->prefixlen, &str);
-
-                log_info("%s: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %u%s%s.",
-                         p->section->filename, p->prefixlen, p->section->line,
+                log_info("%s:%u: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %s%s.",
+                         p->section->filename, p->section->line,
+                         p->prefixlen,
                          p->assign ? ", refusing to assign an address in " : "",
-                         p->assign ? strna(str) : "");
+                         p->assign ? IN6_ADDR_PREFIX_TO_STRING(&p->prefix, p->prefixlen) : "");
 
                 p->assign = false;
         }
