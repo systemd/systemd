@@ -1305,7 +1305,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         return r;
 
                 if (manager_add_user_by_uid(m, uid, &u) >= 0)
-                        user_start(u);
+                        user_start(u, /* need_user_instance= */ true);
 
         } else {
                 User *u;
