@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -13,6 +14,8 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -48,6 +51,9 @@
 #define PRINT_CHAR_THRESHOLD 300
 
 #define JSON_THRESHOLD 4096U
+
+#define VALID_FORMAT_SPECIFIER_CHARS LETTERS
+#define VALID_FORMAT_FIELD_CHARS DIGITS UPPERCASE_LETTERS "_"
 
 static int print_catalog(FILE *f, sd_journal *j) {
         _cleanup_free_ char *t = NULL, *z = NULL;
@@ -432,7 +438,8 @@ static int output_short(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                const char *format) {
 
         int r;
         const void *data;
@@ -633,7 +640,8 @@ static int output_verbose(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                const char *format) {
 
         const void *data;
         size_t length;
@@ -751,7 +759,8 @@ static int output_export(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                const char *format) {
 
         _cleanup_free_ char *cursor = NULL;
         usec_t realtime, monotonic;
@@ -986,7 +995,8 @@ static int output_json(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                const char *format) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
@@ -1118,6 +1128,26 @@ finish:
         return r;
 }
 
+static int get_field_datan(sd_journal *j, const char *field, size_t field_length, const void **ret_data, size_t *ret_length) {
+        int r;
+
+        r = sd_journal_get_data_n(j, field, field_length, ret_data, ret_length);
+        if (r < 0)
+                return r;
+
+        assert(*ret_length >= field_length + 1);
+        assert(((char*) *ret_data)[field_length] == '=');
+
+        *ret_data = (const char *) *ret_data + field_length + 1;
+        *ret_length -= field_length + 1;
+
+        return 0;
+}
+
+static int get_field_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_length) {
+        return get_field_datan(j, field, strlen(field), ret_data, ret_length);
+}
+
 static int output_cat_field(
                 FILE *f,
                 sd_journal *j,
@@ -1128,13 +1158,13 @@ static int output_cat_field(
 
         const char *color_on = "", *color_off = "", *highlight_on = "";
         const void *data;
-        size_t l, fl;
+        size_t l;
         int r;
 
         if (FLAGS_SET(flags, OUTPUT_COLOR))
                 get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
-        r = sd_journal_get_data(j, field, &data, &l);
+        r = get_field_data(j, field, &data, &l);
         if (r == -EBADMSG) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
@@ -1143,13 +1173,6 @@ static int output_cat_field(
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to get data: %m");
-
-        fl = strlen(field);
-        assert(l >= fl + 1);
-        assert(((char*) data)[fl] == '=');
-
-        data = (const uint8_t*) data + fl + 1;
-        l -= fl + 1;
 
         if (FLAGS_SET(flags, OUTPUT_COLOR)) {
                 if (highlight) {
@@ -1175,6 +1198,33 @@ static int output_cat_field(
         return 0;
 }
 
+static int get_priority(sd_journal *j, OutputFlags flags) {
+        const void *data;
+        size_t l;
+        int r;
+
+        /* Determine priority of this entry, so that we can color it nicely */
+
+        r = sd_journal_get_data(j, "PRIORITY", &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to get data: %m");
+
+                /* An entry without PRIORITY */
+        } else if (l == 10 && memcmp(data, "PRIORITY=", 9) == 0) {
+                char c = ((char*) data)[9];
+
+                if (c >= '0' && c <= '7')
+                        r = c - '0';
+        }
+
+        return r;
+}
+
 static int output_cat(
                 FILE *f,
                 sd_journal *j,
@@ -1182,7 +1232,8 @@ static int output_cat(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[2],
+                const char *format) {
 
         int r, prio = LOG_INFO;
         const char *field;
@@ -1192,29 +1243,8 @@ static int output_cat(
 
         (void) sd_journal_set_data_threshold(j, 0);
 
-        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
-                const void *data;
-                size_t l;
-
-                /* Determine priority of this entry, so that we can color it nicely */
-
-                r = sd_journal_get_data(j, "PRIORITY", &data, &l);
-                if (r == -EBADMSG) {
-                        log_debug_errno(r, "Skipping message we can't read: %m");
-                        return 0;
-                }
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_error_errno(r, "Failed to get data: %m");
-
-                        /* An entry without PRIORITY */
-                } else if (l == 10 && memcmp(data, "PRIORITY=", 9) == 0) {
-                        char c = ((char*) data)[9];
-
-                        if (c >= '0' && c <= '7')
-                                prio = c - '0';
-                }
-        }
+        if (FLAGS_SET(flags, OUTPUT_COLOR))
+                prio = get_priority(j, flags);
 
         if (set_isempty(output_fields))
                 return output_cat_field(f, j, flags, prio, "MESSAGE", highlight);
@@ -1228,6 +1258,225 @@ static int output_cat(
         return 0;
 }
 
+
+typedef int (*FormatSpecifierCallback)(char specifier, FILE *f, sd_journal *j, OutputFlags flags, const size_t highlight[2], const void *data);
+
+typedef struct FormatSpecifier {
+        const char specifier;
+        const FormatSpecifierCallback lookup;
+        const void *data;
+} FormatSpecifier;
+
+static int format_specifier_field(
+                        char specifier,
+                        FILE *f,
+                        sd_journal *j,
+                        OutputFlags flags,
+                        const size_t highlight[2],
+                        const void *data) {
+
+        const char *field = ASSERT_PTR(data);
+        const void *d = NULL;
+        const char *color_on = "", *color_off = "", *highlight_on = "";
+        size_t l = 0;
+        int r;
+
+        assert(specifier);
+        assert(f);
+        assert(j);
+
+        if (specifier == 'm' && FLAGS_SET(flags, OUTPUT_COLOR))
+                get_log_colors(get_priority(j, flags), &color_on, &color_off, &highlight_on);
+
+        r = get_field_data(j, field, &d, &l);
+        if (r < 0 && !IN_SET(r, -EBADMSG, -ENOENT))
+                return r;
+
+        if (specifier == 'm' && FLAGS_SET(flags, OUTPUT_COLOR)) {
+                if (highlight) {
+                        assert(highlight[0] <= highlight[1]);
+                        assert(highlight[1] <= l);
+
+                        fputs(color_on, f);
+                        fwrite((const char*) d, 1, highlight[0], f);
+                        fputs(highlight_on, f);
+                        fwrite((const char*) d + highlight[0], 1, highlight[1] - highlight[0], f);
+                        fputs(color_on, f);
+                        fwrite((const char*) d + highlight[1], 1, l - highlight[1], f);
+                        fputs(color_off, f);
+                } else {
+                        fputs(color_on, f);
+                        fwrite((const char*) d, 1, l, f);
+                        fputs(color_off, f);
+                }
+        } else
+                fwrite((const char*) d, 1, l, f);
+
+        return 0;
+}
+
+const FormatSpecifier format_specifier_table[] = {
+        { 'b', format_specifier_field, "_BOOT_ID" },
+        { 'p', format_specifier_field, "_COMM" },
+        { 'P', format_specifier_field, "_PID" },
+        { 'U', format_specifier_field, "_UID" },
+        { 'G', format_specifier_field, "_GID" },
+        { 'H', format_specifier_field, "_HOSTNAME" },
+        { 'M', format_specifier_field, "_MACHINE_ID" },
+        { 'e', format_specifier_field, "_EXE" },
+        { 'E', format_specifier_field, "_CMDLINE" },
+        { 'n', format_specifier_field, "_SYSTEMD_UNIT" },
+        { 'N', format_specifier_field, "_NAMESPACE" },
+        { 'T', format_specifier_field, "_TRANSPORT" },
+        { 'c', format_specifier_field, "_SYSTEMD_CGROUP" },
+        { 's', format_specifier_field, "_SYSTEMD_SLICE" },
+
+        { 'm', format_specifier_field, "MESSAGE"},
+        { 'i', format_specifier_field, "SYSLOG_IDENTIFIER" },
+        { 'f', format_specifier_field, "CODE_FILE" },
+        { 'F', format_specifier_field, "CODE_FUNC" },
+        { 'l', format_specifier_field, "CODE_LINE" },
+        { 'X', format_specifier_field, "ERRNO" },
+
+};
+
+static int output_format(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                OutputFlags flags,
+                const Set *output_fields,
+                const size_t highlight[2],
+                const char *format) {
+
+        enum {
+                WORD,
+                CURLY,
+                SPECIFIER,
+                VARIABLE,
+                VARIABLE_RAW,
+        } state = WORD;
+
+        const char *e, *word = format;
+        size_t i, n;
+        int r;
+
+        assert(f);
+        assert(j);
+        assert(mode == OUTPUT_FORMAT);
+        assert(format);
+
+        for (e = format, i = 0, n = strlen(format); *e && i < n; e++, i++)
+                switch (state) {
+
+                case WORD:
+                        if (*e == '@')
+                                state = CURLY;
+                        else if (*e == '%')
+                                state = SPECIFIER;
+                        break;
+
+                case CURLY:
+                        if (*e == '{') {
+                                fwrite(word, 1, e-word-1, f);
+
+                                word = e-1;
+                                state = VARIABLE;
+                        } else if (*e == '@') {
+                                fwrite(word, 1, e-word, f);
+
+                                word = e+1;
+                                state = WORD;
+                        } else if (strchr(VALID_FORMAT_FIELD_CHARS, *e)) {
+                                fwrite(word, 1, e-word-1, f);
+
+                                word = e-1;
+                                state = VARIABLE_RAW;
+                        } else
+                                state = WORD;
+                        break;
+
+                case SPECIFIER: {
+                        const FormatSpecifier *s;
+
+                        fwrite(word, 1, e-word-1, f);
+
+                        if (!strchr(VALID_FORMAT_SPECIFIER_CHARS, *e))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid specifier '%c', ignoring.",
+                                                       *e);
+
+                        for (s = format_specifier_table; s->specifier; s++)
+                                if (s->specifier == *e)
+                                        break;
+
+                        if (!s->specifier)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown specifier '%c', ignoring.",
+                                                       *e);
+
+                        r = s->lookup(*e, f, j, flags, highlight, s->data);
+                        if (r < 0)
+                                return r;
+
+                        word = e + 1;
+                        state = WORD;
+
+                        break;
+                }
+
+                case VARIABLE:
+                        if (*e == '}') {
+                                const void *data = NULL;
+                                size_t l = 0;
+
+                                r = get_field_datan(j, word+2, e-word-2, &data, &l);
+                                if (r < 0 && !IN_SET(r, -EBADMSG, -ENOENT))
+                                        return r;
+
+                                fwrite(data, 1, l, f);
+
+                                word = e+1;
+                                state = WORD;
+                        }
+                        break;
+
+                case VARIABLE_RAW:
+                        if (!strchr(VALID_FORMAT_FIELD_CHARS, *e)) {
+                                const void *data = NULL;
+                                size_t l = 0;
+
+                                r = get_field_datan(j, word+1, e-word-1, &data, &l);
+                                if (r < 0 && !IN_SET(r, -EBADMSG, -ENOENT))
+                                        return r;
+
+                                fwrite(data, 1, l, f);
+
+                                word = e--;
+                                i--;
+                                state = WORD;
+                        }
+                        break;
+                }
+
+        if (state == VARIABLE_RAW) {
+                const void *data = NULL;
+                size_t l = 0;
+
+                r = get_field_datan(j, word+1, e-word-1, &data, &l);
+                if (r < 0 && !IN_SET(r, -EBADMSG, -ENOENT))
+                        return r;
+
+                fwrite(data, 1, l, f);
+        } else
+                fwrite(word, 1, e-word, f);
+
+        fputc('\n', f);
+
+        return 0;
+}
+
 static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 FILE *f,
                 sd_journal *j,
@@ -1235,7 +1484,8 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 unsigned n_columns,
                 OutputFlags flags,
                 const Set *output_fields,
-                const size_t highlight[2]) = {
+                const size_t highlight[2],
+                const char *format) = {
 
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
@@ -1252,6 +1502,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_JSON_SEQ]          = output_json,
         [OUTPUT_CAT]               = output_cat,
         [OUTPUT_WITH_UNIT]         = output_short,
+        [OUTPUT_FORMAT]            = output_format,
 };
 
 int show_journal_entry(
@@ -1262,6 +1513,7 @@ int show_journal_entry(
                 OutputFlags flags,
                 char **output_fields,
                 const size_t highlight[2],
+                const char *format,
                 bool *ellipsized) {
 
         _cleanup_set_free_ Set *fields = NULL;
@@ -1277,7 +1529,7 @@ int show_journal_entry(
         if (r < 0)
                 return r;
 
-        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight, format);
 
         if (ellipsized && r > 0)
                 *ellipsized = true;
@@ -1308,6 +1560,7 @@ int show_journal(
                 usec_t not_before,
                 unsigned how_many,
                 OutputFlags flags,
+                const char *format,
                 bool *ellipsized) {
 
         int r;
@@ -1362,7 +1615,7 @@ int show_journal(
                 line++;
                 maybe_print_begin_newline(f, &flags);
 
-                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, format, ellipsized);
                 if (r < 0)
                         return r;
         }
@@ -1615,6 +1868,7 @@ int show_journal_by_unit(
                 OutputFlags flags,
                 int journal_open_flags,
                 bool system_unit,
+                const char *format,
                 bool *ellipsized) {
 
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -1656,5 +1910,5 @@ int show_journal_by_unit(
                 log_debug("Journal filter: %s", filter);
         }
 
-        return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
+        return show_journal(f, j, mode, n_columns, not_before, how_many, flags, format, ellipsized);
 }

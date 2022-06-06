@@ -77,6 +77,7 @@ static bool arg_quiet = false;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
+static char *arg_output_format = NULL;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
@@ -85,6 +86,7 @@ static char **arg_setenv = NULL;
 static int arg_max_addresses = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output_format, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 
 static OutputFlags get_output_flags(void) {
@@ -603,6 +605,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
                                         true,
+                                        arg_output_format,
                                         NULL);
         }
 }
@@ -2550,6 +2553,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORMAT,
                 ARG_UID,
                 ARG_MAX_ADDRESSES,
+                ARG_OUTPUT_FORMAT,
         };
 
         static const struct option options[] = {
@@ -2570,6 +2574,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",           no_argument,       NULL, 'q'                 },
                 { "lines",           required_argument, NULL, 'n'                 },
                 { "output",          required_argument, NULL, 'o'                 },
+                { "output-format",   required_argument, NULL, ARG_OUTPUT_FORMAT   },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
@@ -2692,6 +2697,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_legend = false;
                         break;
 
+                case ARG_OUTPUT_FORMAT:
+                        arg_output = OUTPUT_FORMAT;
+
+                        r = free_and_strdup(&arg_output_format, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
@@ -2788,6 +2802,11 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        if (arg_output_format && arg_output != OUTPUT_FORMAT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--output-format cannot be used with output mode \"%s\"",
+                                       output_mode_to_string(arg_output));
 
 done:
         if (shell >= 0) {
