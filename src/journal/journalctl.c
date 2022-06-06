@@ -65,6 +65,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "static-destruct.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -136,6 +137,19 @@ static char **arg_output_fields = NULL;
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
 static int arg_case_sensitive = -1; /* -1 means be smart */
+#endif
+
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output_fields, strv_freep);
+#if HAVE_PCRE2
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, sym_pcre2_code_freep);
 #endif
 
 static enum {
@@ -2814,28 +2828,13 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        strv_free(arg_file);
-
-        set_free(arg_facilities);
-        strv_free(arg_syslog_identifier);
-        strv_free(arg_system_units);
-        strv_free(arg_user_units);
-        strv_free(arg_output_fields);
-
-        free(arg_root);
-        free(arg_verify_key);
-
 #if HAVE_PCRE2
-        if (arg_compiled_pattern) {
-                sym_pcre2_code_free(arg_compiled_pattern);
-
+        if (arg_compiled_pattern && r == 0 && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return
                  * a non-zero exit code, so journalctl --grep can be used
                  * in scripts and such */
-                if (r == 0 && n_shown == 0)
-                        r = -ENOENT;
-        }
+                r = -ENOENT;
 #endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
