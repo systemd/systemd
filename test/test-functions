@@ -804,17 +804,18 @@ if [[ ! -e "$ASAN_RT_PATH" ]]; then
     exit 1
 fi
 
-# Suppress certain leaks reported by LSan (either in external tools or bogus
-# ones)
+# Suppress certain leaks reported by LSan (either in external tools or bogus ones)
 # Docs: # https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer#suppressions
 #
-# - fsck is called by systemd-homed and is reporting a leak we're not interested
-#   in
+# - fsck is called by systemd-homed and is reporting a leak we're not interested in
 # - libLLVM is a "side effect" caused by the previous fsck leak
+# - bash, sed, ... - same as fsck
 cat >/systemd-lsan.supp <<INNER_EOF
+leak:/bin/bash$
 leak:/bin/fsck$
 leak:/sbin/fsck$
 leak:/lib/libLLVM
+leak:/bin/sed$
 INNER_EOF
 
 DEFAULT_LSAN_OPTIONS=${LSAN_OPTIONS:-}:suppressions=/systemd-lsan.supp
