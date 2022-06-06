@@ -884,22 +884,27 @@ SUBSYSTEM=="block", ENV{LD_PRELOAD}="$ASAN_RT_PATH"
 INNER_EOF
 chmod 0644 /etc/udev/rules.d/00-set-LD_PRELOAD.rules
 
-# The 'mount' utility doesn't behave well under libasan, causing unexpected
-# fails during boot and subsequent test results check:
-# bash-5.0# mount -o remount,rw -v /
-# mount: /dev/sda1 mounted on /.
-# bash-5.0# echo \$?
-# 1
-# Let's workaround this by clearing the previously set LD_PRELOAD env variable,
-# so the libasan library is not loaded for this particular service
-unset_ld_preload() {
-    local _dropin_dir="/etc/systemd/system/\$1.service.d"
-    mkdir -p "\$_dropin_dir"
-    printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$_dropin_dir/unset_ld_preload.conf"
+# The at_exit leak check causes issues with some uninstrumented binaries (like
+# tar, grep, etc.), causing it to either exit with a non-zero exit code or crash
+# (if abort_on_error=1 is set). Let's create simple wrappers for such binaries
+# which disabled the at_exit leak check and exec's the original binary.
+# See: https://github.com/systemd/systemd-centos-ci/pull/496#issuecomment-1144640305
+disable_atexit_leakcheck() {
+    local _bin="\${1:?}"
+    local _orig_bin="\${_bin}.orig"
+
+    mv "\$_bin" "\$_orig_bin"
+    cat >"\$_bin" <<INNER_EOF
+#!/bin/bash
+export ASAN_OPTIONS+=":leak_check_at_exit=0"
+exec "\$_orig_bin" "\\\$@"
+INNER_EOF
+    chmod +x "\$_bin"
 }
 
-unset_ld_preload systemd-remount-fs
-unset_ld_preload testsuite-
+disable_atexit_leakcheck /bin/grep
+disable_atexit_leakcheck /bin/mount
+disable_atexit_leakcheck /bin/tar
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec "$ROOTLIBDIR/systemd" "\$@"
