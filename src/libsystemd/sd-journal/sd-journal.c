@@ -1268,10 +1268,10 @@ static int add_any_file(
                 int fd,
                 const char *path) {
 
-        bool close_fd = false;
+        _cleanup_close_ int our_fd = -1;
         JournalFile *f;
         struct stat st;
-        int r, k;
+        int r;
 
         assert(j);
         assert(fd >= 0 || path);
@@ -1282,32 +1282,30 @@ static int add_any_file(
                         /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
                          * openat() ignores the first argument. */
 
-                        fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 else
-                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0) {
                         r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
-                        goto finish;
+                        goto error;
                 }
-
-                close_fd = true;
 
                 r = fd_nonblock(fd, false);
                 if (r < 0) {
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
-                        goto finish;
+                        goto error;
                 }
         }
 
         if (fstat(fd, &st) < 0) {
                 r = log_debug_errno(errno, "Failed to fstat %s: %m", path ?: "fd");
-                goto finish;
+                goto error;
         }
 
         r = stat_verify_regular(&st);
         if (r < 0) {
                 log_debug_errno(r, "Refusing to open %s: %m", path ?: "fd");
-                goto finish;
+                goto error;
         }
 
         if (path) {
@@ -1321,8 +1319,7 @@ static int add_any_file(
                                  * which are gone. */
 
                                 f->last_seen_generation = j->generation;
-                                r = 0;
-                                goto finish;
+                                return 0;
                         }
 
                         /* So we tracked a file under this name, but it has a different inode/device. In that
@@ -1334,15 +1331,15 @@ static int add_any_file(
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                log_debug("Too many open journal files, not adding %s.", path ?: "fd");
-                r = -ETOOMANYREFS;
-                goto finish;
+                r = log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
+                                    "Too many open journal files, not adding %s.", path ?: "fd");
+                goto error;
         }
 
         r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
-                goto finish;
+                goto error;
         }
 
         /* journal_file_dump(f); */
@@ -1353,10 +1350,10 @@ static int add_any_file(
                 f->close_fd = false; /* Make sure journal_file_close() doesn't close the caller's fd
                                       * (or our own). The caller or we will do that ourselves. */
                 (void) journal_file_close(f);
-                goto finish;
+                goto error;
         }
 
-        close_fd = false; /* the fd is now owned by the JournalFile object */
+        our_fd = -1; /* the fd is now owned by the JournalFile object */
 
         f->last_seen_generation = j->generation;
 
@@ -1367,18 +1364,10 @@ static int add_any_file(
 
         log_debug("File %s added.", f->path);
 
-        r = 0;
+        return 0;
 
-finish:
-        if (close_fd)
-                safe_close(fd);
-
-        if (r < 0) {
-                k = journal_put_error(j, r, path);   /* path==NULL is OK. */
-                if (k < 0)
-                        return k;
-        }
-
+error:
+        (void) journal_put_error(j, r, path);   /* path==NULL is OK. */
         return r;
 }
 
