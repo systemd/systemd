@@ -1230,6 +1230,12 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
+        if (sd_bus_message_is_signal(message, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(message, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
         machine = hashmap_get(m->machine_units, unit);
         if (!machine)
                 return 0;
@@ -1238,7 +1244,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 machine->scope_job = mfree(machine->scope_job);
 
                 if (machine->started) {
-                        if (streq(result, "done"))
+                        if (STR_IN_SET(result, "done", "skipped"))
                                 machine_send_create_reply(machine, NULL);
                         else {
                                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;

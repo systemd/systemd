@@ -3752,7 +3752,7 @@ static int session_jobs_reply(Session *s, uint32_t jid, const char *unit, const 
         if (!s->started)
                 return 0;
 
-        if (result && !streq(result, "done")) {
+        if (result && !STR_IN_SET(result, "done", "skipped")) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED,
@@ -3778,6 +3778,12 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;
+        }
+
+        if (sd_bus_message_is_signal(message, NULL, "JobRemovedEx")) {
+                r = sd_bus_message_skip(message, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
         }
 
         if (m->action_job && streq(m->action_job, path)) {

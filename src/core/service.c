@@ -4593,7 +4593,7 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
 
 static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
         if (t == JOB_START &&
-            result == JOB_DONE &&
+            IN_SET(result, JOB_DONE, JOB_SKIPPED) &&
             SERVICE(u)->type == SERVICE_ONESHOT)
                 return "Finished %s.";
 

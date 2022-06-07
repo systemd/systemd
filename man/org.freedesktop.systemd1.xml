@@ -160,7 +160,9 @@ node /org/freedesktop/systemd1 {
                        out a(ssssssouso) units);
       ListJobs(out a(usssoo) jobs);
       Subscribe();
+      SubscribeWithFlags(in  t flags);
       Unsubscribe();
+      UnsubscribeWithFlags(in  t flags);
       Dump(out s output);
       DumpByFileDescriptor(out h fd);
       Reload();
@@ -269,6 +271,11 @@ node /org/freedesktop/systemd1 {
                  o job,
                  s unit,
                  s result);
+      JobRemovedEx(u id,
+                   o job,
+                   s unit,
+                   s result,
+                   ay invocation_id);
       StartupFinished(t firmware,
                       t loader,
                       t kernel,
@@ -584,8 +591,6 @@ node /org/freedesktop/systemd1 {
 
     <!--signal JobNew is not documented!-->
 
-    <!--signal JobRemoved is not documented!-->
-
     <!--signal StartupFinished is not documented!-->
 
     <!--signal UnitFilesChanged is not documented!-->
@@ -852,7 +857,11 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Subscribe()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SubscribeWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Unsubscribe()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnsubscribeWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Dump()"/>
 
@@ -935,6 +944,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-signal" generated="True" extra-ref="JobNew"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="JobRemoved"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="JobRemovedEx"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="StartupFinished"/>
 
@@ -1304,13 +1315,19 @@ node /org/freedesktop/systemd1 {
         <listitem><para>The unit object path</para></listitem>
       </itemizedlist></para>
 
-      <para><function>Subscribe()</function> enables most bus signals to be sent out. Clients which are
+      <para><function>SubscribeWithFlags()</function> enables most bus signals to be sent out. Clients which are
       interested in signals need to call this method. Signals are only sent out if at least one client
-      invoked this method. <function>Unsubscribe()</function> reverts the signal subscription that
-      <function>Subscribe()</function> implements. It is not necessary to invoke
-      <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
-      all clients which previously asked for <function>Subscribe()</function> either closed their connection
-      to the bus or invoked <function>Unsubscribe()</function>.</para>
+      invoked this method. <function>UnsubscribeWithFlags()</function> reverts the signal subscription that
+      <function>SubscribeWithFlags()</function> implements. It is not necessary to invoke
+      <function>UnsubscribeWithFlags()</function> as clients are tracked. Signals are no longer sent out as
+      soon as all clients which previously called <function>SubscribeWithFlags()</function> either closed
+      their connection to the bus or invoked <function>UnsubscribeWithFlags()</function>. Calling the legacy
+      <function>Subscribe()</function> causes the legacy <function>JobRemoved</function> signals to be
+      sent, in addition to the new <function>JobRemovedEx</function> which is always sent if there are any
+      kind of subscribers. The legacy <function>Unsubscribe()</function> works for
+      <function>Subscribe()</function> as <function>UnsubscribeWithFlags()</function> works for
+      <function>SubscribeWithFlags()</function>. The <varname>flags</varname> parameters do not support any
+      flags for now, and are reserved for future extensions.</para>
 
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
@@ -1450,10 +1467,10 @@ node /org/freedesktop/systemd1 {
       disk or not, and simply reflects the units that are currently loaded into memory. The signals take two
       parameters: the primary unit name and the object path.</para>
 
-      <para><function>JobNew()</function> and <function>JobRemoved()</function> are sent out each time a new
-      job is queued or dequeued. Both signals take the numeric job ID, the bus path and the primary unit name
-      for this job as arguments. <function>JobRemoved()</function> also includes a result string which is one
-      of <literal>done</literal>, <literal>canceled</literal>, <literal>timeout</literal>,
+      <para><function>JobNew()</function> and <function>JobRemovedEx()</function> are sent out each time a
+      new job is queued or dequeued. Both signals take the numeric job ID, the bus path and the primary unit
+      name for this job as arguments. <function>JobRemovedEx()</function> also includes a result string
+      which is one of <literal>done</literal>, <literal>canceled</literal>, <literal>timeout</literal>,
       <literal>failed</literal>, <literal>dependency</literal>, or
       <literal>skipped</literal>. <literal>done</literal> indicates successful execution of a
       job. <literal>canceled</literal> indicates that a job has been canceled (via
@@ -1462,7 +1479,9 @@ node /org/freedesktop/systemd1 {
       indicates that the job timeout was reached. <literal>failed</literal> indicates that the job
       failed. <literal>dependency</literal> indicates that a job this job depended on failed and the job hence
       was removed as well. <literal>skipped</literal> indicates that a job was skipped because
-      it didn't apply to the unit's current state.</para>
+      it didn't apply to the unit's current state, or a <varname>Condition*=</varname> check was not
+      satisfied (note that the latter only applies to the new <function>JobRemovedEx()</function> and not to
+      the legacy <function>JobRemoved()</function>).</para>
 
       <para><function>StartupFinished()</function> is sent out when startup finishes. It carries six
       microsecond timespan values, each indicating how much boot time has been spent in the firmware (if

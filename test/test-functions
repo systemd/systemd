@@ -40,6 +40,7 @@ IMAGE_NAME=${IMAGE_NAME:-default}
 STRIP_BINARIES="${STRIP_BINARIES:-yes}"
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL="${TEST_SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL:-0}"
 LOOPDEV=
 
 # Simple wrapper to unify boolean checks.
@@ -440,6 +441,10 @@ run_qemu() {
         "systemd.wants=testsuite-$1.service"
     )
 
+    if get_bool "$TEST_SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL"; then
+        kernel_params+=("SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL=1")
+    fi
+
     if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
     fi
@@ -509,6 +514,10 @@ run_nspawn() {
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$2.service"
     )
+
+    if get_bool "$TEST_SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL"; then
+        nspawn_options+=("--setenv=SYSTEMD_FORCE_LEGACY_JOB_REMOVED_SIGNAL=1")
+    fi
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
         kernel_params+=("systemd.wants=end.service")
