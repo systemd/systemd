@@ -33,6 +33,9 @@ static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static char **arg_fields = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_fields, strv_freep);
 
 typedef struct StatusInfo {
         const char *hostname;
@@ -74,7 +77,48 @@ static const char* chassis_string_to_glyph(const char *chassis) {
         return NULL;
 }
 
-static int print_status_info(StatusInfo *i) {
+typedef struct StatuInfoField {
+        const char *name;
+        size_t offset;
+} StatusInfoField;
+
+static const StatusInfoField status_info_fields[] = {
+        { "hostname",        offsetof(StatusInfo, hostname)        },
+        { "static-hostname", offsetof(StatusInfo, static_hostname) },
+        { "pretty-hostname", offsetof(StatusInfo, pretty_hostname) },
+        { "icon-name",       offsetof(StatusInfo, icon_name)       },
+        { "chassis",         offsetof(StatusInfo, chassis)         },
+        { "deployment",      offsetof(StatusInfo, deployment)      },
+        { "location",        offsetof(StatusInfo, location)        },
+        { "kernel-name",     offsetof(StatusInfo, kernel_name)     },
+        { "kernel-release",  offsetof(StatusInfo, kernel_release)  },
+        { "os-pretty-name",  offsetof(StatusInfo, os_pretty_name)  },
+        { "os-cpe-name",     offsetof(StatusInfo, os_cpe_name)     },
+        { "virtualization",  offsetof(StatusInfo, virtualization)  },
+        { "architecture",    offsetof(StatusInfo, architecture)    },
+        { "home-url",        offsetof(StatusInfo, home_url)        },
+        { "hardware-vendor", offsetof(StatusInfo, hardware_vendor) },
+        { "hardware-model",  offsetof(StatusInfo, hardware_model)  },
+        {}};
+
+static int show_fields(const StatusInfo *info, char **names) {
+        assert(info);
+
+        STRV_FOREACH(name, names)
+                for (const StatusInfoField *field = status_info_fields; ; field++) {
+                        if (!field->name)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown property: %s", *name);
+
+                        if (streq(*name, field->name)) {
+                                printf("%s\n", *(const char **)((uint8_t*) info + field->offset));
+                                break;
+                        }
+                }
+
+        return 0;
+}
+
+static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_id128_t mid = {}, bid = {};
         TableCell *cell;
@@ -344,7 +388,10 @@ static int show_all_names(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
-        return print_status_info(&info);
+        if (arg_fields)
+                return show_fields(&info, arg_fields);
+        else
+                return print_status_info(&info);
 }
 
 static int get_hostname_based_on_flag(sd_bus *bus) {
@@ -550,23 +597,23 @@ static int help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "%sQuery or change system hostname.%s\n"
                "\nCommands:\n"
-               "  status                 Show current hostname settings\n"
-               "  hostname [NAME]        Get/set system hostname\n"
-               "  icon-name [NAME]       Get/set icon name for host\n"
-               "  chassis [NAME]         Get/set chassis type for host\n"
-               "  deployment [NAME]      Get/set deployment environment for host\n"
-               "  location [NAME]        Get/set location for host\n"
+               "  status                      Show current hostname settings\n"
+               "  hostname [NAME]             Get/set system hostname\n"
+               "  icon-name [NAME]            Get/set icon name for host\n"
+               "  chassis [NAME]              Get/set chassis type for host\n"
+               "  deployment [NAME]           Get/set deployment environment for host\n"
+               "  location [NAME]             Get/set location for host\n"
                "\nOptions:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n"
-               "     --transient         Only set transient hostname\n"
-               "     --static            Only set static hostname\n"
-               "     --pretty            Only set pretty hostname\n"
-               "     --json=pretty|short|off\n"
-               "                         Generate JSON output\n"
+               "  -h --help                   Show this help\n"
+               "     --version                Show package version\n"
+               "     --no-ask-password        Do not prompt for password\n"
+               "  -H --host=[USER@]HOST       Operate on remote host\n"
+               "  -M --machine=CONTAINER      Operate on local container\n"
+               "     --transient              Only set transient hostname\n"
+               "     --static                 Only set static hostname\n"
+               "     --pretty                 Only set pretty hostname\n"
+               "     --json=pretty|short|off  Generate JSON output\n"
+               "     --property=PROPERTY      Show this property\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -601,6 +648,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "json",            required_argument, NULL, ARG_JSON            },
+                { "property",        required_argument, NULL, 'p'                 },
                 {}
         };
 
@@ -609,7 +657,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:p:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -651,6 +699,22 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
+
+                case 'p': {
+                        _cleanup_strv_free_ char **args = strv_split(optarg, ",");
+                        if (!args)
+                                return log_oom();
+
+                        if (strv_contains(args, "list")) {
+                                for (const StatusInfoField *field = status_info_fields; field->name; field++)
+                                        puts(field->name);
+                                return 0;
+                        }
+
+                        if (strv_extend_strv(&arg_fields, args, false) < 0)
+                                return log_oom();
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;

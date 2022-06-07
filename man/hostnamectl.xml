@@ -179,6 +179,16 @@
         than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--property=</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Take a comma-seperated list of properties. If <command>status</command> is invoked
+        (or no explicit command is given), the values of those properties will be printed. The option may be
+        specified more than once, lists will be merged. Properties are printed in the order of
+        specification.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 

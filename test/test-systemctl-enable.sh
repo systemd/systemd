@@ -7,6 +7,7 @@ export SYSTEMD_IGNORE_CHROOT=1
 
 systemctl=${1:-systemctl}
 systemd_id128=${2:-systemd-id128}
+hostnamectl=${3:-hostnamectl}
 
 unset root
 cleanup() {
@@ -571,9 +572,7 @@ EOF
     islink "$root/etc/systemd/system/target@$1:$2.socket" "/etc/systemd/system/some-some-link6@.socket" || return 2
 }
 
-# TODO: our architecture names are different than what uname -m returns.
-# Add something like 'systemd-detect-virt --print-architecture' and use it here.
-check_alias a "$(uname -m | tr '_' '-')" || :
+check_alias a "$("$hostnamectl" -p architecture)"
 
 test ! -e "$root/etc/os-release"
 test ! -e "$root/usr/lib/os-release"
