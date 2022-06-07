@@ -144,7 +144,12 @@ rootlibexecdir = rootprefixdir / 'lib/systemd'
 
 rootlibdir = get_option('rootlibdir')
 if rootlibdir == ''
-        rootlibdir = rootprefixdir / libdir.split('/')[-1]
+        # This will be a relative path if libdir is in prefix.
+        rootlibdir = get_option('libdir')
+endif
+if not rootlibdir.startswith('/')
+        # If we have a relative path, add rootprefixdir to the front.
+        rootlibdir = rootprefixdir / rootlibdir
 endif
 rootpkglibdir = rootlibdir / 'systemd'
 
