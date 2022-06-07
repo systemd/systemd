@@ -61,15 +61,14 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
         uint8_t buffer[buffer_sz];
         int r;
 
-        log_info("%s, %s, %zu, →%d", what, expect, buffer_sz, ret);
+        log_info("%s, %s, %zu, →%d", what, strnull(expect), buffer_sz, ret);
 
         r = dns_name_to_wire_format(what, buffer, buffer_sz, false);
         assert_se(r == ret);
+        assert(expect);  /* for gcc */
 
-        if (r < 0)
-                return;
-
-        assert_se(!memcmp(buffer, expect, r));
+        if (r >= 0)
+                assert_se(memcmp(buffer, expect, r) == 0);
 }
 
 TEST(dns_name_to_wire_format) {
@@ -165,7 +164,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         _cleanup_free_ char *t = NULL;
         int r;
 
-        log_info("%s, %zu, %s, →%d", what, l, expect, ret);
+        log_info("%s, %zu, %s, →%d", what, l, strnull(expect), ret);
 
         r = dns_label_escape_new(what, l, &t);
         assert_se(r == ret);
@@ -483,7 +482,7 @@ TEST(dnssd_srv_type_is_valid) {
 static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
 
-        log_info("%s, %s, %s, →%d, %s", a, b, c, r, d);
+        log_info("%s, %s, %s, →%d, %s", strnull(a), strnull(b), strnull(c), r, strnull(d));
 
         assert_se(dns_service_join(a, b, c, &t) == r);
         assert_se(streq_ptr(t, d));
@@ -515,7 +514,7 @@ TEST(dns_service_join) {
 static void test_dns_service_split_one(const char *joined, const char *a, const char *b, const char *c, int r) {
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *t = NULL;
 
-        log_info("%s, %s, %s, %s, →%d", joined, a, b, c, r);
+        log_info("%s, %s, %s, %s, →%d", joined, strnull(a), strnull(b), strnull(c), r);
 
         assert_se(dns_service_split(joined, &x, &y, &z) == r);
         assert_se(streq_ptr(x, a));
@@ -545,7 +544,7 @@ TEST(dns_service_split) {
 static void test_dns_name_change_suffix_one(const char *name, const char *old_suffix, const char *new_suffix, int r, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        log_info("%s, %s, %s, →%s", name, old_suffix, new_suffix, result);
+        log_info("%s, %s, %s, →%s", name, old_suffix, new_suffix, strnull(result));
 
         assert_se(dns_name_change_suffix(name, old_suffix, new_suffix, &s) == r);
         assert_se(streq_ptr(s, result));
@@ -566,7 +565,7 @@ TEST(dns_name_change_suffix) {
 static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const char *result, int ret) {
         const char *p = NULL;
 
-        log_info("%s, %d, →%s, %d", name, n_labels, result, ret);
+        log_info("%s, %d, →%s, %d", name, n_labels, strnull(result), ret);
 
         assert_se(ret == dns_name_suffix(name, n_labels, &p));
         assert_se(streq_ptr(p, result));
