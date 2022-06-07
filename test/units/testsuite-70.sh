@@ -4,12 +4,11 @@ set -ex
 
 export SYSTEMD_LOG_LEVEL=debug
 
-
 # Prepare fresh disk image
 img="/var/tmp/test.img"
 dd if=/dev/zero of=$img bs=1024k count=20 status=none
 echo -n passphrase >/tmp/passphrase
-cryptsetup luksFormat -q --use-urandom $img /tmp/passphrase
+LD_PRELOAD="${ASAN_RT_PATH:-}" cryptsetup luksFormat -q --use-urandom $img /tmp/passphrase
 
 # Enroll unlock with default PCR policy
 env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
