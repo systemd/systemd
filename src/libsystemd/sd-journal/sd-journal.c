@@ -147,8 +147,6 @@ static void set_location(sd_journal *j, JournalFile *f, Object *o) {
 }
 
 static int match_is_valid(const void *data, size_t size) {
-        const char *b, *p;
-
         assert(data);
 
         if (size < 2)
@@ -157,8 +155,8 @@ static int match_is_valid(const void *data, size_t size) {
         if (((char*) data)[0] == '_' && ((char*) data)[1] == '_')
                 return false;
 
-        b = data;
-        for (p = b; p < b + size; p++) {
+        const char *b = data;
+        for (const char *p = b; p < b + size; p++) {
 
                 if (*p == '=')
                         return p > b;
@@ -180,9 +178,8 @@ static int match_is_valid(const void *data, size_t size) {
 
 static bool same_field(const void *_a, size_t s, const void *_b, size_t t) {
         const uint8_t *a = _a, *b = _b;
-        size_t j;
 
-        for (j = 0; j < s && j < t; j++) {
+        for (size_t j = 0; j < s && j < t; j++) {
 
                 if (a[j] != b[j])
                         return false;
@@ -818,7 +815,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
 static int real_journal_next(sd_journal *j, direction_t direction) {
         JournalFile *new_file = NULL;
-        unsigned i, n_files;
+        unsigned n_files;
         const void **files;
         Object *o;
         int r;
@@ -830,7 +827,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n_files; i++) {
+        for (unsigned i = 0; i < n_files; i++) {
                 JournalFile *f = (JournalFile *)files[i];
                 bool found;
 
@@ -1268,89 +1265,92 @@ static int add_any_file(
                 int fd,
                 const char *path) {
 
-        bool close_fd = false;
+        _cleanup_close_ int our_fd = -1;
         JournalFile *f;
         struct stat st;
-        int r, k;
+        int r;
 
         assert(j);
         assert(fd >= 0 || path);
 
         if (fd < 0) {
+                assert(path);  /* For gcc. */
                 if (j->toplevel_fd >= 0)
                         /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
                          * openat() ignores the first argument. */
 
-                        fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 else
-                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0) {
                         r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
-                        goto finish;
+                        goto error;
                 }
-
-                close_fd = true;
 
                 r = fd_nonblock(fd, false);
                 if (r < 0) {
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
-                        goto finish;
+                        goto error;
                 }
         }
 
         if (fstat(fd, &st) < 0) {
-                r = log_debug_errno(errno, "Failed to fstat file '%s': %m", path);
-                goto finish;
+                r = log_debug_errno(errno, "Failed to fstat %s: %m", path ?: "fd");
+                goto error;
         }
 
         r = stat_verify_regular(&st);
         if (r < 0) {
-                log_debug_errno(r, "Refusing to open '%s', as it is not a regular file.", path);
-                goto finish;
+                log_debug_errno(r, "Refusing to open %s: %m", path ?: "fd");
+                goto error;
         }
 
-        f = ordered_hashmap_get(j->files, path);
-        if (f) {
-                if (stat_inode_same(&f->last_stat, &st)) {
+        if (path) {
+                f = ordered_hashmap_get(j->files, path);
+                if (f) {
+                        if (stat_inode_same(&f->last_stat, &st)) {
+                                /* We already track this file, under the same path and with the same
+                                 * device/inode numbers, it's hence really the same. Mark this file as seen
+                                 * in this generation. This is used to GC old files in process_q_overflow()
+                                 * to detect journal files that are still there and discern them from those
+                                 * which are gone. */
 
-                        /* We already track this file, under the same path and with the same device/inode numbers, it's
-                         * hence really the same. Mark this file as seen in this generation. This is used to GC old
-                         * files in process_q_overflow() to detect journal files that are still there and discern them
-                         * from those which are gone. */
+                                f->last_seen_generation = j->generation;
+                                return 0;
+                        }
 
-                        f->last_seen_generation = j->generation;
-                        r = 0;
-                        goto finish;
+                        /* So we tracked a file under this name, but it has a different inode/device. In that
+                         * case, it got replaced (probably due to rotation?), let's drop it hence from our
+                         * list. */
+                        remove_file_real(j, f);
+                        f = NULL;
                 }
-
-                /* So we tracked a file under this name, but it has a different inode/device. In that case, it got
-                 * replaced (probably due to rotation?), let's drop it hence from our list. */
-                remove_file_real(j, f);
-                f = NULL;
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                log_debug("Too many open journal files, not adding %s.", path);
-                r = -ETOOMANYREFS;
-                goto finish;
+                r = log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
+                                    "Too many open journal files, not adding %s.", path ?: "fd");
+                goto error;
         }
 
         r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
         if (r < 0) {
-                log_debug_errno(r, "Failed to open journal file %s: %m", path);
-                goto finish;
+                log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
+                goto error;
         }
 
         /* journal_file_dump(f); */
 
+        /* journal_file_open() generates an replacement fname if necessary, so we can use f->path. */
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
-                f->close_fd = false; /* make sure journal_file_close() doesn't close the caller's fd (or our own). We'll let the caller do that, or ourselves */
+                f->close_fd = false; /* Make sure journal_file_close() doesn't close the caller's fd
+                                      * (or our own). The caller or we will do that ourselves. */
                 (void) journal_file_close(f);
-                goto finish;
+                goto error;
         }
 
-        close_fd = false; /* the fd is now owned by the JournalFile object */
+        our_fd = -1; /* the fd is now owned by the JournalFile object */
 
         f->last_seen_generation = j->generation;
 
@@ -1361,18 +1361,10 @@ static int add_any_file(
 
         log_debug("File %s added.", f->path);
 
-        r = 0;
+        return 0;
 
-finish:
-        if (close_fd)
-                safe_close(fd);
-
-        if (r < 0) {
-                k = journal_put_error(j, r, path);
-                if (k < 0)
-                        return k;
-        }
-
+error:
+        (void) journal_put_error(j, r, path);   /* path==NULL is OK. */
         return r;
 }
 
@@ -2089,7 +2081,6 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        unsigned i;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -2100,7 +2091,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         if (!j)
                 return -ENOMEM;
 
-        for (i = 0; i < n_fds; i++) {
+        for (unsigned i = 0; i < n_fds; i++) {
                 struct stat st;
 
                 if (fds[i] < 0) {
@@ -2237,8 +2228,6 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
 }
 
 static bool field_is_valid(const char *field) {
-        const char *p;
-
         assert(field);
 
         if (isempty(field))
@@ -2247,7 +2236,7 @@ static bool field_is_valid(const char *field) {
         if (startswith(field, "__"))
                 return false;
 
-        for (p = field; *p; p++) {
+        for (const char *p = field; *p; p++) {
 
                 if (*p == '_')
                         continue;
@@ -2266,7 +2255,6 @@ static bool field_is_valid(const char *field) {
 
 _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
         JournalFile *f;
-        uint64_t i, n;
         size_t field_length;
         int r;
         Object *o;
@@ -2291,8 +2279,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
         field_length = strlen(field);
 
-        n = journal_file_entry_n_items(o);
-        for (i = 0; i < n; i++) {
+        uint64_t n = journal_file_entry_n_items(o);
+        for (uint64_t i = 0; i < n; i++) {
                 Object *d;
                 uint64_t p, l;
                 size_t t;
