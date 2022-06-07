@@ -37,7 +37,7 @@ static void do_fstab_filter_options(const char *opts,
         r = fstab_filter_options(opts, remove, &name, &value, NULL, &filtered);
         log_info("1: \"%s\" → %d, \"%s\", \"%s\", \"%s\", expected %d, \"%s\", \"%s\", \"%s\"",
                  opts, r, strnull(name), value, filtered,
-                 r_expected, name_expected, value_expected, filtered_expected ?: opts);
+                 r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
         assert_se(r == r_expected);
         assert_se(streq_ptr(name, name_expected));
         assert_se(streq_ptr(value, value_expected));
@@ -49,7 +49,7 @@ static void do_fstab_filter_options(const char *opts,
         assert_se(joined = strv_join(values, ":"));
         log_info("2: \"%s\" → %d, \"%s\", \"%s\", expected %d, \"%s\", \"%s\"",
                  opts, r, strnull(name), joined,
-                 r_values_expected, name_expected, values_expected);
+                 r_values_expected, strnull(name_expected), strnull(values_expected));
         assert_se(r == r_values_expected);
         assert_se(streq_ptr(name, r_values_expected > 0 ? name_expected : NULL));
         assert_se(streq_ptr(joined, values_expected));
@@ -58,7 +58,7 @@ static void do_fstab_filter_options(const char *opts,
         r = fstab_filter_options(opts, remove, &name, NULL, NULL, NULL);
         log_info("3: \"%s\" → %d, \"%s\", expected %d, \"%s\"\n-",
                  opts, r, strnull(name),
-                 r_expected, name_expected);
+                 r_expected, strnull(name_expected));
         assert_se(r == r_expected);
         assert_se(streq_ptr(name, name_expected));
 }
