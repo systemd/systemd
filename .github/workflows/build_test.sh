@@ -3,6 +3,12 @@
 
 set -ex
 
+COMPILER="${COMPILER:?}"
+COMPILER_VERSION="${COMPILER_VERSION:?}"
+LINKER="${LINKER:?}"
+CRYPTOLIB="${CRYPTOLIB:?}"
+RELEASE="$(lsb_release -cs)"
+
 info() { echo -e "\033[33;1m$1\033[0m"; }
 fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
@@ -16,6 +22,11 @@ ARGS=(
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
+
+if [[ "$COMPILER" == gcc ]]; then
+    ARGS+=("--optimization=2 -Dc_args=-finline-limit=1000 -Dcpp_args=-finline-limit=1000")
+fi
+
 PACKAGES=(
     cryptsetup-bin
     expect
@@ -60,11 +71,6 @@ PACKAGES=(
     util-linux
     zstd
 )
-COMPILER="${COMPILER:?}"
-COMPILER_VERSION="${COMPILER_VERSION:?}"
-LINKER="${LINKER:?}"
-CRYPTOLIB="${CRYPTOLIB:?}"
-RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
 
