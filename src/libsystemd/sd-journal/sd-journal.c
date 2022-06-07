@@ -1277,6 +1277,7 @@ static int add_any_file(
         assert(fd >= 0 || path);
 
         if (fd < 0) {
+                assert(path);  /* For gcc. */
                 if (j->toplevel_fd >= 0)
                         /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
                          * openat() ignores the first argument. */
@@ -1299,53 +1300,58 @@ static int add_any_file(
         }
 
         if (fstat(fd, &st) < 0) {
-                r = log_debug_errno(errno, "Failed to fstat file '%s': %m", path);
+                r = log_debug_errno(errno, "Failed to fstat %s: %m", path ?: "fd");
                 goto finish;
         }
 
         r = stat_verify_regular(&st);
         if (r < 0) {
-                log_debug_errno(r, "Refusing to open '%s', as it is not a regular file.", path);
+                log_debug_errno(r, "Refusing to open %s: %m", path ?: "fd");
                 goto finish;
         }
 
-        f = ordered_hashmap_get(j->files, path);
-        if (f) {
-                if (stat_inode_same(&f->last_stat, &st)) {
+        if (path) {
+                f = ordered_hashmap_get(j->files, path);
+                if (f) {
+                        if (stat_inode_same(&f->last_stat, &st)) {
+                                /* We already track this file, under the same path and with the same
+                                 * device/inode numbers, it's hence really the same. Mark this file as seen
+                                 * in this generation. This is used to GC old files in process_q_overflow()
+                                 * to detect journal files that are still there and discern them from those
+                                 * which are gone. */
 
-                        /* We already track this file, under the same path and with the same device/inode numbers, it's
-                         * hence really the same. Mark this file as seen in this generation. This is used to GC old
-                         * files in process_q_overflow() to detect journal files that are still there and discern them
-                         * from those which are gone. */
+                                f->last_seen_generation = j->generation;
+                                r = 0;
+                                goto finish;
+                        }
 
-                        f->last_seen_generation = j->generation;
-                        r = 0;
-                        goto finish;
+                        /* So we tracked a file under this name, but it has a different inode/device. In that
+                         * case, it got replaced (probably due to rotation?), let's drop it hence from our
+                         * list. */
+                        remove_file_real(j, f);
+                        f = NULL;
                 }
-
-                /* So we tracked a file under this name, but it has a different inode/device. In that case, it got
-                 * replaced (probably due to rotation?), let's drop it hence from our list. */
-                remove_file_real(j, f);
-                f = NULL;
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                log_debug("Too many open journal files, not adding %s.", path);
+                log_debug("Too many open journal files, not adding %s.", path ?: "fd");
                 r = -ETOOMANYREFS;
                 goto finish;
         }
 
         r = journal_file_open(fd, path, O_RDONLY, 0, 0, 0, NULL, j->mmap, NULL, &f);
         if (r < 0) {
-                log_debug_errno(r, "Failed to open journal file %s: %m", path);
+                log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
                 goto finish;
         }
 
         /* journal_file_dump(f); */
 
+        /* journal_file_open() generates an replacement fname if necessary, so we can use f->path. */
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
-                f->close_fd = false; /* make sure journal_file_close() doesn't close the caller's fd (or our own). We'll let the caller do that, or ourselves */
+                f->close_fd = false; /* Make sure journal_file_close() doesn't close the caller's fd
+                                      * (or our own). The caller or we will do that ourselves. */
                 (void) journal_file_close(f);
                 goto finish;
         }
@@ -1368,7 +1374,7 @@ finish:
                 safe_close(fd);
 
         if (r < 0) {
-                k = journal_put_error(j, r, path);
+                k = journal_put_error(j, r, path);   /* path==NULL is OK. */
                 if (k < 0)
                         return k;
         }
