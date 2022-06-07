@@ -923,30 +923,29 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
 
 static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         _cleanup_free_ uint16_t *options = NULL;
-        int n, i;
 
-        n = efi_get_boot_options(&options);
+        int n = efi_get_boot_options(&options);
         if (n < 0)
                 return n;
 
         /* find already existing systemd-boot entry */
-        for (i = 0; i < n; i++)
+        for (int i = 0; i < n; i++)
                 if (same_entry(options[i], uuid, path)) {
                         *id = options[i];
                         return 1;
                 }
 
         /* find free slot in the sorted BootXXXX variable list */
-        for (i = 0; i < n; i++)
+        for (int i = 0; i < n; i++)
                 if (i != options[i]) {
                         *id = i;
                         return 0;
                 }
 
         /* use the next one */
-        if (i == 0xffff)
+        if (n == 0xffff)
                 return -ENOSPC;
-        *id = i;
+        *id = n;
         return 0;
 }
 
