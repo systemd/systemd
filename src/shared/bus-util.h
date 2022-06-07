@@ -33,8 +33,8 @@ bool bus_error_is_unknown_service(const sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *c);
 
-int bus_connect_system_systemd(sd_bus **_bus);
-int bus_connect_user_systemd(sd_bus **_bus);
+int bus_connect_system_systemd(sd_bus **ret_bus);
+int bus_connect_user_systemd(sd_bus **ret_bus);
 
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
