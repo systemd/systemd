@@ -323,8 +323,6 @@ int bus_connect_transport(
 }
 
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
-        int r;
-
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(bus);
@@ -336,29 +334,23 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = bus_connect_user_systemd(bus);
-                else {
-                        if (sd_booted() <= 0)
-                                /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        r = bus_connect_system_systemd(bus);
-                }
-                break;
+                        return bus_connect_user_systemd(bus);
+
+                if (sd_booted() <= 0)
+                        /* Print a friendly message when the local system is actually not running systemd as PID 1. */
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "System has not been booted with systemd as init system (PID 1). Can't operate.");
+                return bus_connect_system_systemd(bus);
 
         case BUS_TRANSPORT_REMOTE:
-                r = sd_bus_open_system_remote(bus, host);
-                break;
+                return sd_bus_open_system_remote(bus, host);
 
         case BUS_TRANSPORT_MACHINE:
-                r = sd_bus_open_system_machine(bus, host);
-                break;
+                return sd_bus_open_system_machine(bus, host);
 
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 /**
