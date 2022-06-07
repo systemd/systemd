@@ -36,7 +36,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "string-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "tpm2-util.h"
 
@@ -45,6 +45,14 @@
 /* as in src/cryptsetup.h */
 #define CRYPT_SECTOR_SIZE 512
 #define CRYPT_MAX_SECTOR_SIZE 4096
+
+typedef enum PasswordRegisteredType {
+        PASSWORD_PASSPHRASE,
+        PASSWORD_RECOVERY_KEY,
+        PASSWORD_PASSPHRASE_AND_RECOVERY_KEY,
+        _PASSWORD_REGISTERED_TYPE_MAX,
+        _PASSWORD_REGISTERED_TYPE_INVALID = -EINVAL,
+} PasswordRegisteredType;
 
 static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT, CRYPT_BITLK or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
@@ -96,6 +104,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+
+static const char* const password_registered_type_table[_PASSWORD_REGISTERED_TYPE_MAX] = {
+        [PASSWORD_PASSPHRASE] = "passphrase",
+        [PASSWORD_RECOVERY_KEY] = "recovery key",
+        [PASSWORD_PASSPHRASE_AND_RECOVERY_KEY] = "passphrase or recovery key",
+};
+
+const char* password_registered_type_to_string(PasswordRegisteredType t);
+PasswordRegisteredType password_registered_type_from_string(const char *s);
+
+DEFINE_STRING_TABLE_LOOKUP(password_registered_type, PasswordRegisteredType);
 
 /* Options Debian's crypttab knows we don't:
 
@@ -565,11 +584,96 @@ static char *friendly_disk_name(const char *src, const char *vol) {
         return name_buffer;
 }
 
+static PasswordRegisteredType check_registered_passwords(struct crypt_device *cd) {
+
+        int slots = 0, slot_max;
+        PasswordRegisteredType r = _PASSWORD_REGISTERED_TYPE_INVALID;
+
+        assert(cd);
+
+        if (!streq_ptr(crypt_get_type(cd), CRYPT_LUKS2)) {
+                log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Non-LUKS2 devices only support passphrase.");
+                return PASSWORD_PASSPHRASE;
+        }
+
+        /* Search all used slots */
+        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        for (int slot = 0; slot < slot_max; slot++) {
+                crypt_keyslot_info status;
+
+                status = crypt_keyslot_status(cd, slot);
+                if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
+                        continue;
+
+                slots += slot + 1;
+        }
+
+        /* Iterate all LUKS2 tokens and keep track of all their slots */
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                const char *type;
+                JsonVariant *w, *z;
+                int tk;
+
+                tk = cryptsetup_get_token_as_json(cd, token, NULL, &v);
+                if (IN_SET(tk, -ENOENT, -EINVAL))
+                        continue;
+                if (tk < 0) {
+                        log_warning_errno(tk, "Failed to read JSON token data off disk, ignoring: %m");
+                        continue;
+                }
+
+                w = json_variant_by_key(v, "type");
+                if (!w || !json_variant_is_string(w)) {
+                        log_warning("Token JSON data lacks type field, ignoring.");
+                        continue;
+                }
+
+                type = json_variant_string(w);
+                if (streq(type, "systemd-recovery") || streq(type, "systemd-pkcs11") || streq(type, "systemd-fido2") || streq(type, "systemd-tpm2")) {
+                        /* At least exists one recovery key */
+                        if (r == _PASSWORD_REGISTERED_TYPE_INVALID && streq(type, "systemd-recovery"))
+                                r = PASSWORD_RECOVERY_KEY;
+
+                        w = json_variant_by_key(v, "keyslots");
+                        if (!w || !json_variant_is_array(w)) {
+                                log_warning("Token JSON data lacks keyslots field, ignoring.");
+                                continue;
+                        }
+
+                        JSON_VARIANT_ARRAY_FOREACH(z, w) {
+                                unsigned u;
+                                int at;
+
+                                if (!json_variant_is_string(z)) {
+                                        log_warning("Token JSON data's keyslot field is not an array of strings, ignoring.");
+                                        continue;
+                                }
+
+                                at = safe_atou(json_variant_string(z), &u);
+                                if (at < 0) {
+                                        log_warning_errno(at, "Token JSON data's keyslot field is not an integer formatted as string, ignoring.");
+                                        continue;
+                                }
+
+                                slots -= u + 1;
+                        }
+                }
+        }
+
+        /* Not all the slots are referenced by systemd tokens */
+        if (slots != 0)
+                r = (r == PASSWORD_RECOVERY_KEY) ? PASSWORD_PASSPHRASE_AND_RECOVERY_KEY : PASSWORD_PASSPHRASE;
+
+        return r;
+}
+
 static int get_password(
                 const char *vol,
                 const char *src,
                 usec_t until,
                 bool accept_cached,
+                PasswordRegisteredType pass_reg_type,
                 char ***ret) {
 
         _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL;
@@ -589,7 +693,7 @@ static int get_password(
         if (!friendly)
                 return log_oom();
 
-        if (asprintf(&text, "Please enter passphrase for disk %s:", friendly) < 0)
+        if (asprintf(&text, "Please enter %s for disk %s:", password_registered_type_to_string(pass_reg_type), friendly) < 0)
                 return log_oom();
 
         disk_path = cescape(src);
@@ -609,7 +713,7 @@ static int get_password(
 
                 assert(strv_length(passwords) == 1);
 
-                if (asprintf(&text, "Please enter passphrase for disk %s (verification):", friendly) < 0)
+                if (asprintf(&text, "Please enter %s for disk %s (verification):", password_registered_type_to_string(pass_reg_type), friendly) < 0)
                         return log_oom();
 
                 id = strjoina("cryptsetup-verification:", disk_path);
@@ -1752,6 +1856,7 @@ static int run(int argc, char *argv[]) {
                 uint32_t flags = 0;
                 unsigned tries;
                 usec_t until;
+                PasswordRegisteredType pass_reg_type = _PASSWORD_REGISTERED_TYPE_INVALID;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [KEY-FILE] [OPTIONS] */
 
@@ -1896,10 +2001,15 @@ static int run(int argc, char *argv[]) {
 
                                         key_data_size = 0;
                                 } else {
-                                        /* Ask the user for a passphrase only as last resort, if we have
+                                        /* Ask the user for a passphrase or recovery key only as last resort, if we have
                                          * nothing else to check for */
+                                        if (pass_reg_type == _PASSWORD_REGISTERED_TYPE_INVALID) {
+                                                pass_reg_type = check_registered_passwords(cd);
+                                                if (pass_reg_type == _PASSWORD_REGISTERED_TYPE_INVALID)
+                                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
+                                        }
 
-                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, &passwords);
+                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, pass_reg_type, &passwords);
                                         if (r == -EAGAIN)
                                                 continue;
                                         if (r < 0)
