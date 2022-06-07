@@ -689,6 +689,7 @@ static int add_names(
                                 return log_debug_errno(r, "Cannot find instance fragment %s: %m", inst);
 
                         if (inst_fragment &&
+                            fragment_basename &&
                             !streq(basename(inst_fragment), fragment_basename)) {
                                 log_debug("Instance %s has fragment %s and is not an alias of %s.",
                                           inst, inst_fragment, unit_name);
