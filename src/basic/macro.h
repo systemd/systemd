@@ -35,6 +35,12 @@
 #  endif
 #endif
 
+#if HAS_FEATURE_ADDRESS_SANITIZER || HAS_FEATURE_MEMORY_SANITIZER
+#define HAS_FEATURE_SANITIZER 1
+#else
+#define HAS_FEATURE_SANITIZER 0
+#endif
+
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
  * our primary usecase for this attribute is registration structures placed in named ELF sections which shall not be
