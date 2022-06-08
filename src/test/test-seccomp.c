@@ -42,6 +42,15 @@
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
 
+#if HAS_FEATURE_SANITIZER && defined(__powerpc__) && defined(__powerpc64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+/* On ppc64le sanitizers disable ASLR, so let's account for that where necessary.
+ * See: https://github.com/llvm/llvm-project/commit/78f7a6eaa601bfdd6ae70ffd3da2254c21ff77f9
+ */
+#  define SANITIZER_ASLR_SHOULD_BE_DISABLED 1
+#else
+#  define SANITIZER_ASLR_SHOULD_BE_DISABLED 0
+#endif
+
 static bool have_seccomp_privs(void) {
         return geteuid() == 0 && have_effective_cap(CAP_SYS_ADMIN) > 0; /* If we are root but CAP_SYS_ADMIN we can't do caps (unless we also do NNP) */
 }
@@ -934,8 +943,10 @@ TEST(lock_personality) {
         }
 
         assert_se(opinionated_personality(&current) >= 0);
-
-        log_info("current personality=%lu", current);
+#if SANITIZER_ASLR_SHOULD_BE_DISABLED
+        current |= ADDR_NO_RANDOMIZE;
+#endif
+        log_info("current personality=0x%lX", current);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -945,13 +956,15 @@ TEST(lock_personality) {
 
                 assert_se((unsigned long) safe_personality(current) == current);
 
-                /* Note, we also test that safe_personality() works correctly, by checkig whether errno is properly
+                /* Note, we also test that safe_personality() works correctly, by checking whether errno is properly
                  * set, in addition to the return value */
                 errno = 0;
-                assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
+                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
                 assert_se(errno == EPERM);
 
-                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
+#if !SANITIZER_ASLR_SHOULD_BE_DISABLED
+                assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
+#endif
                 assert_se(safe_personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -EPERM);
                 assert_se(safe_personality(PER_LINUX | READ_IMPLIES_EXEC) == -EPERM);
                 assert_se(safe_personality(PER_LINUX_32BIT) == -EPERM);
