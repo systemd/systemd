@@ -468,7 +468,7 @@ int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         int r;
 
-        if (path_is_read_only_fs("/sys") > 0)
+        if (!udev_available())
                 return 0;
 
         /* udev should be around. */
