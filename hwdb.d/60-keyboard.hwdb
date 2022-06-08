@@ -764,6 +764,11 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPSt
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnOMEN*:pvr*
  KEYBOARD_KEY_a1=!calc
 
+# HP Dev One
+evdev:atkbd:dmi:*:rvnHP:rn8A78:*
+ KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button
+ KEYBOARD_KEY_f9=prog1                                  # Fn+F12; Programmable hotkey
+
 ##########################################################
 # Huawei
 ##########################################################
