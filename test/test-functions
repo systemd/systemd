@@ -307,6 +307,12 @@ find_qemu_bin() {
     ppc64*)
         [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-ppc64 2>/dev/null | grep '^/' -m1)"
         ;;
+    s390)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-s390x 2>/dev/null | grep '^/' -m1)"
+        ;;
+    aarch64)
+        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v qemu-system-aarch64 2>/dev/null | grep '^/' -m1)"
+        ;;
     esac
 
     if [[ ! -e "$QEMU_BIN" ]]; then
