@@ -226,6 +226,9 @@ endif
 
 memory_accounting_default = get_option('memory-accounting-default')
 status_unit_format_default = get_option('status-unit-format-default')
+if status_unit_format_default == 'auto'
+        status_unit_format_default = conf.get('BUILD_MODE_DEVELOPER') == 1 ? 'name' : 'description'
+endif
 
 conf.set_quoted('BINFMT_DIR',                                 binfmtdir)
 conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
