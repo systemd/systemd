@@ -339,7 +339,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
-        char buf[MAX(FORMAT_TIMESTAMP_MAX, 64U)];
+        char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         uint64_t x;
         int r;
 

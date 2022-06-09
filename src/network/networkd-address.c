@@ -756,7 +756,7 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
 }
 
 static void log_address_debug(const Address *address, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *addr = NULL, *peer = NULL, *flags_str = NULL, *scope_str = NULL;
+        _cleanup_free_ char *state = NULL, *flags_str = NULL, *scope_str = NULL;
 
         assert(address);
         assert(str);
@@ -766,16 +766,17 @@ static void log_address_debug(const Address *address, const char *str, const Lin
                 return;
 
         (void) network_config_state_to_string_alloc(address->state, &state);
-        (void) in_addr_to_string(address->family, &address->in_addr, &addr);
-        if (in_addr_is_set(address->family, &address->in_addr_peer))
-                (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
+
+        const char *peer = in_addr_is_set(address->family, &address->in_addr_peer) ?
+                IN_ADDR_TO_STRING(address->family, &address->in_addr_peer) : NULL;
 
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
         (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
         log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
-                       strnull(addr), peer ? " peer " : "", strempty(peer), address->prefixlen,
+                       IN_ADDR_TO_STRING(address->family, &address->in_addr),
+                       peer ? " peer " : "", strempty(peer), address->prefixlen,
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
                        strna(flags_str), strna(scope_str));
@@ -1572,11 +1573,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                         r = address_add(link, tmp);
                         if (r < 0) {
-                                _cleanup_free_ char *buf = NULL;
-
-                                (void) in_addr_prefix_to_string(tmp->family, &tmp->in_addr, tmp->prefixlen, &buf);
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       strnull(buf));
+                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));                
                                 return 0;
                         }
 
@@ -2164,12 +2162,11 @@ int network_drop_invalid_addresses(Network *network) {
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
                 dup = set_remove(addresses, address);
                 if (dup) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &buf);
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
-                                    dup->section->filename, strna(buf), address->section->line,
+                                    dup->section->filename,
+                                    IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen),
+                                    address->section->line,
                                     dup->section->line, dup->section->line);
                         /* address_free() will drop the address from addresses_by_section. */
                         address_free(dup);
