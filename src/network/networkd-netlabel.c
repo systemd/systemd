@@ -83,19 +83,18 @@ static int netlabel_command(uint16_t command, const char *label, const Address *
 }
 
 static void address_add_netlabel_set(const Address *address, Set *labels) {
-        _cleanup_free_ char *addr_str = NULL;
-        int r;
         const char *label;
-
-        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
+        int r;
 
         SET_FOREACH(label, labels) {
                 r = netlabel_command(NLBL_UNLABEL_C_STATICADD, label, address);
                 if (r < 0)
                         log_link_warning_errno(address->link, r, "Adding NetLabel %s for IP address %s failed, ignoring",
-                                               label, strna(addr_str));
+                                               label,
+                                               IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
                 else
-                        log_link_debug(address->link, "Adding NetLabel %s for IP address %s", label, strna(addr_str));
+                        log_link_debug(address->link, "Adding NetLabel %s for IP address %s", label,
+                                       IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
         }
 }
 
@@ -124,7 +123,6 @@ void address_add_netlabel(const Address *address) {
 
 void address_del_netlabel(const Address *address) {
         int r;
-        _cleanup_free_ char *addr_str = NULL;
 
         assert(address);
         assert(address->link);
@@ -132,14 +130,13 @@ void address_del_netlabel(const Address *address) {
         if (!address->link->network || !IN_SET(address->family, AF_INET, AF_INET6))
                 return;
 
-        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
-
         r = netlabel_command(NLBL_UNLABEL_C_STATICREMOVE, NULL, address);
         if (r < 0)
                 log_link_warning_errno(address->link, r, "Deleting NetLabels for IP address %s failed, ignoring",
-                                       strna(addr_str));
+                                       IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
         else
-                log_link_debug(address->link, "Deleting NetLabels for IP address %s", strna(addr_str));
+                log_link_debug(address->link, "Deleting NetLabels for IP address %s",
+                               IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
 }
 
 int config_parse_netlabel(
