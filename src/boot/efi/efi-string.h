@@ -99,6 +99,8 @@ static inline char16_t *xstrdup16(const char16_t *s) {
         return xstrndup16(s, SIZE_MAX);
 }
 
+bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
+
 #ifdef SD_BOOT
 /* The compiler normally has knowledge about standard functions such as memcmp, but this is not the case when
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do

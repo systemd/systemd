@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "efi-string.h"
 #include "tests.h"
 
@@ -320,6 +322,52 @@ TEST(xstrdup16) {
         assert_se(s = xstrdup16(u"123abcDEF"));
         assert_se(streq16(s, u"123abcDEF"));
         free(s);
+}
+
+#define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
+        ({                                                                              \
+                assert_se(fnmatch(pattern, haystack, 0) == (expect ? 0 : FNM_NOMATCH)); \
+                assert_se(efi_fnmatch(u##pattern, u##haystack) == expect);              \
+        })
+
+TEST(efi_fnmatch) {
+        TEST_FNMATCH_ONE("", "", true);
+        TEST_FNMATCH_ONE("abc", "abc", true);
+        TEST_FNMATCH_ONE("aBc", "abc", false);
+        TEST_FNMATCH_ONE("b", "a", false);
+        TEST_FNMATCH_ONE("b", "", false);
+        TEST_FNMATCH_ONE("abc", "a", false);
+        TEST_FNMATCH_ONE("a?c", "azc", true);
+        TEST_FNMATCH_ONE("???", "?.9", true);
+        TEST_FNMATCH_ONE("1?", "1", false);
+        TEST_FNMATCH_ONE("***", "", true);
+        TEST_FNMATCH_ONE("*", "123", true);
+        TEST_FNMATCH_ONE("**", "abcd", true);
+        TEST_FNMATCH_ONE("*b*", "abcd", true);
+        TEST_FNMATCH_ONE("*.conf", "arch.conf", true);
+        TEST_FNMATCH_ONE("debian-*.conf", "debian-wheezy.conf", true);
+        TEST_FNMATCH_ONE("debian-*.*", "debian-wheezy.efi", true);
+        TEST_FNMATCH_ONE("ab*cde", "abzcd", false);
+        TEST_FNMATCH_ONE("\\*\\a\\[", "*a[", true);
+        TEST_FNMATCH_ONE("[abc] [abc] [abc]", "a b c", true);
+        TEST_FNMATCH_ONE("abc]", "abc]", true);
+        TEST_FNMATCH_ONE("[abc]", "z", false);
+        TEST_FNMATCH_ONE("[abc", "a", false);
+        TEST_FNMATCH_ONE("[][!] [][!] [][!]", "[ ] !", true);
+        TEST_FNMATCH_ONE("[]-] []-]", "] -", true);
+        TEST_FNMATCH_ONE("[1\\]] [1\\]]", "1 ]", true);
+        TEST_FNMATCH_ONE("[$-\\+]", "&", true);
+        TEST_FNMATCH_ONE("[1-3A-C] [1-3A-C]", "2 B", true);
+        TEST_FNMATCH_ONE("[3-5] [3-5] [3-5]", "3 4 5", true);
+        TEST_FNMATCH_ONE("[f-h] [f-h] [f-h]", "f g h", true);
+        TEST_FNMATCH_ONE("[a-c-f] [a-c-f] [a-c-f] [a-c-f] [a-c-f]", "a b c - f", true);
+        TEST_FNMATCH_ONE("[a-c-f]", "e", false);
+        TEST_FNMATCH_ONE("[--0] [--0] [--0]", "- . 0", true);
+        TEST_FNMATCH_ONE("[+--] [+--] [+--]", "+ , -", true);
+        TEST_FNMATCH_ONE("[f-l]", "m", false);
+        TEST_FNMATCH_ONE("[b]", "z-a", false);
+        TEST_FNMATCH_ONE("[a\\-z]", "b", false);
+        TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
 }
 
 TEST(efi_memcmp) {
