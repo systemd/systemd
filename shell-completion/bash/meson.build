@@ -43,6 +43,7 @@ items = [['busctl',              ''],
          ['oomctl',              'ENABLE_OOMD'],
          ['portablectl',         'ENABLE_PORTABLED'],
          ['resolvectl',          'ENABLE_RESOLVE'],
+         ['systemd-cryptenroll', 'HAVE_LIBCRYPTSETUP'],
          ['systemd-resolve',     'ENABLE_RESOLVE'],
          ['timedatectl',         'ENABLE_TIMEDATED']]
 
