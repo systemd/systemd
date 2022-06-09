@@ -2,16 +2,7 @@
 #pragma once
 
 #include <errno.h>
-
-typedef enum EnrollType {
-        ENROLL_PASSWORD,
-        ENROLL_RECOVERY,
-        ENROLL_PKCS11,
-        ENROLL_FIDO2,
-        ENROLL_TPM2,
-        _ENROLL_TYPE_MAX,
-        _ENROLL_TYPE_INVALID = -EINVAL,
-} EnrollType;
+#include "libsss-util.h"
 
 typedef enum WipeScope {
         WIPE_EXPLICIT,          /* only wipe the listed slots */
