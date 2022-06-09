@@ -21,11 +21,31 @@ other boot loaders or take actions outside of the boot loader.
 Here's a brief overview of the complete set of components:
 
 * The
+  [`kernel-install(8)`](https://www.freedesktop.org/software/systemd/man/kernel-install.html)
+  script can optionally create boot loader entries that carry an initial boot
+  counter (the initial counter is configurable in `/etc/kernel/tries`).
+
+* The
   [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
-  boot loader optionally maintains a per-boot-loader-entry counter that is
-  decreased by one on each attempt to boot the entry, prioritizing entries that
-  have non-zero counters over those which already reached a counter of zero
-  when choosing the entry to boot.
+  boot loader optionally maintains a per-boot-loader-entry counter described by
+  the [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md#boot-counting)
+  that is decreased by one on each attempt to boot the entry, prioritizing
+  entries that have non-zero counters over those which already reached a
+  counter of zero when choosing the entry to boot.
+
+* The `boot-complete.target` target unit (see
+  [`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/systemd.special.html))
+  serves as a generic extension point both for units that are necessary to
+  consider a boot successful (e.g. `systemd-boot-check-no-failures.service`
+  described below), and units that want to act only if the boot is
+  successful (e.g. `systemd-bless-boot.service` described below).
+
+* The
+  [`systemd-boot-check-no-failures.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-boot-check-no-failures.service.html)
+  service is a simple service health check tool. When enabled it becomes an
+  indirect dependency of `systemd-bless-boot.service` (by means of
+  `boot-complete.target`, see below), ensuring that the boot will not be
+  considered successful if there are any failed services.
 
 * The
   [`systemd-bless-boot.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-bless-boot.service.html)
@@ -37,26 +57,6 @@ Here's a brief overview of the complete set of components:
   [`systemd-bless-boot-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-bless-boot-generator.html)
   generator automatically pulls in `systemd-bless-boot.service` when use of
   `systemd-boot` with boot counting enabled is detected.
-
-* The
-  [`systemd-boot-check-no-failures.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-boot-check-no-failures.service.html)
-  service is a simple health check tool that determines whether the boot
-  completed successfully. When enabled it becomes an indirect dependency of
-  `systemd-bless-boot.service` (by means of `boot-complete.target`, see
-  below), ensuring that the boot will not be considered successful if there are
-  any failed services.
-
-* The `boot-complete.target` target unit (see
-  [`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/systemd.special.html))
-  serves as a generic extension point both for units that are necessary to
-  consider a boot successful (example: `systemd-boot-check-no-failures.service`
-  as described above), and units that want to act only if the boot is
-  successful (example: `systemd-bless-boot.service` as described above).
-
-* The
-  [`kernel-install(8)`](https://www.freedesktop.org/software/systemd/man/kernel-install.html)
-  script can optionally create boot loader entries that carry an initial boot
-  counter (the initial counter is configurable in `/etc/kernel/tries`).
 
 ## Details
 
@@ -132,21 +132,31 @@ scenario the first 4 steps are the same as above:
    that are required to succeed for the boot process to be considered
    successful. One such unit is `systemd-boot-check-no-failures.service`.
 
-9. `systemd-boot-check-no-failures.service` is run after all its own
+9. The graphical desktop environment installed on the machine starts a
+   service called `graphical-session-good.service`, which is also ordered before
+   `boot-complete.target`, that registers a D-Bus endpoint.
+
+10. `systemd-boot-check-no-failures.service` is run after all its own
    dependencies completed, and assesses that the boot completed
    successfully. It hence exits cleanly.
 
-10. This allows `boot-complete.target` to be reached. This signifies to the
+11. `graphical-session-good.service` waits for a user to log in. In the user
+   desktop environment, one minute after the user has logged in and started the
+   first program, a user service is invoked which makes a D-Bus call to
+   `graphical-session-good.service`. Upon receiving that call,
+   `graphical-session-good.service` exits cleanly.
+
+12. This allows `boot-complete.target` to be reached. This signifies to the
     system that this boot attempt shall be considered successful.
 
-11. Which in turn permits `systemd-bless-boot.service` to run. It now
+13. Which in turn permits `systemd-bless-boot.service` to run. It now
     determines which boot loader entry file was used to boot the system, and
     renames it dropping the counter tag. Thus
     `4.14.11-300.fc27.x86_64+1-2.conf` is renamed to
     `4.14.11-300.fc27.x86_64.conf`. From this moment boot counting is turned
     off for this entry.
 
-12. On the following boot (and all subsequent boots after that) the entry is
+14. On the following boot (and all subsequent boots after that) the entry is
     now seen with boot counting turned off, no further renaming takes place.
 
 ## How to adapt this scheme to other setups
@@ -175,6 +185,13 @@ are a couple of recommendations.
    units like this, and only if they all succeed the boot entry is marked as
    good. Note that the target unit shall pull in these boot checking units, not
    the other way around.
+
+   Depending on the setup, it may be most convenient to pull in such units
+   through normal enablement symlinks, or during early boot using a
+   [`generator`](https://www.freedesktop.org/software/systemd/man/systemd.generator.html),
+   or even during later boot. In the last case, care must be taken to ensure
+   that the start job is created before `boot-complete.target` has been
+   reached.
 
 3. To support additional components that shall only run on boot success, simply
    wrap them in a unit and order them after `boot-complete.target`, pulling it
