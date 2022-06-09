@@ -909,10 +909,10 @@ static int nft_set_element_op_in_addr_open(
                 int af,
                 const union in_addr_union *address,
                 unsigned int prefixlen) {
+
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
-        _cleanup_free_ char *addr_str = NULL;
-        int r, nfproto;
         const char *table, *set;
+        int r, nfproto;
 
         assert(nft_set_context);
         nfproto = nft_set_context->nfproto;
@@ -928,10 +928,10 @@ static int nft_set_element_op_in_addr_open(
         r = nft_set_element_op_in_addr(nfnl, table, set,
                                        add, nfproto, af, address, prefixlen);
 
-        (void) in_addr_prefix_to_string(af, address, prefixlen, &addr_str);
-
-        log_debug("%s NFT family %s table %s set %s IP addresss %s", add? "Added" : "Deleted",
-                  nfproto_to_string(nfproto), table, set, strna(addr_str));
+        log_debug("%s NFT family %s table %s set %s IP addresss %s",
+                  add ? "Added" : "Deleted",
+                  nfproto_to_string(nfproto), table, set,
+                  IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
 
         return r;
 }
