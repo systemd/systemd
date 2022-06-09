@@ -331,10 +331,9 @@ static void init_watchdog(void) {
 }
 
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
-        int cmd, r, umount_log_level = LOG_INFO;
+        int cmd, r;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
@@ -379,7 +378,7 @@ int main(int argc, char *argv[]) {
         }
 
         (void) cg_get_root_path(&cgroup);
-        in_container = detect_container() > 0;
+        bool in_container = detect_container() > 0;
 
         /* If the logging messages are going to KMSG, and if we are not running from a container, then try to
          * update the sysctl kernel.printk current value in order to see "info" messages; This current log
@@ -414,11 +413,8 @@ int main(int argc, char *argv[]) {
         log_info("Sending SIGKILL to remaining processes...");
         broadcast_signal(SIGKILL, true, false, arg_timeout);
 
-        need_umount = !in_container;
-        need_swapoff = !in_container;
-        need_loop_detach = !in_container;
-        need_dm_detach = !in_container;
-        need_md_detach = !in_container;
+        bool need_umount = !in_container, need_swapoff = !in_container, need_loop_detach = !in_container,
+             need_dm_detach = !in_container, need_md_detach = !in_container, can_initrd, last_try = false;
         can_initrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) == 0;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
@@ -436,7 +432,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
-                        r = umount_all(&changed, umount_log_level);
+                        r = umount_all(&changed, last_try);
                         if (r == 0) {
                                 need_umount = false;
                                 log_info("All filesystems unmounted.");
@@ -460,7 +456,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
-                        r = loopback_detach_all(&changed, umount_log_level);
+                        r = loopback_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_loop_detach = false;
                                 log_info("All loop devices detached.");
@@ -472,7 +468,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_md_detach) {
                         log_info("Stopping MD devices.");
-                        r = md_detach_all(&changed, umount_log_level);
+                        r = md_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_md_detach = false;
                                 log_info("All MD devices stopped.");
@@ -484,7 +480,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
-                        r = dm_detach_all(&changed, umount_log_level);
+                        r = dm_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_dm_detach = false;
                                 log_info("All DM devices detached.");
@@ -501,13 +497,12 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
-                        /* There are things we cannot get rid of. Loop one more time
-                         * with LOG_ERR to inform the user. Note that we don't need
-                         * to do this if there is an initrd to switch to, because that
-                         * one is likely to get rid of the remaining mounts. If not,
-                         * it will log about them. */
-                        umount_log_level = LOG_ERR;
+                if (!changed && last_try && !can_initrd) {
+                        /* There are things we cannot get rid of. Loop one more time in which we will log
+                         * with higher priority to inform the user. Note that we don't need to do this if
+                         * there is an initrd to switch to, because that one is likely to get rid of the
+                         * remaining mounts. If not, it will log about them. */
+                        last_try = true;
                         continue;
                 }
 
