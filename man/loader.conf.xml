@@ -110,7 +110,14 @@
               </row>
             </tbody>
           </tgroup>
-        </table></listitem>
+        </table>
+
+        <para>Supported glob wilcard patterns are <literal>?</literal>, <literal>*</literal>, and
+        <literal>[…]</literal> (including ranges). Note that these patterns use the same syntax as
+        <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>, but do not
+        support all features. In particular, set negation and named character classes are not supported. The
+        matching is done case-insensitively on the entry ID (as shown by <command>bootctl
+        list</command>).</para></listitem>
       </varlistentry>
 
       <varlistentry>
