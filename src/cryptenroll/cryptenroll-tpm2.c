@@ -4,6 +4,7 @@
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
 #include "env-util.h"
+#include "libsss-util.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
@@ -129,35 +130,34 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
 int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
-                const char *device,
-                uint32_t pcr_mask,
-                bool use_pin) {
+                Factor *factor, int keyslot) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         size_t secret_size, secret2_size, blob_size, hash_size;
+        _cleanup_(erase_and_freep) unsigned char *encrypted_share = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        uint16_t pcr_bank, primary_alg;
+
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
-        int r, keyslot;
         TPM2Flags flags = 0;
+        int r;
 
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(pcr_mask < (1U << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
+        assert(factor->tpm2.pcr_mask < (1U << TPM2_PCRS_MAX)); /* Support 24 PCR banks */
 
         assert_se(node = crypt_get_device_name(cd));
 
-        if (use_pin) {
+        if (factor->tpm2.use_pin) {
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
         }
 
-        r = tpm2_seal(device, pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &pcr_bank, &primary_alg);
+        r = tpm2_seal(factor->tpm2.device, factor->tpm2.pcr_mask, pin_str, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size, &(factor->tpm2.pcr_bank), &(factor->tpm2.primary_alg));
         if (r < 0)
                 return r;
 
@@ -174,33 +174,42 @@ int enroll_tpm2(struct crypt_device *cd,
 
         /* Quick verification that everything is in order, we are not in a hurry after all. */
         log_debug("Unsealing for verification...");
-        r = tpm2_unseal(device, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
+        r = tpm2_unseal(factor->tpm2.device, factor->tpm2.pcr_mask, factor->tpm2.pcr_bank, factor->tpm2.primary_alg, blob, blob_size, hash, hash_size, pin_str, &secret2, &secret2_size);
         if (r < 0)
                 return r;
 
         if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
 
-        /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        r = base64mem(secret, secret_size, &base64_encoded);
-        if (r < 0)
-                return log_error_errno(r, "Failed to base64 encode secret key: %m");
+        if (factor->share) {
+            encrypted_share = malloc(sizeof(sss_share));
+            if (!encrypted_share)
+                return log_oom();
 
-        r = cryptsetup_set_minimal_pbkdf(cd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+            encrypt_share(secret, secret_size, factor, encrypted_share);
+            r = tpm2_make_luks2_json(keyslot, factor, blob, blob_size, hash, hash_size, &v, encrypted_share);
+        } else {
+            /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard,
+            if that might end up being necessary. */
+            r = base64mem(secret, secret_size, &base64_encoded);
+            if (r < 0)
+                    return log_error_errno(r, "Failed to base64 encode secret key: %m");
+            r = cryptsetup_set_minimal_pbkdf(cd);
+            if (r < 0)
+                    return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
-                        cd,
-                        CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
-                        base64_encoded,
-                        strlen(base64_encoded));
-        if (keyslot < 0)
-                return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
+            keyslot = crypt_keyslot_add_by_volume_key(
+                            cd,
+                            CRYPT_ANY_SLOT,
+                            volume_key,
+                            volume_key_size,
+                            base64_encoded,
+                            strlen(base64_encoded));
+            if (keyslot < 0)
+                    return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 
-        r = tpm2_make_luks2_json(keyslot, pcr_mask, pcr_bank, primary_alg, blob, blob_size, hash, hash_size, flags, &v);
+        r = tpm2_make_luks2_json(keyslot, factor, blob, blob_size, hash, hash_size, &v, NULL);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
 

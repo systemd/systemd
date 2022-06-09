@@ -3,13 +3,14 @@
 
 #include <sys/types.h>
 
+#include "libsss-util.h"
 #include "cryptsetup-util.h"
 #include "log.h"
 
 #if HAVE_TPM2
-int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint32_t pcr_mask, bool use_pin);
+int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, Factor *factor, int keyslot);
 #else
-static inline int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, uint32_t pcr_mask, bool use_pin) {
+static inline int enroll_tpm2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, Factor *factor, int keyslot) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM2 key enrollment not supported.");
 }
