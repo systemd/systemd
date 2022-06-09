@@ -133,9 +133,8 @@ static int verify_features(
         assert(path);
 
         if (!sym_fido_dev_is_fido2(d))
-                return log_full_errno(log_level,
-                                      SYNTHETIC_ERRNO(ENODEV),
-                                       "Specified device %s is not a FIDO2 device.", path);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENODEV),
+                                      "Specified device %s is not a FIDO2 device.", path);
 
         di = sym_fido_cbor_info_new();
         if (!di)
