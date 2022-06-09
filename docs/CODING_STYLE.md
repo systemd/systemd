@@ -648,7 +648,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Use `typesafe_inet_ntop()`, `typesafe_inet_ntop4()`, and
   `typesafe_inet_ntop6()` instead of `inet_ntop()`. But better yet, use the
   `IN_ADDR_TO_STRING()`, `IN4_ADDR_TO_STRING()`, and `IN6_ADDR_TO_STRING()`
-  macros which allocate an anynomous buffer internally.
+  macros which allocate an anonymous buffer internally.
 
 - Please never use `dup()`. Use `fcntl(fd, F_DUPFD_CLOEXEC, 3)` instead. For
   two reasons: first, you want `O_CLOEXEC` set on the new `fd` (see

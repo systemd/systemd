@@ -402,7 +402,7 @@ boots is exhausted, the entry is marked as "bad".
 
 Which boots are "successful" is determined by the operating system. systemd
 provides a generic mechanism that can be extended with arbitrary checks and
-actions, see [Automatic Boot Assesment](AUTOMATIC_BOOT_ASSESSMENT.md), but the
+actions, see [Automatic Boot Assessment](AUTOMATIC_BOOT_ASSESSMENT.md), but the
 boot counting mechanism described in this specifaction can also be used with
 other implementations.
 
