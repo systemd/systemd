@@ -1,4 +1,4 @@
-# networkctl(1) completion                               -*- shell-script -*-
+# systemd-id128(1) completion                         -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
