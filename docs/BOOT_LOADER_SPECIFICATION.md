@@ -391,24 +391,76 @@ creating a partition and file system for it) and creates the `/loader/entries/`
 directory in it. It then installs an appropriate boot loader that can read
 these snippets. Finally, it installs one or more kernel packages.
 
+## Boot counting
+
+The main idea is that when boot entries are initially installed, they are
+marked as "indeterminate" and assigned a number of boot attempts. Each time the
+boot loader tries to boot an entry, it decreases this count by one. If the
+operating system considers the boot as successful, it removes the counter
+altogether and the entry becomes "good". Otherwise, once the assigned number of
+boots is exhausted, the entry is marked as "bad".
+
+Which boots are "successful" is determined by the operating system. Systemd
+provides a generic mechanism that can be extended with arbitrary checks and
+actions, see [Automatic Boot Assesment](AUTOMATIC_BOOT_ASSESSMENT.md), but the
+boot counting mechanism described in this specifaction can also be used with
+other implementations.
+
+The boot counting data is stored in the name of the boot loader entry. A boot
+loader entry file name may contain a plus (`+`) followed by a number. This may
+optionally be followed by a minus (`-`) followed by a second number. The dot
+(`.`) and file name suffix (`conf` of `efi`) must immediately follow. Boot
+counting is enabled for entries which match this pattern.
+
+The first number is the "tries left" counter signifying how many attempts to boot
+this entry shall still be made. The second number is the "tries done" counter,
+showing how many failed attempts to boot it have already been made. Each time
+a boot loader entry marked this way is booted, the first counter is decremented,
+and the second one incremented. (If the second counter is missing,
+then it is assumed to be equivalent to zero.) If the "tries left" counter is
+above zero the entry is still considered "indeterminate". A boot entry with the
+"tries left" counter at zero is considered "bad".
+
+If the boot attempt completed successfully the entry's counters are removed
+from the name (entry state becomes "good"), thus turning off boot counting for
+this entry.
+
 ## Sorting
 
 The boot loader menu should generally show entries in some order meaningful to
 the user. The `title` key is free-form and not suitable to be used as the
 primary sorting key. Instead, the boot loader should use the following rules:
-if `sort-key` is set on both entries, use in order of priority,
-the `sort-key` (A-Z, increasing [alphanumerical order](#alphanumerical-order)),
-`machine-id` (A-Z, increasing alphanumerical order),
-and `version` keys (decreasing [version order](#version-order)).
-If `sort-key` is set on one entry, it sorts earlier.
-At the end, if necessary, when `sort-key` is not set or those fields are not
-set or are all equal, the boot loader should sort using the file name of the
-entry (decreasing version sort), with the suffix removed.
+
+1. Entries which are subject to boot counting and are marked as "bad", should
+   be sorted later than all other entries. Entries which are marked as
+   "indeterminate" or "good" (or were not subject to boot counting at all),
+   are thus sorted earlier.
+
+2. If `sort-key` is set on both entries, use in order of priority,
+   the `sort-key` (A-Z, increasing [alphanumerical order](#alphanumerical-order)),
+   `machine-id` (A-Z, increasing alphanumerical order),
+   and `version` keys (decreasing [version order](#version-order)).
+
+3. If `sort-key` is set on one entry, it sorts earlier.
+
+4. At the end, if necessary, when `sort-key` is not set or those fields are not
+   set or are all equal, the boot loader should sort using the file name of the
+   entry (decreasing version sort), with the suffix removed.
 
 **Note:** _This description assumes that the boot loader shows entries in a
 traditional menu, with newest and "best" entries at the top, thus entries with
 a higher version number are sorter *earlier*. The boot loader is free to
 use a different direction (or none at all) during display._
+
+**Note:** _The boot loader should allow booting "bad" entries, e.g. in case no
+other entries are left or they are unusable for other reasons. It may
+deemphasize or hide such entries by default._
+
+**Note:** _"Bad" boot entries have a suffix of "+0-`n`", where `n` is the
+number of failed boot attempts. Removal of the suffix is not necessary for
+comparisons described by the last point above. In the unlikely scenario that we
+have multiple such boot entries that differ only by the boot counting data, we
+would sort them by `n`._
 
 ### Alphanumerical order
 
@@ -573,6 +625,24 @@ sorter alpabetically (CentOS, Debian, Fedora, OpenSUSE, …), it would be strang
 to have them in reverse order. But when multiple kernels are available for the
 same installation, we want to display the latest kernel with highest priority,
 i.e. earlier in the list.
+
+### Why do you use file renames to store the counter? Why not a regular file?
+
+Mainly two reasons: it's relatively likely that renames can be implemented
+atomically even in simpler file systems, as renaming generally avoids
+allocating or releasing data blocks. Writing to file contents has a much bigger
+chance to be result in incomplete or corrupt data. Moreover renaming has the
+benefit that the boot count metadata is directly attached to the boot loader
+entry file, and thus the lifecycle of the metadata and the entry itself are
+bound together. This means no additional clean-up needs to take place to drop
+the boot loader counting information for an entry when it is removed.
+
+### Why not use EFI variables for storing the boot counter?
+
+The memory chips used to back the persistent EFI variables are generally not of
+the highest quality, hence shouldn't be written to more than necessary. This
+means we can't really use it for changes made regularly during boot, but should
+use it only for seldom-made configuration changes.
 
 ### Out of Focus
 
