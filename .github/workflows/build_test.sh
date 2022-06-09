@@ -13,15 +13,7 @@ info() { echo -e "\033[33;1m$1\033[0m"; }
 fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
-ARGS=(
-    "--optimization=0"
-    "--optimization=s -Dgnu-efi=true -Defi-cflags=-m32 -Defi-libdir=/usr/lib32"
-    "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
-    "--optimization=3 -Db_lto=false"
-    "--optimization=3 -Ddns-over-tls=openssl"
-    "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
-    "-Db_ndebug=true"
-)
+ARGS=()
 
 if [[ "$COMPILER" == gcc ]]; then
     ARGS+=("--optimization=2 -Dc_args=-finline-limit=1000 -Dcpp_args=-finline-limit=1000")
