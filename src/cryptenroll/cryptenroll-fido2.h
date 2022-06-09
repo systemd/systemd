@@ -3,14 +3,15 @@
 
 #include <sys/types.h>
 
+#include "libsss-util.h"
 #include "cryptsetup-util.h"
 #include "libfido2-util.h"
 #include "log.h"
 
 #if HAVE_LIBFIDO2
-int enroll_fido2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, Fido2EnrollFlags lock_with, int cred_alg);
+int enroll_fido2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, Factor *factor, int keyslot);
 #else
-static inline int enroll_fido2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, const char *device, Fido2EnrollFlags lock_with, int cred_alg) {
+static inline int enroll_fido2(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, Factor *factor, int keyslot) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "FIDO2 key enrollment not supported.");
 }
