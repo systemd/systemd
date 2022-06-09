@@ -115,7 +115,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = xallocate_pool(size + sizeof(CHAR16));
+        val = xmalloc(size + sizeof(CHAR16));
 
         memcpy(val, buf, size);
         val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
@@ -189,7 +189,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         assert(name);
 
         l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
-        buf = xallocate_pool(l);
+        buf = xmalloc(l);
 
         err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
@@ -391,7 +391,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         /* Allocate some extra bytes to guarantee the result is NUL-terminated for CHAR8 and CHAR16 strings. */
         UINTN extra = size % sizeof(CHAR16) + sizeof(CHAR16);
 
-        buf = xallocate_pool(size + extra);
+        buf = xmalloc(size + extra);
         err = handle->Read(handle, &size, buf);
         if (EFI_ERROR(err))
                 return err;
@@ -486,11 +486,11 @@ EFI_STATUS get_file_info_harder(
 
         /* A lot like LibFileInfo() but with useful error propagation */
 
-        fi = xallocate_pool(size);
+        fi = xmalloc(size);
         err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
-                FreePool(fi);
-                fi = xallocate_pool(size);  /* GetInfo tells us the required size, let's use that now */
+                free(fi);
+                fi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
                 err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
@@ -527,15 +527,15 @@ EFI_STATUS readdir_harder(
                  * file name length.
                  * As a side effect, most readdir_harder() calls will now be slightly faster. */
                 sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(CHAR16);
-                *buffer = xallocate_pool(sz);
+                *buffer = xmalloc(sz);
                 *buffer_size = sz;
         } else
                 sz = *buffer_size;
 
         err = handle->Read(handle, &sz, *buffer);
         if (err == EFI_BUFFER_TOO_SMALL) {
-                FreePool(*buffer);
-                *buffer = xallocate_pool(sz);
+                free(*buffer);
+                *buffer = xmalloc(sz);
                 *buffer_size = sz;
                 err = handle->Read(handle, &sz, *buffer);
         }
@@ -544,7 +544,7 @@ EFI_STATUS readdir_harder(
 
         if (sz == 0) {
                 /* End of directory */
-                FreePool(*buffer);
+                free(*buffer);
                 *buffer = NULL;
                 *buffer_size = 0;
         }
@@ -568,9 +568,9 @@ CHAR16 **strv_free(CHAR16 **v) {
                 return NULL;
 
         for (CHAR16 **i = v; *i; i++)
-                FreePool(*i);
+                free(*i);
 
-        FreePool(v);
+        free(v);
         return NULL;
 }
 
@@ -682,3 +682,59 @@ void beep(UINTN beep_count) {
         }
 }
 #endif
+
+EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
+        EFI_STATUS err;
+        EFI_FILE *file;
+        EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *volume;
+
+        assert(ret_file);
+
+        err = BS->HandleProtocol(device, &FileSystemProtocol, (void **) &volume);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        err = volume->OpenVolume(volume, &file);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_file = file;
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *dp;
+
+        assert(file);
+        assert(ret_dp);
+
+        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        EFI_DEVICE_PATH *end_node = dp;
+        while (!IsDevicePathEnd(end_node))
+                end_node = NextDevicePathNode(end_node);
+
+        size_t file_size = strsize16(file);
+        size_t dp_size = ((uint8_t *) end_node - (uint8_t *) dp) + END_DEVICE_PATH_LENGTH;
+
+        /* Make a copy that can also hold a file media device path. */
+        *ret_dp = xmalloc(dp_size + file_size + SIZE_OF_FILEPATH_DEVICE_PATH);
+        memcpy(*ret_dp, dp, dp_size);
+
+        /* Point dp to the end node of the copied device path. */
+        dp = (EFI_DEVICE_PATH *) ((uint8_t *) *ret_dp + dp_size - END_DEVICE_PATH_LENGTH);
+
+        /* Replace end node with file media device path. */
+        FILEPATH_DEVICE_PATH *file_dp = (FILEPATH_DEVICE_PATH *) dp;
+        file_dp->Header.Type = MEDIA_DEVICE_PATH;
+        file_dp->Header.SubType = MEDIA_FILEPATH_DP;
+        memcpy(&file_dp->PathName, file, file_size);
+        SetDevicePathNodeLength(&file_dp->Header, SIZE_OF_FILEPATH_DEVICE_PATH + file_size);
+
+        dp = NextDevicePathNode(dp);
+        SetDevicePathEndNode(dp);
+        return EFI_SUCCESS;
+}

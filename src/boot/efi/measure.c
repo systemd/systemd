@@ -26,7 +26,8 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         assert(description);
 
         desc_len = strsize16(description);
-        tcg_event = xallocate_zero_pool(offsetof(TCG_PCR_EVENT, Event) + desc_len);
+        tcg_event = xmalloc(offsetof(TCG_PCR_EVENT, Event) + desc_len);
+        memset(tcg_event, 0, offsetof(TCG_PCR_EVENT, Event) + desc_len);
         *tcg_event = (TCG_PCR_EVENT) {
                 .EventSize = desc_len,
                 .PCRIndex = pcrindex,
@@ -57,7 +58,8 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
         assert(description);
 
         desc_len = strsize16(description);
-        tcg_event = xallocate_zero_pool(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
+        tcg_event = xmalloc(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
+        memset(tcg_event, 0, offsetof(EFI_TCG2_EVENT, Event) + desc_len);
         *tcg_event = (EFI_TCG2_EVENT) {
                 .Size = offsetof(EFI_TCG2_EVENT, Event) + desc_len,
                 .Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER),
@@ -84,7 +86,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         UINT32 features;
         EFI_TCG *tcg;
 
-        status = LibLocateProtocol((EFI_GUID*) EFI_TCG_GUID, (void **) &tcg);
+        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
         if (EFI_ERROR(status))
                 return NULL;
 
@@ -113,7 +115,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_STATUS status;
         EFI_TCG2 *tcg;
 
-        status = LibLocateProtocol((EFI_GUID*) EFI_TCG2_GUID, (void **) &tcg);
+        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
         if (EFI_ERROR(status))
                 return NULL;
 
