@@ -291,8 +291,6 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL, *dbus_path = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
-        bool print_warning_label = true;
-        UnitActiveState active_state;
         int r;
 
         r = unit_name_mangle(unit, 0, &n);
@@ -321,7 +319,10 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
 
+        bool first = true;
         STRV_FOREACH(i, triggered_by) {
+                UnitActiveState active_state;
+
                 r = get_state_one_unit(bus, *i, &active_state);
                 if (r < 0)
                         return r;
@@ -329,9 +330,9 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
                 if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
                         continue;
 
-                if (print_warning_label) {
+                if (first) {
                         log_warning("Warning: Stopping %s, but it can still be activated by:", n);
-                        print_warning_label = false;
+                        first = false;
                 }
 
                 log_warning("  %s", *i);

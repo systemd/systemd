@@ -528,7 +528,7 @@ static void test_rename_process_now(const char *p, int ret) {
         _cleanup_free_ char *comm = NULL, *cmdline = NULL;
         int r;
 
-        log_info("/* %s */", __func__);
+        log_info("/* %s(%s) */", __func__, p);
 
         r = rename_process(p);
         assert_se(r == ret ||
@@ -574,7 +574,7 @@ static void test_rename_process_one(const char *p, int ret) {
         siginfo_t si;
         pid_t pid;
 
-        log_info("/* %s */", __func__);
+        log_info("/* %s(%s) */", __func__, p);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -588,6 +588,11 @@ static void test_rename_process_one(const char *p, int ret) {
         assert_se(wait_for_terminate(pid, &si) >= 0);
         assert_se(si.si_code == CLD_EXITED);
         assert_se(si.si_status == EXIT_SUCCESS);
+}
+
+TEST(rename_process_invalid) {
+        assert_se(rename_process(NULL) == -EINVAL);
+        assert_se(rename_process("") == -EINVAL);
 }
 
 TEST(rename_process_multi) {
@@ -612,14 +617,10 @@ TEST(rename_process_multi) {
         (void) setresuid(99, 99, 99); /* change uid when running privileged */
         test_rename_process_now("time!", 0);
         test_rename_process_now("0", 1); /* shorter than "one", should fit */
-        test_rename_process_one("", -EINVAL);
-        test_rename_process_one(NULL, -EINVAL);
         _exit(EXIT_SUCCESS);
 }
 
 TEST(rename_process) {
-        test_rename_process_one(NULL, -EINVAL);
-        test_rename_process_one("", -EINVAL);
         test_rename_process_one("foo", 1); /* should always fit */
         test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */

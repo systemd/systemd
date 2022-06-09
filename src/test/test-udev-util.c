@@ -13,7 +13,7 @@ static void test_udev_rule_parse_value_one(const char *in, const char *expected_
         char *value = UINT_TO_PTR(0x12345678U);
         char *endpos = UINT_TO_PTR(0x87654321U);
 
-        log_info("/* %s (%s, %s, %d) */", __func__, in, expected_value, expected_retval);
+        log_info("/* %s (%s, %s, %d) */", __func__, in, strnull(expected_value), expected_retval);
 
         assert_se(str = strdup(in));
         assert_se(udev_rule_parse_value(str, &value, &endpos) == expected_retval);
@@ -36,9 +36,9 @@ TEST(udev_rule_parse_value) {
         /* input: "va'l\'id\"op\"erand"
          * parsed: va'l\'id"op"erand */
         test_udev_rule_parse_value_one("\"va'l\\'id\\\"op\\\"erand\"", "va'l\\'id\"op\"erand", 0);
-        test_udev_rule_parse_value_one("no quotes", 0, -EINVAL);
+        test_udev_rule_parse_value_one("no quotes", NULL, -EINVAL);
         test_udev_rule_parse_value_one("\"\\\\a\\b\\x\\y\"", "\\\\a\\b\\x\\y", 0);
-        test_udev_rule_parse_value_one("\"reject\0nul\"", 0, -EINVAL);
+        test_udev_rule_parse_value_one("\"reject\0nul\"", NULL, -EINVAL);
         /* input: e"" */
         test_udev_rule_parse_value_one("e\"\"", "", 0);
         /* input: e"1234" */
@@ -46,13 +46,13 @@ TEST(udev_rule_parse_value) {
         /* input: e"\"" */
         test_udev_rule_parse_value_one("e\"\\\"\"", "\"", 0);
         /* input: e"\ */
-        test_udev_rule_parse_value_one("e\"\\", 0, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\", NULL, -EINVAL);
         /* input: e"\" */
-        test_udev_rule_parse_value_one("e\"\\\"", 0, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\\"", NULL, -EINVAL);
         /* input: e"\\" */
         test_udev_rule_parse_value_one("e\"\\\\\"", "\\", 0);
         /* input: e"\\\" */
-        test_udev_rule_parse_value_one("e\"\\\\\\\"", 0, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\\\\\\"", NULL, -EINVAL);
         /* input: e"\\\"" */
         test_udev_rule_parse_value_one("e\"\\\\\\\"\"", "\\\"", 0);
         /* input: e"\\\\" */
@@ -63,9 +63,9 @@ TEST(udev_rule_parse_value) {
         test_udev_rule_parse_value_one(
                 "e\"single\\rcharacter\\t\\aescape\\bsequence\"", "single\rcharacter\t\aescape\bsequence", 0);
         /* input: e"reject\invalid escape sequence" */
-        test_udev_rule_parse_value_one("e\"reject\\invalid escape sequence", 0, -EINVAL);
+        test_udev_rule_parse_value_one("e\"reject\\invalid escape sequence", NULL, -EINVAL);
         /* input: e"\ */
-        test_udev_rule_parse_value_one("e\"\\", 0, -EINVAL);
+        test_udev_rule_parse_value_one("e\"\\", NULL, -EINVAL);
         /* input: "s\u1d1c\u1d04\u029c \u1d1c\u0274\u026a\u1d04\u1d0f\u1d05\u1d07 \U0001d568\U0001d560\U0001d568" */
         test_udev_rule_parse_value_one(
                 "e\"s\\u1d1c\\u1d04\\u029c \\u1d1c\\u0274\\u026a\\u1d04\\u1d0f\\u1d05\\u1d07 \\U0001d568\\U0001d560\\U0001d568\"",
