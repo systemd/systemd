@@ -18,6 +18,7 @@ typedef struct SleepConfig {
         char **modes[_SLEEP_OPERATION_MAX];
         char **states[_SLEEP_OPERATION_MAX];
         usec_t hibernate_delay_sec;
+        usec_t battery_estimate_interval;
 } SleepConfig;
 
 SleepConfig* free_sleep_config(SleepConfig *sc);
@@ -55,6 +56,8 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
+
+bool is_battery_low(void);
 
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;
