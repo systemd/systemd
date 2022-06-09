@@ -139,6 +139,111 @@ DEFINE_STRCHR(char16_t, strchr16);
 DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
 
+/* Patterns are fnmatch-compatible (with reduced feature support). */
+static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_depth) {
+        assert(p);
+        assert(h);
+
+        if (max_depth == 0)
+                return false;
+
+        for (;; p++, h++)
+                switch (*p) {
+                case '\0':
+                        /* End of pattern. Check that haystack is now empty. */
+                        return *h == '\0';
+
+                case '\\':
+                        p++;
+                        if (*p == '\0' || *p != *h)
+                                /* Trailing escape or no match. */
+                                return false;
+                        break;
+
+                case '?':
+                        if (*h == '\0')
+                                /* Early end of haystack. */
+                                return false;
+                        break;
+
+                case '*':
+                        /* No need to recurse for consecutive '*'. */
+                        while (*p == '*')
+                                p++;
+
+                        do {
+                                /* Try matching haystack with remaining pattern. */
+                                if (efi_fnmatch_internal(p, h, max_depth - 1))
+                                        return true;
+
+                                /* Otherwise, we match one char here. */
+                                h++;
+                        } while (*h != '\0');
+
+                        /* End of haystack. Pattern needs to be empty too for a match. */
+                        return *p == '\0';
+
+                case '[':
+                        if (*h == '\0')
+                                /* Early end of haystack. */
+                                return false;
+
+                        bool first = true, can_range = true, match = false;
+                        for (;; first = false) {
+                                p++;
+                                if (*p == '\0')
+                                        return false;
+
+                                if (*p == '\\') {
+                                        p++;
+                                        if (*p == '\0')
+                                                return false;
+                                        match |= *p == *h;
+                                        can_range = true;
+                                        continue;
+                                }
+
+                                /* End of set unless it's the first char. */
+                                if (*p == ']' && !first)
+                                        break;
+
+                                /* Range pattern if '-' is not first or last in set. */
+                                if (*p == '-' && can_range && !first && *(p + 1) != ']') {
+                                        char16_t low = *(p - 1);
+                                        p++;
+                                        if (*p == '\\')
+                                                p++;
+                                        if (*p == '\0')
+                                                return false;
+
+                                        if (low <= *h && *h <= *p)
+                                                match = true;
+
+                                        /* Ranges cannot be chained: [a-c-f] == [-abcf] */
+                                        can_range = false;
+                                        continue;
+                                }
+
+                                if (*p == *h)
+                                        match = true;
+                                can_range = true;
+                        }
+
+                        if (!match)
+                                return false;
+                        break;
+
+                default:
+                        if (*p != *h)
+                                /* Single char mismatch. */
+                                return false;
+                }
+}
+
+bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
+        return efi_fnmatch_internal(pattern, haystack, 32);
+}
+
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;
         int r;
