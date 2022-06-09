@@ -928,7 +928,7 @@ static int nft_set_element_op_in_addr_open(
         r = nft_set_element_op_in_addr(nfnl, table, set,
                                        add, nfproto, af, address, prefixlen);
 
-        log_debug("%s NFT family %s table %s set %s IP addresss %s",
+        log_debug("%s NFT family %s table %s set %s IP address %s",
                   add ? "Added" : "Deleted",
                   nfproto_to_string(nfproto), table, set,
                   IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
