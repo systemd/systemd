@@ -416,6 +416,10 @@ sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*:*
 sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnRammus*:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
+# Lenovo ThinkPad C13 Yoga
+sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnMorphius*:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
 #########################################
 # GP-electronic
 #########################################
