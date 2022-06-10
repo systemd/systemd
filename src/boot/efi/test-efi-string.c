@@ -344,6 +344,7 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("*", "123", true);
         TEST_FNMATCH_ONE("**", "abcd", true);
         TEST_FNMATCH_ONE("*b*", "abcd", true);
+        TEST_FNMATCH_ONE("abc*d", "abc", false);
         TEST_FNMATCH_ONE("*.conf", "arch.conf", true);
         TEST_FNMATCH_ONE("debian-*.conf", "debian-wheezy.conf", true);
         TEST_FNMATCH_ONE("debian-*.*", "debian-wheezy.efi", true);
