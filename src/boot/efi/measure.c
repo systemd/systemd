@@ -205,11 +205,10 @@ EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured
                         load_options,
                         &measured);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(
+                return log_error_status(
                                 err,
-                                L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r",
-                                TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                                err);
+                                "Unable to add load options (i.e. kernel command) line measurement to PCR %u: %m",
+                                TPM_PCR_INDEX_KERNEL_PARAMETERS);
 
         if (ret_measured)
                 *ret_measured = measured;

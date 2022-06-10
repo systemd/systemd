@@ -158,7 +158,7 @@ static void locate_sections(
 
                 if (in_memory) {
                         if (prev_section_addr > sect->VirtualAddress)
-                                log_error_stall(u"Overlapping PE sections detected. Boot may fail due to image memory corruption!");
+                                log_error("Overlapping PE sections detected. Boot may fail due to image memory corruption!");
                         prev_section_addr = sect->VirtualAddress + sect->VirtualSize;
                 }
 
