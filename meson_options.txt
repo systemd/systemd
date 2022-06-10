@@ -214,7 +214,7 @@ option('extra-net-naming-schemes', type : 'string',
 option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
-       choices : ['description', 'name', 'combined'],
+       choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
