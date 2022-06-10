@@ -355,6 +355,7 @@ efi_headers = files(
         'graphics.h',
         'initrd.h',
         'linux.h',
+        'log.h',
         'measure.h',
         'missing_efi.h',
         'pe.h',
@@ -368,13 +369,13 @@ efi_headers = files(
 )
 
 common_sources = files(
-        'assert.c',
         'console.c',
         'devicetree.c',
         'disk.c',
         'efi-string.c',
         'graphics.c',
         'initrd.c',
+        'log.c',
         'measure.c',
         'pe.c',
         'secure-boot.c',
