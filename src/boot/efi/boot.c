@@ -596,14 +596,14 @@ static EFI_STATUS reboot_into_firmware(void) {
         EFI_STATUS err;
 
         if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                return log_error_status_stall(EFI_UNSUPPORTED, L"Reboot to firmware interface not supported.");
+                return log_error_status(EFI_UNSUPPORTED, "Reboot to firmware interface not supported.");
 
         (void) efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", &osind);
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(EFI_GLOBAL_GUID, L"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error setting OsIndications: %r", err);
+                return log_error_status(err, "Error setting OsIndications: %m");
 
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
@@ -646,7 +646,7 @@ static bool menu_run(
                                config->console_mode_efivar : config->console_mode);
         if (err != EFI_SUCCESS) {
                 clear_screen(COLOR_NORMAL);
-                log_error_stall(L"Error switching console mode: %r", err);
+                log_error_status(err, "Error switching console mode: %m");
         }
 
         UINTN line_width = 0, entry_padding = 3;
@@ -1189,7 +1189,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
-                                        log_error_stall(L"Error parsing 'timeout' config option: %a", value);
+                                        log_error("Error parsing 'timeout' config option: %s", value);
                                         continue;
                                 }
                                 config->timeout_sec_config = u;
@@ -1200,7 +1200,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
                 if (streq8(key, "default")) {
                         if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
-                                log_error_stall(L"Unsupported special entry identifier: %a", value);
+                                log_error("Unsupported special entry identifier: %s", value);
                                 continue;
                         }
                         free(config->entry_default_config);
@@ -1211,35 +1211,35 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 if (streq8(key, "editor")) {
                         err = parse_boolean(value, &config->editor);
                         if (err != EFI_SUCCESS)
-                                log_error_stall(L"Error parsing 'editor' config option: %a", value);
+                                log_error("Error parsing 'editor' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "auto-entries")) {
                         err = parse_boolean(value, &config->auto_entries);
                         if (err != EFI_SUCCESS)
-                                log_error_stall(L"Error parsing 'auto-entries' config option: %a", value);
+                                log_error("Error parsing 'auto-entries' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "auto-firmware")) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
-                                log_error_stall(L"Error parsing 'auto-firmware' config option: %a", value);
+                                log_error("Error parsing 'auto-firmware' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "beep")) {
                         err = parse_boolean(value, &config->beep);
                         if (err != EFI_SUCCESS)
-                                log_error_stall(L"Error parsing 'beep' config option: %a", value);
+                                log_error("Error parsing 'beep' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "reboot-for-bitlocker")) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
-                                log_error_stall(L"Error parsing 'reboot-for-bitlocker' config option: %a", value);
+                                log_error("Error parsing 'reboot-for-bitlocker' config option: %s", value);
                 }
 
                 if (streq8(key, "secure-boot-enroll")) {
@@ -1250,7 +1250,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else if (streq8(value, "off"))
                                 config->secure_boot_enroll = ENROLL_OFF;
                         else
-                                log_error_stall(L"Error parsing 'secure-boot-enroll' config option: %a", value);
+                                log_error("Error parsing 'secure-boot-enroll' config option: %s", value);
                         continue;
                 }
 
@@ -1264,7 +1264,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
-                                        log_error_stall(L"Error parsing 'console-mode' config option: %a", value);
+                                        log_error("Error parsing 'console-mode' config option: %s", value);
                                         continue;
                                 }
                                 config->console_mode = u;
@@ -1284,7 +1284,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
                                 err = parse_boolean(value, &on);
                                 if (err != EFI_SUCCESS) {
-                                        log_error_stall(L"Error parsing 'random-seed-mode' config option: %a", value);
+                                        log_error("Error parsing 'random-seed-mode' config option: %s", value);
                                         continue;
                                 }
 
@@ -1389,7 +1389,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         strcpy16(file_info->FileName, entry->next_name);
         err = handle->SetInfo(handle, &GenericFileInfo, file_info_size, file_info);
         if (err != EFI_SUCCESS) {
-                log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, err);
+                log_error_status(err, "Failed to rename '%ls' to '%ls', ignoring: %m", old_path, entry->next_name);
                 return;
         }
 
@@ -1598,7 +1598,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (err == EFI_SUCCESS)
                 config->timeout_sec = config->timeout_sec_efivar;
         else if (err != EFI_NOT_FOUND)
-                log_error_stall(u"Error reading LoaderConfigTimeout EFI variable: %r", err);
+                log_error_status(err, "Error reading LoaderConfigTimeout EFI variable: %m");
 
         err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (err == EFI_SUCCESS) {
@@ -1607,7 +1607,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
                 config->force_menu = true; /* force the menu when this is set */
         } else if (err != EFI_NOT_FOUND)
-                log_error_stall(u"Error reading LoaderConfigTimeoutOneShot EFI variable: %r", err);
+                log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
 
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
         if (err == EFI_SUCCESS)
@@ -2363,38 +2363,38 @@ static EFI_STATUS image_start(
         _cleanup_(file_closep) EFI_FILE *image_root = NULL;
         err = open_volume(entry->device, &image_root);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error opening root path: %r", err);
+                return log_error_status(err, "Error opening root path: %m");
 
         err = make_file_device_path(entry->device, entry->loader, &path);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error making file device path: %r", err);
+                return log_error_status(err, "Error making file device path: %m");
 
         UINTN initrd_size = 0;
         _cleanup_free_ void *initrd = NULL;
         _cleanup_free_ char16_t *options_initrd = NULL;
         err = initrd_prepare(image_root, entry, &options_initrd, &initrd, &initrd_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error preparing initrd: %r", err);
+                return log_error_status(err, "Error preparing initrd: %m");
 
         err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
+                return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
         if (entry->devicetree) {
                 err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error loading %s: %r", entry->devicetree, err);
+                        return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
         }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd, initrd_size, &initrd_handle);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error registering initrd: %r", err);
+                return log_error_status(err, "Error registering initrd: %m");
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **) &loaded_image);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
+                return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
 
         char16_t *options = options_initrd ?: entry->options;
         if (options) {
@@ -2418,7 +2418,7 @@ static EFI_STATUS image_start(
                 err = pe_alignment_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
-                                return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
+                                return log_error_status(err, "Error finding kernel compat entry address: %m");
                 } else {
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
@@ -2430,7 +2430,7 @@ static EFI_STATUS image_start(
                 }
         }
 
-        return log_error_status_stall(err, L"Failed to execute %s (%s): %r", entry->title_show, entry->loader, err);
+        return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader);
 }
 
 static void config_free(Config *config) {
@@ -2664,7 +2664,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+                return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
         loaded_image_path = DevicePathToStr(loaded_image->FilePath);
         if (!loaded_image_path)
@@ -2674,12 +2674,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = open_volume(loaded_image->DeviceHandle, &root_dir);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Unable to open root directory: %r", err);
+                return log_error_status(err, "Unable to open root directory: %m");
 
         if (secure_boot_enabled() && shim_loaded()) {
                 err = security_policy_install();
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error installing security policy: %r", err);
+                        return log_error_status(err, "Error installing security policy: %m");
         }
 
         (void) load_drivers(image, loaded_image, root_dir);
@@ -2687,7 +2687,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
         if (config.entry_count == 0) {
-                log_error_stall(L"No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
+                log_error("No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
                 goto out;
         }
 
