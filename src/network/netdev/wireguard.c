@@ -1086,8 +1086,8 @@ static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_
         assert(dest);
 
         r = read_full_file_full(
-                        AT_FDCWD, filename, UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE | READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
+                        AT_FDCWD, filename, UINT64_MAX, WG_KEY_LEN,
+                        READ_FULL_FILE_SECURE | READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET | READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL, &key, &key_len);
         if (r < 0)
                 return r;
