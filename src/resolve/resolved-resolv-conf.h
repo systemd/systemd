@@ -19,6 +19,8 @@ typedef enum ResolvConfMode {
 } ResolvConfMode;
 
 int resolv_conf_mode(void);
+int resolv_conf_start(void);
+int resolv_conf_stop(void);
 
 const char* resolv_conf_mode_to_string(ResolvConfMode m) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
