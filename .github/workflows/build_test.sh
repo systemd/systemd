@@ -16,7 +16,8 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 ARGS=()
 
 if [[ "$COMPILER" == gcc ]]; then
-    ARGS+=("--optimization=2 -Dc_args=-finline-limit=1000 -Dcpp_args=-finline-limit=1000")
+    c_args="-finline-limit=1000 -Wno-maybe-uninitialized"
+    ARGS+=("--optimization=2 -Dc_args='$c_args' -Dcpp_args='$c_args'")
 fi
 
 PACKAGES=(
@@ -137,9 +138,9 @@ for args in "${ARGS[@]}"; do
     if ! AR="$AR" \
          CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
-         meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+         eval meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup $additional_meson_args \
-               -Dcryptolib="${CRYPTOLIB:?}" $args build; then
+               -Dcryptolib='"${CRYPTOLIB:?}"' $args build; then
 
         cat build/meson-logs/meson-log.txt
         fatal "meson failed with $args"
