@@ -1,0 +1,78 @@
+name: Feature request
+description: Suggest an improvement
+labels: ["RFE 🎁"]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to fill out this feature request!
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Please chose components related to this feature request.
+      multiple: true
+      options:
+        - 'bootctl'
+        - 'homectl'
+        - 'journalctl'
+        - 'loginctl'
+        - 'networkctl'
+        - 'nss-resolve'
+        - 'pam_systemd'
+        - 'pam_systemd_home'
+        - 'resolvectl'
+        - 'systemctl'
+        - 'systemd'
+        - 'systemd-boot'
+        - 'systemd-homed'
+        - 'systemd-journald'
+        - 'systemd-logind'
+        - 'systemd-networkd'
+        - 'systemd-networkd-wait-online'
+        - 'systemd-nspawn'
+        - 'systemd-resolved'
+        - 'systemd-stub'
+        - 'systemd-udevd'
+        - 'the bootloader itself'
+        - 'udev builtins'
+        - 'udevadm'
+        - '.network files'
+        - 'tests'
+        - 'other'
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Is your feature request related to a problem? Please describe
+      description: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: The systemd version you checked that didn't have the feature you are asking for
+      description: If this is not the most recently released upstream version, then please check first if it has that feature already.
+      placeholder: '251'
+    validations:
+      required: false

@@ -1,0 +1,38 @@
+# Inspired by: https://github.com/stefanbuck/ristorante
+# See: https://stefanbuck.com/blog/codeless-contributions-with-github-issue-forms
+---
+
+name: Issue labeler
+on:
+  issues:
+    types: [ opened ]
+
+jobs:
+  label-component:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        template: [ bug_report.yml, feature_request.yml ]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Parse issue form
+        uses: stefanbuck/github-issue-praser@v2
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/${{ matrix.template }}
+
+      - name: Set labels based on component field
+        uses: redhat-plumbers-in-action/advanced-issue-labeler@v1
+        with:
+          issue-form: ${{ steps.issue-parser.outputs.jsonString }}
+          section: component
+          block-list: |
+            other
+          token: ${{ secrets.GITHUB_TOKEN }}
