@@ -197,7 +197,8 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
                                         p++;
                                         if (*p == '\0')
                                                 return false;
-                                        match |= *p == *h;
+                                        if (*p == *h)
+                                                match = true;
                                         can_range = true;
                                         continue;
                                 }
