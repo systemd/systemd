@@ -1,0 +1,29 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Symlink resolv.conf if missing
+Documentation=man:systemd-resolved.service(8) man:resolv.conf(5)
+After=systemd-journald.service
+After=local-fs.target network-pre.target systemd-sysusers.service
+# no dynamic DNS configuration would be known before network configuration
+After=systemd-networkd.service
+Before=network.target
+ConditionPathExists=!/etc/resolv.conf
+BindsTo=systemd-resolved.service
+
+[Service]
+ExecStart=-{{ROOTLIBEXECDIR}}/systemd-resolved --resolvconf-start
+RemainAfterExit=true
+ExecStop={{ROOTLIBEXECDIR}}/systemd-resolved --resolvconf-stop
+WorkingDirectory=/etc
+Type=oneshot
+
+[Install]
+WantedBy=systemd-resolved.service
