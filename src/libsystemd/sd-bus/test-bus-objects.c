@@ -254,6 +254,9 @@ static void *server(void *p) {
         assert_se(sd_bus_add_node_enumerator(bus, NULL, "/value/b", enumerator3_callback, NULL) >= 0);
         assert_se(sd_bus_add_object_manager(bus, NULL, "/value") >= 0);
         assert_se(sd_bus_add_object_manager(bus, NULL, "/value/a") >= 0);
+        assert_se(sd_bus_add_object_vtable(
+                                  bus, NULL, "/value/managed", "org.freedesktop.systemd.test", vtable, c) >= 0);
+
 
         assert_se(sd_bus_start(bus) >= 0);
 
@@ -461,7 +464,53 @@ static int client(struct context *c) {
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, NULL);
         assert_se(r >= 0);
 
+        fputs("GetManagedObjects dump\n", stdout);
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        // Check that /value/managed does not have ObjectManager interface
+        // but /value/a does
+        assert_se(sd_bus_message_rewind(reply, 1));
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{oa{sa{sv}}}") > 0);
+        while (({
+                       r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "oa{sa{sv}}");
+                       assert_se(r >= 0);
+                       r;
+               }) > 0) {
+                const char *path = NULL;
+                assert_se(sd_bus_message_read_basic(reply, 'o', &path) > 0);
+                if (streq(path, "/value/managed") || streq(path, "/value/a")) {
+                        // Check that there is no object manager interface here
+                        bool found_object_manager_interface = false;
+                        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+                        while (({
+                                       r = sd_bus_message_enter_container(
+                                                       reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}");
+                                       assert_se(r >= 0);
+                                       r;
+                               }) > 0) {
+                                const char *interface_name = NULL;
+                                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
+
+                                if (streq(interface_name, "org.freedesktop.DBus.ObjectManager")) {
+                                        assert_se(!streq(path, "/value/managed"));
+                                        found_object_manager_interface = true;
+                                }
+
+                                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
+                                assert_se(sd_bus_message_exit_container(reply) >= 0);
+                        }
+                        assert_se(sd_bus_message_exit_container(reply) >= 0);
+
+                        if (streq(path, "/value/a")) {
+                                assert_se(found_object_manager_interface); // ObjectManager must be here
+                        }
+
+                } else {
+                        assert_se(sd_bus_message_skip(reply, "a{sa{sv}}") >= 0);
+                }
+
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
+        }
 
         reply = sd_bus_message_unref(reply);
 
