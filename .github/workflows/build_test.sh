@@ -17,7 +17,7 @@ ARGS=()
 
 if [[ "$COMPILER" == gcc ]]; then
     c_args="-finline-limit=1000 -Wno-maybe-uninitialized"
-    ARGS+=("--optimization=2 -Dc_args='$c_args' -Dcpp_args='$c_args'")
+    ARGS+=("--optimization=2 -Dc_args='$c_args' -Dcpp_args='$c_args' -Dfuzz-tests=false")
 fi
 
 PACKAGES=(
