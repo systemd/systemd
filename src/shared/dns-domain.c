@@ -1025,7 +1025,7 @@ static bool dns_service_name_label_is_valid(const char *label, size_t n) {
 int dns_service_split(const char *joined, char **_name, char **_type, char **_domain) {
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
         const char *p = joined, *q = NULL, *d = NULL;
-        char a[DNS_LABEL_MAX], b[DNS_LABEL_MAX], c[DNS_LABEL_MAX];
+        char a[DNS_LABEL_MAX+1], b[DNS_LABEL_MAX+1], c[DNS_LABEL_MAX+1];
         int an, bn, cn, r;
         unsigned x = 0;
 
