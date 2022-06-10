@@ -3,7 +3,6 @@
 set -e
 
 TEST_DESCRIPTION="UDEV"
-IMAGE_NAME="default"
 TEST_NO_NSPAWN=1
 
 # shellcheck source=test/test-functions
