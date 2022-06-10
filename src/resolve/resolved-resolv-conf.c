@@ -324,6 +324,12 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
         return fflush_and_check(f);
 }
 
+void manager_symlink_stub_to_uplink_resolv_conf(void) {
+        int r = symlink_atomic_label(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
+        if (r < 0)
+                log_warning_errno(r, "Failed to symlink %s, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
+}
+
 int manager_write_resolv_conf(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_(unlink_and_freep) char *temp_path_uplink = NULL, *temp_path_stub = NULL;
@@ -370,11 +376,9 @@ int manager_write_resolv_conf(Manager *m) {
                         log_warning_errno(r, "Failed to move new %s into place, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
 
                 temp_path_stub = mfree(temp_path_stub); /* free the string explicitly, so that we don't unlink anymore */
-        } else {
-                r = symlink_atomic_label(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to symlink %s, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
-        }
+        } else
+                manager_symlink_stub_to_uplink_resolv_conf();
+
 
         r = conservative_rename(temp_path_uplink, PRIVATE_UPLINK_RESOLV_CONF);
         if (r < 0)
