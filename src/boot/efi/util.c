@@ -411,10 +411,17 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         return err;
 }
 
-void log_error_stall(const CHAR16 *fmt, ...) {
-        va_list args;
+static unsigned log_count = 0;
+void log_wait(void) {
+        if (log_count == 0)
+                return;
 
-        assert(fmt);
+        BS->Stall(MIN(2 * log_count, 8) * 1000 * 1000);
+        log_count = 0;
+}
+
+EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
+        assert(format);
 
         INT32 attr = ST->ConOut->Mode->Attribute;
         ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
@@ -422,21 +429,17 @@ void log_error_stall(const CHAR16 *fmt, ...) {
         if (ST->ConOut->Mode->CursorColumn > 0)
                 Print(L"\n");
 
-        va_start(args, fmt);
-        VPrint(fmt, args);
-        va_end(args);
+        va_list ap;
+        va_start(ap, format);
+        vprintf_status(status, format, ap);
+        va_end(ap);
 
         Print(L"\n");
 
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        /* Give the user a chance to see the message. */
-        BS->Stall(3 * 1000 * 1000);
-}
-
-EFI_STATUS log_oom(void) {
-        log_error_stall(L"Out of memory.");
-        return EFI_OUT_OF_RESOURCES;
+        log_count++;
+        return status;
 }
 
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
