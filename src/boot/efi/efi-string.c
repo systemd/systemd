@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <wchar.h>
 
 #include "efi-string.h"
 
@@ -9,8 +10,9 @@
 #  include "util.h"
 #else
 #  include <stdlib.h>
-#  include "macro.h"
+#  include "alloc-util.h"
 #  define xmalloc(n) ASSERT_SE_PTR(malloc(n))
+#  define xnew(type, n) ASSERT_SE_PTR(new(type, (n)))
 #endif
 
 /* String functions for both char and char16_t that should behave the same way as their respective
@@ -271,6 +273,496 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
+
+static const char * const warn_table[] = {
+        [EFI_SUCCESS]               = "Success",
+#ifdef SD_BOOT
+        [EFI_WARN_UNKOWN_GLYPH]     = "Unknown glyph",
+        [EFI_WARN_DELETE_FAILURE]   = "Delete failure",
+        [EFI_WARN_WRITE_FAILURE]    = "Write failure",
+        [EFI_WARN_BUFFER_TOO_SMALL] = "Buffer too small",
+#  ifdef EFI_WARN_RESET_REQUIRED
+        [EFI_WARN_STALE_DATA]       = "Stale data",
+        [EFI_WARN_FILE_SYSTEM]      = "File system",
+        [EFI_WARN_RESET_REQUIRED]   = "Reset required",
+#  endif
+#endif
+};
+
+/* Errors have MSB set, remove it to keep the table compact. */
+#define NOERR(err) ((err) & ~EFI_ERROR_MASK)
+
+static const char * const err_table[] = {
+        [NOERR(EFI_ERROR_MASK)]           = "Error",
+        [NOERR(EFI_LOAD_ERROR)]           = "Load error",
+#ifdef SD_BOOT
+        [NOERR(EFI_INVALID_PARAMETER)]    = "Invalid parameter",
+        [NOERR(EFI_UNSUPPORTED)]          = "Unsupported",
+        [NOERR(EFI_BAD_BUFFER_SIZE)]      = "Bad buffer size",
+        [NOERR(EFI_BUFFER_TOO_SMALL)]     = "Buffer too small",
+        [NOERR(EFI_NOT_READY)]            = "Not ready",
+        [NOERR(EFI_DEVICE_ERROR)]         = "Device error",
+        [NOERR(EFI_WRITE_PROTECTED)]      = "Write protected",
+        [NOERR(EFI_OUT_OF_RESOURCES)]     = "Out of resources",
+        [NOERR(EFI_VOLUME_CORRUPTED)]     = "Volume corrupt",
+        [NOERR(EFI_VOLUME_FULL)]          = "Volume full",
+        [NOERR(EFI_NO_MEDIA)]             = "No media",
+        [NOERR(EFI_MEDIA_CHANGED)]        = "Media changed",
+        [NOERR(EFI_NOT_FOUND)]            = "Not found",
+        [NOERR(EFI_ACCESS_DENIED)]        = "Access denied",
+        [NOERR(EFI_NO_RESPONSE)]          = "No response",
+        [NOERR(EFI_NO_MAPPING)]           = "No mapping",
+        [NOERR(EFI_TIMEOUT)]              = "Time out",
+        [NOERR(EFI_NOT_STARTED)]          = "Not started",
+        [NOERR(EFI_ALREADY_STARTED)]      = "Already started",
+        [NOERR(EFI_ABORTED)]              = "Aborted",
+        [NOERR(EFI_ICMP_ERROR)]           = "ICMP error",
+        [NOERR(EFI_TFTP_ERROR)]           = "TFTP error",
+        [NOERR(EFI_PROTOCOL_ERROR)]       = "Protocol error",
+        [NOERR(EFI_INCOMPATIBLE_VERSION)] = "Incompatible version",
+        [NOERR(EFI_SECURITY_VIOLATION)]   = "Security violation",
+        [NOERR(EFI_CRC_ERROR)]            = "CRC error",
+        [NOERR(EFI_END_OF_MEDIA)]         = "End of media",
+        [29]                              = "Reserved (29)",
+        [30]                              = "Reserved (30)",
+        [NOERR(EFI_END_OF_FILE)]          = "End of file",
+        [NOERR(EFI_INVALID_LANGUAGE)]     = "Invalid language",
+        [NOERR(EFI_COMPROMISED_DATA)]     = "Compromised data",
+#  ifdef EFI_HTTP_ERROR
+        [NOERR(EFI_IP_ADDRESS_CONFLICT)]  = "IP address conflict",
+        [NOERR(EFI_HTTP_ERROR)]           = "HTTP error",
+#  endif
+#endif
+};
+
+static const char *status_to_string(EFI_STATUS status) {
+        if (status <= ELEMENTSOF(warn_table) - 1)
+                return warn_table[status];
+        if (status >= EFI_ERROR_MASK && status <= ((ELEMENTSOF(err_table) - 1) | EFI_ERROR_MASK))
+                return err_table[NOERR(status)];
+        return NULL;
+}
+
+typedef struct {
+        size_t padded_len; /* Field width in printf. */
+        size_t len;        /* Precision in printf. */
+        bool pad_zero;
+        bool align_left;
+        bool alternative_form;
+        bool long_arg;
+        bool longlong_arg;
+        bool have_field_width;
+
+        wchar_t c;
+        const char *str;
+        const wchar_t *wstr;
+
+        /* For numbers. */
+        bool is_signed;
+        bool lowercase;
+        int8_t base;
+        char sign_pad; /* For + and (space) flags. */
+} SpecifierContext;
+
+typedef struct {
+        char16_t stack_buf[128]; /* We use stack_buf first to avoid allocations in most cases. */
+        char16_t *dyn_buf;       /* Allocated buf or NULL if stack_buf is used. */
+        char16_t *buf;           /* Points to the current active buf. */
+        size_t n_buf;
+        size_t n;
+
+        EFI_STATUS status;
+        const char *format;
+        va_list ap;
+} FormatContext;
+
+static void grow_buf(FormatContext *ctx, size_t need) {
+        assert(ctx);
+
+        if (ctx->n + need < ctx->n_buf)
+                return;
+
+        ctx->n_buf = 2 * (ctx->n + need);
+
+        /* We cannot use realloc here as ctx->buf may be ctx->stack_buf, which we cannot free. */
+        char16_t *new_buf = xnew(char16_t, ctx->n_buf);
+        memcpy(new_buf, ctx->buf, ctx->n * sizeof(*ctx->buf));
+
+        free(ctx->dyn_buf);
+        ctx->buf = ctx->dyn_buf = new_buf;
+}
+
+static void push_padding(FormatContext *ctx, char pad, size_t len) {
+        assert(ctx);
+        while (len > 0) {
+                len--;
+                ctx->buf[ctx->n++] = pad;
+        }
+}
+
+static bool push_str(FormatContext *ctx, SpecifierContext *sp) {
+        assert(ctx);
+        assert(sp);
+
+        sp->padded_len = LESS_BY(sp->padded_len, sp->len);
+
+        grow_buf(ctx, sp->padded_len + sp->len);
+
+        if (!sp->align_left)
+                push_padding(ctx, ' ', sp->padded_len);
+
+        /* In userspace unit tests we cannot just memcpy() the wide string. */
+        if (sp->wstr && sizeof(wchar_t) == sizeof(char16_t)) {
+                memcpy(ctx->buf + ctx->n, sp->wstr, sp->len * sizeof(*sp->wstr));
+                ctx->n += sp->len;
+        } else
+                for (size_t i = 0; i < sp->len; i++)
+                        ctx->buf[ctx->n++] = sp->str ? sp->str[i] : sp->wstr[i];
+
+        if (sp->align_left)
+                push_padding(ctx, ' ', sp->padded_len);
+
+        assert(ctx->n < ctx->n_buf);
+        return true;
+}
+
+static bool push_num(FormatContext *ctx, SpecifierContext *sp, uint64_t u) {
+        const char *digits = sp->lowercase ? "0123456789abcdef" : "0123456789ABCDEF";
+        char16_t tmp[32];
+        size_t n = 0;
+
+        assert(ctx);
+        assert(sp);
+        assert(IN_SET(sp->base, 10, 16));
+
+        /* "%.0u" prints nothing if value is 0. */
+        if (u == 0 && sp->len == 0)
+                return true;
+
+        if (sp->is_signed && (int64_t) u < 0) {
+                /* We cannot just do "u = -(int64_t)u" here because -INT64_MIN overflows. */
+
+                uint64_t rem = -((int64_t) u % sp->base);
+                u = (int64_t) u / -sp->base;
+                tmp[n++] = digits[rem];
+                sp->sign_pad = '-';
+        }
+
+        while (u > 0 || n == 0) {
+                uint64_t rem = u % sp->base;
+                u /= sp->base;
+                tmp[n++] = digits[rem];
+        }
+
+        /* Note that numbers never get truncated! */
+        size_t prefix = (sp->sign_pad != 0 ? 1 : 0) + (sp->alternative_form ? 2 : 0);
+        size_t number_len = prefix + MAX(n, sp->len);
+        grow_buf(ctx, MAX(sp->padded_len, number_len));
+
+        size_t padding = 0;
+        if (sp->pad_zero)
+                /* Leading zeroes go after the sign or 0x prefix. */
+                number_len = MAX(number_len, sp->padded_len);
+        else
+                padding = LESS_BY(sp->padded_len, number_len);
+
+        if (!sp->align_left)
+                push_padding(ctx, ' ', padding);
+
+        if (sp->sign_pad != 0)
+                ctx->buf[ctx->n++] = sp->sign_pad;
+        if (sp->alternative_form) {
+                ctx->buf[ctx->n++] = '0';
+                ctx->buf[ctx->n++] = sp->lowercase ? 'x' : 'X';
+        }
+
+        push_padding(ctx, '0', LESS_BY(number_len, n + prefix));
+
+        while (n > 0)
+                ctx->buf[ctx->n++] = tmp[--n];
+
+        if (sp->align_left)
+                push_padding(ctx, ' ', padding);
+
+        assert(ctx->n < ctx->n_buf);
+        return true;
+}
+
+/* This helps unit testing. */
+#ifdef SD_BOOT
+#  define NULLSTR "(null)"
+#  define wcsnlen strnlen16
+#else
+#  define NULLSTR "(nil)"
+#endif
+
+static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
+        /* Parses one item from the format specifier in ctx and put the info into sp. If we are done with
+         * this specifier returns true, otherwise this function should be called again. */
+
+        /* This implementation assumes 32bit ints. Also note that all types smaller than int are promoted to
+         * int in vararg functions, which is why we fetch only ints for any such types. The compiler would
+         * otherwise warn about fetching smaller types. */
+        assert_cc(sizeof(int) == 4);
+        assert_cc(sizeof(wchar_t) <= 4);
+        assert_cc(sizeof(intmax_t) <= 8);
+
+        assert(ctx);
+        assert(sp);
+
+        switch (*ctx->format) {
+        case '#':
+                sp->alternative_form = true;
+                return false;
+        case '.':
+                sp->have_field_width = true;
+                return false;
+        case '-':
+                sp->align_left = true;
+                return false;
+        case '+':
+        case ' ':
+                sp->sign_pad = *ctx->format;
+                return false;
+
+        case '0':
+                if (!sp->have_field_width) {
+                        sp->pad_zero = true;
+                        return false;
+                }
+
+                /* If field width has already been provided then 0 is part of precision (%.0s). */
+                _fallthrough_;
+
+        case '*':
+        case '1' ... '9': {
+                int64_t i;
+
+                if (*ctx->format == '*')
+                        i = va_arg(ctx->ap, int);
+                else {
+                        uint64_t u;
+                        if (!parse_number8(ctx->format, &u, &ctx->format) || u > INT_MAX)
+                                assert_not_reached();
+                        ctx->format--; /* Point it back to the last digit. */
+                        i = u;
+                }
+
+                if (sp->have_field_width) {
+                        /* Negative precision is ignored. */
+                        if (i >= 0)
+                                sp->len = (size_t) i;
+                } else {
+                        /* Negative field width is treated as positive field width with - flag. */
+                        if (i < 0) {
+                                i *= -1;
+                                sp->align_left = true;
+                        }
+                        sp->padded_len = i;
+                }
+
+                return false;
+        }
+
+        case 'h':
+                if (*(ctx->format + 1) == 'h')
+                        ctx->format++;
+                /* char/short gets promoted to int, nothing to do here. */
+                return false;
+
+        case 'l':
+                if (*(ctx->format + 1) == 'l') {
+                        ctx->format++;
+                        sp->longlong_arg = true;
+                } else
+                        sp->long_arg = true;
+                return false;
+
+        case 'z':
+                sp->long_arg = sizeof(size_t) == sizeof(long);
+                sp->longlong_arg = !sp->long_arg && sizeof(size_t) == sizeof(long long);
+                return false;
+
+        case 'j':
+                sp->long_arg = sizeof(intmax_t) == sizeof(long);
+                sp->longlong_arg = !sp->long_arg && sizeof(intmax_t) == sizeof(long long);
+                return false;
+
+        case 't':
+                sp->long_arg = sizeof(ptrdiff_t) == sizeof(long);
+                sp->longlong_arg = !sp->long_arg && sizeof(ptrdiff_t) == sizeof(long long);
+                return false;
+
+        case '%':
+                sp->str = "%";
+                sp->len = 1;
+                return push_str(ctx, sp);
+
+        case 'c':
+                sp->wstr = &(wchar_t){ va_arg(ctx->ap, int) };
+                sp->len = 1;
+                return push_str(ctx, sp);
+
+        case 's':
+                if (sp->long_arg) {
+                        sp->wstr = va_arg(ctx->ap, const wchar_t *) ?: L"(null)";
+                        sp->len = wcsnlen(sp->wstr, sp->len);
+                } else {
+                        sp->str = va_arg(ctx->ap, const char *) ?: "(null)";
+                        sp->len = strnlen8(sp->str, sp->len);
+                }
+                return push_str(ctx, sp);
+
+        case 'd':
+        case 'i':
+        case 'u':
+        case 'x':
+        case 'X':
+                sp->lowercase = IN_SET(*ctx->format, 'x');
+                sp->is_signed = IN_SET(*ctx->format, 'd', 'i');
+                sp->base = IN_SET(*ctx->format, 'x', 'X') ? 16 : 10;
+                if (sp->len == SIZE_MAX)
+                        sp->len = 1;
+
+                uint64_t v;
+                if (sp->longlong_arg)
+                        v = sp->is_signed ? (uint64_t) va_arg(ctx->ap, long long) :
+                                            va_arg(ctx->ap, unsigned long long);
+                else if (sp->long_arg)
+                        v = sp->is_signed ? (uint64_t) va_arg(ctx->ap, long) : va_arg(ctx->ap, unsigned long);
+                else
+                        v = sp->is_signed ? (uint64_t) va_arg(ctx->ap, int) : va_arg(ctx->ap, unsigned);
+
+                return push_num(ctx, sp, v);
+
+        case 'p': {
+                const void *ptr = va_arg(ctx->ap, const void *);
+                if (!ptr) {
+                        sp->str = NULLSTR;
+                        sp->len = STRLEN(NULLSTR);
+                        return push_str(ctx, sp);
+                }
+
+                sp->base = 16;
+                sp->lowercase = true;
+                sp->alternative_form = true;
+                sp->len = 0; /* Precision is ignored for %p. */
+                return push_num(ctx, sp, (uintptr_t) ptr);
+        }
+
+        case 'm': {
+                sp->str = status_to_string(ctx->status);
+                if (sp->str) {
+                        sp->len = strlen8(sp->str);
+                        return push_str(ctx, sp);
+                }
+
+                sp->base = 16;
+                sp->lowercase = true;
+                sp->alternative_form = true;
+                sp->len = 0;
+                return push_num(ctx, sp, ctx->status);
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
+/* printf_internal is largely compatible to userspace vasprintf. Any features omitted should trigger asserts.
+ *
+ * Supported:
+ *  - Flags: #, 0, +, -, space
+ *  - Lengths: h, hh, l, ll, z, j, t
+ *  - Specifiers: %, c, s, u, i, d, x, X, p, m
+ *  - Precision and width (inline or as int arg using *)
+ *
+ * Notable differences:
+ *  - Passing NULL to %s is permitted and will print "(null)"
+ *  - %p will also use "(null)"
+ *  - The provided EFI_STATUS is used for %m instead of errno
+ *  - "\n" is translated to "\r\n" */
+_printf_(2, 0) static char16_t *printf_internal(EFI_STATUS status, const char *format, va_list ap, bool ret) {
+        assert(format);
+
+        FormatContext ctx = {
+                .buf = ctx.stack_buf,
+                .n_buf = ELEMENTSOF(ctx.stack_buf),
+                .format = format,
+                .status = status,
+        };
+
+        /* We cannot put this into the struct without making a copy. */
+        va_copy(ctx.ap, ap);
+
+        while (*ctx.format != '\0') {
+                SpecifierContext sp = { .len = SIZE_MAX };
+
+                switch (*ctx.format) {
+                case '%':
+                        ctx.format++;
+                        while (!handle_format_specifier(&ctx, &sp))
+                                ctx.format++;
+                        ctx.format++;
+                        break;
+                case '\n':
+                        ctx.format++;
+                        sp.str = "\r\n";
+                        sp.len = 2;
+                        push_str(&ctx, &sp);
+                        break;
+                default:
+                        sp.str = ctx.format++;
+                        while (!IN_SET(*ctx.format, '%', '\n', '\0'))
+                                ctx.format++;
+                        sp.len = ctx.format - sp.str;
+                        push_str(&ctx, &sp);
+                }
+        }
+
+        va_end(ctx.ap);
+
+        assert(ctx.n < ctx.n_buf);
+        ctx.buf[ctx.n++] = '\0';
+
+        if (ret) {
+                if (ctx.dyn_buf)
+                        return TAKE_PTR(ctx.dyn_buf);
+
+                char16_t *ret_buf = xnew(char16_t, ctx.n);
+                memcpy(ret_buf, ctx.buf, ctx.n * sizeof(*ctx.buf));
+                return ret_buf;
+        }
+
+#ifdef SD_BOOT
+        ST->ConOut->OutputString(ST->ConOut, ctx.buf);
+#endif
+
+        return mfree(ctx.dyn_buf);
+}
+
+void printf_status(EFI_STATUS status, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        printf_internal(status, format, ap, false);
+        va_end(ap);
+}
+
+void vprintf_status(EFI_STATUS status, const char *format, va_list ap) {
+        printf_internal(status, format, ap, false);
+}
+
+char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        char16_t *ret = printf_internal(status, format, ap, true);
+        va_end(ap);
+        return ret;
+}
+
+char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
+        return printf_internal(status, format, ap, true);
+}
 
 #ifdef SD_BOOT
 /* To provide the actual implementation for these we need to remove the redirection to the builtins. */
