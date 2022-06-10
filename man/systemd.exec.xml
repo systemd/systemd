@@ -1224,22 +1224,25 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>ProtectSystem=</varname></term>
 
-        <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
-        <literal>strict</literal>. If true, mounts the <filename>/usr/</filename> and the boot loader
-        directories (<filename>/boot</filename> and <filename>/efi</filename>) read-only for processes
-        invoked by this unit. If set to <literal>full</literal>, the <filename>/etc/</filename> directory is
-        mounted read-only, too. If set to <literal>strict</literal> the entire file system hierarchy is
-        mounted read-only, except for the API file system subtrees <filename>/dev/</filename>,
-        <filename>/proc/</filename> and <filename>/sys/</filename> (protect these directories using
-        <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
-        operating system (and optionally its configuration, and local mounts) is prohibited for the service.  It is
-        recommended to enable this setting for all long-running services, unless they are involved with system updates
-        or need to modify the operating system in other ways. If this option is used,
-        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
-        setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all
-        cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below. Defaults to
-        off.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special values <literal>full</literal>,
+        <literal>strict</literal> or <literal>extra-strict</literal>. If true, mounts the
+        <filename>/usr/</filename> and the boot loader directories (<filename>/boot</filename> and
+        <filename>/efi</filename>) read-only for processes invoked by this unit. If set to
+        <literal>full</literal>, the <filename>/etc/</filename> directory is mounted read-only, too. If set
+        to <literal>strict</literal> the entire file system hierarchy is mounted read-only, except for the
+        API file system subtrees <filename>/dev/</filename>, <filename>/proc/</filename> and
+        <filename>/sys/</filename> (protect these directories using <varname>PrivateDevices=</varname>,
+        <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>). If set to to
+        <literal>extra-strict</literal> the entire file system hierarchy is mounted non-executable, except
+        for the <filename>/usr</filename>. This setting ensures that any modification of the vendor-supplied
+        operating system (and optionally its configuration, and local mounts) is prohibited for the service.
+        It is recommended to enable this setting for all long-running services, unless they are involved with
+        system updates or need to modify the operating system in other ways. If this option is used,
+        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made
+        read-only and <varname>ExecPaths=</varname> may be used to exclude specific directories from being
+        made non-executable. This setting is implied if <varname>DynamicUser=</varname> is set. This setting
+        cannot ensure protection in all cases. In general it has the same limitations as
+        <varname>ReadOnlyPaths=</varname>, see below. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

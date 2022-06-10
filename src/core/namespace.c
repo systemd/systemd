@@ -219,6 +219,30 @@ static const MountEntry protect_system_strict_table[] = {
         { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
 
+/*
+ * ProtectSystem=extra-strict table. In addition to protections of ProtectSystem=strict,
+ * execute permissions are removed anywhere except for /usr with MS_NOEXEC.
+ */
+static const MountEntry protect_system_extra_strict_table[] = {
+        { "/",                   READONLY,           false },
+        { "/proc",               READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/sys",                READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/dev",                READWRITE_IMPLICIT, false },      /* PrivateDevices= */
+        { "/home",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/",                   NOEXEC,             false },
+        { "/usr",                EXEC,               false },
+#if HAVE_SPLIT_USR
+        { "/lib",                EXEC,               true  },
+        { "/lib64",              EXEC,               true  },
+        { "/bin",                EXEC,               true  },
+#  if HAVE_SPLIT_BIN
+        { "/sbin",               EXEC,               true  },
+#  endif
+#endif
+};
+
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [INACCESSIBLE]         = "inaccessible",
         [OVERLAY_MOUNT]        = "overlay",
@@ -644,6 +668,9 @@ static int append_protect_system(MountEntry **p, ProtectSystem protect_system, b
 
         case PROTECT_SYSTEM_STRICT:
                 return append_static_mounts(p, protect_system_strict_table, ELEMENTSOF(protect_system_strict_table), ignore_protect);
+
+        case PROTECT_SYSTEM_EXTRA_STRICT:
+                return append_static_mounts(p, protect_system_extra_strict_table, ELEMENTSOF(protect_system_extra_strict_table), ignore_protect);
 
         case PROTECT_SYSTEM_YES:
                 return append_static_mounts(p, protect_system_yes_table, ELEMENTSOF(protect_system_yes_table), ignore_protect);
@@ -1640,10 +1667,12 @@ static size_t namespace_calculate_mounts(
         size_t protect_system_cnt =
                 (ns_info->protect_system == PROTECT_SYSTEM_STRICT ?
                  ELEMENTSOF(protect_system_strict_table) :
-                 ((ns_info->protect_system == PROTECT_SYSTEM_FULL) ?
-                  ELEMENTSOF(protect_system_full_table) :
-                  ((ns_info->protect_system == PROTECT_SYSTEM_YES) ?
-                   ELEMENTSOF(protect_system_yes_table) : 0)));
+                 (ns_info->protect_system == PROTECT_SYSTEM_EXTRA_STRICT ?
+                  ELEMENTSOF(protect_system_extra_strict_table) :
+                  (ns_info->protect_system == PROTECT_SYSTEM_FULL ?
+                   ELEMENTSOF(protect_system_full_table) :
+                   (ns_info->protect_system == PROTECT_SYSTEM_YES ?
+                    ELEMENTSOF(protect_system_yes_table) : 0))));
 
         protect_home_cnt =
                 (ns_info->protect_home == PROTECT_HOME_YES ?
@@ -1858,7 +1887,7 @@ static bool root_read_only(
 
         /* Determine whether the root directory is going to be read-only given the configured settings. */
 
-        if (protect_system == PROTECT_SYSTEM_STRICT)
+        if (IN_SET(protect_system, PROTECT_SYSTEM_STRICT, PROTECT_SYSTEM_EXTRA_STRICT))
                 return true;
 
         if (prefixed_path_strv_contains(read_only_paths, "/"))
@@ -2949,6 +2978,7 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_YES]    = "yes",
         [PROTECT_SYSTEM_FULL]   = "full",
         [PROTECT_SYSTEM_STRICT] = "strict",
+        [PROTECT_SYSTEM_EXTRA_STRICT] = "extra-strict",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
