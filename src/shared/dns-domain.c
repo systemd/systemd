@@ -1022,7 +1022,7 @@ static bool dns_service_name_label_is_valid(const char *label, size_t n) {
         return dns_service_name_is_valid(s);
 }
 
-int dns_service_split(const char *joined, char **_name, char **_type, char **_domain) {
+int dns_service_split(const char *joined, char **ret_name, char **ret_type, char **ret_domain) {
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
         const char *p = joined, *q = NULL, *d = NULL;
         char a[DNS_LABEL_MAX+1], b[DNS_LABEL_MAX+1], c[DNS_LABEL_MAX+1];
@@ -1103,14 +1103,14 @@ finish:
         if (r < 0)
                 return r;
 
-        if (_domain)
-                *_domain = TAKE_PTR(domain);
+        if (ret_domain)
+                *ret_domain = TAKE_PTR(domain);
 
-        if (_type)
-                *_type = TAKE_PTR(type);
+        if (ret_type)
+                *ret_type = TAKE_PTR(type);
 
-        if (_name)
-                *_name = TAKE_PTR(name);
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
 
         return 0;
 }

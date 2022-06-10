@@ -88,7 +88,7 @@ bool dnssd_srv_type_is_valid(const char *name);
 bool dns_service_name_is_valid(const char *name);
 
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret);
-int dns_service_split(const char *joined, char **name, char **type, char **domain);
+int dns_service_split(const char *joined, char **ret_name, char **ret_type, char **ret_domain);
 
 int dns_name_suffix(const char *name, unsigned n_labels, const char **ret);
 int dns_name_count_labels(const char *name);
