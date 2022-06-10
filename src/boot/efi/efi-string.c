@@ -170,14 +170,10 @@ static bool efi_fnmatch_internal(const char16_t *p, const char16_t *h, int max_d
                         while (*p == '*')
                                 p++;
 
-                        do {
+                        for (; *h != '\0'; h++)
                                 /* Try matching haystack with remaining pattern. */
                                 if (efi_fnmatch_internal(p, h, max_depth - 1))
                                         return true;
-
-                                /* Otherwise, we match one char here. */
-                                h++;
-                        } while (*h != '\0');
 
                         /* End of haystack. Pattern needs to be empty too for a match. */
                         return *p == '\0';
