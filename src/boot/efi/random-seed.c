@@ -36,7 +36,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
 
         err = rng->GetRNG(rng, NULL, size, data);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
+                return log_error_status(err, "Failed to acquire RNG data: %m");
 
         *ret = TAKE_PTR(data);
         return EFI_SUCCESS;
@@ -166,12 +166,12 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND)
-                        log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
+                        log_error_status(err, "Failed to read LoaderSystemToken EFI variable: %m");
                 return err;
         }
 
         if (size <= 0)
-                return log_error_status_stall(EFI_NOT_FOUND, L"System token too short, ignoring.");
+                return log_error_status(EFI_NOT_FOUND, "System token too short, ignoring.");
 
         *ret = TAKE_PTR(data);
         *ret_size = size;
@@ -259,33 +259,33 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         err = root_dir->Open(root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(err)) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
-                        log_error_stall(L"Failed to open random seed file: %r", err);
+                        log_error_status(err, "Failed to open random seed file: %m");
                 return err;
         }
 
         err = get_file_info_harder(handle, &info, NULL);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to get file info for random seed: %r");
+                return log_error_status(err, "Failed to get file info for random seed: %m");
 
         size = info->FileSize;
         if (size < RANDOM_MAX_SIZE_MIN)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too short.");
+                return log_error("Random seed file is too short.");
 
         if (size > RANDOM_MAX_SIZE_MAX)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
+                return log_error("Random seed file is too large.");
 
         seed = xmalloc(size);
 
         rsize = size;
         err = handle->Read(handle, &rsize, seed);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
+                return log_error_status(err, "Failed to read random seed file: %m");
         if (rsize != size)
-                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
+                return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
 
         err = handle->SetPosition(handle, 0);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
+                return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
 
         /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
          * idea to use it because it helps us for cases where users mistakenly include a random seed in
@@ -297,7 +297,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
          * persistent, the random seed we generate will still be different on every single boot. */
         err = BS->GetNextMonotonicCount(&uefi_monotonic_counter);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to acquire UEFI monotonic counter: %r", err);
+                return log_error_status(err, "Failed to acquire UEFI monotonic counter: %m");
 
         /* Calculate new random seed for the disk and what to pass to the kernel */
         err = mangle_random_seed(seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, &new_seed, &for_kernel);
@@ -308,18 +308,18 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         wsize = size;
         err = handle->Write(handle, &wsize, new_seed);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+                return log_error_status(err, "Failed to write random seed file: %m");
         if (wsize != size)
-                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
+                return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
 
         err = handle->Flush(handle);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
+                return log_error_status(err, "Failed to flush random seed file: %m");
 
         /* We are good to go */
         err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
+                return log_error_status(err, "Failed to write random seed to EFI variable: %m");
 
         return EFI_SUCCESS;
 }
