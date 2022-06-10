@@ -127,16 +127,21 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
         _cleanup_freepool_ CHAR16 *val = NULL;
         EFI_STATUS err;
+        uint64_t u;
 
         assert(vendor);
         assert(name);
         assert(i);
 
         err = efivar_get(vendor, name, &val);
-        if (!EFI_ERROR(err))
-                *i = Atoi(val);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        return err;
+        if (!parse_number16(val, &u, NULL) || u > UINTN_MAX)
+                return EFI_INVALID_PARAMETER;
+
+        *i = u;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret) {
