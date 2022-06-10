@@ -385,3 +385,15 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
         { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }}
 
 #endif
+
+#ifndef EFI_WARN_UNKNOWN_GLYPH
+#  define EFI_WARN_UNKNOWN_GLYPH 1
+#endif
+
+#ifndef EFI_WARN_RESET_REQUIRED
+#  define EFI_WARN_STALE_DATA 5
+#  define EFI_WARN_FILE_SYSTEM 6
+#  define EFI_WARN_RESET_REQUIRED 7
+#  define EFI_IP_ADDRESS_CONFLICT EFIERR(34)
+#  define EFI_HTTP_ERROR EFIERR(35)
+#endif
