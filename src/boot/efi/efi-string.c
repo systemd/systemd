@@ -263,6 +263,16 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
         if (!dest || !src || n == 0)
                 return dest;
 
+#ifdef SD_BOOT
+        /* The firmware-provided memcpy is likely optimized, so use that. The function is guaranteed to be
+         * available by the UEFI spec. We still make it depend on the boot services pointer being set just in
+         * case the compiler emits a call before it is available. */
+        if (_likely_(BS)) {
+                BS->CopyMem(dest, (void *) src, n);
+                return dest;
+        }
+#endif
+
         uint8_t *d = dest;
         const uint8_t *s = src;
 
@@ -279,6 +289,14 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
 void *efi_memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
+
+#ifdef SD_BOOT
+        /* See comment in efi_memcpy. Note that the signature has c and n swapped! */
+        if (_likely_(BS)) {
+                BS->SetMem(p, n, c);
+                return p;
+        }
+#endif
 
         uint8_t *q = p;
         while (n > 0) {
