@@ -329,9 +329,9 @@ static int condition_test_memory(Condition *c, char **env) {
         if (order < 0)
                 order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
 
-        r = safe_atou64(p, &k);
+        r = parse_size(p, 1024, &k);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse size: %m");
+                return log_debug_errno(r, "Failed to parse size '%s': %m", p);
 
         return test_order(CMP(m, k), order);
 }
