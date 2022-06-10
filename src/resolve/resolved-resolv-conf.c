@@ -21,8 +21,54 @@
 #include "strv.h"
 #include "tmpfile-util-label.h"
 
-int manager_check_resolv_conf(const Manager *m) {
+enum resolvcont_states {
+    RESOLVCONF_MISSING = 0,
+    RESOLVCONF_ERROR_GLOBAL = -1,
+    RESOLVCONF_ERROR_STUB = -2,
+    RESOLVCONF_IS_STUB = 1,
+    RESOLVCONF_IS_OTHER = 2,
+};
+
+static int check_resolv_conf_files(void) {
         struct stat st, own;
+
+        if (stat("/etc/resolv.conf", &st) < 0) {
+                if (errno == ENOENT)
+                        return RESOLVCONF_MISSING;
+                return RESOLVCONF_ERROR_GLOBAL;
+        }
+
+        /* Is it symlinked to our own uplink file? */
+        if (stat(PRIVATE_STUB_RESOLV_CONF, &own) < 0)
+                 return RESOLVCONF_ERROR_STUB;
+
+        if (stat_inode_same(&st, &own))
+                return RESOLVCONF_IS_STUB;
+        return RESOLVCONF_IS_OTHER;
+}
+
+int resolv_conf_start(void) {
+        int r = check_resolv_conf_files();
+        if (r == RESOLVCONF_MISSING) {
+                if (symlink(PRIVATE_STUB_RESOLV_CONF, "/etc/resolv.conf") != 0)
+                        return log_warning_errno(errno, "Failed to symlink /etc/resolv.conf: %m");
+                log_debug("symlinked /etc/resolv.conf");
+        }
+        return 0;
+}
+
+int resolv_conf_stop(void) {
+        int r = check_resolv_conf_files();
+        if (r == RESOLVCONF_IS_STUB) {
+                if (unlink("/etc/resolv.conf") != 0)
+                        return log_error_errno(errno, "Failed to unlink /etc/resolv.conf: %m");
+                log_debug("Unlinked /etc/resolv.conf");
+        }
+        return 0;
+}
+
+int manager_check_resolv_conf(const Manager *m) {
+        int check;
 
         assert(m);
 
@@ -32,19 +78,13 @@ int manager_check_resolv_conf(const Manager *m) {
         if (m->dns_stub_listener_mode != DNS_STUB_LISTENER_NO)
                 return 0;
 
-        if (stat("/etc/resolv.conf", &st) < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
-        }
-
-        /* Is it symlinked to our own uplink file? */
-        if (stat(PRIVATE_STATIC_RESOLV_CONF, &own) >= 0 &&
-            stat_inode_same(&st, &own))
+        check = check_resolv_conf_files();
+        if (check == 1)
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                          "DNSStubListener= is disabled, but /etc/resolv.conf is a symlink to "
                                          PRIVATE_STATIC_RESOLV_CONF " which expects DNSStubListener= to be enabled.");
+        else if (check == -1)
+                return log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
 
         return 0;
 }

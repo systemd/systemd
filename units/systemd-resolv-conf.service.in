@@ -12,16 +12,16 @@ Description=Symlink resolv.conf if missing
 Documentation=man:systemd-resolved.service(8) man:resolv.conf(5)
 After=systemd-journald.service
 After=local-fs.target network-pre.target systemd-sysusers.service
-; no dynamic DNS configuration would be known before network configuration
+# no dynamic DNS configuration would be known before network configuration
 After=systemd-networkd.service
 Before=network.target
 ConditionPathExists=!/etc/resolv.conf
 BindsTo=systemd-resolved.service
 
 [Service]
-ExecStart=-ln -s ../run/systemd/resolve/stub-resolv.conf resolv.conf
+ExecStart=-{{ROOTLIBEXECDIR}}/systemd-resolved --resolvconf-start
 RemainAfterExit=true
-ExecStop=/bin/sh -c "test $(realpath resolv.conf) == /run/systemd/resolve/stub-resolv.conf && rm -f resolv.conf"
+ExecStop={{ROOTLIBEXECDIR}}/systemd-resolved --resolvconf-stop
 WorkingDirectory=/etc
 Type=oneshot
 
