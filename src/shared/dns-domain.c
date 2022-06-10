@@ -450,12 +450,8 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                                 return r;
                 }
 
-                if (!first)
-                        n++;
-                else
-                        first = false;
-
-                n += r;
+                n += r + !first;
+                first = false;
         }
 
 finish:
