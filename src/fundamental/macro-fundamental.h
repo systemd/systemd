@@ -95,6 +95,20 @@
                 _expr_;                         \
         })
 
+#define ASSERT_NONNEG(expr)                              \
+        ({                                               \
+                typeof(expr) _expr_ = (expr), _zero = 0; \
+                assert(_expr_ >= _zero);                 \
+                _expr_;                                  \
+        })
+
+#define ASSERT_SE_NONNEG(expr)                           \
+        ({                                               \
+                typeof(expr) _expr_ = (expr), _zero = 0; \
+                assert_se(_expr_ >= _zero);              \
+                _expr_;                                  \
+        })
+
 #define assert_cc(expr) static_assert(expr, #expr)
 
 

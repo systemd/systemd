@@ -463,6 +463,41 @@ static int client(struct context *c) {
 
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
+        /* Check that /value/b does not have ObjectManager interface but /value/a does */
+        assert_se(sd_bus_message_rewind(reply, 1) > 0);
+        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{oa{sa{sv}}}") > 0);
+        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "oa{sa{sv}}")) > 0) {
+                const char *path = NULL;
+                assert_se(sd_bus_message_read_basic(reply, 'o', &path) > 0);
+                if (STR_IN_SET(path, "/value/b", "/value/a")) {
+                        /* Check that there is no object manager interface here */
+                        bool found_object_manager_interface = false;
+                        assert_se(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sa{sv}}") > 0);
+                        while (ASSERT_SE_NONNEG(sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                                const char *interface_name = NULL;
+                                assert_se(sd_bus_message_read_basic(reply, 's', &interface_name) > 0);
+
+                                if (streq(interface_name, "org.freedesktop.DBus.ObjectManager")) {
+                                        assert_se(!streq(path, "/value/b"));
+                                        found_object_manager_interface = true;
+                                }
+
+                                assert_se(sd_bus_message_skip(reply, "a{sv}") >= 0);
+                                assert_se(sd_bus_message_exit_container(reply) >= 0);
+                        }
+                        assert_se(sd_bus_message_exit_container(reply) >= 0);
+
+                        if (streq(path, "/value/a")) {
+                                /* ObjectManager must be here */
+                                assert_se(found_object_manager_interface);
+                        }
+
+                } else
+                        assert_se(sd_bus_message_skip(reply, "a{sa{sv}}") >= 0);
+
+                assert_se(sd_bus_message_exit_container(reply) >= 0);
+        }
+
         reply = sd_bus_message_unref(reply);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, NULL, NULL);
