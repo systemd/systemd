@@ -67,7 +67,7 @@ static inline void *xmalloc_multiply(size_t size, size_t n) {
 _malloc_ _alloc_(3) _returns_nonnull_ _warn_unused_result_
 static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
         void *r = xmalloc(new_size);
-        memcpy(r, p, MIN(old_size, new_size));
+        efi_memcpy(r, p, MIN(old_size, new_size));
         free(p);
         return r;
 }
