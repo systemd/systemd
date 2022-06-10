@@ -540,6 +540,7 @@ TEST(dns_service_split) {
         test_dns_service_split_one("_foo._bar", NULL, "_foo._bar", ".", 0);
         test_dns_service_split_one("_meh._foo._bar", "_meh", "_foo._bar", ".", 0);
         test_dns_service_split_one("Wuff\\032Wuff._foo._bar.waldo.com", "Wuff Wuff", "_foo._bar", "waldo.com", 0);
+        test_dns_service_split_one("_Q._Q-------------------------------------------------------------", NULL, "_Q._Q-------------------------------------------------------------", ".", 0);
 }
 
 static void test_dns_name_change_suffix_one(const char *name, const char *old_suffix, const char *new_suffix, int r, const char *result) {
