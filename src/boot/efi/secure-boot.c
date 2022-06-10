@@ -67,7 +67,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
                         continue;
                 }
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error waiting for user input to enroll Secure Boot keys: %r", err);
+                        return log_error_status(err, "Error waiting for user input to enroll Secure Boot keys: %m");
 
                 /* user aborted, returning EFI_SUCCESS here allows the user to go back to the menu */
                 return EFI_SUCCESS;
@@ -77,7 +77,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         err = open_directory(root_dir, path, &dir);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed opening keys directory %s: %r", path, err);
+                return log_error_status(err, "Failed opening keys directory %ls: %m", path);
 
         struct {
                 const char16_t *name;
@@ -95,7 +95,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
         for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++) {
                 err = file_read(dir, sb_vars[i].filename, 0, 0, &sb_vars[i].buffer, &sb_vars[i].size);
                 if (err != EFI_SUCCESS) {
-                        log_error_stall(L"Failed reading file %s\\%s: %r", path, sb_vars[i].filename, err);
+                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_vars[i].filename);
                         goto out_deallocate;
                 }
         }
@@ -109,7 +109,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
                 err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
                 if (err != EFI_SUCCESS) {
-                        log_error_stall(L"Failed to write %s secure boot variable: %r", sb_vars[i].name, err);
+                        log_error_status(err, "Failed to write %ls secure boot variable: %m", sb_vars[i].name);
                         goto out_deallocate;
                 }
         }
