@@ -22,7 +22,8 @@ d /run/systemd/shutdown 0755 root root -
 d /run/log 0755 root root -
 
 z /run/log/journal 2755 root systemd-journal - -
-Z /run/log/journal/%m ~2750 root systemd-journal - -
+z /run/log/journal/%m 2755 root systemd-journal - -
+z /run/log/journal/%m/system.journal 0640 root systemd-journal - -
 {% if HAVE_ACL %}
 {% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x

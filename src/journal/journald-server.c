@@ -178,7 +178,13 @@ static void patch_min_use(JournalStorage *storage) {
 static JournalStorage* server_current_storage(Server *s) {
         assert(s);
 
-        return s->system_journal ? &s->system_storage : &s->runtime_storage;
+        return s->persistent_journal ? &s->persistent_storage : &s->volatile_storage;
+}
+
+static bool server_should_seal(Server *s) {
+        assert(s);
+
+        return s->seal && server_current_storage(s) == &s->persistent_storage;
 }
 
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
@@ -330,7 +336,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
         const char *fn;
         int r = 0;
 
-        if (!s->system_journal &&
+        if (!s->persistent_journal &&
             IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
             (flush_requested || flushed_flag_is_set(s)) &&
             !relinquish_requested) {
@@ -340,16 +346,16 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                  * If in persistent mode: create /var/log/journal and the machine path */
 
                 if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir_parents(s->system_storage.path, 0755);
+                        (void) mkdir_parents(s->persistent_storage.path, 0755);
 
-                (void) mkdir(s->system_storage.path, 0755);
+                (void) mkdir(s->persistent_storage.path, 0755);
 
-                fn = strjoina(s->system_storage.path, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
+                fn = strjoina(s->persistent_storage.path, "/system.journal");
+                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->persistent_storage.metrics, &s->persistent_journal);
                 if (r >= 0) {
-                        server_add_acls(s->system_journal, 0);
-                        (void) cache_space_refresh(s, &s->system_storage);
-                        patch_min_use(&s->system_storage);
+                        server_add_acls(s->persistent_journal, 0);
+                        (void) cache_space_refresh(s, &s->persistent_storage);
+                        patch_min_use(&s->persistent_storage);
                 } else {
                         if (!IN_SET(r, -ENOENT, -EROFS))
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -367,18 +373,18 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         (void) server_flush_to_var(s, true);
         }
 
-        if (!s->runtime_journal &&
+        if (!s->volatile_journal &&
             (s->storage != STORAGE_NONE)) {
 
-                fn = strjoina(s->runtime_storage.path, "/system.journal");
+                fn = strjoina(s->volatile_storage.path, "/system.journal");
 
-                if (s->system_journal && !relinquish_requested) {
+                if (s->persistent_journal && !relinquish_requested) {
 
                         /* Try to open the runtime journal, but only
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(s, false, fn, O_RDWR, false, &s->volatile_storage.metrics, &s->volatile_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -390,84 +396,130 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                         /* OK, we really need the runtime journal, so create it if necessary. */
 
-                        (void) mkdir_parents(s->runtime_storage.path, 0755);
-                        (void) mkdir(s->runtime_storage.path, 0750);
+                        (void) mkdir_parents(s->volatile_storage.path, 0755);
+                        (void) mkdir(s->volatile_storage.path, 0755);
 
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->volatile_storage.metrics, &s->volatile_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
 
-                if (s->runtime_journal) {
-                        server_add_acls(s->runtime_journal, 0);
-                        (void) cache_space_refresh(s, &s->runtime_storage);
-                        patch_min_use(&s->runtime_storage);
+                if (s->volatile_journal) {
+                        server_add_acls(s->volatile_journal, 0);
+                        (void) cache_space_refresh(s, &s->volatile_storage);
+                        patch_min_use(&s->volatile_storage);
                 }
         }
 
         return r;
 }
 
-static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
-        _cleanup_free_ char *p = NULL;
-        ManagedJournalFile *f;
-        int r;
+static ManagedJournalFile* find_system_journal(Server *s) {
 
         assert(s);
 
-        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as NULL.  Unless
-         * we revisit opening, even after space is made available we'll continue to return NULL indefinitely.
+        if (s->storage == STORAGE_NONE)
+                return NULL;
+
+        /* If the runtime file is open, we write to it exclusively, in order to guarantee proper
+         * order as soon as we flush /run to /var and close the runtime file. If we are in volatile
+         * mode then we need to return NULL unconditionally rather than opening a persistent
+         * journal of any sort (issue #20390). */
+
+        if (s->volatile_journal || IN_SET(s->storage, STORAGE_VOLATILE))
+                return s->volatile_journal;
+
+        return s->persistent_journal;
+}
+
+static int find_user_journal(Server *s, uid_t uid, JournalStorage *storage, ManagedJournalFile **ret) {
+        _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(s);
+        assert(storage);
+        assert(!uid_for_system_journal(uid));
+
+        if ((s->split_mode == SPLIT_NONE && storage == &s->persistent_storage) ||
+            (s->split_volatile_mode == SPLIT_NONE && storage == &s->volatile_storage)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
+        if (f) {
+                /* Just make sure that the registered journal opened for this user is still located
+                 * in the same storage as the requested one. It might not be the case if something
+                 * went wrong when rotating the journals and we ran out of space for example. */
+                if (startswith(f->file->path, storage->path))
+                        goto found;
+
+                ordered_hashmap_remove(s->user_journals, UID_TO_PTR(uid));
+                f = managed_journal_file_close(f);
+        }
+
+        if (asprintf(&p, "%s/user-" UID_FMT ".journal", storage->path, uid) < 0)
+                return log_oom();
+
+        /* Too many open? Then let's close one (or more) */
+        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
+                ManagedJournalFile *first;
+
+                assert_se(first = ordered_hashmap_steal_first(s->user_journals));
+                (void) managed_journal_file_close(first);
+        }
+
+        r = open_journal(s, true, p, O_RDWR|O_CREAT, server_should_seal(s), &storage->metrics, &f);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
+        if (r < 0)
+                return r;
+
+        server_add_acls(f, uid);
+
+found:
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
+static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
+        ManagedJournalFile *system_journal;
+        JournalStorage *storage;
+
+        assert(s);
+
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as
+         * NULL.  Unless we revisit opening, even after space is made available we'll continue to
+         * return NULL indefinitely.
          *
-         * system_journal_open() is a noop if the journals are already open, so we can just call it here to
-         * recover from failed rotates (or anything else that's left the journals as NULL).
+         * system_journal_open() is a noop if the journals are already open, so we can just call it
+         * here to recover from failed rotates (or anything else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
         (void) system_journal_open(s, false, false);
 
-        /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
-         * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
-         * runtime file. */
-
-        if (s->runtime_journal)
-                return s->runtime_journal;
-
-        /* If we are not in persistent mode, then we need return NULL immediately rather than opening a
-         * persistent journal of any sort.
-         *
-         * Fixes https://github.com/systemd/systemd/issues/20390 */
-        if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
+        /* User journals always use the same storage as the one used by the system journal */
+        system_journal = find_system_journal(s);
+        if (!system_journal)
                 return NULL;
 
-        if (uid_for_system_journal(uid))
-                return s->system_journal;
+        storage = system_journal == s->persistent_journal ? &s->persistent_storage : &s->volatile_storage;
 
-        f = ordered_hashmap_get(s->user_journals, UID_TO_PTR(uid));
-        if (f)
-                return f;
+        if (!uid_for_system_journal(uid)) {
+                ManagedJournalFile *f;
+                int r;
 
-        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0) {
-                log_oom();
-                return s->system_journal;
+                r = find_user_journal(s, uid, storage, &f);
+                if (r >= 0 && f)
+                        return f;
+                if (r < 0)
+                        log_warning_errno(r, "Failed at opening user journal file, falling back to system journal: %m");
         }
 
-        /* Too many open? Then let's close one (or more) */
-        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
-                assert_se(f = ordered_hashmap_steal_first(s->user_journals));
-                (void) managed_journal_file_close(f);
-        }
-
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
-        if (r < 0)
-                return s->system_journal;
-
-        r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
-        if (r < 0) {
-                (void) managed_journal_file_close(f);
-                return s->system_journal;
-        }
-
-        server_add_acls(f, uid);
-        return f;
+        return system_journal;
 }
 
 static int do_rotate(
@@ -533,24 +585,24 @@ static void server_vacuum_deferred_closes(Server *s) {
         }
 }
 
-static int vacuum_offline_user_journals(Server *s) {
+static int server_archive_offline_user_journals(Server *s, JournalStorage *storage) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(s);
+        assert(storage);
 
-        d = opendir(s->system_storage.path);
+        d = opendir(storage->path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open %s: %m", s->system_storage.path);
+                return log_error_errno(errno, "Failed to open %s: %m", storage->path);
         }
 
         for (;;) {
-                _cleanup_free_ char *u = NULL, *full = NULL;
+                _cleanup_free_ char *full = NULL;
                 _cleanup_close_ int fd = -1;
-                const char *a, *b;
                 struct dirent *de;
                 ManagedJournalFile *f;
                 uid_t uid;
@@ -559,25 +611,14 @@ static int vacuum_offline_user_journals(Server *s) {
                 de = readdir_no_dot(d);
                 if (!de) {
                         if (errno != 0)
-                                log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", s->system_storage.path);
-
+                                log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", storage->path);
                         break;
                 }
 
-                a = startswith(de->d_name, "user-");
-                if (!a)
-                        continue;
-                b = endswith(de->d_name, ".journal");
-                if (!b)
-                        continue;
-
-                u = strndup(a, b-a);
-                if (!u)
-                        return log_oom();
-
-                r = parse_uid(u, &uid);
+                r = journal_file_parse_uid(de->d_name, &uid, false);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                        if (r != -EREMOTE)
+                                log_warning_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -585,7 +626,7 @@ static int vacuum_offline_user_journals(Server *s) {
                 if (ordered_hashmap_contains(s->user_journals, UID_TO_PTR(uid)))
                         continue;
 
-                full = path_join(s->system_storage.path, de->d_name);
+                full = path_join(storage->path, de->d_name);
                 if (!full)
                         return log_oom();
 
@@ -605,10 +646,10 @@ static int vacuum_offline_user_journals(Server *s) {
                                 full,
                                 O_RDWR,
                                 (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
-                                (s->seal ? JOURNAL_SEAL : 0),
+                                (server_should_seal(s) ? JOURNAL_SEAL : 0),
                                 0640,
                                 s->compress.threshold_bytes,
-                                &s->system_storage.metrics,
+                                &storage->metrics,
                                 s->mmap,
                                 s->deferred_closes,
                                 NULL,
@@ -645,13 +686,13 @@ void server_rotate(Server *s) {
 
         log_debug("Rotating...");
 
-        /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
-        (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
-        (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
+        /* First, rotate the system journal (either in its volatile flavour or in its persistent flavour) */
+        (void) do_rotate(s, &s->volatile_journal, "volatile", false, 0);
+        (void) do_rotate(s, &s->persistent_journal, "persistent", s->seal, 0);
 
         /* Then, rotate all user journals we have open (keeping them open) */
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals) {
-                r = do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
+                r = do_rotate(s, &f, "user", server_should_seal(s), PTR_TO_UID(k));
                 if (r >= 0)
                         ordered_hashmap_replace(s->user_journals, k, f);
                 else if (!f)
@@ -661,8 +702,8 @@ void server_rotate(Server *s) {
 
         /* Finally, also rotate all user journals we currently do not have open. (But do so only if we
          * actually have access to /var, i.e. are not in the log-to-runtime-journal mode). */
-        if (!s->runtime_journal)
-                (void) vacuum_offline_user_journals(s);
+        if (!s->volatile_journal && s->persistent_journal)
+                (void) server_archive_offline_user_journals(s, &s->persistent_storage);
 
         server_process_deferred_closes(s);
 }
@@ -671,8 +712,8 @@ void server_sync(Server *s) {
         ManagedJournalFile *f;
         int r;
 
-        if (s->system_journal) {
-                r = managed_journal_file_set_offline(s->system_journal, false);
+        if (s->persistent_journal) {
+                r = managed_journal_file_set_offline(s->persistent_journal, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
@@ -720,10 +761,10 @@ void server_vacuum(Server *s, bool verbose) {
 
         s->oldest_file_usec = 0;
 
-        if (s->system_journal)
-                do_vacuum(s, &s->system_storage, verbose);
-        if (s->runtime_journal)
-                do_vacuum(s, &s->runtime_storage, verbose);
+        if (s->persistent_journal)
+                do_vacuum(s, &s->persistent_storage, verbose);
+        if (s->volatile_journal)
+                do_vacuum(s, &s->volatile_storage, verbose);
 }
 
 static void server_cache_machine_id(Server *s) {
@@ -1037,16 +1078,14 @@ static void dispatch_message_real(
 
         assert(n <= m);
 
-        if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
+        if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
+                /* Split up by login UIDs.  We do this only if the realuid is not root, in order not to
+                 * accidentally leak privileged information to the user that is logged by a privileged
+                 * process that is part of an unprivileged session. */
+                journal_uid = c->owner_uid;
+        else if (c && uid_is_valid(c->uid))
                 /* Split up strictly by (non-root) UID */
                 journal_uid = c->uid;
-        else if (s->split_mode == SPLIT_LOGIN && c && c->uid > 0 && uid_is_valid(c->owner_uid))
-                /* Split up by login UIDs.  We do this only if the
-                 * realuid is not root, in order not to accidentally
-                 * leak privileged information to the user that is
-                 * logged by a privileged process that is part of an
-                 * unprivileged session. */
-                journal_uid = c->owner_uid;
         else
                 journal_uid = 0;
 
@@ -1146,12 +1185,77 @@ void server_dispatch_message(
         dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
 }
 
-int server_flush_to_var(Server *s, bool require_flag_file) {
-        sd_journal *j = NULL;
-        const char *fn;
+static int do_flush(Server *s, sd_journal *j) {
+        usec_t before_flush;
         unsigned n = 0;
-        usec_t start;
-        int r, k;
+        int r;
+
+        assert(s && s->persistent_journal);
+        assert(j);
+
+        before_flush = now(CLOCK_MONOTONIC);
+
+        SD_JOURNAL_FOREACH(j) {
+                JournalFile *t = NULL, *f = j->current_file;
+                Object *o = NULL;
+                uid_t uid = 0;
+
+                assert(f && f->current_offset > 0);
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+                if (r < 0)
+                        return log_error_errno(r, "Can't read entry: %m");
+
+                r = journal_file_parse_uid(f->path, &uid, false);
+                if (r < 0 && r != -EREMOTE)
+                        return log_error_errno(r, "Can't retrieve uid from filename '%s': %m", f->path);
+
+                if (!uid_for_system_journal(uid)) {
+                        ManagedJournalFile *p;
+
+                        r = find_user_journal(s, uid, &s->persistent_storage, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Can't open user journal file: %m");
+                        if (p)
+                                t = p->file;
+                }
+                if (!t)
+                        t = s->persistent_journal->file;
+
+                r = journal_file_copy_entry(f, t, o, f->current_offset);
+                if (r < 0) {
+                        if (!shall_try_append_again(t, r))
+                                return log_error_errno(r, "Can't write entry: %m");
+
+                        log_info("Rotating persistent journals");
+
+                        server_rotate(s);
+                        server_vacuum(s, false);
+
+                        log_debug("Retrying write.");
+                        r = journal_file_copy_entry(f, t, o, f->current_offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Can't write entry: %m");
+                }
+
+                n++;
+        }
+
+        server_driver_message(s, 0, NULL,
+                              LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
+                                          s->persistent_storage.path,
+                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), before_flush), 0),
+                                          n),
+                              NULL);
+
+        return 0;
+}
+
+int server_flush_to_var(Server *s, bool require_flag_file) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        OrderedHashmap *old_user_journals = NULL;
+        const char *fn;
+        int r;
 
         assert(s);
 
@@ -1161,20 +1265,11 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (s->namespace) /* Flushing concept does not exist for namespace instances */
                 return 0;
 
-        if (!s->runtime_journal) /* Nothing to flush? */
+        if (!s->volatile_journal) /* Nothing to flush? */
                 return 0;
 
         if (require_flag_file && !flushed_flag_is_set(s))
                 return 0;
-
-        (void) system_journal_open(s, true, false);
-
-        if (!s->system_journal)
-                return 0;
-
-        log_debug("Flushing to %s...", s->system_storage.path);
-
-        start = now(CLOCK_MONOTONIC);
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0)
@@ -1182,76 +1277,45 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
         sd_journal_set_data_threshold(j, 0);
 
-        SD_JOURNAL_FOREACH(j) {
-                Object *o = NULL;
-                JournalFile *f;
+        /* Try switching the system journal from volatile to persistent */
+        (void) system_journal_open(s, true, false);
 
-                f = j->current_file;
-                assert(f && f->current_offset > 0);
+        if (!s->persistent_journal)
+                return 0;       /* persistent mode disabled */
 
-                n++;
+        /* And switch user journals to persistent mode too */
+        old_user_journals = TAKE_PTR(s->user_journals);
+        s->user_journals = ordered_hashmap_new(NULL);
+        if (!s->user_journals)
+                return log_oom();
 
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0) {
-                        log_error_errno(r, "Can't read entry: %m");
-                        goto finish;
-                }
+        log_debug("Flushing to %s...", s->persistent_storage.path);
 
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
-                if (r >= 0)
-                        continue;
+        r = do_flush(s, j);
+        if (r < 0) {
+                /* Something went wrong, let's switch back to volatile mode. */
+                ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
+                s->user_journals = TAKE_PTR(old_user_journals);
+                s->persistent_journal = managed_journal_file_close(s->persistent_journal);
 
-                if (!shall_try_append_again(s->system_journal->file, r)) {
-                        log_error_errno(r, "Can't write entry: %m");
-                        goto finish;
-                }
-
-                log_info("Rotating system journal.");
-
-                server_rotate(s);
-                server_vacuum(s, false);
-
-                if (!s->system_journal) {
-                        log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
-                if (r < 0) {
-                        log_error_errno(r, "Can't write entry: %m");
-                        goto finish;
-                }
+                return log_error_errno(r, "Flushing to %s failed: %m", s->persistent_storage.path);
         }
 
-        r = 0;
+        assert(s->persistent_journal);
+        journal_file_post_change(s->persistent_journal->file);
 
-finish:
-        if (s->system_journal)
-                journal_file_post_change(s->system_journal->file);
+        s->volatile_journal = managed_journal_file_close(s->volatile_journal);
+        ordered_hashmap_clear_with_destructor(old_user_journals, managed_journal_file_close);
 
-        s->runtime_journal = managed_journal_file_close(s->runtime_journal);
-
-        if (r >= 0)
-                (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
-
-        sd_journal_close(j);
-
-        server_driver_message(s, 0, NULL,
-                              LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
-                                          s->system_storage.path,
-                                          FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
-                                          n),
-                              NULL);
+        (void) rm_rf(s->volatile_storage.path, REMOVE_ROOT);
 
         fn = strjoina(s->runtime_directory, "/flushed");
-        k = touch(fn);
-        if (k < 0)
-                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
+        r = touch(fn);
+        if (r < 0)
+                log_warning_errno(r, "Failed to touch %s, ignoring: %m", fn);
 
         server_refresh_idle_timer(s);
-        return r;
+        return 0;
 }
 
 static int server_relinquish_var(Server *s) {
@@ -1264,14 +1328,14 @@ static int server_relinquish_var(Server *s) {
         if (s->namespace) /* Concept does not exist for namespaced instances */
                 return -EOPNOTSUPP;
 
-        if (s->runtime_journal && !s->system_journal)
+        if (s->volatile_journal && !s->persistent_journal)
                 return 0;
 
-        log_debug("Relinquishing %s...", s->system_storage.path);
+        log_debug("Relinquishing %s...", s->persistent_storage.path);
 
         (void) system_journal_open(s, false, true);
 
-        s->system_journal = managed_journal_file_close(s->system_journal);
+        s->persistent_journal = managed_journal_file_close(s->persistent_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
         set_clear_with_destructor(s->deferred_closes, managed_journal_file_close);
 
@@ -1448,10 +1512,10 @@ static void server_full_rotate(Server *s) {
         server_rotate(s);
         server_vacuum(s, true);
 
-        if (s->system_journal)
-                patch_min_use(&s->system_storage);
-        if (s->runtime_journal)
-                patch_min_use(&s->runtime_storage);
+        if (s->persistent_journal)
+                patch_min_use(&s->persistent_storage);
+        if (s->volatile_journal)
+                patch_min_use(&s->volatile_storage);
 
         /* Let clients know when the most recent rotation happened. */
         fn = strjoina(s->runtime_directory, "/rotated");
@@ -2103,7 +2167,7 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
         if (s->namespace)
                 return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
-        log_info("Received client request to relinquish %s access.", s->system_storage.path);
+        log_info("Received client request to relinquish %s access.", s->persistent_storage.path);
         server_relinquish_var(s);
 
         return varlink_reply(link, NULL);
@@ -2287,6 +2351,9 @@ int server_init(Server *s, const char *namespace) {
                 .hostname_fd = -1,
                 .notify_fd = -1,
 
+                .split_mode = SPLIT_UID,
+                .split_volatile_mode = SPLIT_NONE,
+
                 .compress.enabled = true,
                 .compress.threshold_bytes = UINT64_MAX,
                 .seal = true,
@@ -2313,8 +2380,8 @@ int server_init(Server *s, const char *namespace) {
 
                 .line_max = DEFAULT_LINE_MAX,
 
-                .runtime_storage.name = "Runtime Journal",
-                .system_storage.name = "System Journal",
+                .volatile_storage.name = "Runtime Journal",
+                .persistent_storage.name = "System Journal",
 
                 .kmsg_own_ratelimit = {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
@@ -2330,8 +2397,8 @@ int server_init(Server *s, const char *namespace) {
         s->read_kmsg = !s->namespace;
         s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
 
-        journal_reset_metrics(&s->system_storage.metrics);
-        journal_reset_metrics(&s->runtime_storage.metrics);
+        journal_reset_metrics(&s->persistent_storage.metrics);
+        journal_reset_metrics(&s->volatile_storage.metrics);
 
         server_parse_config_file(s);
 
@@ -2508,20 +2575,20 @@ int server_init(Server *s, const char *namespace) {
         server_cache_machine_id(s);
 
         if (s->namespace)
-                s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
+                s->volatile_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
         else
-                s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
-        if (!s->runtime_storage.path)
+                s->volatile_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
+        if (!s->volatile_storage.path)
                 return log_oom();
 
         e = getenv("LOGS_DIRECTORY");
         if (e)
-                s->system_storage.path = strdup(e);
+                s->persistent_storage.path = strdup(e);
         else if (s->namespace)
-                s->system_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
+                s->persistent_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
         else
-                s->system_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
-        if (!s->system_storage.path)
+                s->persistent_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
+        if (!s->persistent_storage.path)
                 return log_oom();
 
         (void) server_connect_notify(s);
@@ -2543,8 +2610,8 @@ void server_maybe_append_tags(Server *s) {
 
         n = now(CLOCK_REALTIME);
 
-        if (s->system_journal)
-                journal_file_maybe_append_tag(s->system_journal->file, n);
+        if (s->persistent_journal)
+                journal_file_maybe_append_tag(s->persistent_journal->file, n);
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals)
                 journal_file_maybe_append_tag(f->file, n);
@@ -2564,8 +2631,8 @@ void server_done(Server *s) {
 
         client_context_flush_all(s);
 
-        (void) managed_journal_file_close(s->system_journal);
-        (void) managed_journal_file_close(s->runtime_journal);
+        (void) managed_journal_file_close(s->persistent_journal);
+        (void) managed_journal_file_close(s->volatile_journal);
 
         ordered_hashmap_free_with_destructor(s->user_journals, managed_journal_file_close);
 
@@ -2606,8 +2673,8 @@ void server_done(Server *s) {
         free(s->tty_path);
         free(s->cgroup_root);
         free(s->hostname_field);
-        free(s->runtime_storage.path);
-        free(s->system_storage.path);
+        free(s->volatile_storage.path);
+        free(s->persistent_storage.path);
         free(s->runtime_directory);
 
         mmap_cache_unref(s->mmap);

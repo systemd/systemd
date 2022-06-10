@@ -34,6 +34,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
+#include "user-util.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -3657,6 +3658,42 @@ fail:
                 (void) unlink(fname);
 
         return r;
+}
+
+int journal_file_parse_uid(const char *path, uid_t *ret_uid, bool parse_archive) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *p = NULL;
+        const char *a, *b, *at;
+        int r;
+
+        assert(path);
+        assert(ret_uid);
+
+        r = path_extract_filename(path, &p);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EISDIR;
+
+        a = startswith(p, "user-");
+        if (!a)
+                return -EREMOTE;
+        b = endswith(p, ".journal");
+        if (!b)
+                return -EREMOTE;
+
+        at = strchr(a, '@');
+        if (at) {
+                if (!parse_archive)
+                        return -EREMOTE;
+                b = at;
+        }
+
+        buf = strndup(a, b-a);
+        if (!buf)
+                return -ENOMEM;
+
+        return parse_uid(buf, ret_uid);
 }
 
 int journal_file_archive(JournalFile *f, char **ret_previous_path) {
