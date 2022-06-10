@@ -264,6 +264,16 @@ void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n) {
         if (!dest || !src || n == 0)
                 return dest;
 
+#ifdef SD_BOOT
+        /* The firmware-provided memcpy is likely optimized, so use that. The function is guaranteed to be
+         * available by the UEFI spec. We still make it depend on the boot services pointer being set just in
+         * case the compiler emits a call before it is available. */
+        if (_likely_(BS)) {
+                BS->CopyMem(dest, (void *) src, n);
+                return dest;
+        }
+#endif
+
         uint8_t *d = dest;
         const uint8_t *s = src;
 
@@ -281,6 +291,14 @@ void *efi_memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
 
+#ifdef SD_BOOT
+        /* See comment in efi_memcpy. Note that the signature has c and n swapped! */
+        if (_likely_(BS)) {
+                BS->SetMem(p, n, c);
+                return p;
+        }
+#endif
+
         uint8_t *q = p;
         while (n > 0) {
                 *q = c;
@@ -295,9 +313,11 @@ void *efi_memset(void *p, int c, size_t n) {
 #  undef memcmp
 #  undef memcpy
 #  undef memset
-/* Provide the actual implementation for the builtins. To prevent a linker error, we mark memcpy/memset as
- * weak, because gnu-efi is currently providing them. */
-__attribute__((alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
-__attribute__((weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
-__attribute__((weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
+/* Provide the actual implementation for the builtins by providing aliases. These need to be marked as used,
+ * as otherwise the compiler might remove them but still emit calls, which would break when linking.
+ * To prevent a different linker error, we mark memcpy/memset as weak, because gnu-efi is currently
+ * providing them. */
+__attribute__((used, alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
+__attribute__((used, weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+__attribute__((used, weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
 #endif
