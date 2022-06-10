@@ -413,6 +413,30 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Session *s = ASSERT_PTR(userdata);
+        const char *display;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &display);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller(s, sd_bus_message_get_sender(message)))
+                return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set display");
+
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Setting display is only supported for graphical sessions");
+
+        r = free_and_strdup(&s->display, display);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
@@ -900,6 +924,11 @@ static const sd_bus_vtable session_vtable[] = {
                                 SD_BUS_ARGS("s", type),
                                 SD_BUS_NO_RESULT,
                                 method_set_type,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDisplay",
+                                SD_BUS_ARGS("s", display),
+                                SD_BUS_NO_RESULT,
+                                method_set_display,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("TakeDevice",
                                 SD_BUS_ARGS("u", major, "u", minor),
