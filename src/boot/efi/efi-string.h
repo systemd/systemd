@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <uchar.h>
@@ -103,6 +104,39 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
 bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tail);
+
+enum {
+        /* printf will try to use stack buffer of this size before using heap memory. */
+        PRINTF_BUF_SIZE = 512,
+        SCRATCH_BUF_SIZE = 128,
+};
+typedef uintptr_t EFI_STATUS; /* Define this here until we provide our own efi.h. */
+
+_printf_(4, 5) int snprintf_status(
+                EFI_STATUS status,
+                char16_t * restrict buf,
+                size_t n_buf,
+                const char * restrict format, ...);
+_printf_(4, 0) int vsnprintf_status(
+                EFI_STATUS status,
+                char16_t * restrict buf,
+                size_t n_buf,
+                const char * restrict format,
+                va_list ap);
+_printf_(2, 3) char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...);
+_printf_(2, 0) char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap);
+
+#ifdef SD_BOOT
+_printf_(2, 3) EFI_STATUS printf_status(EFI_STATUS status, const char *format, ...);
+_printf_(2, 0) EFI_STATUS vprintf_status(EFI_STATUS status, const char *format, va_list ap);
+
+#  define printf(...) printf_status(EFI_SUCCESS, __VA_ARGS__)
+#  define snprintf(...) snprintf_status(EFI_SUCCESS, __VA_ARGS__)
+#  define xasprintf(...) xasprintf_status(EFI_SUCCESS, __VA_ARGS__)
+#  define vprintf(...) vprintf_status(EFI_SUCCESS, __VA_ARGS__)
+#  define vsnprintf(...) vsnprintf_status(EFI_SUCCESS, __VA_ARGS__)
+#  define vxasprintf(...) vxasprintf_status(EFI_SUCCESS, __VA_ARGS__)
+#endif
 
 #ifdef SD_BOOT
 /* The compiler normally has knowledge about standard functions such as memcmp, but this is not the case when
