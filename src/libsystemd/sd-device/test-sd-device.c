@@ -189,6 +189,9 @@ TEST(sd_device_enumerator_devices) {
          * disappear during running this test. Let's exclude them here for stability. */
         assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
         assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
+         * test creates and removes many network interfaces, and may interfere with this test. */
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
         FOREACH_DEVICE(e, d)
                 test_sd_device_one(d);
 }
@@ -261,6 +264,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
         /* See comments in TEST(sd_device_enumerator_devices). */
         assert_se(sd_device_enumerator_add_match_subsystem(e, "bdi", false) >= 0);
         assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", false) >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath, *subsystem;
