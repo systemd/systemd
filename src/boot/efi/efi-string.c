@@ -294,9 +294,11 @@ void *efi_memset(void *p, int c, size_t n) {
 #  undef memcmp
 #  undef memcpy
 #  undef memset
-/* Provide the actual implementation for the builtins. To prevent a linker error, we mark memcpy/memset as
- * weak, because gnu-efi is currently providing them. */
-__attribute__((alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
-__attribute__((weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
-__attribute__((weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
+/* Provide the actual implementation for the builtins by providing aliases. These need to be marked as used,
+ * as otherwise the compiler might remove them but still emit calls, which would break when linking.
+ * To prevent a different linker error, we mark memcpy/memset as weak, because gnu-efi is currently
+ * providing them. */
+__attribute__((used, alias("efi_memcmp"))) int memcmp(const void *p1, const void *p2, size_t n);
+__attribute__((used, weak, alias("efi_memcpy"))) void *memcpy(void * restrict dest, const void * restrict src, size_t n);
+__attribute__((used, weak, alias("efi_memset"))) void *memset(void *p, int c, size_t n);
 #endif
