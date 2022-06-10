@@ -1,0 +1,137 @@
+name: Bug Report
+description: A report of an error in a recent systemd version
+labels: ["bug 🐛"]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to fill out this bug report!
+
+  - type: input
+    id: version
+    attributes:
+      label: systemd version the issue has been seen with
+      description: |
+        Do not submit bug reports about anything but the two most recently released *major* systemd versions upstream!
+        If there have been multiple stable releases for that major version, please consider updating to a recent one before reporting an issue.
+        When using a distro package, please make sure that the version reported is meaningful for upstream.
+        If a distro build is used, please just paste the package version, e.g. `systemd-250.7-1.fc36.x86_64`.
+        See https://github.com/systemd/systemd-stable/tags for the list of most recent releases.
+        For older version please use distribution trackers (see https://systemd.io/CONTRIBUTING#filing-issues).
+      placeholder: '251'
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Used distribution
+      description: Used distribution and it's version
+      placeholder: Fedora 36
+    validations:
+      required: false
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Linux kernel version used
+      description: |
+        Please use `uname -r` to get linux kernel version.
+      placeholder: 5.17.12-300.fc36.ppc64le
+    validations:
+      required: false
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: CPU architectures issue was seen on
+      options:
+        - aarch64
+        - alpha
+        - arm
+        - i686
+        - ia64
+        - loongarch
+        - mips
+        - parisc
+        - ppc (big endian)
+        - ppc64 (big endian)
+        - ppc64le
+        - riscv64
+        - s390x
+        - sparc
+        - sparc64
+        - x86_64
+        - other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Please chose components related to this issue.
+      multiple: true
+      options:
+        - 'bootctl'
+        - 'homectl'
+        - 'journalctl'
+        - 'loginctl'
+        - 'networkctl'
+        - 'nss-resolve'
+        - 'pam_systemd'
+        - 'pam_systemd_home'
+        - 'resolvectl'
+        - 'systemctl'
+        - 'systemd'
+        - 'systemd-boot'
+        - 'systemd-homed'
+        - 'systemd-journald'
+        - 'systemd-logind'
+        - 'systemd-networkd'
+        - 'systemd-networkd-wait-online'
+        - 'systemd-nspawn'
+        - 'systemd-resolved'
+        - 'systemd-stub'
+        - 'systemd-udevd'
+        - 'the bootloader itself'
+        - 'udev builtins'
+        - 'udevadm'
+        - '.network files'
+        - 'tests'
+        - 'other'
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour you didn't see
+    validations:
+      required: false
+
+  - type: textarea
+    id: unexpected-behaviour
+    attributes:
+      label: Unexpected behaviour you saw
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce the problem
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional program output to the terminal or log subsystem illustrating the issue
+      description: |
+        Please paste relevant program terminal or journal output here, ideally when generated in debug mode (try setting the `SYSTEMD_LOG_LEVEL=debug` environment variable).
+        For very long copy/pasted data consider using a service like https://gist.github.com/. Where copy/paste is not possible (for example early boot or late shutdown), a photo of the screen might do too, but text is always much preferred.
+      placeholder: This will be automatically formatted into code, so no need for backticks.
+      render: sh
+    validations:
+      required: false
