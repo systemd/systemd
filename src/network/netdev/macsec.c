@@ -970,8 +970,6 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
         if (!sa->key_file)
                 return 0;
 
-        (void) warn_file_is_world_accessible(sa->key_file, NULL, NULL, 0);
-
         r = read_full_file_full(
                         AT_FDCWD, sa->key_file, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
