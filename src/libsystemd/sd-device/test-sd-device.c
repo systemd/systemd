@@ -215,8 +215,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
-        if (streq(subsystem, "block"))
-                assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
+        assert_se(sd_device_enumerator_add_nomatch_sysname(e, "loop*") >= 0);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
