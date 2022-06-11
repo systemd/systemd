@@ -1922,6 +1922,8 @@ subdir('src/udev')
 subdir('src/libudev')
 subdir('src/cryptsetup/cryptsetup-tokens')
 
+alias_target('devel', libsystemd_pc, libudev_pc)
+
 libsystemd = shared_library(
         'systemd',
         disable_mempool_c,
@@ -1939,6 +1941,8 @@ libsystemd = shared_library(
         install : true,
         install_tag: 'libsystemd',
         install_dir : rootlibdir)
+
+alias_target('libsystemd', libsystemd)
 
 install_libsystemd_static = static_library(
         'systemd',
@@ -1981,6 +1985,8 @@ libudev = shared_library(
         install : true,
         install_tag: 'libudev',
         install_dir : rootlibdir)
+
+alias_target('libudev', libudev)
 
 install_libudev_static = static_library(
         'udev',
