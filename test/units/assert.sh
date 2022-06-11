@@ -32,6 +32,14 @@ assert_in() {
     fi
 }
 
+assert_not_in() {
+    if echo "$2" | grep -q "$1"; then
+        echo "FAIL: '$1' found in:" >&2
+        echo "$2" >&2
+        exit 1
+    fi
+}
+
 assert_rc() {
     local exp=$1
     local rc
