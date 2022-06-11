@@ -215,7 +215,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
             return unittest.expectedFailure(func)
 
         try:
-            with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+            with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
                 f.write('99 1')
         except OSError:
             return unittest.expectedFailure(func)
@@ -223,7 +223,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         call('udevadm settle')
         call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
         try:
-            with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+            with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w', encoding='utf-8') as f:
                 f.write('3')
         except OSError:
             call('rmmod netdevsim', stderr=subprocess.DEVNULL)
@@ -353,7 +353,7 @@ def setUpModule():
         ]
 
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     drop_in = [
@@ -384,7 +384,7 @@ def setUpModule():
         ]
 
     os.makedirs('/run/systemd/system/systemd-resolved.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     drop_in = [
@@ -394,7 +394,7 @@ def setUpModule():
     ]
 
     os.makedirs('/run/systemd/system/systemd-udevd.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     check_output('systemctl daemon-reload')
@@ -424,7 +424,7 @@ def tearDownModule():
         check_output(f'systemctl start {u}')
 
 def read_link_attr(*args):
-    with open(os.path.join('/sys/class/net/', *args)) as f:
+    with open(os.path.join('/sys/class/net/', *args), encoding='utf-8') as f:
         return f.readline().strip()
 
 def read_bridge_port_attr(bridge, link, attribute):
@@ -432,7 +432,7 @@ def read_bridge_port_attr(bridge, link, attribute):
     path_port = 'lower_' + link + '/brport'
     path = os.path.join(path_bridge, path_port)
 
-    with open(os.path.join(path, attribute)) as f:
+    with open(os.path.join(path, attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def link_exists(link):
@@ -477,11 +477,11 @@ def remove_l2tp_tunnels(tunnel_ids):
     time.sleep(1)
 
 def read_ipv6_sysctl_attr(link, attribute):
-    with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute)) as f:
+    with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def read_ipv4_sysctl_attr(link, attribute):
-    with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute)) as f:
+    with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def copy_unit_to_networkd_unit_path(*units, dropins=True):
@@ -534,7 +534,7 @@ def start_dnsmasq(additional_options='', interface='veth-peer', ipv4_range='192.
 
 def stop_by_pid_file(pid_file):
     if os.path.exists(pid_file):
-        with open(pid_file, 'r') as f:
+        with open(pid_file, 'r', encoding='utf-8') as f:
             pid = f.read().rstrip(' \t\r\n\0')
             os.kill(int(pid), signal.SIGTERM)
             for _ in range(25):
@@ -554,12 +554,12 @@ def stop_dnsmasq():
 
 def dump_dnsmasq_log_file():
     if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file) as in_file:
+        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
             print(in_file.read())
 
 def search_words_in_dnsmasq_log(words, show_all=False):
     if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file) as in_file:
+        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
             contents = in_file.read()
             if show_all:
                 print(contents)
@@ -1289,7 +1289,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('21-macvtap.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-macvtap.network')
-                with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[MACVTAP]\nMode=' + mode)
                 start_networkd()
 
@@ -1307,7 +1307,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('21-macvlan.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-macvlan.network')
-                with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[MACVLAN]\nMode=' + mode)
                 start_networkd()
 
@@ -1351,7 +1351,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-ipvlan.network')
-                with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[IPVLAN]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
@@ -1369,7 +1369,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-ipvtap.network')
-                with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
@@ -3677,7 +3677,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'IPV4_ADDRESS_STATE=routable')
             self.assertRegex(data, r'IPV6_ADDRESS_STATE=routable')
@@ -3706,7 +3706,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
@@ -3721,7 +3721,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
@@ -3736,7 +3736,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
@@ -4168,12 +4168,12 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     def test_sriov(self):
         call('modprobe netdevsim', stderr=subprocess.DEVNULL)
 
-        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
             f.write('99 1')
 
         call('udevadm settle')
         call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
-        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w', encoding='utf-8') as f:
             f.write('3')
 
         copy_unit_to_networkd_unit_path('25-sriov.network')
@@ -4195,7 +4195,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-sriov.link', '25-sriov-udev.network')
         call('udevadm control --reload')
 
-        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
             f.write('99 1')
 
         start_networkd()
@@ -4211,7 +4211,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.assertNotIn('vf 3', output)
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
         call('udevadm control --reload')
@@ -4227,7 +4227,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         )
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         call('udevadm control --reload')
@@ -4243,7 +4243,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         )
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
         call('udevadm control --reload')
@@ -4259,7 +4259,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.assertNotIn('vf 3', output)
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         call('udevadm control --reload')
@@ -4912,7 +4912,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a', encoding='utf-8') as f:
             f.write('[Network]\nDHCP=no\n')
 
         start_networkd()
@@ -4976,7 +4976,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         remove_unit_from_networkd_path(['25-dhcp-client.network'])
 
-        with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w') as f:
+        with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w', encoding='utf-8') as f:
             f.write(static_network)
 
         # When networkd started, the links are already configured, so let's wait for 5 seconds
@@ -5051,7 +5051,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]*')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
-        with open(os.path.join(network_unit_file_path, '25-dhcp-client-gateway-ipv4.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-gateway-ipv4.network'), mode='a', encoding='utf-8') as f:
             f.write('[DHCPv4]\nUseGateway=no\n')
 
         rc = call(*networkctl_cmd, 'reload', env=env)
