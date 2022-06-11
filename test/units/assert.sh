@@ -26,8 +26,20 @@ assert_eq() {
 
 assert_in() {
     if ! echo "$2" | grep -q "$1"; then
+        set +x
         echo "FAIL: '$1' not found in:" >&2
         echo "$2" >&2
+        set -x
+        exit 1
+    fi
+}
+
+assert_not_in() {
+    if echo "$2" | grep -q "$1"; then
+        set +x
+        echo "FAIL: '$1' found in:" >&2
+        echo "$2" >&2
+        set -x
         exit 1
     fi
 }
