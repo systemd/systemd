@@ -3,42 +3,56 @@
 
 # utility functions for shell tests
 
-assert_true() {
+assert_true() {(
     local rc
 
-    set +e
+    set +ex
+
     "$@"
     rc=$?
-    set -e
     if [[ "$rc" != "0" ]]; then
         echo "FAIL: command '$*' failed with exit code $rc" >&2
         exit 1
     fi
-}
+)}
 
 
-assert_eq() {
+assert_eq() {(
+    set +ex
+
     if [[ "$1" != "$2" ]]; then
         echo "FAIL: expected: '$2' actual: '$1'" >&2
         exit 1
     fi
-}
+)}
 
-assert_in() {
+assert_in() {(
+    set +ex
+
     if ! echo "$2" | grep -q "$1"; then
         echo "FAIL: '$1' not found in:" >&2
         echo "$2" >&2
         exit 1
     fi
-}
+)}
 
-assert_rc() {
-    local exp=$1
-    local rc
+assert_not_in() {(
+    set +ex
+
+    if echo "$2" | grep -q "$1"; then
+        echo "FAIL: '$1' found in:" >&2
+        echo "$2" >&2
+        exit 1
+    fi
+)}
+
+assert_rc() {(
+    local rc exp=$1
+
+    set +ex
+
     shift
-    set +e
     "$@"
     rc=$?
-    set -e
     assert_eq "$rc" "$exp"
-}
+)}
