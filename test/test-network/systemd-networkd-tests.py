@@ -321,14 +321,19 @@ def setUpModule():
         '[Service]',
         'Restart=no',
         'ExecStart=',
+        'ExecReload=',
     ]
     if use_valgrind:
         drop_in += [
             'ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + networkd_bin,
+            f'ExecReload=valgrind {networkctl_bin} reload',
             'PrivateTmp=yes'
         ]
     else:
-        drop_in += ['ExecStart=!!' + networkd_bin]
+        drop_in += [
+                'ExecStart=!!' + networkd_bin,
+                f'ExecReload={networkctl_bin} reload',
+        ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
