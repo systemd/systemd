@@ -566,7 +566,7 @@ def search_words_in_dnsmasq_log(words, show_all=False):
             for line in contents.splitlines():
                 if words in line:
                     in_file.close()
-                    print("%s, %s" % (words, line))
+                    print(f"{words}, {line}")
                     return True
     return False
 
@@ -5709,8 +5709,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+01::/64 proto kernel metric [0-9]* expires')
 
-        print('### ip -d link show dev {}'.format(tunnel_name))
-        output = check_output('ip -d link show dev {}'.format(tunnel_name))
+        print(f'### ip -d link show dev {tunnel_name}')
+        output = check_output(f'ip -d link show dev {tunnel_name}')
         print(output)
         self.assertIn('link/sit 10.100.100.', output)
         self.assertIn('local 10.100.100.', output)
@@ -5718,14 +5718,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertIn('6rd-prefix 2001:db8::/32', output)
         self.assertIn('6rd-relay_prefix 10.0.0.0/8', output)
 
-        print('### ip -6 address show dev {}'.format(tunnel_name))
-        output = check_output('ip -6 address show dev {}'.format(tunnel_name))
+        print(f'### ip -6 address show dev {tunnel_name}')
+        output = check_output(f'ip -6 address show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[23]:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global dynamic')
         self.assertRegex(output, 'inet6 ::10.100.100.[0-9]+/96 scope global')
 
-        print('### ip -6 route show dev {}'.format(tunnel_name))
-        output = check_output('ip -6 route show dev {}'.format(tunnel_name))
+        print(f'### ip -6 route show dev {tunnel_name}')
+        output = check_output(f'ip -6 route show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+0[23]::/64 proto kernel metric [0-9]* expires')
         self.assertRegex(output, '::/96 proto kernel metric [0-9]*')
@@ -5734,7 +5734,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show default')
         print(output)
         self.assertIn('default', output)
-        self.assertIn('via ::10.0.0.1 dev {}'.format(tunnel_name), output)
+        self.assertIn(f'via ::10.0.0.1 dev {tunnel_name}', output)
 
     def test_dhcp4_6rd(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp4-6rd-server.network', '25-dhcp4-6rd-upstream.network',
@@ -5768,7 +5768,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                 tunnel_name = name
                 break
 
-        self.wait_online(['{}:routable'.format(tunnel_name)])
+        self.wait_online([f'{tunnel_name}:routable'])
 
         self.verify_dhcp4_6rd(tunnel_name)
 
