@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "escape.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
@@ -150,8 +151,8 @@ int config_parse_netlabel(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        Set **set = ASSERT_PTR(data);
         int r;
-        Set **set = data;
 
         assert(filename);
         assert(lvalue);
@@ -179,8 +180,11 @@ int config_parse_netlabel(
 
                 /* Label semantics depend on LSM but let's do basic checks */
                 if (!string_is_safe(w)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(w);
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Bad NetLabel label, ignoring: %s", w);
+                                   "Bad NetLabel label, ignoring: %s", esc);
                         continue;
                 }
 

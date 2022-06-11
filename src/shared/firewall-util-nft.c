@@ -14,6 +14,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "firewall-util.h"
 #include "firewall-util-private.h"
@@ -928,10 +929,16 @@ static int nft_set_element_op_in_addr_open(
         r = nft_set_element_op_in_addr(nfnl, table, set,
                                        add, nfproto, af, address, prefixlen);
 
-        log_debug("%s NFT family %s table %s set %s IP address %s",
-                  add ? "Added" : "Deleted",
-                  nfproto_to_string(nfproto), table, set,
-                  IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
+        if (r < 0)
+                log_debug_errno(r, "Failed to %s NFT family %s table %s set %s IP address %s: %m",
+                                add ? "add" : "delete",
+                                nfproto_to_string(nfproto), table, set,
+                                IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
+        else
+                log_debug("%s NFT family %s table %s set %s IP address %s",
+                          add ? "Added" : "Deleted",
+                          nfproto_to_string(nfproto), table, set,
+                          IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
 
         return r;
 }
@@ -1137,21 +1144,19 @@ int fw_nftables_add_local_dnat(
 }
 
 static const char *const nfproto_table[] = {
-        [NFPROTO_ARP] = "arp",
+        [NFPROTO_ARP] =    "arp",
         [NFPROTO_BRIDGE] = "bridge",
-        [NFPROTO_INET] = "inet",
-        [NFPROTO_IPV4] = "ip",
-        [NFPROTO_IPV6] = "ip6",
+        [NFPROTO_INET] =   "inet",
+        [NFPROTO_IPV4] =   "ip",
+        [NFPROTO_IPV6] =   "ip6",
         [NFPROTO_NETDEV] = "netdev",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
 
-#define NFT_SET_MSGS 3
-
 static int nft_set_element_op(bool add, const NFTSetContext *nft_set_context, void *element, size_t element_size) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
-        sd_netlink_message *transaction[NFT_SET_MSGS] = {};
+        sd_netlink_message *transaction[3] = {};
         _cleanup_free_ uint32_t *serial = NULL;
         size_t tsize;
         int r, nfproto;
@@ -1332,11 +1337,19 @@ int config_parse_nft_set_context(
                         return 0;
                 }
 
-                if (nft_identifier_bad(table))
-                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", table);
+                if (!nft_identifier_good(table)) {
+                        _cleanup_free_ char *esc = NULL;
 
-                if (nft_identifier_bad(set))
-                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", set);
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", esc);
+                }
+
+                if (!nft_identifier_good(set)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", esc);
+                }
 
                 NFTSetContext *c;
                 c = reallocarray(*nft_set_context, *n + 1, sizeof(NFTSetContext));
