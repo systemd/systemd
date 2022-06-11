@@ -295,9 +295,6 @@ def expectedFailureIfFQPIEIsNotAvailable():
     return f
 
 def setUpModule():
-    # pylint: disable=global-statement
-    global running_units
-
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_conf_dropin_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -405,9 +402,6 @@ def setUpModule():
     check_output('systemctl restart systemd-udevd')
 
 def tearDownModule():
-    # pylint: disable=global-statement
-    global running_units
-
     shutil.rmtree(networkd_ci_path)
     os.remove(os.path.join(udev_rules_dir, '00-debug-net.rules'))
 
