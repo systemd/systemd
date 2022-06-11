@@ -21,7 +21,7 @@ test_timezone() {
     echo 'change timezone'
     assert_eq "$(timedatectl --no-pager set-timezone Europe/Kiev 2>&1)" ""
     assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "Europe/Kiev"
-    assert_in "Time.*zone: Europe/Kiev (EEST, +" "$(timedatectl --no-pager)"
+    assert_in "Time zone: Europe/Kiev (EEST, +0" "$(timedatectl)"
 
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'
