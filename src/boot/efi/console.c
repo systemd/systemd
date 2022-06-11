@@ -67,7 +67,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
 
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Error creating timer event: %r", err);
+                return log_error_status(err, "Error creating timer event: %m");
 
         EFI_EVENT events[] = {
                 timer,
@@ -88,14 +88,14 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                                 TimerRelative,
                                 MIN(timeout_usec, watchdog_ping_usec) * 10);
                 if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Error arming timer event: %r", err);
+                        return log_error_status(err, "Error arming timer event: %m");
 
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
                 err = BS->WaitForEvent(n_events, events, &index);
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
 
                 if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Error waiting for events: %r", err);
+                        return log_error_status(err, "Error waiting for events: %m");
 
                 /* We have keyboard input, process it after this loop. */
                 if (timer != events[index])
