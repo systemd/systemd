@@ -2101,10 +2101,10 @@ int bus_cgroup_set_property(
                         if (!nfproto_name)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid protocol %d.", nfproto);
 
-                        if (nft_identifier_bad(table))
+                        if (!nft_identifier_good(table))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT table name %s.", table);
 
-                        if (nft_identifier_bad(set))
+                        if (!nft_identifier_good(set))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NFT set name %s.", set);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

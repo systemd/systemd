@@ -6571,8 +6571,12 @@ static int config_parse_nft_set(
                         return 0;
                 }
 
-                if (nft_identifier_bad(table_resolved))
-                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", table);
+                if (!nft_identifier_good(table_resolved)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", esc);
+                }
 
                 r = unit_path_printf(u, set, &set_resolved);
                 if (r < 0) {
@@ -6580,8 +6584,12 @@ static int config_parse_nft_set(
                         return 0;
                 }
 
-                if (nft_identifier_bad(set_resolved))
-                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", set);
+                if (!nft_identifier_good(set_resolved)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", esc);
+                }
 
                 r = nft_set_context_add(c, n, nfproto, table_resolved, set_resolved);
                 if (r < 0)
