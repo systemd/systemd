@@ -31,7 +31,7 @@ _bootctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful'
+        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful --install-from-host'
         [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image'
     )
 
