@@ -1,3 +1,4 @@
+src/basic/parse-util.c
 src/boot/efi/boot.c
 src/boot/efi/secure-boot.c
 src/boot/efi/stub.c
