@@ -259,6 +259,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--install-from-host</option></term>
+        <listitem><para>Install binaries from the host filesystem when <option>--root</option> or
+        <option>--image</option> are used. By default binaries will be picked from the specified
+        directory or image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
