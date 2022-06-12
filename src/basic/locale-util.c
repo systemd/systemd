@@ -339,6 +339,17 @@ void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
                 l[i] = mfree(l[i]);
 }
 
+void locale_variables_simplify(char *l[_VARIABLE_LC_MAX]) {
+        assert(l);
+
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
+                if (p == VARIABLE_LANG)
+                        continue;
+                if (isempty(l[p]) || streq_ptr(l[VARIABLE_LANG], l[p]))
+                        l[p] = mfree(l[p]);
+        }
+}
+
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
         [VARIABLE_LANG]              = "LANG",
         [VARIABLE_LANGUAGE]          = "LANGUAGE",
