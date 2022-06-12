@@ -11,21 +11,26 @@ print('''
 /* We want to check deprecated symbols too, without complaining */
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-const void* symbols[] = {''')
+const struct {
+        const char *name;
+        const void *symbol;
+} symbols[] = {''')
 
+count = 0
 for line in open(sys.argv[1]):
     match = re.search('^ +([a-zA-Z0-9_]+);', line)
     if match:
         s = match.group(1)
         if s == 'sd_bus_object_vtable_format':
-            print('    &{},'.format(s))
+            print(f'    {{"{s}", &{s}}},')
         else:
-            print('    {},'.format(s))
+            print(f'    {{"{s}", {s}}},')
+        count += 1
 
-print('''};
+print(f'''}};
 
-int main(void) {
-    for (size_t i = 0; i < sizeof(symbols)/sizeof(void*); i++)
-         printf("%p\\n", symbols[i]);
+int main(void) {{
+    for (size_t i = 0; i < {count}; i++)
+         printf("%p: %s\\n", symbols[i].symbol, symbols[i].name);
     return 0;
-}''')
+}}''')
