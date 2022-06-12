@@ -187,7 +187,8 @@ libcore = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
-        link_with : libshared,
+        link_with : [libbasic_shared,
+                     libshared],
         dependencies : [versiondep,
                         threads,
                         libdl,
@@ -252,6 +253,7 @@ endif
 fuzzers += [
         [files('fuzz-unit-file.c'),
          [libcore,
+          libbasic_shared,
           libshared],
          [libmount]],
 ]

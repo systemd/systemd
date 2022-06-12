@@ -232,7 +232,8 @@ sources += custom_target(
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 if get_option('link-networkd-shared')
-        networkd_link_with = [libshared]
+        networkd_link_with = [libbasic_shared,
+                              libshared]
 else
         networkd_link_with = [libsystemd_static,
                               libshared_static,

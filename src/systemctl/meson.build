@@ -75,7 +75,8 @@ systemctl_sources = files(
         'systemctl.h')
 
 if get_option('link-systemctl-shared')
-        systemctl_link_with = [libshared]
+        systemctl_link_with = [libbasic_shared,
+                               libshared]
 else
         systemctl_link_with = [libsystemd_static,
                                libshared_static,
