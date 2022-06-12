@@ -2,11 +2,14 @@
 
 #include "sd-netlink.h"
 
+#include "fd-util.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "strv.h"
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
@@ -627,4 +630,122 @@ int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, O
         if (ret)
                 *ret = TAKE_PTR(set);
         return 0;
+}
+
+bool netlink_pid_changed(sd_netlink *nl) {
+        /* We don't support people creating an nl connection and
+         * keeping it around over a fork(). Let's complain. */
+        return ASSERT_PTR(nl)->original_pid != getpid_cached();
+}
+
+static int socket_open(int family) {
+        int fd;
+
+        fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, family);
+        if (fd < 0)
+                return -errno;
+
+        return fd_move_above_stdio(fd);
+}
+
+int netlink_open_family(sd_netlink **ret, int family) {
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        fd = socket_open(family);
+        if (fd < 0)
+                return fd;
+
+        r = sd_netlink_open_fd(ret, fd);
+        if (r < 0)
+                return r;
+        TAKE_FD(fd);
+
+        return 0;
+}
+
+void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m) {
+        uint32_t picked;
+
+        assert(nl);
+        assert(!netlink_pid_changed(nl));
+        assert(m);
+        assert(m->hdr);
+
+        /* Avoid collisions with outstanding requests */
+        do {
+                picked = nl->serial;
+
+                /* Don't use seq == 0, as that is used for broadcasts, so we would get confused by replies to
+                   such messages */
+                nl->serial = nl->serial == UINT32_MAX ? 1 : nl->serial + 1;
+
+        } while (hashmap_contains(nl->reply_callbacks, UINT32_TO_PTR(picked)));
+
+        m->hdr->nlmsg_seq = picked;
+        message_seal(m);
+}
+
+static int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
+        _cleanup_free_ struct iovec *iovs = NULL;
+        ssize_t k;
+
+        assert(nl);
+        assert(m);
+        assert(msgcount > 0);
+
+        iovs = new(struct iovec, msgcount);
+        if (!iovs)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < msgcount; i++) {
+                assert(m[i]->hdr);
+                assert(m[i]->hdr->nlmsg_len > 0);
+
+                iovs[i] = IOVEC_MAKE(m[i]->hdr, m[i]->hdr->nlmsg_len);
+        }
+
+        k = writev(nl->fd, iovs, msgcount);
+        if (k < 0)
+                return -errno;
+
+        return k;
+}
+
+int sd_netlink_sendv(
+                sd_netlink *nl,
+                sd_netlink_message **messages,
+                size_t msgcount,
+                uint32_t **ret_serial) {
+
+        _cleanup_free_ uint32_t *serials = NULL;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(!netlink_pid_changed(nl), -ECHILD);
+        assert_return(messages, -EINVAL);
+        assert_return(msgcount > 0, -EINVAL);
+
+        if (ret_serial) {
+                serials = new(uint32_t, msgcount);
+                if (!serials)
+                        return -ENOMEM;
+        }
+
+        for (size_t i = 0; i < msgcount; i++) {
+                assert_return(!messages[i]->sealed, -EPERM);
+
+                netlink_seal_message(nl, messages[i]);
+                if (serials)
+                        serials[i] = message_get_serial(messages[i]);
+        }
+
+        r = socket_writev_message(nl, messages, msgcount);
+        if (r < 0)
+                return r;
+
+        if (ret_serial)
+                *ret_serial = TAKE_PTR(serials);
+
+        return r;
 }
