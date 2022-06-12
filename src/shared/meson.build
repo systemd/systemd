@@ -482,9 +482,9 @@ libshared = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
-                      libbasic,
                       libbasic_gcrypt,
                       libsystemd_static],
+        link_with : libbasic_shared,
         dependencies : libshared_deps,
         install : true,
         install_dir : rootpkglibdir)
