@@ -12,7 +12,7 @@
 
 #define _FOREACH_INOTIFY_EVENT(e, buffer, sz, log_level, start, end)    \
         for (struct inotify_event                                       \
-                     *start = &((buffer).ev),                           \
+                     *start = &((buffer).raw),                          \
                      *end = (struct inotify_event*) ((uint8_t*) start + (sz)), \
                      *e = start;                                        \
              (size_t) ((uint8_t*) end - (uint8_t*) e) >= sizeof(struct inotify_event) && \
