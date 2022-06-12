@@ -702,6 +702,7 @@ setup_basic_environment() {
     install_pam
     install_dbus
     install_fonts
+    install_locales
     install_keymaps
     install_terminfo
     install_execs
@@ -1913,6 +1914,19 @@ install_pam() {
         [ -d "$initdir/$d" ] || continue
         sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
     done
+}
+
+install_locales() {
+    # install only english locales
+    dinfo "Install locales"
+
+    image_install -o locale-gen localedef
+    inst /etc/locale.gen || :
+    inst /usr/share/i18n/SUPPORTED || :
+    inst_recursive /usr/share/i18n/charmaps
+
+    inst_recursive /usr/lib/locale/en*.utf8
+    inst_recursive /usr/lib/locale/en*.UTF-8
 }
 
 # shellcheck disable=SC2120
