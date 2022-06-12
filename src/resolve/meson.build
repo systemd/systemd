@@ -177,12 +177,14 @@ custom_target(
 tests += [
         [files('test-resolve-tables.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
 
         [files('test-dns-packet.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
@@ -191,19 +193,22 @@ tests += [
                'resolved-etc-hosts.c',
                'resolved-etc-hosts.h'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
 
         [files('test-resolved-packet.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
 
         [files('test-resolved-stream.c')
          + basic_dns_sources + systemd_resolved_sources,
-         [libshared],
+         [libbasic_shared,
+          libshared],
          [lib_openssl_or_gcrypt,
           libm]
          + systemd_resolved_dependencies,
@@ -211,6 +216,7 @@ tests += [
 
         [files('test-dnssec.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm],
@@ -218,6 +224,7 @@ tests += [
 
         [files('test-dnssec-complex.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm],
@@ -227,6 +234,7 @@ tests += [
 fuzzers += [
         [files('fuzz-dns-packet.c'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
@@ -234,6 +242,7 @@ fuzzers += [
           'resolved-etc-hosts.c',
           'resolved-etc-hosts.h'),
          [libsystemd_resolve_core,
+          libbasic_shared,
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],

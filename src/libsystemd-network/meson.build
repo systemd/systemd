@@ -60,74 +60,91 @@ libsystemd_network_includes = [includes, include_directories('.')]
 
 tests += [
         [files('test-dhcp-option.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-sd-dhcp-lease.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-dhcp-client.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-dhcp-server.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-ipv4ll.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-ipv4ll-manual.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network],
          [], [], '', 'manual'],
 
         [files('test-acd.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network],
          [], [], '', 'manual'],
 
         [files('test-ndisc-rs.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-ndisc-ra.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-dhcp6-client.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('test-lldp-rx.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 ]
 
 fuzzers += [
         [files('fuzz-dhcp-client.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('fuzz-dhcp6-client.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('fuzz-dhcp-server.c'),
          [libsystemd_network,
+          libbasic_shared,
           libshared]],
 
         [files('fuzz-dhcp-server-relay.c'),
          [libsystemd_network,
+          libbasic_shared,
           libshared]],
 
         [files('fuzz-lldp-rx.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 
         [files('fuzz-ndisc-rs.c'),
-         [libshared,
+         [libbasic_shared,
+          libshared,
           libsystemd_network]],
 ]
