@@ -1913,7 +1913,10 @@ install_pam() {
 
 # shellcheck disable=SC2120
 install_keymaps() {
-    dinfo "Install keymaps"
+    local i
+
+    dinfo "Install console keymaps"
+
     # The first three paths may be deprecated.
     # It seems now the last two paths are used by many distributions.
     for i in \
@@ -1921,7 +1924,8 @@ install_keymaps() {
         /usr/lib/kbd/keymaps/i386/include/* \
         /usr/lib/kbd/keymaps/i386/qwerty/us.* \
         /usr/lib/kbd/keymaps/legacy/include/* \
-        /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.*; do
+        /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.* \
+        /usr/lib/kbd/keymaps/xkb/us*; do
             [[ -f "$i" ]] || continue
             inst "$i"
     done
@@ -1929,10 +1933,11 @@ install_keymaps() {
     # When it takes any argument, then install more keymaps.
     if [[ $# -gt 1 ]]; then
         for i in \
-        /usr/lib/kbd/keymaps/i386/*/* \
-        /usr/lib/kbd/keymaps/legacy/i386/*/*; do
-            [[ -f "$i" ]] || continue
-            inst "$i"
+            /usr/lib/kbd/keymaps/i386/*/* \
+            /usr/lib/kbd/keymaps/legacy/i386/*/* \
+            /usr/lib/kbd/keymaps/xkb/*; do
+                [[ -f "$i" ]] || continue
+                inst "$i"
         done
     fi
 }
