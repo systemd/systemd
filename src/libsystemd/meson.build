@@ -166,7 +166,7 @@ libsystemd_static = static_library(
         libsystemd_sources,
         include_directories : libsystemd_includes,
         c_args : libsystemd_c_args,
-        link_with : [libbasic,
+        link_with : [libbasic_static,
                      libbasic_compress],
         dependencies : [threads,
                         librt],

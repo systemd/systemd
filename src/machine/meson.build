@@ -39,6 +39,7 @@ endif
 tests += [
         [files('test-machine-tables.c'),
          [libmachine_core,
+          libbasic,
           libshared],
          [threads]],
 ]
