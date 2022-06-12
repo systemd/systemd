@@ -15,8 +15,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "kbd-util.h"
-#include "keymap-util.h"
-#include "locale-util.h"
+#include "localed-util.h"
 #include "macro.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
@@ -65,13 +64,8 @@ static void context_free_vconsole(Context *c) {
         c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
 }
 
-static void context_free_locale(Context *c) {
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
-                c->locale[p] = mfree(c->locale[p]);
-}
-
 void context_clear(Context *c) {
-        context_free_locale(c);
+        locale_context_clear(&c->locale_context);
         context_free_x11(c);
         context_free_vconsole(c);
 
@@ -82,15 +76,8 @@ void context_clear(Context *c) {
         bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
-void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
-        for (LocaleVariable p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
-                if (isempty(locale[p]) || streq_ptr(locale[VARIABLE_LANG], locale[p]))
-                        locale[p] = mfree(locale[p]);
-}
-
 int locale_read_data(Context *c, sd_bus_message *m) {
-        struct stat st;
-        int r;
+        assert(c);
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -101,57 +88,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                 c->locale_cache = sd_bus_message_ref(m);
         }
 
-        r = stat("/etc/locale.conf", &st);
-        if (r < 0 && errno != ENOENT)
-                return -errno;
-
-        if (r >= 0) {
-                usec_t t;
-
-                /* If mtime is not changed, then we do not need to re-read the file. */
-                t = timespec_load(&st.st_mtim);
-                if (c->locale_mtime != USEC_INFINITY && t == c->locale_mtime)
-                        return 0;
-
-                c->locale_mtime = t;
-                context_free_locale(c);
-
-                r = parse_env_file(NULL, "/etc/locale.conf",
-                                   "LANG",              &c->locale[VARIABLE_LANG],
-                                   "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
-                                   "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
-                                   "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
-                                   "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
-                                   "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
-                                   "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
-                                   "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
-                                   "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
-                                   "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
-                                   "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
-                                   "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
-                                   "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
-                if (r < 0)
-                        return r;
-        } else {
-                c->locale_mtime = USEC_INFINITY;
-                context_free_locale(c);
-
-                /* Fill in what we got passed from systemd. */
-                for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
-                        const char *name;
-
-                        name = locale_variable_to_string(p);
-                        assert(name);
-
-                        r = free_and_strdup(&c->locale[p], empty_to_null(getenv(name)));
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        locale_simplify(c->locale);
-        return 0;
+        return locale_context_load(&c->locale_context, LOCALE_LOAD_LOCALE_CONF | LOCALE_LOAD_ENVIRONMENT | LOCALE_LOAD_SIMPLIFY);
 }
 
 int vconsole_read_data(Context *c, sd_bus_message *m) {
@@ -276,40 +213,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 } else if (in_section && first_word(l, "EndSection"))
                         in_section = false;
         }
-
-        return 0;
-}
-
-int locale_write_data(Context *c, char ***settings) {
-        _cleanup_strv_free_ char **l = NULL;
-        struct stat st;
-        int r;
-
-        /* Set values will be returned as strv in *settings on success. */
-
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
-                if (!isempty(c->locale[p])) {
-                        r = strv_env_assign(&l, locale_variable_to_string(p), c->locale[p]);
-                        if (r < 0)
-                                return r;
-                }
-
-        if (strv_isempty(l)) {
-                if (unlink("/etc/locale.conf") < 0)
-                        return errno == ENOENT ? 0 : -errno;
-
-                c->locale_mtime = USEC_INFINITY;
-                return 0;
-        }
-
-        r = write_env_file_label("/etc/locale.conf", l);
-        if (r < 0)
-                return r;
-
-        *settings = TAKE_PTR(l);
-
-        if (stat("/etc/locale.conf", &st) >= 0)
-                c->locale_mtime = timespec_load(&st.st_mtim);
 
         return 0;
 }
