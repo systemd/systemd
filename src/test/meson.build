@@ -417,9 +417,7 @@ tests += [
 
         [files('test-ordered-set.c')],
 
-        [files('test-set-disable-mempool.c'),
-         [],
-         [threads]],
+        [files('test-set-disable-mempool.c')],
 
         [files('test-hash-funcs.c')],
 
