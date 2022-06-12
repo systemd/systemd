@@ -79,6 +79,7 @@ endif
 tests += [
         [files('test-journal-syslog.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [threads,
           libxz,
@@ -87,6 +88,7 @@ tests += [
 
         [files('test-journal-config.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libxz,
           liblz4,
@@ -94,22 +96,27 @@ tests += [
 
         [files('test-journal.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared]],
 
         [files('test-journal-stream.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared]],
 
-         [files('test-journal-flush.c'),
-          [libjournal_core,
-           libshared]],
+        [files('test-journal-flush.c'),
+         [libjournal_core,
+          libbasic_shared,
+          libshared]],
 
         [files('test-journal-verify.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared]],
 
         [files('test-journal-interleaving.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared]],
 ]
 
@@ -117,36 +124,42 @@ fuzzers += [
         [files('fuzz-journald-audit.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 
         [files('fuzz-journald-kmsg.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 
         [files('fuzz-journald-native.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 
         [files('fuzz-journald-native-fd.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 
         [files('fuzz-journald-stream.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 
         [files('fuzz-journald-syslog.c',
                'fuzz-journald.c'),
          [libjournal_core,
+          libbasic_shared,
           libshared],
          [libselinux]],
 ]
