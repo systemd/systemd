@@ -79,6 +79,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_arch_all = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+static bool arg_install_from_host = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -851,7 +852,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (s)
                 *s = 0;
 
-        f = prefix_roota(arg_root, BOOTLIBDIR "/");
+        f = prefix_roota(arg_install_from_host ? NULL : arg_root, BOOTLIBDIR "/");
         p = strjoina(f, name);
         q = strjoina(esp_path, "/EFI/systemd/", dest_name);
         r = copy_file_with_version_check(p, q, force);
@@ -878,7 +879,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         const char *path;
         int r = 0;
 
-        path = prefix_roota(arg_root, BOOTLIBDIR);
+        path = prefix_roota(arg_install_from_host ? NULL : arg_root, BOOTLIBDIR);
         d = opendir(path);
         if (!d)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
@@ -1370,6 +1371,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --boot-path=PATH  Path to the $BOOT partition\n"
                "     --root=PATH       Operate on an alternate filesystem root\n"
                "     --image=PATH      Operate on disk image as filesystem root\n"
+               "     --install-from-host\n"
+               "                       Pick files from the host when using --root=/--image=\n"
                "  -p --print-esp-path  Print path to the EFI System Partition\n"
                "  -x --print-boot-path Print path to the $BOOT partition\n"
                "     --no-variables    Don't touch EFI variables\n"
@@ -1402,6 +1405,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_PATH,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_INSTALL_FROM_HOST,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
@@ -1420,6 +1424,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",                 required_argument, NULL, ARG_BOOT_PATH                 },
                 { "root",                      required_argument, NULL, ARG_ROOT                      },
                 { "image",                     required_argument, NULL, ARG_IMAGE                     },
+                { "install-from-host",         no_argument,       NULL, ARG_INSTALL_FROM_HOST         },
                 { "print-esp-path",            no_argument,       NULL, 'p'                           },
                 { "print-path",                no_argument,       NULL, 'p'                           }, /* Compatibility alias */
                 { "print-boot-path",           no_argument,       NULL, 'x'                           },
@@ -1473,6 +1478,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_INSTALL_FROM_HOST:
+                        arg_install_from_host = true;
                         break;
 
                 case 'p':
@@ -1567,6 +1576,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_install_from_host && !arg_root && !arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
         return 1;
 }
