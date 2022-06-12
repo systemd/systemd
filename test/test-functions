@@ -702,6 +702,7 @@ setup_basic_environment() {
     install_pam
     install_dbus
     install_fonts
+    install_locales
     install_keymaps
     install_terminfo
     install_execs
@@ -1912,6 +1913,25 @@ install_pam() {
     for d in /etc/pam.d /usr/{etc,lib}/pam.d; do
         [ -d "$initdir/$d" ] || continue
         sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
+    done
+}
+
+install_locales() {
+    local i
+
+    # install only english locales
+    dinfo "Install locales"
+
+    image_install -o locale-gen localedef
+    inst /etc/locale.gen || :
+    inst /usr/share/i18n/SUPPORTED || :
+
+    for i in $(find /usr/lib/locale/en*.utf8 /usr/lib/locale/en*.UTF-8 2>/dev/null || :); do
+        if [[ -d "$i" ]]; then
+            inst_dir "$i"
+        elif [[ -f "$i" ]]; then
+            inst_simple "$i"
+        fi
     done
 }
 
