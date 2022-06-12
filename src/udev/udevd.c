@@ -162,7 +162,7 @@ typedef enum EventResult {
         EVENT_RESULT_NERRNO_MIN       = -ERRNO_MAX,
         EVENT_RESULT_NERRNO_MAX       = -1,
         EVENT_RESULT_SUCCESS          = 0,
-        EVENT_RESULT_EXIT_STATUS_BASE = 0,
+        EVENT_RESULT_EXIT_STATUS_BASE = 1,
         EVENT_RESULT_EXIT_STATUS_MAX  = 255,
         EVENT_RESULT_TRY_AGAIN        = 256, /* when the block device is locked by another process. */
         EVENT_RESULT_SIGNAL_BASE      = 257,
