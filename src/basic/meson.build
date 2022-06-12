@@ -429,6 +429,18 @@ libbasic = static_library(
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
+
+libbasic_shared_name = 'systemd-basic-@0@'.format(shared_lib_tag)
+
+libbasic_shared = shared_library(
+        libbasic_shared_name,
+        include_directories : basic_includes,
+        link_whole : libbasic,
+        c_args : ['-fvisibility=default'],
+        install : true,
+        install_tag: 'libsystemd',
+        install_dir : rootpkglibdir)
+
 ############################################################
 
 basic_gcrypt_sources = files(
