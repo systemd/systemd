@@ -3,12 +3,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "env-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
-#include "process-util.h"
-#include "util.h"
 
 struct pool {
         struct pool *next;
@@ -71,20 +68,6 @@ void* mempool_alloc0_tile(struct mempool *mp) {
 void mempool_free_tile(struct mempool *mp, void *p) {
         * (void**) p = mp->freelist;
         mp->freelist = p;
-}
-
-bool mempool_enabled(void) {
-        static int b = -1;
-
-        if (!is_main_thread())
-                return false;
-
-        if (!mempool_use_allowed)
-                b = false;
-        if (b < 0)
-                b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
-
-        return b;
 }
 
 #if VALGRIND
