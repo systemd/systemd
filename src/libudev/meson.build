@@ -47,6 +47,7 @@ libudev_pc = custom_target(
 
 tests += [
         [files('test-libudev.c'),
-         [libshared,
+         [libbasic,
+          libshared,
           libudev_basic]],
 ]
