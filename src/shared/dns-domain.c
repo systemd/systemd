@@ -1022,10 +1022,10 @@ static bool dns_service_name_label_is_valid(const char *label, size_t n) {
         return dns_service_name_is_valid(s);
 }
 
-int dns_service_split(const char *joined, char **_name, char **_type, char **_domain) {
+int dns_service_split(const char *joined, char **ret_name, char **ret_type, char **ret_domain) {
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-        const char *p = joined, *q = NULL, *d = NULL;
-        char a[DNS_LABEL_MAX], b[DNS_LABEL_MAX], c[DNS_LABEL_MAX];
+        const char *p = joined, *q = NULL, *d = joined;
+        char a[DNS_LABEL_MAX+1], b[DNS_LABEL_MAX+1], c[DNS_LABEL_MAX+1];
         int an, bn, cn, r;
         unsigned x = 0;
 
@@ -1045,6 +1045,9 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
                         return bn;
 
                 if (bn > 0) {
+                        if (!srv_type_label_is_valid(b, bn))
+                                goto finish;
+
                         x++;
 
                         /* If there was a second label, try to get the third one */
@@ -1053,64 +1056,58 @@ int dns_service_split(const char *joined, char **_name, char **_type, char **_do
                         if (cn < 0)
                                 return cn;
 
-                        if (cn > 0)
+                        if (cn > 0 && srv_type_label_is_valid(c, cn))
                                 x++;
-                } else
-                        cn = 0;
-        } else
-                an = 0;
-
-        if (x >= 2 && srv_type_label_is_valid(b, bn)) {
-
-                if (x >= 3 && srv_type_label_is_valid(c, cn)) {
-
-                        if (dns_service_name_label_is_valid(a, an)) {
-                                /* OK, got <name> . <type> . <type2> . <domain> */
-
-                                name = strndup(a, an);
-                                if (!name)
-                                        return -ENOMEM;
-
-                                type = strjoin(b, ".", c);
-                                if (!type)
-                                        return -ENOMEM;
-
-                                d = p;
-                                goto finish;
-                        }
-
-                } else if (srv_type_label_is_valid(a, an)) {
-
-                        /* OK, got <type> . <type2> . <domain> */
-
-                        name = NULL;
-
-                        type = strjoin(a, ".", b);
-                        if (!type)
-                                return -ENOMEM;
-
-                        d = q;
-                        goto finish;
                 }
         }
 
-        name = NULL;
-        type = NULL;
-        d = joined;
+        switch (x) {
+        case 2:
+                if (!srv_type_label_is_valid(a, an))
+                        break;
+
+                /* OK, got <type> . <type2> . <domain> */
+
+                name = NULL;
+
+                type = strjoin(a, ".", b);
+                if (!type)
+                        return -ENOMEM;
+
+                d = q;
+                break;
+
+        case 3:
+                if (!dns_service_name_label_is_valid(a, an))
+                        break;
+
+                /* OK, got <name> . <type> . <type2> . <domain> */
+
+                name = strndup(a, an);
+                if (!name)
+                        return -ENOMEM;
+
+                type = strjoin(b, ".", c);
+                if (!type)
+                        return -ENOMEM;
+
+                d = p;
+                break;
+        }
 
 finish:
         r = dns_name_normalize(d, 0, &domain);
         if (r < 0)
                 return r;
 
-        if (_domain)
-                *_domain = TAKE_PTR(domain);
+        if (ret_domain)
+                *ret_domain = TAKE_PTR(domain);
 
-        if (_type)
-                *_type = TAKE_PTR(type);
+        if (ret_type)
+                *ret_type = TAKE_PTR(type);
 
-        if (_name)
-                *_name = TAKE_PTR(name);
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
 
         return 0;
 }
