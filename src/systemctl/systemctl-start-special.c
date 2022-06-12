@@ -43,7 +43,7 @@ static int load_kexec_kernel(void) {
         if (r < 0)
                 return r;
 
-        r = boot_config_select_special_entries(&config);
+        r = boot_config_select_special_entries(&config, /* skip_efivars= */ false);
         if (r < 0)
                 return r;
 
