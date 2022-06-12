@@ -1373,7 +1373,8 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
 }
 
 static bool token_match_attr(UdevRules *rules, UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
-        char nbuf[UDEV_NAME_SIZE], vbuf[UDEV_NAME_SIZE];
+        char nbuf[UDEV_NAME_SIZE] = {0};
+        char vbuf[UDEV_NAME_SIZE] = {0};
         const char *name, *value;
         bool truncated;
 
