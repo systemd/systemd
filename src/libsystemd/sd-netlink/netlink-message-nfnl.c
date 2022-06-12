@@ -277,7 +277,7 @@ int sd_nfnl_nft_message_del_setelems_begin(
         return r;
 }
 
-static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
+static int add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
         int r;
 
         r = sd_netlink_message_open_container(m, attr);
@@ -305,12 +305,12 @@ int sd_nfnl_nft_message_add_setelem(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_add_data(m, NFTA_SET_ELEM_KEY, key, klen);
+        r = add_data(m, NFTA_SET_ELEM_KEY, key, klen);
         if (r < 0)
                 goto cancel;
 
         if (data) {
-                r = sd_nfnl_add_data(m, NFTA_SET_ELEM_DATA, data, dlen);
+                r = add_data(m, NFTA_SET_ELEM_DATA, data, dlen);
                 if (r < 0)
                         goto cancel;
         }
