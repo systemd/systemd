@@ -715,8 +715,8 @@ Features:
   mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
 
 * All tools that support --root= should also learn --image= so that they can
-  operate on disk images directly. Specifically: bootctl, systemctl,
-  coredumpctl. (Already done: systemd-nspawn, systemd-firstboot,
+  operate on disk images directly. Specifically: systemctl, coredumpctl.
+  (Already done: bootctl, systemd-nspawn, systemd-firstboot,
   systemd-repart, systemd-tmpfiles, systemd-sysusers, journalctl)
 
 * seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
