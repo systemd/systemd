@@ -280,7 +280,7 @@ static int link_get_l2tp_local_address(Link *link, L2tpTunnel *t, union in_addr_
 static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
         Link *link = NULL;
         L2tpTunnel *t;
-        Address *a;
+        Address *a = NULL;
         int r;
 
         assert(netdev);
