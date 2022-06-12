@@ -259,6 +259,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--install-source=</option></term>
+        <listitem><para>When installing binaries with <option>--root=</option> or
+        <option>--image=</option>, selects where to source them from. Takes one of <literal>auto</literal>
+        (the default), <literal>image</literal> or <literal>host</literal>. With <literal>auto</literal>
+        binaries will be picked from the specified directory or image, and if not found they will be picked
+        from the host. With <literal>image</literal> or <literal>host</literal> no fallback search will be
+        performed if the binaries are not found in the selected source.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
