@@ -1249,7 +1249,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -1265,6 +1265,10 @@ install_missing_libraries() {
                 # (eg: libcryptsetup), so just ignore them
                 inst_libs "${path}/${lib}.so" || true
                 inst_library "${path}/${lib}.so" || true
+
+                if [[ "$lib" == "libxkbcommon" ]]; then
+                    install_x11_keymaps
+                fi
         else
             ddebug "$lib.pc not found, skipping"
             continue
@@ -1940,6 +1944,20 @@ install_keymaps() {
                 inst "$i"
         done
     fi
+}
+
+install_x11_keymaps() {
+    local i
+
+    dinfo "Install x11 keymaps"
+
+    for i in $(find /usr/share/X11/xkb || :); do
+        if [[ -d "$i" ]]; then
+            inst_dir "$i"
+        elif [[ -f "$i" ]]; then
+            inst_simple "$i"
+        fi
+    done
 }
 
 install_zoneinfo() {
