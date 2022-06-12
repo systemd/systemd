@@ -1074,7 +1074,8 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
                         .msg_iov = iovw->iovec + i,
                         .msg_iovlen = 1,
                 };
-                struct iovec copy[2];
+
+                struct iovec copy[2] = { };
 
                 for (;;) {
                         if (sendmsg(fd, &mh, MSG_NOSIGNAL) >= 0)
