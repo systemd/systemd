@@ -75,4 +75,5 @@ _arguments \
     '--graceful[Do not fail when locating ESP or writing fails]' \
     '--root=[Operate under the specified directory]:PATH' \
     '--image=[Operate on the specified image]:PATH' \
+    '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \
     '*::bootctl command:_bootctl_commands'

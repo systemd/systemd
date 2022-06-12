@@ -80,6 +80,11 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_arch_all = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+static enum {
+        ARG_INSTALL_SOURCE_IMAGE,
+        ARG_INSTALL_SOURCE_HOST,
+        ARG_INSTALL_SOURCE_AUTO,
+} arg_install_source = ARG_INSTALL_SOURCE_AUTO;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -843,6 +848,7 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
 }
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
+        char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
         _cleanup_free_ char *source_path = NULL, *dest_path = NULL, *p = NULL, *q = NULL;
         const char *e;
         char *dest_name, *s;
@@ -857,13 +863,16 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (!p)
                 return log_oom();
 
-        r = chase_symlinks(p, arg_root, CHASE_PREFIX_ROOT, &source_path, NULL);
+        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT, &source_path, NULL);
+        /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
+        if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
+                r = chase_symlinks(p, NULL, CHASE_PREFIX_ROOT, &source_path, NULL);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to resolve path %s%s%s: %m",
                                        p,
-                                       arg_root ? " under directory " : "",
-                                       arg_root ? arg_root : "");
+                                       root ? " under directory " : "",
+                                       root ?: "");
 
         q = path_join("/EFI/systemd/", dest_name);
         if (!q)
@@ -899,13 +908,17 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 }
 
 static int install_binaries(const char *esp_path, const char *arch, bool force) {
+        char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
-        r = chase_symlinks_and_opendir(BOOTLIBDIR, arg_root, CHASE_PREFIX_ROOT, &path, &d);
+        r = chase_symlinks_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT, &path, &d);
+        /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
+        if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
+                r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT, &path, &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to open boot loader directory %s: %m", BOOTLIBDIR);
+                return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", root ?: "", BOOTLIBDIR);
 
         const char *suffix = strjoina(arch, ".efi");
         const char *suffix_signed = strjoina(arch, ".efi.signed");
@@ -1394,6 +1407,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --boot-path=PATH  Path to the $BOOT partition\n"
                "     --root=PATH       Operate on an alternate filesystem root\n"
                "     --image=PATH      Operate on disk image as filesystem root\n"
+               "     --install-source=auto|image|host\n"
+               "                       Where to pick files when using --root=/--image=\n"
                "  -p --print-esp-path  Print path to the EFI System Partition\n"
                "  -x --print-boot-path Print path to the $BOOT partition\n"
                "     --no-variables    Don't touch EFI variables\n"
@@ -1426,6 +1441,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_PATH,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_INSTALL_SOURCE,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
@@ -1444,6 +1460,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",                 required_argument, NULL, ARG_BOOT_PATH                 },
                 { "root",                      required_argument, NULL, ARG_ROOT                      },
                 { "image",                     required_argument, NULL, ARG_IMAGE                     },
+                { "install-source",            required_argument, NULL, ARG_INSTALL_SOURCE            },
                 { "print-esp-path",            no_argument,       NULL, 'p'                           },
                 { "print-path",                no_argument,       NULL, 'p'                           }, /* Compatibility alias */
                 { "print-boot-path",           no_argument,       NULL, 'x'                           },
@@ -1497,6 +1514,19 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_INSTALL_SOURCE:
+                        if (streq(optarg, "auto"))
+                                arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+                        else if (streq(optarg, "image"))
+                                arg_install_source = ARG_INSTALL_SOURCE_IMAGE;
+                        else if (streq(optarg, "host"))
+                                arg_install_source = ARG_INSTALL_SOURCE_HOST;
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unexpected parameter for --install-source=: %s", optarg);
+
                         break;
 
                 case 'p':
@@ -1591,6 +1621,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
         return 1;
 }
