@@ -150,7 +150,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         print_overridden_variables();
         print_status_info(&info);
 
-        return r;
+        return 0;
 }
 
 static int set_locale(int argc, char **argv, void *userdata) {
