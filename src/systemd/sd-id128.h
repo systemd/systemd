@@ -119,6 +119,8 @@ _sd_pure_ static __inline__ int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return a.qwords[0] == b.qwords[0] && a.qwords[1] == b.qwords[1];
 }
 
+int sd_id128_string_equal(const char *s, sd_id128_t id);
+
 _sd_pure_ static __inline__ int sd_id128_is_null(sd_id128_t a) {
         return a.qwords[0] == 0 && a.qwords[1] == 0;
 }
