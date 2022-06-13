@@ -159,7 +159,6 @@ static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
-int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 
 int bus_message_from_malloc(
                 sd_bus *bus,
