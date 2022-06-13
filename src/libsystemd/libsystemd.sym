@@ -781,6 +781,7 @@ global:
 
 LIBSYSTEMD_252 {
 global:
+        sd_bus_message_read_strv_extend;
         sd_bus_error_setfv;
 
         sd_id128_string_equal;

@@ -4256,7 +4256,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         return 0;
 }
 
-int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
+_public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         char type;
         const char *contents, *s;
         int r;
@@ -4299,7 +4299,7 @@ _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
         assert_return(m->sealed, -EPERM);
         assert_return(l, -EINVAL);
 
-        r = bus_message_read_strv_extend(m, &strv);
+        r = sd_bus_message_read_strv_extend(m, &strv);
         if (r <= 0)
                 return r;
 
