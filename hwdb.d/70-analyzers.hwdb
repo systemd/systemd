@@ -29,7 +29,6 @@ usb:v1679p3001*
 
 # Power Delivery Analyzers
 usb:v1679p6003*
-usb:v0483pDF11*
  ID_SIGNAL_ANALYZER=1
 
 ###########################################################
