@@ -783,6 +783,8 @@ LIBSYSTEMD_252 {
 global:
         sd_bus_error_setfv;
 
+        sd_id128_string_equal;
+
         sd_hwdb_new_from_path;
 
         sd_netlink_new_from_fd;
