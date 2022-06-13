@@ -361,7 +361,7 @@ manpages = [
   ''],
  ['sd_bus_message_read_array', '3', [], ''],
  ['sd_bus_message_read_basic', '3', [], ''],
- ['sd_bus_message_read_strv', '3', [], ''],
+ ['sd_bus_message_read_strv', '3', ['sd_bus_message_read_strv_extend'], ''],
  ['sd_bus_message_rewind', '3', [], ''],
  ['sd_bus_message_seal', '3', [], ''],
  ['sd_bus_message_sensitive', '3', [], ''],
