@@ -22,6 +22,7 @@
     <refname>sd_bus_error_free</refname>
     <refname>sd_bus_error_set</refname>
     <refname>sd_bus_error_setf</refname>
+    <refname>sd_bus_error_setfv</refname>
     <refname>sd_bus_error_set_const</refname>
     <refname>sd_bus_error_set_errno</refname>
     <refname>sd_bus_error_set_errnof</refname>
@@ -72,6 +73,14 @@
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
         <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_error_setfv</function></funcdef>
+        <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -196,11 +205,15 @@
     which case an <constant>SD_BUS_ERROR_NO_MEMORY</constant> error will be set instead and
     <constant>-ENOMEM</constant> returned. </para>
 
-    <para><function>sd_bus_error_setf()</function> is similar to
-    <function>sd_bus_error_set()</function>, but takes a <citerefentry
-    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    format string and corresponding arguments to generate the
-    <structfield>message</structfield> field.</para>
+    <para><function>sd_bus_error_setf()</function> and <function>sd_bus_error_setfv()</function> are similar
+    to <function>sd_bus_error_set()</function>, but take a <citerefentry
+    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry> format
+    string and corresponding arguments to generate the <structfield>message</structfield> field.
+    <function>sd_bus_error_setf()</function> uses variadic arguments, and
+    <function>sd_bus_error_setfv()</function> accepts the arguments as a
+    <citerefentry
+    project='man-pages'><refentrytitle>va_arg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    parameter list.</para>
 
     <para><function>sd_bus_error_set_const()</function> is similar to
     <function>sd_bus_error_set()</function>, but the string parameters are not copied internally, and must
@@ -223,17 +236,15 @@
     due to lack of memory, in which case an <constant>SD_BUS_ERROR_NO_MEMORY</constant> error is set instead,
     and <constant>-ENOMEM</constant> is returned.</para>
 
-    <para><function>sd_bus_error_set_errnof()</function> is similar to
-    <function>sd_bus_error_set_errno()</function>, but in addition to
-    <parameter>error</parameter>, takes a <citerefentry
-    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    format string and corresponding arguments.  The
-    <structfield>message</structfield> field will be generated from
-    <parameter>format</parameter> and the arguments.</para>
-
-    <para><function>sd_bus_error_set_errnofv()</function> is similar to
-    <function>sd_bus_error_set_errnof()</function>, but takes the
-    format string parameters as <citerefentry
+    <para><function>sd_bus_error_set_errnof()</function> and <function>sd_bus_error_set_errnof()</function>
+    are similar to <function>sd_bus_error_set_errno()</function>, but in addition to
+    <parameter>error</parameter>, take a <citerefentry
+    project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry> format
+    string and corresponding arguments. The <structfield>message</structfield> field will be generated from
+    <parameter>format</parameter> and the arguments.
+    <function>sd_bus_error_set_errnof()</function> uses variadic arguments, and
+    <function>sd_bus_error_set_errnofv()</function> accepts the arguments as a
+    <citerefentry
     project='man-pages'><refentrytitle>va_arg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     parameter list.</para>
 
