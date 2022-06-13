@@ -107,7 +107,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
                 if (ignore_failure || r == -EROFS || ERRNO_IS_PRIVILEGE(r))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else if (r == -ENOENT)
-                        log_info_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
+                        log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else
                         return log_error_errno(r, "Couldn't write '%s' to '%s': %m", value, key);
         }
