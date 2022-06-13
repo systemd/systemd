@@ -445,6 +445,8 @@ int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_(3, 4);
+int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) _sd_printf_(3,0);
+
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
 int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 4);
