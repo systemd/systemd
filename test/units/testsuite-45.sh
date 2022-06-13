@@ -7,8 +7,23 @@ set -o pipefail
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
+restore_timezone() {
+    if [[ -f /tmp/timezone.bak ]]; then
+        mv /tmp/timezone.bak /etc/timezone
+    else
+        rm -f /etc/timezone
+    fi
+}
+
 test_timezone() {
     local ORIG_TZ=
+
+    # Debian/Ubuntu specific file
+    if [[ -f /etc/timezone ]]; then
+        mv /etc/timezone /tmp/timezone.bak
+    fi
+
+    trap restore_timezone EXIT
 
     if [[ -L /etc/localtime ]]; then
         ORIG_TZ=$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')
@@ -21,13 +36,22 @@ test_timezone() {
     echo 'change timezone'
     assert_eq "$(timedatectl --no-pager set-timezone Europe/Kiev 2>&1)" ""
     assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "Europe/Kiev"
-    assert_in "Time.*zone: Europe/Kiev (EEST, +" "$(timedatectl --no-pager)"
+    if [[ -f /etc/timezone ]]; then
+        assert_eq "$(cat /etc/timezone)" "Europe/Kiev"
+    fi
+    assert_in "Time zone: Europe/Kiev (EEST, +0" "$(timedatectl)"
 
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'
-        assert_eq "$(timedatectl --no-pager set-timezone "$ORIG_TZ" 2>&1)" ""
+        assert_eq "$(timedatectl set-timezone "$ORIG_TZ" 2>&1)" ""
         assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "$ORIG_TZ"
+        if [[ -f /etc/timezone ]]; then
+            assert_eq "$(cat /etc/timezone)" "$ORIG_TZ"
+        fi
     fi
+
+    restore_timezone
+    trap - EXIT
 }
 
 restore_adjtime() {
@@ -206,11 +230,11 @@ EOF
     timedatectl set-ntp false
     for ((i=0;i<10;i++)); do
         if (( i != 0 )); then sleep 1; fi
-        if [[ "$(systemctl --no-pager show systemd-timesyncd --property ActiveState)" == "ActiveState=inactive" ]]; then
+        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=inactive" ]]; then
             break;
         fi
     done
-    assert_eq "$(systemctl --no-pager show systemd-timesyncd --property ActiveState)" "ActiveState=inactive"
+    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=inactive"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
 
@@ -221,11 +245,11 @@ EOF
     assert_ntp "true"
     for ((i=0;i<10;i++)); do
         if (( i != 0 )); then sleep 1; fi
-        if [[ "$(systemctl --no-pager show systemd-timesyncd --property ActiveState)" == "ActiveState=active" ]]; then
+        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=active" ]]; then
             break;
         fi
     done
-    assert_eq "$(systemctl --no-pager show systemd-timesyncd --property ActiveState)" "ActiveState=active"
+    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=active"
     assert_rc 0 systemctl is-active --quiet systemd-timesyncd
 
     echo 're-disable NTP'
