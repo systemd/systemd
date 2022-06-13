@@ -28,6 +28,7 @@
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>sd_id128_equal</refname>
+    <refname>sd_id128_string_equal</refname>
     <refname>sd_id128_in_set</refname>
     <refname>sd_id128_in_set_sentinel</refname>
     <refname>sd_id128_in_setv</refname>
@@ -72,6 +73,12 @@
       <funcprototype>
         <funcdef>int <function>sd_id128_equal</function></funcdef>
         <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_string_equal</function></funcdef>
+        <paramdef>const char *<parameter>a</parameter></paramdef>
         <paramdef>sd_id128_t <parameter>b</parameter></paramdef>
       </funcprototype>
 
@@ -199,6 +206,10 @@ int main(int argc, char **argv) {
   assert(!sd_id128_equal(a, b));
   return 0;
 }</programlisting>
+
+    <para><function>sd_id128_string_equal()</function> is similar to <function>sd_id128_equal()</function>,
+    but the first ID is formatted as <type>const char*</type>. The same restrictions apply as to the first
+    argument of <function>sd_id128_from_string()</function>.</para>
 
     <para><function>sd_id128_is_null()</function> checks if an ID consists of only <constant>NUL</constant>
     bytes:</para>
