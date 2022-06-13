@@ -137,6 +137,7 @@ manpages = [
    'sd_id128_in_setv',
    'sd_id128_is_allf',
    'sd_id128_is_null',
+   'sd_id128_string_equal',
    'sd_id128_t'],
   ''],
  ['sd-journal', '3', [], ''],
