@@ -101,6 +101,22 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         return 0;
 }
 
+_public_ int sd_id128_string_equal(const char *s, sd_id128_t id) {
+        sd_id128_t parsed;
+        int r;
+
+        if (!s)
+                return false;
+
+        /* Checks if the specified string matches a valid string representation of the specified 128 bit ID/uuid */
+
+        r = sd_id128_from_string(s, &parsed);
+        if (r < 0)
+                return r;
+
+        return sd_id128_equal(parsed, id);
+}
+
 _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         static thread_local sd_id128_t saved_machine_id = {};
         int r;
