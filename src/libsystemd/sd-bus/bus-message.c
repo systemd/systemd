@@ -674,7 +674,7 @@ _public_ int sd_bus_message_new_method_errorf(
         assert_return(m, -EINVAL);
 
         va_start(ap, format);
-        bus_error_setfv(&error, name, format, ap);
+        sd_bus_error_setfv(&error, name, format, ap);
         va_end(ap);
 
         return sd_bus_message_new_method_error(call, m, &error);

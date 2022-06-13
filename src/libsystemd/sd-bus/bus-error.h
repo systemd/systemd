@@ -11,8 +11,6 @@ bool bus_error_is_dirty(sd_bus_error *e);
 
 const char *bus_error_message(const sd_bus_error *e, int error);
 
-int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) _printf_(3,0);
-
 #define BUS_ERROR_OOM SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_MEMORY, "Out of memory")
 #define BUS_ERROR_FAILED SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed")
 
