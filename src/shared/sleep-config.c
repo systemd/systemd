@@ -36,6 +36,8 @@
 #include "strv.h"
 #include "time-util.h"
 
+int battery_capacity;
+
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
         int allow_suspend = -1, allow_hibernate = -1,
@@ -59,6 +61,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 { "Sleep", "HybridSleepState",          config_parse_strv,     0, sc->states + SLEEP_HYBRID_SLEEP },
 
                 { "Sleep", "HibernateDelaySec",         config_parse_sec,      0, &sc->hibernate_delay_sec        },
+                { "Sleep", "BatteryEstimateInterval",   config_parse_sec,      0, &sc->battery_estimate_interval  },
                 {}
         };
 
@@ -91,6 +94,8 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
         if (sc->hibernate_delay_sec == 0)
                 sc->hibernate_delay_sec = 2 * USEC_PER_HOUR;
+        if (sc->battery_estimate_interval == 0)
+                sc->battery_estimate_interval = 15 * USEC_PER_MINUTE;
 
         /* ensure values set for all required fields */
         if (!sc->states[SLEEP_SUSPEND] || !sc->modes[SLEEP_HIBERNATE]
@@ -100,6 +105,42 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         *ret_sleep_config = TAKE_PTR(sc);
 
         return 0;
+}
+
+bool is_battery_low(void) {
+        _cleanup_free_ char *bat_cap_level = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity_level", &bat_cap_level);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity_level: %m");
+                return false;
+        }
+
+        log_debug("Current battery level : %s", bat_cap_level);
+
+        if (STR_IN_SET(bat_cap_level, "Critical", "Low", "Normal"))
+                return true;
+                /* Normal will be removed when estimate battery consumption rate can be estimated to sleep instead of fixed sleep timer. */
+        else
+                return false;
+}
+
+int read_capacity(void) {
+        _cleanup_free_ char *bat_cap;
+        int r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+                return 0;
+        }
+
+        r = safe_atoi(bat_cap, &battery_capacity);
+
+        log_debug("Current battery percentage available : %d", battery_capacity);
+
+        return r;
 }
 
 int can_sleep_state(char **types) {
