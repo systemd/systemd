@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "keymap-util.h"
+#include "localed-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "tests.h"

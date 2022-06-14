@@ -91,7 +91,7 @@ test_suspend_on_lid() {
     fi
 
     KILL_PID=
-    trap test_suspend_tear_down EXIT
+    trap test_suspend_tear_down RETURN
 
     # create fake suspend
     mkdir -p /run/systemd/system/systemd-suspend.service.d
@@ -149,7 +149,7 @@ EOF
     evemu-device /run/lidswitch.evemu &
     KILL_PID="$!"
 
-    for ((i=0;i<20;i++)); do
+    for ((i = 0; i < 20; i++)); do
         if (( i != 0 )); then sleep .5; fi
 
         INPUT_NAME=$(grep -l '^Fake Lid Switch' /sys/class/input/*/device/name || :)
@@ -184,9 +184,6 @@ EOF
         echo "logind crashed" >&2
         exit 1
     fi
-
-    test_suspend_tear_down
-    trap - EXIT
 }
 
 test_shutdown() {
@@ -269,7 +266,7 @@ test_session() {
         return
     fi
 
-    trap test_session_tear_down EXIT
+    trap test_session_tear_down RETURN
 
     # add user
     useradd -s /bin/bash logind-test-user
@@ -287,7 +284,7 @@ EOF
 
     # check session
     ret=1
-    for ((i=0;i<30;i++)); do
+    for ((i = 0; i < 30; i++)); do
         if (( i != 0)); then sleep 1; fi
         if check_session; then
             ret=0
@@ -315,7 +312,7 @@ EOF
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
     modprobe scsi_debug
-    for ((i=0;i<30;i++)); do
+    for ((i = 0; i < 30; i++)); do
         if (( i != 0)); then sleep 1; fi
         if dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null); then
             break
@@ -342,7 +339,7 @@ EOF
     # hotplug: new device appears while logind is running
     rmmod scsi_debug
     modprobe scsi_debug
-    for ((i=0;i<30;i++)); do
+    for ((i = 0; i < 30; i++)); do
         if (( i != 0)); then sleep 1; fi
         if dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null); then
             break
@@ -361,9 +358,6 @@ EOF
         getfacl -p "$dev" >&2
         exit 1
     fi
-
-    test_session_tear_down
-    trap - EXIT
 }
 
 : >/failed
