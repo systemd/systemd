@@ -664,50 +664,87 @@ static Network *network_free(Network *network) {
         if (!network)
                 return NULL;
 
+        free(network->name);
         free(network->filename);
+        free(network->description);
         hashmap_free(network->stats_by_path);
 
+        /* conditions */
         net_match_clear(&network->match);
         condition_free_list(network->conditions);
 
-        free(network->dhcp_server_relay_agent_circuit_id);
-        free(network->dhcp_server_relay_agent_remote_id);
-        free(network->dhcp_server_boot_server_name);
-        free(network->dhcp_server_boot_filename);
+        /* link settings */
+        strv_free(network->bind_carrier);
 
-        free(network->description);
-        free(network->dhcp_vendor_class_identifier);
-        free(network->dhcp_mudurl);
-        strv_free(network->dhcp_user_class);
-        free(network->dhcp_hostname);
-        free(network->dhcp_label);
-        set_free(network->dhcp_deny_listed_ip);
-        set_free(network->dhcp_allow_listed_ip);
-        set_free(network->dhcp_request_options);
-        set_free(network->dhcp6_request_options);
-        free(network->dhcp6_mudurl);
-        strv_free(network->dhcp6_user_class);
-        strv_free(network->dhcp6_vendor_class);
-        set_free(network->dhcp_netlabels);
-        set_free(network->dhcp6_netlabels);
-
+        /* NTP */
         strv_free(network->ntp);
+
+        /* DNS */
         for (unsigned i = 0; i < network->n_dns; i++)
                 in_addr_full_free(network->dns[i]);
         free(network->dns);
         ordered_set_free(network->search_domains);
         ordered_set_free(network->route_domains);
-        strv_free(network->bind_carrier);
+        set_free_free(network->dnssec_negative_trust_anchors);
 
+        /* DHCP server */
+        free(network->dhcp_server_relay_agent_circuit_id);
+        free(network->dhcp_server_relay_agent_remote_id);
+        free(network->dhcp_server_boot_server_name);
+        free(network->dhcp_server_boot_filename);
+        free(network->dhcp_server_timezone);
+        free(network->dhcp_server_uplink_name);
+        for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
+                free(network->dhcp_server_emit[t].addresses);
+        ordered_hashmap_free(network->dhcp_server_send_options);
+        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+
+        /* DHCP client */
+        free(network->dhcp_vendor_class_identifier);
+        free(network->dhcp_mudurl);
+        free(network->dhcp_hostname);
+        free(network->dhcp_label);
+        set_free(network->dhcp_deny_listed_ip);
+        set_free(network->dhcp_allow_listed_ip);
+        strv_free(network->dhcp_user_class);
+        set_free(network->dhcp_request_options);
+        ordered_hashmap_free(network->dhcp_client_send_options);
+        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
+        set_free(network->dhcp_netlabels);
+
+        /* DHCPv6 client */
+        free(network->dhcp6_mudurl);
+        strv_free(network->dhcp6_user_class);
+        strv_free(network->dhcp6_vendor_class);
+        set_free(network->dhcp6_request_options);
+        ordered_hashmap_free(network->dhcp6_client_send_options);
+        ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
+        set_free(network->dhcp6_netlabels);
+
+        /* DHCP PD */
+        free(network->dhcp_pd_uplink_name);
+        set_free(network->dhcp_pd_tokens);
+        set_free(network->dhcp_pd_netlabels);
+
+        /* Router advertisement */
         ordered_set_free(network->router_search_domains);
         free(network->router_dns);
+        free(network->router_uplink_name);
+
+        /* NDisc */
         set_free(network->ndisc_deny_listed_router);
         set_free(network->ndisc_allow_listed_router);
         set_free(network->ndisc_deny_listed_prefix);
         set_free(network->ndisc_allow_listed_prefix);
         set_free(network->ndisc_deny_listed_route_prefix);
         set_free(network->ndisc_allow_listed_route_prefix);
+        set_free(network->ndisc_tokens);
+        set_free(network->ndisc_netlabels);
 
+        /* LLDP */
+        free(network->lldp_mudurl);
+
+        /* netdev */
         free(network->batadv_name);
         free(network->bridge_name);
         free(network->bond_name);
@@ -718,6 +755,7 @@ static Network *network_free(Network *network) {
         netdev_unref(network->vrf);
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
+        /* static configs */
         set_free_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
@@ -733,31 +771,6 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
         hashmap_free_with_destructor(network->tclasses_by_section, tclass_free);
-
-        free(network->name);
-
-        free(network->dhcp_server_timezone);
-        free(network->dhcp_server_uplink_name);
-        free(network->router_uplink_name);
-        free(network->dhcp_pd_uplink_name);
-
-        for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
-                free(network->dhcp_server_emit[t].addresses);
-
-        set_free_free(network->dnssec_negative_trust_anchors);
-
-        free(network->lldp_mudurl);
-
-        ordered_hashmap_free(network->dhcp_client_send_options);
-        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
-        ordered_hashmap_free(network->dhcp_server_send_options);
-        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
-        ordered_hashmap_free(network->dhcp6_client_send_options);
-        ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
-        set_free(network->dhcp_pd_tokens);
-        set_free(network->ndisc_tokens);
-        set_free(network->dhcp_pd_netlabels);
-        set_free(network->ndisc_netlabels);
 
         return mfree(network);
 }
