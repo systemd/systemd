@@ -203,6 +203,15 @@ int get_locales(char ***ret) {
         if (r < 0)
                 return r;
 
+        char *locale;
+        SET_FOREACH(locale, locales) {
+                r = locale_is_installed(locale);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        free(set_remove(locales, locale));
+        }
+
         l = set_get_strv(locales);
         if (!l)
                 return -ENOMEM;
