@@ -21,7 +21,6 @@
 #include "dlfcn-util.h"
 #include "kbd-util.h"
 #include "keymap-util.h"
-#include "locale-util.h"
 #include "macro.h"
 #include "main-func.h"
 #include "missing_capability.h"
@@ -33,44 +32,13 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int locale_update_system_manager(Context *c, sd_bus *bus) {
-        _cleanup_free_ char **l_unset = NULL;
-        _cleanup_strv_free_ char **l_set = NULL;
+static int locale_update_system_manager(sd_bus *bus, char **l_set, char **l_unset) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t c_set = 0, c_unset = 0;
         int r;
 
         assert(bus);
 
-        l_unset = new0(char*, _VARIABLE_LC_MAX);
-        if (!l_unset)
-                return log_oom();
-
-        l_set = new0(char*, _VARIABLE_LC_MAX);
-        if (!l_set)
-                return log_oom();
-
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
-                const char *name;
-
-                name = locale_variable_to_string(p);
-                assert(name);
-
-                if (isempty(c->locale[p]))
-                        l_unset[c_set++] = (char*) name;
-                else {
-                        char *s;
-
-                        s = strjoin(name, "=", c->locale[p]);
-                        if (!s)
-                                return log_oom();
-
-                        l_set[c_unset++] = s;
-                }
-        }
-
-        assert(c_set + c_unset == _VARIABLE_LC_MAX);
         r = sd_bus_message_new_method_call(bus, &m,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
@@ -188,21 +156,9 @@ static int property_get_locale(
         if (!l)
                 return -ENOMEM;
 
-        for (LocaleVariable p = 0, q = 0; p < _VARIABLE_LC_MAX; p++) {
-                char *t;
-                const char *name;
-
-                name = locale_variable_to_string(p);
-                assert(name);
-
-                if (isempty(c->locale[p]))
-                        continue;
-
-                if (asprintf(&t, "%s=%s", name, c->locale[p]) < 0)
-                        return -ENOMEM;
-
-                l[q++] = t;
-        }
+        r = locale_context_build_env(&c->locale_context, &l, NULL);
+        if (r < 0)
+                return r;
 
         return sd_bus_message_append_strv(reply, l);
 }
@@ -342,9 +298,8 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
 
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
-        _cleanup_strv_free_ char **settings = NULL, **l = NULL;
+        _cleanup_strv_free_ char **l = NULL, **l_set = NULL, **l_unset = NULL;
         Context *c = userdata;
-        bool modified = false;
         int interactive, r;
         bool use_localegen;
 
@@ -402,22 +357,13 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         /* Merge with the current settings */
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
-                if (!isempty(c->locale[p]) && isempty(new_locale[p])) {
-                        new_locale[p] = strdup(c->locale[p]);
-                        if (!new_locale[p])
-                                return -ENOMEM;
-                }
+        r = locale_context_merge(&c->locale_context, new_locale);
+        if (r < 0)
+                return r;
 
-        locale_simplify(new_locale);
+        locale_variables_simplify(new_locale);
 
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
-                if (!streq_ptr(c->locale[p], new_locale[p])) {
-                        modified = true;
-                        break;
-                }
-
-        if (!modified) {
+        if (locale_context_equal(&c->locale_context, new_locale)) {
                 log_debug("Locale settings were not modified.");
                 return sd_bus_reply_method_return(m, NULL);
         }
@@ -443,22 +389,21 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         return r;
         }
 
-        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
-                free_and_replace(c->locale[p], new_locale[p]);
+        locale_context_take(&c->locale_context, new_locale);
 
         /* Write locale configuration */
-        r = locale_write_data(c, &settings);
+        r = locale_context_save(&c->locale_context, &l_set, &l_unset);
         if (r < 0) {
                 log_error_errno(r, "Failed to set locale: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set locale: %m");
         }
 
-        (void) locale_update_system_manager(c, sd_bus_message_get_bus(m));
+        (void) locale_update_system_manager(sd_bus_message_get_bus(m), l_set, l_unset);
 
-        if (settings) {
+        if (!strv_isempty(l_set)) {
                 _cleanup_free_ char *line = NULL;
 
-                line = strv_join(settings, ", ");
+                line = strv_join(l_set, ", ");
                 log_info("Changed locale to %s.", strnull(line));
         } else
                 log_info("Changed locale to unset.");
@@ -827,7 +772,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {
-                .locale_mtime = USEC_INFINITY,
+                .locale_context.mtime = USEC_INFINITY,
                 .vc_mtime = USEC_INFINITY,
                 .x11_mtime = USEC_INFINITY,
         };

@@ -12,7 +12,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"
-#include "locale-util.h"
+#include "locale-setup.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "pager.h"
@@ -52,44 +52,25 @@ static void status_info_clear(StatusInfo *info) {
 }
 
 static void print_overridden_variables(void) {
-        _cleanup_(locale_variables_freep) char *variables[_VARIABLE_LC_MAX] = {};
-        bool print_warning = true;
+        _cleanup_(locale_context_clear) LocaleContext c = { .mtime = USEC_INFINITY };
+        _cleanup_strv_free_ char **env = NULL;
         int r;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return;
 
-        r = proc_cmdline_get_key_many(
-                        PROC_CMDLINE_STRIP_RD_PREFIX,
-                        "locale.LANG",              &variables[VARIABLE_LANG],
-                        "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
-                        "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                        "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                        "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
-                        "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                        "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                        "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                        "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                        "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
-                        "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                        "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                        "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                        "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
-        if (r < 0 && r != -ENOENT) {
-                log_warning_errno(r, "Failed to read /proc/cmdline: %m");
-                return;
-        }
+        (void) locale_context_load(&c, LOCALE_LOAD_PROC_CMDLINE);
 
-        for (LocaleVariable j = 0; j < _VARIABLE_LC_MAX; j++)
-                if (variables[j]) {
-                        if (print_warning) {
-                                log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
-                                            "    Command Line: %s=%s", locale_variable_to_string(j), variables[j]);
+        r = locale_context_build_env(&c, &env, NULL);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to build locale settings from kernel command line, ignoring: %m");
 
-                                print_warning = false;
-                        } else
-                                log_warning("                  %s=%s", locale_variable_to_string(j), variables[j]);
-                }
+        STRV_FOREACH(p, env)
+                if (p == env)
+                        log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
+                                    "    Command Line: %s", *p);
+                else
+                        log_warning("                  %s", *p);
 }
 
 static void print_status_info(StatusInfo *i) {
