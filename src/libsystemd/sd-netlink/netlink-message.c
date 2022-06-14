@@ -479,7 +479,7 @@ _public_ int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned 
         return _netlink_message_append_in_addr_union(m, type, AF_INET6, (const union in_addr_union *) data);
 }
 
-int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data) {
+static int _netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -499,11 +499,11 @@ int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short 
 }
 
 _public_ int sd_netlink_message_append_sockaddr_in(sd_netlink_message *m, unsigned short type, const struct sockaddr_in *data) {
-        return netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union *) data);
+        return _netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union*) data);
 }
 
 _public_ int sd_netlink_message_append_sockaddr_in6(sd_netlink_message *m, unsigned short type, const struct sockaddr_in6 *data) {
-        return netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union *) data);
+        return _netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union*) data);
 }
 
 _public_ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data) {
