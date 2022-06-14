@@ -28,6 +28,5 @@ int event_reset_time_relative(
                 const char *description,
                 bool force_reset);
 int event_source_disable(sd_event_source *s);
-int event_source_is_enabled(sd_event_source *s);
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata);

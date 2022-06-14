@@ -2411,6 +2411,10 @@ fail:
 }
 
 _public_ int sd_event_source_get_enabled(sd_event_source *s, int *ret) {
+        /* Quick mode: the event source doesn't exist and we only want to query boolean enablement state. */
+        if (!s && !ret)
+                return false;
+
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
