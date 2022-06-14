@@ -68,13 +68,15 @@
     loop wakeups and will not be dispatched, until they are enabled
     again.</para>
 
-    <para><function>sd_event_source_get_enabled()</function> may be
-    used to query whether the event source object
-    <parameter>source</parameter> is currently enabled or not. It
-    returns the enablement state (one of <constant>SD_EVENT_ON</constant>,
-    <constant>SD_EVENT_OFF</constant>, <constant>SD_EVENT_ONESHOT</constant>)
-    in <parameter>enabled</parameter>, if it is not <constant>NULL</constant>.
-    It also returns true if the event source is not disabled.</para>
+    <para><function>sd_event_source_get_enabled()</function> may be used to query whether the event source
+    object <parameter>source</parameter> is currently enabled or not. If both the
+    <parameter>source</parameter> and the output parameter <parameter>enabled</parameter> are
+    <constant>NULL</constant>, this function returns false. Otherwise, <parameter>source</parameter> must be
+    a valid pointer to an <structname>sd_event_source</structname> object. If the output parameter
+    <parameter>enabled</parameter> is not <constant>NULL</constant>, it is set to the enablement state (one
+    of <constant>SD_EVENT_ON</constant>, <constant>SD_EVENT_OFF</constant>,
+    <constant>SD_EVENT_ONESHOT</constant>). The function also returns true if the event source is not
+    disabled.</para>
 
     <para>Event source objects are enabled when they are first created
     with calls such as
