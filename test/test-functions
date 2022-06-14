@@ -2321,8 +2321,7 @@ convert_abs_rel() {
     __abssize=${#__absolute[@]}
     __cursize=${#__current[@]}
 
-    while [[ "${__absolute[__level]}" == "${__current[__level]}" ]]
-    do
+    while [[ "${__absolute[__level]}" == "${__current[__level]}" ]]; do
         (( __level++ ))
         if (( __level > __abssize || __level > __cursize ))
         then
@@ -2330,8 +2329,7 @@ convert_abs_rel() {
         fi
     done
 
-    for ((__i = __level; __i < __cursize-1; __i++))
-    do
+    for ((__i = __level; __i < __cursize-1; __i++)); do
         if ((__i > __level))
         then
             __newpath=$__newpath"/"
@@ -2339,8 +2337,7 @@ convert_abs_rel() {
         __newpath=$__newpath".."
     done
 
-    for ((__i = __level; __i < __abssize; __i++))
-    do
+    for ((__i = __level; __i < __abssize; __i++)); do
         if [[ -n $__newpath ]]
         then
             __newpath=$__newpath"/"
