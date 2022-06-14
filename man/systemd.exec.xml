@@ -58,7 +58,7 @@
       <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname> or
       <varname>ConfigurationDirectory=</varname> set automatically gain dependencies of type
       <varname>Requires=</varname> and <varname>After=</varname> on all mount units required to access the specified
-      paths.  This is equivalent to having them listed explicitly in
+      paths. This is equivalent to having them listed explicitly in
       <varname>RequiresMountsFor=</varname>.</para></listitem>
 
       <listitem><para>Similarly, units with <varname>PrivateTmp=</varname> enabled automatically get mount
@@ -113,7 +113,7 @@
         system instance and the respective user's home directory if run as user. If the setting is prefixed with the
         <literal>-</literal> character, a missing working directory is not considered fatal. If
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname> is not set, then
-        <varname>WorkingDirectory=</varname> is relative to the root of the system running the service manager.  Note
+        <varname>WorkingDirectory=</varname> is relative to the root of the system running the service manager. Note
         that setting this parameter might result in additional dependencies to be added to the unit (see
         above).</para></listitem>
       </varlistentry>
@@ -357,7 +357,7 @@
         is used. In this case the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
 
-        <para>Note that the destination directory must exist or systemd must be able to create it.  Thus, it
+        <para>Note that the destination directory must exist or systemd must be able to create it. Thus, it
         is not possible to use those options for mount points nested underneath paths specified in
         <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
         directories if <varname>ProtectHome=yes</varname> is
@@ -390,7 +390,7 @@
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
         reset.</para>
 
-        <para>Note that the destination directory must exist or systemd must be able to create it.  Thus, it
+        <para>Note that the destination directory must exist or systemd must be able to create it. Thus, it
         is not possible to use those options for mount points nested underneath paths specified in
         <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
         directories if <varname>ProtectHome=yes</varname> is specified.</para>
@@ -553,7 +553,7 @@
         that the static user with the name already exists. Similarly, if <varname>Group=</varname> is
         specified and the static user with the name exists, then it is required that the static group with
         the name already exists. Dynamic users/groups are allocated from the UID/GID range 61184…65519. It is
-        recommended to avoid this range for regular system or login users.  At any point in time each UID/GID
+        recommended to avoid this range for regular system or login users. At any point in time each UID/GID
         from this range is only assigned to zero or one dynamically allocated users/groups in use. However,
         UID/GIDs are recycled after a unit is terminated. Care should be taken that any processes running as
         part of a unit for which dynamic users/groups are enabled do not leave files or directories owned by
@@ -650,7 +650,7 @@
         once, in which case the bounding sets are merged by <constant>OR</constant>, or by
         <constant>AND</constant> if the lines are prefixed with <literal>~</literal> (see below). If the
         empty string is assigned to this option, the bounding set is reset to the empty capability set, and
-        all prior settings have no effect.  If set to <literal>~</literal> (without any further argument),
+        all prior settings have no effect. If set to <literal>~</literal> (without any further argument),
         the bounding set is reset to the full set of available capabilities, also undoing any previous
         settings. This does not affect commands prefixed with <literal>+</literal>.</para>
 
@@ -663,7 +663,7 @@
         <programlisting>CapabilityBoundingSet=CAP_A CAP_B
 CapabilityBoundingSet=CAP_B CAP_C</programlisting>
         then <constant index='false'>CAP_A</constant>, <constant index='false'>CAP_B</constant>, and
-        <constant index='false'>CAP_C</constant> are set.  If the second line is prefixed with
+        <constant index='false'>CAP_C</constant> are set. If the second line is prefixed with
         <literal>~</literal>, e.g.,
         <programlisting>CapabilityBoundingSet=CAP_A CAP_B
 CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
@@ -676,15 +676,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Controls which capabilities to include in the ambient capability set for the executed
         process. Takes a whitespace-separated list of capability names, e.g. <constant>CAP_SYS_ADMIN</constant>,
         <constant>CAP_DAC_OVERRIDE</constant>, <constant>CAP_SYS_PTRACE</constant>. This option may appear more than
-        once in which case the ambient capability sets are merged (see the above examples in
+        once, in which case the ambient capability sets are merged (see the above examples in
         <varname>CapabilityBoundingSet=</varname>). If the list of capabilities is prefixed with <literal>~</literal>,
         all but the listed capabilities will be included, the effect of the assignment inverted. If the empty string is
         assigned to this option, the ambient capability set is reset to the empty capability set, and all prior
-        settings have no effect.  If set to <literal>~</literal> (without any further argument), the ambient capability
+        settings have no effect. If set to <literal>~</literal> (without any further argument), the ambient capability
         set is reset to the full set of available capabilities, also undoing any previous settings. Note that adding
-        capabilities to ambient capability set adds them to the process's inherited capability set.  </para><para>
+        capabilities to the ambient capability set adds them to the process's inherited capability set. </para><para>
         Ambient capability sets are useful if you want to execute a process as a non-privileged user but still want to
-        give it some capabilities.  Note that in this case option <constant>keep-caps</constant> is automatically added
+        give it some capabilities. Note that in this case option <constant>keep-caps</constant> is automatically added
         to <varname>SecureBits=</varname> to retain the capabilities over the user
         change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed with
         <literal>+</literal>.</para></listitem>
@@ -705,7 +705,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         children can never gain new privileges through <function>execve()</function> (e.g. via setuid or
         setgid bits, or filesystem capabilities). This is the simplest and most effective way to ensure that
         a process and its children can never elevate privileges again. Defaults to false, but certain
-        settings override this and ignore the value of this setting.  This is the case when
+        settings override this and ignore the value of this setting. This is the case when
         <varname>DynamicUser=</varname>,
         <varname>LockPersonality=</varname>,
         <varname>MemoryDenyWriteExecute=</varname>,
@@ -735,9 +735,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Controls the secure bits set for the executed process. Takes a space-separated combination of
         options from the following list: <option>keep-caps</option>, <option>keep-caps-locked</option>,
         <option>no-setuid-fixup</option>, <option>no-setuid-fixup-locked</option>, <option>noroot</option>, and
-        <option>noroot-locked</option>.  This option may appear more than once, in which case the secure bits are
+        <option>noroot-locked</option>. This option may appear more than once, in which case the secure bits are
         ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
-        prefixed with <literal>+</literal>.  See <citerefentry
+        prefixed with <literal>+</literal>. See <citerefentry
         project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -760,7 +760,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         ignored if SELinux is disabled. If prefixed by <literal>-</literal>, failing to set the SELinux
         security context will be ignored, but it's still possible that the subsequent
         <function>execve()</function> may fail if the policy doesn't allow the transition for the
-        non-overridden context. This does not affect commands prefixed with <literal>+</literal>.  See
+        non-overridden context. This does not affect commands prefixed with <literal>+</literal>. See
         <citerefentry
         project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for details.</para></listitem>
@@ -1047,7 +1047,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         normally at 0.</para>
 
         <para>Use the <varname>OOMPolicy=</varname> setting of service units to configure how the service
-        manager shall react to the kernel OOM killer or <command>systemd-oomd</command> terminating a process of the service.  See
+        manager shall react to the kernel OOM killer or <command>systemd-oomd</command> terminating a process of the service. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
@@ -1233,7 +1233,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <filename>/proc/</filename> and <filename>/sys/</filename> (protect these directories using
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
-        operating system (and optionally its configuration, and local mounts) is prohibited for the service.  It is
+        operating system (and optionally its configuration, and local mounts) is prohibited for the service. It is
         recommended to enable this setting for all long-running services, unless they are involved with system updates
         or need to modify the operating system in other ways. If this option is used,
         <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
@@ -1420,7 +1420,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
 
         <listitem><para>Specifies the access mode of the directories specified in <varname>RuntimeDirectory=</varname>,
         <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, or
-        <varname>ConfigurationDirectory=</varname>, respectively, as an octal number.  Defaults to
+        <varname>ConfigurationDirectory=</varname>, respectively, as an octal number. Defaults to
         <constant>0755</constant>. See "Permissions" in <citerefentry
         project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
         discussion of the meaning of permission bits.</para></listitem>
@@ -1429,7 +1429,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
       <varlistentry>
         <term><varname>RuntimeDirectoryPreserve=</varname></term>
 
-        <listitem><para>Takes a boolean argument or <option>restart</option>.  If set to <option>no</option> (the
+        <listitem><para>Takes a boolean argument or <option>restart</option>. If set to <option>no</option> (the
         default), the directories specified in <varname>RuntimeDirectory=</varname> are always removed when the service
         stops. If set to <option>restart</option> the directories are preserved when the service is both automatically
         and manually restarted. Here, the automatic restart means the operation specified in
@@ -1560,7 +1560,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         false. It is possible to run two or more units within the same private <filename>/tmp/</filename> and
         <filename>/var/tmp/</filename> namespace by using the <varname>JoinsNamespaceOf=</varname> directive,
         see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the
+        for details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting, the
         same restrictions regarding mount propagation and privileges apply as for
         <varname>ReadOnlyPaths=</varname> and related calls, see above. Enabling this setting has the side
         effect of adding <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount
@@ -1814,7 +1814,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for the unit, and installs a
         system call filter to block module system calls, also <filename>/usr/lib/modules</filename> is made
         inaccessible. For this setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see above.  Note that limited automatic module loading due
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. Note that limited automatic module loading due
         to user configuration or kernel mapping tables might still happen as side effect of requested user operations,
         both privileged and unprivileged. To disable module auto-load feature please see
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -1925,7 +1925,7 @@ RestrictFileSystems=~ext4</programlisting>
 RestrictFileSystems=ext4</programlisting>
         then only access to <constant>tmpfs</constant> is denied.</para>
 
-        <para>As the number of possible filesystems is large, predefined sets of filesystems are provided.  A set
+        <para>As the number of possible filesystems is large, predefined sets of filesystems are provided. A set
         starts with <literal>@</literal> character, followed by name of the set.</para>
 
         <table>
@@ -2010,7 +2010,7 @@ RestrictFileSystems=ext4</programlisting>
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
         the specified flags parameters into account. Note that — if this option is used — in addition to restricting
         creation and switching of the specified types of namespaces (or all of them, if true) access to the
-        <function>setns()</function> system call with a zero flags parameter is prohibited.  This setting is only
+        <function>setns()</function> system call with a zero flags parameter is prohibited. This setting is only
         supported on x86, x86-64, mips, mips-le, mips64, mips64-le, mips64-n32, mips64-le-n32, ppc64, ppc64-le, s390
         and s390x, and enforces no restrictions on other architectures. If running in user mode, or in system mode, but
         without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
@@ -2043,7 +2043,7 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <listitem><para>Takes a boolean argument. If set, attempts to create memory mappings that are writable and
         executable at the same time, or to change existing memory mappings to become executable, or mapping shared
-        memory segments as executable are prohibited.  Specifically, a system call filter is added that rejects
+        memory segments as executable, are prohibited. Specifically, a system call filter is added that rejects
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls with both
         <constant>PROT_EXEC</constant> and <constant>PROT_WRITE</constant> set,
         <citerefentry><refentrytitle>mprotect</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
@@ -2055,7 +2055,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         "trampoline" feature of various C compilers. This option improves service security, as it makes harder for
         software exploits to change running code dynamically. However, the protection can be circumvented, if
         the service can write to a filesystem, which is not mounted with <constant>noexec</constant> (such as
-        <filename>/dev/shm</filename>), or it can use <function>memfd_create()</function>.  This can be
+        <filename>/dev/shm</filename>), or it can use <function>memfd_create()</function>. This can be
         prevented by making such file systems inaccessible to the service
         (e.g. <varname>InaccessiblePaths=/dev/shm</varname>) and installing further system call filters
         (<varname>SystemCallFilter=~memfd_create</varname>). Note that this feature is fully available on
@@ -2092,7 +2092,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         project='man-pages'><refentrytitle>inode</refentrytitle><manvolnum>7</manvolnum></citerefentry>). If
         running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant>
         capability (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is
-        implied. As the SUID/SGID bits are mechanisms to elevate privileges, and allows users to acquire the
+        implied. As the SUID/SGID bits are mechanisms to elevate privileges, and allow users to acquire the
         identity of other users, it is recommended to restrict creation of SUID/SGID files to the few
         programs that actually require them. Note that this restricts marking of any type of file system
         object with these bits, including both regular files and directories (where the SGID is a different
@@ -2202,7 +2202,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         full list). This value will be returned when a deny-listed system call is triggered, instead of
         terminating the processes immediately. Special setting <literal>kill</literal> can be used to
         explicitly specify killing. This value takes precedence over the one given in
-        <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
+        <varname>SystemCallErrorNumber=</varname>, see below. If running in user mode, or in system mode,
         but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
         <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
         makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful
@@ -2227,7 +2227,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         might be necessary to temporarily disable system call filters in order to simplify debugging of such
         failures.</para>
 
-        <para>If you specify both types of this option (i.e.  allow-listing and deny-listing), the first
+        <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first
         encountered will take precedence and will dictate the default action (termination or approval of a
         system call). Then the next occurrences of this option will add or delete the listed system calls
         from the set of the filtered system calls, depending of its type and the default action. (For
@@ -2235,7 +2235,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         <function>write()</function>, and right after it add a deny list rule for <function>write()</function>,
         then <function>write()</function> will be removed from the set.)</para>
 
-        <para>As the number of possible system calls is large, predefined sets of system calls are provided.  A set
+        <para>As the number of possible system calls is large, predefined sets of system calls are provided. A set
         starts with <literal>@</literal> character, followed by name of the set.
 
         <table>
@@ -2423,7 +2423,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         filter. The known architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
         described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         as well as <constant>x32</constant>, <constant>mips64-n32</constant>, <constant>mips64-le-n32</constant>, and
-        the special identifier <constant>native</constant>.  The special identifier <constant>native</constant>
+        the special identifier <constant>native</constant>. The special identifier <constant>native</constant>
         implicitly maps to the native architecture of the system (or more precisely: to the architecture the system
         manager is compiled for). If running in user mode, or in system mode, but without the
         <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
@@ -2519,7 +2519,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <term><varname>EnvironmentFile=</varname></term>
 
         <listitem><para>Similar to <varname>Environment=</varname> but reads the environment variables from a text file.
-        The text file should contain newline-separated variable assignments.  Empty lines, lines without an
+        The text file should contain newline-separated variable assignments. Empty lines, lines without an
         <literal>=</literal> separator, or lines starting with <literal>;</literal> or <literal>#</literal> will be
         ignored, which may be used for commenting. The file must be UTF-8 encoded. Valid characters are <ulink
         url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than <ulink
@@ -2559,8 +2559,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         have no effect.</para>
 
         <para>The files listed with this directive will be read shortly before the process is executed (more
-        specifically, after all processes from a previous unit state terminated.  This means you can generate these
-        files in one unit state, and read it with this option in the next.  The files are read from the file
+        specifically, after all processes from a previous unit state terminated. This means you can generate these
+        files in one unit state, and read it with this option in the next. The files are read from the file
         system of the service manager, before any file system changes like bind mounts take place).</para>
 
         <para>Settings from these files override settings made with <varname>Environment=</varname>. If the same
@@ -2673,12 +2673,12 @@ SystemCallErrorNumber=EPERM</programlisting>
         daemon.</para>
 
         <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard input to a specific,
-        named file descriptor provided by a socket unit.  The name may be specified as part of this option, following a
-        <literal>:</literal> character (e.g. <literal>fd:foobar</literal>).  If no name is specified, the name
+        named file descriptor provided by a socket unit. The name may be specified as part of this option, following a
+        <literal>:</literal> character (e.g. <literal>fd:foobar</literal>). If no name is specified, the name
         <literal>stdin</literal> is implied (i.e. <literal>fd</literal> is equivalent to <literal>fd:stdin</literal>).
         At least one socket unit defining the specified name must be provided via the <varname>Sockets=</varname>
-        option, and the file descriptor name may differ from the name of its containing socket unit.  If multiple
-        matches are found, the first one will be used.  See <varname>FileDescriptorName=</varname> in
+        option, and the file descriptor name may differ from the name of its containing socket unit. If multiple
+        matches are found, the first one will be used. See <varname>FileDescriptorName=</varname> in
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named file descriptors and their ordering.</para>
 
@@ -2754,7 +2754,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
 
         <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard output to a
-        specific, named file descriptor provided by a socket unit.  A name may be specified as part of this
+        specific, named file descriptor provided by a socket unit. A name may be specified as part of this
         option, following a <literal>:</literal> character
         (e.g. <literal>fd:<replaceable>foobar</replaceable></literal>). If no name is specified, the name
         <literal>stdout</literal> is implied (i.e. <literal>fd</literal> is equivalent to
@@ -2930,7 +2930,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
         <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to
         the logging system or the kernel log buffer with. If not set, defaults to the process name of the
-        executed process.  This option is only useful when <varname>StandardOutput=</varname> or
+        executed process. This option is only useful when <varname>StandardOutput=</varname> or
         <varname>StandardError=</varname> are set to <option>journal</option> or <option>kmsg</option> (or to
         the same settings in combination with <option>+console</option>) and only applies to log messages
         written to stdout or stderr.</para></listitem>
@@ -2996,7 +2996,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>TTYReset=</varname></term>
 
         <listitem><para>Reset the terminal device specified with <varname>TTYPath=</varname> before and after
-        execution.  Defaults to <literal>no</literal>.</para></listitem>
+        execution. Defaults to <literal>no</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
