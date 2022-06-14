@@ -816,6 +816,7 @@ fi
 #   in
 # - libLLVM is a "side effect" caused by the previous fsck leak
 cat >/systemd-lsan.supp <<INNER_EOF
+leak:/bin/bash$
 leak:/bin/fsck$
 leak:/sbin/fsck$
 leak:/lib/libLLVM
@@ -904,6 +905,53 @@ unset_ld_preload() {
 
 unset_ld_preload systemd-remount-fs
 unset_ld_preload testsuite-
+
+# Since setting LD_PRELOAD= globally causes more harm than good, let's manually
+# wrap certain binaries, which require it, with LD_PRELOAD=<path_to_libasan>.
+# Also, disable leak check to speed things up, since we don't care about leaks
+# form external binaries/libraries.
+bin_set_ld_preload() {
+    local _bin="\${1:?}"
+    local _bin_orig="\${_bin}.orig"
+
+    # If the backup of the original binary already exists, we've already
+    # wrapped that binary, so bail out early
+    [[ -e "\$_bin_orig" ]] && return 0
+
+    mv "\$_bin" "\$_bin_orig"
+    cat >"\$_bin" <<INNER_EOF
+#!/bin/bash
+export LD_PRELOAD="$ASAN_RT_PATH"
+export ASAN_OPTIONS=detect_leaks=0
+# Set argv[0] to the original binary name without the ".orig" suffix
+exec -a "\\\$0" -- "\$_bin_orig" "\\\$@"
+INNER_EOF
+    chmod +x "\$_bin"
+}
+
+BINS_TO_WRAP=(
+    btrfs
+    cryptsetup
+    lsblk
+    lvm
+    mdadm
+    mkfs.btrfs
+    multipath
+    pkill
+    tar
+    useradd
+    userdel
+)
+
+for _bin in "\${BINS_TO_WRAP[@]}"; do
+    if ! _bin_path="\$(command -v "\$_bin")"; then
+        echo "Binary '\$_bin' not found, skipping..."
+        continue
+    fi
+
+    echo "Creating a wrapper for binary '\$_bin' (\$_bin_path)"
+    bin_set_ld_preload "\$_bin_path"
+done
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec "$ROOTLIBDIR/systemd" "\$@"
