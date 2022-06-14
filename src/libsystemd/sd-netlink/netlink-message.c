@@ -524,19 +524,19 @@ _public_ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigne
         return 0;
 }
 
-int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const struct hw_addr_data *data) {
+_public_ int sd_netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const uint8_t *data, size_t length) {
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
-        assert_return(data->length > 0, -EINVAL);
+        assert_return(length > 0, -EINVAL);
 
         r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_ETHER_ADDR);
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, type, data->bytes, data->length);
+        r = add_rtattr(m, type, data, length);
         if (r < 0)
                 return r;
 
@@ -954,26 +954,28 @@ _public_ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned 
         return 0;
 }
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
-        void *attr_data;
+_public_ int sd_netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, uint8_t *buffer, size_t *length) {
+        void *data;
         int r;
 
         assert_return(m, -EINVAL);
+        if (buffer)
+                assert_return(length, -EINVAL);
 
         r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_ETHER_ADDR);
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        r = netlink_message_read_internal(m, type, &data, NULL);
         if (r < 0)
                 return r;
 
-        if (r > HW_ADDR_MAX_SIZE)
+        if (length && (size_t) r > *length)
                 return -EIO;
 
-        if (data) {
-                memcpy(data->bytes, attr_data, r);
-                data->length = r;
+        if (buffer) {
+                memcpy(buffer, data, r);
+                *length = r;
         }
 
         return 0;
