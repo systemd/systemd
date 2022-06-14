@@ -12,7 +12,6 @@
 
 #include "alloc-util.h"
 #include "in-addr-util.h"
-#include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"

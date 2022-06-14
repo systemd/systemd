@@ -12,7 +12,6 @@
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
-#include "netlink-util.h"
 #include "tests.h"
 #include "util.h"
 

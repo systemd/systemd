@@ -16,7 +16,6 @@
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
-#include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
