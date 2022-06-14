@@ -116,13 +116,6 @@ int event_source_disable(sd_event_source *s) {
         return sd_event_source_set_enabled(s, SD_EVENT_OFF);
 }
 
-int event_source_is_enabled(sd_event_source *s) {
-        if (!s)
-                return false;
-
-        return sd_event_source_get_enabled(s, NULL);
-}
-
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_close_ int fd = -1;
