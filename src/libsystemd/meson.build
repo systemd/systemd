@@ -149,6 +149,8 @@ libsystemd_sources = files(
         'sd-netlink/netlink-util-rtnl.c',
         'sd-netlink/netlink-util-rtnl.h',
         'sd-netlink/netlink-util.h',
+        'sd-netlink/nfproto-util.c',
+        'sd-netlink/nfproto-util.h',
         'sd-netlink/sd-netlink.c',
         'sd-network/network-util.c',
         'sd-network/network-util.h',
