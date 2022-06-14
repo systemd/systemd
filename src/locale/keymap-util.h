@@ -4,13 +4,12 @@
 #include "sd-bus.h"
 
 #include "hashmap.h"
-#include "locale-util.h"
+#include "locale-setup.h"
 #include "time-util.h"
 
 typedef struct Context {
         sd_bus_message *locale_cache;
-        usec_t locale_mtime;
-        char *locale[_VARIABLE_LC_MAX];
+        LocaleContext locale_context;
 
         sd_bus_message *x11_cache;
         usec_t x11_mtime;
@@ -40,8 +39,6 @@ int vconsole_convert_to_x11(Context *c);
 int vconsole_write_data(Context *c);
 int x11_convert_to_vconsole(Context *c);
 int x11_write_data(Context *c);
-void locale_simplify(char *locale[_VARIABLE_LC_MAX]);
-int locale_write_data(Context *c, char ***settings);
 
 bool locale_gen_check_available(void);
 int locale_gen_enable_locale(const char *locale);

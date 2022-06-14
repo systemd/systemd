@@ -199,6 +199,8 @@ shared_sources = files(
         'linux/ethtool.h',
         'local-addresses.c',
         'local-addresses.h',
+        'locale-setup.c',
+        'locale-setup.h',
         'lockfile-util.c',
         'lockfile-util.h',
         'log-link.h',
