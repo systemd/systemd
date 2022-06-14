@@ -72,7 +72,6 @@ ConditionSecurity=
 ConditionUser=
 ConditionVirtualization=
 Conflicts=
-ControlGroupNFTSet=
 DefaultDependencies=
 Description=
 Documentation=
