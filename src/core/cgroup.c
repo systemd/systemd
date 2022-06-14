@@ -790,6 +790,9 @@ static void cgroup_xattr_apply(Unit *u) {
 
         assert(u);
 
+        /* The 'user.*' xattrs can be set from a user manager. */
+        cgroup_oomd_xattr_apply(u, u->cgroup_path);
+
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
@@ -816,8 +819,6 @@ static void cgroup_xattr_apply(Unit *u) {
                 else
                         unit_remove_xattr_graceful(u, NULL, xn);
         }
-
-        cgroup_oomd_xattr_apply(u, u->cgroup_path);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
