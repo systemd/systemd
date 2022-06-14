@@ -1115,11 +1115,14 @@ Table=1234</programlisting></para>
         <listitem>
 
           <para>This setting provides a method for integrating dynamic network configuration into Linux
-          NetLabel subsystem rules, used by Linux security modules (LSMs) for network access control. The
-          option expects a whitespace separated list of NetLabel labels. The labels must conform to lexical
-          restrictions of LSM labels. When an interface is configured with IP addresses, the addresses and
-          subnetwork masks will be appended to the NetLabel Fallback Peer Labeling rules. They will be
-          removed when the interface is deconfigured. Failures to manage the labels will be ignored.</para>
+          <ulink url="https://docs.kernel.org/netlabel/index.html">NetLabel</ulink> subsystem rules, used by
+          <ulink url="https://en.wikipedia.org/wiki/Linux_Security_Modules">Linux security modules
+          (LSMs)</ulink> for network access control. The option expects a whitespace separated list of
+          NetLabel labels. The labels must conform to lexical restrictions of LSM labels. When an interface
+          is configured with IP addresses, the addresses and subnetwork masks will be appended to the <ulink
+          url="https://github.com/SELinuxProject/selinux-notebook/blob/main/src/network_support.md">NetLabel
+          Fallback Peer Labeling</ulink> rules. They will be removed when the interface is
+          deconfigured. Failures to manage the labels will be ignored.</para>
 
           <para>Warning: Once labeling is enabled for network traffic, a lot of LSM access control points in
           Linux networking stack go from dormant to active. It is easy for someone not familiar with the LSM
