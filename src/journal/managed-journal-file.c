@@ -375,12 +375,9 @@ ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f) {
         }
 #endif
 
-        if (f->file->post_change_timer) {
-                if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
-                        journal_file_post_change(f->file);
-
-                sd_event_source_disable_unref(f->file->post_change_timer);
-        }
+        if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
+                journal_file_post_change(f->file);
+        sd_event_source_disable_unref(f->file->post_change_timer);
 
         managed_journal_file_set_offline(f, true);
 
