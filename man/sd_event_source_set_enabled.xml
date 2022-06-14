@@ -53,16 +53,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_event_source_set_enabled()</function> may be
-    used to enable or disable the event source object specified as
-    <parameter>source</parameter>. The <parameter>enabled</parameter>
-    parameter takes one of <constant>SD_EVENT_ON</constant> (to
-    enable), <constant>SD_EVENT_OFF</constant> (to disable) or
-    <constant>SD_EVENT_ONESHOT</constant>. If invoked with
-    <constant>SD_EVENT_ONESHOT</constant> the event source will be
-    enabled but automatically reset to
-    <constant>SD_EVENT_OFF</constant> after the event source was
-    dispatched once.</para>
+    <para><function>sd_event_source_set_enabled()</function> may be used to enable or disable the event
+    source object specified as <parameter>source</parameter>. The <parameter>enabled</parameter> parameter
+    takes one of <constant>SD_EVENT_ON</constant> (to enable), <constant>SD_EVENT_OFF</constant> (to disable)
+    or <constant>SD_EVENT_ONESHOT</constant>. If invoked with <constant>SD_EVENT_ONESHOT</constant> the event
+    source will be enabled but automatically reset to <constant>SD_EVENT_OFF</constant> after one dispatch.
+    For <constant>SD_EVENT_OFF</constant>, the event source <parameter>source</parameter> may be
+    <constant>NULL</constant>, in which case the function does nothing. Otherwise,
+    <parameter>source</parameter> must be a valid pointer to an <structname>sd_event_source</structname>
+    object.</para>
 
     <para>Event sources that are disabled will not result in event
     loop wakeups and will not be dispatched, until they are enabled
