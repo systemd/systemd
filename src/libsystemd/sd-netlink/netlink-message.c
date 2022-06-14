@@ -479,19 +479,19 @@ _public_ int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned 
         return netlink_message_append_addr(m, type, AF_INET6, (const uint8_t*) data);
 }
 
-int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data) {
+static int netlink_message_append_sockaddr(sd_netlink_message *m, unsigned short type, int family, const uint8_t *data) {
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
-        assert_return(IN_SET(data->sa.sa_family, AF_INET, AF_INET6), -EINVAL);
+        assert(IN_SET(family, AF_INET, AF_INET6)); /* This param is passed internally. */
 
         r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_SOCKADDR);
         if (r < 0)
                 return r;
 
-        r = add_rtattr(m, type, data, data->sa.sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+        r = add_rtattr(m, type, data, family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
         if (r < 0)
                 return r;
 
@@ -499,11 +499,11 @@ int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short 
 }
 
 _public_ int sd_netlink_message_append_sockaddr_in(sd_netlink_message *m, unsigned short type, const struct sockaddr_in *data) {
-        return netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union *) data);
+        return netlink_message_append_sockaddr(m, type, AF_INET, (const uint8_t*) data);
 }
 
 _public_ int sd_netlink_message_append_sockaddr_in6(sd_netlink_message *m, unsigned short type, const struct sockaddr_in6 *data) {
-        return netlink_message_append_sockaddr_union(m, type, (const union sockaddr_union *) data);
+        return netlink_message_append_sockaddr(m, type, AF_INET6, (const uint8_t*) data);
 }
 
 _public_ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data) {

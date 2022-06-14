@@ -150,7 +150,16 @@ static inline int netlink_message_append_in_addr_union(
         }
 }
 
-int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
+static inline int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data) {
+        switch (data->sa.sa_family) {
+        case AF_INET:
+                return sd_netlink_message_append_sockaddr_in(m, type, &data->in);
+        case AF_INET6:
+                return sd_netlink_message_append_sockaddr_in6(m, type, &data->in6);
+        default:
+                return -EAFNOSUPPORT;
+        }
+}
 
 static inline int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
         size_t l = sizeof(data) - offsetof(struct hw_addr_data, bytes);
