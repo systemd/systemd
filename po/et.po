@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2022-06-11 23:19+0000\n"
+"PO-Revision-Date: 2022-06-14 00:18+0000\n"
 "Last-Translator: H A <contact+fedora@hen.ee>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
 "systemd/master/et/>\n"
@@ -292,11 +292,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "Luba mitte sisse logitud kasutajadel programme käivitada"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
+"Autentimine on vajalik, et käivitada programme mitte sisse logitud "
+"kasutajana."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
