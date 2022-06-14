@@ -27,6 +27,8 @@ int event_reset_time_relative(
                 int64_t priority,
                 const char *description,
                 bool force_reset);
-int event_source_disable(sd_event_source *s);
+static inline int event_source_disable(sd_event_source *s) {
+        return sd_event_source_set_enabled(s, SD_EVENT_OFF);
+}
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata);

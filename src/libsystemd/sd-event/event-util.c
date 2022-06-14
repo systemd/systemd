@@ -109,13 +109,6 @@ int event_reset_time_relative(
         return event_reset_time(e, s, clock, usec_add(usec_now, usec), accuracy, callback, userdata, priority, description, force_reset);
 }
 
-int event_source_disable(sd_event_source *s) {
-        if (!s)
-                return 0;
-
-        return sd_event_source_set_enabled(s, SD_EVENT_OFF);
-}
-
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_close_ int fd = -1;
