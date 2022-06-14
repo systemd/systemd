@@ -702,6 +702,7 @@ setup_basic_environment() {
     install_pam
     install_dbus
     install_fonts
+    install_locales
     install_keymaps
     install_x11_keymaps
     install_terminfo
@@ -1914,6 +1915,29 @@ install_pam() {
         [ -d "$initdir/$d" ] || continue
         sed -i '/^auth.*pam_unix.so/s/$/ nullok/' "$initdir/$d"/*
     done
+}
+
+install_locales() {
+    # install only C.UTF-8 and English locales
+    dinfo "Install locales"
+
+    if command -v meson >/dev/null \
+            && (meson configure "${BUILD_DIR:?}" | grep 'localegen-path */') \
+            || get_bool "$LOOKS_LIKE_DEBIAN"; then
+        # locale-gen support
+        image_install -o locale-gen localedef
+        inst /etc/locale.gen || :
+        inst /usr/share/i18n/SUPPORTED || :
+        inst_recursive /usr/share/i18n/charmaps
+        inst_recursive /usr/share/i18n/locales
+        inst_recursive /usr/share/locale/en
+        inst_recursive /usr/share/locale/en_*
+    fi
+
+    inst_recursive /usr/lib/locale/C.utf8
+    inst_recursive /usr/lib/locale/C.UTF-8
+    inst_recursive /usr/lib/locale/en_*.utf8
+    inst_recursive /usr/lib/locale/en_*.UTF-8
 }
 
 # shellcheck disable=SC2120
