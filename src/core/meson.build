@@ -85,8 +85,6 @@ libcore_sources = files(
         'load-dropin.h',
         'load-fragment.c',
         'load-fragment.h',
-        'locale-setup.c',
-        'locale-setup.h',
         'manager-dump.c',
         'manager-dump.h',
         'manager-serialize.c',
