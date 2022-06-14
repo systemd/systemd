@@ -987,6 +987,8 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
                 case 'b':
                         boot_id_set = true;
                         r = sd_id128_from_string(word + 2, &boot_id);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'm':
