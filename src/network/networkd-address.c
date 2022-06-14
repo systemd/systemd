@@ -453,36 +453,47 @@ static int address_set_masquerade(Address *address, bool add) {
 }
 
 static void address_add_nft_set_context(const Address *address, const NFTSetContext *nft_set_context, size_t n_nft_set_contexts) {
-        int r;
-
         assert(address);
 
         for (size_t i = 0; i < n_nft_set_contexts; i++) {
+                int r;
+
                 r = nft_set_element_add_in_addr(&nft_set_context[i], address->family,
                                                 &address->in_addr, address->prefixlen);
-                if (r < 0)
+                if (r < 0) {
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
+
                         log_warning_errno(r, "Adding NFT family %s table %s set %s for IP address %s failed, ignoring",
                                           nfproto_to_string(nft_set_context[i].nfproto),
                                           nft_set_context[i].table,
                                           nft_set_context[i].set,
-                                          IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+                                          strna(addr_str));
+                }
         }
 }
 
 static void address_del_nft_set_context(const Address *address, const NFTSetContext *nft_set_context, size_t n_nft_set_contexts) {
-        int r;
-
         assert(address);
 
         for (size_t i = 0; i < n_nft_set_contexts; i++) {
+                int r;
+
                 r = nft_set_element_del_in_addr(&nft_set_context[i], address->family,
                                                 &address->in_addr, address->prefixlen);
-                if (r < 0)
+                if (r < 0) {
+                        _cleanup_free_ char *addr_str = NULL;
+
+                        (void) in_addr_prefix_to_string(address->family, &address->in_addr, address->prefixlen, &addr_str);
+
                         log_warning_errno(r, "Deleting NFT family %s table %s set %s for IP address %s failed, ignoring",
                                           nfproto_to_string(nft_set_context[i].nfproto),
                                           nft_set_context[i].table,
                                           nft_set_context[i].set,
-                                          IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));               }
+                                          strna(addr_str));
+                }
+        }
 }
 
 static void address_add_nft_set(const Address *address) {
