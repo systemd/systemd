@@ -8,7 +8,6 @@ BlockIODeviceWeight=
 BlockIOReadBandwidth=
 BlockIOWeight=
 BlockIOWriteBandwidth=
-ControlGroupNFTSet=
 CPUAccounting=
 CPUQuota=
 CPUQuotaPeriodSec=
