@@ -20,7 +20,7 @@
 #include "def.h"
 #include "dlfcn-util.h"
 #include "kbd-util.h"
-#include "keymap-util.h"
+#include "localed-util.h"
 #include "macro.h"
 #include "main-func.h"
 #include "missing_capability.h"
