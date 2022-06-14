@@ -823,6 +823,7 @@ global:
         sd_netlink_message_append_sockaddr_in;
         sd_netlink_message_append_sockaddr_in6;
         sd_netlink_message_append_ether_addr;
+        sd_netlink_message_append_hw_addr;
         sd_netlink_message_append_cache_info;
         sd_netlink_message_open_container;
         sd_netlink_message_open_container_union;
@@ -837,6 +838,7 @@ global:
         sd_netlink_message_read_u16;
         sd_netlink_message_read_u32;
         sd_netlink_message_read_ether_addr;
+        sd_netlink_message_read_hw_addr;
         sd_netlink_message_read_cache_info;
         sd_netlink_message_read_in_addr;
         sd_netlink_message_read_in6_addr;
