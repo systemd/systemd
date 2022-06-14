@@ -1472,7 +1472,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         r = address_add(link, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));                
+                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
                                 return 0;
                         }
 
@@ -1975,7 +1975,13 @@ int config_parse_address_netlabel(
                 return 0;
         }
 
-        return config_parse_netlabel(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->netlabels, network);
+        r = config_parse_netlabel(unit, filename, line, section, section_line, lvalue,
+                                  ltype, rvalue, &n->netlabels, network);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(n);
+        return 0;
 }
 
 static int address_section_verify(Address *address) {
