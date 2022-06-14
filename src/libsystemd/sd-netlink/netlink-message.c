@@ -452,13 +452,13 @@ _public_ int sd_netlink_message_append_data(sd_netlink_message *m, unsigned shor
         return 0;
 }
 
-int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data) {
+static int netlink_message_append_addr(sd_netlink_message *m, unsigned short type, int family, const uint8_t *data) {
         int r;
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(data, -EINVAL);
-        assert_return(IN_SET(family, AF_INET, AF_INET6), -EINVAL);
+        assert(IN_SET(family, AF_INET, AF_INET6)); /* This param is passed internally. */
 
         r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_IN_ADDR);
         if (r < 0)
@@ -472,11 +472,11 @@ int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short t
 }
 
 _public_ int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data) {
-        return netlink_message_append_in_addr_union(m, type, AF_INET, (const union in_addr_union *) data);
+        return netlink_message_append_addr(m, type, AF_INET, (const uint8_t*) data);
 }
 
 _public_ int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data) {
-        return netlink_message_append_in_addr_union(m, type, AF_INET6, (const union in_addr_union *) data);
+        return netlink_message_append_addr(m, type, AF_INET6, (const uint8_t*) data);
 }
 
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data) {
@@ -1004,8 +1004,8 @@ _public_ int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned 
         return 0;
 }
 
-int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data) {
-        void *attr_data;
+static int netlink_message_read_addr(sd_netlink_message *m, unsigned short type, int family, uint8_t *buffer) {
+        void *data;
         int r;
 
         assert_return(m, -EINVAL);
@@ -1015,39 +1015,25 @@ int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short typ
         if (r < 0)
                 return r;
 
-        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        r = netlink_message_read_internal(m, type, &data, NULL);
         if (r < 0)
                 return r;
 
         if ((size_t) r < FAMILY_ADDRESS_SIZE(family))
                 return -EIO;
 
-        if (data)
-                memcpy(data, attr_data, FAMILY_ADDRESS_SIZE(family));
+        if (buffer)
+                memcpy(buffer, data, FAMILY_ADDRESS_SIZE(family));
 
         return 0;
 }
 
 _public_ int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, struct in_addr *data) {
-        union in_addr_union u;
-        int r;
-
-        r = netlink_message_read_in_addr_union(m, type, AF_INET, &u);
-        if (r >= 0 && data)
-                *data = u.in;
-
-        return r;
+        return netlink_message_read_addr(m, type, AF_INET, (uint8_t*) &data);
 }
 
 _public_ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type, struct in6_addr *data) {
-        union in_addr_union u;
-        int r;
-
-        r = netlink_message_read_in_addr_union(m, type, AF_INET6, &u);
-        if (r >= 0 && data)
-                *data = u.in6;
-
-        return r;
+        return netlink_message_read_addr(m, type, AF_INET6, (uint8_t*) &data);
 }
 
 _public_ int sd_netlink_message_has_flag(sd_netlink_message *m, unsigned short type) {

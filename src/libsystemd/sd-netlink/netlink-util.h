@@ -135,7 +135,21 @@ static inline int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned
         return sd_netlink_message_append_hw_addr(m, type, data->bytes, data->length);
 }
 
-int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
+static inline int netlink_message_append_in_addr_union(
+                sd_netlink_message *m,
+                unsigned short type,
+                int family,
+                const union in_addr_union *data) {
+        switch (family) {
+        case AF_INET:
+                return sd_netlink_message_append_in_addr(m, type, &data->in);
+        case AF_INET6:
+                return sd_netlink_message_append_in6_addr(m, type, &data->in6);
+        default:
+                return -EAFNOSUPPORT;
+        }
+}
+
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
 static inline int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data) {
@@ -149,7 +163,16 @@ static inline int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned s
         return r;
 }
 
-int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
+static inline int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data) {
+        switch (family) {
+        case AF_INET:
+                return sd_netlink_message_read_in_addr(m, type, &data->in);
+        case AF_INET6:
+                return sd_netlink_message_read_in6_addr(m, type, &data->in6);
+        default:
+                return -EAFNOSUPPORT;
+        }
+}
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);
