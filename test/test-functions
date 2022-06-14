@@ -1913,26 +1913,47 @@ install_pam() {
 
 # shellcheck disable=SC2120
 install_keymaps() {
-    dinfo "Install keymaps"
-    # The first three paths may be deprecated.
-    # It seems now the last two paths are used by many distributions.
-    for i in \
-        /usr/lib/kbd/keymaps/include/* \
-        /usr/lib/kbd/keymaps/i386/include/* \
-        /usr/lib/kbd/keymaps/i386/qwerty/us.* \
-        /usr/lib/kbd/keymaps/legacy/include/* \
-        /usr/lib/kbd/keymaps/legacy/i386/qwerty/us.*; do
-            [[ -f "$i" ]] || continue
-            inst "$i"
-    done
+    local i p
+    local -a prefix=(
+        "/usr"
+    )
 
-    # When it takes any argument, then install more keymaps.
-    if [[ $# -gt 1 ]]; then
-        for i in \
-        /usr/lib/kbd/keymaps/i386/*/* \
-        /usr/lib/kbd/keymaps/legacy/i386/*/*; do
-            [[ -f "$i" ]] || continue
-            inst "$i"
+    dinfo "Install console keymaps"
+
+    if command -v meson >/dev/null \
+            && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
+            || [[ ! -L /lib ]]; then
+        prefix+=(
+            ""
+        )
+    fi
+
+    if (( $# == 0 )); then
+        for p in "${prefix[@]}"; do
+            # The first three paths may be deprecated.
+            # It seems now the last three paths are used by many distributions.
+            for i in \
+                "$p"/lib/kbd/keymaps/include/* \
+                "$p"/lib/kbd/keymaps/i386/include/* \
+                "$p"/lib/kbd/keymaps/i386/qwerty/us.* \
+                "$p"/lib/kbd/keymaps/legacy/include/* \
+                "$p"/lib/kbd/keymaps/legacy/i386/qwerty/us.* \
+                "$p"/lib/kbd/keymaps/xkb/us*; do
+                    [[ -f "$i" ]] || continue
+                    inst "$i"
+            done
+        done
+    else
+        # When it takes any argument, then install more keymaps.
+        for p in "${prefix[@]}"; do
+            for i in \
+                "$p"/lib/kbd/keymaps/include/* \
+                "$p"/lib/kbd/keymaps/i386/*/* \
+                "$p"/lib/kbd/keymaps/legacy/i386/*/* \
+                "$p"/lib/kbd/keymaps/xkb/*; do
+                    [[ -f "$i" ]] || continue
+                    inst "$i"
+            done
         done
     fi
 }
