@@ -23,7 +23,7 @@ test_timezone() {
         mv /etc/timezone /tmp/timezone.bak
     fi
 
-    trap restore_timezone EXIT
+    trap restore_timezone RETURN
 
     if [[ -L /etc/localtime ]]; then
         ORIG_TZ=$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')
@@ -49,9 +49,6 @@ test_timezone() {
             assert_eq "$(cat /etc/timezone)" "$ORIG_TZ"
         fi
     fi
-
-    restore_timezone
-    trap - EXIT
 }
 
 restore_adjtime() {
@@ -75,7 +72,7 @@ test_adjtime() {
         mv /etc/adjtime /etc/adjtime.bak
     fi
 
-    trap restore_adjtime EXIT
+    trap restore_adjtime RETURN
 
     echo 'no adjtime file'
     rm -f /etc/adjtime
@@ -182,9 +179,6 @@ LOCAL"
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
-
-    restore_adjtime
-    trap - EXIT
 }
 
 assert_ntp() {
