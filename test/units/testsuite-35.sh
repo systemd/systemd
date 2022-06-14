@@ -91,7 +91,7 @@ test_suspend_on_lid() {
     fi
 
     KILL_PID=
-    trap test_suspend_tear_down EXIT
+    trap test_suspend_tear_down RETURN
 
     # create fake suspend
     mkdir -p /run/systemd/system/systemd-suspend.service.d
@@ -184,9 +184,6 @@ EOF
         echo "logind crashed" >&2
         exit 1
     fi
-
-    test_suspend_tear_down
-    trap - EXIT
 }
 
 test_shutdown() {
@@ -269,7 +266,7 @@ test_session() {
         return
     fi
 
-    trap test_session_tear_down EXIT
+    trap test_session_tear_down RETURN
 
     # add user
     useradd -s /bin/bash logind-test-user
@@ -361,9 +358,6 @@ EOF
         getfacl -p "$dev" >&2
         exit 1
     fi
-
-    test_session_tear_down
-    trap - EXIT
 }
 
 : >/failed
