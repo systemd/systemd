@@ -10,7 +10,6 @@
 #include "bridge.h"
 #include "condition.h"
 #include "conf-parser.h"
-#include "firewall-util.h"
 #include "hashmap.h"
 #include "ipoib.h"
 #include "net-condition.h"
@@ -157,8 +156,6 @@ struct Network {
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
         Set *dhcp_netlabels;
-        NFTSetContext *dhcp_nft_set_context;
-        size_t n_dhcp_nft_set_contexts;
 
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
@@ -184,8 +181,6 @@ struct Network {
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
         Set *dhcp6_netlabels;
-        NFTSetContext *dhcp6_nft_set_context;
-        size_t n_dhcp6_nft_set_contexts;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -243,8 +238,6 @@ struct Network {
         int dhcp_pd_uplink_index;
         char *dhcp_pd_uplink_name;
         Set *dhcp_pd_netlabels;
-        NFTSetContext *dhcp_pd_nft_set_context;
-        size_t n_dhcp_pd_nft_set_contexts;
 
         /* Bridge Support */
         int use_bpdu;
@@ -330,8 +323,6 @@ struct Network {
         Set *ndisc_allow_listed_route_prefix;
         Set *ndisc_tokens;
         Set *ndisc_netlabels;
-        NFTSetContext *ndisc_nft_set_context;
-        size_t n_ndisc_nft_set_contexts;
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
@@ -397,10 +388,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_nft_set_context);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_nft_set_context);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_pd_nft_set_context);
-CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_nft_set_context);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
