@@ -2630,6 +2630,20 @@ inst_any() {
     return 1
 }
 
+inst_recursive() {
+    local p item
+
+    for p in "$@"; do
+        while read -r item; do
+            if [[ -d "$item" ]]; then
+                inst_dir "$item"
+            elif [[ -f "$item" ]]; then
+                inst_simple "$item"
+            fi
+        done < <(find "$p" 2>/dev/null)
+    done
+}
+
 # image_install [-o ] <file> [<file> ... ]
 # Install <file> to the test image
 # -o optionally install the <file> and don't fail, if it is not there
