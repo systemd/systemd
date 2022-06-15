@@ -209,9 +209,10 @@ int sd_nfnl_nft_message_new_set(
         return r;
 }
 
-int sd_nfnl_nft_message_new_setelems_begin(
+int sd_nfnl_nft_message_new_setelems(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
+                int add, /* boolean */
                 int nfproto,
                 const char *table,
                 const char *set_name) {
@@ -219,7 +220,10 @@ int sd_nfnl_nft_message_new_setelems_begin(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
+        if (add)
+                r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
+        else
+                r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_DELSETELEM, 0);
         if (r < 0)
                 return r;
 
@@ -231,51 +235,18 @@ int sd_nfnl_nft_message_new_setelems_begin(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
-        if (r < 0)
-                return r;
-
         *ret = TAKE_PTR(m);
         return r;
 }
 
-int sd_nfnl_nft_message_del_setelems_begin(
-                sd_netlink *nfnl,
-                sd_netlink_message **ret,
-                int nfproto,
-                const char *table,
-                const char *set_name) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_DELSETELEM, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_SET_ELEM_LIST_TABLE, table);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_SET_ELEM_LIST_SET, set_name);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(m);
-        return r;
-}
-
-int sd_nfnl_nft_message_add_setelem(
+int sd_nfnl_nft_message_append_setelem(
                 sd_netlink_message *m,
                 uint32_t index,
                 const void *key,
                 size_t key_len,
                 const void *data,
-                size_t data_len) {
+                size_t data_len,
+                uint32_t flags) {
 
         int r;
 
@@ -293,15 +264,17 @@ int sd_nfnl_nft_message_add_setelem(
                         goto cancel;
         }
 
-        return 0;
+        if (flags != 0) {
+                r = sd_netlink_message_append_u32(m, NFTA_SET_ELEM_FLAGS, htobe32(flags));
+                if (r < 0)
+                        goto cancel;
+        }
+
+        return sd_netlink_message_close_container(m); /* array */
 
 cancel:
-        sd_netlink_message_cancel_array(m);
+        (void) sd_netlink_message_cancel_array(m);
         return r;
-}
-
-int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m) {
-        return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
 int sd_nfnl_socket_open(sd_netlink **ret) {
