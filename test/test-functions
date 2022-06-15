@@ -228,6 +228,8 @@ DEBUGTOOLS=(
 )
 
 is_built_with_asan() {
+    local _bin="${1:?}"
+
     if ! type -P objdump >/dev/null; then
         ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
         return 1
@@ -235,7 +237,7 @@ is_built_with_asan() {
 
     # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
     local _asan_calls
-    _asan_calls="$(objdump -dC "$SYSTEMD_JOURNALD" | grep -E "(callq?|brasl?|bl)\s.+__asan" -c)"
+    _asan_calls="$(objdump -dC "$_bin" | grep -E "(callq?|brasl?|bl)\s.+__asan" -c)"
     if ((_asan_calls < 1000)); then
         return 1
     else
@@ -251,7 +253,7 @@ is_built_with_coverage() {
     meson configure "${BUILD_DIR:?}" | grep 'b_coverage' | awk '{ print $2 }' | grep -q 'true'
 }
 
-IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+IS_BUILT_WITH_ASAN=$(is_built_with_asan "$SYSTEMD_JOURNALD" && echo yes || echo no)
 IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
@@ -2429,7 +2431,9 @@ inst_binary() {
         wrap_binary=1
     fi
 
-    if get_bool "$wrap_binary"; then
+    # If the target binary is built with ASan support, we don't need to wrap
+    # it, as it should handle everything by itself
+    if get_bool "$wrap_binary" && ! is_built_with_asan "$bin"; then
         dinfo "Creating ASan-compatible wrapper for binary '$target'"
         # Install the target binary with a ".orig" suffix
         inst_simple "$bin" "${target}.orig"
