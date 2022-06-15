@@ -32,7 +32,7 @@ EOF
     # Trigger the mount ratelimiting
     cd "$(mktemp -d)"
     mkdir foo
-    for ((i=0;i<50;++i)); do
+    for ((i = 0; i < 50; i++)); do
         mount --bind foo foo
         umount foo
     done
