@@ -928,6 +928,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@known",
                 .help = "All known syscalls declared in the kernel",
                 .value =
+                "@obsolete\0"
 #include "syscall-list.h"
         },
 };
