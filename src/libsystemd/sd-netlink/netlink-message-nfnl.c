@@ -126,27 +126,6 @@ int sd_nfnl_nft_message_new_basechain(
         return 0;
 }
 
-int sd_nfnl_nft_message_del_table(
-                sd_netlink *nfnl,
-                sd_netlink_message **ret,
-                int nfproto,
-                const char *table) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_DELTABLE, NLM_F_CREATE);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_TABLE_NAME, table);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(m);
-        return r;
-}
-
 int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,

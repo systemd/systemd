@@ -178,8 +178,6 @@ int netlink_add_match_internal(
 int sd_nfnl_socket_open(sd_netlink **ret);
 int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
 int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
-int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
-                                  int nfproto, const char *table);
 int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
                                   int nfproto, const char *table);
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
