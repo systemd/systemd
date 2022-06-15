@@ -818,6 +818,7 @@ global:
         sd_netlink_message_append_s32;
         sd_netlink_message_append_s64;
         sd_netlink_message_append_data;
+        sd_netlink_message_append_container_data;
         sd_netlink_message_append_in_addr;
         sd_netlink_message_append_in6_addr;
         sd_netlink_message_append_sockaddr_in;
