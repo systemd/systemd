@@ -230,15 +230,13 @@ int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
 int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
                                 int nfproto, const char *table, const char *set_name,
                                 uint32_t setid, uint32_t klen);
-int sd_nfnl_nft_message_new_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
-                                           int nfproto, const char *table, const char *set_name);
-int sd_nfnl_nft_message_del_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
-                                           int nfproto, const char *table, const char *set_name);
-int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m,
-                                    uint32_t index,
-                                    const void *key, size_t key_len,
-                                    const void *data, size_t data_len);
-int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);
+int sd_nfnl_nft_message_new_setelems(sd_netlink *nfnl, sd_netlink_message **ret,
+                                     int add, int nfproto, const char *table, const char *set_name);
+int sd_nfnl_nft_message_append_setelem(sd_netlink_message *m,
+                                       uint32_t index,
+                                       const void *key, size_t key_len,
+                                       const void *data, size_t data_len,
+                                       uint32_t flags);
 
 /* genl */
 int sd_genl_socket_open(sd_netlink **ret);
