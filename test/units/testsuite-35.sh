@@ -228,7 +228,7 @@ test_session_tear_down() {
 check_session() {
     loginctl
     if [[ $(loginctl --no-legend | grep -c "logind-test-user") != 1 ]]; then
-        echo "no session or multile sessions for logind-test-user." >&2
+        echo "no session or multiple sessions for logind-test-user." >&2
         return 1
     fi
 
