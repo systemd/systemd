@@ -46,14 +46,12 @@ static char *indent(unsigned level, uint64_t flags) {
         return p;
 }
 
-_public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
+int _bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         unsigned level = 1;
         int r;
 
         assert(m);
-
-        if (!f)
-                f = stdout;
+        assert(f);
 
         if (flags & SD_BUS_MESSAGE_DUMP_WITH_HEADER) {
                 usec_t ts = m->realtime;
