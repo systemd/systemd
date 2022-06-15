@@ -44,9 +44,10 @@
     <title>Description</title>
 
     <para>The <function>sd_bus_message_dump()</function> function writes a textual representation of the
-    message <parameter>m</parameter> to the stream <parameter>f</parameter>. This function is intended to be
-    used for debugging purposes, and the output is neither stable nor designed to be machine readable.
-    </para>
+    message <parameter>m</parameter> to the stream <parameter>f</parameter>. If <parameter>f</parameter> is
+    <constant>NULL</constant>, standard output (<constant>stdio</constant>) will be used. This function is
+    intended to be used for debugging purposes, and the output is neither stable nor designed to be machine
+    readable.</para>
 
     <para>The <parameter>flags</parameter> parameter may be used to modify the output. With
     <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>, a header that specifies the message type and flags
