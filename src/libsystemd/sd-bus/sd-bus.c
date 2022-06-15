@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -16,6 +17,7 @@
 #include "alloc-util.h"
 #include "bus-container.h"
 #include "bus-control.h"
+#include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-kernel.h"
 #include "bus-label.h"
@@ -4405,4 +4407,11 @@ _public_ int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m) {
 
         bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(m, bus);
         return 0;
+}
+
+_public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
+        assert_return(m, -EINVAL);
+        assert_return((flags & ~_SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS) == 0, -EINVAL);
+
+        return _bus_message_dump(m, f ?: stdout, flags);
 }
