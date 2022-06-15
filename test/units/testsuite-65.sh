@@ -3,6 +3,9 @@
 # shellcheck disable=SC2016
 set -eux
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 systemd-analyze log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
@@ -605,6 +608,63 @@ if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
 fi
 
 systemd-analyze --threshold=90 security systemd-journald.service
+
+# issue 23663
+check() {(
+    set +x
+    output=$(systemd-analyze security --offline="${3?}" "${1?}" | grep -F 'SystemCallFilter=')
+    assert_in "System call ${2?} list" "$output"
+    assert_in "\+ SystemCallFilter=~@swap" "$output"
+    assert_in "\+ SystemCallFilter=~@resources" "$output"
+    assert_in "\+ SystemCallFilter=~@reboot" "$output"
+    assert_in "\+ SystemCallFilter=~@raw-io" "$output"
+    assert_in "\- SystemCallFilter=~@privileged" "$output"
+    assert_in "\+ SystemCallFilter=~@obsolete" "$output"
+    assert_in "\+ SystemCallFilter=~@mount" "$output"
+    assert_in "\+ SystemCallFilter=~@module" "$output"
+    assert_in "\+ SystemCallFilter=~@debug" "$output"
+    assert_in "\+ SystemCallFilter=~@cpu-emulation" "$output"
+    assert_in "\- SystemCallFilter=~@clock" "$output"
+)}
+
+export -n SYSTEMD_LOG_LEVEL
+
+mkdir -p /run/systemd/system
+cat >/run/systemd/system/allow-list.service <<EOF
+[Service]
+ExecStart=false
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+SystemCallFilter=@clock
+EOF
+
+cat >/run/systemd/system/deny-list.service <<EOF
+[Service]
+ExecStart=false
+SystemCallFilter=~@known
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+SystemCallFilter=@clock
+EOF
+
+systemctl daemon-reload
+
+check /run/systemd/system/allow-list.service allow yes
+check allow-list.service allow no
+check /run/systemd/system/deny-list.service deny yes
+check deny-list.service deny no
+
+output=$(systemd-run -p "SystemCallFilter=@system-service" -p "SystemCallFilter=~@resources @privileged" -p "SystemCallFilter=@clock" false 2>&1)
+name=$(echo "$output" | awk '{ print $4 }')
+
+check /run/systemd/transient/"$name" allow yes
+check "$name" allow no
+
+output=$(systemd-run -p "SystemCallFilter=~@known" -p "SystemCallFilter=@system-service" -p "SystemCallFilter=~@resources @privileged" -p "SystemCallFilter=@clock" false 2>&1)
+name=$(echo "$output" | awk '{ print $4 }')
+
+check /run/systemd/transient/"$name" deny yes
+check "$name" deny no
 
 systemd-analyze log-level info
 
