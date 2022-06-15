@@ -724,16 +724,21 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems_begin(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, family, NFT_SYSTEMD_TABLE_NAME, set_name);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, key, klen, data, dlen);
+        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_append_setelem(m, 0, key, klen, data, dlen, 0);
         if (r < 0)
                 return r;
 
         /* could theoretically append more set elements to add here */
-        r = sd_nfnl_nft_message_add_setelem_end(m);
+
+        r = sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
         if (r < 0)
                 return r;
 
@@ -761,15 +766,19 @@ static int nft_del_element(
         assert(key);
         assert(data);
 
-        r = sd_nfnl_nft_message_del_setelems_begin(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, family, NFT_SYSTEMD_TABLE_NAME, set_name);
         if (r < 0)
                return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, key, klen, data, dlen);
+        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_append_setelem(m, 0, key, klen, data, dlen, 0);
         if (r < 0)
                return r;
 
-        r = sd_nfnl_nft_message_add_setelem_end(m);
+        r = sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
         if (r < 0)
                 return r;
 
@@ -927,7 +936,7 @@ void fw_nftables_exit(FirewallContext *ctx) {
         ctx->nfnl = sd_netlink_unref(ctx->nfnl);
 }
 
-static int nft_message_add_setelem_iprange(
+static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
                 unsigned int prefixlen) {
@@ -946,11 +955,11 @@ static int nft_message_add_setelem_iprange(
         mask = htobe32(~mask);
         start = source->in.s_addr & mask;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, &start, sizeof(start), NULL, 0);
+        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem_end(m);
+        r = sd_nfnl_nft_message_append_setelem(m, 0, &start, sizeof(start), NULL, 0, 0);
         if (r < 0)
                 return r;
 
@@ -959,18 +968,14 @@ static int nft_message_add_setelem_iprange(
                 end = 0U;
         end = htobe32(end);
 
-        r = sd_nfnl_nft_message_add_setelem(m, 1, &end, sizeof(end), NULL, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, 1, &end, sizeof(end), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_u32(m, NFTA_SET_ELEM_FLAGS, htobe32(NFT_SET_ELEM_INTERVAL_END));
-        if (r < 0)
-                return r;
-
-        return sd_nfnl_nft_message_add_setelem_end(m);
+        return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
-static int nft_message_add_setelem_ip6range(
+static int nft_message_append_setelem_ip6range(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
                 unsigned int prefixlen) {
@@ -985,23 +990,19 @@ static int nft_message_add_setelem_ip6range(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0);
+        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem_end(m);
+        r = sd_nfnl_nft_message_append_setelem(m, 0, &start.in6, sizeof(start.in6), NULL, 0, 0);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_nft_message_add_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0);
+        r = sd_nfnl_nft_message_append_setelem(m, 1, &end.in6, sizeof(end.in6), NULL, 0, NFT_SET_ELEM_INTERVAL_END);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_u32(m, NFTA_SET_ELEM_FLAGS, htobe32(NFT_SET_ELEM_INTERVAL_END));
-        if (r < 0)
-                return r;
-
-        return sd_nfnl_nft_message_add_setelem_end(m);
+        return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
 static int fw_nftables_add_masquerade_internal(
@@ -1030,17 +1031,14 @@ static int fw_nftables_add_masquerade_internal(
                 return r;
 
         assert_se(++tsize < ELEMENTSOF(transaction));
-        if (add)
-                r = sd_nfnl_nft_message_new_setelems_begin(nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
-        else
-                r = sd_nfnl_nft_message_del_setelems_begin(nfnl, &transaction[tsize], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &transaction[tsize], add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
         if (r < 0)
                 return r;
 
         if (af == AF_INET)
-                 r = nft_message_add_setelem_iprange(transaction[tsize], source, source_prefixlen);
+                 r = nft_message_append_setelem_iprange(transaction[tsize], source, source_prefixlen);
         else
-                 r = nft_message_add_setelem_ip6range(transaction[tsize], source, source_prefixlen);
+                 r = nft_message_append_setelem_ip6range(transaction[tsize], source, source_prefixlen);
         if (r < 0)
                 return r;
 
@@ -1050,11 +1048,7 @@ static int fw_nftables_add_masquerade_internal(
                 return r;
 
         assert_se(++tsize < ELEMENTSOF(transaction));
-        r = nfnl_netlink_sendv(nfnl, transaction, tsize);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return nfnl_netlink_sendv(nfnl, transaction, tsize);
 }
 
 int fw_nftables_add_masquerade(
