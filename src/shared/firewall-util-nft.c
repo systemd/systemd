@@ -72,7 +72,7 @@ static int nfnl_netlink_sendv(
         return r;
 }
 
-static int nfnl_add_open_expr_container(sd_netlink_message *m, const char *name) {
+static int nfnl_open_expr_container(sd_netlink_message *m, const char *name) {
         int r;
 
         assert(m);
@@ -85,6 +85,18 @@ static int nfnl_add_open_expr_container(sd_netlink_message *m, const char *name)
         return sd_netlink_message_open_container_union(m, NFTA_EXPR_DATA, name);
 }
 
+static int nfnl_close_expr_container(sd_netlink_message *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
+        if (r < 0)
+                return r;
+
+        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+}
+
 static int nfnl_add_expr_fib(
                 sd_netlink_message *m,
                 uint32_t nft_fib_flags,
@@ -95,7 +107,7 @@ static int nfnl_add_expr_fib(
 
         assert(m);
 
-        r = nfnl_add_open_expr_container(m, "fib");
+        r = nfnl_open_expr_container(m, "fib");
         if (r < 0)
                 return r;
 
@@ -111,11 +123,7 @@ static int nfnl_add_expr_fib(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_meta(
@@ -127,7 +135,7 @@ static int nfnl_add_expr_meta(
 
         assert(m);
 
-        r = nfnl_add_open_expr_container(m, "meta");
+        r = nfnl_open_expr_container(m, "meta");
         if (r < 0)
                 return r;
 
@@ -139,11 +147,7 @@ static int nfnl_add_expr_meta(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_payload(
@@ -157,7 +161,7 @@ static int nfnl_add_expr_payload(
 
         assert(m);
 
-        r = nfnl_add_open_expr_container(m, "payload");
+        r = nfnl_open_expr_container(m, "payload");
         if (r < 0)
                 return r;
 
@@ -177,56 +181,10 @@ static int nfnl_add_expr_payload(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        return nfnl_close_expr_container(m);
 }
 
-static int nfnl_add_expr_lookup_set_data(
-                sd_netlink_message *m,
-                const char *set_name,
-                enum nft_registers sreg) {
-
-        int r;
-
-        assert(m);
-        assert(set_name);
-
-        r = nfnl_add_open_expr_container(m, "lookup");
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_LOOKUP_SET, set_name);
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_append_u32(m, NFTA_LOOKUP_SREG, htobe32(sreg));
-}
-
-static int nfnl_add_expr_lookup_set(
-                sd_netlink_message *m,
-                const char *set_name,
-                enum nft_registers sreg) {
-
-        int r;
-
-        assert(m);
-        assert(set_name);
-
-        r = nfnl_add_expr_lookup_set_data(m, set_name, sreg);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
-}
-
-static int nfnl_add_expr_lookup_map(
+static int nfnl_add_expr_lookup(
                 sd_netlink_message *m,
                 const char *set_name,
                 enum nft_registers sreg,
@@ -237,19 +195,25 @@ static int nfnl_add_expr_lookup_map(
         assert(m);
         assert(set_name);
 
-        r = nfnl_add_expr_lookup_set_data(m, set_name, sreg);
+        r = nfnl_open_expr_container(m, "lookup");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_u32(m, NFTA_LOOKUP_DREG, htobe32(dreg));
+        r = sd_netlink_message_append_string(m, NFTA_LOOKUP_SET, set_name);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
+        r = sd_netlink_message_append_u32(m, NFTA_LOOKUP_SREG, htobe32(sreg));
         if (r < 0)
                 return r;
 
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        if (dreg != 0) {
+                r = sd_netlink_message_append_u32(m, NFTA_LOOKUP_DREG, htobe32(dreg));
+                if (r < 0)
+                        return r;
+        }
+
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_cmp(
@@ -257,14 +221,14 @@ static int nfnl_add_expr_cmp(
                 enum nft_cmp_ops cmp_op,
                 enum nft_registers sreg,
                 const void *data,
-                uint32_t dlen) {
+                size_t dlen) {
 
         int r;
 
         assert(m);
         assert(data);
 
-        r = nfnl_add_open_expr_container(m, "cmp");
+        r = nfnl_open_expr_container(m, "cmp");
         if (r < 0)
                 return r;
 
@@ -280,11 +244,7 @@ static int nfnl_add_expr_cmp(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_bitwise(
@@ -301,7 +261,7 @@ static int nfnl_add_expr_bitwise(
         assert(and);
         assert(xor);
 
-        r = nfnl_add_open_expr_container(m, "bitwise");
+        r = nfnl_open_expr_container(m, "bitwise");
         if (r < 0)
                 return r;
 
@@ -325,11 +285,7 @@ static int nfnl_add_expr_bitwise(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m); /* NFTA_EXPR_DATA */
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_dnat(
@@ -342,7 +298,7 @@ static int nfnl_add_expr_dnat(
 
         assert(m);
 
-        r = nfnl_add_open_expr_container(m, "nat");
+        r = nfnl_open_expr_container(m, "nat");
         if (r < 0)
                 return r;
 
@@ -362,11 +318,7 @@ static int nfnl_add_expr_dnat(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_close_container(m);
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m);
+        return nfnl_close_expr_container(m);
 }
 
 static int nfnl_add_expr_masq(sd_netlink_message *m) {
@@ -418,7 +370,7 @@ static int sd_nfnl_message_new_masq_rule(
                 return r;
 
         /* 1st statement: use reg1 content to make lookup in @masq_saddr set. */
-        r = nfnl_add_expr_lookup_set(m, NFT_SYSTEMD_MASQ_SET_NAME, NFT_REG32_01);
+        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_MASQ_SET_NAME, NFT_REG32_01, 0);
         if (r < 0)
                 return r;
 
@@ -484,7 +436,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(
 
         /* 3rd statement: lookup 'l4proto . dport', e.g. 'tcp . 22' as key and
          * store address and port for the dnat mapping in REG1/REG2. */
-        r = nfnl_add_expr_lookup_map(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
+        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
         if (r < 0)
                 return r;
 
@@ -579,7 +531,7 @@ static int sd_nfnl_message_new_dnat_rule_out(
          *
          * reg1 and reg2 are clobbered and will then contain the new
          * address/port number. */
-        r = nfnl_add_expr_lookup_map(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
+        r = nfnl_add_expr_lookup(m, NFT_SYSTEMD_DNAT_MAP_NAME, NFT_REG32_01, NFT_REG32_01);
         if (r < 0)
                 return r;
 
