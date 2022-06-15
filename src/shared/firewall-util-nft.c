@@ -216,28 +216,6 @@ static int nfnl_add_expr_lookup(
         return nfnl_close_expr_container(m);
 }
 
-static int nfnl_add_expr_data(
-                sd_netlink_message *m,
-                int attr,
-                const void *data,
-                size_t dlen) {
-
-        int r;
-
-        assert(m);
-        assert(data);
-
-        r = sd_netlink_message_open_container(m, attr);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_data(m, NFTA_DATA_VALUE, data, dlen);
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* attr */
-}
-
 static int nfnl_add_expr_cmp(
                 sd_netlink_message *m,
                 enum nft_cmp_ops cmp_op,
@@ -262,7 +240,7 @@ static int nfnl_add_expr_cmp(
         if (r < 0)
                 return r;
 
-        r = nfnl_add_expr_data(m, NFTA_CMP_DATA, data, dlen);
+        r = sd_netlink_message_append_container_data(m, NFTA_CMP_DATA, NFTA_DATA_VALUE, data, dlen);
         if (r < 0)
                 return r;
 
@@ -299,11 +277,11 @@ static int nfnl_add_expr_bitwise(
         if (r < 0)
                 return r;
 
-        r = nfnl_add_expr_data(m, NFTA_BITWISE_MASK, and, len);
+        r = sd_netlink_message_append_container_data(m, NFTA_BITWISE_MASK, NFTA_DATA_VALUE, and, len);
         if (r < 0)
                 return r;
 
-        r = nfnl_add_expr_data(m, NFTA_BITWISE_XOR, xor, len);
+        r = sd_netlink_message_append_container_data(m, NFTA_BITWISE_XOR, NFTA_DATA_VALUE, xor, len);
         if (r < 0)
                 return r;
 
