@@ -82,10 +82,6 @@ static int nfnl_add_open_expr_container(sd_netlink_message *m, const char *name)
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_string(m, NFTA_EXPR_NAME, name);
-        if (r < 0)
-                return r;
-
         return sd_netlink_message_open_container_union(m, NFTA_EXPR_DATA, name);
 }
 
