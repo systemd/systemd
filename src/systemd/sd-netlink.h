@@ -84,6 +84,12 @@ int sd_netlink_message_append_s16(sd_netlink_message *m, unsigned short type, in
 int sd_netlink_message_append_s32(sd_netlink_message *m, unsigned short type, int32_t data);
 int sd_netlink_message_append_s64(sd_netlink_message *m, unsigned short type, int64_t data);
 int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len);
+int sd_netlink_message_append_container_data(
+                sd_netlink_message *m,
+                unsigned short container_type,
+                unsigned short type,
+                const void *data,
+                size_t len);
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data);
 int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data);
 int sd_netlink_message_append_sockaddr_in(sd_netlink_message *m, unsigned short type, const struct sockaddr_in *data);
