@@ -50,7 +50,8 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         unsigned level = 1;
         int r;
 
-        assert(m);
+        assert_return(m, -EINVAL);
+        assert_return((flags & ~_SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS) == 0, -EINVAL);
 
         if (!f)
                 f = stdout;
