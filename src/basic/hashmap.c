@@ -1842,7 +1842,7 @@ int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const
         return r;
 }
 
-int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
@@ -1853,10 +1853,13 @@ int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p
         if (r < 0)
                 return r;
 
-        if (set_contains(*s, (char*) p))
-                return 0;
+        if (n == SIZE_MAX) {
+                if (set_contains(*s, (char*) p))
+                        return 0;
 
-        c = strdup(p);
+                c = strdup(p);
+        } else
+                c = strndup(p, n);
         if (!c)
                 return -ENOMEM;
 
@@ -1869,7 +1872,7 @@ int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HA
         assert(s);
 
         STRV_FOREACH(i, l) {
-                r = _set_put_strdup_full(s, hash_ops, *i  HASHMAP_DEBUG_PASS_ARGS);
+                r = _set_put_strndup_full(s, hash_ops, *i, SIZE_MAX  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 

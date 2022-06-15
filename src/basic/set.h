@@ -127,9 +127,12 @@ int _set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key  HAS
 
 int set_consume(Set *s, void *value);
 
-int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS);
-#define set_put_strdup_full(s, hash_ops, p) _set_put_strdup_full(s, hash_ops, p  HASHMAP_DEBUG_SRC_ARGS)
-#define set_put_strdup(s, p) set_put_strdup_full(s, &string_hash_ops_free, p)
+int _set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n  HASHMAP_DEBUG_PARAMS);
+#define set_put_strndup_full(s, hash_ops, p, n) _set_put_strndup_full(s, hash_ops, p, n  HASHMAP_DEBUG_SRC_ARGS)
+#define set_put_strdup_full(s, hash_ops, p) set_put_strndup_full(s, hash_ops, p, SIZE_MAX)
+#define set_put_strndup(s, p, n) set_put_strndup_full(s, &string_hash_ops_free, p, n)
+#define set_put_strdup(s, p) set_put_strndup(s, p, SIZE_MAX)
+
 int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS);
 #define set_put_strdupv_full(s, hash_ops, l) _set_put_strdupv_full(s, hash_ops, l  HASHMAP_DEBUG_SRC_ARGS)
 #define set_put_strdupv(s, l) set_put_strdupv_full(s, &string_hash_ops_free, l)
