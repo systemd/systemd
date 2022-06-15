@@ -266,8 +266,8 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
-                if (r < 0) {
-                        if (ret == 0)
+                if (r <= 0) {
+                        if (r < 0 && ret == 0)
                                 ret = r;
                         continue; /* Try to find something else to kill */
                 }
@@ -310,8 +310,8 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 r = oomd_cgroup_kill(sorted[i]->path, true, dry_run);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
-                if (r < 0) {
-                        if (ret == 0)
+                if (r <= 0) {
+                        if (r < 0 && ret == 0)
                                 ret = r;
                         continue; /* Try to find something else to kill */
                 }
