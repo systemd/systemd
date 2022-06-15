@@ -49,6 +49,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "managed-journal-file.h"
 #include "memory-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -133,6 +134,7 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
+static const char *arg_convert = NULL;
 #if HAVE_PCRE2
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
@@ -171,6 +173,7 @@ static enum {
         ACTION_ROTATE_AND_VACUUM,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_CONVERT,
 } arg_action = ACTION_SHOW;
 
 typedef struct BootId {
@@ -415,6 +418,7 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
+               "     --convert=PATH          Convert the journal to the latest journal format\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -469,6 +473,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_CONVERT,
         };
 
         static const struct option options[] = {
@@ -536,6 +541,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
+                { "convert",              required_argument, NULL, ARG_CONVERT              },
                 {}
         };
 
@@ -1067,6 +1073,11 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
                 }
+
+                case ARG_CONVERT:
+                        arg_action = ACTION_CONVERT;
+                        arg_convert = optarg;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -2157,6 +2168,52 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         return 0;
 }
 
+static int journal_convert(sd_journal *j) {
+        _cleanup_(managed_journal_file_closep) ManagedJournalFile *to = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *mmap = NULL;
+        int r;
+
+        assert(arg_convert);
+
+        mmap = mmap_cache_new();
+        if (!mmap)
+                return -ENOMEM;
+
+        r = managed_journal_file_open(-1, arg_convert, O_RDWR | O_CREAT, JOURNAL_COMPRESS, 0640, UINT64_MAX,
+                                      &(JournalMetrics) { -1, -1, -1, -1, -1, -1 }, mmap, NULL, NULL, &to);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open journal: %m");
+
+        SD_JOURNAL_FOREACH(j) {
+                Object *o;
+                JournalFile *from;
+
+                from = j->current_file;
+                assert(from && from->current_offset > 0);
+
+                r = journal_file_move_to_object(from, OBJECT_ENTRY, from->current_offset, &o);
+                if (r < 0)
+                        return log_error_errno(r, "Can't read entry: %m");
+
+                r = journal_file_copy_entry(from, to->file, o, from->current_offset);
+                if (r >= 0)
+                        continue;
+
+                if (!journal_shall_try_append_again(to->file, r))
+                        return log_error_errno(r, "Can't write entry: %m");
+
+                r = managed_journal_file_rotate(&to, mmap, JOURNAL_COMPRESS, UINT64_MAX, NULL);
+                if (r < 0)
+                        return r;
+
+                r = journal_file_copy_entry(from, to->file, o, from->current_offset);
+                if (r < 0)
+                        return log_error_errno(r, "Can't write entry: %m");
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -2268,6 +2325,7 @@ int main(int argc, char *argv[]) {
         case ACTION_ROTATE_AND_VACUUM:
         case ACTION_LIST_FIELDS:
         case ACTION_LIST_FIELD_NAMES:
+        case ACTION_CONVERT:
                 /* These ones require access to the journal files, continue below. */
                 break;
 
@@ -2421,6 +2479,10 @@ int main(int argc, char *argv[]) {
         case ACTION_SHOW:
         case ACTION_LIST_FIELDS:
                 break;
+
+        case ACTION_CONVERT:
+                r = journal_convert(j);
+                goto finish;
 
         default:
                 assert_not_reached();
