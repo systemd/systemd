@@ -2470,7 +2470,7 @@ int bus_exec_context_set_transient_property(
                                                                          -1,
                                                                          c->syscall_filter,
                                                                          SECCOMP_PARSE_PERMISSIVE |
-                                                                         SECCOMP_PARSE_ALLOW_LIST | invert_flag,
+                                                                         SECCOMP_PARSE_ALLOW_LIST,
                                                                          u->id,
                                                                          NULL, 0);
                                         if (r < 0)
