@@ -2499,6 +2499,7 @@ inst_binary() {
 
     local file line
     local so_regex='([^ ]*/lib[^/]*/[^ ]*\.so[^ ]*)'
+    local wrap_binary=0
     # I love bash!
     while read -r line; do
         [[ "$line" = 'not a dynamic executable' ]] && break
@@ -2506,6 +2507,12 @@ inst_binary() {
         # Ignore errors about our own stuff missing. This is most likely caused
         # by ldd attempting to use the unprefixed RPATH.
         [[ "$line" =~ libsystemd.*\ not\ found ]] && continue
+
+        # We're built with ASan and the target binary loads one of the systemd's
+        # DSOs, so we need to tweak the environment before executing the binary
+        if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$line" =~ /(libudev|libsystemd).so ]]; then
+            wrap_binary=1
+        fi
 
         if [[ "$line" =~ $so_regex ]]; then
             file="${BASH_REMATCH[1]}"
@@ -2522,7 +2529,35 @@ inst_binary() {
             exit 1
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
-    inst_simple "$bin" "$target"
+
+    # Same as above, but we need to wrap certain libraries unconditionally
+    #
+    # tar - called by machinectl in TEST-25
+    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(tar)$ ]]; then
+        wrap_binary=1
+    fi
+
+    if get_bool "$wrap_binary"; then
+        dinfo "Creating ASan-compatible wrapper for binary '$target'"
+        # Install the target binary with a ".orig" suffix
+        inst_simple "$bin" "${target}.orig"
+        # Create a simple shell wrapper in place of the target binary, which
+        # sets necessary ASan-related env variables and then exec()s the
+        # suffixed target binary
+        cat >"$initdir/$target" <<EOF
+#!/bin/bash
+# Preload the ASan runtime DSO, otherwise ASAn will complain
+export LD_PRELOAD="$ASAN_RT_PATH"
+# Disable LSan to speed things up, since we don't care about leak reports
+# from 'external' binaries
+export ASAN_OPTIONS=detect_leaks=0
+# Set argv[0] to the original binary name without the ".orig" suffix
+exec -a "\$0" -- "${target}.orig" "\$@"
+EOF
+        chmod +x "$initdir/$target"
+    else
+        inst_simple "$bin" "$target"
+    fi
 }
 
 # same as above, except for shell scripts.
