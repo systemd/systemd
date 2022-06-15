@@ -51,7 +51,9 @@ TEST(non_empty) {
         assert_se(journal_file_append_entry(f->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
-        assert_se(journal_file_append_entry(f->file, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f->file, &ts,
+                                            JOURNAL_HEADER_COMPACT(f->file->header) ? NULL : &fake_boot_id,
+                                            &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
         journal_file_append_tag(f->file);
@@ -59,44 +61,45 @@ TEST(non_empty) {
         journal_file_dump(f->file);
 
         assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
-        assert_se(sd_id128_equal(o->entry.boot_id, fake_boot_id));
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
+        assert_se(sd_id128_equal(journal_file_entry_boot_id(f->file, o),
+                                JOURNAL_HEADER_COMPACT(f->file->header) ? f->file->header->boot_id : fake_boot_id));
 
         assert_se(journal_file_next_entry(f->file, p, DIRECTION_DOWN, &o, &p) == 0);
 
         assert_se(journal_file_next_entry(f->file, 0, DIRECTION_DOWN, &o, &p) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_find_data_object(f->file, test, strlen(test), &d, NULL) == 1);
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
 
         assert_se(journal_file_find_data_object(f->file, test2, strlen(test2), &d, NULL) == 1);
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_UP, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_next_entry_for_data(f->file, d, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_find_data_object(f->file, "quux", 4, &d, NULL) == 0);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 1, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 1);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 1);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 3, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 3);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 3);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 2, DIRECTION_DOWN, &o, NULL) == 1);
-        assert_se(le64toh(o->entry.seqnum) == 2);
+        assert_se(journal_file_entry_seqnum(f->file, o) == 2);
 
         assert_se(journal_file_move_to_entry_by_seqnum(f->file, 10, DIRECTION_DOWN, &o, NULL) == 0);
 
@@ -249,6 +252,22 @@ static int intro(void) {
         /* managed_journal_file_open requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+
+        test_non_empty();
+        test_empty();
+#if HAVE_COMPRESSION
+        test_min_compress_size();
+#endif
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+
+        test_non_empty();
+        test_empty();
+#if HAVE_COMPRESSION
+        test_min_compress_size();
+#endif
 
         return EXIT_SUCCESS;
 }
