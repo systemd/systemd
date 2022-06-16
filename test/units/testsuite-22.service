@@ -9,5 +9,3 @@ Wants=getty-pre.target
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
-StandardOutput=tty
-StandardError=tty

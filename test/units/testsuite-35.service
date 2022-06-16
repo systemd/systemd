@@ -5,6 +5,4 @@ Description=TEST-35-LOGIN
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-StandardOutput=journal+console
-StandardError=journal+console
 Type=oneshot
