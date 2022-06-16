@@ -2941,6 +2941,18 @@ test_setup() {
             mask_supporting_services
         fi
 
+        # Send stdout/stderr of testsuite-*.service units to both journal and
+        # console to make debugging in CIs easier
+        # Note: we can't use a dropin for `testsuite-.service`, since that also
+        #       overrides 'sub-units' of some tests that already use a specific
+        #       value for Standard(Output|Error)=
+        #       (e.g. test/units/testsuite-66-deviceisolation.service)
+        if ! get_bool "$INTERACTIVE_DEBUG"; then
+            local dropin_dir="${initdir:?}/etc/systemd/system/testsuite-${TESTID:?}.service.d"
+            mkdir -p "$dropin_dir"
+            printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
+        fi
+
         if get_bool "$hook_defined"; then
             test_append_files "${initdir:?}"
         fi
