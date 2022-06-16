@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <wchar.h>
 
 #include "efi-string.h"
 #include "tests.h"
@@ -423,6 +424,130 @@ TEST(parse_number16) {
         assert_se(parse_number16(u"54321rest", &u, &tail));
         assert_se(u == 54321);
         assert_se(streq16(tail, u"rest"));
+}
+
+_printf_(1, 2) static void test_vsnprintf_status_one(const char *format, ...) {
+        va_list ap, ap_efi, ap_efi2;
+        va_start(ap, format);
+        va_copy(ap_efi, ap);
+        va_copy(ap_efi2, ap);
+
+        _cleanup_free_ char *buf = NULL;
+        int r = vasprintf(&buf, format, ap);
+        assert_se(r >= 0);
+        log_info("/* %s(%s) -> \"%.100s\" */", __func__, format, buf);
+
+        char16_t buf_efi[r + 1];
+        int r_efi = vsnprintf_status(0, buf_efi, r + 1, format, ap_efi);
+
+        bool eq = true;
+        for (size_t i = 0; i < (size_t) r; i++) {
+                if (buf[i] != buf_efi[i])
+                        eq = false;
+                buf[i] = buf_efi[i];
+        }
+
+        log_info("%.100s", buf);
+        assert_se(eq);
+        assert_se(r == r_efi);
+
+        /* Also test dynmic allocation variant. */
+        _cleanup_free_ char16_t *buf_efi_dyn = xvasprintf_status(0, format, ap_efi2);
+        assert_se(streq16(buf_efi, buf_efi_dyn));
+
+        va_end(ap);
+        va_end(ap_efi);
+        va_end(ap_efi2);
+}
+
+TEST(vsnprintf_status) {
+        test_vsnprintf_status_one("nothing");
+        test_vsnprintf_status_one("%% still nothing %%%%");
+
+        test_vsnprintf_status_one("%p %p", NULL, &(int){ 0 });
+
+        test_vsnprintf_status_one("%c %c %c", '1', '!', '~');
+        test_vsnprintf_status_one("%lc %lc %lc", (wint_t) L'1', (wint_t) L'!', (wint_t) L'~');
+
+        test_vsnprintf_status_one("%s %s %s", "123456", "abc", "def");
+        test_vsnprintf_status_one("%.4s %.4s %.4s", "123456", "1234", "12");
+        test_vsnprintf_status_one("%8s %8s %8s", "123456", "1234", "12");
+        test_vsnprintf_status_one("%8.4s %8.4s %8.4s", "123456", "1234", "12");
+
+        test_vsnprintf_status_one("%.*s %.*s %.*s", 4, "123456", 4, "1234", 4, "12");
+        test_vsnprintf_status_one("%*s %*s %*s", 8, "123456", 8, "1234", 8, "12");
+        test_vsnprintf_status_one("%*.*s %*.*s %*.*s", 8, 4, "123456", 8, 4, "1234", 8, 4, "12");
+
+        test_vsnprintf_status_one("%ls %ls %ls", L"123456", L"abc", L"def");
+        test_vsnprintf_status_one("%.4ls %.4ls %.4ls", L"123456", L"1234", L"12");
+        test_vsnprintf_status_one("%8ls %8ls %8ls", L"123456", L"1234", L"12");
+        test_vsnprintf_status_one("%8.4ls %8.4ls %8.4ls", L"123456", L"1234", L"12");
+
+        test_vsnprintf_status_one("%.*ls %.*ls %.*ls", 4, L"123456", 4, L"1234", 4, L"12");
+        test_vsnprintf_status_one("%*ls %*ls %*ls", 8, L"123456", 8, L"1234", 8, L"12");
+        test_vsnprintf_status_one("%*.*ls %*.*ls %*.*ls", 8, 4, L"123456", 8, 4, L"1234", 8, 4, L"12");
+
+        test_vsnprintf_status_one("%u %u %u", 0, 42, 1234567890);
+        test_vsnprintf_status_one("%i %i %i", 0, -42, -1234567890);
+        test_vsnprintf_status_one("%x %x %x", 0x0, 0x42, 0x123ABC);
+        test_vsnprintf_status_one("%X %X %X", 0X1, 0X43, 0X234BCD);
+        test_vsnprintf_status_one("%#x %#x %#x", 0x2, 0x44, 0x345CDE);
+        test_vsnprintf_status_one("%#X %#X %#X", 0X3, 0X45, 0X456FED);
+
+        test_vsnprintf_status_one("%u %u %zu", INT_MIN, INT_MAX, SIZE_MAX);
+        test_vsnprintf_status_one("%i %i %zi", INT_MIN, INT_MAX, SIZE_MAX);
+        test_vsnprintf_status_one("%x %x %zx", INT_MIN, INT_MAX, SIZE_MAX);
+        test_vsnprintf_status_one("%X %X %zX", INT_MIN, INT_MAX, SIZE_MAX);
+        test_vsnprintf_status_one("%#x %#x %#zx", INT_MIN, INT_MAX, SIZE_MAX);
+        test_vsnprintf_status_one("%#X %#X %#zX", INT_MIN, INT_MAX, SIZE_MAX);
+
+        test_vsnprintf_status_one("%" PRIi64 " %" PRIi64 " %" PRIi64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_vsnprintf_status_one("%" PRIu64 " %" PRIu64 " %" PRIu64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_vsnprintf_status_one("%" PRIx64 " %" PRIx64 " %" PRIx64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_vsnprintf_status_one("%" PRIX64 " %" PRIX64 " %" PRIX64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_vsnprintf_status_one("%#" PRIx64 " %#" PRIx64 " %#" PRIx64, UINT64_MAX, INT64_MIN, INT64_MAX);
+        test_vsnprintf_status_one("%#" PRIX64 " %#" PRIX64 " %#" PRIX64, UINT64_MAX, INT64_MIN, INT64_MAX);
+
+        test_vsnprintf_status_one("%.11u %.11i %.11x %.11X %#.11x %#.11X", 4, 5, 6, 0xA, 0xB, 0xC);
+        test_vsnprintf_status_one("%.11u %.11i %.11x %.11X %#.11x %#.11X", -4, -5, -6, -0xA, -0xB, -0xC);
+        test_vsnprintf_status_one("%13u %13i %13x %13X %#13x %#13X", 4, 5, 6, 0xA, 0xB, 0xC);
+        test_vsnprintf_status_one("%13u %13i %13x %13X %#13x %#13X", -4, -5, -6, -0xA, -0xB, -0xC);
+        test_vsnprintf_status_one("%8.4u %8.4i %8.4x %8.4X %#8.4x %#8.4X", 4, 5, 6, 0xA, 0xB, 0xC);
+        test_vsnprintf_status_one("%8.4u %8.4i %8.4x %8.4X %#8.4x %#8.4X", -4, -5, -6, -0xA, -0xB, -0xC);
+        test_vsnprintf_status_one("%08u %08i %08x %08X %#08x %#08X", 4, 5, 6, 0xA, 0xB, 0xC);
+
+        test_vsnprintf_status_one("%.*u %.*i %.*x", 15, 42, 15, 42, 15, 42);
+        test_vsnprintf_status_one("%.*X %#.*x %#.*X", 15, 42, 15, 42, 15, 42);
+        test_vsnprintf_status_one("%*u %*i %*x", 15, 42, 15, 42, 15, 42);
+        test_vsnprintf_status_one("%*X %#*x %#*X", 15, 42, 15, 42, 15, 42);
+        test_vsnprintf_status_one("%*.*u %*.*i %*.*x", 15, 15, 42, 15, 15, 42, 15, 15, 42);
+        test_vsnprintf_status_one("%*.*X %#*.*x %#*.*X", 15, 15, 42, 15, 15, 42, 15, 15, 42);
+
+        /* Test buf size grow. */
+        test_vsnprintf_status_one("%0*u", PRINTF_BUF_SIZE * 4, 42);
+
+        /* Buffer too small. */
+        assert_se(snprintf_status(0, (char16_t[3]){}, 3, "0123456") == -1);
+        assert_se(snprintf_status(0, (char16_t[3]){}, 3, "%s", "abcdefg") == -1);
+
+        /* Non vsnprintf-compatible behavior tests below. */
+        char16_t buf[9];
+
+        /* Discard buffer if value is empty. */
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%s?", "") == 0);
+        assert_se(streq16(buf, u""));
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%s?", "abc") == 3);
+        assert_se(streq16(buf, u"abc"));
+
+        /* EFI Status codes. */
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "%m") == 8);
+        assert_se(streq16(buf, u"0x000000"));
+        assert_se(snprintf_status(0x42, buf, ELEMENTSOF(buf), "%m") == 8);
+        assert_se(streq16(buf, u"0x000042"));
+
+        /* New line translation. */
+        assert_se(snprintf_status(0, buf, ELEMENTSOF(buf), "\n \r\n") == 5);
+        assert_se(streq16(buf, u"\r\n \r\n"));
 }
 
 TEST(efi_memcmp) {

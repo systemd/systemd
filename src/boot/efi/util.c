@@ -2,6 +2,7 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <inttypes.h>
 
 #include "ticks.h"
 #include "util.h"
@@ -44,15 +45,11 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
-        CHAR16 str[32];
-
         assert(vendor);
         assert(name);
 
-        /* Note that SPrint has no native sized length specifier and will always use ValueToString()
-         * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
-         * 64bit machines. */
-        ValueToString(str, FALSE, i);
+        char16_t str[SCRATCH_BUF_SIZE];
+        snprintf(str, SCRATCH_BUF_SIZE, "%zu", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -226,8 +223,6 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
 }
 
 void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
-        CHAR16 str[32];
-
         assert(vendor);
         assert(name);
 
@@ -236,8 +231,8 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
         if (usec == 0)
                 return;
 
-        /* See comment on ValueToString in efivar_set_uint_string(). */
-        ValueToString(str, FALSE, usec);
+        char16_t str[SCRATCH_BUF_SIZE];
+        snprintf(str, SCRATCH_BUF_SIZE, "%" PRIu64, usec);
         efivar_set(vendor, name, str, 0);
 }
 
@@ -411,32 +406,34 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         return err;
 }
 
-void log_error_stall(const CHAR16 *fmt, ...) {
-        va_list args;
+static unsigned log_count = 0;
+void log_wait(void) {
+        if (log_count == 0)
+                return;
 
-        assert(fmt);
+        BS->Stall(MIN(2 * log_count, 8u) * 1000 * 1000);
+        log_count = 0;
+}
+
+EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
+        assert(format);
 
         INT32 attr = ST->ConOut->Mode->Attribute;
         ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
 
         if (ST->ConOut->Mode->CursorColumn > 0)
-                Print(L"\n");
+                printf("\n");
 
-        va_start(args, fmt);
-        VPrint(fmt, args);
-        va_end(args);
+        va_list ap;
+        va_start(ap, format);
+        vprintf_status(status, format, ap);
+        va_end(ap);
 
-        Print(L"\n");
-
+        printf("\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        /* Give the user a chance to see the message. */
-        BS->Stall(3 * 1000 * 1000);
-}
-
-EFI_STATUS log_oom(void) {
-        log_error_stall(L"Out of memory.");
-        return EFI_OUT_OF_RESOURCES;
+        log_count++;
+        return status;
 }
 
 void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
@@ -741,5 +738,20 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
 
         dp = NextDevicePathNode(dp);
         SetDevicePathEndNode(dp);
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS device_path_to_text(const EFI_DEVICE_PATH *dp, char16_t **ret_str) {
+        EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *text;
+        EFI_STATUS err;
+
+        assert(dp);
+        assert(ret_str);
+
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &text);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_str = text->ConvertDevicePathToText(dp, true, true);
         return EFI_SUCCESS;
 }

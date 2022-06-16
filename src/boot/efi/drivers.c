@@ -20,29 +20,29 @@ static EFI_STATUS load_one_driver(
         assert(loaded_image);
         assert(fname);
 
-        spath = xpool_print(L"\\EFI\\systemd\\drivers\\%s", fname);
+        spath = xasprintf("\\EFI\\systemd\\drivers\\%ls", fname);
         err = make_file_device_path(loaded_image->DeviceHandle, spath, &path);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error making file device path: %r", err);
+                return log_error_status(err, "Error making file device path: %m");
 
         err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to load image %s: %r", fname, err);
+                return log_error_status(err, "Failed to load image %ls: %m", fname);
 
         err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **)&loaded_image);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to find protocol in driver image %s: %r", fname, err);
+                return log_error_status(err, "Failed to find protocol in driver image %ls: %m", fname);
 
         if (loaded_image->ImageCodeType != EfiBootServicesCode &&
             loaded_image->ImageCodeType != EfiRuntimeServicesCode)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing.", fname);
+                return log_error("Image %ls is not a driver, refusing.", fname);
 
         err = BS->StartImage(image, NULL, NULL);
         if (EFI_ERROR(err)) {
                 /* EFI_ABORTED signals an initializing driver. It uses this error code on success
                  * so that it is unloaded after. */
                 if (err != EFI_ABORTED)
-                        log_error_stall(L"Failed to start image %s: %r", fname, err);
+                        log_error_status(err, "Failed to start image %ls: %m", fname);
                 return err;
         }
 
@@ -59,14 +59,14 @@ static EFI_STATUS reconnect(void) {
 
           err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
           if (EFI_ERROR(err))
-                  return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
+                  return log_error_status(err, "Failed to get list of handles: %m");
 
           for (UINTN i = 0; i < n_handles; i++) {
                   err = BS->ConnectController(handles[i], NULL, NULL, TRUE);
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
                   if (EFI_ERROR(err))
-                          log_error_status_stall(err, L"Failed to reconnect handle %" PRIuN L", ignoring: %r", i, err);
+                          log_error_status(err, "Failed to reconnect handle %zu, ignoring: %m", i);
           }
 
           return EFI_SUCCESS;
@@ -89,12 +89,12 @@ EFI_STATUS load_drivers(
         if (err == EFI_NOT_FOUND)
                 return EFI_SUCCESS;
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to open \\EFI\\systemd\\drivers: %r", err);
+                return log_error_status(err, "Failed to open \\EFI\\systemd\\drivers: %m");
 
         for (;;) {
                 err = readdir_harder(drivers_dir, &dirent, &dirent_size);
                 if (EFI_ERROR(err))
-                        return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
+                        return log_error_status(err, "Failed to read extra directory of loaded image: %m");
                 if (!dirent) /* End of directory */
                         break;
 

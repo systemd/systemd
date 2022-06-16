@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <wchar.h>
 
 #include "efi-string.h"
 
@@ -9,8 +10,9 @@
 #  include "util.h"
 #else
 #  include <stdlib.h>
-#  include "macro.h"
+#  include "alloc-util.h"
 #  define xmalloc(n) ASSERT_SE_PTR(malloc(n))
+#  define xnew(type, n) ASSERT_SE_PTR(new(type, (n)))
 #endif
 
 /* String functions for both char and char16_t that should behave the same way as their respective
@@ -271,6 +273,429 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
+
+static void format_number(
+                char16_t buf[static SCRATCH_BUF_SIZE],
+                size_t min_digits,
+                bool hex,
+                bool hex_prefix,
+                bool lower,
+                bool is_signed,
+                uint64_t u) {
+
+        size_t n = 0;
+        int base = hex ? 16 : 10;
+        char16_t tmp[SCRATCH_BUF_SIZE];
+        const char16_t * const digits = lower ? u"0123456789abcdef" : u"0123456789ABCDEF";
+
+        if (is_signed && (int64_t) u < 0) {
+                buf[0] = '-';
+                buf++;
+
+                int rem = -((int64_t) u % base);
+                u = (int64_t) u / -base;
+                tmp[n++] = digits[rem];
+        }
+
+        while (u > 0 || n == 0) {
+                int rem = u % base;
+                u /= base;
+                tmp[n++] = digits[rem];
+        }
+
+        assert(n + min_digits + 5 < SCRATCH_BUF_SIZE);
+
+        if (hex_prefix) {
+                buf[0] = '0';
+                buf[1] = lower ? 'x' : 'X';
+                buf += 2;
+        }
+
+        while (min_digits > n) {
+                buf[0] = '0';
+                buf++;
+                min_digits--;
+        }
+
+        while (n > 0) {
+                *buf = tmp[--n];
+                buf++;
+        }
+
+        *buf = '\0';
+}
+
+static const char *parse_format_specifier(
+                EFI_STATUS status,
+                const char *format,
+                va_list *ap,
+                char16_t tmp[SCRATCH_BUF_SIZE],
+                bool *ret_pad_zero,
+                int *ret_precision,
+                int *ret_field_width,
+                const char **ret_str8,
+                const char16_t **ret_str16,
+                const wchar_t **ret_wstr) {
+
+        assert(ap);
+        assert(ret_pad_zero);
+        assert(ret_precision);
+        assert(ret_field_width);
+        assert(ret_str8);
+        assert(ret_str16);
+        assert(ret_wstr);
+
+        bool alternative_form = false, have_field_width = false, long_arg = false;
+        size_t field_length = sizeof(int);
+
+        for (;; format++)
+                switch (*format) {
+                case '0':
+                        *ret_pad_zero = true;
+                        break;
+                case '.':
+                        have_field_width = true;
+                        break;
+                case '#':
+                        alternative_form = true;
+                        break;
+
+                case '*':
+                case '1' ... '9': {
+                        uint64_t u;
+
+                        if (*format == '*')
+                                u = va_arg(*ap, int);
+                        else {
+                                if (!parse_number8(format, &u, &format) || u > INT_MAX)
+                                        assert_not_reached();
+                                format--; /* Point it back to the last digit. */
+                        }
+
+                        if (have_field_width && *ret_precision < 0)
+                                *ret_precision = u;
+                        else if (!have_field_width && *ret_field_width < 0)
+                                *ret_field_width = u;
+                        else
+                                assert_not_reached();
+                        break;
+                }
+
+                case '%':
+                        *ret_str16 = u"%";
+                        return format;
+
+                case 'c':
+                        /* char/char16_t/wchat_t get promoted to int/wint_t. */
+                        assert(field_length == sizeof(int) || long_arg);
+                        assert_cc(sizeof(int) == sizeof(wint_t));
+
+                        tmp[0] = va_arg(*ap, int);
+                        tmp[1] = '\0';
+                        *ret_str16 = tmp;
+                        return format;
+
+                case 's':
+                        assert(field_length == sizeof(int) || long_arg);
+
+                        if (long_arg)
+                                *ret_wstr = va_arg(*ap, const wchar_t *);
+                        else
+                                *ret_str8 = va_arg(*ap, const char *);
+
+                        return format;
+
+                case 'm':
+                        format_number(tmp,
+                                      6,
+                                      /* hex= */ true,
+                                      /* has_prefix= */ true,
+                                      /* lower= */ true,
+                                      /* is_signed= */ false,
+                                      status);
+                        *ret_str16 = tmp;
+                        return format;
+
+                case 'h':
+                        if (*(format + 1) == 'h')
+                                format++;
+
+                        /* Types smaller than int are promoted to int and would even elicit a warning when
+                         * fetched with va_arg. */
+                        field_length = sizeof(int);
+                        break;
+
+                case 'l':
+                        if (*(format + 1) == 'l') {
+                                format++;
+                                field_length = sizeof(long long);
+                        } else {
+                                long_arg = true;
+                                field_length = sizeof(long);
+                        }
+                        break;
+
+                case 'z':
+                        field_length = sizeof(size_t);
+                        break;
+
+                case 'd':
+                case 'i':
+                case 'u':
+                case 'x':
+                case 'X': {
+                        union {
+                                int64_t i;
+                                uint64_t u;
+                        } n = {};
+                        bool is_signed = IN_SET(*format, 'd', 'i'), hex = IN_SET(*format, 'x', 'X'),
+                             lower = *format == 'x';
+
+                        switch (field_length) {
+                        case sizeof(int32_t):
+                                if (is_signed)
+                                        n.i = va_arg(*ap, int32_t);
+                                else
+                                        n.u = va_arg(*ap, uint32_t);
+                                break;
+                        case sizeof(int64_t):
+                                if (is_signed)
+                                        n.i = va_arg(*ap, int64_t);
+                                else
+                                        n.u = va_arg(*ap, uint64_t);
+                                break;
+                        default:
+                                assert_not_reached();
+                        }
+
+                        *ret_precision = MAX(0, *ret_precision);
+
+                        /* Make sure that 0-padding goes after the "0x". */
+                        if (hex && alternative_form && *ret_pad_zero) {
+                                *ret_pad_zero = false;
+                                *ret_precision = MAX(*ret_field_width, *ret_precision) - 2;
+                        }
+
+                        format_number(tmp, *ret_precision, hex, alternative_form, lower, is_signed, n.u);
+                        *ret_str16 = tmp;
+                        *ret_precision = -1; /* Numbers never get truncated. */
+                        return format;
+                }
+
+                case 'p': {
+                        const void *ptr = va_arg(*ap, const void *);
+
+                        if (ptr) {
+                                format_number(tmp,
+                                              /* min_digits= */ 8,
+                                              /* hex= */ true,
+                                              /* has_prefix= */ true,
+                                              /* lower= */ true,
+                                              /* is_signed= */ false,
+                                              (uintptr_t) ptr);
+                                *ret_str16 = tmp;
+                        }
+
+                        *ret_precision = -1; /* Numbers never get truncated. */
+                        return format;
+                }
+
+                default:
+                        assert_not_reached();
+                }
+}
+
+/* efi_vsnprintf is largely compatible to userspace vsnprintf. Any features omitted should trigger asserts.
+ * Notable differences:
+ *  - Passing NULL to %s is permitted and will print "(nil)".
+ *  - If buf is too small, -1 is returned instead of needed buf size (printf/xasprintf will do a allocation
+ *    loop if necessary).
+ *  - The provided EFI_STATUS is used for %m instead of errno.
+ *  - \n is translated to \r\n. */
+int vsnprintf_status(
+                EFI_STATUS status,
+                char16_t * restrict buf,
+                size_t n_buf,
+                const char * restrict format,
+                va_list ap) {
+
+        assert(buf);
+        assert(n_buf > 0);
+        assert(format);
+
+        n_buf--; /* For NUL-termination. */
+        size_t n = 0;
+
+        /* Make a copy so we can pass a pointer to the va_list for parse_format_specifier(). */
+        va_list ap_copy;
+        va_copy(ap_copy, ap);
+
+        for (; *format != '\0'; format++) {
+                if (n >= n_buf)
+                        goto buf_too_small;
+
+                if (*format != '%') {
+                        /* EFI uses CR+LF for new lines. */
+                        if (*format == '\n' && (n == 0 || *(format - 1) != '\r')) {
+                                if (n + 1 >= n_buf)
+                                        goto buf_too_small;
+                                buf[n++] = '\r';
+                        }
+
+                        buf[n++] = *format;
+                        continue;
+                }
+
+                bool pad_zero = false;
+                int precision = -1, field_width = -1;
+                const char *str8 = NULL;
+                const char16_t *str16 = NULL;
+                char16_t tmp[SCRATCH_BUF_SIZE];
+
+                /* For unit tests we have to make do with wchar_t as char16_t has no defined length modifier
+                 * for printf. In sd-boot we build with -fshort-wchar, making the two identical. */
+                const wchar_t *wstr = NULL;
+
+                format++;
+                format = parse_format_specifier(
+                                status, format, &ap_copy, tmp,
+                                &pad_zero, &precision, &field_width,
+                                &str8, &str16, &wstr);
+
+                if (*(format + 1) == '?') {
+                        format++;
+                        if (!str8 && !str16 && !wstr) {
+                                /* As a printf extension, discard the whole print buffer if a specifier is
+                                 * followed by a "?" and the formatted value is is empty. */
+                                n = 0;
+                                break;
+                        }
+                }
+
+                /* As extension, we support NULL for strings too. */
+                if (!str8 && !str16 && !wstr)
+                        str16 = u"(nil)";
+
+                size_t padding = 0, len = strlen8(str8) + strlen16(str16);
+#ifdef SD_BOOT
+                len += strlen16(wstr);
+#else
+                len += wstr ? wcslen(wstr) : 0;
+#endif
+
+                if (precision >= 0)
+                        len = MIN(len, (size_t) precision);
+
+                if (field_width > 0 && (size_t) field_width > len)
+                        padding = (size_t) field_width - len;
+
+                if (n + padding + len > n_buf)
+                        goto buf_too_small;
+
+                while (padding > 0) {
+                        buf[n++] = pad_zero ? '0' : ' ';
+                        padding--;
+                }
+
+                for (size_t i = 0; i < len; i++)
+                        buf[n++] = str16 ? str16[i] : (str8 ? str8[i] : wstr[i]);
+        }
+
+        assert(n <= n_buf && n <= INT_MAX);
+        buf[n] = '\0';
+        va_end(ap_copy);
+        return n;
+
+buf_too_small:
+        va_end(ap_copy);
+        return -1;
+}
+
+/* Uses buf and returns NULL if large enough, otherwise returns newly allocated buffer. */
+_printf_(3, 0) static char16_t *xvasprintf_internal(
+                char16_t buf[static PRINTF_BUF_SIZE],
+                EFI_STATUS status,
+                const char *format,
+                va_list ap,
+                size_t *ret_size) {
+
+        char16_t *buf_dyn = NULL;
+        size_t n_buf = PRINTF_BUF_SIZE;
+
+        for (;;) {
+                va_list ap_copy;
+                va_copy(ap_copy, ap);
+                int r = vsnprintf_status(status, buf_dyn ?: buf, n_buf, format, ap_copy);
+                va_end(ap_copy);
+
+                if (r == -1) {
+                        free(buf_dyn);
+                        n_buf += PRINTF_BUF_SIZE;
+                        buf_dyn = xnew(char16_t, n_buf);
+                        continue;
+                }
+
+                assert(r >= 0);
+                if (ret_size)
+                        *ret_size = (r + 1) * sizeof(*buf);
+                return buf_dyn;
+        }
+}
+
+int snprintf_status(
+                EFI_STATUS status,
+                char16_t * restrict buf,
+                size_t n_buf,
+                const char * restrict format, ...) {
+
+        va_list ap;
+        va_start(ap, format);
+        int r = vsnprintf_status(status, buf, n_buf, format, ap);
+        va_end(ap);
+        return r;
+}
+
+#ifdef SD_BOOT
+EFI_STATUS printf_status(EFI_STATUS status, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        EFI_STATUS err = vprintf_status(status, format, ap);
+        va_end(ap);
+        return err;
+}
+
+EFI_STATUS vprintf_status(EFI_STATUS status, const char *format, va_list ap) {
+        char16_t buf[PRINTF_BUF_SIZE];
+        _cleanup_free_ char16_t *buf_dyn = NULL;
+        EFI_STATUS err;
+
+        buf_dyn = xvasprintf_internal(buf, status, format, ap, NULL);
+        err = ST->ConOut->OutputString(ST->ConOut, buf_dyn ?: buf);
+
+        return err;
+}
+#endif
+
+char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        char16_t *s = xvasprintf_status(status, format, ap);
+        va_end(ap);
+        return s;
+}
+
+char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
+        char16_t buf[PRINTF_BUF_SIZE], *buf_dyn;
+        size_t size;
+
+        buf_dyn = xvasprintf_internal(buf, status, format, ap, &size);
+        if (!buf_dyn) {
+                buf_dyn = xmalloc(size);
+                memcpy(buf_dyn, buf, size);
+        }
+
+        return buf_dyn;
+}
 
 int efi_memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;

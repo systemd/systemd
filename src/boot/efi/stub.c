@@ -60,7 +60,7 @@ static EFI_STATUS combine_initrd(
                         EFI_SIZE_TO_PAGES(n),
                         &base);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Failed to allocate space for combined initrd: %r", err);
+                return log_error_status(err, "Failed to allocate space for combined initrd: %m");
 
         p = PHYSICAL_ADDRESS_TO_POINTER(base);
         if (initrd_base != 0) {
@@ -120,25 +120,21 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
         if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
             loaded_image->FilePath) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-
-                s = DevicePathToStr(loaded_image->FilePath);
-                if (s)
+                if (device_path_to_text(loaded_image->FilePath, &s) == EFI_SUCCESS)
                         efivar_set(LOADER_GUID, L"LoaderImageIdentifier", s, 0);
-                else
-                        log_oom();
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-                s = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                s = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s = NULL;
-                s = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
@@ -147,7 +143,7 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
                 efivar_set(LOADER_GUID, L"StubInfo", L"systemd-stub " GIT_VERSION, 0);
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+EFI_STATUS main(EFI_HANDLE image) {
 
         enum {
                 SECTION_CMDLINE,
@@ -180,11 +176,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ CHAR8 *cmdline_owned = NULL;
         EFI_STATUS err;
 
-        InitializeLib(image, sys_table);
-        debug_hook(L"systemd-stub");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
-
         err = BS->OpenProtocol(
                         image,
                         &LoadedImageProtocol,
@@ -193,13 +184,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err))
-                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+                return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
         if (EFI_ERROR(err) || szs[SECTION_LINUX] == 0) {
                 if (!EFI_ERROR(err))
                         err = EFI_NOT_FOUND;
-                return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
+                return log_error_status(err, "Unable to locate embedded .linux section: %m");
         }
 
         /* Show splash screen as early as possible */
@@ -294,12 +285,24 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = devicetree_install_from_memory(
                                 &dt_state, PHYSICAL_ADDRESS_TO_POINTER(dt_base), dt_size);
                 if (EFI_ERROR(err))
-                        log_error_stall(L"Error loading embedded devicetree: %r", err);
+                        log_error_status(err, "Error loading embedded devicetree: %m");
         }
 
         err = linux_exec(image, cmdline, cmdline_len,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(FALSE);
-        return log_error_status_stall(err, L"Execution of embedded linux image failed: %r", err);
+        return log_error_status(err, "Execution of embedded linux image failed: %m");
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook("systemd-stub");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = main(image);
+        log_wait();
+        return err;
 }
