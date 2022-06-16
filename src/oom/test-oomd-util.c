@@ -187,14 +187,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c2->mem_pressure_limit == 6789);
         assert_se(c2->mem_pressure_limit_hit_start == 42);
         assert_se(c2->last_had_mem_reclaim == 888); /* assumes the live pgscan is less than UINT64_MAX */
-
-        /* Assert that avoid/omit are not set if the cgroup is not owned by root */
-        if (test_xattrs) {
-                ctx = oomd_cgroup_context_free(ctx);
-                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
-                assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
-                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
-        }
 }
 
 static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
