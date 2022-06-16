@@ -174,32 +174,30 @@ efi_config_h = configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
 
-efi_cflags = cc.get_supported_arguments(
+efi_cflags = [
+        '-DGNU_EFI_USE_MS_ABI',
+        '-DSD_BOOT',
+        '-ffreestanding',
+        '-fshort-wchar',
+        '-fvisibility=hidden',
+        '-I', fundamental_path,
+        '-I', meson.current_source_dir(),
+        '-include', efi_config_h,
+        '-include', version_h,
+        '-isystem', efi_incdir / efi_arch[1],
+        '-isystem', efi_incdir,
+        '-std=gnu11',
+        '-Wall',
+        '-Wextra',
+] + cc.get_supported_arguments(
         basic_disabled_warnings +
         possible_common_cc_flags + [
                 '-fno-stack-protector',
                 '-fno-strict-aliasing',
                 '-fpic',
                 '-fwide-exec-charset=UCS2',
-                '-Wall',
-                '-Wextra',
-                '-Wsign-compare',
         ]
-) + [
-        '-nostdlib',
-        '-std=gnu11',
-        '-ffreestanding',
-        '-fshort-wchar',
-        '-fvisibility=hidden',
-        '-isystem', efi_incdir,
-        '-isystem', efi_incdir / efi_arch[1],
-        '-I', fundamental_path,
-        '-I', meson.current_source_dir(),
-        '-DSD_BOOT',
-        '-DGNU_EFI_USE_MS_ABI',
-        '-include', efi_config_h,
-        '-include', version_h,
-]
+)
 
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
