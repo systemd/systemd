@@ -395,7 +395,7 @@ static void device_broadcast(sd_device_monitor *monitor, sd_device *dev, EventRe
                                 (void) device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str);
                         break;
                 }
-                case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
+                case EVENT_RESULT_EXIT_STATUS_BASE+1 ... EVENT_RESULT_EXIT_STATUS_MAX:
                         (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
                         break;
 
