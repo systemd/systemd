@@ -1150,9 +1150,7 @@ DeviceAllow=/dev/loop-control
           <para>Allows deprioritizing or omitting this unit's cgroup as a candidate when
           <command>systemd-oomd</command> needs to act. Requires support for extended attributes (see
           <citerefentry project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
-          in order to use <option>avoid</option> or <option>omit</option>. Additionally,
-          <command>systemd-oomd</command> will ignore these extended attributes if the unit's cgroup is not
-          owned by the root user.</para>
+          in order to use <option>avoid</option> or <option>omit</option>.</para>
 
           <para>If this property is set to <option>avoid</option>, the service manager will convey this to
           <command>systemd-oomd</command>, which will only select this cgroup if there are no other viable
