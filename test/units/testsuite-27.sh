@@ -4,7 +4,6 @@ set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 systemd-run --wait --unit=test27-one \
             -p StandardOutput=file:/tmp/stdout \

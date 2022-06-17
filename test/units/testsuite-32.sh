@@ -11,7 +11,6 @@ set -o pipefail
 
 if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; then
     systemd-analyze log-level debug
-    systemd-analyze log-target console
 
     # Run a service that is guaranteed to be the first candidate for OOM killing
     systemd-run --unit=oomtest.service \

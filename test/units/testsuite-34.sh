@@ -4,7 +4,6 @@ set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 function test_directory() {
     local directory="$1"
