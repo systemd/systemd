@@ -5,7 +5,6 @@ set -o pipefail
 
 setup() {
     systemd-analyze log-level debug
-    systemd-analyze log-target console
 
     for i in {0..3};
     do

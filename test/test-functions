@@ -1502,16 +1502,16 @@ check_result_nspawn() {
     local workspace="${1:?}"
     local ret
 
-    check_result_common "${workspace}"
-    ret=$?
-
-    # Run additional test-specific checks if defined by check_result_nspawn_hook()
+    # Run a test-specific checks if defined by check_result_nspawn_hook()
     if declare -F check_result_nspawn_hook >/dev/null; then
-        if ! check_result_nspawn_hook; then
+        if ! check_result_nspawn_hook "${workspace}"; then
             derror "check_result_nspawn_hook() returned with EC > 0"
             ret=4
         fi
     fi
+
+    check_result_common "${workspace}"
+    ret=$?
 
     _umount_dir "${initdir:?}"
 
@@ -1523,18 +1523,18 @@ check_result_qemu() {
     local ret
     mount_initdir
 
-    check_result_common "${initdir:?}"
-    ret=$?
-
-    _umount_dir "${initdir:?}"
-
-    # Run additional test-specific checks if defined by check_result_qemu_hook()
+    # Run a test-specific checks if defined by check_result_qemu_hook()
     if declare -F check_result_qemu_hook >/dev/null; then
-        if ! check_result_qemu_hook; then
+        if ! check_result_qemu_hook "${initdir:?}"; then
             derror "check_result_qemu_hook() returned with EC > 0"
             ret=4
         fi
     fi
+
+    check_result_common "${initdir:?}"
+    ret=$?
+
+    _umount_dir "${initdir:?}"
 
     return $ret
 }
@@ -2484,9 +2484,9 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # login - dlopen()s (not only) systemd's PAM modules
+    # login, useradd, userdel - dlopen()s (not only) systemd's PAM modules
     # tar - called by machinectl in TEST-25
-    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(login|tar)$ ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(login|tar|useradd|userdel)$ ]]; then
         wrap_binary=1
     fi
 
