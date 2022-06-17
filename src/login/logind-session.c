@@ -13,7 +13,7 @@
 
 #include "alloc-util.h"
 #include "audit-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "devnum-util.h"
 #include "env-file.h"

@@ -12,6 +12,7 @@
 
 #include "format-util.h"
 #include "netlink-internal.h"
+#include "netlink-message-alloc.h"
 #include "netlink-types.h"
 #include "socket-util.h"
 
@@ -56,15 +57,15 @@ static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16
         return 0;
 }
 
-int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
+_public_ int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
         return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
 }
 
-int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
+_public_ int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
         return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
 }
 
-int sd_nfnl_nft_message_new_basechain(
+_public_ int sd_nfnl_nft_message_new_basechain(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -113,7 +114,7 @@ int sd_nfnl_nft_message_new_basechain(
         return 0;
 }
 
-int sd_nfnl_nft_message_del_table(
+_public_ int sd_nfnl_nft_message_del_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -134,7 +135,7 @@ int sd_nfnl_nft_message_del_table(
         return r;
 }
 
-int sd_nfnl_nft_message_new_table(
+_public_ int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -155,7 +156,7 @@ int sd_nfnl_nft_message_new_table(
         return r;
 }
 
-int sd_nfnl_nft_message_new_rule(
+_public_ int sd_nfnl_nft_message_new_rule(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -181,7 +182,7 @@ int sd_nfnl_nft_message_new_rule(
         return r;
 }
 
-int sd_nfnl_nft_message_new_set(
+_public_ int sd_nfnl_nft_message_new_set(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -217,7 +218,7 @@ int sd_nfnl_nft_message_new_set(
         return r;
 }
 
-int sd_nfnl_nft_message_new_setelems_begin(
+_public_ int sd_nfnl_nft_message_new_setelems_begin(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -247,7 +248,7 @@ int sd_nfnl_nft_message_new_setelems_begin(
         return r;
 }
 
-int sd_nfnl_nft_message_del_setelems_begin(
+_public_ int sd_nfnl_nft_message_del_setelems_begin(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
                 int family,
@@ -277,7 +278,7 @@ int sd_nfnl_nft_message_del_setelems_begin(
         return r;
 }
 
-static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
+static int add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
         int r;
 
         r = sd_netlink_message_open_container(m, attr);
@@ -305,12 +306,12 @@ int sd_nfnl_nft_message_add_setelem(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_add_data(m, NFTA_SET_ELEM_KEY, key, klen);
+        r = add_data(m, NFTA_SET_ELEM_KEY, key, klen);
         if (r < 0)
                 goto cancel;
 
         if (data) {
-                r = sd_nfnl_add_data(m, NFTA_SET_ELEM_DATA, data, dlen);
+                r = add_data(m, NFTA_SET_ELEM_DATA, data, dlen);
                 if (r < 0)
                         goto cancel;
         }

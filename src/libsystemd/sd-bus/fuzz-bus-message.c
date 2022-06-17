@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-dump.h"
 #include "bus-message.h"
+#include "bus-internal.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"

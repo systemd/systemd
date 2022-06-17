@@ -59,6 +59,8 @@ endif
 tests += [
         [files('test-timesync.c'),
          [libtimesyncd_core,
+          libbasic_shared,
+          libsystemd,
           libshared],
          [libm]],
 ]
