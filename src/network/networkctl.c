@@ -2110,7 +2110,7 @@ static int link_status_one(
         if (info->has_tx_queues || info->has_rx_queues) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
-                                   TABLE_STRING, "Queue Length (Tx/Rx):");
+                                   TABLE_STRING, "Number of Queues (Tx/Rx):");
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
