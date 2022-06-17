@@ -4,7 +4,6 @@ set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 test "$(systemctl show -P MainPID testsuite-20.service)" -eq $$
 
