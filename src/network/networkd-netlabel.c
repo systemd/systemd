@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "escape.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
@@ -52,7 +53,6 @@ static int netlabel_command(uint16_t command, const char *label, const Address *
         }
 
         union in_addr_union netmask;
-
         r = in_addr_prefixlen_to_netmask(address->family, &netmask, address->prefixlen);
         if (r < 0)
                 return r;
@@ -73,8 +73,8 @@ static int netlabel_command(uint16_t command, const char *label, const Address *
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(address->link->manager->genl, NULL, m, netlabel_handler, link_netlink_destroy_callback,
-                               address->link);
+        r = netlink_call_async(address->link->manager->genl, NULL, m, netlabel_handler,
+                               link_netlink_destroy_callback, address->link);
         if (r < 0)
                 return r;
 
@@ -89,11 +89,14 @@ static void address_add_netlabel_set(const Address *address, Set *labels) {
         SET_FOREACH(label, labels) {
                 r = netlabel_command(NLBL_UNLABEL_C_STATICADD, label, address);
                 if (r < 0)
-                        log_link_warning_errno(address->link, r, "Adding NetLabel %s for IP address %s failed, ignoring",
+                        log_link_warning_errno(address->link, r,
+                                               "Failed to add NetLabel %s for IP address %s, ignoring: %m",
                                                label,
                                                IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
                 else
-                        log_link_debug(address->link, "Adding NetLabel %s for IP address %s", label,
+                        log_link_debug(address->link,
+                                       "Adding NetLabel %s for IP address %s",
+                                       label,
                                        IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
         }
 }
@@ -132,10 +135,12 @@ void address_del_netlabel(const Address *address) {
 
         r = netlabel_command(NLBL_UNLABEL_C_STATICREMOVE, NULL, address);
         if (r < 0)
-                log_link_warning_errno(address->link, r, "Deleting NetLabels for IP address %s failed, ignoring",
+                log_link_warning_errno(address->link, r,
+                                       "Failed to delete NetLabels for IP address %s, ignoring: %m",
                                        IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
         else
-                log_link_debug(address->link, "Deleting NetLabels for IP address %s",
+                log_link_debug(address->link,
+                               "Deleting NetLabels for IP address %s",
                                IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
 }
 
@@ -150,13 +155,13 @@ int config_parse_netlabel(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
+        Set **set = ASSERT_PTR(data);
         int r;
-        Set **set = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(set);
 
         if (isempty(rvalue)) {
                 *set = set_free(*set);
@@ -171,7 +176,7 @@ int config_parse_netlabel(
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to extract NetLabel label, ignoring: %s", rvalue);
+                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -179,8 +184,11 @@ int config_parse_netlabel(
 
                 /* Label semantics depend on LSM but let's do basic checks */
                 if (!string_is_safe(w)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(w);
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Bad NetLabel label, ignoring: %s", w);
+                                   "Bad NetLabel label, ignoring: %s", strna(esc));
                         continue;
                 }
 
