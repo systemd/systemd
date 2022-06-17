@@ -16,6 +16,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-netlabel.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
@@ -275,6 +276,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         assert(address);
         assert(link);
+        assert(link->network);
         assert(rt);
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -283,6 +285,10 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         address->source = NETWORK_CONFIG_SOURCE_NDISC;
         address->provider.in6 = router;
+
+        r = netlabels_dup(address, link->network->ndisc_netlabels);
+        if (r < 0)
+                return r;
 
         if (address_get(link, address, &existing) < 0)
                 link->ndisc_configured = false;

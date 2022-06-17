@@ -401,12 +401,17 @@ int address_dup(const Address *src, Address **ret) {
         dest->link = NULL;
         dest->label = NULL;
         dest->acd = NULL;
+        dest->netlabels = NULL;
 
         if (src->family == AF_INET) {
                 r = free_and_strdup(&dest->label, src->label);
                 if (r < 0)
                         return r;
         }
+
+        r = netlabels_dup(dest, src->netlabels);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(dest);
         return 0;
@@ -1195,8 +1200,16 @@ int link_request_address(
                 existing->provider = address->provider;
                 existing->lifetime_valid_usec = address->lifetime_valid_usec;
                 existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
-                if (consume_object)
+                set_free(existing->netlabels);
+
+                if (consume_object) {
+                        existing->netlabels = TAKE_PTR(address->netlabels);
                         address_free(address);
+                } else {
+                        r = netlabels_dup(existing, address->netlabels);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = ipv4acd_configure(existing);

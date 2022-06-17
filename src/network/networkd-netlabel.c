@@ -8,6 +8,23 @@
 #include "networkd-netlabel.h"
 #include "networkd-network.h"
 
+int netlabels_dup(Address *address, Set *netlabels) {
+        const char *label;
+        int r;
+
+        assert(address);
+
+        address->netlabels = set_free(address->netlabels);
+
+        SET_FOREACH(label, netlabels) {
+                r = set_put_strdup(&address->netlabels, label);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int netlabel_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -81,11 +98,14 @@ static int netlabel_command(uint16_t command, const char *label, const Address *
         return 0;
 }
 
-static void address_add_netlabel_set(const Address *address, Set *labels) {
+void address_add_netlabels(const Address *address) {
         const char *label;
         int r;
 
-        SET_FOREACH(label, labels) {
+        assert(address);
+        assert(address->link);
+
+        SET_FOREACH(label, address->netlabels) {
                 r = netlabel_command(NLBL_UNLABEL_C_STATICADD, label, address);
                 if (r < 0)
                         log_link_warning_errno(address->link, r,
@@ -97,29 +117,6 @@ static void address_add_netlabel_set(const Address *address, Set *labels) {
                                        "Adding NetLabel %s for IP address %s",
                                        label,
                                        IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
-        }
-}
-
-void address_add_netlabels(const Address *address) {
-        assert(address);
-        assert(address->link);
-
-        if (!address->link->network || !IN_SET(address->family, AF_INET, AF_INET6))
-                return;
-
-        switch (address->source) {
-        case NETWORK_CONFIG_SOURCE_DHCP4:
-                return address_add_netlabel_set(address, address->link->network->dhcp_netlabels);
-        case NETWORK_CONFIG_SOURCE_DHCP6:
-                return address_add_netlabel_set(address, address->link->network->dhcp6_netlabels);
-        case NETWORK_CONFIG_SOURCE_DHCP_PD:
-                return address_add_netlabel_set(address, address->link->network->dhcp_pd_netlabels);
-        case NETWORK_CONFIG_SOURCE_NDISC:
-                return address_add_netlabel_set(address, address->link->network->ndisc_netlabels);
-        case NETWORK_CONFIG_SOURCE_STATIC:
-                return address_add_netlabel_set(address, address->netlabels);
-        default:
-                return;
         }
 }
 
