@@ -13,7 +13,6 @@
 #include "io-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
-#include "netlink-util.h"
 #include "socket-util.h"
 #include "util.h"
 

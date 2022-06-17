@@ -12,6 +12,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-netlabel.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
@@ -409,6 +410,10 @@ static int dhcp_pd_request_address(
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp_pd_manage_temporary_address);
                 address->route_metric = link->network->dhcp_pd_route_metric;
+
+                r = netlabels_dup(address, link->network->dhcp_pd_netlabels);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to duplicate netlabels: %m");
 
                 log_dhcp_pd_address(link, address);
 
