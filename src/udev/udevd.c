@@ -2146,7 +2146,7 @@ int run_udevd(int argc, char *argv[]) {
         if (arg_daemonize) {
                 pid_t pid;
 
-                log_info("Starting version " GIT_VERSION);
+                log_info("Starting systemd-udevd version " GIT_VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG) {
