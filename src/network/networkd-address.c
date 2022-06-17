@@ -401,12 +401,17 @@ int address_dup(const Address *src, Address **ret) {
         dest->link = NULL;
         dest->label = NULL;
         dest->acd = NULL;
+        dest->netlabels = NULL;
 
         if (src->family == AF_INET) {
                 r = free_and_strdup(&dest->label, src->label);
                 if (r < 0)
                         return r;
         }
+
+        r = netlabels_dup(dest, src->netlabels);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(dest);
         return 0;
