@@ -298,7 +298,7 @@
 
               <row>
                 <entry>12</entry>
-                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>sytemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
+                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>systemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
               </row>
 
               <row>
