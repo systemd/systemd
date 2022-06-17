@@ -13,6 +13,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-netlabel.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "string-table.h"
@@ -208,6 +209,11 @@ static int dhcp6_request_address(
         Address *existing;
         int r;
 
+        assert(link);
+        assert(link->network);
+        assert(server_address);
+        assert(ip6_addr);
+
         r = address_new(&addr);
         if (r < 0)
                 return log_oom();
@@ -220,6 +226,10 @@ static int dhcp6_request_address(
         addr->prefixlen = 128;
         addr->lifetime_preferred_usec = lifetime_preferred_usec;
         addr->lifetime_valid_usec = lifetime_valid_usec;
+
+        r = netlabels_dup(addr, link->network->dhcp6_netlabels);
+        if (r < 0)
+                return r;
 
         if (verify_dhcp6_address(link, addr) < 0)
                 return 0;
