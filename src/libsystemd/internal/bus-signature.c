@@ -6,6 +6,7 @@
 
 #include "bus-signature.h"
 #include "bus-type.h"
+#include "utf8.h"
 
 static int signature_element_length_internal(
                 const char *s,
@@ -145,4 +146,38 @@ bool signature_is_valid(const char *s, bool allow_dict_entry) {
         }
 
         return p - s <= SD_BUS_MAXIMUM_SIGNATURE_LENGTH;
+}
+
+bool message_validate_nul(const char *s, size_t l) {
+        /* Check for NUL chars in the string */
+        if (memchr(s, 0, l))
+                return false;
+
+        /* Check for NUL termination */
+        if (s[l] != 0)
+                return false;
+
+        return true;
+}
+
+bool message_validate_string(const char *s, size_t l) {
+        if (!message_validate_nul(s, l))
+                return false;
+
+        /* Check if valid UTF8 */
+        if (!utf8_is_valid(s))
+                return false;
+
+        return true;
+}
+
+bool message_validate_signature(const char *s, size_t l) {
+        if (!message_validate_nul(s, l))
+                return false;
+
+        /* Check if valid signature */
+        if (!signature_is_valid(s, true))
+                return false;
+
+        return true;
 }

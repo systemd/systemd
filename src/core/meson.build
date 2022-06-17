@@ -188,6 +188,7 @@ libcore = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_with : [libbasic_shared,
+                     libsystemd,
                      libshared],
         dependencies : [versiondep,
                         threads,

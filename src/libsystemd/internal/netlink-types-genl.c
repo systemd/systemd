@@ -13,6 +13,7 @@
 
 #include "missing_network.h"
 #include "netlink-genl.h"
+#include "netlink-internal.h"
 #include "netlink-types-internal.h"
 
 /***************** genl ctrl type systems *****************/
@@ -246,6 +247,72 @@ static const NLTypeSystemUnionElement genl_type_systems[] = {
 /* This is the root type system union, so match_attribute is not necessary. */
 DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(genl, 0);
 
-const NLTypeSystem *genl_get_type_system_by_name(const char *name) {
+const NLTypeSystem* genl_get_type_system_by_name(const char *name) {
         return type_system_union_get_type_system_by_string(&genl_type_system_union, name);
 }
+
+int genl_family_get_by_id(sd_netlink *nl, uint16_t id, const GenericNetlinkFamily **ret) {
+        const GenericNetlinkFamily *f;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+        assert(ret);
+
+        f = hashmap_get(nl->genl_family_by_id, UINT_TO_PTR(id));
+        if (f) {
+                *ret = f;
+                return 0;
+        }
+
+        if (id == GENL_ID_CTRL) {
+                *ret = &nlctrl_static;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+const NLTypeSystem* genl_family_get_type_system(const GenericNetlinkFamily *family) {
+        assert(family);
+
+        if (family->type_system)
+                return family->type_system;
+
+        return genl_get_type_system_by_name(family->name);
+}
+
+int genl_get_type_system_and_header_size(
+                sd_netlink *nl,
+                uint16_t id,
+                const NLTypeSystem **ret_type_system,
+                size_t *ret_header_size) {
+
+        const GenericNetlinkFamily *f;
+        int r;
+
+        assert(nl);
+        assert(nl->protocol == NETLINK_GENERIC);
+
+        r = genl_family_get_by_id(nl, id, &f);
+        if (r < 0)
+                return r;
+
+        if (ret_type_system) {
+                const NLTypeSystem *t;
+
+                t = genl_family_get_type_system(f);
+                if (!t)
+                        return -EOPNOTSUPP;
+
+                *ret_type_system = t;
+        }
+        if (ret_header_size)
+                *ret_header_size = sizeof(struct genlmsghdr) + f->additional_header_size;
+        return 0;
+}
+
+const GenericNetlinkFamily nlctrl_static = {
+        .id = GENL_ID_CTRL,
+        .name = (char*) CTRL_GENL_NAME,
+        .version = 0x01,
+};

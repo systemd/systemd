@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bus-compat.h"
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-message.h"
@@ -1711,58 +1712,6 @@ static bool names_are_valid(const char *signature, const char **names, names_fla
                 return false;
         *flags &= ~NAMES_FIRST_PART;
         return true;
-}
-
-/* the current version of this struct is defined in sd-bus-vtable.h, but we need to list here the historical versions
-   to make sure the calling code is compatible with one of these */
-struct sd_bus_vtable_221 {
-        uint8_t type:8;
-        uint64_t flags:56;
-        union {
-                struct {
-                        size_t element_size;
-                } start;
-                struct {
-                        const char *member;
-                        const char *signature;
-                        const char *result;
-                        sd_bus_message_handler_t handler;
-                        size_t offset;
-                } method;
-                struct {
-                        const char *member;
-                        const char *signature;
-                } signal;
-                struct {
-                        const char *member;
-                        const char *signature;
-                        sd_bus_property_get_t get;
-                        sd_bus_property_set_t set;
-                        size_t offset;
-                } property;
-        } x;
-};
-/* Structure size up to v241 */
-#define VTABLE_ELEMENT_SIZE_221 sizeof(struct sd_bus_vtable_221)
-
-/* Size of the structure when "features" field was added. If the structure definition is augmented, a copy of
- * the structure definition will need to be made (similarly to the sd_bus_vtable_221 above), and this
- * definition updated to refer to it. */
-#define VTABLE_ELEMENT_SIZE_242 sizeof(struct sd_bus_vtable)
-
-static int vtable_features(const sd_bus_vtable *vtable) {
-        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE_242 ||
-            !vtable[0].x.start.vtable_format_reference)
-                return 0;
-        return vtable[0].x.start.features;
-}
-
-bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
-        return vtable_features(vtable) & _SD_BUS_VTABLE_PARAM_NAMES;
-}
-
-const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
-        return (const sd_bus_vtable*) ((char*) v + vtable[0].x.start.element_size);
 }
 
 static int add_object_vtable_internal(

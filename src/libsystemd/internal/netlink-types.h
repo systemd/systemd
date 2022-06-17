@@ -35,14 +35,10 @@ typedef struct NLTypeSystemUnion NLTypeSystemUnion;
 typedef struct NLTypeSystem NLTypeSystem;
 typedef struct NLType NLType;
 
+typedef struct GenericNetlinkFamily GenericNetlinkFamily;
+
 const NLType *rtnl_get_type(uint16_t nlmsg_type);
 const NLType *nfnl_get_type(uint16_t nlmsg_type);
-const NLTypeSystem *genl_get_type_system_by_name(const char *name);
-int genl_get_type_system_and_header_size(
-                sd_netlink *nl,
-                uint16_t id,
-                const NLTypeSystem **ret_type_system,
-                size_t *ret_header_size);
 
 uint16_t type_get_type(const NLType *type);
 size_t type_get_size(const NLType *type);
@@ -62,3 +58,12 @@ NLMatchType type_system_union_get_match_type(const NLTypeSystemUnion *type_syste
 uint16_t type_system_union_get_match_attribute(const NLTypeSystemUnion *type_system_union);
 const NLTypeSystem *type_system_union_get_type_system_by_string(const NLTypeSystemUnion *type_system_union, const char *key);
 const NLTypeSystem *type_system_union_get_type_system_by_protocol(const NLTypeSystemUnion *type_system_union, uint16_t protocol);
+
+const NLTypeSystem* genl_get_type_system_by_name(const char *name);
+int genl_family_get_by_id(sd_netlink *nl, uint16_t id, const GenericNetlinkFamily **ret);
+const NLTypeSystem* genl_family_get_type_system(const GenericNetlinkFamily *family);
+int genl_get_type_system_and_header_size(
+                sd_netlink *nl,
+                uint16_t id,
+                const NLTypeSystem **ret_type_system,
+                size_t *ret_header_size);

@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "time-util.h"
 
@@ -353,7 +354,7 @@ bool service_name_is_valid(const char *p) _pure_;
 bool member_name_is_valid(const char *p) _pure_;
 bool object_path_is_valid(const char *p) _pure_;
 
-char *object_path_startswith(const char *a, const char *b) _pure_;
+char* object_path_startswith(const char *a, const char *b) _pure_;
 
 bool namespace_complex_pattern(const char *pattern, const char *value) _pure_;
 bool path_complex_pattern(const char *pattern, const char *value) _pure_;
@@ -366,7 +367,7 @@ const char *bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
-sd_bus *bus_resolve(sd_bus *bus);
+sd_bus* bus_resolve(sd_bus *bus);
 
 int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
@@ -376,9 +377,11 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
 
 int bus_rqueue_make_room(sd_bus *bus);
 
-bool bus_pid_changed(sd_bus *bus);
-
-char *bus_address_escape(const char *v);
+static inline bool bus_pid_changed(sd_bus *bus) {
+        /* We don't support people creating a bus connection and
+         * keeping it around over a fork(). Let's complain. */
+        return ASSERT_PTR(bus)->original_pid != getpid_cached();
+}
 
 int bus_attach_io_events(sd_bus *b);
 int bus_attach_inotify_event(sd_bus *b);
@@ -396,11 +399,6 @@ void bus_close_io_fds(sd_bus *b);
 #define BUS_DONT_DESTROY(bus) \
         _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
-int bus_set_address_system(sd_bus *bus);
-int bus_set_address_user(sd_bus *bus);
-int bus_set_address_system_remote(sd_bus *b, const char *host);
-int bus_set_address_machine(sd_bus *b, bool user, const char *machine);
-
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
 #define bus_assert_return(expr, r, error)                               \
@@ -412,3 +410,12 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 void bus_enter_closing(sd_bus *bus);
 
 void bus_set_state(sd_bus *bus, enum bus_state state);
+
+int bus_message_from_malloc(
+                sd_bus *bus,
+                void *buffer,
+                size_t length,
+                int *fds,
+                size_t n_fds,
+                const char *label,
+                sd_bus_message **ret);

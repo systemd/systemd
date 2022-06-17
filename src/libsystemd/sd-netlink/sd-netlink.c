@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-message-alloc.h"
 #include "netlink-slot.h"
 #include "process-util.h"
 #include "socket-util.h"
