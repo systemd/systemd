@@ -1629,7 +1629,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
+        if (t->n_attempts >= dns_transaction_attempts_max(t->scope->protocol, t->probing)) {
                 DnsTransactionState result;
 
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
