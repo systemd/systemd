@@ -101,7 +101,7 @@ static void address_add_netlabel_set(const Address *address, Set *labels) {
         }
 }
 
-void address_add_netlabel(const Address *address) {
+void address_add_netlabels(const Address *address) {
         assert(address);
         assert(address->link);
 
@@ -124,14 +124,11 @@ void address_add_netlabel(const Address *address) {
         }
 }
 
-void address_del_netlabel(const Address *address) {
+void address_del_netlabels(const Address *address) {
         int r;
 
         assert(address);
         assert(address->link);
-
-        if (!address->link->network || !IN_SET(address->family, AF_INET, AF_INET6))
-                return;
 
         r = netlabel_command(NLBL_UNLABEL_C_STATICREMOVE, NULL, address);
         if (r < 0)

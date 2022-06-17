@@ -494,7 +494,7 @@ static int address_update(Address *address) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
-        address_add_netlabel(address);
+        address_add_netlabels(address);
 
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
@@ -522,7 +522,7 @@ static int address_drop(Address *address) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
 
-        address_del_netlabel(address);
+        address_del_netlabels(address);
 
         if (address->state == 0)
                 address_free(address);
