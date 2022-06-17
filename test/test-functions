@@ -1502,16 +1502,16 @@ check_result_nspawn() {
     local workspace="${1:?}"
     local ret
 
-    check_result_common "${workspace}"
-    ret=$?
-
-    # Run additional test-specific checks if defined by check_result_nspawn_hook()
+    # Run a test-specific checks if defined by check_result_nspawn_hook()
     if declare -F check_result_nspawn_hook >/dev/null; then
         if ! check_result_nspawn_hook "${workspace}"; then
             derror "check_result_nspawn_hook() returned with EC > 0"
             ret=4
         fi
     fi
+
+    check_result_common "${workspace}"
+    ret=$?
 
     _umount_dir "${initdir:?}"
 
@@ -1523,16 +1523,16 @@ check_result_qemu() {
     local ret
     mount_initdir
 
-    check_result_common "${initdir:?}"
-    ret=$?
-
-    # Run additional test-specific checks if defined by check_result_qemu_hook()
+    # Run a test-specific checks if defined by check_result_qemu_hook()
     if declare -F check_result_qemu_hook >/dev/null; then
         if ! check_result_qemu_hook "${initdir:?}"; then
             derror "check_result_qemu_hook() returned with EC > 0"
             ret=4
         fi
     fi
+
+    check_result_common "${initdir:?}"
+    ret=$?
 
     _umount_dir "${initdir:?}"
 
