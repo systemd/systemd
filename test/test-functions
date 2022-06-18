@@ -40,6 +40,7 @@ IMAGE_NAME=${IMAGE_NAME:-default}
 STRIP_BINARIES="${STRIP_BINARIES:-yes}"
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_MASK_SERVICES="${TEST_MASK_SERVICES:-1}"
 LOOPDEV=
 
 # Simple wrapper to unify boolean checks.
@@ -98,6 +99,7 @@ SYSTEMD_JOURNAL_REMOTE="${SYSTEMD_JOURNAL_REMOTE:-$(command -v "$BUILD_DIR/syste
 SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR/systemd")}"
 SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
 JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
+SYSTEMCTL="${SYSTEMCTL:-$(command -v "$BUILD_DIR/systemctl" || command -v systemctl)}"
 
 TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
@@ -2934,9 +2936,8 @@ test_setup() {
         fi
 
         mount_initdir
-        # We want to test all services in TEST-01-BASIC, but mask them in
-        # all other tests
-        if [[ "${TESTID:?}" != "01" ]]; then
+
+        if get_bool "${TEST_MASK_SERVICES}"; then
             dinfo "Masking supporting services"
             mask_supporting_services
         fi
