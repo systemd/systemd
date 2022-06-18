@@ -17,6 +17,7 @@
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
@@ -871,6 +872,10 @@ static int dhcp4_request_address(Link *link, bool announce) {
         addr->duplicate_address_detection = link->network->dhcp_send_decline ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_NO;
 
         r = free_and_strdup_warn(&addr->label, link->network->dhcp_label);
+        if (r < 0)
+                return r;
+
+        r = netlabels_dup(addr, link->network->dhcp_netlabels);
         if (r < 0)
                 return r;
 
