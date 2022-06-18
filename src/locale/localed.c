@@ -152,10 +152,6 @@ static int property_get_locale(
         if (r < 0)
                 return r;
 
-        l = new0(char*, _VARIABLE_LC_MAX+1);
-        if (!l)
-                return -ENOMEM;
-
         r = locale_context_build_env(&c->locale_context, &l, NULL);
         if (r < 0)
                 return r;
