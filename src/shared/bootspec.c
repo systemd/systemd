@@ -686,6 +686,8 @@ static int boot_entries_find_unified(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
+                log_debug("Checking unified loader: %s/%s", dir, de->d_name);
+
                 if (find_sections(fd, &osrelease, &cmdline) < 0)
                         continue;
 
