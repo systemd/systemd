@@ -547,6 +547,7 @@ static int boot_entry_load_unified(
 
 static int find_sections(
                 int fd,
+                const char *path,
                 char **ret_osrelease,
                 char **ret_cmdline) {
 
@@ -557,28 +558,28 @@ static int find_sections(
         struct DosFileHeader dos;
         n = pread(fd, &dos, sizeof(dos), 0);
         if (n < 0)
-                return log_error_errno(errno, "Failed read DOS header: %m");
+                return log_error_errno(errno, "%s: Failed read DOS header: %m", path);
         if (n != sizeof(dos))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading DOS header, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading DOS header, refusing.", path);
 
         if (dos.Magic[0] != 'M' || dos.Magic[1] != 'Z')
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DOS executable magic missing, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: DOS executable magic missing, refusing.", path);
 
         uint64_t start = unaligned_read_le32(&dos.ExeHeader);
 
         struct PeHeader pe;
         n = pread(fd, &pe, sizeof(pe), start);
         if (n < 0)
-                return log_error_errno(errno, "Failed to read PE header: %m");
+                return log_error_errno(errno, "%s: Failed to read PE header: %m", path);
         if (n != sizeof(pe))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading PE header, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading PE header, refusing.", path);
 
         if (pe.Magic[0] != 'P' || pe.Magic[1] != 'E' || pe.Magic[2] != 0 || pe.Magic[3] != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE executable magic missing, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: PE executable magic missing, refusing.", path);
 
         size_t n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
         if (n_sections > 96)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE header has too many sections, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: PE header has too many sections, refusing.", path);
 
         sections = new(struct PeSectionHeader, n_sections);
         if (!sections)
@@ -588,9 +589,9 @@ static int find_sections(
                   n_sections * sizeof(struct PeSectionHeader),
                   start + sizeof(pe) + unaligned_read_le16(&pe.FileHeader.SizeOfOptionalHeader));
         if (n < 0)
-                return log_error_errno(errno, "Failed to read section data: %m");
+                return log_error_errno(errno, "%s: Failed to read section data: %m", path);
         if ((size_t) n != n_sections * sizeof(struct PeSectionHeader))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading sections, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading sections, refusing.", path);
 
         for (size_t i = 0; i < n_sections; i++) {
                 _cleanup_free_ char *k = NULL;
@@ -605,13 +606,13 @@ static int find_sections(
                         continue;
 
                 if (*b)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate section %s, refusing.", sections[i].Name);
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Duplicate section %s, refusing.", path, sections[i].Name);
 
                 offset = unaligned_read_le32(&sections[i].PointerToRawData);
                 size = unaligned_read_le32(&sections[i].VirtualSize);
 
                 if (size > PE_SECTION_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section %s too large, refusing.", sections[i].Name);
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Section %s too large, refusing.", path, sections[i].Name);
 
                 k = new(char, size+1);
                 if (!k)
@@ -619,20 +620,20 @@ static int find_sections(
 
                 n = pread(fd, k, size, offset);
                 if (n < 0)
-                        return log_error_errno(errno, "Failed to read section payload: %m");
+                        return log_error_errno(errno, "%s: Failed to read section payload: %m", path);
                 if ((size_t) n != size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading section payload, refusing:");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: Short read while reading section payload, refusing:", path);
 
                 /* Allow one trailing NUL byte, but nothing more. */
                 if (size > 0 && memchr(k, 0, size - 1))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section contains embedded NUL byte: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Section contains embedded NUL byte.", path);
 
                 k[size] = 0;
                 *b = TAKE_PTR(k);
         }
 
         if (!osrelease)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Image lacks .osrel section, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "%s: Image lacks .osrel section, refusing.", path);
 
         if (ret_osrelease)
                 *ret_osrelease = TAKE_PTR(osrelease);
@@ -686,12 +687,12 @@ static int boot_entries_find_unified(
                 if (r == 0) /* inode already seen or otherwise not relevant */
                         continue;
 
-                if (find_sections(fd, &osrelease, &cmdline) < 0)
-                        continue;
-
                 j = path_join(dir, de->d_name);
                 if (!j)
                         return log_oom();
+
+                if (find_sections(fd, j, &osrelease, &cmdline) < 0)
+                        continue;
 
                 r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
                 if (r < 0)
