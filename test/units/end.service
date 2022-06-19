@@ -4,6 +4,7 @@ Description=End the test
 After=testsuite.target
 OnFailure=poweroff.target
 OnFailureJobMode=replace-irreversibly
+AllowIsolate=yes
 
 [Service]
 Type=oneshot
