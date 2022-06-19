@@ -12,6 +12,11 @@ QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
 
 command -v dfuzzer >/dev/null || exit 0
 
+if ! get_bool "$IS_BUILT_WITH_ASAN"; then
+    echo "systemd is built without ASan, skipping..."
+    exit 0
+fi
+
 test_append_files() {
     local workspace="${1:?}"
 
