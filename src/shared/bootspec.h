@@ -100,7 +100,7 @@ int boot_config_load(BootConfig *config, const char *esp_path, const char *xboot
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
 int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
 
-int boot_config_select_special_entries(BootConfig *config);
+int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);

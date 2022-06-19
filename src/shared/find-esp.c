@@ -381,6 +381,7 @@ finish:
 }
 
 int find_esp_and_warn(
+                const char *root,
                 const char *path,
                 bool unprivileged_mode,
                 char **ret_path,
@@ -399,6 +400,8 @@ int find_esp_and_warn(
          */
 
         if (path) {
+                path = prefix_roota(root, path);
+
                 r = verify_esp(path, /* searching= */ false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
                 if (r < 0)
                         return r;
@@ -409,6 +412,8 @@ int find_esp_and_warn(
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
                 struct stat st;
+
+                path = prefix_roota(root, path);
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -438,8 +443,8 @@ int find_esp_and_warn(
                 goto found;
         }
 
-        FOREACH_STRING(_path, "/efi", "/boot", "/boot/efi") {
-                path = _path;
+        FOREACH_STRING(p, "/efi", "/boot", "/boot/efi") {
+                path = prefix_roota(root, p); /* lgtm [cpp/alloca-in-loop] loop size is static and fixed */
 
                 r = verify_esp(path, /* searching= */ true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
                 if (r >= 0)
@@ -662,6 +667,7 @@ finish:
 }
 
 int find_xbootldr_and_warn(
+                const char *root,
                 const char *path,
                 bool unprivileged_mode,
                 char **ret_path,
@@ -673,6 +679,8 @@ int find_xbootldr_and_warn(
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
         if (path) {
+                path = prefix_roota(root, path);
+
                 r = verify_xbootldr(path, /* searching= */ false, unprivileged_mode, ret_uuid, ret_devid);
                 if (r < 0)
                         return r;
@@ -683,6 +691,8 @@ int find_xbootldr_and_warn(
         path = getenv("SYSTEMD_XBOOTLDR_PATH");
         if (path) {
                 struct stat st;
+
+                path = prefix_roota(root, path);
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -702,11 +712,10 @@ int find_xbootldr_and_warn(
                 goto found;
         }
 
-        r = verify_xbootldr("/boot", true, unprivileged_mode, ret_uuid, ret_devid);
-        if (r >= 0) {
-                path = "/boot";
+        path = prefix_roota(root, "/boot");
+        r = verify_xbootldr(path, true, unprivileged_mode, ret_uuid, ret_devid);
+        if (r >= 0)
                 goto found;
-        }
         if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
                 return r;
 

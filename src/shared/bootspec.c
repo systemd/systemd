@@ -839,12 +839,12 @@ static int boot_entries_select_selected(const BootConfig *config) {
         return boot_config_find(config, config->entry_selected);
 }
 
-static int boot_load_efi_entry_pointers(BootConfig *config) {
+static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
         int r;
 
         assert(config);
 
-        if (!is_efi_boot())
+        if (skip_efivars || !is_efi_boot())
                 return 0;
 
         /* Loads the three "pointers" to boot loader entries from their EFI variables */
@@ -870,12 +870,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config) {
         return 1;
 }
 
-int boot_config_select_special_entries(BootConfig *config) {
+int boot_config_select_special_entries(BootConfig *config, bool skip_efivars) {
         int r;
 
         assert(config);
 
-        r = boot_load_efi_entry_pointers(config);
+        r = boot_load_efi_entry_pointers(config, skip_efivars);
         if (r < 0)
                 return r;
 
@@ -966,11 +966,11 @@ int boot_config_load_auto(
                                                "Failed to determine whether /run/boot-loader-entries/ exists: %m");
         }
 
-        r = find_esp_and_warn(override_esp_path, /* unprivileged_mode= */ false, &esp_where, NULL, NULL, NULL, NULL, &esp_devid);
+        r = find_esp_and_warn(NULL, override_esp_path, /* unprivileged_mode= */ false, &esp_where, NULL, NULL, NULL, NULL, &esp_devid);
         if (r < 0) /* we don't log about ENOKEY here, but propagate it, leaving it to the caller to log */
                 return r;
 
-        r = find_xbootldr_and_warn(override_xbootldr_path, /* unprivileged_mode= */ false, &xbootldr_where, NULL, &xbootldr_devid);
+        r = find_xbootldr_and_warn(NULL, override_xbootldr_path, /* unprivileged_mode= */ false, &xbootldr_where, NULL, &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
 
