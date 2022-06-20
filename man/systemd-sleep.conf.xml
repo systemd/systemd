@@ -79,12 +79,16 @@
 
         <listitem><para>A low power state where the system is initially suspended
         (the state is stored in RAM). The system is first suspended for the duration
-        specified by <command>HibernateDelaySec=</command>. After wakeup via an RTC
-        alarm, if the current capacity is Normal, High or Full, the system goes back
-        to suspend, for the amount of time it would take to fully discharge the battery
-        minus 30 minutes, calculated by measuring the discharge rate from before the
-        first suspension to the first wakeup. If the current capacity is Low or Critical,
-        the system will be hibernated (the state is then stored on disk).
+        specified in
+        <filename>/var/lib/systemd/sleep/$machine_id/battery_discharge_percentage_rate_per_hour</filename>
+        If the file does not exist or has invalid value, initial suspend duration is set to
+        <command>HibernateDelaySec=</command>. After wakeup via an RTC alarm, the battery
+        discharge percentage rate per hour is again estimated. If the current capacity is
+        Normal, High or Full, the system goes back to suspend, for the amount of time it
+        would take to fully discharge the battery minus 30 minutes, calculated by measuring
+        the discharge rate from before the first suspension to the first wakeup. If the
+        current capacity is Low or Critical, the system will be hibernated (the state
+        is then stored on disk).
         </para></listitem>
       </varlistentry>
 

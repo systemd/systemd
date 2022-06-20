@@ -55,7 +55,9 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
-int read_battery_capacity(void);
+int read_battery_capacity_percentage(void);
+int get_battery_discharge_rate(void);
+int put_battery_discharge_rate(int estimated_battery_discharge_rate);
 
 bool is_battery_low(void);
 
