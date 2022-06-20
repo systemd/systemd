@@ -93,7 +93,7 @@ cmp /expected /output
 ID=$(systemd-id128 new)
 systemd-cat -t "$ID" bash -c 'echo parent; (echo child) & wait' &
 PID=$!
-wait %%
+wait $PID
 journalctl --sync
 # We can drop this grep when https://github.com/systemd/systemd/issues/13937
 # has a fix.
