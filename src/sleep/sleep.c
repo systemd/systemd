@@ -311,6 +311,10 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                                         last_capacity - current_capacity,
                                         FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_SEC));
                         estimated_total_discharge_time = (current_capacity * (before_timestamp - after_timestamp)) / (last_capacity - current_capacity);
+                        r = put_discharge_rate(FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to update battery discharge rate: %m");
+
                         log_debug("Battery will discharge in %s time", FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
                         return 0;
                 }
@@ -324,7 +328,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                 estimated_total_discharge_time = current_capacity / (last_capacity - current_capacity);
 
-                log_debug("Battery will discharge in %f hours", estimated_total_discharge_time);
+                r = put_discharge_rate(FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to update battery discharge rate: %m");
+
+                log_debug("Battery will discharge in %s time", FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
 
                 suspend_interval = ((estimated_total_discharge_time * 60) - 30) * USEC_PER_MINUTE;
                 /* 30min wiggle time. Finally suspend_interval is stored in minutes*/
