@@ -5,7 +5,7 @@
 #include <uchar.h>
 
 EFI_STATUS pe_memory_locate_sections(
-                const char *base,
+                const void *base,
                 const char **sections,
                 UINTN *addrs,
                 UINTN *sizes);

@@ -247,11 +247,7 @@ EFI_STATUS pe_alignment_info(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_memory_locate_sections(
-                const char *base,
-                const char **sections,
-                UINTN *addrs,
-                UINTN *sizes) {
+EFI_STATUS pe_memory_locate_sections(const void *base, const char **sections, UINTN *addrs, UINTN *sizes) {
         const struct DosFileHeader *dos;
         const struct PeFileHeader *pe;
         UINTN offset;
@@ -261,17 +257,21 @@ EFI_STATUS pe_memory_locate_sections(
         assert(addrs);
         assert(sizes);
 
-        dos = (const struct DosFileHeader*)base;
+        dos = (const struct DosFileHeader *) base;
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
-        pe = (const struct PeFileHeader*)&base[dos->ExeHeader];
+        pe = (const struct PeFileHeader *) ((uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
-        locate_sections((struct PeSectionHeader*)&base[offset], pe->FileHeader.NumberOfSections,
-                        sections, addrs, NULL, sizes);
+        locate_sections((struct PeSectionHeader *) ((uint8_t *) base + offset),
+                        pe->FileHeader.NumberOfSections,
+                        sections,
+                        addrs,
+                        NULL,
+                        sizes);
 
         return EFI_SUCCESS;
 }
