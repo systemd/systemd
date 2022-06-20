@@ -65,6 +65,8 @@ systemdshutdowndir=${systemd_shutdown_dir}
 tmpfiles_dir=${prefix}/lib/tmpfiles.d
 tmpfilesdir=${tmpfiles_dir}
 
+user_tmpfiles_dir=${prefix}/share/user-tmpfiles.d
+
 sysusers_dir=${rootprefix}/lib/sysusers.d
 sysusersdir=${sysusers_dir}
 

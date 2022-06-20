@@ -17,6 +17,7 @@
 %_sysctldir {{SYSCTL_DIR}}
 %_sysusersdir {{SYSUSERS_DIR}}
 %_tmpfilesdir {{TMPFILES_DIR}}
+%_user_tmpfilesdir {{USER_TMPFILES_DIR}}
 %_environmentdir {{ENVIRONMENT_DIR}}
 %_modulesloaddir {{MODULESLOAD_DIR}}
 %_modprobedir {{MODPROBE_DIR}}

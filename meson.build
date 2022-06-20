@@ -175,6 +175,7 @@ pkgsysconfdir = sysconfdir / 'systemd'
 userunitdir = prefixdir / 'lib/systemd/user'
 userpresetdir = prefixdir / 'lib/systemd/user-preset'
 tmpfilesdir = prefixdir / 'lib/tmpfiles.d'
+usertmpfilesdir = prefixdir / 'share/user-tmpfiles.d'
 sysusersdir = prefixdir / 'lib/sysusers.d'
 sysctldir = prefixdir / 'lib/sysctl.d'
 binfmtdir = prefixdir / 'lib/binfmt.d'
@@ -287,6 +288,7 @@ conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
 conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
+conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
 conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
 conf.set_quoted('UDEV_HWDB_DIR',                              udevhwdbdir)
 conf.set_quoted('UDEV_RULES_DIR',                             udevrulesdir)
