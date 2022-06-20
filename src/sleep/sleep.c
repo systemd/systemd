@@ -270,8 +270,8 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         do {
                 _cleanup_close_ int tfd = -1;
                 struct itimerspec ts = {};
-                int last_capacity, current_capacity;
-                double estimated_total_discharge_time;
+                int last_capacity, current_capacity, previous_discharge_rate, estimated_discharge_rate = 0;
+                usec_t time_elapsed;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (tfd < 0)
@@ -283,6 +283,12 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         return log_error_errno(errno, "Error fetching battery capacity: %m");
 
                 before_timestamp = now(CLOCK_MONOTONIC);
+
+                previous_discharge_rate = get_battery_discharge_rate();
+                if (previous_discharge_rate <= 0)
+                        log_error_errno(errno, "Error fetching battery discharge rate: %m");
+                else
+                        suspend_interval = ((100 / previous_discharge_rate) * 60 - 30) * USEC_PER_MINUTE;
 
                 log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s",
                         FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
@@ -300,37 +306,56 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 r = fd_wait_for_event(tfd, POLLIN, 0);
                 if (r < 0)
                         return log_error_errno(r, "Error polling timerfd: %m");
+
                 if (!FLAGS_SET(r, POLLIN))  { /* We woke up before the alarm time, calculate battery discharged and estimate rate. */
                         after_timestamp = now(CLOCK_MONOTONIC);
 
+                        time_elapsed = (after_timestamp - before_timestamp) / MSEC_PER_SEC;
+                        log_debug("time diff is %ld", time_elapsed);
+
+/*                        r = safe_atoi(time_diff_s, &time_elapsed);
+                          if (r < 0)
+                                return log_error_errno(r, "Failed to calculate the time elapsed since last suspend: %m"); */
                         current_capacity = read_battery_capacity();
                         if (current_capacity < 0)
                                 return log_error_errno(errno, "Error fetching battery capacity: %m");
 
-                        log_debug("%d%% battery discharged in %s time",
+                        log_debug("%d%% battery discharged in %ld hours time",
                                         last_capacity - current_capacity,
-                                        FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_SEC));
-                        estimated_total_discharge_time = (current_capacity * (before_timestamp - after_timestamp)) / (last_capacity - current_capacity);
-                        log_debug("Battery will discharge in %s time", FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
+                                        time_elapsed);
+
+                        estimated_discharge_rate = (last_capacity - current_capacity) / time_elapsed;
+
+                        log_debug("Battery discharge rate is %d per hour", estimated_discharge_rate);
+
+                        if (estimated_discharge_rate > 0 && estimated_discharge_rate < 1000) {
+                                r = put_battery_discharge_rate(estimated_discharge_rate);
+                                if (r < 0)
+                                        return log_warning_errno(r, "Failed to update battery discharge rate: ignoring %m");
+                        }
                         return 0;
                 }
+
                 tfd = safe_close(tfd);
 
-                /* If woken up after alarm time, calculate battery capacity and battery capacity_level and estimate discharge rate */
+                log_debug("Attempting to estimate battery after waking from %s hours sleep timer",
+                          FORMAT_TIMESPAN(suspend_interval, USEC_PER_HOUR));
 
+                /* If woken up after alarm time, calculate battery capacity and battery capacity_level and estimate discharge rate */
                 current_capacity = read_battery_capacity();
+
                 if (current_capacity < 0)
                         return log_error_errno(errno, "Error fetching battery capacity: %m");
 
-                estimated_total_discharge_time = current_capacity / (last_capacity - current_capacity);
+                estimated_discharge_rate = (last_capacity - current_capacity) / suspend_interval * USEC_PER_HOUR;
 
-                log_debug("Battery will discharge in %f hours", estimated_total_discharge_time);
+                if (estimated_discharge_rate > 0 && estimated_discharge_rate < 1000) {
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to update battery discharge rate: ignoring %m");
 
-                suspend_interval = ((estimated_total_discharge_time * 60) - 30) * USEC_PER_MINUTE;
-                /* 30min wiggle time. Finally suspend_interval is stored in minutes*/
-
-                log_debug("Attempting to estimate battery after waking from %s timer",
-                          FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
+                        log_debug("Battery discharge rate is %s per hour", FORMAT_TIMESPAN(estimated_discharge_rate, USEC_PER_HOUR));
+                }
 
         } while (!is_battery_low());
 
