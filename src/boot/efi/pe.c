@@ -141,7 +141,7 @@ static inline UINTN section_table_offset(const struct DosFileHeader *dos, const 
 static void locate_sections(
                 const struct PeSectionHeader section_table[],
                 UINTN n_table,
-                const char **sections,
+                const char * const sections[],
                 UINTN *addrs,
                 UINTN *offsets,
                 UINTN *sizes) {
@@ -247,7 +247,7 @@ EFI_STATUS pe_alignment_info(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_memory_locate_sections(const void *base, const char **sections, UINTN *addrs, UINTN *sizes) {
+EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], UINTN *addrs, UINTN *sizes) {
         const struct DosFileHeader *dos;
         const struct PeFileHeader *pe;
         UINTN offset;
@@ -279,7 +279,7 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char **sections, UI
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
-                const char **sections,
+                const char * const sections[],
                 UINTN *offsets,
                 UINTN *sizes) {
         _cleanup_freepool_ struct PeSectionHeader *section_table = NULL;
