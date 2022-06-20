@@ -270,7 +270,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         do {
                 _cleanup_close_ int tfd = -1;
                 struct itimerspec ts = {};
-                int last_capacity, current_capacity;
+                int last_capacity, current_capacity, previous_discharge_time;
                 double estimated_total_discharge_time;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
@@ -283,6 +283,10 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         return log_error_errno(errno, "Error fetching battery capacity: %m");
 
                 before_timestamp = now(CLOCK_MONOTONIC);
+
+                previous_discharge_time = get_discharge_rate();
+                if (previous_discharge_time >= 0)
+                        suspend_interval = ((previous_discharge_time * 60) - 30) * USEC_PER_MINUTE;
 
                 log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s",
                         FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
@@ -311,6 +315,10 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                                         last_capacity - current_capacity,
                                         FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_SEC));
                         estimated_total_discharge_time = (current_capacity * (before_timestamp - after_timestamp)) / (last_capacity - current_capacity);
+                        r = put_discharge_rate(FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to update battery discharge rate: %m");
+
                         log_debug("Battery will discharge in %s time", FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
                         return 0;
                 }
@@ -324,7 +332,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                 estimated_total_discharge_time = current_capacity / (last_capacity - current_capacity);
 
-                log_debug("Battery will discharge in %f hours", estimated_total_discharge_time);
+                r = put_discharge_rate(FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to update battery discharge rate: %m");
+
+                log_debug("Battery will discharge in %s time", FORMAT_TIMESPAN(estimated_total_discharge_time, USEC_PER_SEC));
 
                 suspend_interval = ((estimated_total_discharge_time * 60) - 30) * USEC_PER_MINUTE;
                 /* 30min wiggle time. Finally suspend_interval is stored in minutes*/

@@ -134,6 +134,54 @@ int read_battery_capacity(void) {
         return battery_capacity;
 }
 
+int get_discharge_rate(void) {
+        _cleanup_free_ char *dirpath = NULL;
+        int stored_discharge_rate, r;
+        char *dis_rate;
+        sd_id128_t *machine_id = NULL;
+
+        r = sd_id128_get_machine(machine_id);
+        if(r < 0)
+                return r;
+
+        dirpath = path_join("/var/lib/systemd/sleep", machine_id, "/battery_discharge_rate");
+        if (!dirpath)
+               return log_oom();
+
+        r = read_one_line_file(dirpath, &dis_rate);
+        if (r < 0)
+               return log_error_errno(r, "Failed to read discharge rate from %s: %m", dirpath);
+
+        r = safe_atoi(dis_rate, &stored_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to convert discharge rate fetched from %s location from char value to int: %m", dirpath);
+
+        return stored_discharge_rate;
+}
+
+int put_discharge_rate(const char *estimated_battery_discharge_rate) {
+        _cleanup_free_ char *dirpath = NULL;
+        sd_id128_t *machine_id = NULL;
+        int r;
+
+        assert(estimated_battery_discharge_rate);
+
+        r = sd_id128_get_machine(machine_id);
+        if(r < 0)
+                return r;
+
+        dirpath = path_join("/var/lib/systemd/sleep", machine_id, "/battery_discharge_rate");
+        if (!dirpath)
+                return log_oom();
+
+        r = write_string_file(dirpath, estimated_battery_discharge_rate,
+                       WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", dirpath);
+
+        return r;
+}
+
 int can_sleep_state(char **types) {
         _cleanup_free_ char *text = NULL;
         int r;
