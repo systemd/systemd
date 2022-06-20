@@ -195,7 +195,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, (const char **) sections, addrs, szs);
+        err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, szs);
         if (err != EFI_SUCCESS || szs[SECTION_LINUX] == 0) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;

@@ -1806,7 +1806,7 @@ static void config_title_generate(Config *config) {
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
-        const char *sections[] = {
+        static const char * const sections[] = {
                 ".sdmagic",
                 NULL
         };
@@ -2082,7 +2082,7 @@ static void config_entry_add_unified(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, (const char **) sections, offs, szs);
+                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
                 if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
                         continue;
 
