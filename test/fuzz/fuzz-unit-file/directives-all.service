@@ -409,6 +409,7 @@ DNSSEC=
 DNSSECNegativeTrustAnchors=
 DNSStubListener=
 DNSStubListenerExtra=
+DNSStreamTimeout=
 DUIDRawData=
 DUIDType=
 DefaultLeaseTimeSec=

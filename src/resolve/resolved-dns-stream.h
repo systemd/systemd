@@ -24,9 +24,6 @@ typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 /* In opportunistic TLS mode, lower timeouts */
 #define DNS_STREAM_OPPORTUNISTIC_TLS_TIMEOUT_USEC (3 * USEC_PER_SEC)
 
-/* Once connections are established apply this timeout once nothing happens anymore */
-#define DNS_STREAM_ESTABLISHED_TIMEOUT_USEC (10 * USEC_PER_SEC)
-
 typedef enum DnsStreamType {
         DNS_STREAM_LOOKUP,        /* Outgoing connection to a classic DNS server */
         DNS_STREAM_LLMNR_SEND,    /* Outgoing LLMNR TCP lookup */

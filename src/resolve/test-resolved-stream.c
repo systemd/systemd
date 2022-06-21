@@ -210,8 +210,8 @@ static int on_stream_complete_do_nothing(DnsStream *s, int error) {
 }
 
 static void test_dns_stream(bool tls) {
-        Manager manager = {};
-         _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
+        Manager manager = { .dns_stream_timeout_usec = 10 * USEC_PER_SEC, };
+        _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int clientfd = -1;
         int r;
