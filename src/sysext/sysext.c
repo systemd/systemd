@@ -5,6 +5,7 @@
 #include <linux/loop.h>
 #include <sys/mount.h>
 #include <unistd.h>
+#include <sys/file.h>
 
 #include "capability-util.h"
 #include "chase-symlinks.h"

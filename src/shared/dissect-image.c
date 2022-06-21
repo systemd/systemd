@@ -4,6 +4,8 @@
 #include <valgrind/memcheck.h>
 #endif
 
+#include <sys/file.h>
+
 #include <linux/blkpg.h>
 #include <linux/dm-ioctl.h>
 #include <linux/loop.h>

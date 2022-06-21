@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <sys/file.h>
 
 #include "architecture.h"
 #include "chase-symlinks.h"
