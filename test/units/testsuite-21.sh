@@ -9,11 +9,15 @@ systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT
 
 at_exit() {
     set +e
-    # We have to call the end.service explicitly even if it's specified on
+    # We have to call the end.service/poweroff explicitly even if it's specified on
     # the kernel cmdline via systemd.wants=end.service, since dfuzzer calls
     # org.freedesktop.systemd1.Manager.ClearJobs() which drops the service
     # from the queue
-    [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && systemctl start --job-mode=flush end.service
+    if [[ $SHUTDOWN_AT_EXIT -ne 0 ]]; then
+        systemctl poweroff
+        sleep 15
+        systemctl poweroff -ff
+    fi
 }
 
 trap at_exit EXIT
