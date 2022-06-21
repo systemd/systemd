@@ -8,22 +8,16 @@ set -o pipefail
 systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0
 
 at_exit() {
-    # "Safety net" - check for any coredumps which might have not caused dfuzzer
-    # to stop & return an error (we need to do this now before truncating the
-    # journal)
-    # TODO: check fo ASan/UBSan errors
-    local found_cd=0
-    while read -r exe; do
-        coredumctl info "$exe"
-        found_cd=1
-    done < <(coredumpctl -F COREDUMP_EXE | sort -u)
-    [[ $found_cd -eq 0 ]] || exit 1
-
-    # We have to call the end.service explicitly even if it's specified on
+    set +e
+    # We have to call the end.service/poweroff explicitly even if it's specified on
     # the kernel cmdline via systemd.wants=end.service, since dfuzzer calls
     # org.freedesktop.systemd1.Manager.ClearJobs() which drops the service
     # from the queue
-    [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && systemctl start --job-mode=flush end.service
+    if [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && ! systemctl poweroff; then
+        # PID1 is down let's try to save the journal
+        journalctl --sync || : # journal can be down as well so let's ignore exit codes here
+        systemctl -ff poweroff # sync() and reboot(RB_POWER_OFF)
+    fi
 }
 
 trap at_exit EXIT
@@ -72,7 +66,7 @@ mount -t tmpfs -o size=50M tmpfs /var/lib/machines
 for bus in "${BUS_LIST[@]}"; do
     echo "Bus: $bus (system)"
     systemd-run --pipe --wait \
-                -- dfuzzer -v -b "$PAYLOAD_MAX" -n "$bus"
+                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
@@ -83,7 +77,7 @@ umount /var/lib/machines
 for bus in "${SESSION_BUS_LIST[@]}"; do
     echo "Bus: $bus (session)"
     systemd-run --machine 'testuser@.host' --user --pipe --wait \
-                -- dfuzzer -v -b "$PAYLOAD_MAX" -n "$bus"
+                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload

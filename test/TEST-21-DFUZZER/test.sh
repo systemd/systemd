@@ -6,6 +6,8 @@ TEST_DESCRIPTION="Fuzz our D-Bus interfaces with dfuzzer"
 TEST_NO_NSPAWN=1
 TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED=0
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
+IMAGE_NAME=dfuzzer
+TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
