@@ -269,6 +269,13 @@ All tools:
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
 
+* `$SYSTEMD_SKIP_DEV_ENUMERATE` - manager will skip enumerating device, mount
+  and swap units, hence no units of these types will be created. This option has
+  an effect only for managers running in `--user` mode. This might be useful to
+  decrease amount of CPU time and memory consumed by user managers. Also note
+  that if in effect the user units that have strong dependencies (e.g. Requires)
+  on device or mount units will fail to start.
+
 `systemd-remount-fs`:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
