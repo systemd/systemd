@@ -24,7 +24,7 @@ env:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
@@ -49,7 +49,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-    - uses: systemd/mkosi@93098e2406e12ea7f06f962d4808952b8a06d345
+    - uses: systemd/mkosi@a2091d1cd31294dc2611649d09a51cc8fb2817fd
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
@@ -68,6 +68,8 @@ jobs:
         KernelCommandLine=${{ env.KERNEL_CMDLINE }}
         EOF
 
+        echo systemd-stable/ >> .gitignore
+
     - name: Build ${{ matrix.distro }}
       run: ./.github/workflows/run_mkosi.sh build
 
@@ -80,14 +82,8 @@ jobs:
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
-      # TODO: Remove CentOS exclusion once Ubuntu 22.04 is available in GA.
-      # See https://github.com/systemd/systemd/pull/22417 and https://github.com/systemd/mkosi/pull/907 for
-      # more information.
-
     - name: Boot ${{ matrix.distro }} QEMU
-      if: ${{ matrix.distro != 'centos_epel' }}
       run: ./.github/workflows/run_mkosi.sh qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      if: ${{ matrix.distro != 'centos_epel' }}
       run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
