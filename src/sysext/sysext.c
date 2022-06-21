@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 

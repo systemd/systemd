@@ -4,6 +4,7 @@
 #include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 #include <linux/fs.h>
