@@ -72,7 +72,7 @@ mount -t tmpfs -o size=50M tmpfs /var/lib/machines
 for bus in "${BUS_LIST[@]}"; do
     echo "Bus: $bus (system)"
     systemd-run --pipe --wait \
-                -- dfuzzer -v -b "$PAYLOAD_MAX" -n "$bus"
+                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
@@ -83,7 +83,7 @@ umount /var/lib/machines
 for bus in "${SESSION_BUS_LIST[@]}"; do
     echo "Bus: $bus (session)"
     systemd-run --machine 'testuser@.host' --user --pipe --wait \
-                -- dfuzzer -v -b "$PAYLOAD_MAX" -n "$bus"
+                -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload
