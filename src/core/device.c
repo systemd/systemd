@@ -12,6 +12,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
+#include "env-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -845,6 +846,9 @@ static void device_enumerate(Manager *m) {
         int r;
 
         assert(m);
+
+        if (MANAGER_IS_USER(m) && getenv_bool("SYSTEMD_SKIP_DEV_ENUMERATE") == 1)
+                return;
 
         if (!m->device_monitor) {
                 r = sd_device_monitor_new(&m->device_monitor);

@@ -12,6 +12,7 @@
 #include "dbus-unit.h"
 #include "device-util.h"
 #include "device.h"
+#include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -1370,6 +1371,9 @@ static void swap_enumerate(Manager *m) {
         int r;
 
         assert(m);
+
+        if (MANAGER_IS_USER(m) && getenv_bool("SYSTEMD_SKIP_DEV_ENUMERATE") == 1)
+                return;
 
         if (!m->proc_swaps) {
                 m->proc_swaps = fopen("/proc/swaps", "re");

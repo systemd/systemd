@@ -11,6 +11,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "env-util.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fstab-util.h"
@@ -1890,6 +1891,9 @@ static void mount_enumerate(Manager *m) {
         int r;
 
         assert(m);
+
+        if (MANAGER_IS_USER(m) && getenv_bool("SYSTEMD_SKIP_DEV_ENUMERATE") == 1)
+                return;
 
         mnt_init_debug(0);
 
