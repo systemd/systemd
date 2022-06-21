@@ -9,11 +9,15 @@ systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT
 
 at_exit() {
     set +e
-    # We have to call the end.service explicitly even if it's specified on
+    # We have to call the end.service/poweroff explicitly even if it's specified on
     # the kernel cmdline via systemd.wants=end.service, since dfuzzer calls
     # org.freedesktop.systemd1.Manager.ClearJobs() which drops the service
     # from the queue
-    [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && systemctl start --job-mode=flush end.service
+    if [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && ! systemctl poweroff; then
+        # PID1 is down let's try to save the journal
+        journalctl --sync || : # journal can be down as well so let's ignore exit codes here
+        systemctl -ff poweroff # sync() and reboot(RB_POWER_OFF)
+    fi
 }
 
 trap at_exit EXIT
