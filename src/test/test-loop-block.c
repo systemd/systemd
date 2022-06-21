@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/loop.h>
 #include <pthread.h>
+#include <sys/file.h>
 
 #include "alloc-util.h"
 #include "dissect-image.h"
