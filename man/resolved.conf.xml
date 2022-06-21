@@ -306,6 +306,13 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSStreamTimeout=</varname></term>
+        <listitem><para>Takes an integer argument. Specifies the delay in seconds after which <literal>systemd-resolved
+        </literal> will close an outgoing DNS stream connection. The default setting is 10 seconds.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ReadEtcHosts=</varname></term>
         <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
         <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve
