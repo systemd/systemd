@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 #include <linux/fs.h>
+#include <sys/file.h>
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
