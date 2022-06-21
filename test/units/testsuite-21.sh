@@ -8,17 +8,7 @@ set -o pipefail
 systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0
 
 at_exit() {
-    # "Safety net" - check for any coredumps which might have not caused dfuzzer
-    # to stop & return an error (we need to do this now before truncating the
-    # journal)
-    # TODO: check fo ASan/UBSan errors
-    local found_cd=0
-    while read -r exe; do
-        coredumctl info "$exe"
-        found_cd=1
-    done < <(coredumpctl -F COREDUMP_EXE | sort -u)
-    [[ $found_cd -eq 0 ]] || exit 1
-
+    set +e
     # We have to call the end.service explicitly even if it's specified on
     # the kernel cmdline via systemd.wants=end.service, since dfuzzer calls
     # org.freedesktop.systemd1.Manager.ClearJobs() which drops the service
