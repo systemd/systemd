@@ -30,7 +30,6 @@ TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 [[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
-QEMU_MEM="${QEMU_MEM:-512M}"
 # Note that defining a different IMAGE_NAME in a test setup script will only result
 # in default.img being copied and renamed. It can then be extended by defining
 # a test_append_files() function. The $1 parameter will be the root directory.
@@ -262,7 +261,7 @@ if get_bool "$IS_BUILT_WITH_ASAN"; then
     STRIP_BINARIES=no
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
-    QEMU_MEM="2048M"
+    QEMU_MEM="${QEMU_MEM:-2G}"
     QEMU_SMP="${QEMU_SMP:-4}"
 
     # We need to correctly distinguish between gcc's and clang's ASan DSOs.
@@ -456,7 +455,7 @@ run_qemu() {
     qemu_options+=(
         -smp "$QEMU_SMP"
         -net none
-        -m "$QEMU_MEM"
+        -m "${QEMU_MEM:-512M}"
         -nographic
         -kernel "$KERNEL_BIN"
         -drive "format=raw,cache=unsafe,file=$image"
