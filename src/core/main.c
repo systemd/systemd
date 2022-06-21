@@ -141,9 +141,9 @@ static usec_t arg_runtime_watchdog;
 static usec_t arg_reboot_watchdog;
 static usec_t arg_kexec_watchdog;
 static usec_t arg_pretimeout_watchdog;
-static char *arg_early_core_pattern;
+static char *arg_early_core_pattern = NULL;
 static char *arg_watchdog_pretimeout_governor;
-static char *arg_watchdog_device;
+static char *arg_watchdog_device = NULL;
 static char **arg_default_environment;
 static char **arg_manager_environment;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
@@ -2377,8 +2377,8 @@ static void reset_arguments(void) {
         arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
         arg_pretimeout_watchdog = 0;
-        arg_early_core_pattern = NULL;
-        arg_watchdog_device = NULL;
+        arg_early_core_pattern = mfree(arg_early_core_pattern);
+        arg_watchdog_device = mfree(arg_watchdog_device);
         arg_watchdog_pretimeout_governor = mfree(arg_watchdog_pretimeout_governor);
 
         arg_default_environment = strv_free(arg_default_environment);
