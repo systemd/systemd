@@ -1736,7 +1736,7 @@ install_basic_tools() {
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     image_install -o ldconfig.real
     # for TEST-35-LOGIN
-    image_install -o evemu-device evemu-event
+    image_install -o evemu-device evemu-event crond crontab
 }
 
 install_debug_tools() {
