@@ -218,6 +218,7 @@
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>
 
       <para>The generated output shows the current device database entry in a terse format. Each line shown
