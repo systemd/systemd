@@ -51,6 +51,7 @@ static bool arg_export = false;
 static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
+PagerFlags arg_pager_flags = 0;
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
@@ -294,6 +295,8 @@ static int export_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to scan devices: %m");
 
+        pager_open(arg_pager_flags);
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
                 (void) print_record(d, NULL);
 
@@ -496,7 +499,8 @@ static int help(void) {
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
                "  -w --wait-for-initialization[=SECONDS]\n"
-               "                              Wait for device to be initialized\n",
+               "                              Wait for device to be initialized\n"
+               "     --no-pager               Do not pipe output into a pager\n",
                program_invocation_short_name);
 
         return 0;
@@ -667,6 +671,7 @@ int info_main(int argc, char *argv[], void *userdata) {
         enum {
                 ARG_PROPERTY = 0x100,
                 ARG_VALUE,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -686,6 +691,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 { "value",                   no_argument,       NULL, ARG_VALUE    },
                 { "version",                 no_argument,       NULL, 'V'          },
                 { "wait-for-initialization", optional_argument, NULL, 'w'          },
+                { "no-pager",                no_argument,       NULL, ARG_NO_PAGER },
                 {}
         };
 
@@ -779,6 +785,9 @@ int info_main(int argc, char *argv[], void *userdata) {
                         return print_version();
                 case 'h':
                         return help();
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
                 case '?':
                         return -EINVAL;
                 default:
@@ -808,9 +817,10 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "-x/--export or -P/--export-prefix cannot be used with --value");
 
+        pager_open(arg_pager_flags);
+
         if (strv_isempty(devices)) {
                 assert(action == ACTION_TREE);
-                pager_open(0);
                 return print_tree(NULL);
         }
 
