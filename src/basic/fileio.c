@@ -470,9 +470,6 @@ int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *r
                 if (!buf)
                         return -ENOMEM;
 
-                /* Use a bigger allocation if we got it anyway, but not more than the limit. */
-                size = MIN3(MALLOC_SIZEOF_SAFE(buf) - 1, max_size, READ_VIRTUAL_BYTES_MAX);
-
                 for (;;) {
                         ssize_t k;
 
