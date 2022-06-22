@@ -759,7 +759,7 @@ static int mount_coldplug(Unit *u) {
         assert(m);
         assert(m->state == MOUNT_DEAD);
 
-        if (m->deserialized_state != m->state)
+        if (m->deserialized_state != m->state && m->deserialized_state != MOUNT_MOUNTING)
                 new_state = m->deserialized_state;
         else if (m->from_proc_self_mountinfo)
                 new_state = MOUNT_MOUNTED;
