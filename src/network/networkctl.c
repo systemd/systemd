@@ -692,7 +692,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
                 return;
         }
 
-        (void) sd_netlink_inc_rcvbuf(genl, RCVBUF_SIZE);
+        (void) sd_netlink_increase_rcvbuf(genl, RCVBUF_SIZE);
 
         r = wifi_get_interface(genl, link->ifindex, &link->wlan_iftype, &link->ssid);
         if (r < 0)
