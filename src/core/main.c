@@ -2118,11 +2118,9 @@ static int initialize_runtime(
                         write_container_id();
                 }
 
-                if (arg_watchdog_device) {
-                        r = watchdog_set_device(arg_watchdog_device);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
-                }
+                r = watchdog_set_device(arg_watchdog_device);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
         } else {
                 _cleanup_free_ char *p = NULL;
 
