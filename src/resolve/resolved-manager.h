@@ -41,6 +41,7 @@ struct Manager {
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
         bool cache_from_localhost;
+        usec_t dns_stream_timeout_usec;
         DnsStubListenerMode dns_stub_listener_mode;
 
 #if ENABLE_DNS_OVER_TLS
