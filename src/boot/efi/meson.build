@@ -251,6 +251,8 @@ efi_ldflags = [
         '-L', efi_libdir,
         '-nostdlib',
         '-T', efi_lds,
+        '-Wl,--no-warn-execstack',
+        '-Wl,--no-warn-rwx-segments',
         '-Wl,--build-id=sha1',
         '-Wl,--fatal-warnings',
         '-Wl,--no-undefined',
