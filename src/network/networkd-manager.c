@@ -226,7 +226,7 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_inc_rcvbuf(m->genl, RCVBUF_SIZE);
+        r = sd_netlink_increase_rcvbuf(m->genl, RCVBUF_SIZE);
         if (r < 0)
                 log_warning_errno(r, "Failed to increase receive buffer size for general netlink socket, ignoring: %m");
 
@@ -298,7 +298,7 @@ static int manager_connect_rtnl(Manager *m) {
          * case systemd sets the receive buffer size for us, and the value in the .socket unit
          * should take full effect. */
         if (fd < 0) {
-                r = sd_netlink_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+                r = sd_netlink_increase_rcvbuf(m->rtnl, RCVBUF_SIZE);
                 if (r < 0)
                         log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
         }
