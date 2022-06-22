@@ -295,6 +295,8 @@ static int export_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to scan devices: %m");
 
+        pager_open(arg_pager_flags);
+
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
                 (void) print_record(d, NULL);
 
@@ -815,9 +817,10 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "-x/--export or -P/--export-prefix cannot be used with --value");
 
+        pager_open(arg_pager_flags);
+
         if (strv_isempty(devices)) {
                 assert(action == ACTION_TREE);
-                pager_open(arg_pager_flags);
                 return print_tree(NULL);
         }
 
