@@ -3007,7 +3007,6 @@ finish:
                 /* Cleanup watchdog_device strings for valgrind. We need them
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
-                arg_watchdog_device = mfree(arg_watchdog_device);
                 reset_arguments();
                 return retval;
         }
