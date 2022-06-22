@@ -18,7 +18,6 @@ typedef struct Manager Manager;
 #include "cpu-set-util.h"
 #include "exec-util.h"
 #include "fdset.h"
-#include "firewall-util.h"
 #include "list.h"
 #include "missing_resource.h"
 #include "namespace.h"
@@ -314,9 +313,6 @@ struct ExecContext {
         bool mount_apivfs;
 
         bool dynamic_user;
-        size_t n_dynamic_user_nft_set_contexts;
-        NFTSetContext *dynamic_user_nft_set_context;
-
         bool remove_ipc;
 
         bool memory_deny_write_execute;
@@ -526,5 +522,3 @@ const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
-
-void exec_delete_dynamic_user_nft_set(const ExecContext *c, DynamicUser *d);
