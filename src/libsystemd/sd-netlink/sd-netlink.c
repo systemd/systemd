@@ -137,7 +137,7 @@ _public_ int sd_netlink_open(sd_netlink **ret) {
         return netlink_open_family(ret, NETLINK_ROUTE);
 }
 
-_public_ int sd_netlink_inc_rcvbuf(sd_netlink *nl, size_t size) {
+_public_ int sd_netlink_increase_rcvbuf(sd_netlink *nl, size_t size) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
