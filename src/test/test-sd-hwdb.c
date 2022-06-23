@@ -23,7 +23,7 @@ TEST(failed_enumerate) {
 }
 
 #define DELL_MODALIAS \
-        "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY"
+        "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY:"
 
 TEST(basic_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
