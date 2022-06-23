@@ -14,7 +14,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compress.h"
