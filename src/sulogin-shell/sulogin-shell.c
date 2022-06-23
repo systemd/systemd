@@ -9,7 +9,7 @@
 #include "sd-bus.h"
 
 #include "bus-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "log.h"

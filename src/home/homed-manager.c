@@ -14,7 +14,7 @@
 
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clean-ipc.h"
