@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "hashmap.h"
 #include "macro.h"
 #include "netlink-types.h"
 
@@ -30,6 +31,20 @@ struct NLTypeSystemUnion {
         NLMatchType match_type;
         uint16_t match_attribute;
 };
+
+struct GenericNetlinkFamily {
+        sd_netlink *genl;
+
+        const NLTypeSystem *type_system;
+
+        uint16_t id; /* a.k.a nlmsg_type */
+        char *name;
+        uint32_t version;
+        uint32_t additional_header_size;
+        Hashmap *multicast_group_by_name;
+};
+
+extern const GenericNetlinkFamily nlctrl_static;
 
 #define TYPE_SYSTEM_FROM_TYPE(name)                                     \
         { .count = ELEMENTSOF(name##_types), .types = name##_types }

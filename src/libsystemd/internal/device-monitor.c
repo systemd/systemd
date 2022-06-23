@@ -12,8 +12,8 @@
 
 #include "MurmurHash2.h"
 #include "alloc-util.h"
-#include "device-monitor-private.h"
-#include "device-private.h"
+#include "device-monitor.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"

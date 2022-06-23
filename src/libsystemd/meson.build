@@ -1,33 +1,75 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-sd_journal_sources = files(
-        'sd-journal/audit-type.c',
-        'sd-journal/audit-type.h',
-        'sd-journal/catalog.c',
-        'sd-journal/catalog.h',
-        'sd-journal/journal-def.h',
-        'sd-journal/journal-file.c',
-        'sd-journal/journal-file.h',
-        'sd-journal/journal-internal.h',
-        'sd-journal/journal-send.c',
-        'sd-journal/journal-send.h',
-        'sd-journal/journal-vacuum.c',
-        'sd-journal/journal-vacuum.h',
-        'sd-journal/journal-verify.c',
-        'sd-journal/journal-verify.h',
-        'sd-journal/lookup3.c',
-        'sd-journal/lookup3.h',
-        'sd-journal/mmap-cache.c',
-        'sd-journal/mmap-cache.h',
-        'sd-journal/sd-journal.c',
+libsystemd_internal_sources = files(
+        'internal/audit-type.h',
+        'internal/bus-address.c',
+        'internal/bus-address.h',
+        'internal/bus-common-errors.c',
+        'internal/bus-common-errors.h',
+        'internal/bus-compat.h',
+        'internal/bus-dump.c',
+        'internal/bus-dump.h',
+        'internal/bus-error-util.c',
+        'internal/bus-error-util.h',
+        'internal/bus-internal.c',
+        'internal/bus-internal.h',
+        'internal/bus-introspect.c',
+        'internal/bus-introspect.h',
+        'internal/bus-match.c',
+        'internal/bus-match.h',
+        'internal/bus-signature.c',
+        'internal/bus-signature.h',
+        'internal/bus-type.c',
+        'internal/bus-type.h',
+        'internal/catalog.c',
+        'internal/catalog.h',
+        'internal/device-enumerator.c',
+        'internal/device-enumerator.h',
+        'internal/device-monitor.c',
+        'internal/device-monitor.h',
+        'internal/device-util.c',
+        'internal/device-util.h',
+        'internal/event-util.c',
+        'internal/event-util.h',
+        'internal/id128-util.c',
+        'internal/id128-util.h',
+        'internal/journal-file.c',
+        'internal/journal-file.h',
+        'internal/journal-internal.c',
+        'internal/journal-internal.h',
+        'internal/journal-vacuum.c',
+        'internal/journal-vacuum.h',
+        'internal/journal-verify.c',
+        'internal/journal-verify.h',
+        'internal/lookup3.c',
+        'internal/lookup3.h',
+        'internal/mmap-cache.c',
+        'internal/mmap-cache.h',
+        'internal/netlink-internal.h',
+        'internal/netlink-message-alloc.c',
+        'internal/netlink-message-alloc.h',
+        'internal/netlink-types-genl.c',
+        'internal/netlink-types-internal.h',
+        'internal/netlink-types-nfnl.c',
+        'internal/netlink-types-rtnl.c',
+        'internal/netlink-types.c',
+        'internal/netlink-types.h',
+        'internal/netlink-util.c',
+        'internal/netlink-util.h',
+        'sd-netlink/netlink-message-nfnl.c',
+        'sd-network/network-util.c',
+        'sd-network/network-util.h',
+        'sd-network/sd-network.c',
+        'sd-resolve/resolve-private.h',
+        'sd-resolve/sd-resolve.c',
 )
 
 if conf.get('HAVE_GCRYPT') == 1
-        sd_journal_sources += files(
-                'sd-journal/fsprg.c',
-                'sd-journal/fsprg.h',
-                'sd-journal/journal-authenticate.c',
-                'sd-journal/journal-authenticate.h',
+        libsystemd_internal_sources += files(
+                'internal/fsprg.c',
+                'internal/fsprg.h',
+                'internal/journal-authenticate.c',
+                'internal/journal-authenticate.h',
         )
 endif
 
@@ -38,29 +80,33 @@ if conf.get('HAVE_AUDIT') == 1
         audit_type_includes += 'libaudit.h'
 endif
 
-generate_audit_type_list = find_program('sd-journal/generate-audit_type-list.sh')
+generate_audit_type_list = find_program('internal/generate-audit_type-list.sh')
 audit_type_list_txt = custom_target(
         'audit_type-list.txt',
         output : 'audit_type-list.txt',
         command : [generate_audit_type_list, cpp] + audit_type_includes,
         capture : true)
 
-audit_type_to_name = custom_target(
-        'audit_type-to-name.h',
-        input : ['sd-journal/audit_type-to-name.awk', audit_type_list_txt],
-        output : 'audit_type-to-name.h',
+audit_type_c = custom_target(
+        'audit_type.c',
+        input : ['internal/audit_type-to-name.awk', audit_type_list_txt],
+        output : 'audit_type.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-sd_journal_sources += [audit_type_to_name]
+libsystemd_internal_sources += audit_type_c
 
 ############################################################
 
-id128_sources = files(
-        'sd-id128/id128-util.c',
-        'sd-id128/id128-util.h',
-        'sd-id128/sd-id128.c',
+sd_journal_sources = files(
+        'sd-journal/journal-def.h',
+        'sd-journal/journal-send.c',
+        'sd-journal/sd-journal.c',
 )
+
+############################################################
+
+sd_id128_sources = files('sd-id128/sd-id128.c')
 
 ############################################################
 
@@ -70,8 +116,6 @@ sd_daemon_sources = files('sd-daemon/sd-daemon.c')
 
 sd_event_sources = files(
         'sd-event/event-source.h',
-        'sd-event/event-util.c',
-        'sd-event/event-util.h',
         'sd-event/sd-event.c',
 )
 
@@ -82,8 +126,6 @@ sd_login_sources = files('sd-login/sd-login.c')
 ############################################################
 
 libsystemd_sources = files(
-        'sd-bus/bus-common-errors.c',
-        'sd-bus/bus-common-errors.h',
         'sd-bus/bus-container.c',
         'sd-bus/bus-container.h',
         'sd-bus/bus-control.c',
@@ -91,71 +133,41 @@ libsystemd_sources = files(
         'sd-bus/bus-convenience.c',
         'sd-bus/bus-creds.c',
         'sd-bus/bus-creds.h',
-        'sd-bus/bus-dump.c',
-        'sd-bus/bus-dump.h',
         'sd-bus/bus-error.c',
         'sd-bus/bus-error.h',
-        'sd-bus/bus-internal.c',
-        'sd-bus/bus-internal.h',
-        'sd-bus/bus-introspect.c',
-        'sd-bus/bus-introspect.h',
         'sd-bus/bus-kernel.c',
         'sd-bus/bus-kernel.h',
-        'sd-bus/bus-match.c',
-        'sd-bus/bus-match.h',
         'sd-bus/bus-message.c',
         'sd-bus/bus-message.h',
         'sd-bus/bus-objects.c',
         'sd-bus/bus-objects.h',
+        'sd-bus/bus-protocol.c',
         'sd-bus/bus-protocol.h',
-        'sd-bus/bus-signature.c',
-        'sd-bus/bus-signature.h',
         'sd-bus/bus-slot.c',
         'sd-bus/bus-slot.h',
         'sd-bus/bus-socket.c',
         'sd-bus/bus-socket.h',
         'sd-bus/bus-track.c',
         'sd-bus/bus-track.h',
-        'sd-bus/bus-type.c',
-        'sd-bus/bus-type.h',
         'sd-bus/sd-bus.c',
-        'sd-device/device-enumerator-private.h',
-        'sd-device/device-enumerator.c',
-        'sd-device/device-internal.h',
-        'sd-device/device-monitor-private.h',
-        'sd-device/device-monitor.c',
-        'sd-device/device-private.c',
-        'sd-device/device-private.h',
-        'sd-device/device-util.c',
-        'sd-device/device-util.h',
         'sd-device/sd-device.c',
         'sd-hwdb/hwdb-internal.h',
         'sd-hwdb/sd-hwdb.c',
         'sd-netlink/netlink-genl.c',
         'sd-netlink/netlink-genl.h',
-        'sd-netlink/netlink-internal.h',
-        'sd-netlink/netlink-message-nfnl.c',
         'sd-netlink/netlink-message-rtnl.c',
         'sd-netlink/netlink-message.c',
         'sd-netlink/netlink-slot.c',
         'sd-netlink/netlink-slot.h',
         'sd-netlink/netlink-socket.c',
-        'sd-netlink/netlink-types-genl.c',
-        'sd-netlink/netlink-types-internal.h',
-        'sd-netlink/netlink-types-nfnl.c',
-        'sd-netlink/netlink-types-rtnl.c',
-        'sd-netlink/netlink-types.c',
-        'sd-netlink/netlink-types.h',
-        'sd-netlink/netlink-util.c',
-        'sd-netlink/netlink-util.h',
         'sd-netlink/sd-netlink.c',
-        'sd-network/network-util.c',
-        'sd-network/network-util.h',
-        'sd-network/sd-network.c',
         'sd-path/sd-path.c',
-        'sd-resolve/resolve-private.h',
-        'sd-resolve/sd-resolve.c',
-) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
+) + [libsystemd_internal_sources,
+     sd_journal_sources,
+     sd_id128_sources,
+     sd_daemon_sources,
+     sd_event_sources,
+     sd_login_sources]
 
 
 libsystemd_c_args = ['-fvisibility=default']
@@ -256,7 +268,8 @@ tests += [
          [threads]],
 
         [files('sd-bus/test-bus-vtable.c',
-               'sd-bus/test-vtable-data.h')],
+               'sd-bus/test-vtable-data.h'),
+         [libsystemd_static]],
 
         [files('sd-bus/test-bus-creds.c')],
 

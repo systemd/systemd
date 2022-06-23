@@ -17,7 +17,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"

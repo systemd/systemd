@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "device-private.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fido_id_desc.h"

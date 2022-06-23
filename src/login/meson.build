@@ -102,6 +102,7 @@ tests += [
         [files('test-login-tables.c'),
          [liblogind_core,
           libbasic_shared,
+          libsystemd,
           libshared],
          [threads]],
 ]

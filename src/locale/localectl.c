@@ -5,7 +5,7 @@
 
 #include "sd-bus.h"
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "fd-util.h"
