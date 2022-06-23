@@ -9,27 +9,30 @@ on:
 
 jobs:
   label-component:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
+    permissions:
+      issues: write
 
     strategy:
       matrix:
         template: [ bug_report.yml, feature_request.yml ]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@eeb10cff27034e7acf239c5d29f62154018672fd
         with:
           node-version: '16'
 
       - name: Parse issue form
-        uses: stefanbuck/github-issue-praser@v2
+        uses: stefanbuck/github-issue-parser@fb73b92b5c4d283c3e9a198f2bb7dbbf6cf87079
         id: issue-parser
         with:
           template-path: .github/ISSUE_TEMPLATE/${{ matrix.template }}
 
       - name: Set labels based on component field
-        uses: redhat-plumbers-in-action/advanced-issue-labeler@v1
+        uses: redhat-plumbers-in-action/advanced-issue-labeler@b89eb39b97529bb7596cb4e716485a6d6f7dd74a
         with:
           issue-form: ${{ steps.issue-parser.outputs.jsonString }}
           section: component
