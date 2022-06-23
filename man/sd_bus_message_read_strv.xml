@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>sd_bus_message_read_strv</refname>
+    <refname>sd_bus_message_read_strv_extend</refname>
 
     <refpurpose>Access an array of strings in a message</refpurpose>
   </refnamediv>
@@ -30,26 +31,39 @@
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char ***<parameter>l</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_read_strv_extend</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char ***<parameter>l</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_read_strv()</function> gives access to an array of string-like items in
+    <para><function>sd_bus_message_read_strv()</function> reads an array of string-like items from the
     message <parameter>m</parameter>. The "read pointer" in the message must be right before an array of
     strings (D-Bus type <literal>as</literal>), object paths (D-Bus type <literal>ao</literal>), or
     signatures (D-Bus type <literal>ag</literal>). On success, a pointer to a
-    <constant>NULL</constant>-terminated array of strings is returned in the output parameter
+    <constant>NULL</constant>-terminated array of strings (strv) is returned in the output parameter
     <parameter>l</parameter>. Note that ownership of this array is transferred to the caller. Hence, the
     caller is responsible for freeing this array and its contents.</para>
+
+    <para><function>sd_bus_message_read_strv_extend()</function> is similar, but the second parameter is an
+    input-output parameter. If <parameter>*l</parameter> is <constant>NULL</constant>, if behaves identically
+    to <function>sd_bus_message_read_strv()</function>. Otherwise, <parameter>*l</parameter> must point to a
+    strv, which will be reallocated and extended with additional strings. This function is particularly
+    useful when combining multiple lists of strings in a message or messages into a single array of strings.
+    </para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_bus_message_read_strv()</function> returns a non-negative integer. On
-    failure, it returns a negative errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>

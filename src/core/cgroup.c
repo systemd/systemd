@@ -12,7 +12,7 @@
 #include "bpf-foreign.h"
 #include "bpf-socket-bind.h"
 #include "btrfs-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"

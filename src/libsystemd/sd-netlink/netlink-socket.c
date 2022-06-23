@@ -12,20 +12,11 @@
 #include "format-util.h"
 #include "io-util.h"
 #include "netlink-internal.h"
+#include "netlink-message-alloc.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "util.h"
-
-int socket_open(int family) {
-        int fd;
-
-        fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, family);
-        if (fd < 0)
-                return -errno;
-
-        return fd_move_above_stdio(fd);
-}
 
 static int broadcast_groups_get(sd_netlink *nl) {
         _cleanup_free_ uint32_t *groups = NULL;
@@ -186,32 +177,6 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         assert(m->hdr);
 
         k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len, 0, &addr.sa, sizeof(addr));
-        if (k < 0)
-                return -errno;
-
-        return k;
-}
-
-int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
-        _cleanup_free_ struct iovec *iovs = NULL;
-        ssize_t k;
-
-        assert(nl);
-        assert(m);
-        assert(msgcount > 0);
-
-        iovs = new(struct iovec, msgcount);
-        if (!iovs)
-                return -ENOMEM;
-
-        for (size_t i = 0; i < msgcount; i++) {
-                assert(m[i]->hdr);
-                assert(m[i]->hdr->nlmsg_len > 0);
-
-                iovs[i] = IOVEC_MAKE(m[i]->hdr, m[i]->hdr->nlmsg_len);
-        }
-
-        k = writev(nl->fd, iovs, msgcount);
         if (k < 0)
                 return -errno;
 

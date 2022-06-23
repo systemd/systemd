@@ -158,21 +158,6 @@ static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
         return (uint8_t*) m->header + sizeof(struct bus_header);
 }
 
-int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
-int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
-
-int bus_message_from_malloc(
-                sd_bus *bus,
-                void *buffer,
-                size_t length,
-                int *fds,
-                size_t n_fds,
-                const char *label,
-                sd_bus_message **ret);
-
-int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
-int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
-
 #define MESSAGE_FOREACH_PART(part, i, m) \
         for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
 

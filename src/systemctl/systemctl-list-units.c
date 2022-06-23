@@ -2,7 +2,7 @@
 
 #include "sd-login.h"
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "format-table.h"
 #include "locale-util.h"
 #include "set.h"

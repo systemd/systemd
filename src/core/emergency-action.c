@@ -2,7 +2,7 @@
 
 #include <sys/reboot.h>
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "emergency-action.h"
 #include "raw-reboot.h"
