@@ -741,11 +741,11 @@ _public_ int sd_netlink_message_read(sd_netlink_message *m, unsigned short type,
         if (r < 0)
                 return r;
 
-        if ((size_t) r < size)
-                return -EIO;
+        if ((size_t) r > size)
+                return -ENOBUFS;
 
         if (data)
-                memcpy(data, attr_data, size);
+                memcpy(data, attr_data, r);
 
         return r;
 }
