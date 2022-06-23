@@ -41,9 +41,28 @@ case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing $BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION*.conf"
-        exec rm -f \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf" \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+"*".conf"
+        # XXX: doesn't take tries into account
+        # decrease refcount only if there's actually a config for it
+        if [ -e "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION${SNAPSHOT:+-$SNAPSHOT}.conf" ]; then
+            fn="$ENTRY_DIR_ABS/refcnt"
+            if [ -e "$fn" ]; then
+                read cnt < "$ENTRY_DIR_ABS/refcnt"
+                [[ "$cnt" =~ ^[0-9]+$ ]] || cnt=1
+                ((--cnt))
+                if [[ "$cnt" -gt 0 ]]; then
+                        echo "$cnt" > "$fn.new"
+                        mv "$fn.new" "$fn"
+                else
+                        rm -f "$ENTRY_DIR_ABS/refcnt"
+                fi
+            fi
+        fi
+        rm -f "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION${SNAPSHOT:+-$SNAPSHOT}.conf"
+        rm -f "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION${SNAPSHOT:+-$SNAPSHOT}+"*".conf"
+        if [ -n "$SNAPSHOT" ]; then
+            rm -f "/.snapshots/${SNAPSHOT}/bls-$ENTRY_TOKEN-$KERNEL_VERSION-$SNAPSHOT.conf"
+        fi
+        exit 0
         ;;
     add)
         ;;
@@ -82,6 +101,9 @@ BOOT_OPTIONS="${BOOT_OPTIONS% }"
 if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
+if [[ -n "$SUBVOL" ]]; then
+    BOOT_OPTIONS=$(echo "$BOOT_OPTIONS"|sed -e "s,rootflags=subvol=[^ ]*,rootflags=subvol=$SUBVOL,;tx; s,\$,rootflags=subvol=$SUBVOL,;:x")
+fi
 
 if [ -r /etc/kernel/tries ]; then
     read -r TRIES </etc/kernel/tries
@@ -89,9 +111,9 @@ if [ -r /etc/kernel/tries ]; then
         echo "/etc/kernel/tries does not contain an integer." >&2
         exit 1
     fi
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION${SNAPSHOT:+-$SNAPSHOT}+$TRIES.conf"
 else
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION${SNAPSHOT:+-$SNAPSHOT}.conf"
 fi
 
 if ! [ -d "$ENTRY_DIR_ABS" ]; then
@@ -99,10 +121,19 @@ if ! [ -d "$ENTRY_DIR_ABS" ]; then
     exit 1
 fi
 
-install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
-    echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
-    exit 1
-}
+# in snapshot mode we cannot allow kernel with same version but different content
+if [ -n "$SNAPSHOT" ] && [ -e "$ENTRY_DIR_ABS/linux" ]; then
+	if ! cmp -s "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux"; then
+	    echo "Error: '$KERNEL_IMAGE' differs from already installed '$ENTRY_DIR_ABS/linux'." >&2
+	    exit 1
+	fi
+else
+	install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
+	    echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+	    exit 1
+	}
+	[ -e "$ENTRY_DIR_ABS/refcnt" ] || echo 0 > "$ENTRY_DIR_ABS/refcnt"
+fi
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
@@ -126,9 +157,17 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     exit 1
 }
 
+fn="$ENTRY_DIR_ABS/refcnt"
+if ! [ -e "$LOADER_ENTRY" ]; then
+    read cnt < "$fn" || cnt=0
+    [[ "$cnt" =~ ^[0-9]+$ ]] || cnt=0
+    ((++cnt))
+    echo "$cnt" > "$fn.new"
+fi
+
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating $LOADER_ENTRY"
 {
-    echo "title      $PRETTY_NAME"
+    echo "title      $PRETTY_NAME${SNAPSHOT:+@$SNAPSHOT}"
     echo "version    $KERNEL_VERSION"
     if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
         # See similar logic above for the systemd.machine_id= kernel command line option
@@ -152,4 +191,9 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
+[ -e "$fn.new" ] && mv "$fn.new" "$fn"
+
+if [[ -n "$SNAPSHOT" ]] && [[ -d "/.snapshots/$SNAPSHOT" ]]; then
+    install -m 444 "$LOADER_ENTRY" "/.snapshots/$SNAPSHOT/bls-${LOADER_ENTRY##*/}"
+fi
 exit 0

@@ -275,6 +275,12 @@ cleanup() {
 
 trap cleanup EXIT
 
+if [ -e "/usr/lib/kernel/snapshots.sh" ]; then
+       . /usr/lib/kernel/snapshots.sh
+       init_snapshots
+       [ -n "$SNAPSHOT" ] && export SNAPSHOT SUBVOL
+fi
+
 KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t kernel-install.staging.XXXXXXX)"
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
@@ -343,8 +349,19 @@ case "$COMMAND" in
         done
 
         if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
-            rm -rf "$ENTRY_DIR_ABS"
+            if [ -n "$SNAPSHOT" ]; then
+                fn="$ENTRY_DIR_ABS/refcnt"
+                if [ -e "$fn" ]; then
+                    read cnt < "$ENTRY_DIR_ABS/refcnt"
+                    [[ "$cnt" =~ ^[0-9]+$ ]] || cnt=1
+                    if [ "$cnt" -gt 0 ]; then
+                        exit 0
+                    fi
+                fi
+            else
+                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ENTRY_DIR_ABS/"
+                rm -rf "$ENTRY_DIR_ABS"
+            fi
         fi
         ;;
 
