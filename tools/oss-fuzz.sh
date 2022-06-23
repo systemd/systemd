@@ -108,7 +108,8 @@ zip -jqr "$OUT/fuzz-dns-packet_seed_corpus.zip" "$df/packet"
 install -Dt "$OUT/src/shared/" \
         "$build"/src/basic/libsystemd-basic-*.so \
         "$build"/src/shared/libsystemd-shared-*.so \
-        "$build"/src/core/libsystemd-core-*.so
+        "$build"/src/core/libsystemd-core-*.so \
+        "$build"/libsystemd.so
 
 # Most i386 libraries have to be brought to the runtime environment somehow. Ideally they
 # should be linked statically but since it isn't possible another way to keep them close
