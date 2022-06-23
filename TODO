@@ -1046,6 +1046,10 @@ Features:
 
 * Permit masking specific netlink APIs with RestrictAddressFamily=
 
+* sd-netlink:
+  - clean up the split into files
+  - rename message_* to netlink_message_*
+
 * define gpt header bits to select volatility mode
 
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc

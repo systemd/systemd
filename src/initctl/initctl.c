@@ -12,7 +12,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "daemon-util.h"
 #include "def.h"

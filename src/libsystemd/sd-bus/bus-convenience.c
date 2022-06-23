@@ -270,7 +270,7 @@ _public_ int sd_bus_reply_method_errorfv(
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        bus_error_setfv(&error, name, format, ap);
+        sd_bus_error_setfv(&error, name, format, ap);
 
         return sd_bus_reply_method_error(call, &error);
 }

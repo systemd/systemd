@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "bus-dump.h"
+#include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
