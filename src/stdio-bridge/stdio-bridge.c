@@ -10,7 +10,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
-#include "bus-internal.h"
+#include "bus-address.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "io-util.h"

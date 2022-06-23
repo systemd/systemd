@@ -7,8 +7,8 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "device-monitor-private.h"
-#include "device-private.h"
+#include "device-internal.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"

@@ -6,7 +6,7 @@
 
 #include "ask-password-api.h"
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"

@@ -3,7 +3,7 @@
 #include <linux/loop.h>
 
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "copy.h"

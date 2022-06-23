@@ -121,7 +121,13 @@ struct sd_journal {
         Hashmap *errors;
 };
 
-char *journal_make_match_string(sd_journal *j);
+int journal_send_fd(void);
+
+char* _journal_make_match_string(Match *m);
+static inline char* journal_make_match_string(sd_journal *j) {
+        return _journal_make_match_string(ASSERT_PTR(j)->level0);
+}
+
 void journal_print_header(sd_journal *j);
 
 #define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \

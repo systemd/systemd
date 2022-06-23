@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-compat.h"
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-objects.h"
@@ -10,11 +11,11 @@
 #include "memory-util.h"
 #include "string-util.h"
 
-#define BUS_INTROSPECT_DOCTYPE                                       \
+#define BUS_INTROSPECT_DOCTYPE                                          \
         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
         "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
 
-#define BUS_INTROSPECT_INTERFACE_PEER                                \
+#define BUS_INTROSPECT_INTERFACE_PEER                                   \
         " <interface name=\"org.freedesktop.DBus.Peer\">\n"             \
         "  <method name=\"Ping\"/>\n"                                   \
         "  <method name=\"GetMachineId\">\n"                            \
@@ -22,14 +23,14 @@
         "  </method>\n"                                                 \
         " </interface>\n"
 
-#define BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                      \
+#define BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                         \
         " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
         "  <method name=\"Introspect\">\n"                              \
         "   <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"    \
         "  </method>\n"                                                 \
         " </interface>\n"
 
-#define BUS_INTROSPECT_INTERFACE_PROPERTIES                          \
+#define BUS_INTROSPECT_INTERFACE_PROPERTIES                             \
         " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
         "  <method name=\"Get\">\n"                                     \
         "   <arg name=\"interface_name\" direction=\"in\" type=\"s\"/>\n" \
@@ -52,7 +53,7 @@
         "  </signal>\n"                                                 \
         " </interface>\n"
 
-#define BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER                      \
+#define BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER                         \
         " <interface name=\"org.freedesktop.DBus.ObjectManager\">\n"    \
         "  <method name=\"GetManagedObjects\">\n"                       \
         "   <arg type=\"a{oa{sa{sv}}}\" name=\"object_paths_interfaces_and_properties\" direction=\"out\"/>\n" \
@@ -82,6 +83,17 @@ int introspect_begin(struct introspect *i, bool trusted) {
               "<node>\n", i->f);
 
         return 0;
+}
+
+static int vtable_features(const sd_bus_vtable *vtable) {
+        if (vtable[0].x.start.element_size < VTABLE_ELEMENT_SIZE_242 ||
+            !vtable[0].x.start.vtable_format_reference)
+                return 0;
+        return vtable[0].x.start.features;
+}
+
+bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
+        return vtable_features(vtable) & _SD_BUS_VTABLE_PARAM_NAMES;
 }
 
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {

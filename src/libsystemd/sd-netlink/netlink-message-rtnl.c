@@ -12,6 +12,7 @@
 
 #include "format-util.h"
 #include "netlink-internal.h"
+#include "netlink-message-alloc.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
