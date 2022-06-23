@@ -3,7 +3,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "copy.h"
 #include "main-func.h"
 #include "pretty-print.h"

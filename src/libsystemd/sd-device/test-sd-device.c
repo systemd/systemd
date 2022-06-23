@@ -3,9 +3,8 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-#include "device-enumerator-private.h"
-#include "device-internal.h"
-#include "device-private.h"
+#include "device-enumerator.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"

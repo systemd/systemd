@@ -5,7 +5,9 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-address.h"
 #include "bus-dump.h"
+#include "bus-error-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"

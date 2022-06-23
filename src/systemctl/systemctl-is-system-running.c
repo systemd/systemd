@@ -9,7 +9,7 @@
 #include "systemctl.h"
 #include "bus-util.h"
 #include "bus-locator.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 
 static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         char **state = userdata;

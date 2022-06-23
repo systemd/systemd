@@ -5,7 +5,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
-#include "device-enumerator-private.h"
+#include "device-enumerator.h"
 #include "glyph-util.h"
 #include "path-util.h"
 #include "string-util.h"

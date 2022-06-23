@@ -6,8 +6,8 @@
 #include "sd-device.h"
 #include "sd-event.h"
 
-#include "device-monitor-private.h"
-#include "device-private.h"
+#include "device-monitor.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "macro.h"
 #include "stat-util.h"

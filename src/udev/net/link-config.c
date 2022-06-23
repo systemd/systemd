@@ -13,7 +13,7 @@
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "def.h"
-#include "device-private.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
