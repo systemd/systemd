@@ -593,8 +593,8 @@ static EFI_STATUS reboot_into_firmware(void) {
         if (EFI_ERROR(err))
                 return log_error_status_stall(err, L"Error setting OsIndications: %r", err);
 
-        err = RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-        return log_error_status_stall(err, L"Error calling ResetSystem: %r", err);
+        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        assert_not_reached();
 }
 
 static BOOLEAN menu_run(
@@ -1986,7 +1986,8 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                                 EFI_VARIABLE_NON_VOLATILE);
                         if (EFI_ERROR(err))
                                 return err;
-                        return RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
+                        RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
+                        assert_not_reached();
                 }
         }
 
