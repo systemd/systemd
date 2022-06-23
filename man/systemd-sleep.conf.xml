@@ -78,9 +78,13 @@
         <term>suspend-then-hibernate</term>
 
         <listitem><para>A low power state where the system is initially suspended
-        (the state is stored in RAM). If not interrupted within the delay specified by
-        <command>HibernateDelaySec=</command>, the system will be woken using an RTC
-        alarm and hibernated (the state is then stored on disk).
+        (the state is stored in RAM). The system is first suspended for the duration
+        specified by <command>HibernateDelaySec=</command>. After wakeup via an RTC
+        alarm, if the current capacity is Normal, High or Full, the system goes back
+        to suspend, for the amount of time it would take to fully discharge the battery
+        minus 30 minutes, calculated by measuring the discharge rate from before the
+        first suspension to the first wakeup. If the current capacity is Low or Critical,
+        the system will be hibernated (the state is then stored on disk).
         </para></listitem>
       </varlistentry>
 
@@ -173,11 +177,11 @@
       </varlistentry>
       <varlistentry>
         <term><varname>HibernateDelaySec=</varname></term>
-
-        <listitem><para>The amount of time the system spends in suspend mode before the system is
-        automatically put into hibernate mode, when using
+        <listitem><para>The amount of time the system spends in suspend mode
+        before the RTC alarm wakes the system, before the battery discharge rate
+        can be estimated and used instead to calculate the suspension interval.
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Defaults
-        to 2h.</para></listitem>
+        to 1h.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
