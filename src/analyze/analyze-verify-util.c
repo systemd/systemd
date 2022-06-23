@@ -5,7 +5,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "analyze-verify-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "log.h"
 #include "manager.h"

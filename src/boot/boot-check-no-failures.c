@@ -8,7 +8,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"

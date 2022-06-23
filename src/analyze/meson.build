@@ -59,6 +59,7 @@ tests += [
                'analyze-verify-util.h'),
          [libcore,
           libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],

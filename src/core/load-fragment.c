@@ -22,7 +22,7 @@
 #include "bpf-lsm.h"
 #include "bpf-program.h"
 #include "bpf-socket-bind.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "cap-list.h"

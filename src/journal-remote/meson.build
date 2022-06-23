@@ -76,9 +76,10 @@ endif
 
 fuzzers += [
         [files('fuzz-journal-remote.c'),
-         [libsystemd_journal_remote,
-          libbasic,
-          libshared],
+         [libbasic,
+          libsystemd,
+          libshared,
+          libsystemd_journal_remote],
          [],
          [journal_includes]],
 ]

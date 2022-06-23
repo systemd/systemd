@@ -7,7 +7,7 @@
 #include <errno.h>
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "dbus-timer.h"
 #include "dbus-unit.h"

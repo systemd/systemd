@@ -7,6 +7,7 @@
 #include "io-util.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
+#include "netlink-message-alloc.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "process-util.h"

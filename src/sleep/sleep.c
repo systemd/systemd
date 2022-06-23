@@ -17,7 +17,7 @@
 #include "sd-messages.h"
 
 #include "btrfs-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
