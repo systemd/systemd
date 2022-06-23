@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-address.h"
 #include "bus-internal.h"
 #include "log.h"
 #include "string-util.h"

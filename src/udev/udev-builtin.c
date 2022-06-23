@@ -3,7 +3,7 @@
 #include <getopt.h>
 #include <stdio.h>
 
-#include "device-private.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "string-util.h"
 #include "strv.h"

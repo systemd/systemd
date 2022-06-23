@@ -7,7 +7,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"

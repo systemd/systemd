@@ -8,3 +8,7 @@ bool signature_is_pair(const char *s);
 bool signature_is_valid(const char *s, bool allow_dict_entry);
 
 int signature_element_length(const char *s, size_t *l);
+
+bool message_validate_nul(const char *s, size_t l);
+bool message_validate_string(const char *s, size_t l);
+bool message_validate_signature(const char *s, size_t l);

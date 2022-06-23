@@ -80,6 +80,7 @@ tests += [
         [files('test-journal-syslog.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [threads,
           libxz,
@@ -89,6 +90,7 @@ tests += [
         [files('test-journal-config.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libxz,
           liblz4,
@@ -97,26 +99,31 @@ tests += [
         [files('test-journal.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared]],
 
         [files('test-journal-stream.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared]],
 
         [files('test-journal-flush.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared]],
 
         [files('test-journal-verify.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared]],
 
         [files('test-journal-interleaving.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared]],
 ]
 
@@ -125,6 +132,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 
@@ -132,6 +140,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 
@@ -139,6 +148,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 
@@ -146,6 +156,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 
@@ -153,6 +164,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 
@@ -160,6 +172,7 @@ fuzzers += [
                'fuzz-journald.c'),
          [libjournal_core,
           libbasic,
+          libsystemd,
           libshared],
          [libselinux]],
 ]

@@ -6,7 +6,7 @@
 #include "analyze.h"
 #include "analyze-security.h"
 #include "analyze-verify.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"

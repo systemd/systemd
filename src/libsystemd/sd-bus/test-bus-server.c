@@ -2,10 +2,11 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 
 #include "sd-bus.h"
 
-#include "bus-internal.h"
+#include "bus-error-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"

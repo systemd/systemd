@@ -40,6 +40,7 @@ tests += [
         [files('test-machine-tables.c'),
          [libmachine_core,
           libbasic,
+          libsystemd,
           libshared],
          [threads]],
 ]

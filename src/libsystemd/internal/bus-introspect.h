@@ -4,8 +4,15 @@
 #include <stdio.h>
 
 #include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
 #include "ordered-set.h"
+
+bool bus_vtable_has_names(const sd_bus_vtable *vtable);
+
+static inline const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
+        return (const sd_bus_vtable*) ((char*) v + vtable[0].x.start.element_size);
+}
 
 struct introspect {
         FILE *f;
