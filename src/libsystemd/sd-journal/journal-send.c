@@ -5,10 +5,6 @@
 #include <printf.h>
 #include <stddef.h>
 #include <sys/un.h>
-#include <unistd.h>
-#if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
-#endif
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
 
@@ -19,7 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
-#include "journal-send.h"
+#include "journal-internal.h"
 #include "memfd-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -38,51 +34,6 @@
                 memcpy(*_f, "CODE_FUNC=", 10);    \
                 memcpy(*_f + 10, _func, _fl);     \
         } while (false)
-
-/* We open a single fd, and we'll share it with the current process,
- * all its threads, and all its subprocesses. This means we need to
- * initialize it atomically, and need to operate on it atomically
- * never assuming we are the only user */
-static int fd_plus_one = 0;
-
-static int journal_fd(void) {
-        int fd;
-
-retry:
-        if (fd_plus_one > 0)
-                return fd_plus_one - 1;
-
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0)
-                return -errno;
-
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
-
-        if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
-                safe_close(fd);
-                goto retry;
-        }
-
-        return fd;
-}
-
-#if VALGRIND
-void close_journal_fd(void) {
-        /* Be nice to valgrind. This is not atomic. This must be used only in tests. */
-
-        if (!RUNNING_ON_VALGRIND)
-                return;
-
-        if (getpid() != gettid())
-                return;
-
-        if (fd_plus_one <= 0)
-                return;
-
-        safe_close(fd_plus_one - 1);
-        fd_plus_one = 0;
-}
-#endif
 
 _public_ int sd_journal_print(int priority, const char *format, ...) {
         int r;
@@ -303,7 +254,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                 w[j++] = IOVEC_MAKE_STRING("\n");
         }
 
-        fd = journal_fd();
+        fd = journal_send_fd();
         if (_unlikely_(fd < 0))
                 return fd;
 

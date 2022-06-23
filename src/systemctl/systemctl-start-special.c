@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "bootspec.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "efivars.h"
 #include "parse-util.h"

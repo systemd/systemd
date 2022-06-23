@@ -30,7 +30,7 @@ int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
         char ***p = userdata;
         int r;
 
-        r = bus_message_read_strv_extend(m, &l);
+        r = sd_bus_message_read_strv_extend(m, &l);
         if (r < 0)
                 return r;
 
@@ -75,7 +75,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
                 _cleanup_strv_free_ char **l = NULL;
                 char ***p = userdata;
 
-                r = bus_message_read_strv_extend(m, &l);
+                r = sd_bus_message_read_strv_extend(m, &l);
                 if (r < 0)
                         return r;
 

@@ -26,7 +26,7 @@
 #include "bpf-lsm.h"
 #endif
 #include "build.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-util.h"

@@ -106,6 +106,7 @@ git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing "$df"
 zip -jqr "$OUT/fuzz-dns-packet_seed_corpus.zip" "$df/packet"
 
 install -Dt "$OUT/src/shared/" \
+        "$build"/src/basic/libsystemd-basic-*.so \
         "$build"/src/shared/libsystemd-shared-*.so \
         "$build"/src/core/libsystemd-core-*.so
 
