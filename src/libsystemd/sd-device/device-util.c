@@ -4,6 +4,8 @@
 
 #include "device-util.h"
 #include "path-util.h"
+#include "string-table.h"
+#include "string-util.h"
 
 static bool device_match_sysattr_value(sd_device *device, const char *sysattr, const char *match_value) {
         const char *value;
@@ -60,4 +62,21 @@ bool device_match_parent(sd_device *device, Set *match_parent, Set *nomatch_pare
                         return true;
 
         return false;
+}
+
+static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
+        [SD_DEVICE_ADD]     = "add",
+        [SD_DEVICE_REMOVE]  = "remove",
+        [SD_DEVICE_CHANGE]  = "change",
+        [SD_DEVICE_MOVE]    = "move",
+        [SD_DEVICE_ONLINE]  = "online",
+        [SD_DEVICE_OFFLINE] = "offline",
+        [SD_DEVICE_BIND]    = "bind",
+        [SD_DEVICE_UNBIND]  = "unbind",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t);
+
+void dump_device_action_table(void) {
+        DUMP_STRING_TABLE(device_action, sd_device_action_t, _SD_DEVICE_ACTION_MAX);
 }

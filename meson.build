@@ -1902,16 +1902,20 @@ basic_includes = include_directories(
         'src/systemd',
         '.')
 
-libsystemd_includes = [basic_includes, include_directories(
-        'src/libsystemd/sd-bus',
-        'src/libsystemd/sd-device',
-        'src/libsystemd/sd-event',
-        'src/libsystemd/sd-hwdb',
-        'src/libsystemd/sd-id128',
-        'src/libsystemd/sd-journal',
-        'src/libsystemd/sd-netlink',
-        'src/libsystemd/sd-network',
-        'src/libsystemd/sd-resolve')]
+libsystemd_includes = [
+        basic_includes,
+        include_directories(
+                'src/libsystemd/internal',
+                'src/libsystemd/sd-bus',
+                'src/libsystemd/sd-device',
+                'src/libsystemd/sd-event',
+                'src/libsystemd/sd-hwdb',
+                'src/libsystemd/sd-id128',
+                'src/libsystemd/sd-journal',
+                'src/libsystemd/sd-netlink',
+                'src/libsystemd/sd-network',
+                'src/libsystemd/sd-resolve',
+        )]
 
 includes = [libsystemd_includes, include_directories('src/shared')]
 
@@ -1919,21 +1923,14 @@ subdir('po')
 subdir('catalog')
 subdir('src/basic')
 subdir('src/libsystemd')
-subdir('src/shared')
-subdir('src/udev')
-subdir('src/libudev')
-subdir('src/cryptsetup/cryptsetup-tokens')
-
-alias_target('devel', libsystemd_pc, libudev_pc)
 
 libsystemd = shared_library(
         'systemd',
-        disable_mempool_c,
         version : libsystemd_version,
         include_directories : libsystemd_includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic,
+        link_with : [libbasic_shared,
                      libbasic_gcrypt,
                      libbasic_compress],
         link_whole : [libsystemd_static],
@@ -1944,8 +1941,6 @@ libsystemd = shared_library(
         install_tag: 'libsystemd',
         install_dir : rootlibdir)
 
-alias_target('libsystemd', libsystemd)
-
 install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
@@ -1953,7 +1948,6 @@ install_libsystemd_static = static_library(
         basic_gcrypt_sources,
         basic_compress_sources,
         fundamental_sources,
-        disable_mempool_c,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
@@ -1973,9 +1967,11 @@ install_libsystemd_static = static_library(
                         libopenssl],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
+subdir('src/shared')
+subdir('src/libudev')
+
 libudev = shared_library(
         'udev',
-        disable_mempool_c,
         version : libudev_version,
         include_directories : includes,
         link_args : ['-shared',
@@ -1988,8 +1984,6 @@ libudev = shared_library(
         install_tag: 'libudev',
         install_dir : rootlibdir)
 
-alias_target('libudev', libudev)
-
 install_libudev_static = static_library(
         'udev',
         basic_sources,
@@ -1997,7 +1991,6 @@ install_libudev_static = static_library(
         shared_sources,
         libsystemd_sources,
         libudev_sources,
-        disable_mempool_c,
         include_directories : includes,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
@@ -2008,6 +2001,13 @@ install_libudev_static = static_library(
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 
+alias_target('libsystemd', libsystemd)
+alias_target('libudev', libudev)
+alias_target('devel', libsystemd_pc, libudev_pc)
+
+subdir('src/udev')
+subdir('src/cryptsetup/cryptsetup-tokens')
+
 if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         if conf.get('HAVE_TPM2') == 1
                 cryptsetup_token_systemd_tpm2 = shared_library(
@@ -2017,6 +2017,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
                         link_with : [lib_cryptsetup_token_common,
+                                     libbasic_shared,
                                      libshared],
                         dependencies : [libcryptsetup,
                                         tpm2,
@@ -2035,6 +2036,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
                         link_with : [lib_cryptsetup_token_common,
+                                     libbasic_shared,
                                      libshared],
                         dependencies : [libcryptsetup,
                                         libfido2,
@@ -2053,6 +2055,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + cryptsetup_token_sym_path],
                         link_with : [lib_cryptsetup_token_common,
+                                     libbasic_shared,
                                      libshared],
                         dependencies : [libcryptsetup,
                                         libp11kit,
@@ -2118,7 +2121,6 @@ subdir('test')
 test_dlopen = executable(
         'test-dlopen',
         test_dlopen_c,
-        disable_mempool_c,
         include_directories : includes,
         link_with : [libbasic],
         dependencies : [libdl],
@@ -2148,7 +2150,6 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 nss = shared_library(
                         'nss_' + module,
                         sources,
-                        disable_mempool_c,
                         version : '2',
                         include_directories : incs,
                         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
@@ -2189,8 +2190,10 @@ exe = executable(
         'systemd',
         systemd_sources,
         include_directories : includes,
-        link_with : [libcore,
-                     libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared,
+                     libcore],
         dependencies : [versiondep,
                         libseccomp],
         install_rpath : rootpkglibdir,
@@ -2208,6 +2211,8 @@ exe = executable(
         systemd_analyze_sources,
         include_directories : core_includes,
         link_with : [libcore,
+                     libbasic_shared,
+                     libsystemd,
                      libshared],
         dependencies : [versiondep,
                         libseccomp],
@@ -2226,6 +2231,8 @@ executable(
         systemd_journald_sources,
         include_directories : includes,
         link_with : [libjournal_core,
+                     libbasic_shared,
+                     libsystemd,
                      libshared],
         dependencies : [threads,
                         libxz,
@@ -2241,6 +2248,8 @@ public_programs += executable(
         systemd_cat_sources,
         include_directories : includes,
         link_with : [libjournal_core,
+                     libbasic_shared,
+                     libsystemd,
                      libshared],
         dependencies : [threads],
         install_rpath : rootpkglibdir,
@@ -2250,7 +2259,9 @@ public_programs += executable(
         'journalctl',
         journalctl_sources,
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [threads,
                         libdl,
                         libxz,
@@ -2265,7 +2276,9 @@ executable(
         'systemd-getty-generator',
         'src/getty-generator/getty-generator.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : systemgeneratordir)
@@ -2274,7 +2287,9 @@ executable(
         'systemd-debug-generator',
         'src/debug-generator/debug-generator.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : systemgeneratordir)
@@ -2283,7 +2298,9 @@ executable(
         'systemd-run-generator',
         'src/run-generator/run-generator.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : systemgeneratordir)
@@ -2292,7 +2309,9 @@ exe = executable(
         'systemd-fstab-generator',
         'src/fstab-generator/fstab-generator.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : systemgeneratordir)
@@ -2310,7 +2329,9 @@ if conf.get('ENABLE_ENVIRONMENT_D') == 1
                 '30-systemd-environment-d-generator',
                 'src/environment-d-generator/environment-d-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : userenvgeneratordir)
@@ -2325,7 +2346,9 @@ if conf.get('ENABLE_HIBERNATE') == 1
                 'systemd-hibernate-resume-generator',
                 'src/hibernate-resume/hibernate-resume-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2334,7 +2357,9 @@ if conf.get('ENABLE_HIBERNATE') == 1
                 'systemd-hibernate-resume',
                 'src/hibernate-resume/hibernate-resume.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2345,7 +2370,9 @@ if conf.get('HAVE_BLKID') == 1
                 'systemd-gpt-auto-generator',
                 'src/gpt-auto-generator/gpt-auto-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : libblkid,
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2355,7 +2382,9 @@ if conf.get('HAVE_BLKID') == 1
                 'systemd-dissect',
                 'src/dissect/dissect.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -2365,7 +2394,9 @@ if conf.get('ENABLE_RESOLVE') == 1
                 'systemd-resolved',
                 systemd_resolved_sources,
                 include_directories : resolve_includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
                 dependencies : systemd_resolved_dependencies,
@@ -2377,7 +2408,9 @@ if conf.get('ENABLE_RESOLVE') == 1
                 'resolvectl',
                 resolvectl_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
                 dependencies : [threads,
@@ -2402,6 +2435,8 @@ if conf.get('ENABLE_LOGIND') == 1
                 systemd_logind_sources,
                 include_directories : includes,
                 link_with : [liblogind_core,
+                             libbasic_shared,
+                             libsystemd,
                              libshared],
                 dependencies : [threads,
                                 libacl],
@@ -2413,7 +2448,9 @@ if conf.get('ENABLE_LOGIND') == 1
                 'loginctl',
                 loginctl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 liblz4,
                                 libxz,
@@ -2426,7 +2463,9 @@ if conf.get('ENABLE_LOGIND') == 1
                 'systemd-inhibit',
                 'src/login/inhibit.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2463,7 +2502,9 @@ if conf.get('ENABLE_LOGIND') == 1
                 'systemd-user-runtime-dir',
                 user_runtime_dir_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2474,7 +2515,9 @@ if conf.get('HAVE_PAM') == 1
                 'systemd-user-sessions',
                 'src/user-sessions/user-sessions.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2482,7 +2525,9 @@ endif
 
 if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
         if get_option('link-boot-shared')
-                boot_link_with = [libshared]
+                boot_link_with = [libbasic_shared,
+                                  libsystemd,
+                                  libshared]
         else
                 boot_link_with = [libsystemd_static, libshared_static]
         endif
@@ -2520,7 +2565,9 @@ executable(
         'systemd-boot-check-no-failures',
         'src/boot/boot-check-no-failures.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [libblkid],
         install_rpath : rootpkglibdir,
         install : true,
@@ -2530,7 +2577,9 @@ public_programs += executable(
         'systemd-socket-activate',
         'src/activate/activate.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [threads],
         install_rpath : rootpkglibdir,
         install : true)
@@ -2556,7 +2605,9 @@ if conf.get('ENABLE_PORTABLED') == 1
                 'systemd-portabled',
                 systemd_portabled_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads, libselinux],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2566,7 +2617,9 @@ if conf.get('ENABLE_PORTABLED') == 1
                 'portablectl',
                 'src/portable/portablectl.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2578,7 +2631,9 @@ if conf.get('ENABLE_SYSEXT') == 1
                 'systemd-sysext',
                 systemd_sysext_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2589,7 +2644,9 @@ if conf.get('ENABLE_USERDB') == 1
                 'systemd-userwork',
                 systemd_userwork_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2599,7 +2656,9 @@ if conf.get('ENABLE_USERDB') == 1
                 'systemd-userdbd',
                 systemd_userdbd_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2609,7 +2668,9 @@ if conf.get('ENABLE_USERDB') == 1
                 'userdbctl',
                 userdbctl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads],
                 install_rpath : rootpkglibdir,
                 install : true)
@@ -2620,7 +2681,9 @@ if conf.get('ENABLE_HOMED') == 1
                 'systemd-homework',
                 systemd_homework_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libblkid,
                                 libcrypt,
@@ -2635,7 +2698,9 @@ if conf.get('ENABLE_HOMED') == 1
                 'systemd-homed',
                 systemd_homed_sources,
                 include_directories : home_includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libcrypt,
                                 libopenssl,
@@ -2648,7 +2713,9 @@ if conf.get('ENABLE_HOMED') == 1
                 'homectl',
                 homectl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libcrypt,
                                 libopenssl,
@@ -2703,7 +2770,9 @@ if conf.get('ENABLE_BACKLIGHT') == 1
                 'systemd-backlight',
                 'src/backlight/backlight.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2714,7 +2783,9 @@ if conf.get('ENABLE_RFKILL') == 1
                 'systemd-rfkill',
                 'src/rfkill/rfkill.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2724,7 +2795,9 @@ executable(
         'systemd-system-update-generator',
         'src/system-update-generator/system-update-generator.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : systemgeneratordir)
@@ -2734,7 +2807,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-cryptsetup',
                 systemd_cryptsetup_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libcryptsetup,
                                 libp11kit],
                 install_rpath : rootpkglibdir,
@@ -2745,7 +2820,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-cryptsetup-generator',
                 'src/cryptsetup/cryptsetup-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2754,7 +2831,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-veritysetup',
                 'src/veritysetup/veritysetup.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libcryptsetup],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2764,7 +2843,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-veritysetup-generator',
                 'src/veritysetup/veritysetup-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2773,7 +2854,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-cryptenroll',
                 systemd_cryptenroll_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libcryptsetup,
                                 libdl,
                                 libopenssl,
@@ -2785,7 +2868,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-integritysetup',
                 ['src/integritysetup/integritysetup.c', 'src/integritysetup/integrity-util.c'],
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libcryptsetup],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2795,7 +2880,9 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'systemd-integritysetup-generator',
                 ['src/integritysetup/integritysetup-generator.c', 'src/integritysetup/integrity-util.c'],
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2806,7 +2893,9 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
                 'systemd-sysv-generator',
                 'src/sysv-generator/sysv-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2822,7 +2911,9 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
                 'systemd-rc-local-generator',
                 'src/rc-local-generator/rc-local-generator.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2833,7 +2924,9 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
                 'systemd-xdg-autostart-generator',
                 systemd_xdg_autostart_generator_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : usergeneratordir)
@@ -2842,7 +2935,9 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
                 'systemd-xdg-autostart-condition',
                 'src/xdg-autostart-generator/xdg-autostart-condition.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2853,7 +2948,9 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 'systemd-hostnamed',
                 'src/hostname/hostnamed.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2862,7 +2959,9 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 'hostnamectl',
                 'src/hostname/hostnamectl.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -2880,7 +2979,9 @@ if conf.get('ENABLE_LOCALED') == 1
                 'systemd-localed',
                 systemd_localed_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : deps,
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2890,7 +2991,9 @@ if conf.get('ENABLE_LOCALED') == 1
                 'localectl',
                 localectl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -2900,7 +3003,9 @@ if conf.get('ENABLE_TIMEDATED') == 1
                 'systemd-timedated',
                 'src/timedate/timedated.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2912,7 +3017,9 @@ if conf.get('ENABLE_TIMEDATECTL') == 1
                 'src/timedate/timedatectl.c',
                 include_directories : includes,
                 install_rpath : rootpkglibdir,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libm],
                 install : true)
 endif
@@ -2922,7 +3029,9 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 'systemd-timesyncd',
                 systemd_timesyncd_sources,
                 include_directories : includes,
-                link_with : [libtimesyncd_core],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libtimesyncd_core],
                 dependencies : [threads,
                                 libm],
                 install_rpath : rootpkglibdir,
@@ -2933,7 +3042,9 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 'systemd-time-wait-sync',
                 'src/timesync/wait-sync.c',
                 include_directories : includes,
-                link_with : [libtimesyncd_core],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libtimesyncd_core],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2945,6 +3056,8 @@ if conf.get('ENABLE_MACHINED') == 1
                 systemd_machined_sources,
                 include_directories : includes,
                 link_with : [libmachine_core,
+                             libbasic_shared,
+                             libsystemd,
                              libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2954,7 +3067,9 @@ if conf.get('ENABLE_MACHINED') == 1
                 'machinectl',
                 'src/machine/machinectl.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libxz,
                                 liblz4,
@@ -2969,7 +3084,9 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-importd',
                 systemd_importd_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -2979,7 +3096,9 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-pull',
                 systemd_pull_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              lib_import_common],
                 dependencies : [versiondep,
                                 libcurl,
@@ -2995,7 +3114,9 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-import',
                 systemd_import_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              lib_import_common],
                 dependencies : [libcurl,
                                 libz,
@@ -3009,7 +3130,9 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-import-fs',
                 systemd_import_fs_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              lib_import_common],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -3019,7 +3142,9 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-export',
                 systemd_export_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              lib_import_common],
                 dependencies : [libcurl,
                                 libz,
@@ -3037,7 +3162,9 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
                 'systemd-journal-upload',
                 systemd_journal_upload_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [versiondep,
                                 threads,
                                 libcurl,
@@ -3055,7 +3182,9 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                 'systemd-journal-remote',
                 systemd_journal_remote_sources,
                 include_directories : journal_includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              libsystemd_journal_remote],
                 dependencies : [threads,
                                 libmicrohttpd,
@@ -3071,7 +3200,9 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                 'systemd-journal-gatewayd',
                 systemd_journal_gatewayd_sources,
                 include_directories : journal_includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libmicrohttpd,
                                 libgnutls,
@@ -3088,7 +3219,9 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'systemd-coredump',
                 systemd_coredump_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              libbasic_compress],
                 dependencies : [threads,
                                 libacl,
@@ -3103,7 +3236,9 @@ if conf.get('ENABLE_COREDUMP') == 1
                 'coredumpctl',
                 coredumpctl_sources,
                 include_directories : includes,
-                link_with : [libshared,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared,
                              libbasic_compress],
                 dependencies : [threads,
                                 libxz,
@@ -3118,7 +3253,9 @@ if conf.get('ENABLE_PSTORE') == 1
                 'systemd-pstore',
                 systemd_pstore_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libacl,
                                 libxz,
@@ -3130,20 +3267,25 @@ if conf.get('ENABLE_PSTORE') == 1
 endif
 
 if conf.get('ENABLE_OOMD') == 1
-        dbus_programs += executable('systemd-oomd',
-                   systemd_oomd_sources,
-                   include_directories : includes,
-                   link_with : [libshared],
-                   dependencies : [],
-                   install_rpath : rootpkglibdir,
-                   install : true,
-                   install_dir : rootlibexecdir)
+        dbus_programs += executable(
+                'systemd-oomd',
+                systemd_oomd_sources,
+                include_directories : includes,
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
+                dependencies : [],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
 
         public_programs += executable(
                 'oomctl',
                 oomctl_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [],
                 install_rpath : rootpkglibdir,
                 install : true)
@@ -3154,7 +3296,9 @@ if conf.get('ENABLE_BINFMT') == 1
                 'systemd-binfmt',
                 'src/binfmt/binfmt.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3172,7 +3316,9 @@ if conf.get('ENABLE_SYSUPDATE') == 1
                 'systemd-sysupdate',
                 systemd_sysupdate_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libblkid,
                                 libfdisk,
@@ -3188,7 +3334,9 @@ if conf.get('ENABLE_VCONSOLE') == 1
                 'systemd-vconsole-setup',
                 'src/vconsole/vconsole-setup.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3199,7 +3347,9 @@ if conf.get('ENABLE_RANDOMSEED') == 1
                 'systemd-random-seed',
                 'src/random-seed/random-seed.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3210,7 +3360,9 @@ if conf.get('ENABLE_FIRSTBOOT') == 1
                 'systemd-firstboot',
                 'src/firstboot/firstboot.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libcrypt],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -3221,7 +3373,9 @@ executable(
         'systemd-remount-fs',
         'src/remount-fs/remount-fs.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3230,7 +3384,9 @@ executable(
         'systemd-machine-id-setup',
         'src/machine-id-setup/machine-id-setup-main.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3239,24 +3395,31 @@ executable(
         'systemd-fsck',
         'src/fsck/fsck.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
 
-executable('systemd-growfs',
-           'src/partition/growfs.c',
-           include_directories : includes,
-           link_with : [libshared],
-           install_rpath : rootpkglibdir,
-           install : true,
-           install_dir : rootlibexecdir)
+executable(
+        'systemd-growfs',
+        'src/partition/growfs.c',
+        include_directories : includes,
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
+        install_rpath : rootpkglibdir,
+        install : true,
+        install_dir : rootlibexecdir)
 
 executable(
         'systemd-makefs',
         'src/partition/makefs.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3265,7 +3428,9 @@ executable(
         'systemd-sleep',
         'src/sleep/sleep.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3279,7 +3444,9 @@ public_programs += executable(
         'systemd-sysctl',
         'src/sysctl/sysctl.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3288,7 +3455,9 @@ executable(
         'systemd-ac-power',
         'src/ac-power/ac-power.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3297,7 +3466,9 @@ public_programs += executable(
         'systemd-detect-virt',
         'src/detect-virt/detect-virt.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3305,7 +3476,9 @@ public_programs += executable(
         'systemd-delta',
         'src/delta/delta.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3313,7 +3486,9 @@ public_programs += executable(
         'systemd-escape',
         'src/escape/escape.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3322,7 +3497,9 @@ public_programs += executable(
         'systemd-notify',
         'src/notify/notify.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3331,7 +3508,9 @@ public_programs += executable(
         'systemd-creds',
         'src/creds/creds.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [threads,
                         libopenssl],
         install_rpath : rootpkglibdir,
@@ -3342,7 +3521,9 @@ executable(
         'systemd-volatile-root',
         'src/volatile-root/volatile-root.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : conf.get('ENABLE_INITRD') == 1,
         install_dir : rootlibexecdir)
@@ -3351,7 +3532,9 @@ executable(
         'systemd-cgroups-agent',
         'src/cgroups-agent/cgroups-agent.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3360,7 +3543,9 @@ systemd_id128 = executable(
         'systemd-id128',
         'src/id128/id128.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 public_programs += systemd_id128
@@ -3377,7 +3562,9 @@ public_programs += executable(
         'systemd-path',
         'src/path/path.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3385,7 +3572,9 @@ public_programs += executable(
         'systemd-ask-password',
         'src/ask-password/ask-password.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3394,7 +3583,9 @@ executable(
         'systemd-reply-password',
         'src/reply-password/reply-password.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3403,7 +3594,9 @@ public_programs += executable(
         'systemd-tty-ask-password-agent',
         'src/tty-ask-password-agent/tty-ask-password-agent.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3412,7 +3605,9 @@ public_programs += executable(
         'systemd-cgls',
         'src/cgls/cgls.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3420,7 +3615,9 @@ public_programs += executable(
         'systemd-cgtop',
         'src/cgtop/cgtop.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3428,7 +3625,9 @@ executable(
         'systemd-initctl',
         'src/initctl/initctl.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : (conf.get('HAVE_SYSV_COMPAT') == 1),
         install_dir : rootlibexecdir)
@@ -3437,7 +3636,9 @@ public_programs += executable(
         'systemd-mount',
         'src/mount/mount-tool.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies: [libmount],
         install_rpath : rootpkglibdir,
         install : true)
@@ -3449,7 +3650,9 @@ public_programs += executable(
         'systemd-run',
         'src/run/run.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3457,7 +3660,9 @@ public_programs += executable(
         'systemd-stdio-bridge',
         'src/stdio-bridge/stdio-bridge.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
@@ -3466,7 +3671,9 @@ public_programs += executable(
         'busctl',
         busctl_sources,
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
@@ -3476,7 +3683,9 @@ if enable_sysusers
                 'systemd-sysusers',
                 'src/sysusers/sysusers.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
@@ -3495,7 +3704,8 @@ if enable_sysusers
                         'src/sysusers/sysusers.c',
                         include_directories : includes,
                         c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
+                        link_with : [libbasic_shared,
+                                     libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
                                      libsystemd_static],
@@ -3517,7 +3727,9 @@ if conf.get('ENABLE_TMPFILES') == 1
                 'systemd-tmpfiles',
                 systemd_tmpfiles_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libacl],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -3537,7 +3749,8 @@ if conf.get('ENABLE_TMPFILES') == 1
                         systemd_tmpfiles_sources,
                         include_directories : includes,
                         c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
+                        link_with : [libbasic_shared,
+                                     libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
                                      libsystemd_static],
@@ -3580,7 +3793,9 @@ if conf.get('ENABLE_QUOTACHECK') == 1
                 'systemd-quotacheck',
                 'src/quotacheck/quotacheck.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3590,7 +3805,9 @@ public_programs += executable(
         'systemd-socket-proxyd',
         'src/socket-proxy/socket-proxyd.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [threads],
         install_rpath : rootpkglibdir,
         install : true,
@@ -3617,7 +3834,9 @@ if conf.get('ENABLE_REPART') == 1
                 'systemd-repart',
                 systemd_repart_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [threads,
                                 libblkid,
                                 libfdisk],
@@ -3637,7 +3856,9 @@ executable(
         'systemd-shutdown',
         systemd_shutdown_sources,
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [libmount],
         install_rpath : rootpkglibdir,
         install : true,
@@ -3647,7 +3868,9 @@ executable(
         'systemd-update-done',
         'src/update-done/update-done.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3656,7 +3879,9 @@ executable(
         'systemd-update-utmp',
         'src/update-utmp/update-utmp.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         dependencies : [libaudit],
         install_rpath : rootpkglibdir,
         install : (conf.get('ENABLE_UTMP') == 1),
@@ -3667,7 +3892,9 @@ if conf.get('HAVE_KMOD') == 1
                 'systemd-modules-load',
                 'src/modules-load/modules-load.c',
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_shared,
+                             libsystemd,
+                             libshared],
                 dependencies : [libkmod],
                 install_rpath : rootpkglibdir,
                 install : true,
@@ -3686,6 +3913,8 @@ public_programs += executable(
         systemd_nspawn_sources,
         include_directories : includes,
         link_with : [libnspawn_core,
+                     libbasic_shared,
+                     libsystemd,
                      libshared],
         dependencies : [libblkid,
                         libseccomp],
@@ -3746,7 +3975,9 @@ executable(
         'systemd-sulogin-shell',
         'src/sulogin-shell/sulogin-shell.c',
         include_directories : includes,
-        link_with : [libshared],
+        link_with : [libbasic_shared,
+                     libsystemd,
+                     libshared],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -3783,7 +4014,14 @@ endif
 
 foreach tuple : tests
         sources = tuple[0]
-        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
+        if tuple.length() > 1 and tuple[1].length() > 0
+                link_with = tuple[1]
+        else
+                link_with = [libbasic_shared,
+                             libsystemd,
+                             libshared]
+        endif
+
         dependencies = tuple.length() > 2 ? tuple[2] : []
         incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
         condition = tuple.length() > 4 ? tuple[4] : ''
@@ -3887,7 +4125,15 @@ fuzzer_exes = []
 
 foreach tuple : fuzzers
         sources = tuple[0]
-        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
+
+        if tuple.length() > 1 and tuple[1].length() > 0
+                link_with = tuple[1]
+        else
+                link_with = [libbasic_shared,
+                             libsystemd,
+                             libshared]
+        endif
+
         dependencies = tuple.length() > 2 ? tuple[2] : []
         incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
         defs = tuple.length() > 4 ? tuple[4] : []

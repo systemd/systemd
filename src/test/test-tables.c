@@ -6,7 +6,7 @@
 #include "cgroup-util.h"
 #include "compress.h"
 #include "condition.h"
-#include "device-private.h"
+#include "device-util.h"
 #include "device.h"
 #include "discover-image.h"
 #include "execute.h"

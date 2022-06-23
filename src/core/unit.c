@@ -14,6 +14,7 @@
 #include "bpf-foreign.h"
 #include "bpf-socket-bind.h"
 #include "bus-common-errors.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"

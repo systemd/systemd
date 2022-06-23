@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-map-properties.h"
 #include "bus-wait-for-units.h"
 #include "hashmap.h"
