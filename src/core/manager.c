@@ -25,7 +25,7 @@
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "clean-ipc.h"

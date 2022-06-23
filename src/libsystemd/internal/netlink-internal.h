@@ -129,22 +129,10 @@ struct sd_netlink_message {
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
-int message_new_full(
-                sd_netlink *nl,
-                uint16_t nlmsg_type,
-                const NLTypeSystem *type_system,
-                size_t header_size,
-                sd_netlink_message **ret);
-int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
-int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
-
 static inline uint32_t message_get_serial(sd_netlink_message *m) {
         assert(m);
         return ASSERT_PTR(m->hdr)->nlmsg_seq;
 }
-
-void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
 bool netlink_pid_changed(sd_netlink *nl);

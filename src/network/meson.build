@@ -231,6 +231,7 @@ sources += custom_target(
 
 if get_option('link-networkd-shared')
         networkd_link_with = [libbasic_shared,
+                              libsystemd,
                               libshared]
 else
         networkd_link_with = [libsystemd_static,

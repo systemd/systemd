@@ -18,7 +18,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "cgroup-setup.h"

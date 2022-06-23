@@ -24,7 +24,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "catalog.h"
 #include "chase-symlinks.h"

@@ -9,11 +9,6 @@
 
 bool bus_error_is_dirty(sd_bus_error *e);
 
-const char *bus_error_message(const sd_bus_error *e, int error);
-
-#define BUS_ERROR_OOM SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_MEMORY, "Out of memory")
-#define BUS_ERROR_FAILED SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed")
-
 /*
  * There are two ways to register error maps with the error translation
  * logic: by using BUS_ERROR_MAP_ELF_REGISTER, which however only
@@ -47,5 +42,3 @@ const char *bus_error_message(const sd_bus_error *e, int error);
 /* We use something exotic as end marker, to ensure people build the
  * maps using the macsd-ros. */
 #define BUS_ERROR_MAP_END_MARKER -'x'
-
-BUS_ERROR_MAP_ELF_USE(bus_standard_errors);
