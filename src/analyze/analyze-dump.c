@@ -4,7 +4,7 @@
 
 #include "analyze-dump.h"
 #include "analyze.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "copy.h"

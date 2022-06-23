@@ -7,7 +7,7 @@
 #include <sys/inotify.h>
 
 #include "alloc-util.h"
-#include "device-private.h"
+#include "device-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fs-util.h"

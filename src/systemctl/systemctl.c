@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "install.h"
 #include "main-func.h"

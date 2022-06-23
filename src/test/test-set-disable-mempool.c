@@ -2,6 +2,7 @@
 
 #include <pthread.h>
 
+#include "mempool.h"
 #include "process-util.h"
 #include "set.h"
 #include "tests.h"
@@ -15,6 +16,9 @@ static void* thread(void *p) {
         assert_se(*s);
 
         assert_se(!is_main_thread());
+        assert_se(mempool_enabled);
+        assert_se(!mempool_enabled());
+
         assert_se(set_size(*s) == NUM);
         *s = set_free(*s);
 
@@ -29,7 +33,10 @@ static void test_one(const char *val) {
 
         log_info("Testing with SYSTEMD_MEMPOOL=%s", val);
         assert_se(setenv("SYSTEMD_MEMPOOL", val, true) == 0);
+
         assert_se(is_main_thread());
+        assert_se(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
+        assert_se(!mempool_enabled());
 
         assert_se(s = set_new(NULL));
         for (i = 0; i < NUM; i++)
