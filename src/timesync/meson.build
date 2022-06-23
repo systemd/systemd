@@ -60,6 +60,7 @@ tests += [
         [files('test-timesync.c'),
          [libtimesyncd_core,
           libbasic,
+          libsystemd,
           libshared],
          [libm]],
 ]

@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "errno-util.h"

@@ -367,53 +367,6 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
         return 0;
 }
 
-static char *match_make_string(Match *m) {
-        char *p = NULL, *r;
-        bool enclose = false;
-
-        if (!m)
-                return strdup("none");
-
-        if (m->type == MATCH_DISCRETE)
-                return cescape_length(m->data, m->size);
-
-        LIST_FOREACH(matches, i, m->matches) {
-                char *t, *k;
-
-                t = match_make_string(i);
-                if (!t)
-                        return mfree(p);
-
-                if (p) {
-                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t);
-                        free(p);
-                        free(t);
-
-                        if (!k)
-                                return NULL;
-
-                        p = k;
-
-                        enclose = true;
-                } else
-                        p = t;
-        }
-
-        if (enclose) {
-                r = strjoin("(", p, ")");
-                free(p);
-                return r;
-        }
-
-        return p;
-}
-
-char *journal_make_match_string(sd_journal *j) {
-        assert(j);
-
-        return match_make_string(j->level0);
-}
-
 _public_ void sd_journal_flush_matches(sd_journal *j) {
         if (!j)
                 return;
@@ -2826,22 +2779,6 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(
                 *ret_to = to;
 
         return found;
-}
-
-void journal_print_header(sd_journal *j) {
-        JournalFile *f;
-        bool newline = false;
-
-        assert(j);
-
-        ORDERED_HASHMAP_FOREACH(f, j->files) {
-                if (newline)
-                        putchar('\n');
-                else
-                        newline = true;
-
-                journal_file_print_header(f);
-        }
 }
 
 _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {

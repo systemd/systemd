@@ -23,7 +23,7 @@
 #include "bond-util.h"
 #include "bridge-util.h"
 #include "bus-common-errors.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "device-util.h"
 #include "escape.h"

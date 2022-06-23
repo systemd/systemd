@@ -341,7 +341,7 @@ shared_sources = files(
         'wifi-util.h',
         'xml.c',
         'xml.h',
-)
+) + libsystemd_internal_sources
 
 if get_option('tests') != 'false'
         shared_sources += files(
@@ -446,6 +446,7 @@ shared_sources += shared_generated_gperf_headers
 libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
+                  libm,
                   libacl,
                   libblkid,
                   libcap,
@@ -482,9 +483,10 @@ libshared = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
-                      libbasic_gcrypt,
-                      libsystemd_static],
-        link_with : libbasic,
+                      libbasic_gcrypt],
+        link_with : [libbasic,
+                     libbasic_compress,
+                     libsystemd],
         dependencies : libshared_deps,
         install_rpath : rootpkglibdir,
         install : true,

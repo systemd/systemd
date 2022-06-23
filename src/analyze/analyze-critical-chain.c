@@ -3,7 +3,7 @@
 #include "analyze-critical-chain.h"
 #include "analyze-time-data.h"
 #include "analyze.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "copy.h"
 #include "path-util.h"
 #include "sort-util.h"
