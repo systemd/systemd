@@ -356,6 +356,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         if (r < 0)
                                 return log_device_debug_errno(device, r, "sd-device: Failed to add tag '%s': %m", word);
                 }
+        } else if (streq(key, "UDEV_DATABASE_VERSION")) {
+                r = safe_atou(value, &device->database_version);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to parse udev database version '%s': %m", value);
         } else {
                 r = device_add_property_internal(device, key, value);
                 if (r < 0)
@@ -525,6 +529,14 @@ static int device_update_properties_bufs(sd_device *device) {
 
         if (!device->properties_buf_outdated)
                 return 0;
+
+        /* append udev database version */
+        buf_nulstr = newdup(char, "UDEV_DATABASE_VERSION=1\0", STRLEN("UDEV_DATABASE_VERSION=1") + 2);
+        if (!buf_nulstr)
+                return -ENOMEM;
+
+        nulstr_len += STRLEN("UDEV_DATABASE_VERSION=1") + 1;
+        num++;
 
         FOREACH_DEVICE_PROPERTY(device, prop, val) {
                 size_t len = 0;
