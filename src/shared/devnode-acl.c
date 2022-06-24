@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "util.h"
@@ -212,8 +213,8 @@ int devnode_acl_all(const char *seat,
         SET_FOREACH(n, nodes) {
                 int k;
 
-                log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"→"UID_FMT"%s%s)",
-                          n, seat, old_uid, new_uid,
+                log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"%s"UID_FMT"%s%s)",
+                          n, seat, old_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), new_uid,
                           del ? " del" : "", add ? " add" : "");
 
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);
