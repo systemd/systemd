@@ -37,7 +37,7 @@ static inline void event_closep(EFI_EVENT *event) {
  * will replace ConInEx permanently if it ever reports a key press.
  * Lastly, a timer event allows us to provide a input timeout without having to call into
  * any input functions that can freeze on us or using a busy/stall loop. */
-EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
+EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL, *extraInEx = NULL;
         static BOOLEAN checked = FALSE;
         UINTN index;
@@ -79,7 +79,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         /* Watchdog rearming loop in case the user never provides us with input or some
          * broken firmware never returns from WaitForEvent. */
         for (;;) {
-                UINT64 watchdog_timeout_sec = 5 * 60,
+                uint64_t watchdog_timeout_sec = 5 * 60,
                        watchdog_ping_usec = watchdog_timeout_sec / 2 * 1000 * 1000;
 
                 /* SetTimer expects 100ns units for some reason. */
@@ -124,7 +124,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
          * The two may be out of sync on some firmware, giving us double input. */
         if (conInEx) {
                 EFI_KEY_DATA keydata;
-                UINT32 shift = 0;
+                uint32_t shift = 0;
 
                 err = conInEx->ReadKeyStrokeEx(conInEx, &keydata);
                 if (err != EFI_SUCCESS)
@@ -159,9 +159,9 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         return EFI_NOT_READY;
 }
 
-static EFI_STATUS change_mode(INT64 mode) {
+static EFI_STATUS change_mode(int64_t mode) {
         EFI_STATUS err;
-        INT32 old_mode;
+        int32_t old_mode;
 
         /* SetMode expects a UINTN, so make sure these values are sane. */
         mode = CLAMP(mode, CONSOLE_MODE_RANGE_MIN, CONSOLE_MODE_RANGE_MAX);
@@ -181,7 +181,7 @@ static EFI_STATUS change_mode(INT64 mode) {
         return err;
 }
 
-EFI_STATUS query_screen_resolution(UINT32 *ret_w, UINT32 *ret_h) {
+EFI_STATUS query_screen_resolution(uint32_t *ret_w, uint32_t *ret_h) {
         EFI_STATUS err;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *go;
 
@@ -197,8 +197,8 @@ EFI_STATUS query_screen_resolution(UINT32 *ret_w, UINT32 *ret_h) {
         return EFI_SUCCESS;
 }
 
-static INT64 get_auto_mode(void) {
-        UINT32 screen_width, screen_height;
+static int64_t get_auto_mode(void) {
+        uint32_t screen_width, screen_height;
 
         if (query_screen_resolution(&screen_width, &screen_height) == EFI_SUCCESS) {
                 BOOLEAN keep = FALSE;
@@ -212,12 +212,12 @@ static INT64 get_auto_mode(void) {
                  * area to the text viewport area. If it's less than 10 times bigger,
                  * then assume the text is readable and keep the text mode. */
                 else {
-                        UINT64 text_area;
+                        uint64_t text_area;
                         UINTN x_max, y_max;
-                        UINT64 screen_area = (UINT64)screen_width * (UINT64)screen_height;
+                        uint64_t screen_area = (uint64_t)screen_width * (uint64_t)screen_height;
 
                         console_query_mode(&x_max, &y_max);
-                        text_area = SYSTEM_FONT_WIDTH * SYSTEM_FONT_HEIGHT * (UINT64)x_max * (UINT64)y_max;
+                        text_area = SYSTEM_FONT_WIDTH * SYSTEM_FONT_HEIGHT * (uint64_t)x_max * (uint64_t)y_max;
 
                         if (text_area != 0 && screen_area/text_area < VIEWPORT_RATIO)
                                 keep = TRUE;
@@ -244,7 +244,7 @@ static INT64 get_auto_mode(void) {
         return CONSOLE_MODE_80_25;
 }
 
-EFI_STATUS console_set_mode(INT64 mode) {
+EFI_STATUS console_set_mode(int64_t mode) {
         switch (mode) {
         case CONSOLE_MODE_KEEP:
                 /* If the firmware indicates the current mode is invalid, change it anyway. */

@@ -16,11 +16,11 @@ static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) 
         assert(path);
         assert(node);
 
-        UINTN len = (UINT8 *) node - (UINT8 *) path;
+        UINTN len = (uint8_t *) node - (uint8_t *) path;
         EFI_DEVICE_PATH *chopped = xmalloc(len + END_DEVICE_PATH_LENGTH);
 
         memcpy(chopped, path, len);
-        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((UINT8 *) chopped + len));
+        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((uint8_t *) chopped + len));
 
         return chopped;
 }
@@ -43,7 +43,7 @@ static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
 
 static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
         EFI_PARTITION_TABLE_HEADER *h;
-        UINT32 crc32, crc32_saved;
+        uint32_t crc32, crc32_saved;
         EFI_STATUS err;
 
         assert(gpt_header_buffer);
@@ -93,7 +93,7 @@ static EFI_STATUS try_gpt(
         _cleanup_freepool_ EFI_PARTITION_ENTRY *entries = NULL;
         union GptHeaderBuffer gpt;
         EFI_STATUS err;
-        UINT32 crc32;
+        uint32_t crc32;
         UINTN size;
 
         assert(block_io);
@@ -137,7 +137,7 @@ static EFI_STATUS try_gpt(
                 EFI_PARTITION_ENTRY *entry;
                 EFI_LBA start, end;
 
-                entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                entry = (EFI_PARTITION_ENTRY*) ((uint8_t*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
                 if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
                         continue;
@@ -244,7 +244,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
                 /* Patch in the data we found */
                 EFI_DEVICE_PATH *xboot_path = path_dup(partition_path);
-                memcpy((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
+                memcpy((uint8_t *) xboot_path + ((uint8_t *) part_node - (uint8_t *) partition_path), &hd, sizeof(hd));
                 *ret_device_path = xboot_path;
                 return EFI_SUCCESS;
         }

@@ -3,4 +3,4 @@
 
 #include <efi.h>
 
-CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len);
+CHAR16 *get_bcd_title(uint8_t *bcd, UINTN bcd_len);

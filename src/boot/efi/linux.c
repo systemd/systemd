@@ -112,7 +112,7 @@ EFI_STATUS linux_exec(
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
-        UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
+        uint32_t kernel_alignment, kernel_size_of_image, kernel_entry_address;
         EFI_IMAGE_ENTRY_POINT kernel_entry;
         _cleanup_(cleanup_pages) struct pages kernel = {};
         void *new_buffer;
@@ -147,10 +147,10 @@ EFI_STATUS linux_exec(
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
         memcpy(new_buffer, linux_buffer, linux_length);
         /* zero out rest of memory (probably not needed, but BSS section should be 0) */
-        memset((UINT8 *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
+        memset((uint8_t *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
 
         /* get the entry point inside the relocated kernel */
-        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)new_buffer + kernel_entry_address);
+        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *)new_buffer + kernel_entry_address);
 
         /* register a LoadedImage Protocol in order to pass on the commandline */
         err = loaded_image_register(cmdline, cmdline_len, new_buffer, linux_length, &loaded_image_handle);

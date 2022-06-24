@@ -22,13 +22,13 @@
 #endif
 
 struct ShimLock {
-        EFI_STATUS __sysv_abi__ (*shim_verify) (void *buffer, UINT32 size);
+        EFI_STATUS __sysv_abi__ (*shim_verify) (void *buffer, uint32_t size);
 
         /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
          * see shim.c/shim.h and PeHeader.h in the github shim repo */
-        EFI_STATUS __sysv_abi__ (*generate_hash) (void *data, UINT32 datasize, void *context, UINT8 *sha256hash, UINT8 *sha1hash);
+        EFI_STATUS __sysv_abi__ (*generate_hash) (void *data, uint32_t datasize, void *context, uint8_t *sha256hash, uint8_t *sha1hash);
 
-        EFI_STATUS __sysv_abi__ (*read_header) (void *data, UINT32 datasize, void *context);
+        EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
 #define SHIM_LOCK_GUID \
@@ -40,7 +40,7 @@ BOOLEAN shim_loaded(void) {
         return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
-static BOOLEAN shim_validate(void *data, UINT32 size) {
+static BOOLEAN shim_validate(void *data, uint32_t size) {
         struct ShimLock *shim_lock;
 
         if (!data)
@@ -99,7 +99,7 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
  * authentication failure, be it EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION, or something
  * else. (This seems to vary between implementations.)
  */
-static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, UINT32 authentication_status,
+static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, uint32_t authentication_status,
                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
         EFI_STATUS err;
         _cleanup_freepool_ CHAR16 *dev_path_str = NULL;

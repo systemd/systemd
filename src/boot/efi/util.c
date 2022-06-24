@@ -27,7 +27,7 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags) {
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, uint32_t flags) {
         assert(vendor);
         assert(name);
         assert(buf || size == 0);
@@ -36,14 +36,14 @@ EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void
         return RT->SetVariable((CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
 }
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags) {
+EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, uint32_t flags) {
         assert(vendor);
         assert(name);
 
         return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, uint32_t flags) {
         CHAR16 str[32];
 
         assert(vendor);
@@ -56,34 +56,34 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         return efivar_set(vendor, name, str, flags);
 }
 
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 value, UINT32 flags) {
-        UINT8 buf[4];
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, uint32_t value, uint32_t flags) {
+        uint8_t buf[4];
 
         assert(vendor);
         assert(name);
 
-        buf[0] = (UINT8)(value >> 0U & 0xFF);
-        buf[1] = (UINT8)(value >> 8U & 0xFF);
-        buf[2] = (UINT8)(value >> 16U & 0xFF);
-        buf[3] = (UINT8)(value >> 24U & 0xFF);
+        buf[0] = (uint8_t)(value >> 0U & 0xFF);
+        buf[1] = (uint8_t)(value >> 8U & 0xFF);
+        buf[2] = (uint8_t)(value >> 16U & 0xFF);
+        buf[3] = (uint8_t)(value >> 24U & 0xFF);
 
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags) {
-        UINT8 buf[8];
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, uint64_t value, uint32_t flags) {
+        uint8_t buf[8];
 
         assert(vendor);
         assert(name);
 
-        buf[0] = (UINT8)(value >> 0U & 0xFF);
-        buf[1] = (UINT8)(value >> 8U & 0xFF);
-        buf[2] = (UINT8)(value >> 16U & 0xFF);
-        buf[3] = (UINT8)(value >> 24U & 0xFF);
-        buf[4] = (UINT8)(value >> 32U & 0xFF);
-        buf[5] = (UINT8)(value >> 40U & 0xFF);
-        buf[6] = (UINT8)(value >> 48U & 0xFF);
-        buf[7] = (UINT8)(value >> 56U & 0xFF);
+        buf[0] = (uint8_t)(value >> 0U & 0xFF);
+        buf[1] = (uint8_t)(value >> 8U & 0xFF);
+        buf[2] = (uint8_t)(value >> 16U & 0xFF);
+        buf[3] = (uint8_t)(value >> 24U & 0xFF);
+        buf[4] = (uint8_t)(value >> 32U & 0xFF);
+        buf[5] = (uint8_t)(value >> 40U & 0xFF);
+        buf[6] = (uint8_t)(value >> 48U & 0xFF);
+        buf[7] = (uint8_t)(value >> 56U & 0xFF);
 
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
@@ -144,7 +144,7 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret) {
+EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, uint32_t *ret) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN size;
         EFI_STATUS err;
@@ -154,17 +154,17 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 
         err = efivar_get_raw(vendor, name, &buf, &size);
         if (err == EFI_SUCCESS && ret) {
-                if (size != sizeof(UINT32))
+                if (size != sizeof(uint32_t))
                         return EFI_BUFFER_TOO_SMALL;
 
-                *ret = (UINT32) buf[0] << 0U | (UINT32) buf[1] << 8U | (UINT32) buf[2] << 16U |
-                        (UINT32) buf[3] << 24U;
+                *ret = (uint32_t) buf[0] << 0U | (uint32_t) buf[1] << 8U | (uint32_t) buf[2] << 16U |
+                        (uint32_t) buf[3] << 24U;
         }
 
         return err;
 }
 
-EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret) {
+EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, uint64_t *ret) {
         _cleanup_freepool_ CHAR8 *buf = NULL;
         UINTN size;
         EFI_STATUS err;
@@ -174,12 +174,12 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
 
         err = efivar_get_raw(vendor, name, &buf, &size);
         if (err == EFI_SUCCESS && ret) {
-                if (size != sizeof(UINT64))
+                if (size != sizeof(uint64_t))
                         return EFI_BUFFER_TOO_SMALL;
 
-                *ret = (UINT64) buf[0] << 0U | (UINT64) buf[1] << 8U | (UINT64) buf[2] << 16U |
-                        (UINT64) buf[3] << 24U | (UINT64) buf[4] << 32U | (UINT64) buf[5] << 40U |
-                        (UINT64) buf[6] << 48U | (UINT64) buf[7] << 56U;
+                *ret = (uint64_t) buf[0] << 0U | (uint64_t) buf[1] << 8U | (uint64_t) buf[2] << 16U |
+                        (uint64_t) buf[3] << 24U | (uint64_t) buf[4] << 32U | (uint64_t) buf[5] << 40U |
+                        (uint64_t) buf[6] << 48U | (uint64_t) buf[7] << 56U;
         }
 
         return err;
@@ -225,7 +225,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         return err;
 }
 
-void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
+void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, uint64_t usec) {
         CHAR16 str[32];
 
         assert(vendor);
@@ -416,7 +416,7 @@ void log_error_stall(const CHAR16 *fmt, ...) {
 
         assert(fmt);
 
-        INT32 attr = ST->ConOut->Mode->Attribute;
+        int32_t attr = ST->ConOut->Mode->Attribute;
         ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
 
         if (ST->ConOut->Mode->CursorColumn > 0)
@@ -606,8 +606,8 @@ EFI_STATUS open_directory(
         return EFI_SUCCESS;
 }
 
-UINT64 get_os_indications_supported(void) {
-        UINT64 osind;
+uint64_t get_os_indications_supported(void) {
+        uint64_t osind;
         EFI_STATUS err;
 
         /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
@@ -638,13 +638,13 @@ __attribute__((noinline)) void debug_break(void) {
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
-static inline UINT8 inb(UINT16 port) {
-        UINT8 value;
+static inline uint8_t inb(uint16_t port) {
+        uint8_t value;
         asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
         return value;
 }
 
-static inline void outb(UINT16 port, UINT8 value) {
+static inline void outb(uint16_t port, uint8_t value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
@@ -663,12 +663,12 @@ void beep(UINTN beep_count) {
         };
 
         /* Set frequency. */
-        UINT32 counter = PIT_FREQUENCY / PITCH;
+        uint32_t counter = PIT_FREQUENCY / PITCH;
         outb(TIMER_CONTROL_PORT, TIMER_PORT_MAGIC);
         outb(TIMER_CONTROL2_PORT, counter & 0xFF);
         outb(TIMER_CONTROL2_PORT, (counter >> 8) & 0xFF);
 
-        UINT8 value = inb(SPEAKER_CONTROL_PORT);
+        uint8_t value = inb(SPEAKER_CONTROL_PORT);
 
         while (beep_count > 0) {
                 /* Turn speaker on. */

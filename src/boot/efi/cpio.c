@@ -4,7 +4,7 @@
 #include "measure.h"
 #include "util.h"
 
-static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
+static CHAR8* write_cpio_word(CHAR8 *p, uint32_t v) {
         static const char hex[] = "0123456789abcdef";
 
         assert(p);
@@ -54,8 +54,8 @@ static EFI_STATUS pack_cpio_one(
                 const void *contents,
                 UINTN contents_size,
                 const CHAR8 *target_dir_prefix,
-                UINT32 access_mode,
-                UINT32 *inode_counter,
+                uint32_t access_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
@@ -161,8 +161,8 @@ static EFI_STATUS pack_cpio_one(
 
 static EFI_STATUS pack_cpio_dir(
                 const CHAR8 *path,
-                UINT32 access_mode,
-                UINT32 *inode_counter,
+                uint32_t access_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
@@ -229,8 +229,8 @@ static EFI_STATUS pack_cpio_dir(
 
 static EFI_STATUS pack_cpio_prefix(
                 const CHAR8 *path,
-                UINT32 dir_mode,
-                UINT32 *inode_counter,
+                uint32_t dir_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
@@ -298,7 +298,7 @@ static EFI_STATUS pack_cpio_trailer(
         assert_cc(sizeof(trailer) % 4 == 0);
 
         *cpio_buffer = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
-        memcpy((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
+        memcpy((uint8_t*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
         return EFI_SUCCESS;
@@ -309,9 +309,9 @@ EFI_STATUS pack_cpio(
                 const CHAR16 *dropin_dir,
                 const CHAR16 *match_suffix,
                 const CHAR8 *target_dir_prefix,
-                UINT32 dir_mode,
-                UINT32 access_mode,
-                const UINT32 tpm_pcr[],
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                const uint32_t tpm_pcr[],
                 UINTN n_tpm_pcr,
                 const CHAR16 *tpm_description,
                 void **ret_buffer,
@@ -323,7 +323,7 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) CHAR16 **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
-        UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
+        uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
         EFI_FILE_IO_INTERFACE *volume;
 
@@ -397,11 +397,11 @@ EFI_STATUS pack_cpio(
                         UINTN m;
 
                         /* We allocate 16 entries at a time, as a matter of optimization */
-                        if (n_items > (UINTN_MAX / sizeof(UINT16)) - 16) /* Overflow check, just in case */
+                        if (n_items > (UINTN_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
                                 return log_oom();
 
                         m = n_items + 16;
-                        items = xrealloc(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
+                        items = xrealloc(items, n_allocated * sizeof(uint16_t *), m * sizeof(uint16_t *));
                         n_allocated = m;
                 }
 

@@ -26,7 +26,7 @@ static EFI_STATUS combine_initrd(
 
         EFI_PHYSICAL_ADDRESS base = UINT32_MAX; /* allocate an area below the 32bit boundary for this */
         EFI_STATUS err;
-        UINT8 *p;
+        uint8_t *p;
         UINTN n;
 
         assert(ret_initrd_base);
@@ -93,7 +93,7 @@ static EFI_STATUS combine_initrd(
                 p += sysext_initrd_size;
         }
 
-        assert((UINT8*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
+        assert((uint8_t*) PHYSICAL_ADDRESS_TO_POINTER(base) + n == p);
 
         *ret_initrd_base = base;
         *ret_initrd_size = n;
@@ -203,7 +203,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* Show splash screen as early as possible */
-        graphics_splash((const UINT8*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
+        graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
 
         if (szs[SECTION_CMDLINE] > 0) {
                 cmdline = (CHAR8*) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
@@ -234,7 +234,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          (const CHAR8*) ".extra/credentials",
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
-                         /* tpm_pcr= */ (UINT32[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
+                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
                          /* n_tpm_pcr= */ 2,
                          L"Credentials initrd",
                          &credential_initrd,
@@ -246,7 +246,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          (const CHAR8*) ".extra/global_credentials",
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
-                         /* tpm_pcr= */ (UINT32[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
+                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
                          /* n_tpm_pcr= */ 2,
                          L"Global credentials initrd",
                          &global_credential_initrd,
@@ -258,7 +258,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                          (const CHAR8*) ".extra/sysext",
                          /* dir_mode= */ 0555,
                          /* access_mode= */ 0444,
-                         /* tpm_pcr= */ (UINT32[]) { TPM_PCR_INDEX_INITRD },
+                         /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_INITRD },
                          /* n_tpm_pcr= */ 1,
                          L"System extension initrd",
                          &sysext_initrd,
