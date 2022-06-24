@@ -155,7 +155,7 @@ EFI_STATUS linux_exec(
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(0x4000),
                         &addr);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
@@ -173,7 +173,7 @@ EFI_STATUS linux_exec(
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
                                 &addr);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
@@ -192,7 +192,7 @@ EFI_STATUS linux_exec(
 
         /* register LINUX_INITRD_MEDIA_GUID */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         linux_efi_handover(image, boot_params);
         (void) initrd_unregister(initrd_handle);

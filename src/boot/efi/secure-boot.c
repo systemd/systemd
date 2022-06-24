@@ -10,7 +10,7 @@ BOOLEAN secure_boot_enabled(void) {
 
         err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
 
-        return !EFI_ERROR(err) && secure;
+        return err == EFI_SUCCESS && secure;
 }
 
 SecureBootMode secure_boot_mode(void) {
@@ -18,7 +18,7 @@ SecureBootMode secure_boot_mode(void) {
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return SECURE_BOOT_UNSUPPORTED;
 
         /* We can assume FALSE for all these if they are abscent (AuditMode and

@@ -102,7 +102,7 @@ EFI_STATUS initrd_register(
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 free(loader);
 
         return err;
@@ -119,7 +119,7 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         err = BS->OpenProtocol(
                         initrd_handle, &EfiLoadFile2Protocol, (void **) &loader,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* close the handle */
@@ -131,7 +131,7 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         initrd_handle = NULL;

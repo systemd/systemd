@@ -296,23 +296,23 @@ EFI_STATUS pe_file_locate_sections(
         assert(sizes);
 
         err = dir->Open(dir, &handle, (CHAR16*)path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = sizeof(dos);
         err = handle->Read(handle, &len, &dos);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (len != sizeof(dos) || !verify_dos(&dos))
                 return EFI_LOAD_ERROR;
 
         err = handle->SetPosition(handle, dos.ExeHeader);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = sizeof(pe);
         err = handle->Read(handle, &len, &pe);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ FALSE))
                 return EFI_LOAD_ERROR;
@@ -323,12 +323,12 @@ EFI_STATUS pe_file_locate_sections(
                 return EFI_OUT_OF_RESOURCES;
 
         err = handle->SetPosition(handle, section_table_offset(&dos, &pe));
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = section_table_len;
         err = handle->Read(handle, &len, section_table);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (len != section_table_len)
                 return EFI_LOAD_ERROR;

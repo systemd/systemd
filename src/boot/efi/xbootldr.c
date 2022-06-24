@@ -65,7 +65,7 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
         h->Header.CRC32 = 0;
         err = BS->CalculateCrc32(gpt_header_buffer, h->Header.HeaderSize, &crc32);
         h->Header.CRC32 = crc32_saved;
-        if (EFI_ERROR(err) || crc32 != crc32_saved)
+        if (err != EFI_SUCCESS || crc32 != crc32_saved)
                 return FALSE;
 
         if (h->MyLBA != lba_expected)
@@ -105,7 +105,7 @@ static EFI_STATUS try_gpt(
                         block_io->Media->MediaId,
                         lba,
                         sizeof(gpt), &gpt);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
@@ -124,12 +124,12 @@ static EFI_STATUS try_gpt(
                         block_io->Media->MediaId,
                         gpt.gpt_header.PartitionEntryLBA,
                         size, entries);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (EFI_ERROR(err) || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
@@ -197,11 +197,11 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO *block_io;
         err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Filter out some block devices early. (We only care about block devices that aren't
@@ -234,7 +234,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                         block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
-                if (EFI_ERROR(err)) {
+                if (err != EFI_SUCCESS) {
                         /* GPT was valid but no XBOOT loader partition found. */
                         if (err == EFI_NOT_FOUND)
                                 break;

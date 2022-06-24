@@ -280,11 +280,11 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
         }
 
         err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &GraphicsOutput);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = bmp_parse_header(content, len, &dib, &map, &pixmap);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (dib->x < GraphicsOutput->Mode->Info->HorizontalResolution)
@@ -297,7 +297,7 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                         EfiBltVideoFill, 0, 0, 0, 0,
                         GraphicsOutput->Mode->Info->HorizontalResolution,
                         GraphicsOutput->Mode->Info->VerticalResolution, 0);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* EFI buffer */
@@ -307,15 +307,15 @@ EFI_STATUS graphics_splash(const UINT8 *content, UINTN len, const EFI_GRAPHICS_O
                         GraphicsOutput, blt,
                         EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
                         dib->x, dib->y, 0);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = bmp_to_blt(blt, dib, map, pixmap);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = graphics_mode(TRUE);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         return GraphicsOutput->Blt(

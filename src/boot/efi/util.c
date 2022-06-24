@@ -98,7 +98,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value
         assert(name);
 
         err = efivar_get_raw(vendor, name, (CHAR8**)&buf, &size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Make sure there are no incomplete characters in the buffer */
@@ -153,7 +153,7 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (!EFI_ERROR(err) && ret) {
+        if (err == EFI_SUCCESS && ret) {
                 if (size != sizeof(UINT32))
                         return EFI_BUFFER_TOO_SMALL;
 
@@ -173,7 +173,7 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (!EFI_ERROR(err) && ret) {
+        if (err == EFI_SUCCESS && ret) {
                 if (size != sizeof(UINT64))
                         return EFI_BUFFER_TOO_SMALL;
 
@@ -197,7 +197,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         buf = xmalloc(l);
 
         err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
-        if (!EFI_ERROR(err)) {
+        if (err == EFI_SUCCESS) {
 
                 if (buffer)
                         *buffer = TAKE_PTR(buf);
@@ -219,7 +219,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         assert(ret);
 
         err = efivar_get_raw(vendor, name, &b, &size);
-        if (!EFI_ERROR(err))
+        if (err == EFI_SUCCESS)
                 *ret = *b > 0;
 
         return err;
@@ -374,14 +374,14 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         assert(ret);
 
         err = dir->Open(dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (size == 0) {
                 _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
 
                 err = get_file_info_harder(handle, &info, NULL);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 size = info->FileSize;
@@ -389,7 +389,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
 
         if (off > 0) {
                 err = handle->SetPosition(handle, off);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
         }
 
@@ -398,7 +398,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
 
         buf = xmalloc(size + extra);
         err = handle->Read(handle, &size, buf);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Note that handle->Read() changes size to reflect the actually bytes read. */
@@ -499,7 +499,7 @@ EFI_STATUS get_file_info_harder(
                 err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         *ret = TAKE_PTR(fi);
@@ -544,7 +544,7 @@ EFI_STATUS readdir_harder(
                 *buffer_size = sz;
                 err = handle->Read(handle, &sz, *buffer);
         }
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (sz == 0) {
@@ -593,11 +593,11 @@ EFI_STATUS open_directory(
         /* Opens a file, and then verifies it is actually a directory */
 
         err = root->Open(root, &dir, (CHAR16*) path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = get_file_info_harder(dir, &file_info, NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (!FLAGS_SET(file_info->Attribute, EFI_FILE_DIRECTORY))
                 return EFI_LOAD_ERROR;
@@ -614,7 +614,7 @@ UINT64 get_os_indications_supported(void) {
          * supported features. */
 
         err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return 0;
 
         return osind;
