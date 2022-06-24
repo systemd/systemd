@@ -320,9 +320,8 @@ TEST(sd_device_new_from_nulstr) {
                 "\0";
 
         _cleanup_(sd_device_unrefp) sd_device *device = NULL, *from_nulstr = NULL;
-        _cleanup_free_ uint8_t *nulstr_copy = NULL;
-        const char *devlink;
-        const uint8_t *nulstr;
+        _cleanup_free_ char *nulstr_copy = NULL;
+        const char *devlink, *nulstr;
         size_t len;
 
         assert_se(sd_device_new_from_syspath(&device, "/sys/class/net/lo") >= 0);
@@ -340,7 +339,7 @@ TEST(sd_device_new_from_nulstr) {
         assert_se(device_add_property_internal(device, "ACTION", "change") >= 0);
 
         assert_se(device_get_properties_nulstr(device, &nulstr, &len) >= 0);
-        assert_se(nulstr_copy = newdup(uint8_t, nulstr, len));
+        assert_se(nulstr_copy = newdup(char, nulstr, len));
         assert_se(device_new_from_nulstr(&from_nulstr, nulstr_copy, len) >= 0);
 
         NULSTR_FOREACH(devlink, devlinks) {

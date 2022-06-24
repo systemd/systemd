@@ -55,7 +55,7 @@ struct sd_device {
         dev_t devnum;
 
         char **properties_strv; /* the properties hashmap as a strv */
-        uint8_t *properties_nulstr; /* the same as a nulstr */
+        char *properties_nulstr; /* the same as a nulstr */
         size_t properties_nulstr_len;
 
         char *syspath;
