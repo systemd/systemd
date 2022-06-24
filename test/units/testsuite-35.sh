@@ -209,6 +209,35 @@ test_shutdown() {
     fi
 }
 
+test_session_set_up() {
+    # add user
+    useradd -s /bin/bash logind-test-user
+
+    # login with the test user to start a session
+    mkdir -p /run/systemd/system/getty@tty2.service.d
+    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
+[Service]
+Type=simple
+ExecStart=
+ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+EOF
+    systemctl daemon-reload
+    systemctl start getty@tty2.service
+
+    # check session
+    ret=1
+    for ((i = 0; i < 30; i++)); do
+        if (( i != 0)); then sleep 1; fi
+        if check_session; then
+            ret=0
+            break
+        fi
+    done
+    if [[ "$ret" == "1" ]]; then
+        exit 1
+    fi
+}
+
 test_session_tear_down() {
     set +e
 
@@ -268,32 +297,7 @@ test_session() {
 
     trap test_session_tear_down RETURN
 
-    # add user
-    useradd -s /bin/bash logind-test-user
-
-    # login with the test user to start a session
-    mkdir -p /run/systemd/system/getty@tty2.service.d
-    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
-[Service]
-Type=simple
-ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
-EOF
-    systemctl daemon-reload
-    systemctl start getty@tty2.service
-
-    # check session
-    ret=1
-    for ((i = 0; i < 30; i++)); do
-        if (( i != 0)); then sleep 1; fi
-        if check_session; then
-            ret=0
-            break
-        fi
-    done
-    if [[ "$ret" == "1" ]]; then
-        exit 1
-    fi
+    test_session_set_up
 
     # scsi_debug should not be loaded yet
     if [[ -d /sys/bus/pseudo/drivers/scsi_debug ]]; then
