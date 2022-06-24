@@ -37,7 +37,7 @@ struct ShimLock {
 BOOLEAN shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return !EFI_ERROR(BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock));
+        return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
 static BOOLEAN shim_validate(void *data, UINT32 size) {
@@ -46,13 +46,13 @@ static BOOLEAN shim_validate(void *data, UINT32 size) {
         if (!data)
                 return FALSE;
 
-        if (EFI_ERROR(BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock)))
+        if (BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
                 return FALSE;
 
         if (!shim_lock)
                 return FALSE;
 
-        return !EFI_ERROR(shim_lock->shim_verify(data, size));
+        return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }
 
 /* Handle to the original authenticator for security1 protocol */
@@ -81,7 +81,7 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
         err = es2fa(this, device_path, file_buffer, file_size, boot_policy);
 
         /* if OK, don't bother with MOK check */
-        if (!EFI_ERROR(err))
+        if (err == EFI_SUCCESS)
                 return err;
 
         if (shim_validate(file_buffer, file_size))
@@ -114,7 +114,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
 
         EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) device_path_const;
         err = BS->LocateDevicePath(&FileSystemProtocol, &dp, &h);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         _cleanup_(file_closep) EFI_FILE *root = NULL;
@@ -127,7 +127,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
                 return EFI_OUT_OF_RESOURCES;
 
         err = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (shim_validate(file_buffer, file_size))
@@ -155,7 +155,7 @@ EFI_STATUS security_policy_install(void) {
 
         err = BS->LocateProtocol((EFI_GUID*) SECURITY_PROTOCOL_GUID, NULL, (void**) &security_protocol);
          /* This one is mandatory, so there's a serious problem */
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         esfas = security_protocol->FileAuthenticationState;

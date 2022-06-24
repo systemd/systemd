@@ -49,14 +49,14 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         if (!checked) {
                 /* Get the *first* TextInputEx device.*/
                 err = BS->LocateProtocol(&SimpleTextInputExProtocol, NULL, (void **) &extraInEx);
-                if (EFI_ERROR(err) || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
+                if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         /* If WaitForKeyEx fails here, the firmware pretends it talks this
                          * protocol, but it really doesn't. */
                         extraInEx = NULL;
 
                 /* Get the TextInputEx version of ST->ConIn. */
                 err = BS->HandleProtocol(ST->ConsoleInHandle, &SimpleTextInputExProtocol, (void **) &conInEx);
-                if (EFI_ERROR(err) || BS->CheckEvent(conInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
+                if (err != EFI_SUCCESS || BS->CheckEvent(conInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         conInEx = NULL;
 
                 if (conInEx == extraInEx)
@@ -66,7 +66,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
         }
 
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error creating timer event: %r", err);
 
         EFI_EVENT events[] = {
@@ -87,14 +87,14 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                                 timer,
                                 TimerRelative,
                                 MIN(timeout_usec, watchdog_ping_usec) * 10);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
 
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
                 err = BS->WaitForEvent(n_events, events, &index);
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
 
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Error waiting for events: %r", err);
 
                 /* We have keyboard input, process it after this loop. */
@@ -115,7 +115,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
 
         /* If the extra input device we found returns something, always use that instead
          * to work around broken firmware freezing on ConIn/ConInEx. */
-        if (extraInEx && !EFI_ERROR(BS->CheckEvent(extraInEx->WaitForKeyEx))) {
+        if (extraInEx && BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_SUCCESS) {
                 conInEx = extraInEx;
                 extraInEx = NULL;
         }
@@ -127,7 +127,7 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 UINT32 shift = 0;
 
                 err = conInEx->ReadKeyStrokeEx(conInEx, &keydata);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
@@ -145,11 +145,11 @@ EFI_STATUS console_key_read(UINT64 *key, UINT64 timeout_usec) {
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
                 *key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
                 return EFI_SUCCESS;
-        } else if (!EFI_ERROR(BS->CheckEvent(ST->ConIn->WaitForKey))) {
+        } else if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
                 EFI_INPUT_KEY k;
 
                 err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
@@ -168,11 +168,11 @@ static EFI_STATUS change_mode(INT64 mode) {
         old_mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
 
         err = ST->ConOut->SetMode(ST->ConOut, mode);
-        if (!EFI_ERROR(err))
+        if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
 
         /* Something went wrong. Output is probably borked, so try to revert to previous mode. */
-        if (!EFI_ERROR(ST->ConOut->SetMode(ST->ConOut, old_mode)))
+        if (ST->ConOut->SetMode(ST->ConOut, old_mode) == EFI_SUCCESS)
                 return err;
 
         /* Maybe the device is on fire? */
@@ -186,7 +186,7 @@ EFI_STATUS query_screen_resolution(UINT32 *ret_w, UINT32 *ret_h) {
         EFI_GRAPHICS_OUTPUT_PROTOCOL *go;
 
         err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &go);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (!go->Mode || !go->Mode->Info)
@@ -200,7 +200,7 @@ EFI_STATUS query_screen_resolution(UINT32 *ret_w, UINT32 *ret_h) {
 static INT64 get_auto_mode(void) {
         UINT32 screen_width, screen_height;
 
-        if (!EFI_ERROR(query_screen_resolution(&screen_width, &screen_height))) {
+        if (query_screen_resolution(&screen_width, &screen_height) == EFI_SUCCESS) {
                 BOOLEAN keep = FALSE;
 
                 /* Start verifying if we are in a resolution larger than Full HD
@@ -259,7 +259,7 @@ EFI_STATUS console_set_mode(INT64 mode) {
                 mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
                 do {
                         mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
-                        if (!EFI_ERROR(change_mode(mode)))
+                        if (change_mode(mode) == EFI_SUCCESS)
                                 break;
                         /* If this mode is broken/unsupported, try the next.
                          * If mode is 0, we wrapped around and should stop. */
@@ -286,7 +286,7 @@ EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max) {
         assert(y_max);
 
         err = ST->ConOut->QueryMode(ST->ConOut, ST->ConOut->Mode->Mode, x_max, y_max);
-        if (EFI_ERROR(err)) {
+        if (err != EFI_SUCCESS) {
                 /* Fallback values mandated by UEFI spec. */
                 switch (ST->ConOut->Mode->Mode) {
                 case CONSOLE_MODE_80_50:

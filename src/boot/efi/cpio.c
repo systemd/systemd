@@ -260,7 +260,7 @@ static EFI_STATUS pack_cpio_prefix(
                                 return EFI_OUT_OF_RESOURCES;
 
                         err = pack_cpio_dir(t, 0555, inode_counter, cpio_buffer, cpio_buffer_size);
-                        if (EFI_ERROR(err))
+                        if (err != EFI_SUCCESS)
                                 return err;
                 }
 
@@ -349,12 +349,12 @@ EFI_STATUS pack_cpio(
                 *ret_buffer_size = 0;
                 return EFI_SUCCESS;
         }
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to load file system protocol: %r", err);
 
         err = volume->OpenVolume(volume, &root);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
 
@@ -368,14 +368,14 @@ EFI_STATUS pack_cpio(
                 *ret_buffer_size = 0;
                 return EFI_SUCCESS;
         }
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
         for (;;) {
                 _cleanup_freepool_ CHAR16 *d = NULL;
 
                 err = readdir_harder(extra_dir, &dirent, &dirent_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
                 if (!dirent) /* End of directory */
                         break;
@@ -423,7 +423,7 @@ EFI_STATUS pack_cpio(
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
         err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
 
         for (UINTN i = 0; i < n_items; i++) {
@@ -431,7 +431,7 @@ EFI_STATUS pack_cpio(
                 UINTN contentsize;
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
-                if (EFI_ERROR(err)) {
+                if (err != EFI_SUCCESS) {
                         log_error_status_stall(err, L"Failed to read %s, ignoring: %r", items[i], err);
                         continue;
                 }
@@ -443,12 +443,12 @@ EFI_STATUS pack_cpio(
                                 access_mode,
                                 &inode,
                                 &buffer, &buffer_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", dirent->FileName, err);
         }
 
         err = pack_cpio_trailer(&buffer, &buffer_size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
         for (UINTN i = 0; i < n_tpm_pcr; i++) {
@@ -457,7 +457,7 @@ EFI_STATUS pack_cpio(
                                 POINTER_TO_PHYSICAL_ADDRESS(buffer),
                                 buffer_size,
                                 tpm_description);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
         }
 

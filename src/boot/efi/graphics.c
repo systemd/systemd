@@ -20,13 +20,13 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         EFI_STATUS err;
 
         err = BS->LocateProtocol((EFI_GUID *) EFI_CONSOLE_CONTROL_GUID, NULL, (void **) &ConsoleControl);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
 
         /* check current mode */
         err =ConsoleControl->GetMode(ConsoleControl, &current, &uga_exists, &stdin_locked);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* do not touch the mode */

@@ -53,7 +53,7 @@ static EFI_STATUS loaded_image_register(
                         ret_image,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 loaded_image = loaded_image_free(loaded_image);
 
         return err;
@@ -70,7 +70,7 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
         err = BS->OpenProtocol(
                         loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* close the handle */
@@ -79,7 +79,7 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
                         loaded_image_handle,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         loaded_image_handle = NULL;
         loaded_image = loaded_image_free(loaded_image);
@@ -125,7 +125,7 @@ EFI_STATUS linux_exec(
 
         /* get the necessary fields from the PE header */
         err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         /* sanity check */
         assert(kernel_size_of_image >= linux_length);
@@ -142,7 +142,7 @@ EFI_STATUS linux_exec(
         /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
         kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
         err = BS->AllocatePages(AllocateAnyPages, EfiLoaderData, kernel.num, &kernel.addr);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return EFI_OUT_OF_RESOURCES;
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
         memcpy(new_buffer, linux_buffer, linux_length);
@@ -154,12 +154,12 @@ EFI_STATUS linux_exec(
 
         /* register a LoadedImage Protocol in order to pass on the commandline */
         err = loaded_image_register(cmdline, cmdline_len, new_buffer, linux_length, &loaded_image_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* register a LINUX_INITRD_MEDIA DevicePath to serve the initrd */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* call the kernel */

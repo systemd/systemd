@@ -59,7 +59,7 @@ static EFI_STATUS combine_initrd(
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n),
                         &base);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to allocate space for combined initrd: %r", err);
 
         p = PHYSICAL_ADDRESS_TO_POINTER(base);
@@ -192,12 +192,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         image,
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
-        if (EFI_ERROR(err) || szs[SECTION_LINUX] == 0) {
-                if (!EFI_ERROR(err))
+        if (err != EFI_SUCCESS || szs[SECTION_LINUX] == 0) {
+                if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
                 return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
         }
@@ -281,7 +281,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                 global_credential_initrd, global_credential_initrd_size,
                                 sysext_initrd, sysext_initrd_size,
                                 &initrd_base, &initrd_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 /* Given these might be large let's free them explicitly, quickly. */
@@ -293,7 +293,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (dt_size > 0) {
                 err = devicetree_install_from_memory(
                                 &dt_state, PHYSICAL_ADDRESS_TO_POINTER(dt_base), dt_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         log_error_stall(L"Error loading embedded devicetree: %r", err);
         }
 

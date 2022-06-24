@@ -87,7 +87,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         EFI_TCG *tcg;
 
         err = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         err = tcg->StatusCheck(
@@ -96,7 +96,7 @@ static EFI_TCG *tcg1_interface_check(void) {
                         &features,
                         &event_log_location,
                         &event_log_last_entry);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         if (capability.TPMDeactivatedFlag)
@@ -116,11 +116,11 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_TCG2 *tcg;
 
         err = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         err = tcg->GetCapability(tcg, &capability);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         if (capability.StructureVersion.Major == 1 &&
@@ -174,7 +174,7 @@ EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
                 err = tpm_log_event(pcr,
                                     POINTER_TO_PHYSICAL_ADDRESS(load_options),
                                     strsize16(load_options), load_options);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r", pcr, err);
         }
 
