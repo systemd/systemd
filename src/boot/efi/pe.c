@@ -278,7 +278,7 @@ EFI_STATUS pe_memory_locate_sections(
 
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
-                const CHAR16 *path,
+                const char16_t *path,
                 const CHAR8 **sections,
                 UINTN *offsets,
                 UINTN *sizes) {
@@ -295,7 +295,7 @@ EFI_STATUS pe_file_locate_sections(
         assert(offsets);
         assert(sizes);
 
-        err = dir->Open(dir, &handle, (CHAR16*)path, EFI_FILE_MODE_READ, 0ULL);
+        err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
                 return err;
 

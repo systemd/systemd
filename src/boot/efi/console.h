@@ -11,7 +11,7 @@ enum {
 };
 
 #define KEYPRESS(keys, scan, uni) ((((uint64_t)keys) << 32) | (((uint64_t)scan) << 16) | (uni))
-#define KEYCHAR(k) ((CHAR16)(k))
+#define KEYCHAR(k) ((char16_t)(k))
 #define CHAR_CTRL(c) ((c) - 'a' + 1)
 
 enum {

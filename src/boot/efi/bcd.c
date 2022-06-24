@@ -11,7 +11,6 @@
 #  include "string-util-fundamental.h"
 
 #  define CHAR8 char
-#  define CHAR16 char16_t
 #  define UINTN size_t
 #  define TEST_STATIC static
 #endif
@@ -229,7 +228,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-TEST_STATIC CHAR16 *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
+TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         assert(bcd);
 
         if (HIVE_CELL_OFFSET >= bcd_len)
@@ -269,15 +268,15 @@ TEST_STATIC CHAR16 *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
 
         CHAR8 order_guid[sizeof("{00000000-0000-0000-0000-000000000000}\0")];
         if (displayorder_value->data_type != REG_MULTI_SZ ||
-            displayorder_value->data_size != sizeof(CHAR16[sizeof(order_guid)]) ||
-            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(CHAR16) != 0)
+            displayorder_value->data_size != sizeof(char16_t[sizeof(order_guid)]) ||
+            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(char16_t) != 0)
                 /* BCD is multi-boot. */
                 return NULL;
 
         /* Keys are stored as ASCII in registry hives if the data fits (and GUIDS always should). */
-        CHAR16 *order_guid_utf16 = (CHAR16 *) (bcd + displayorder_value->data_offset);
+        char16_t *order_guid_utf16 = (char16_t *) (bcd + displayorder_value->data_offset);
         for (UINTN i = 0; i < sizeof(order_guid) - 2; i++) {
-                CHAR16 c = order_guid_utf16[i];
+                char16_t c = order_guid_utf16[i];
                 switch (c) {
                 case '-':
                 case '{':
@@ -315,13 +314,13 @@ TEST_STATIC CHAR16 *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
                 return NULL;
 
         if (description_value->data_type != REG_SZ ||
-            description_value->data_size < sizeof(CHAR16) ||
-            description_value->data_size % sizeof(CHAR16) != 0 ||
-            (UINTN)(bcd + description_value->data_offset) % sizeof(CHAR16))
+            description_value->data_size < sizeof(char16_t) ||
+            description_value->data_size % sizeof(char16_t) != 0 ||
+            (UINTN)(bcd + description_value->data_offset) % sizeof(char16_t))
                 return NULL;
 
         /* The data should already be NUL-terminated. */
-        CHAR16 *title = (CHAR16 *) (bcd + description_value->data_offset);
-        title[description_value->data_size / sizeof(CHAR16) - 1] = '\0';
+        char16_t *title = (char16_t *) (bcd + description_value->data_offset);
+        title[description_value->data_size / sizeof(char16_t) - 1] = '\0';
         return title;
 }

@@ -17,7 +17,7 @@ static CHAR8* write_cpio_word(CHAR8 *p, uint32_t v) {
         return p + 8;
 }
 
-static CHAR8* mangle_filename(CHAR8 *p, const CHAR16 *f) {
+static CHAR8* mangle_filename(CHAR8 *p, const char16_t *f) {
         CHAR8* w;
 
         assert(p);
@@ -50,7 +50,7 @@ static CHAR8* pad4(CHAR8 *p, const CHAR8* start) {
 }
 
 static EFI_STATUS pack_cpio_one(
-                const CHAR16 *fname,
+                const char16_t *fname,
                 const void *contents,
                 UINTN contents_size,
                 const CHAR8 *target_dir_prefix,
@@ -306,22 +306,22 @@ static EFI_STATUS pack_cpio_trailer(
 
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *dropin_dir,
-                const CHAR16 *match_suffix,
+                const char16_t *dropin_dir,
+                const char16_t *match_suffix,
                 const CHAR8 *target_dir_prefix,
                 uint32_t dir_mode,
                 uint32_t access_mode,
                 const uint32_t tpm_pcr[],
                 UINTN n_tpm_pcr,
-                const CHAR16 *tpm_description,
+                const char16_t *tpm_description,
                 void **ret_buffer,
                 UINTN *ret_buffer_size) {
 
         _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
+        _cleanup_free_ char16_t *rel_dropin_dir = NULL;
         _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
-        _cleanup_(strv_freep) CHAR16 **items = NULL;
+        _cleanup_(strv_freep) char16_t **items = NULL;
         _cleanup_freepool_ void *buffer = NULL;
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
@@ -372,7 +372,7 @@ EFI_STATUS pack_cpio(
                 return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
         for (;;) {
-                _cleanup_freepool_ CHAR16 *d = NULL;
+                _cleanup_free_ char16_t *d = NULL;
 
                 err = readdir_harder(extra_dir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS)

@@ -15,7 +15,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 UINTN buffer_size,
-                const CHAR16 *description) {
+                const char16_t *description) {
 
         _cleanup_freepool_ TCG_PCR_EVENT *tcg_event = NULL;
         EFI_PHYSICAL_ADDRESS event_log_last;
@@ -49,7 +49,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 uint64_t buffer_size,
-                const CHAR16 *description) {
+                const char16_t *description) {
 
         _cleanup_freepool_ EFI_TCG2_EVENT *tcg_event = NULL;
         UINTN desc_len;
@@ -141,7 +141,7 @@ BOOLEAN tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 
-EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
+EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char16_t *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
 
@@ -163,7 +163,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN b
         return EFI_SUCCESS;
 }
 
-EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
+EFI_STATUS tpm_log_load_options(const char16_t *load_options) {
         EFI_STATUS err;
 
         /* Measures a load options string into the TPM2, i.e. the kernel command line */
