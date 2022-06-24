@@ -29,6 +29,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "fsck-util.h"
+#include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
 #include "homework-luks.h"
@@ -3304,12 +3305,15 @@ int home_resize_luks(
         if (resize_type == CAN_RESIZE_OFFLINE && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
                 return log_error_errno(SYNTHETIC_ERRNO(ETXTBSY), "File systems of this type can only be resized offline, but is currently online.");
 
-        log_info("Ready to resize image size %s → %s, partition size %s → %s, file system size %s → %s.",
+        log_info("Ready to resize image size %s %s %s, partition size %s %s %s, file system size %s %s %s.",
                  FORMAT_BYTES(old_image_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_image_size),
                  FORMAT_BYTES(setup->partition_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_partition_size),
                  FORMAT_BYTES(old_fs_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_fs_size));
 
         r = prepare_resize_partition(

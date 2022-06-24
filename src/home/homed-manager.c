@@ -23,6 +23,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
 #include "homed-conf.h"
@@ -1936,8 +1937,10 @@ static int manager_rebalance_calculate(Manager *m) {
                     (m->rebalance_state == REBALANCE_GROWING && h->rebalance_goal < h->rebalance_size))
                         h->rebalance_pending = false;
                 else {
-                        log_debug("Rebalancing home directory '%s' %s → %s.", h->user_name,
-                                  FORMAT_BYTES(h->rebalance_size), FORMAT_BYTES(h->rebalance_goal));
+                        log_debug("Rebalancing home directory '%s' %s %s %s.", h->user_name,
+                                  FORMAT_BYTES(h->rebalance_size),
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                  FORMAT_BYTES(h->rebalance_goal));
                         h->rebalance_pending = true;
                 }
 
