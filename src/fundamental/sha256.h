@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#ifdef SD_BOOT
-#include <efi.h>
-#include <efilib.h>
-#endif
-
-#include "types-fundamental.h"
+#include "stdint.h"
 
 #define SHA256_DIGEST_SIZE 32
 

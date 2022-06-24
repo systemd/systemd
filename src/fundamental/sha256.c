@@ -4,7 +4,7 @@
 
 /* Functions to compute SHA256 message digest of files or memory blocks.
    according to the definition of SHA256 in FIPS 180-2.
-   Copyright (C) 2007-2019 Free Software Foundation, Inc.
+   Copyright (C) 2007-2022 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -19,10 +19,9 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, see
-   <http://www.gnu.org/licenses/>.  */
+   <https://www.gnu.org/licenses/>.  */
 
-/* Written by Ulrich Drepper <drepper@redhat.com>, 2007.  */
-
+#include <stdbool.h>
 #ifdef SD_BOOT
 #  include "efi-string.h"
 #else
@@ -52,15 +51,9 @@
 /* The condition below is from glibc's string/string-inline.c.
  * See definition of _STRING_INLINE_unaligned. */
 #if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
-
-/* To check alignment gcc has an appropriate operator. Other compilers don't.  */
-# if __GNUC__ >= 2
-#  define UNALIGNED_P(p) (((size_t) p) % __alignof__(uint32_t) != 0)
-# else
-#  define UNALIGNED_P(p) (((size_t) p) % sizeof(uint32_t) != 0)
-# endif
+#  define UNALIGNED_P(p) (((uintptr_t) p) % __alignof__(uint32_t) != 0)
 #else
-# define UNALIGNED_P(p) sd_false
+#  define UNALIGNED_P(p) false
 #endif
 
 /* This array contains the bytes used to pad the buffer to the next
@@ -200,7 +193,6 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
                 ctx->buflen = left_over;
         }
 }
-
 
 /* Process LEN bytes of BUFFER, accumulating context into CTX.
    It is assumed that LEN % 64 == 0.  */
