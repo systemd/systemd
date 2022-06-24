@@ -1688,9 +1688,13 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         int r;
 
         if (arg_pkcs11_token_uri)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "To change the PKCS#11 security token use 'homectl update --pkcs11-token-uri=…'.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "To change the PKCS#11 security token use 'homectl update --pkcs11-token-uri=%s'.",
+                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         if (arg_fido2_device)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "To change the FIDO2 security token use 'homectl update --fido2-device=…'.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "To change the FIDO2 security token use 'homectl update --fido2-device=%s'.",
+                                       special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         if (identity_properties_specified())
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The 'passwd' verb does not permit changing other record properties at the same time.");
 
@@ -3613,8 +3617,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
 
                                 if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
-                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "…%" PRIu64 ": %s",
-                                                               REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX, optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
+                                                               REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
                         }
 
                         /* Drop from per machine stuff and everywhere */

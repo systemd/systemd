@@ -1086,7 +1086,8 @@ static int config_parse_size4096(
                 *sz = parsed;
 
         if (*sz != parsed)
-                log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " → %" PRIu64 ", a multiple of 4096.", lvalue, parsed, *sz);
+                log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " %s %" PRIu64 ", a multiple of 4096.",
+                           lvalue, parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *sz);
 
         return 0;
 }
@@ -4276,8 +4277,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Specified image size too large, refusing.");
 
                         if (rounded != parsed)
-                                log_warning("Specified size is not a multiple of 4096, rounding up automatically. (%" PRIu64 " → %" PRIu64 ")",
-                                            parsed, rounded);
+                                log_warning("Specified size is not a multiple of 4096, rounding up automatically. (%" PRIu64 " %s %" PRIu64 ")",
+                                            parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), rounded);
 
                         arg_size = rounded;
                         arg_size_auto = false;

@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -479,8 +480,9 @@ static void home_set_state(Home *h, HomeState state) {
         new_state = home_get_state(h); /* Query the new state, since the 'state' variable might be set to -1,
                                         * in which case we synthesize an high-level state on demand */
 
-        log_info("%s: changing state %s → %s", h->user_name,
+        log_info("%s: changing state %s %s %s", h->user_name,
                  home_state_to_string(old_state),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);
