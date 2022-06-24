@@ -1237,9 +1237,13 @@ int transfer_install_instance(
 
                         r = symlink_atomic(relative, link_path);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to update current symlink '%s' → '%s': %m", link_path, relative);
+                                return log_error_errno(r, "Failed to update current symlink '%s' %s '%s': %m",
+                                                       link_path,
+                                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                                       relative);
 
-                        log_info("Updated symlink '%s' → '%s'.", link_path, relative);
+                        log_info("Updated symlink '%s' %s '%s'.",
+                                 link_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), relative);
                 }
         }
 

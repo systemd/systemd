@@ -522,7 +522,8 @@ static int create_symlink(
         }
 
         if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
-                log_debug("Symlink %s → %s already exists", new_path, dest);
+                log_debug("Symlink %s %s %s already exists",
+                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dest);
                 return 1;
         }
 
