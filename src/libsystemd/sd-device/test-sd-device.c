@@ -334,6 +334,12 @@ TEST(sd_device_new_from_nulstr) {
                 assert_se(set_contains(device->devlinks, devlink));
         }
 
+        /* For issue #23799 */
+        assert_se(device_add_tag(device, "tag1", false) >= 0);
+        assert_se(device_add_tag(device, "tag2", false) >= 0);
+        assert_se(device_add_tag(device, "current-tag1", true) >= 0);
+        assert_se(device_add_tag(device, "current-tag2", true) >= 0);
+
         /* These properties are necessary for device_new_from_nulstr(). See device_verify(). */
         assert_se(device_add_property_internal(device, "SEQNUM", "1") >= 0);
         assert_se(device_add_property_internal(device, "ACTION", "change") >= 0);
@@ -341,6 +347,15 @@ TEST(sd_device_new_from_nulstr) {
         assert_se(device_get_properties_nulstr(device, &nulstr, &len) >= 0);
         assert_se(nulstr_copy = newdup(char, nulstr, len));
         assert_se(device_new_from_nulstr(&from_nulstr, nulstr_copy, len) >= 0);
+
+        assert_se(sd_device_has_tag(from_nulstr, "tag1") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "tag2") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "current-tag1") == 1);
+        assert_se(sd_device_has_tag(from_nulstr, "current-tag2") == 1);
+        assert_se(sd_device_has_current_tag(from_nulstr, "tag1") == 0);
+        assert_se(sd_device_has_current_tag(from_nulstr, "tag2") == 0);
+        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag1") == 1);
+        assert_se(sd_device_has_current_tag(from_nulstr, "current-tag2") == 1);
 
         NULSTR_FOREACH(devlink, devlinks) {
                 log_device_info(from_nulstr, "checking devlink: %s", devlink);
