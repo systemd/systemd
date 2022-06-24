@@ -7,6 +7,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
@@ -43,7 +44,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         STRV_FOREACH(path, autostart_dirs) {
                 _cleanup_closedir_ DIR *d = NULL;
 
-                log_debug("Scanning autostart directory \"%s\"…", *path);
+                log_debug("Scanning autostart directory \"%s\"%s", *path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
                 d = opendir(*path);
                 if (!d) {
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,

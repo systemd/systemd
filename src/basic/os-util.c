@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "macro.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -146,8 +147,9 @@ int open_extension_release(const char *root, const char *extension, char **ret_p
                                 if (k != 0)
                                         continue;
 
-                                log_debug("%s/%s: 'user.extension-release.strict' attribute is false…",
-                                          extension_release_dir_path, de->d_name);
+                                log_debug("%s/%s: 'user.extension-release.strict' attribute is false%s",
+                                          extension_release_dir_path, de->d_name,
+                                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                                 /* We already found what we were looking for, but there's another candidate?
                                  * We treat this as an error, as we want to enforce that there are no ambiguities

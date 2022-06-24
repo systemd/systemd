@@ -6,6 +6,7 @@
 #include "dns-domain.h"
 #include "env-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "memory-util.h"
@@ -467,7 +468,9 @@ static int json_dispatch_umask(const char *name, JsonVariant *variant, JsonDispa
 
         k = json_variant_unsigned(variant);
         if (k > 0777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' outside of valid range 0…0777.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' outside of valid range 0%s0777.",
+                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -487,7 +490,9 @@ static int json_dispatch_access_mode(const char *name, JsonVariant *variant, Jso
 
         k = json_variant_unsigned(variant);
         if (k > 07777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' outside of valid range 0…07777.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' outside of valid range 0%s07777.",
+                                strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         *m = (mode_t) k;
         return 0;
@@ -578,7 +583,9 @@ static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *vari
 
         k = json_variant_unsigned(variant);
         if (k <= 0 || k >= UINT64_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), (uint64_t) 1, UINT64_MAX-1);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
+                                strna(name), (uint64_t) 1, special_glyph(SPECIAL_GLYPH_ELLIPSIS), UINT64_MAX-1);
 
         *limit = k;
         return 0;
@@ -597,7 +604,10 @@ static int json_dispatch_weight(const char *name, JsonVariant *variant, JsonDisp
 
         k = json_variant_unsigned(variant);
         if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), (uint64_t) CGROUP_WEIGHT_MIN, (uint64_t) CGROUP_WEIGHT_MAX);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
+                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
+                                special_glyph(SPECIAL_GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -1010,7 +1020,9 @@ static int dispatch_rebalance_weight(const char *name, JsonVariant *variant, Jso
         else if (u == 0)
                 *rebalance_weight = REBALANCE_WEIGHT_OFF;
         else
-                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Rebalance weight is out of valid range %" PRIu64 "…%" PRIu64 ".", REBALANCE_WEIGHT_MIN, REBALANCE_WEIGHT_MAX);
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
+                                "Rebalance weight is out of valid range %" PRIu64 "%s%" PRIu64 ".",
+                                REBALANCE_WEIGHT_MIN, special_glyph(SPECIAL_GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX);
 
         return 0;
 }

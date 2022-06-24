@@ -170,7 +170,7 @@ static int context_load_installed_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering installed instances…");
+        log_info("Discovering installed instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = resource_load_instances(
@@ -189,7 +189,7 @@ static int context_load_available_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering available instances…");
+        log_info("Discovering available instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 assert(c->transfers[i]);
@@ -346,13 +346,13 @@ static int context_discover_update_sets(Context *c) {
 
         assert(c);
 
-        log_info("Determining installed update sets…");
+        log_info("Determining installed update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
 
-        log_info("Determining available update sets…");
+        log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
         if (r < 0)
@@ -671,9 +671,9 @@ static int context_vacuum(
         assert(c);
 
         if (space == 0)
-                log_info("Making room…");
+                log_info("Making room%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         else
-                log_info("Making room for %" PRIu64 " updates…", space);
+                log_info("Making room for %" PRIu64 " updates%s", space,special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = transfer_vacuum(c->transfers[i], space, extra_protected_version);
@@ -1035,7 +1035,7 @@ static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        log_info("Determining installed update sets…");
+        log_info("Determining installed update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(context, UPDATE_INSTALLED);
         if (r < 0)

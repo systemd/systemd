@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "glyph-util.h"
 #include "in-addr-util.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-varlink.h"
@@ -370,7 +371,9 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
 
                 b = json_variant_integer(i);
                 if (b < 0 || b > 0xff)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is out of range 0…255.", k, strna(name));
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
+                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                 buf.bytes[k++] = (uint8_t) b;
         }
