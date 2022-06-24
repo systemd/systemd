@@ -256,7 +256,12 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (mode != RANDOM_SEED_ALWAYS && err != EFI_SUCCESS)
                 return err;
 
-        err = root_dir->Open(root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
+        err = root_dir->Open(
+                        root_dir,
+                        &handle,
+                        (char16_t *) L"\\loader\\random-seed",
+                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
+                        0);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
                         log_error_stall(L"Failed to open random seed file: %r", err);

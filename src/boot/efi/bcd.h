@@ -2,5 +2,6 @@
 #pragma once
 
 #include <efi.h>
+#include <uchar.h>
 
-CHAR16 *get_bcd_title(uint8_t *bcd, UINTN bcd_len);
+char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len);

@@ -9,11 +9,11 @@
 static EFI_STATUS load_one_driver(
                 EFI_HANDLE parent_image,
                 EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *fname) {
+                const char16_t *fname) {
 
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
-        _cleanup_freepool_ CHAR16 *spath = NULL;
+        _cleanup_free_ char16_t *spath = NULL;
         EFI_STATUS err;
 
         assert(parent_image);

@@ -102,7 +102,7 @@ static EFIAPI EFI_STATUS security2_policy_authentication (const EFI_SECURITY2_PR
 static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROTOCOL *this, uint32_t authentication_status,
                                                          const EFI_DEVICE_PATH_PROTOCOL *device_path_const) {
         EFI_STATUS err;
-        _cleanup_freepool_ CHAR16 *dev_path_str = NULL;
+        _cleanup_free_ char16_t *dev_path_str = NULL;
         EFI_HANDLE h;
         _cleanup_freepool_ CHAR8 *file_buffer = NULL;
         UINTN file_size;

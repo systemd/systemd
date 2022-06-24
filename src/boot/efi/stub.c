@@ -102,7 +102,7 @@ static EFI_STATUS combine_initrd(
 }
 
 static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
-        CHAR16 uuid[37];
+        char16_t uuid[37];
 
         assert(loaded_image);
 
@@ -119,7 +119,7 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
          * is non-NULL explicitly.) */
         if (efivar_get_raw(LOADER_GUID, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS &&
             loaded_image->FilePath) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
+                _cleanup_free_ char16_t *s = NULL;
 
                 s = DevicePathToStr(loaded_image->FilePath);
                 if (s)
@@ -130,14 +130,14 @@ static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
 
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
+                _cleanup_free_ char16_t *s = NULL;
                 s = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
-                _cleanup_freepool_ CHAR16 *s = NULL;
+                _cleanup_free_ char16_t *s = NULL;
                 s = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
@@ -212,12 +212,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
-            *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
-                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
+            *(char16_t *) loaded_image->LoadOptions > 0x1F) {
+                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(char16_t)) * sizeof(CHAR8);
                 cmdline = cmdline_owned = xmalloc(cmdline_len);
 
                 for (UINTN i = 0; i < cmdline_len; i++)
-                        cmdline[i] = ((CHAR16 *) loaded_image->LoadOptions)[i];
+                        cmdline[i] = ((char16_t *) loaded_image->LoadOptions)[i];
 
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
