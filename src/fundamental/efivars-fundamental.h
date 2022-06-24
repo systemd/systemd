@@ -4,10 +4,6 @@
 #include <errno.h>
 #include "string-util-fundamental.h"
 
-#ifndef UINT64_C
-#  define UINT64_C(c) (c ## ULL)
-#endif
-
 #define EFI_LOADER_FEATURE_CONFIG_TIMEOUT          (UINT64_C(1) << 0)
 #define EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT (UINT64_C(1) << 1)
 #define EFI_LOADER_FEATURE_ENTRY_DEFAULT           (UINT64_C(1) << 2)
@@ -30,8 +26,4 @@ typedef enum SecureBootMode {
 } SecureBootMode;
 
 const sd_char *secure_boot_mode_to_string(SecureBootMode m);
-SecureBootMode decode_secure_boot_mode(
-                sd_bool secure,
-                sd_bool audit,
-                sd_bool deployed,
-                sd_bool setup);
+SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup);

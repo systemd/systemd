@@ -77,21 +77,21 @@ sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
         return (sd_char*) s + sl - pl;
 }
 
-static sd_bool is_digit(sd_char a) {
+static bool is_digit(sd_char a) {
         /* Locale-independent version of isdigit(). */
         return a >= '0' && a <= '9';
 }
 
-static sd_bool is_alpha(sd_char a) {
+static bool is_alpha(sd_char a) {
         /* Locale-independent version of isalpha(). */
         return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
 }
 
-static sd_bool is_valid_version_char(sd_char a) {
+static bool is_valid_version_char(sd_char a) {
         return is_digit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
 }
 
-sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
+int strverscmp_improved(const sd_char *a, const sd_char *b) {
         /* This function is similar to strverscmp(3), but it treats '-' and '.' as separators.
          *
          * The logic is based on rpm's rpmvercmp(), but unlike rpmvercmp(), it distiguishes e.g.
@@ -129,7 +129,7 @@ sd_int strverscmp_improved(const sd_char *a, const sd_char *b) {
 
         for (;;) {
                 const sd_char *aa, *bb;
-                sd_int r;
+                int r;
 
                 /* Drop leading invalid characters. */
                 while (*a != '\0' && !is_valid_version_char(*a))

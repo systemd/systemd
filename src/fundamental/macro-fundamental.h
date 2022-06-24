@@ -3,11 +3,12 @@
 
 #ifndef SD_BOOT
 #  include <assert.h>
-#  include <stddef.h>
 #endif
 
 #include <limits.h>
-#include "types-fundamental.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
@@ -105,10 +106,10 @@
  * on this macro will run concurrently to all other code conditionalized
  * the same way, there's no ordering or completion enforced. */
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
-#define __ONCE(o)                                                       \
-        ({                                                              \
-                static sd_bool (o) = sd_false;                          \
-                __sync_bool_compare_and_swap(&(o), sd_false, sd_true);  \
+#define __ONCE(o)                                                \
+        ({                                                       \
+                static bool (o) = false;                         \
+                __sync_bool_compare_and_swap(&(o), false, true); \
         })
 
 #undef MAX
@@ -258,7 +259,7 @@
 
 #define IN_SET(x, ...)                                                  \
         ({                                                              \
-                sd_bool _found = sd_false;                              \
+                bool _found = false;                                    \
                 /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
@@ -267,7 +268,7 @@
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
-                        _found = sd_true;                               \
+                        _found = true;                                  \
                        break;                                           \
                 default:                                                \
                         break;                                          \
@@ -299,9 +300,6 @@
         })
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
-        /* sd-boot uses UINTN for size_t, let's make sure SIZE_MAX is correct. */
-        assert_cc(SIZE_MAX == ~(size_t)0);
-
         /* Check that alignment is exponent of 2 */
 #if SIZE_MAX == UINT_MAX
         assert(__builtin_popcount(ali) == 1);
