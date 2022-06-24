@@ -244,11 +244,12 @@ test_session_tear_down() {
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
 
+    loginctl terminate-session $SESSION
     systemctl stop getty@tty2.service
     rm -rf /run/systemd/system/getty@tty2.service.d
     systemctl daemon-reload
 
-    pkill -u logind-test-user
+    pkill -u logind-test-user -9
     userdel logind-test-user
 
     rmmod scsi_debug
