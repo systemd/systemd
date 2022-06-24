@@ -82,21 +82,21 @@ static EFI_TCG *tcg1_interface_check(void) {
         TCG_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
-        EFI_STATUS status;
+        EFI_STATUS err;
         UINT32 features;
         EFI_TCG *tcg;
 
-        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(status))
+        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
+        if (EFI_ERROR(err))
                 return NULL;
 
-        status = tcg->StatusCheck(
+        err = tcg->StatusCheck(
                         tcg,
                         &capability,
                         &features,
                         &event_log_location,
                         &event_log_last_entry);
-        if (EFI_ERROR(status))
+        if (EFI_ERROR(err))
                 return NULL;
 
         if (capability.TPMDeactivatedFlag)
@@ -112,15 +112,15 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
-        EFI_STATUS status;
+        EFI_STATUS err;
         EFI_TCG2 *tcg;
 
-        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(status))
+        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
+        if (EFI_ERROR(err))
                 return NULL;
 
-        status = tcg->GetCapability(tcg, &capability);
-        if (EFI_ERROR(status))
+        err = tcg->GetCapability(tcg, &capability);
+        if (EFI_ERROR(err))
                 return NULL;
 
         if (capability.StructureVersion.Major == 1 &&
