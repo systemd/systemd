@@ -77,9 +77,9 @@ typedef struct {
         UINTN entry_count;
         UINTN idx_default;
         UINTN idx_default_efivar;
-        UINT32 timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
-        UINT32 timeout_sec_config;
-        UINT32 timeout_sec_efivar;
+        uint32_t timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
+        uint32_t timeout_sec_config;
+        uint32_t timeout_sec_efivar;
         CHAR16 *entry_default_config;
         CHAR16 *entry_default_efivar;
         CHAR16 *entry_oneshot;
@@ -92,8 +92,8 @@ typedef struct {
         BOOLEAN use_saved_entry;
         BOOLEAN use_saved_entry_efivar;
         BOOLEAN beep;
-        INT64 console_mode;
-        INT64 console_mode_efivar;
+        int64_t console_mode;
+        int64_t console_mode_efivar;
         RandomSeedMode random_seed_mode;
 } Config;
 
@@ -157,7 +157,7 @@ static BOOLEAN line_edit(
 
         for (;;) {
                 EFI_STATUS err;
-                UINT64 key;
+                uint64_t key;
                 UINTN j;
                 UINTN cursor_color = TEXT_ATTR_SWAP(COLOR_EDIT);
 
@@ -396,7 +396,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
         return IDX_INVALID;
 }
 
-static CHAR16 *update_timeout_efivar(UINT32 *t, BOOLEAN inc) {
+static CHAR16 *update_timeout_efivar(uint32_t *t, BOOLEAN inc) {
         assert(t);
 
         switch (*t) {
@@ -456,14 +456,14 @@ static BOOLEAN ps_continue(void) {
         else
                 Print(L"\n--- Press any key to continue, ESC or q to quit. ---\n\n");
 
-        UINT64 key;
+        uint64_t key;
         return console_key_read(&key, UINT64_MAX) == EFI_SUCCESS &&
                         !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
 }
 
 static void print_status(Config *config, CHAR16 *loaded_image_path) {
         UINTN x_max, y_max;
-        UINT32 screen_width = 0, screen_height = 0;
+        uint32_t screen_width = 0, screen_height = 0;
         SecureBootMode secure;
         _cleanup_freepool_ CHAR16 *device_part_uuid = NULL;
 
@@ -578,7 +578,7 @@ static void print_status(Config *config, CHAR16 *loaded_image_path) {
 }
 
 static EFI_STATUS reboot_into_firmware(void) {
-        UINT64 osind = 0;
+        uint64_t osind = 0;
         EFI_STATUS err;
 
         if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
@@ -615,10 +615,10 @@ static BOOLEAN menu_run(
         UINTN x_max, y_max;
         _cleanup_(strv_freep) CHAR16 **lines = NULL;
         _cleanup_freepool_ CHAR16 *clearline = NULL, *separator = NULL, *status = NULL;
-        UINT32 timeout_efivar_saved = config->timeout_sec_efivar;
-        UINT32 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
+        uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
+        uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
-        INT64 console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
+        int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         UINTN default_efivar_saved = config->idx_default_efivar;
 
         graphics_mode(FALSE);
@@ -637,7 +637,7 @@ static BOOLEAN menu_run(
 
         UINTN line_width = 0, entry_padding = 3;
         while (!exit) {
-                UINT64 key;
+                uint64_t key;
 
                 if (new_mode) {
                         console_query_mode(&x_max, &y_max);
@@ -1459,8 +1459,8 @@ static void config_entry_add_type1(
                 if (streq8((char *) key, "initrd")) {
                         entry->initrd = xrealloc(
                                 entry->initrd,
-                                n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(UINT16 *),
-                                (n_initrd + 2) * sizeof(UINT16 *));
+                                n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
+                                (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstra_to_path(value);
                         entry->initrd[n_initrd] = NULL;
                         continue;
@@ -1950,28 +1950,28 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         if (!found)
                 return EFI_NOT_FOUND;
 
-        _cleanup_freepool_ UINT16 *boot_order = NULL;
+        _cleanup_freepool_ uint16_t *boot_order = NULL;
         UINTN boot_order_size;
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
-         * EFI var list or UINT16 namespace, just look for "Windows Boot Manager" in BootOrder. */
+         * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
         err = efivar_get_raw(EFI_GLOBAL_GUID, L"BootOrder", (CHAR8 **) &boot_order, &boot_order_size);
-        if (err != EFI_SUCCESS || boot_order_size % sizeof(UINT16) != 0)
+        if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
-        for (UINTN i = 0; i < boot_order_size / sizeof(UINT16); i++) {
+        for (UINTN i = 0; i < boot_order_size / sizeof(uint16_t); i++) {
                 _cleanup_freepool_ CHAR8 *buf = NULL;
                 CHAR16 name[sizeof(L"Boot0000")];
                 UINTN buf_size;
 
-                SPrint(name, sizeof(name), L"Boot%04x", (UINT32) boot_order[i]);
+                SPrint(name, sizeof(name), L"Boot%04x", (uint32_t) boot_order[i]);
                 err = efivar_get_raw(EFI_GLOBAL_GUID, name, &buf, &buf_size);
                 if (err != EFI_SUCCESS)
                         continue;
 
                 /* Boot#### are EFI_LOAD_OPTION. But we really are only interested
                  * for the description, which is at this offset. */
-                UINTN offset = sizeof(UINT32) + sizeof(UINT16);
+                UINTN offset = sizeof(uint32_t) + sizeof(uint16_t);
                 if (buf_size < offset + sizeof(CHAR16))
                         continue;
 
@@ -2009,7 +2009,7 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         /* Try to find a better title. */
         err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
         if (err == EFI_SUCCESS)
-                title = get_bcd_title((UINT8 *) bcd, len);
+                title = get_bcd_title((uint8_t *) bcd, len);
 
         ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
                                                       L"auto-windows", 'w', title ?: L"Windows Boot Manager",
@@ -2233,7 +2233,7 @@ static EFI_STATUS initrd_prepare(
 
         EFI_STATUS err;
         UINTN size = 0;
-        _cleanup_freepool_ UINT8 *initrd = NULL;
+        _cleanup_freepool_ uint8_t *initrd = NULL;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_freepool_ CHAR16 *o = options;
@@ -2345,7 +2345,7 @@ static EFI_STATUS image_start(
 
         /* Try calling the kernel compat entry point if one exists. */
         if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
-                UINT32 kernel_entry_address;
+                uint32_t kernel_entry_address;
 
                 err = pe_alignment_info(loaded_image->ImageBase, &kernel_entry_address, NULL, NULL);
                 if (err != EFI_SUCCESS) {
@@ -2353,7 +2353,7 @@ static EFI_STATUS image_start(
                                 return log_error_status_stall(err, L"Error finding kernel compat entry address: %r", err);
                 } else {
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
-                                (EFI_IMAGE_ENTRY_POINT) ((UINT8 *) loaded_image->ImageBase + kernel_entry_address);
+                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
 
                         err = kernel_entry(image, ST);
                         graphics_mode(FALSE);
@@ -2427,9 +2427,9 @@ static void save_selected_entry(const Config *config, const ConfigEntry *entry) 
 static void export_variables(
                 EFI_LOADED_IMAGE *loaded_image,
                 const CHAR16 *loaded_image_path,
-                UINT64 init_usec) {
+                uint64_t init_usec) {
 
-        static const UINT64 loader_features =
+        static const uint64_t loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
                 EFI_LOADER_FEATURE_ENTRY_DEFAULT |
@@ -2527,7 +2527,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_(config_free) Config config = {};
         CHAR16 *loaded_image_path;
         EFI_STATUS err;
-        UINT64 init_usec;
+        uint64_t init_usec;
         BOOLEAN menu = FALSE;
 
         InitializeLib(image, sys_table);
@@ -2574,7 +2574,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (config.force_menu || config.timeout_sec > 0)
                 menu = TRUE;
         else {
-                UINT64 key;
+                uint64_t key;
 
                 /* Block up to 100ms to give firmware time to get input working. */
                 err = console_key_read(&key, 100 * 1000);

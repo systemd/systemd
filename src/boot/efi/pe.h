@@ -18,6 +18,6 @@ EFI_STATUS pe_file_locate_sections(
 
 EFI_STATUS pe_alignment_info(
                 const void *base,
-                UINT32 *ret_entry_point_address,
-                UINT32 *ret_size_of_image,
-                UINT32 *ret_section_alignment);
+                uint32_t *ret_entry_point_address,
+                uint32_t *ret_size_of_image,
+                uint32_t *ret_section_alignment);

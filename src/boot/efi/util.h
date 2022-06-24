@@ -9,17 +9,11 @@
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
-#ifndef UINT32_MAX
-#define UINT32_MAX ((UINT32) -1)
-#endif
-#ifndef UINT64_MAX
-#define UINT64_MAX ((UINT64) -1)
-#endif
 
 /* gnu-efi format specifiers for integers are fixed to either 64bit with 'l' and 32bit without a size prefix.
  * We rely on %u/%d/%x to format regular ints, so ensure the size is what we expect. At the same time, we also
  * need specifiers for (U)INTN which are native (pointer) sized. */
-assert_cc(sizeof(int) == sizeof(UINT32));
+assert_cc(sizeof(int) == sizeof(uint32_t));
 #if __SIZEOF_POINTER__ == 4
 #  define PRIuN L"u"
 #  define PRIiN L"d"
@@ -77,18 +71,18 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
 
 EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b);
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags);
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags);
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *NAME, UINT32 value, UINT32 flags);
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags);
-void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec);
+EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, uint32_t flags);
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, uint32_t flags);
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, uint32_t flags);
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *NAME, uint32_t value, uint32_t flags);
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, uint64_t value, uint32_t flags);
+void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, uint64_t usec);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size);
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i);
-EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret);
-EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret);
+EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, uint32_t *ret);
+EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, uint64_t *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret);
 
 CHAR16 *xstra_to_path(const CHAR8 *stra);
@@ -168,11 +162,11 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
         return (void*) (UINTN) addr;
 }
 
-UINT64 get_os_indications_supported(void);
+uint64_t get_os_indications_supported(void);
 
 #ifdef EFI_DEBUG
 void debug_break(void);
-extern UINT8 _text, _data;
+extern uint8_t _text, _data;
 /* Report the relocated position of text and data sections so that a debugger
  * can attach to us. See debug-sd-boot.sh for how this can be done. */
 #  define debug_hook(identity) Print(identity L"@0x%lx,0x%lx\n", POINTER_TO_PHYSICAL_ADDRESS(&_text), POINTER_TO_PHYSICAL_ADDRESS(&_data))

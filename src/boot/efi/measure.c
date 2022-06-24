@@ -12,14 +12,14 @@
 
 static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 const EFI_TCG *tcg,
-                UINT32 pcrindex,
+                uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 UINTN buffer_size,
                 const CHAR16 *description) {
 
         _cleanup_freepool_ TCG_PCR_EVENT *tcg_event = NULL;
         EFI_PHYSICAL_ADDRESS event_log_last;
-        UINT32 event_number = 1;
+        uint32_t event_number = 1;
         UINTN desc_len;
 
         assert(tcg);
@@ -46,9 +46,9 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
 
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 EFI_TCG2 *tcg,
-                UINT32 pcrindex,
+                uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
-                UINT64 buffer_size,
+                uint64_t buffer_size,
                 const CHAR16 *description) {
 
         _cleanup_freepool_ EFI_TCG2_EVENT *tcg_event = NULL;
@@ -83,7 +83,7 @@ static EFI_TCG *tcg1_interface_check(void) {
                 .Size = sizeof(capability),
         };
         EFI_STATUS err;
-        UINT32 features;
+        uint32_t features;
         EFI_TCG *tcg;
 
         err = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
@@ -141,7 +141,7 @@ BOOLEAN tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 
-EFI_STATUS tpm_log_event(UINT32 pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
+EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
 
@@ -169,7 +169,7 @@ EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
         /* Measures a load options string into the TPM2, i.e. the kernel command line */
 
         for (UINTN i = 0; i < 2; i++) {
-                UINT32 pcr = i == 0 ? TPM_PCR_INDEX_KERNEL_PARAMETERS : TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT;
+                uint32_t pcr = i == 0 ? TPM_PCR_INDEX_KERNEL_PARAMETERS : TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT;
 
                 err = tpm_log_event(pcr,
                                     POINTER_TO_PHYSICAL_ADDRESS(load_options),

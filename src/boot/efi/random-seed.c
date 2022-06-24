@@ -48,9 +48,9 @@ static void hash_once(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 UINTN counter,
-                UINT8 ret[static HASH_VALUE_SIZE]) {
+                uint8_t ret[static HASH_VALUE_SIZE]) {
 
         /* This hashes together:
          *
@@ -85,7 +85,7 @@ static EFI_STATUS hash_many(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 UINTN counter_start,
                 UINTN n,
                 void **ret) {
@@ -106,7 +106,7 @@ static EFI_STATUS hash_many(
                           system_token, system_token_size,
                           uefi_monotonic_counter,
                           counter_start + i,
-                          (UINT8*) output + (i * HASH_VALUE_SIZE));
+                          (uint8_t*) output + (i * HASH_VALUE_SIZE));
 
         *ret = TAKE_PTR(output);
         return EFI_SUCCESS;
@@ -118,7 +118,7 @@ static EFI_STATUS mangle_random_seed(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 void **ret_new_seed,
                 void **ret_for_kernel) {
 
@@ -234,7 +234,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
-        UINT64 uefi_monotonic_counter = 0;
+        uint64_t uefi_monotonic_counter = 0;
         EFI_STATUS err;
 
         assert(root_dir);
