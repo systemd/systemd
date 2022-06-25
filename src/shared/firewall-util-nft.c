@@ -45,35 +45,6 @@ static sd_netlink_message **netlink_message_unref_many(sd_netlink_message **m) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_netlink_message**, netlink_message_unref_many);
 
-static int nfnl_netlink_sendv(
-                sd_netlink *nfnl,
-                sd_netlink_message *messages[static 1],
-                size_t msgcount) {
-
-        _cleanup_free_ uint32_t *serial = NULL;
-        int r;
-
-        assert(nfnl);
-        assert(messages);
-        assert(msgcount > 0);
-
-        r = sd_netlink_sendv(nfnl, messages, msgcount, &serial);
-        if (r < 0)
-                return r;
-
-        r = 0;
-        for (size_t i = 1; i < msgcount - 1; i++) {
-                int tmp;
-
-                /* If message is an error, this returns embedded errno */
-                tmp = sd_netlink_read(nfnl, serial[i], NFNL_DEFAULT_TIMEOUT_USECS, NULL);
-                if (tmp < 0 && r == 0)
-                        r = tmp;
-        }
-
-        return r;
-}
-
 static int nfnl_open_expr_container(sd_netlink_message *m, const char *name) {
         int r;
 
@@ -742,7 +713,7 @@ static uint32_t concat_types2(enum nft_key_types a, enum nft_key_types b) {
 }
 
 static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
-        sd_netlink_message *messages[12] = {};
+        sd_netlink_message *messages[10] = {};
         _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
         size_t msgcnt = 0, ip_type_size;
         uint32_t set_id = 0;
@@ -750,10 +721,6 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
 
         assert(nfnl);
         assert(IN_SET(family, AF_INET, AF_INET6));
-
-        r = sd_nfnl_message_batch_begin(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
 
         /* Set F_EXCL so table add fails if the table already exists. */
         r = sd_nfnl_nft_message_new_table(nfnl, &messages[msgcnt++], family, NFT_SYSTEMD_TABLE_NAME);
@@ -816,12 +783,8 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_message_batch_end(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
-
         assert(msgcnt < ELEMENTSOF(messages));
-        r = nfnl_netlink_sendv(nfnl, messages, msgcnt);
+        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
         if (r < 0 && r != -EEXIST)
                 return r;
 
@@ -935,9 +898,7 @@ static int fw_nftables_add_masquerade_internal(
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
 
-        sd_netlink_message *messages[4] = {};
-        _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
-        size_t msgcnt = 0;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(nfnl);
@@ -949,31 +910,18 @@ static int fw_nftables_add_masquerade_internal(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_message_batch_begin(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
-
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &messages[msgcnt++], add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
         if (r < 0)
                 return r;
 
         if (af == AF_INET)
-                 r = nft_message_append_setelem_iprange(messages[msgcnt-1], source, source_prefixlen);
+                 r = nft_message_append_setelem_iprange(m, source, source_prefixlen);
         else
-                 r = nft_message_append_setelem_ip6range(messages[msgcnt-1], source, source_prefixlen);
+                 r = nft_message_append_setelem_ip6range(m, source, source_prefixlen);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_message_batch_end(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
-
-        assert(msgcnt < ELEMENTSOF(messages));
-        r = nfnl_netlink_sendv(nfnl, messages, msgcnt);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
 }
 
 int fw_nftables_add_masquerade(
@@ -1030,7 +978,7 @@ static int fw_nftables_add_local_dnat_internal(
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
 
-        sd_netlink_message *messages[5] = {};
+        sd_netlink_message *messages[3] = {};
         _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
         static bool ipv6_supported = true;
         uint32_t data[5], key[2], dlen;
@@ -1068,10 +1016,6 @@ static int fw_nftables_add_local_dnat_internal(
                 data[4] = htobe16(remote_port);
         }
 
-        r = sd_nfnl_message_batch_begin(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
-
         /* If a previous remote is set, remove its entry */
         if (add && previous_remote && !in_addr_equal(af, previous_remote, remote)) {
                 if (af == AF_INET)
@@ -1096,12 +1040,8 @@ static int fw_nftables_add_local_dnat_internal(
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_message_batch_end(nfnl, &messages[msgcnt++]);
-        if (r < 0)
-                return r;
-
         assert(msgcnt < ELEMENTSOF(messages));
-        r = nfnl_netlink_sendv(nfnl, messages, msgcnt);
+        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
         if (r == -EOVERFLOW && af == AF_INET6) {
                 /* The current implementation of DNAT in systemd requires kernel's
                  * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns
