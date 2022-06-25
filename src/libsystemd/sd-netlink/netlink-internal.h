@@ -176,8 +176,24 @@ int netlink_add_match_internal(
 /* nfnl */
 /* TODO: to be exported later */
 int sd_nfnl_socket_open(sd_netlink **ret);
-int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
-int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
+int sd_nfnl_send_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t msgcount,
+                uint32_t **ret_serials);
+int sd_nfnl_call_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint64_t usec,
+                sd_netlink_message ***ret_messages);
+int sd_nfnl_message_new(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int nfproto,
+                uint16_t subsys,
+                uint16_t msg_type,
+                uint16_t flags);
 int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
                                   int nfproto, const char *table);
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
