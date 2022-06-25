@@ -3874,7 +3874,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         event_close_inode_data_fds(e);
 
-        if (event_next_pending(e) || e->need_process_child)
+        if (event_next_pending(e) || e->need_process_child || !LIST_IS_EMPTY(e->inotify_data_buffered))
                 goto pending;
 
         e->state = SD_EVENT_ARMED;
