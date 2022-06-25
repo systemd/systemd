@@ -139,6 +139,7 @@ int message_new_full(
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 uint32_t message_get_serial(sd_netlink_message *m);
+void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m);
 void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
@@ -151,7 +152,6 @@ int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
-int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
 int netlink_add_match_internal(

@@ -1,73 +1,211 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <linux/if_addrlabel.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nf_tables.h>
-#include <linux/nexthop.h>
-#include <stdbool.h>
-#include <unistd.h>
+#include <linux/netfilter.h>
 
 #include "sd-netlink.h"
 
-#include "format-util.h"
+#include "io-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
-#include "socket-util.h"
+#include "nfproto-util.h"
 
-static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int family, uint16_t msg_type, uint16_t flags) {
+int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto, uint16_t subsys, uint16_t msg_type, uint16_t flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert_return(nfnl, -EINVAL);
         assert_return(ret, -EINVAL);
+        assert_return(nfproto_is_valid(nfproto), -EINVAL);
+        assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, NFNL_SUBSYS_NFTABLES << 8 | msg_type);
+        r = message_new(nfnl, &m, subsys << 8 | msg_type);
         if (r < 0)
                 return r;
 
         m->hdr->nlmsg_flags |= flags;
 
         *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
-                .nfgen_family = family,
+                .nfgen_family = nfproto,
                 .version = NFNETLINK_V0,
-                .res_id = nfnl->serial,
         };
 
         *ret = TAKE_PTR(m);
         return 0;
 }
 
-static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t msg_type) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+static int nfnl_message_set_res_id(sd_netlink_message *m, uint16_t res_id) {
+        struct nfgenmsg *nfgen;
+
+        assert(m);
+        assert(m->hdr);
+
+        nfgen = NLMSG_DATA(m->hdr);
+        nfgen->res_id = htobe16(res_id);
+
+        return 0;
+}
+
+static int nfnl_message_get_subsys(sd_netlink_message *m, uint16_t *ret) {
+        uint16_t t;
         int r;
 
-        r = message_new(nfnl, &m, NFNL_SUBSYS_NONE << 8 | msg_type);
+        assert(m);
+        assert(ret);
+
+        r = sd_netlink_message_get_type(m, &t);
         if (r < 0)
                 return r;
 
-        *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
-                .nfgen_family = AF_UNSPEC,
-                .version = NFNETLINK_V0,
-                .res_id = NFNL_SUBSYS_NFTABLES,
-        };
+        *ret = NFNL_SUBSYS_ID(t);
+        return 0;
+}
+
+static int nfnl_message_new_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t subsys, uint16_t msg_type) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert_return(nfnl, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
+
+        r = sd_nfnl_message_new(nfnl, &m, NFPROTO_UNSPEC, NFNL_SUBSYS_NONE, msg_type, 0);
+        if (r < 0)
+                return r;
+
+        r = nfnl_message_set_res_id(m, subsys);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(m);
         return 0;
 }
 
-int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
+int sd_nfnl_send_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint32_t **ret_serial) {
+
+        /* iovs refs batch_begin and batch_end, hence, free iovs first, then free batch_begin and batch_end. */
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *batch_begin = NULL, *batch_end = NULL;
+        _cleanup_free_ struct iovec *iovs = NULL;
+        _cleanup_free_ uint32_t *serials = NULL;
+        uint16_t subsys;
+        ssize_t k;
+        int r;
+
+        assert_return(nfnl, -EINVAL);
+        assert_return(!netlink_pid_changed(nfnl), -ECHILD);
+        assert_return(messages, -EINVAL);
+        assert_return(n_messages > 0, -EINVAL);
+
+        iovs = new(struct iovec, n_messages + 2);
+        if (!iovs)
+                return -ENOMEM;
+
+        if (ret_serial) {
+                serials = new(uint32_t, n_messages);
+                if (!serials)
+                        return -ENOMEM;
+        }
+
+        r = nfnl_message_get_subsys(messages[0], &subsys);
+        if (r < 0)
+                return r;
+
+        r = nfnl_message_new_batch(nfnl, &batch_begin, subsys, NFNL_MSG_BATCH_BEGIN);
+        if (r < 0)
+                return r;
+
+        r = nfnl_message_new_batch(nfnl, &batch_end, subsys, NFNL_MSG_BATCH_END);
+        if (r < 0)
+                return r;
+
+        netlink_seal_message(nfnl, batch_begin);
+        netlink_seal_message(nfnl, batch_end);
+
+        iovs[0] = IOVEC_MAKE(batch_begin->hdr, batch_begin->hdr->nlmsg_len);
+
+        for (size_t i = 0; i < n_messages; i++) {
+                uint16_t s;
+
+                r = nfnl_message_get_subsys(messages[i], &s);
+                if (r < 0)
+                        return r;
+
+                if (s != subsys)
+                        return -EINVAL;
+
+                netlink_seal_message(nfnl, messages[i]);
+                if (serials)
+                        serials[i] = message_get_serial(messages[i]);
+
+                /* It seems that the kernel accepts an arbitrary number. Let's set the serial of the
+                 * first message. */
+                nfnl_message_set_res_id(messages[i], message_get_serial(batch_begin));
+
+                iovs[i + 1] = IOVEC_MAKE(messages[i]->hdr, messages[i]->hdr->nlmsg_len);
+        }
+
+        iovs[n_messages + 1] = IOVEC_MAKE(batch_end->hdr, batch_end->hdr->nlmsg_len);
+
+        k = writev(nfnl->fd, iovs, n_messages + 2);
+        if (k < 0)
+                return -errno;
+
+        if (ret_serial)
+                *ret_serial = TAKE_PTR(serials);
+
+        return 0;
 }
 
-int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
+int sd_nfnl_call_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint64_t usec,
+                sd_netlink_message ***ret_messages) {
+
+        _cleanup_free_ sd_netlink_message **replies = NULL;
+        _cleanup_free_ uint32_t *serials = NULL;
+        int k, r;
+
+        assert_return(nfnl, -EINVAL);
+        assert_return(!netlink_pid_changed(nfnl), -ECHILD);
+        assert_return(messages, -EINVAL);
+        assert_return(n_messages > 0, -EINVAL);
+
+        if (ret_messages) {
+                replies = new0(sd_netlink_message*, n_messages);
+                if (!replies)
+                        return -ENOMEM;
+        }
+
+        r = sd_nfnl_send_batch(nfnl, messages, n_messages, &serials);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < n_messages; i++) {
+                k = sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+        if (r < 0)
+                return r;
+
+        if (ret_messages)
+                *ret_messages = TAKE_PTR(replies);
+
+        return 0;
 }
 
 int sd_nfnl_nft_message_new_basechain(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
                 const char *table,
                 const char *chain,
                 const char *type,
@@ -77,7 +215,7 @@ int sd_nfnl_nft_message_new_basechain(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -113,37 +251,16 @@ int sd_nfnl_nft_message_new_basechain(
         return 0;
 }
 
-int sd_nfnl_nft_message_del_table(
-                sd_netlink *nfnl,
-                sd_netlink_message **ret,
-                int family,
-                const char *table) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_DELTABLE, NLM_F_CREATE);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_TABLE_NAME, table);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(m);
-        return r;
-}
-
 int sd_nfnl_nft_message_new_table(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
                 const char *table) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
         if (r < 0)
                 return r;
 
@@ -158,14 +275,14 @@ int sd_nfnl_nft_message_new_table(
 int sd_nfnl_nft_message_new_rule(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
                 const char *table,
                 const char *chain) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -184,7 +301,7 @@ int sd_nfnl_nft_message_new_rule(
 int sd_nfnl_nft_message_new_set(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
                 const char *table,
                 const char *set_name,
                 uint32_t set_id,
@@ -193,7 +310,7 @@ int sd_nfnl_nft_message_new_set(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWSET, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -217,17 +334,21 @@ int sd_nfnl_nft_message_new_set(
         return r;
 }
 
-int sd_nfnl_nft_message_new_setelems_begin(
+int sd_nfnl_nft_message_new_setelems(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int add, /* boolean */
+                int nfproto,
                 const char *table,
                 const char *set_name) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
+        if (add)
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
+        else
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, 0);
         if (r < 0)
                 return r;
 
@@ -239,91 +360,46 @@ int sd_nfnl_nft_message_new_setelems_begin(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
-        if (r < 0)
-                return r;
-
         *ret = TAKE_PTR(m);
         return r;
 }
 
-int sd_nfnl_nft_message_del_setelems_begin(
-                sd_netlink *nfnl,
-                sd_netlink_message **ret,
-                int family,
-                const char *table,
-                const char *set_name) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        r = nft_message_new(nfnl, &m, family, NFT_MSG_DELSETELEM, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_SET_ELEM_LIST_TABLE, table);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(m, NFTA_SET_ELEM_LIST_SET, set_name);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(m);
-        return r;
-}
-
-static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *data, uint32_t dlen) {
-        int r;
-
-        r = sd_netlink_message_open_container(m, attr);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_data(m, NFTA_DATA_VALUE, data, dlen);
-        if (r < 0)
-                return r;
-
-        return sd_netlink_message_close_container(m); /* attr */
-}
-
-int sd_nfnl_nft_message_add_setelem(
+int sd_nfnl_nft_message_append_setelem(
                 sd_netlink_message *m,
-                uint32_t num,
+                uint32_t index,
                 const void *key,
-                uint32_t klen,
+                size_t key_len,
                 const void *data,
-                uint32_t dlen) {
+                size_t data_len,
+                uint32_t flags) {
 
         int r;
 
-        r = sd_netlink_message_open_array(m, num);
+        r = sd_netlink_message_open_array(m, index);
         if (r < 0)
                 return r;
 
-        r = sd_nfnl_add_data(m, NFTA_SET_ELEM_KEY, key, klen);
+        r = sd_netlink_message_append_container_data(m, NFTA_SET_ELEM_KEY, NFTA_DATA_VALUE, key, key_len);
         if (r < 0)
                 goto cancel;
 
         if (data) {
-                r = sd_nfnl_add_data(m, NFTA_SET_ELEM_DATA, data, dlen);
+                r = sd_netlink_message_append_container_data(m, NFTA_SET_ELEM_DATA, NFTA_DATA_VALUE, data, data_len);
                 if (r < 0)
                         goto cancel;
         }
 
-        return 0;
+        if (flags != 0) {
+                r = sd_netlink_message_append_u32(m, NFTA_SET_ELEM_FLAGS, htobe32(flags));
+                if (r < 0)
+                        goto cancel;
+        }
+
+        return sd_netlink_message_close_container(m); /* array */
 
 cancel:
-        sd_netlink_message_cancel_array(m);
+        (void) sd_netlink_message_cancel_array(m);
         return r;
-}
-
-int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m) {
-        return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
 int sd_nfnl_socket_open(sd_netlink **ret) {
