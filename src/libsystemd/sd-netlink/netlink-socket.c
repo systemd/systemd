@@ -191,32 +191,6 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         return k;
 }
 
-int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
-        _cleanup_free_ struct iovec *iovs = NULL;
-        ssize_t k;
-
-        assert(nl);
-        assert(m);
-        assert(msgcount > 0);
-
-        iovs = new(struct iovec, msgcount);
-        if (!iovs)
-                return -ENOMEM;
-
-        for (size_t i = 0; i < msgcount; i++) {
-                assert(m[i]->hdr);
-                assert(m[i]->hdr->nlmsg_len > 0);
-
-                iovs[i] = IOVEC_MAKE(m[i]->hdr, m[i]->hdr->nlmsg_len);
-        }
-
-        k = writev(nl->fd, iovs, msgcount);
-        if (k < 0)
-                return -errno;
-
-        return k;
-}
-
 static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
         union sockaddr_union sender;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo))) control;

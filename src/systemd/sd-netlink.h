@@ -49,7 +49,6 @@ sd_netlink *sd_netlink_ref(sd_netlink *nl);
 sd_netlink *sd_netlink_unref(sd_netlink *nl);
 
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial);
-int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcnt, uint32_t **ret_serial);
 int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink_message *message,
                           sd_netlink_message_handler_t callback, sd_netlink_destroy_t destoy_callback,
                           void *userdata, uint64_t usec, const char *description);
@@ -218,8 +217,24 @@ int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t
 
 /* nfnl */
 int sd_nfnl_socket_open(sd_netlink **ret);
-int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
-int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
+int sd_nfnl_send_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t msgcount,
+                uint32_t **ret_serial);
+int sd_nfnl_call_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint64_t usec,
+                sd_netlink_message ***ret_messages);
+int sd_nfnl_message_new(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int nfproto,
+                uint16_t subsys,
+                uint16_t msg_type,
+                uint16_t flags);
 int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
                                   int nfproto, const char *table);
 int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,

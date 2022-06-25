@@ -204,7 +204,7 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 
-static void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m) {
+void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m) {
         uint32_t picked;
 
         assert(nl);
@@ -248,44 +248,6 @@ int sd_netlink_send(
                 *serial = message_get_serial(message);
 
         return 1;
-}
-
-int sd_netlink_sendv(
-                sd_netlink *nl,
-                sd_netlink_message **messages,
-                size_t msgcount,
-                uint32_t **ret_serial) {
-
-        _cleanup_free_ uint32_t *serials = NULL;
-        int r;
-
-        assert_return(nl, -EINVAL);
-        assert_return(!netlink_pid_changed(nl), -ECHILD);
-        assert_return(messages, -EINVAL);
-        assert_return(msgcount > 0, -EINVAL);
-
-        if (ret_serial) {
-                serials = new(uint32_t, msgcount);
-                if (!serials)
-                        return -ENOMEM;
-        }
-
-        for (size_t i = 0; i < msgcount; i++) {
-                assert_return(!messages[i]->sealed, -EPERM);
-
-                netlink_seal_message(nl, messages[i]);
-                if (serials)
-                        serials[i] = message_get_serial(messages[i]);
-        }
-
-        r = socket_writev_message(nl, messages, msgcount);
-        if (r < 0)
-                return r;
-
-        if (ret_serial)
-                *ret_serial = TAKE_PTR(serials);
-
-        return r;
 }
 
 int netlink_rqueue_make_room(sd_netlink *nl) {
