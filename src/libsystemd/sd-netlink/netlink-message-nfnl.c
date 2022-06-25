@@ -7,11 +7,12 @@
 
 #include "sd-netlink.h"
 
+#include "io-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "nfproto-util.h"
 
-static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto, uint16_t msg_type, uint16_t flags) {
+int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto, uint16_t subsys, uint16_t msg_type, uint16_t flags) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -20,7 +21,7 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfpro
         assert_return(nfproto_is_valid(nfproto), -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, NFNL_SUBSYS_NFTABLES << 8 | msg_type);
+        r = message_new(nfnl, &m, subsys << 8 | msg_type);
         if (r < 0)
                 return r;
 
@@ -29,14 +30,40 @@ static int nft_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfpro
         *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
                 .nfgen_family = nfproto,
                 .version = NFNETLINK_V0,
-                .res_id = nfnl->serial,
         };
 
         *ret = TAKE_PTR(m);
         return 0;
 }
 
-static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t msg_type) {
+static int nfnl_message_set_res_id(sd_netlink_message *m, uint16_t res_id) {
+        struct nfgenmsg *nfgen;
+
+        assert(m);
+        assert(m->hdr);
+
+        nfgen = NLMSG_DATA(m->hdr);
+        nfgen->res_id = htobe16(res_id);
+
+        return 0;
+}
+
+static int nfnl_message_get_subsys(sd_netlink_message *m, uint16_t *ret) {
+        uint16_t t;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = sd_netlink_message_get_type(m, &t);
+        if (r < 0)
+                return r;
+
+        *ret = NFNL_SUBSYS_ID(t);
+        return 0;
+}
+
+static int nfnl_message_new_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16_t subsys, uint16_t msg_type) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -44,26 +71,135 @@ static int nfnl_message_batch(sd_netlink *nfnl, sd_netlink_message **ret, uint16
         assert_return(ret, -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, NFNL_SUBSYS_NONE << 8 | msg_type);
+        r = sd_nfnl_message_new(nfnl, &m, NFPROTO_UNSPEC, NFNL_SUBSYS_NONE, msg_type, 0);
         if (r < 0)
                 return r;
 
-        *(struct nfgenmsg*) NLMSG_DATA(m->hdr) = (struct nfgenmsg) {
-                .nfgen_family = NFPROTO_UNSPEC,
-                .version = NFNETLINK_V0,
-                .res_id = NFNL_SUBSYS_NFTABLES,
-        };
+        r = nfnl_message_set_res_id(m, subsys);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(m);
         return 0;
 }
 
-int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_BEGIN);
+int sd_nfnl_send_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint32_t **ret_serial) {
+
+        /* iovs refs batch_begin and batch_end, hence, free iovs first, then free batch_begin and batch_end. */
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *batch_begin = NULL, *batch_end = NULL;
+        _cleanup_free_ struct iovec *iovs = NULL;
+        _cleanup_free_ uint32_t *serials = NULL;
+        uint16_t subsys;
+        ssize_t k;
+        int r;
+
+        assert_return(nfnl, -EINVAL);
+        assert_return(!netlink_pid_changed(nfnl), -ECHILD);
+        assert_return(messages, -EINVAL);
+        assert_return(n_messages > 0, -EINVAL);
+
+        iovs = new(struct iovec, n_messages + 2);
+        if (!iovs)
+                return -ENOMEM;
+
+        if (ret_serial) {
+                serials = new(uint32_t, n_messages);
+                if (!serials)
+                        return -ENOMEM;
+        }
+
+        r = nfnl_message_get_subsys(messages[0], &subsys);
+        if (r < 0)
+                return r;
+
+        r = nfnl_message_new_batch(nfnl, &batch_begin, subsys, NFNL_MSG_BATCH_BEGIN);
+        if (r < 0)
+                return r;
+
+        r = nfnl_message_new_batch(nfnl, &batch_end, subsys, NFNL_MSG_BATCH_END);
+        if (r < 0)
+                return r;
+
+        netlink_seal_message(nfnl, batch_begin);
+        netlink_seal_message(nfnl, batch_end);
+
+        iovs[0] = IOVEC_MAKE(batch_begin->hdr, batch_begin->hdr->nlmsg_len);
+
+        for (size_t i = 0; i < n_messages; i++) {
+                uint16_t s;
+
+                r = nfnl_message_get_subsys(messages[i], &s);
+                if (r < 0)
+                        return r;
+
+                if (s != subsys)
+                        return -EINVAL;
+
+                netlink_seal_message(nfnl, messages[i]);
+                if (serials)
+                        serials[i] = message_get_serial(messages[i]);
+
+                /* It seems that the kernel accepts an arbitrary number. Let's set the serial of the
+                 * first message. */
+                nfnl_message_set_res_id(messages[i], message_get_serial(batch_begin));
+
+                iovs[i + 1] = IOVEC_MAKE(messages[i]->hdr, messages[i]->hdr->nlmsg_len);
+        }
+
+        iovs[n_messages + 1] = IOVEC_MAKE(batch_end->hdr, batch_end->hdr->nlmsg_len);
+
+        k = writev(nfnl->fd, iovs, n_messages + 2);
+        if (k < 0)
+                return -errno;
+
+        if (ret_serial)
+                *ret_serial = TAKE_PTR(serials);
+
+        return 0;
 }
 
-int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret) {
-        return nfnl_message_batch(nfnl, ret, NFNL_MSG_BATCH_END);
+int sd_nfnl_call_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint64_t usec,
+                sd_netlink_message ***ret_messages) {
+
+        _cleanup_free_ sd_netlink_message **replies = NULL;
+        _cleanup_free_ uint32_t *serials = NULL;
+        int k, r;
+
+        assert_return(nfnl, -EINVAL);
+        assert_return(!netlink_pid_changed(nfnl), -ECHILD);
+        assert_return(messages, -EINVAL);
+        assert_return(n_messages > 0, -EINVAL);
+
+        if (ret_messages) {
+                replies = new0(sd_netlink_message*, n_messages);
+                if (!replies)
+                        return -ENOMEM;
+        }
+
+        r = sd_nfnl_send_batch(nfnl, messages, n_messages, &serials);
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < n_messages; i++) {
+                k = sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+        if (r < 0)
+                return r;
+
+        if (ret_messages)
+                *ret_messages = TAKE_PTR(replies);
+
+        return 0;
 }
 
 int sd_nfnl_nft_message_new_basechain(
@@ -79,7 +215,7 @@ int sd_nfnl_nft_message_new_basechain(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWCHAIN, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -124,7 +260,7 @@ int sd_nfnl_nft_message_new_table(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWTABLE, NLM_F_CREATE | NLM_F_EXCL);
         if (r < 0)
                 return r;
 
@@ -146,7 +282,7 @@ int sd_nfnl_nft_message_new_rule(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWRULE, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWRULE, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -174,7 +310,7 @@ int sd_nfnl_nft_message_new_set(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWSET, NLM_F_CREATE);
+        r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSET, NLM_F_CREATE);
         if (r < 0)
                 return r;
 
@@ -210,9 +346,9 @@ int sd_nfnl_nft_message_new_setelems(
         int r;
 
         if (add)
-                r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_NEWSETELEM, NLM_F_CREATE);
         else
-                r = nft_message_new(nfnl, &m, nfproto, NFT_MSG_DELSETELEM, 0);
+                r = sd_nfnl_message_new(nfnl, &m, nfproto, NFNL_SUBSYS_NFTABLES, NFT_MSG_DELSETELEM, 0);
         if (r < 0)
                 return r;
 
