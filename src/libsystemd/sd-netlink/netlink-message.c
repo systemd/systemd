@@ -148,7 +148,7 @@ _public_ sd_netlink_message* sd_netlink_message_unref(sd_netlink_message *m) {
 
 _public_ int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type) {
         assert_return(m, -EINVAL);
-        assert_return(type != 0, -EINVAL);
+        assert_return(type, -EINVAL);
 
         *type = m->hdr->nlmsg_type;
 
