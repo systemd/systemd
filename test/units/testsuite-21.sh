@@ -33,17 +33,31 @@ BUS_LIST=(
     org.freedesktop.locale1
     org.freedesktop.login1
     org.freedesktop.machine1
-    org.freedesktop.network1
     org.freedesktop.portable1
     org.freedesktop.resolve1
     org.freedesktop.systemd1
     org.freedesktop.timedate1
-    org.freedesktop.timesync1
 )
 
 # systemd-oomd requires PSI
 if tail -n +1 /proc/pressure/{cpu,io,memory}; then
-    BUS_LIST+=(org.freedesktop.oom1)
+    BUS_LIST+=(
+        org.freedesktop.oom1
+    )
+fi
+
+# Some services require specific conditions:
+#   - systemd-timesyncd can't run in a container
+#   - systemd-networkd can run in a container if it has CAP_NET_ADMIN capability
+if ! systemd-detect-virt --container; then
+    BUS_LIST+=(
+        org.freedesktop.network1
+        org.freedesktop.timesync1
+    )
+elif busctl introspect org.freedesktop.network1 / &>/dev/null; then
+    BUS_LIST+=(
+        org.freedesktop.network1
+    )
 fi
 
 SESSION_BUS_LIST=(
