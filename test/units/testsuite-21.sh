@@ -15,7 +15,7 @@ at_exit() {
     # from the queue
     if [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && ! systemctl poweroff; then
         # PID1 is down let's try to save the journal
-        journalctl --sync || : # journal can be down as well so let's ignore exit codes here
+        journalctl --sync      # journal can be down as well so let's ignore exit codes here
         systemctl -ff poweroff # sync() and reboot(RB_POWER_OFF)
     fi
 }
