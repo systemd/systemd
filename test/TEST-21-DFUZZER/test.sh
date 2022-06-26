@@ -3,7 +3,6 @@
 set -e
 
 TEST_DESCRIPTION="Fuzz our D-Bus interfaces with dfuzzer"
-TEST_NO_NSPAWN=1
 TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED=0
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
 IMAGE_NAME=dfuzzer
@@ -11,6 +10,13 @@ TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
+
+# Run the test either only under nspawn (if $TEST_PREFER_NSPAWN is set to true)
+# or only uder qemu otherwise, to avoid running the test twice on machines where
+# we can do both.
+if ! get_bool "${TEST_PREFER_NSPAWN:=}"; then
+    TEST_NO_NSPAWN=1
+fi
 
 command -v dfuzzer >/dev/null || exit 0
 
