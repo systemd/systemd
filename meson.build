@@ -4148,8 +4148,8 @@ endif
 
 ############################################################
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
-                             check : true).stdout().strip()
+alt_time_epoch = run_command('date', '-u', '-d', '@@0@'.format(time_epoch),
+                             '+%FT%T+00:00', check : true).stdout().strip()
 
 summary({
         'split /usr' :                      split_usr,
