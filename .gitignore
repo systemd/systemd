@@ -36,3 +36,4 @@ __pycache__/
 # Ignore any mkosi config files with "local" in the name
 /mkosi.default.d/**/*local*.conf
 /tags
+.dir-locals-2.el
