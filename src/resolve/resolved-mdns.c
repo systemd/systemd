@@ -349,6 +349,15 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
+static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        if (!userdata)
+                return 0;
+
+        DnsScope *scope = userdata;
+        dns_cache_prune(&scope->cache);
+        return 0;
+}
+
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         Manager *m = userdata;
@@ -407,6 +416,17 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 log_debug("Got a goodbye packet");
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
+
+                                r = sd_event_add_time_relative(
+                                                m->event,
+                                                NULL,
+                                                CLOCK_BOOTTIME,
+                                                USEC_PER_SEC,
+                                                0,
+                                                mdns_goodbye_callback,
+                                                scope);
+                                if (r < 0)
+                                        return r;
                         }
                 }
 
