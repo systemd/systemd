@@ -314,7 +314,7 @@ EFI_STATUS graphics_splash(const uint8_t *content, UINTN len, const EFI_GRAPHICS
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = graphics_mode(TRUE);
+        err = graphics_mode(true);
         if (err != EFI_SUCCESS)
                 return err;
 

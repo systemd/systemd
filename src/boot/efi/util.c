@@ -6,7 +6,7 @@
 #include "ticks.h"
 #include "util.h"
 
-EFI_STATUS parse_boolean(const char *v, BOOLEAN *b) {
+EFI_STATUS parse_boolean(const char *v, bool *b) {
         assert(b);
 
         if (!v)
@@ -14,13 +14,13 @@ EFI_STATUS parse_boolean(const char *v, BOOLEAN *b) {
 
         if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
             streq8(v, "on")) {
-                *b = TRUE;
+                *b = true;
                 return EFI_SUCCESS;
         }
 
         if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
             streq8(v, "off")) {
-                *b = FALSE;
+                *b = false;
                 return EFI_SUCCESS;
         }
 
@@ -52,7 +52,7 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         /* Note that SPrint has no native sized length specifier and will always use ValueToString()
          * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
          * 64bit machines. */
-        ValueToString(str, FALSE, i);
+        ValueToString(str, false, i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -209,7 +209,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **b
         return err;
 }
 
-EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, BOOLEAN *ret) {
+EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
         _cleanup_free_ char *b = NULL;
         UINTN size;
         EFI_STATUS err;
@@ -237,7 +237,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
                 return;
 
         /* See comment on ValueToString in efivar_set_uint_string(). */
-        ValueToString(str, FALSE, usec);
+        ValueToString(str, false, usec);
         efivar_set(vendor, name, str, 0);
 }
 
@@ -557,15 +557,15 @@ EFI_STATUS readdir_harder(
         return EFI_SUCCESS;
 }
 
-BOOLEAN is_ascii(const char16_t *f) {
+bool is_ascii(const char16_t *f) {
         if (!f)
-                return FALSE;
+                return false;
 
         for (; *f != 0; f++)
                 if (*f > 127)
-                        return FALSE;
+                        return false;
 
-        return TRUE;
+        return true;
 }
 
 char16_t **strv_free(char16_t **v) {
@@ -624,7 +624,7 @@ uint64_t get_os_indications_supported(void) {
 __attribute__((noinline)) void debug_break(void) {
         /* This is a poor programmer's breakpoint to wait until a debugger
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
-        volatile BOOLEAN wait = TRUE;
+        volatile bool wait = true;
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
 #if defined(__i386__) || defined(__x86_64__)

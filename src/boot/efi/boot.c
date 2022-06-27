@@ -84,14 +84,14 @@ typedef struct {
         char16_t *entry_default_efivar;
         char16_t *entry_oneshot;
         char16_t *entry_saved;
-        BOOLEAN editor;
-        BOOLEAN auto_entries;
-        BOOLEAN auto_firmware;
-        BOOLEAN reboot_for_bitlocker;
-        BOOLEAN force_menu;
-        BOOLEAN use_saved_entry;
-        BOOLEAN use_saved_entry_efivar;
-        BOOLEAN beep;
+        bool editor;
+        bool auto_entries;
+        bool auto_firmware;
+        bool reboot_for_bitlocker;
+        bool force_menu;
+        bool use_saved_entry;
+        bool use_saved_entry_efivar;
+        bool beep;
         int64_t console_mode;
         int64_t console_mode_efivar;
         RandomSeedMode random_seed_mode;
@@ -139,7 +139,7 @@ static void cursor_right(
                 (*first)++;
 }
 
-static BOOLEAN line_edit(
+static bool line_edit(
                 char16_t **line_in,
                 UINTN x_max,
                 UINTN y_pos) {
@@ -181,7 +181,7 @@ static BOOLEAN line_edit(
 
                         err = console_key_read(&key, 750 * 1000);
                         if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
-                                return FALSE;
+                                return false;
 
                         print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
                 } while (err != EFI_SUCCESS);
@@ -192,7 +192,7 @@ static BOOLEAN line_edit(
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'g'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('c')):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('g')):
-                        return FALSE;
+                        return false;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'a'):
@@ -321,7 +321,7 @@ static BOOLEAN line_edit(
                                 free(*line_in);
                                 *line_in = TAKE_PTR(line);
                         }
-                        return TRUE;
+                        return true;
 
                 case KEYPRESS(0, 0, CHAR_BACKSPACE):
                         if (len == 0)
@@ -396,7 +396,7 @@ static UINTN entry_lookup_key(Config *config, UINTN start, char16_t key) {
         return IDX_INVALID;
 }
 
-static char16_t *update_timeout_efivar(uint32_t *t, BOOLEAN inc) {
+static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
         assert(t);
 
         switch (*t) {
@@ -428,7 +428,7 @@ static char16_t *update_timeout_efivar(uint32_t *t, BOOLEAN inc) {
         }
 }
 
-static BOOLEAN unicode_supported(void) {
+static bool unicode_supported(void) {
         static INTN cache = -1;
 
         if (cache < 0)
@@ -445,12 +445,12 @@ static void ps_string(const char16_t *fmt, const void *value) {
                 Print(fmt, value);
 }
 
-static void ps_bool(const char16_t *fmt, BOOLEAN value) {
+static void ps_bool(const char16_t *fmt, bool value) {
         assert(fmt);
         Print(fmt, yes_no(value));
 }
 
-static BOOLEAN ps_continue(void) {
+static bool ps_continue(void) {
         if (unicode_supported())
                 Print(L"\n─── Press any key to continue, ESC or q to quit. ───\n\n");
         else
@@ -595,7 +595,7 @@ static EFI_STATUS reboot_into_firmware(void) {
         assert_not_reached();
 }
 
-static BOOLEAN menu_run(
+static bool menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
                 char16_t *loaded_image_path) {
@@ -609,21 +609,21 @@ static BOOLEAN menu_run(
         UINTN idx_highlight = config->idx_default;
         UINTN idx_highlight_prev = 0;
         UINTN idx, idx_first = 0, idx_last = 0;
-        BOOLEAN new_mode = TRUE, clear = TRUE;
-        BOOLEAN refresh = TRUE, highlight = FALSE;
+        bool new_mode = true, clear = true;
+        bool refresh = true, highlight = false;
         UINTN x_start = 0, y_start = 0, y_status = 0;
         UINTN x_max, y_max;
         _cleanup_(strv_freep) char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        BOOLEAN exit = FALSE, run = TRUE, firmware_setup = FALSE;
+        bool exit = false, run = true, firmware_setup = false;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         UINTN default_efivar_saved = config->idx_default_efivar;
 
-        graphics_mode(FALSE);
-        ST->ConIn->Reset(ST->ConIn, FALSE);
-        ST->ConOut->EnableCursor(ST->ConOut, FALSE);
+        graphics_mode(false);
+        ST->ConIn->Reset(ST->ConIn, false);
+        ST->ConOut->EnableCursor(ST->ConOut, false);
 
         /* draw a single character to make ClearScreen work on some firmware */
         Print(L" ");
@@ -707,14 +707,14 @@ static BOOLEAN menu_run(
                         clearline[x_max] = 0;
                         separator[x_max] = 0;
 
-                        new_mode = FALSE;
-                        clear = TRUE;
+                        new_mode = false;
+                        clear = true;
                 }
 
                 if (clear) {
                         clear_screen(COLOR_NORMAL);
-                        clear = FALSE;
-                        refresh = TRUE;
+                        clear = false;
+                        refresh = true;
                 }
 
                 if (refresh) {
@@ -728,7 +728,7 @@ static BOOLEAN menu_run(
                                                  (i == idx_highlight) ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                                  unicode_supported() ? L" ►" : L"=>");
                         }
-                        refresh = FALSE;
+                        refresh = false;
                 } else if (highlight) {
                         print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
                         print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
@@ -742,7 +742,7 @@ static BOOLEAN menu_run(
                                          y_start + idx_highlight - idx_first,
                                          COLOR_HIGHLIGHT,
                                          unicode_supported() ? L" ►" : L"=>");
-                        highlight = FALSE;
+                        highlight = false;
                 }
 
                 if (timeout_remain > 0) {
@@ -783,7 +783,7 @@ static BOOLEAN menu_run(
                         assert(timeout_remain > 0);
                         timeout_remain--;
                         if (timeout_remain == 0) {
-                                exit = TRUE;
+                                exit = true;
                                 break;
                         }
 
@@ -791,7 +791,7 @@ static BOOLEAN menu_run(
                         continue;
                 }
                 if (err != EFI_SUCCESS) {
-                        exit = TRUE;
+                        exit = true;
                         break;
                 }
 
@@ -803,7 +803,7 @@ static BOOLEAN menu_run(
                 idx_highlight_prev = idx_highlight;
 
                 if (firmware_setup) {
-                        firmware_setup = FALSE;
+                        firmware_setup = false;
                         if (key == KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN))
                                 reboot_into_firmware();
                         continue;
@@ -827,7 +827,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_HOME, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '<'):
                         if (idx_highlight > 0) {
-                                refresh = TRUE;
+                                refresh = true;
                                 idx_highlight = 0;
                         }
                         break;
@@ -835,7 +835,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
                         if (idx_highlight < config->entry_count-1) {
-                                refresh = TRUE;
+                                refresh = true;
                                 idx_highlight = config->entry_count-1;
                         }
                         break;
@@ -858,7 +858,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
-                        exit = TRUE;
+                        exit = true;
                         break;
 
                 case KEYPRESS(0, SCAN_F1, 0):
@@ -870,8 +870,8 @@ static BOOLEAN menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
-                        exit = TRUE;
-                        run = FALSE;
+                        exit = true;
+                        run = false;
                         break;
 
                 case KEYPRESS(0, 0, 'd'):
@@ -886,18 +886,18 @@ static BOOLEAN menu_run(
                                 config->idx_default_efivar = IDX_INVALID;
                                 status = xstrdup16(u"Default boot entry cleared.");
                         }
-                        config->use_saved_entry_efivar = FALSE;
-                        refresh = TRUE;
+                        config->use_saved_entry_efivar = false;
+                        refresh = true;
                         break;
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, FALSE);
+                        status = update_timeout_efivar(&config->timeout_sec_efivar, false);
                         break;
 
                 case KEYPRESS(0, 0, '+'):
                 case KEYPRESS(0, 0, 't'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, TRUE);
+                        status = update_timeout_efivar(&config->timeout_sec_efivar, true);
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
@@ -939,12 +939,12 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'p'):
                 case KEYPRESS(0, 0, 'P'):
                         print_status(config, loaded_image_path);
-                        clear = TRUE;
+                        clear = true;
                         break;
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'l'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('l')):
-                        clear = TRUE;
+                        clear = true;
                         break;
 
                 case KEYPRESS(0, 0, 'r'):
@@ -955,7 +955,7 @@ static BOOLEAN menu_run(
                                 config->console_mode_efivar = ST->ConOut->Mode->Mode;
                                 status = xpool_print(L"Console mode changed to %ld.", config->console_mode_efivar);
                         }
-                        new_mode = TRUE;
+                        new_mode = true;
                         break;
 
                 case KEYPRESS(0, 0, 'R'):
@@ -967,7 +967,7 @@ static BOOLEAN menu_run(
                         else
                                 status = xpool_print(L"Console mode reset to %s default.",
                                                      config->console_mode == CONSOLE_MODE_KEEP ? L"firmware" : L"configuration file");
-                        new_mode = TRUE;
+                        new_mode = true;
                         break;
 
                 case KEYPRESS(0, 0, 'f'):
@@ -977,7 +977,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
                 case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                                firmware_setup = TRUE;
+                                firmware_setup = true;
                                 /* Let's make sure the user really wants to do this. */
                                 status = xpool_print(L"Press Enter to reboot into firmware interface.");
                         } else
@@ -990,21 +990,21 @@ static BOOLEAN menu_run(
                         if (idx == IDX_INVALID)
                                 break;
                         idx_highlight = idx;
-                        refresh = TRUE;
+                        refresh = true;
                 }
 
                 if (idx_highlight > idx_last) {
                         idx_last = idx_highlight;
                         idx_first = 1 + idx_highlight - visible_max;
-                        refresh = TRUE;
+                        refresh = true;
                 } else if (idx_highlight < idx_first) {
                         idx_first = idx_highlight;
                         idx_last = idx_highlight + visible_max-1;
-                        refresh = TRUE;
+                        refresh = true;
                 }
 
                 if (!refresh && idx_highlight != idx_highlight_prev)
-                        highlight = TRUE;
+                        highlight = true;
         }
 
         *chosen_entry = config->entries[idx_highlight];
@@ -1246,7 +1246,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else if (streq8(value, "always"))
                                 config->random_seed_mode = RANDOM_SEED_ALWAYS;
                         else {
-                                BOOLEAN on;
+                                bool on;
 
                                 err = parse_boolean(value, &on);
                                 if (err != EFI_SUCCESS) {
@@ -1515,10 +1515,10 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         assert(root_dir);
 
         *config = (Config) {
-                .editor = TRUE,
-                .auto_entries = TRUE,
-                .auto_firmware = TRUE,
-                .reboot_for_bitlocker = FALSE,
+                .editor = true,
+                .auto_entries = true,
+                .auto_firmware = true,
+                .reboot_for_bitlocker = false,
                 .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
@@ -1543,7 +1543,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_set(LOADER_GUID, L"LoaderConfigTimeoutOneShot", NULL, EFI_VARIABLE_NON_VOLATILE);
 
                 config->timeout_sec = MIN(value, TIMEOUT_TYPE_MAX);
-                config->force_menu = TRUE; /* force the menu when this is set */
+                config->force_menu = true; /* force the menu when this is set */
         }
 
         err = efivar_get_uint_string(LOADER_GUID, L"LoaderConfigConsoleMode", &value);
@@ -1723,8 +1723,8 @@ static void config_default_entry_select(Config *config) {
                 config->timeout_sec = 10;
 }
 
-static BOOLEAN entries_unique(ConfigEntry **entries, BOOLEAN *unique, UINTN entry_count) {
-        BOOLEAN is_unique = TRUE;
+static bool entries_unique(ConfigEntry **entries, bool *unique, UINTN entry_count) {
+        bool is_unique = true;
 
         assert(entries);
         assert(unique);
@@ -1734,7 +1734,7 @@ static BOOLEAN entries_unique(ConfigEntry **entries, BOOLEAN *unique, UINTN entr
                         if (!streq16(entries[i]->title_show, entries[k]->title_show))
                                 continue;
 
-                        is_unique = unique[i] = unique[k] = FALSE;
+                        is_unique = unique[i] = unique[k] = false;
                 }
 
         return is_unique;
@@ -1744,12 +1744,12 @@ static BOOLEAN entries_unique(ConfigEntry **entries, BOOLEAN *unique, UINTN entr
 static void config_title_generate(Config *config) {
         assert(config);
 
-        BOOLEAN unique[config->entry_count];
+        bool unique[config->entry_count];
 
         /* set title */
         for (UINTN i = 0; i < config->entry_count; i++) {
                 assert(!config->entries[i]->title_show);
-                unique[i] = TRUE;
+                unique[i] = true;
                 config->entries[i]->title_show = xstrdup16(config->entries[i]->title ?: config->entries[i]->id);
         }
 
@@ -1761,7 +1761,7 @@ static void config_title_generate(Config *config) {
                 if (unique[i])
                         continue;
 
-                unique[i] = TRUE;
+                unique[i] = true;
 
                 if (!config->entries[i]->version)
                         continue;
@@ -1778,7 +1778,7 @@ static void config_title_generate(Config *config) {
                 if (unique[i])
                         continue;
 
-                unique[i] = TRUE;
+                unique[i] = true;
 
                 if (!config->entries[i]->machine_id)
                         continue;
@@ -1804,7 +1804,7 @@ static void config_title_generate(Config *config) {
         }
 }
 
-static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
+static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
         const char *sections[] = {
                 ".sdmagic",
@@ -1818,11 +1818,11 @@ static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
 
         err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
         if (err != EFI_SUCCESS || size != sizeof(magic))
-                return FALSE;
+                return false;
 
         err = file_read(root_dir, loader_path, offset, size, &content, &read);
         if (err != EFI_SUCCESS || size != read)
-                return FALSE;
+                return false;
 
         return memcmp(content, magic, sizeof(magic)) == 0;
 }
@@ -1933,7 +1933,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 return err;
 
         /* Look for BitLocker magic string on all block drives. */
-        BOOLEAN found = FALSE;
+        bool found = false;
         for (UINTN i = 0; i < n_handles; i++) {
                 EFI_BLOCK_IO *block_io;
                 err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
@@ -1946,7 +1946,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                         continue;
 
                 if (memcmp(buf + 3, "-FVE-FS-", STRLEN("-FVE-FS-")) == 0) {
-                        found = TRUE;
+                        found = true;
                         break;
                 }
         }
@@ -2313,7 +2313,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error preparing initrd: %r", err);
 
-        err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
+        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error loading %s: %r", entry->loader, err);
 
@@ -2344,7 +2344,7 @@ static EFI_STATUS image_start(
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
-        graphics_mode(FALSE);
+        graphics_mode(false);
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
 
@@ -2361,7 +2361,7 @@ static EFI_STATUS image_start(
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + kernel_entry_address);
 
                         err = kernel_entry(image, ST);
-                        graphics_mode(FALSE);
+                        graphics_mode(false);
                         if (err == EFI_SUCCESS)
                                 return EFI_SUCCESS;
                 }
@@ -2533,7 +2533,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         char16_t *loaded_image_path;
         EFI_STATUS err;
         uint64_t init_usec;
-        BOOLEAN menu = FALSE;
+        bool menu = false;
 
         InitializeLib(image, sys_table);
         init_usec = time_usec();
@@ -2577,7 +2577,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* select entry or show menu when key is pressed or timeout is set */
         if (config.force_menu || config.timeout_sec > 0)
-                menu = TRUE;
+                menu = true;
         else {
                 uint64_t key;
 
@@ -2589,7 +2589,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         if (idx != IDX_INVALID)
                                 config.idx_default = idx;
                         else
-                                menu = TRUE;
+                                menu = true;
                 }
         }
 
@@ -2620,7 +2620,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 if (err != EFI_SUCCESS)
                         goto out;
 
-                menu = TRUE;
+                menu = true;
                 config.timeout_sec = 0;
         }
         err = EFI_SUCCESS;
