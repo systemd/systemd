@@ -417,7 +417,7 @@ filesystem_switch_case_h = custom_target(
 
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
-libbasic = static_library(
+libbasic_static = static_library(
         'basic',
         basic_sources,
         fundamental_sources,
@@ -429,14 +429,25 @@ libbasic = static_library(
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
+
+libbasic_name = 'systemd-basic-@0@'.format(shared_lib_tag)
+
+libbasic = shared_library(
+        libbasic_name,
+        include_directories : basic_includes,
+        link_whole : libbasic_static,
+        c_args : ['-fvisibility=default'],
+        install : true,
+        install_tag: 'libsystemd',
+        install_dir : rootpkglibdir)
+
 ############################################################
 
 basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
 
-# A convenience library that is separate from libbasic to avoid
-# unnecessary linking to libgcrypt.
+# A convenience library that is separate from libbasic to avoid unnecessary linking to libgcrypt.
 libbasic_gcrypt = static_library(
         'basic-gcrypt',
         basic_gcrypt_sources,
@@ -451,8 +462,8 @@ basic_compress_sources = files(
         'compress.c',
         'compress.h')
 
-# A convenience library that is separate from libbasic to avoid unnecessary
-# linking to the compression libraries.
+# A convenience library that is separate from libbasic to avoid unnecessary linking to the
+# compression libraries.
 libbasic_compress = static_library(
         'basic-compress',
         basic_compress_sources,

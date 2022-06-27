@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <linux/if_arp.h>
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp6-internal.h"
