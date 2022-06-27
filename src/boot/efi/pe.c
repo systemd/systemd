@@ -141,7 +141,7 @@ static inline UINTN section_table_offset(const struct DosFileHeader *dos, const 
 static void locate_sections(
                 const struct PeSectionHeader section_table[],
                 UINTN n_table,
-                const CHAR8 **sections,
+                const char **sections,
                 UINTN *addrs,
                 UINTN *offsets,
                 UINTN *sizes) {
@@ -154,7 +154,7 @@ static void locate_sections(
                 const struct PeSectionHeader *sect = section_table + i;
 
                 for (UINTN j = 0; sections[j]; j++) {
-                        if (memcmp(sect->Name, sections[j], strlen8((const char *) sections[j])) != 0)
+                        if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
                                 continue;
 
                         if (addrs)
@@ -168,7 +168,7 @@ static void locate_sections(
 
 static uint32_t get_compatibility_entry_address(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
         UINTN addr = 0, size = 0;
-        static const CHAR8 *sections[] = { (CHAR8 *) ".compat", NULL };
+        static const char *sections[] = { ".compat", NULL };
 
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
          * booting a 64bit kernel on 32bit EFI that is otherwise running on a 64bit CPU. The locations of any
@@ -248,8 +248,8 @@ EFI_STATUS pe_alignment_info(
 }
 
 EFI_STATUS pe_memory_locate_sections(
-                const CHAR8 *base,
-                const CHAR8 **sections,
+                const char *base,
+                const char **sections,
                 UINTN *addrs,
                 UINTN *sizes) {
         const struct DosFileHeader *dos;
@@ -279,7 +279,7 @@ EFI_STATUS pe_memory_locate_sections(
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
-                const CHAR8 **sections,
+                const char **sections,
                 UINTN *offsets,
                 UINTN *sizes) {
         _cleanup_freepool_ struct PeSectionHeader *section_table = NULL;

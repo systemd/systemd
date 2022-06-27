@@ -122,7 +122,7 @@ static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
@@ -177,7 +177,7 @@ EFI_STATUS linux_exec(
                         return err;
 
                 memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
+                ((char *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
                 boot_params->hdr.cmd_line_ptr = (uint32_t) addr;
         }
 

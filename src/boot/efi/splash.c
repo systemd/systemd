@@ -8,7 +8,7 @@
 #include "util.h"
 
 struct bmp_file {
-        CHAR8 signature[2];
+        char signature[2];
         uint32_t size;
         uint16_t reserved[2];
         uint32_t offset;
