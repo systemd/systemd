@@ -623,6 +623,13 @@ int config_parse_private_users(
                 settings->userns_mode = USER_NAMESPACE_PICK;
                 settings->uid_shift = UID_INVALID;
                 settings->uid_range = UINT32_C(0x10000);
+        } else if (streq(rvalue, "identity")) {
+                /* identitiy: User namespaces on, UID range is map the 0…0xFFFF range to
+                 * itself, i.e. we don't actually map anything, but do take benefit of
+                 * isolation of capability sets. */
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = 0;
+                settings->uid_range = UINT32_C(0x10000);
         } else {
                 const char *range, *shift;
                 uid_t sh, rn;
