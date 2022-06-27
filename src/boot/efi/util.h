@@ -69,7 +69,7 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
 #define xpool_print(fmt, ...) ((char16_t *) ASSERT_SE_PTR(PoolPrint((fmt), ##__VA_ARGS__)))
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
-EFI_STATUS parse_boolean(const char *v, BOOLEAN *b);
+EFI_STATUS parse_boolean(const char *v, bool *b);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags);
@@ -83,7 +83,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **b
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *i);
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
-EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, BOOLEAN *ret);
+EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret);
 
 char16_t *xstra_to_path(const char *stra);
 char16_t *xstra_to_str(const char *stra);
@@ -132,7 +132,7 @@ EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *re
 
 EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
 
-BOOLEAN is_ascii(const char16_t *f);
+bool is_ascii(const char16_t *f);
 
 char16_t **strv_free(char16_t **l);
 

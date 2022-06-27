@@ -5,11 +5,12 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
+#include <stdbool.h>
 
 #include "ticks.h"
 
 #if defined(__i386__) || defined(__x86_64__)
-static BOOLEAN in_hypervisor(void) {
+static bool in_hypervisor(void) {
         uint32_t eax, ebx, ecx, edx;
 
         /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
@@ -20,7 +21,7 @@ static BOOLEAN in_hypervisor(void) {
          * environment. */
 
         if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
-                return FALSE;
+                return false;
 
         return !!(ecx & 0x80000000U);
 }

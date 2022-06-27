@@ -117,12 +117,12 @@ struct PeSectionHeader {
         uint32_t Characteristics;
 } _packed_;
 
-static inline BOOLEAN verify_dos(const struct DosFileHeader *dos) {
+static inline bool verify_dos(const struct DosFileHeader *dos) {
         assert(dos);
         return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
 }
 
-static inline BOOLEAN verify_pe(const struct PeFileHeader *pe, BOOLEAN allow_compatibility) {
+static inline bool verify_pe(const struct PeFileHeader *pe, bool allow_compatibility) {
         assert(pe);
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
@@ -226,7 +226,7 @@ EFI_STATUS pe_alignment_info(
                 return EFI_LOAD_ERROR;
 
         pe = (const struct PeFileHeader*) ((const uint8_t *)base + dos->ExeHeader);
-        if (!verify_pe(pe, /* allow_compatibility= */ TRUE))
+        if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
         uint32_t entry_address = pe->OptionalHeader.AddressOfEntryPoint;
@@ -266,7 +266,7 @@ EFI_STATUS pe_memory_locate_sections(
                 return EFI_LOAD_ERROR;
 
         pe = (const struct PeFileHeader*)&base[dos->ExeHeader];
-        if (!verify_pe(pe, /* allow_compatibility= */ FALSE))
+        if (!verify_pe(pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
@@ -314,7 +314,7 @@ EFI_STATUS pe_file_locate_sections(
         err = handle->Read(handle, &len, &pe);
         if (err != EFI_SUCCESS)
                 return err;
-        if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ FALSE))
+        if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         section_table_len = pe.FileHeader.NumberOfSections * sizeof(struct PeSectionHeader);

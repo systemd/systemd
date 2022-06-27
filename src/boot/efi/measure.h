@@ -2,6 +2,7 @@
 #pragma once
 
 #include <efi.h>
+#include <stdbool.h>
 #include <uchar.h>
 
 /* This TPM PCR is where we extend the kernel command line and any passed credentials here. */
@@ -20,14 +21,14 @@
 
 #if ENABLE_TPM
 
-BOOLEAN tpm_present(void);
+bool tpm_present(void);
 EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char16_t *description);
 EFI_STATUS tpm_log_load_options(const char16_t *cmdline);
 
 #else
 
-static inline BOOLEAN tpm_present(void) {
-        return FALSE;
+static inline bool tpm_present(void) {
+        return false;
 }
 
 static inline EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char16_t *description) {

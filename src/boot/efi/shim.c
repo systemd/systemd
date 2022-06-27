@@ -34,23 +34,23 @@ struct ShimLock {
 #define SHIM_LOCK_GUID \
         &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
-BOOLEAN shim_loaded(void) {
+bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
         return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
-static BOOLEAN shim_validate(void *data, uint32_t size) {
+static bool shim_validate(void *data, uint32_t size) {
         struct ShimLock *shim_lock;
 
         if (!data)
-                return FALSE;
+                return false;
 
         if (BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
-                return FALSE;
+                return false;
 
         if (!shim_lock)
-                return FALSE;
+                return false;
 
         return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
 }

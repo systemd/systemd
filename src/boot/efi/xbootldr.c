@@ -41,7 +41,7 @@ static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
         return dup;
 }
 
-static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
+static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
         EFI_PARTITION_TABLE_HEADER *h;
         uint32_t crc32, crc32_saved;
         EFI_STATUS err;
@@ -52,13 +52,13 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
 
         /* Some superficial validation of the GPT header */
         if (memcmp(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
-                return FALSE;
+                return false;
 
         if (h->Header.HeaderSize < 92 || h->Header.HeaderSize > 512)
-                return FALSE;
+                return false;
 
         if (h->Header.Revision != 0x00010000U)
-                return FALSE;
+                return false;
 
         /* Calculate CRC check */
         crc32_saved = h->Header.CRC32;
@@ -66,22 +66,22 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
         err = BS->CalculateCrc32(gpt_header_buffer, h->Header.HeaderSize, &crc32);
         h->Header.CRC32 = crc32_saved;
         if (err != EFI_SUCCESS || crc32 != crc32_saved)
-                return FALSE;
+                return false;
 
         if (h->MyLBA != lba_expected)
-                return FALSE;
+                return false;
 
         if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
-                return FALSE;
+                return false;
 
         if (h->NumberOfPartitionEntries <= 0 || h->NumberOfPartitionEntries > 1024)
-                return FALSE;
+                return false;
 
         /* overflow check */
         if (h->SizeOfPartitionEntry > UINTN_MAX / h->NumberOfPartitionEntries)
-                return FALSE;
+                return false;
 
-        return TRUE;
+        return true;
 }
 
 static EFI_STATUS try_gpt(

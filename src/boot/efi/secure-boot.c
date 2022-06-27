@@ -4,8 +4,8 @@
 #include "secure-boot.h"
 #include "util.h"
 
-BOOLEAN secure_boot_enabled(void) {
-        BOOLEAN secure;
+bool secure_boot_enabled(void) {
+        bool secure;
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
@@ -14,14 +14,14 @@ BOOLEAN secure_boot_enabled(void) {
 }
 
 SecureBootMode secure_boot_mode(void) {
-        BOOLEAN secure, audit = FALSE, deployed = FALSE, setup = FALSE;
+        bool secure, audit = false, deployed = false, setup = false;
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
         if (err != EFI_SUCCESS)
                 return SECURE_BOOT_UNSUPPORTED;
 
-        /* We can assume FALSE for all these if they are abscent (AuditMode and
+        /* We can assume false for all these if they are abscent (AuditMode and
          * DeployedMode may not exist on older firmware). */
         (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"AuditMode", &audit);
         (void) efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"DeployedMode", &deployed);

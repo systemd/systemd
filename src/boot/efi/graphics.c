@@ -11,7 +11,7 @@
 #include "missing_efi.h"
 #include "util.h"
 
-EFI_STATUS graphics_mode(BOOLEAN on) {
+EFI_STATUS graphics_mode(bool on) {
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
         EFI_CONSOLE_CONTROL_SCREEN_MODE new;
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
@@ -37,7 +37,7 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         err =ConsoleControl->SetMode(ConsoleControl, new);
 
         /* some firmware enables the cursor when switching modes */
-        ST->ConOut->EnableCursor(ST->ConOut, FALSE);
+        ST->ConOut->EnableCursor(ST->ConOut, false);
 
         return err;
 }

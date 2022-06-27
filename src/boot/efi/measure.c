@@ -137,7 +137,7 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         return tcg;
 }
 
-BOOLEAN tpm_present(void) {
+bool tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 

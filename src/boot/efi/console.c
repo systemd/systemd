@@ -39,7 +39,7 @@ static inline void event_closep(EFI_EVENT *event) {
  * any input functions that can freeze on us or using a busy/stall loop. */
 EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL, *extraInEx = NULL;
-        static BOOLEAN checked = FALSE;
+        static bool checked = false;
         UINTN index;
         EFI_STATUS err;
         _cleanup_(event_closep) EFI_EVENT timer = NULL;
@@ -62,7 +62,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 if (conInEx == extraInEx)
                         extraInEx = NULL;
 
-                checked = TRUE;
+                checked = true;
         }
 
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
@@ -176,7 +176,7 @@ static EFI_STATUS change_mode(int64_t mode) {
                 return err;
 
         /* Maybe the device is on fire? */
-        ST->ConOut->Reset(ST->ConOut, TRUE);
+        ST->ConOut->Reset(ST->ConOut, true);
         ST->ConOut->SetMode(ST->ConOut, CONSOLE_MODE_RANGE_MIN);
         return err;
 }
@@ -201,13 +201,13 @@ static int64_t get_auto_mode(void) {
         uint32_t screen_width, screen_height;
 
         if (query_screen_resolution(&screen_width, &screen_height) == EFI_SUCCESS) {
-                BOOLEAN keep = FALSE;
+                bool keep = false;
 
                 /* Start verifying if we are in a resolution larger than Full HD
                  * (1920x1080). If we're not, assume we're in a good mode and do not
                  * try to change it. */
                 if (screen_width <= HORIZONTAL_MAX_OK && screen_height <= VERTICAL_MAX_OK)
-                        keep = TRUE;
+                        keep = true;
                 /* For larger resolutions, calculate the ratio of the total screen
                  * area to the text viewport area. If it's less than 10 times bigger,
                  * then assume the text is readable and keep the text mode. */
@@ -220,7 +220,7 @@ static int64_t get_auto_mode(void) {
                         text_area = SYSTEM_FONT_WIDTH * SYSTEM_FONT_HEIGHT * (uint64_t)x_max * (uint64_t)y_max;
 
                         if (text_area != 0 && screen_area/text_area < VIEWPORT_RATIO)
-                                keep = TRUE;
+                                keep = true;
                 }
 
                 if (keep)

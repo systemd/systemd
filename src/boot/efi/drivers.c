@@ -25,7 +25,7 @@ static EFI_STATUS load_one_driver(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error making file device path: %r", err);
 
-        err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
+        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to load image %s: %r", fname, err);
 
@@ -62,7 +62,7 @@ static EFI_STATUS reconnect(void) {
                   return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
 
           for (UINTN i = 0; i < n_handles; i++) {
-                  err = BS->ConnectController(handles[i], NULL, NULL, TRUE);
+                  err = BS->ConnectController(handles[i], NULL, NULL, true);
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
                   if (err != EFI_SUCCESS)
