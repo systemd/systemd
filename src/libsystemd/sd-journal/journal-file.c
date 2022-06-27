@@ -649,6 +649,40 @@ static uint64_t minimum_header_size(Object *o) {
         return table[o->object.type];
 }
 
+static int check_object_header(Object *o, ObjectType type, uint64_t offset) {
+        uint64_t s;
+
+        assert(o);
+
+        s = le64toh(READ_NOW(o->object.size));
+        if (s == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to uninitialized object: %" PRIu64,
+                                       offset);
+
+        if (s < sizeof(ObjectHeader))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to overly short object: %" PRIu64,
+                                       offset);
+
+        if (o->object.type <= OBJECT_UNUSED)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object with invalid type: %" PRIu64,
+                                       offset);
+
+        if (type > OBJECT_UNUSED && o->object.type != type)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to object of unexpected type: %" PRIu64,
+                                       offset);
+
+        if (s < minimum_header_size(o))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Attempt to move to truncated object: %" PRIu64,
+                                       offset);
+
+        return 0;
+}
+
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
 static int check_object(Object *o, uint64_t offset) {
@@ -799,7 +833,6 @@ static int check_object(Object *o, uint64_t offset) {
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
         Object *o;
-        uint64_t s;
 
         assert(f);
 
@@ -819,33 +852,15 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        s = le64toh(READ_NOW(o->object.size));
+        r = check_object_header(o, type, offset);
+        if (r < 0)
+                return r;
 
-        if (s == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to uninitialized object: %" PRIu64,
-                                       offset);
-        if (s < sizeof(ObjectHeader))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to overly short object: %" PRIu64,
-                                       offset);
+        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
+        if (r < 0)
+                return r;
 
-        if (o->object.type <= OBJECT_UNUSED)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object with invalid type: %" PRIu64,
-                                       offset);
-
-        if (s < minimum_header_size(o))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to truncated object: %" PRIu64,
-                                       offset);
-
-        if (type > OBJECT_UNUSED && o->object.type != type)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object of unexpected type: %" PRIu64,
-                                       offset);
-
-        r = journal_file_move_to(f, type, false, offset, s, (void**) &o);
+        r = check_object_header(o, type, offset);
         if (r < 0)
                 return r;
 
@@ -860,7 +875,6 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 }
 
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
-        uint64_t s;
         ssize_t n;
         Object o;
         int r;
@@ -890,34 +904,13 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
                                        "Failed to read short object at offset: %" PRIu64,
                                        offset);
 
-        s = le64toh(o.object.size);
-        if (s == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read uninitialized object: %" PRIu64,
-                                       offset);
-        if (s < sizeof(o.object))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read overly short object: %" PRIu64,
-                                       offset);
-
-        if (o.object.type <= OBJECT_UNUSED)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object with invalid type: %" PRIu64,
-                                       offset);
-
-        if (s < minimum_header_size(&o))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read truncated object: %" PRIu64,
-                                       offset);
+        r = check_object_header(&o, type, offset);
+        if (r < 0)
+                return r;
 
         if ((size_t) n < minimum_header_size(&o))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short read while reading object: %" PRIu64,
-                                       offset);
-
-        if (type > OBJECT_UNUSED && o.object.type != type)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object of unexpected type: %" PRIu64,
                                        offset);
 
         r = check_object(&o, offset);
