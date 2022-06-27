@@ -158,12 +158,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 _SECTION_MAX,
         };
 
-        static const CHAR8* const sections[_SECTION_MAX + 1] = {
-                [SECTION_CMDLINE] = (const CHAR8*) ".cmdline",
-                [SECTION_LINUX]   = (const CHAR8*) ".linux",
-                [SECTION_INITRD]  = (const CHAR8*) ".initrd",
-                [SECTION_SPLASH]  = (const CHAR8*) ".splash",
-                [SECTION_DTB]     = (const CHAR8*) ".dtb",
+        static const char * const sections[_SECTION_MAX + 1] = {
+                [SECTION_CMDLINE] = ".cmdline",
+                [SECTION_LINUX]   = ".linux",
+                [SECTION_INITRD]  = ".initrd",
+                [SECTION_SPLASH]  = ".splash",
+                [SECTION_DTB]     = ".dtb",
                 NULL,
         };
 
@@ -176,8 +176,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
-        CHAR8 *cmdline = NULL;
-        _cleanup_freepool_ CHAR8 *cmdline_owned = NULL;
+        char *cmdline = NULL;
+        _cleanup_free_ char *cmdline_owned = NULL;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -195,7 +195,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = pe_memory_locate_sections(loaded_image->ImageBase, (const CHAR8**) sections, addrs, szs);
+        err = pe_memory_locate_sections(loaded_image->ImageBase, (const char **) sections, addrs, szs);
         if (err != EFI_SUCCESS || szs[SECTION_LINUX] == 0) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
@@ -206,14 +206,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[SECTION_SPLASH], szs[SECTION_SPLASH], NULL);
 
         if (szs[SECTION_CMDLINE] > 0) {
-                cmdline = (CHAR8*) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
+                cmdline = (char *) loaded_image->ImageBase + addrs[SECTION_CMDLINE];
                 cmdline_len = szs[SECTION_CMDLINE];
         }
 
         /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
         if ((!secure_boot_enabled() || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 &&
             *(char16_t *) loaded_image->LoadOptions > 0x1F) {
-                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(char16_t)) * sizeof(CHAR8);
+                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(char16_t)) * sizeof(char);
                 cmdline = cmdline_owned = xmalloc(cmdline_len);
 
                 for (UINTN i = 0; i < cmdline_len; i++)
@@ -231,7 +231,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         (void) pack_cpio(loaded_image,
                          NULL,
                          L".cred",
-                         (const CHAR8*) ".extra/credentials",
+                         ".extra/credentials",
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
                          /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
@@ -243,7 +243,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         (void) pack_cpio(loaded_image,
                          L"\\loader\\credentials",
                          L".cred",
-                         (const CHAR8*) ".extra/global_credentials",
+                         ".extra/global_credentials",
                          /* dir_mode= */ 0500,
                          /* access_mode= */ 0400,
                          /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_KERNEL_PARAMETERS, TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT },
@@ -255,7 +255,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         (void) pack_cpio(loaded_image,
                          NULL,
                          L".raw",
-                         (const CHAR8*) ".extra/sysext",
+                         ".extra/sysext",
                          /* dir_mode= */ 0555,
                          /* access_mode= */ 0444,
                          /* tpm_pcr= */ (uint32_t[]) { TPM_PCR_INDEX_INITRD },

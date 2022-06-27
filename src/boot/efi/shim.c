@@ -104,7 +104,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         EFI_STATUS err;
         _cleanup_free_ char16_t *dev_path_str = NULL;
         EFI_HANDLE h;
-        _cleanup_freepool_ CHAR8 *file_buffer = NULL;
+        _cleanup_free_ char *file_buffer = NULL;
         UINTN file_size;
 
         assert(this);

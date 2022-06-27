@@ -6,20 +6,20 @@
 #include "ticks.h"
 #include "util.h"
 
-EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
+EFI_STATUS parse_boolean(const char *v, BOOLEAN *b) {
         assert(b);
 
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
-        if (streq8((char *) v, "1") || streq8((char *) v, "yes") || streq8((char *) v, "y") ||
-            streq8((char *) v, "true") || streq8((char *) v, "t") || streq8((char *) v, "on")) {
+        if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
+            streq8(v, "on")) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
 
-        if (streq8((char *) v, "0") || streq8((char *) v, "no") || streq8((char *) v, "n") ||
-            streq8((char *) v, "false") || streq8((char *) v, "f") || streq8((char *) v, "off")) {
+        if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
+            streq8(v, "off")) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
@@ -97,7 +97,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **v
         assert(vendor);
         assert(name);
 
-        err = efivar_get_raw(vendor, name, (CHAR8**)&buf, &size);
+        err = efivar_get_raw(vendor, name, (char **) &buf, &size);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -145,7 +145,7 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -165,7 +165,7 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, ui
 }
 
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -185,8 +185,8 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return err;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, CHAR8 **buffer, UINTN *size) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **buffer, UINTN *size) {
+        _cleanup_free_ char *buf = NULL;
         UINTN l;
         EFI_STATUS err;
 
@@ -210,7 +210,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, CHAR8 **
 }
 
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, BOOLEAN *ret) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
+        _cleanup_free_ char *b = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -241,7 +241,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(const CHAR8 *stra, char16_t *c) {
+static INTN utf8_to_16(const char *stra, char16_t *c) {
         char16_t unichar;
         UINTN len;
 
@@ -295,7 +295,7 @@ static INTN utf8_to_16(const CHAR8 *stra, char16_t *c) {
         return len;
 }
 
-char16_t *xstra_to_str(const CHAR8 *stra) {
+char16_t *xstra_to_str(const char *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
@@ -303,7 +303,7 @@ char16_t *xstra_to_str(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlen8((const char *) stra);
+        len = strlen8(stra);
         str = xnew(char16_t, len + 1);
 
         strlen = 0;
@@ -325,7 +325,7 @@ char16_t *xstra_to_str(const CHAR8 *stra) {
         return str;
 }
 
-char16_t *xstra_to_path(const CHAR8 *stra) {
+char16_t *xstra_to_path(const char *stra) {
         char16_t *str;
         UINTN strlen;
         UINTN len;
@@ -333,7 +333,7 @@ char16_t *xstra_to_path(const CHAR8 *stra) {
 
         assert(stra);
 
-        len = strlen8((const char *) stra);
+        len = strlen8(stra);
         str = xnew(char16_t, len + 2);
 
         str[0] = '\\';
@@ -364,9 +364,9 @@ char16_t *xstra_to_path(const CHAR8 *stra) {
         return str;
 }
 
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
 
         assert(dir);
@@ -393,7 +393,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size,
                         return err;
         }
 
-        /* Allocate some extra bytes to guarantee the result is NUL-terminated for CHAR8 and char16_t strings. */
+        /* Allocate some extra bytes to guarantee the result is NUL-terminated for char and char16_t strings. */
         UINTN extra = size % sizeof(char16_t) + sizeof(char16_t);
 
         buf = xmalloc(size + extra);

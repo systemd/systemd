@@ -24,7 +24,7 @@ static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
 }
 
 static EFI_STATUS loaded_image_register(
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 EFI_HANDLE *ret_image) {
 
@@ -106,7 +106,7 @@ static inline void cleanup_pages(struct pages *p) {
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 

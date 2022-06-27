@@ -5,15 +5,15 @@
 #include <uchar.h>
 
 EFI_STATUS pe_memory_locate_sections(
-                const CHAR8 *base,
-                const CHAR8 **sections,
+                const char *base,
+                const char **sections,
                 UINTN *addrs,
                 UINTN *sizes);
 
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
-                const CHAR8 **sections,
+                const char **sections,
                 UINTN *offsets,
                 UINTN *sizes);
 

@@ -1074,14 +1074,14 @@ static inline void config_entry_freep(ConfigEntry **entry) {
         config_entry_free(*entry);
 }
 
-static CHAR8 *line_get_key_value(
-                CHAR8 *content,
-                const CHAR8 *sep,
+static char *line_get_key_value(
+                char *content,
+                const char *sep,
                 UINTN *pos,
-                CHAR8 **key_ret,
-                CHAR8 **value_ret) {
+                char **key_ret,
+                char **value_ret) {
 
-        CHAR8 *line, *value;
+        char *line, *value;
         UINTN linelen;
 
         assert(content);
@@ -1127,13 +1127,13 @@ static CHAR8 *line_get_key_value(
 
                 /* split key/value */
                 value = line;
-                while (*value && !strchr8((char *) sep, *value))
+                while (*value && !strchr8(sep, *value))
                         value++;
                 if (*value == '\0')
                         continue;
                 *value = '\0';
                 value++;
-                while (*value && strchr8((char *) sep, *value))
+                while (*value && strchr8(sep, *value))
                         value++;
 
                 /* unquote */
@@ -1148,24 +1148,24 @@ static CHAR8 *line_get_key_value(
         }
 }
 
-static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
-        CHAR8 *line;
+static void config_defaults_load_from_file(Config *config, char *content) {
+        char *line;
         UINTN pos = 0;
-        CHAR8 *key, *value;
+        char *key, *value;
         EFI_STATUS err;
 
         assert(config);
         assert(content);
 
-        while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
-                if (streq8((char *) key, "timeout")) {
-                        if (streq8((char *) value, "menu-force"))
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+                if (streq8(key, "timeout")) {
+                        if (streq8( value, "menu-force"))
                                 config->timeout_sec_config = TIMEOUT_MENU_FORCE;
-                        else if (streq8((char *) value, "menu-hidden"))
+                        else if (streq8(value, "menu-hidden"))
                                 config->timeout_sec_config = TIMEOUT_MENU_HIDDEN;
                         else {
                                 uint64_t u;
-                                if (!parse_number8((char *) value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
+                                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
                                         log_error_stall(L"Error parsing 'timeout' config option: %a", value);
                                         continue;
                                 }
@@ -1175,8 +1175,8 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
-                if (streq8((char *) key, "default")) {
-                        if (value[0] == '@' && !strcaseeq8((char *) value, "@saved")) {
+                if (streq8(key, "default")) {
+                        if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
                                 log_error_stall(L"Unsupported special entry identifier: %a", value);
                                 continue;
                         }
@@ -1185,51 +1185,51 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
-                if (streq8((char *) key, "editor")) {
+                if (streq8(key, "editor")) {
                         err = parse_boolean(value, &config->editor);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'editor' config option: %a", value);
                         continue;
                 }
 
-                if (streq8((char *) key, "auto-entries")) {
+                if (streq8(key, "auto-entries")) {
                         err = parse_boolean(value, &config->auto_entries);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'auto-entries' config option: %a", value);
                         continue;
                 }
 
-                if (streq8((char *) key, "auto-firmware")) {
+                if (streq8(key, "auto-firmware")) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'auto-firmware' config option: %a", value);
                         continue;
                 }
 
-                if (streq8((char *) key, "beep")) {
+                if (streq8(key, "beep")) {
                         err = parse_boolean(value, &config->beep);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'beep' config option: %a", value);
                         continue;
                 }
 
-                if (streq8((char *) key, "reboot-for-bitlocker")) {
+                if (streq8(key, "reboot-for-bitlocker")) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
                                 log_error_stall(L"Error parsing 'reboot-for-bitlocker' config option: %a", value);
                         continue;
                 }
 
-                if (streq8((char *) key, "console-mode")) {
-                        if (streq8((char *) value, "auto"))
+                if (streq8(key, "console-mode")) {
+                        if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
-                        else if (streq8((char *) value, "max"))
+                        else if (streq8(value, "max"))
                                 config->console_mode = CONSOLE_MODE_FIRMWARE_MAX;
-                        else if (streq8((char *) value, "keep"))
+                        else if (streq8(value, "keep"))
                                 config->console_mode = CONSOLE_MODE_KEEP;
                         else {
                                 uint64_t u;
-                                if (!parse_number8((char *) value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
+                                if (!parse_number8(value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
                                         log_error_stall(L"Error parsing 'console-mode' config option: %a", value);
                                         continue;
                                 }
@@ -1238,12 +1238,12 @@ static void config_defaults_load_from_file(Config *config, CHAR8 *content) {
                         continue;
                 }
 
-                if (streq8((char *) key, "random-seed-mode")) {
-                        if (streq8((char *) value, "off"))
+                if (streq8(key, "random-seed-mode")) {
+                        if (streq8(value, "off"))
                                 config->random_seed_mode = RANDOM_SEED_OFF;
-                        else if (streq8((char *) value, "with-system-token"))
+                        else if (streq8(value, "with-system-token"))
                                 config->random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN;
-                        else if (streq8((char *) value, "always"))
+                        else if (streq8(value, "always"))
                                 config->random_seed_mode = RANDOM_SEED_ALWAYS;
                         else {
                                 BOOLEAN on;
@@ -1380,13 +1380,13 @@ static void config_entry_add_type1(
                 EFI_FILE *root_dir,
                 const char16_t *path,
                 const char16_t *file,
-                CHAR8 *content,
+                char *content,
                 const char16_t *loaded_image_path) {
 
         _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
-        CHAR8 *line;
+        char *line;
         UINTN pos = 0, n_initrd = 0;
-        CHAR8 *key, *value;
+        char *key, *value;
         EFI_STATUS err;
 
         assert(config);
@@ -1402,32 +1402,32 @@ static void config_entry_add_type1(
                 .tries_left = -1,
         };
 
-        while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
-                if (streq8((char *) key, "title")) {
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+                if (streq8(key, "title")) {
                         free(entry->title);
                         entry->title = xstra_to_str(value);
                         continue;
                 }
 
-                if (streq8((char *) key, "sort-key")) {
+                if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstra_to_str(value);
                         continue;
                 }
 
-                if (streq8((char *) key, "version")) {
+                if (streq8(key, "version")) {
                         free(entry->version);
                         entry->version = xstra_to_str(value);
                         continue;
                 }
 
-                if (streq8((char *) key, "machine-id")) {
+                if (streq8(key, "machine-id")) {
                         free(entry->machine_id);
                         entry->machine_id = xstra_to_str(value);
                         continue;
                 }
 
-                if (streq8((char *) key, "linux")) {
+                if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstra_to_path(value);
@@ -1435,7 +1435,7 @@ static void config_entry_add_type1(
                         continue;
                 }
 
-                if (streq8((char *) key, "efi")) {
+                if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstra_to_path(value);
@@ -1448,22 +1448,22 @@ static void config_entry_add_type1(
                         continue;
                 }
 
-                if (streq8((char *) key, "architecture")) {
+                if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
-                        if (!streq8((char *) value, EFI_MACHINE_TYPE_NAME)) {
+                        if (!streq8(value, EFI_MACHINE_TYPE_NAME)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
                         continue;
                 }
 
-                if (streq8((char *) key, "devicetree")) {
+                if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
                         entry->devicetree = xstra_to_path(value);
                         continue;
                 }
 
-                if (streq8((char *) key, "initrd")) {
+                if (streq8(key, "initrd")) {
                         entry->initrd = xrealloc(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
@@ -1473,7 +1473,7 @@ static void config_entry_add_type1(
                         continue;
                 }
 
-                if (streq8((char *) key, "options")) {
+                if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
                         new = xstra_to_str(value);
@@ -1508,7 +1508,7 @@ static void config_entry_add_type1(
 }
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
-        _cleanup_freepool_ CHAR8 *content = NULL;
+        _cleanup_free_ char *content = NULL;
         UINTN value;
         EFI_STATUS err;
 
@@ -1590,7 +1590,7 @@ static void config_load_entries(
                 return;
 
         for (;;) {
-                _cleanup_freepool_ CHAR8 *content = NULL;
+                _cleanup_free_ char *content = NULL;
 
                 err = readdir_harder(entries_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
@@ -1806,12 +1806,12 @@ static void config_title_generate(Config *config) {
 
 static BOOLEAN is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
-        const CHAR8 *sections[] = {
-                (CHAR8 *)".sdmagic",
+        const char *sections[] = {
+                ".sdmagic",
                 NULL
         };
         UINTN offset = 0, size = 0, read;
-        _cleanup_freepool_ CHAR8 *content = NULL;
+        _cleanup_free_ char *content = NULL;
 
         assert(root_dir);
         assert(loader_path);
@@ -1940,7 +1940,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
-                CHAR8 buf[4096];
+                char buf[4096];
                 err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
                 if (err != EFI_SUCCESS)
                         continue;
@@ -1960,12 +1960,12 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(EFI_GLOBAL_GUID, L"BootOrder", (CHAR8 **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(EFI_GLOBAL_GUID, L"BootOrder", (char **) &boot_order, &boot_order_size);
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
         for (UINTN i = 0; i < boot_order_size / sizeof(uint16_t); i++) {
-                _cleanup_freepool_ CHAR8 *buf = NULL;
+                _cleanup_free_ char *buf = NULL;
                 char16_t name[sizeof(L"Boot0000")];
                 UINTN buf_size;
 
@@ -1999,7 +1999,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-        _cleanup_freepool_ CHAR8 *bcd = NULL;
+        _cleanup_free_ char *bcd = NULL;
         char16_t *title = NULL;
         EFI_STATUS err;
         UINTN len;
@@ -2052,21 +2052,21 @@ static void config_entry_add_unified(
                         _SECTION_MAX,
                 };
 
-                static const CHAR8* const sections[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = (const CHAR8 *) ".cmdline",
-                        [SECTION_OSREL]   = (const CHAR8 *) ".osrel",
+                static const char * const sections[_SECTION_MAX + 1] = {
+                        [SECTION_CMDLINE] = ".cmdline",
+                        [SECTION_OSREL]   = ".osrel",
                         NULL,
                 };
 
                 _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_freepool_ CHAR8 *content = NULL;
+                _cleanup_free_ char *content = NULL;
                 UINTN offs[_SECTION_MAX] = {};
                 UINTN szs[_SECTION_MAX] = {};
-                CHAR8 *line;
+                char *line;
                 UINTN pos = 0;
-                CHAR8 *key, *value;
+                char *key, *value;
 
                 err = readdir_harder(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
@@ -2082,7 +2082,7 @@ static void config_entry_add_unified(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, (const CHAR8**) sections, offs, szs);
+                err = pe_file_locate_sections(linux_dir, f->FileName, (const char **) sections, offs, szs);
                 if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
                         continue;
 
@@ -2091,50 +2091,50 @@ static void config_entry_add_unified(
                         continue;
 
                 /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
-                        if (streq8((char *) key, "PRETTY_NAME")) {
+                while ((line = line_get_key_value(content, "=", &pos, &key, &value))) {
+                        if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
                                 os_pretty_name = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "IMAGE_ID")) {
+                        if (streq8(key, "IMAGE_ID")) {
                                 free(os_image_id);
                                 os_image_id = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "NAME")) {
+                        if (streq8(key, "NAME")) {
                                 free(os_name);
                                 os_name = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "ID")) {
+                        if (streq8(key, "ID")) {
                                 free(os_id);
                                 os_id = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "IMAGE_VERSION")) {
+                        if (streq8(key, "IMAGE_VERSION")) {
                                 free(os_image_version);
                                 os_image_version = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "VERSION")) {
+                        if (streq8(key, "VERSION")) {
                                 free(os_version);
                                 os_version = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "VERSION_ID")) {
+                        if (streq8(key, "VERSION_ID")) {
                                 free(os_version_id);
                                 os_version_id = xstra_to_str(value);
                                 continue;
                         }
 
-                        if (streq8((char *) key, "BUILD_ID")) {
+                        if (streq8(key, "BUILD_ID")) {
                                 free(os_build_id);
                                 os_build_id = xstra_to_str(value);
                                 continue;
@@ -2380,9 +2380,9 @@ static void config_free(Config *config) {
 }
 
 static void config_write_entries_to_variable(Config *config) {
-        _cleanup_freepool_ CHAR8 *buffer = NULL;
+        _cleanup_free_ char *buffer = NULL;
         UINTN sz = 0;
-        CHAR8 *p;
+        char *p;
 
         assert(config);
 
