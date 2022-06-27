@@ -799,7 +799,6 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
-        void *t;
         Object *o;
         uint64_t s;
 
@@ -817,11 +816,10 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to object located in file header: %" PRIu64,
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), (void**) &o);
         if (r < 0)
                 return r;
 
-        o = (Object*) t;
         s = le64toh(READ_NOW(o->object.size));
 
         if (s == 0)
@@ -848,11 +846,9 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to object of unexpected type: %" PRIu64,
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, s, &t);
+        r = journal_file_move_to(f, type, false, offset, s, (void**) &o);
         if (r < 0)
                 return r;
-
-        o = (Object*) t;
 
         r = journal_file_check_object(f, offset, o);
         if (r < 0)
@@ -976,7 +972,6 @@ int journal_file_append_object(
         int r;
         uint64_t p;
         Object *o;
-        void *t;
 
         assert(f);
         assert(f->header);
@@ -995,11 +990,10 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, p, size, &t);
+        r = journal_file_move_to(f, type, false, p, size, (void**) &o);
         if (r < 0)
                 return r;
 
-        o = (Object*) t;
         o->object = (ObjectHeader) {
                 .type = type,
                 .size = htole64(size),
