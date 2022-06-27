@@ -27,7 +27,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
         err = BS->LocateProtocol((EFI_GUID *) EFI_RNG_GUID, NULL, (void **) &rng);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (!rng)
                 return EFI_UNSUPPORTED;
@@ -35,7 +35,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         data = xmalloc(size);
 
         err = rng->GetRNG(rng, NULL, size, data);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
 
         *ret = TAKE_PTR(data);
@@ -48,9 +48,9 @@ static void hash_once(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 UINTN counter,
-                UINT8 ret[static HASH_VALUE_SIZE]) {
+                uint8_t ret[static HASH_VALUE_SIZE]) {
 
         /* This hashes together:
          *
@@ -85,7 +85,7 @@ static EFI_STATUS hash_many(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 UINTN counter_start,
                 UINTN n,
                 void **ret) {
@@ -106,7 +106,7 @@ static EFI_STATUS hash_many(
                           system_token, system_token_size,
                           uefi_monotonic_counter,
                           counter_start + i,
-                          (UINT8*) output + (i * HASH_VALUE_SIZE));
+                          (uint8_t*) output + (i * HASH_VALUE_SIZE));
 
         *ret = TAKE_PTR(output);
         return EFI_SUCCESS;
@@ -118,7 +118,7 @@ static EFI_STATUS mangle_random_seed(
                 UINTN size,
                 const void *system_token,
                 UINTN system_token_size,
-                UINT64 uefi_monotonic_counter,
+                uint64_t uefi_monotonic_counter,
                 void **ret_new_seed,
                 void **ret_for_kernel) {
 
@@ -141,12 +141,12 @@ static EFI_STATUS mangle_random_seed(
 
         /* Begin hashing in counter mode at counter 0 for the new seed for the disk */
         err = hash_many(old_seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, 0, n, &new_seed);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Continue counting at 'n' for the seed for the kernel */
         err = hash_many(old_seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, n, n, &for_kernel);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         *ret_new_seed = TAKE_PTR(new_seed);
@@ -156,7 +156,7 @@ static EFI_STATUS mangle_random_seed(
 }
 
 static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
-        _cleanup_freepool_ CHAR8 *data = NULL;
+        _cleanup_free_ char *data = NULL;
         EFI_STATUS err;
         UINTN size;
 
@@ -164,7 +164,7 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret_size);
 
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
-        if (EFI_ERROR(err)) {
+        if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
                         log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
                 return err;
@@ -234,7 +234,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
-        UINT64 uefi_monotonic_counter = 0;
+        uint64_t uefi_monotonic_counter = 0;
         EFI_STATUS err;
 
         assert(root_dir);
@@ -253,18 +253,23 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
          * it in our hash. This is protection against golden master image sloppiness, and it remains on the
          * system, even when disk images are duplicated or swapped out. */
         err = acquire_system_token(&system_token, &system_token_size);
-        if (mode != RANDOM_SEED_ALWAYS && EFI_ERROR(err))
+        if (mode != RANDOM_SEED_ALWAYS && err != EFI_SUCCESS)
                 return err;
 
-        err = root_dir->Open(root_dir, &handle, (CHAR16*) L"\\loader\\random-seed", EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
-        if (EFI_ERROR(err)) {
+        err = root_dir->Open(
+                        root_dir,
+                        &handle,
+                        (char16_t *) L"\\loader\\random-seed",
+                        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
+                        0);
+        if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
                         log_error_stall(L"Failed to open random seed file: %r", err);
                 return err;
         }
 
         err = get_file_info_harder(handle, &info, NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to get file info for random seed: %r");
 
         size = info->FileSize;
@@ -278,13 +283,13 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         rsize = size;
         err = handle->Read(handle, &rsize, seed);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
         if (rsize != size)
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
 
         err = handle->SetPosition(handle, 0);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
 
         /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
@@ -296,29 +301,29 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
          * boot) in the hash, so that even if the changes to the ESP for some reason should not be
          * persistent, the random seed we generate will still be different on every single boot. */
         err = BS->GetNextMonotonicCount(&uefi_monotonic_counter);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to acquire UEFI monotonic counter: %r", err);
 
         /* Calculate new random seed for the disk and what to pass to the kernel */
         err = mangle_random_seed(seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, &new_seed, &for_kernel);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Update the random seed on disk before we use it */
         wsize = size;
         err = handle->Write(handle, &wsize, new_seed);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
         if (wsize != size)
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
 
         err = handle->Flush(handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
         /* We are good to go */
         err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
 
         return EFI_SUCCESS;

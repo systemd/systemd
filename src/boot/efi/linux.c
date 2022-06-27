@@ -24,7 +24,7 @@ static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
 }
 
 static EFI_STATUS loaded_image_register(
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 EFI_HANDLE *ret_image) {
 
@@ -53,7 +53,7 @@ static EFI_STATUS loaded_image_register(
                         ret_image,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 loaded_image = loaded_image_free(loaded_image);
 
         return err;
@@ -70,7 +70,7 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
         err = BS->OpenProtocol(
                         loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* close the handle */
@@ -79,7 +79,7 @@ static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
                         loaded_image_handle,
                         &LoadedImageProtocol, loaded_image,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         loaded_image_handle = NULL;
         loaded_image = loaded_image_free(loaded_image);
@@ -106,13 +106,13 @@ static inline void cleanup_pages(struct pages *p) {
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
-        UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
+        uint32_t kernel_alignment, kernel_size_of_image, kernel_entry_address;
         EFI_IMAGE_ENTRY_POINT kernel_entry;
         _cleanup_(cleanup_pages) struct pages kernel = {};
         void *new_buffer;
@@ -125,7 +125,7 @@ EFI_STATUS linux_exec(
 
         /* get the necessary fields from the PE header */
         err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         /* sanity check */
         assert(kernel_size_of_image >= linux_length);
@@ -142,24 +142,24 @@ EFI_STATUS linux_exec(
         /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
         kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
         err = BS->AllocatePages(AllocateAnyPages, EfiLoaderData, kernel.num, &kernel.addr);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return EFI_OUT_OF_RESOURCES;
         new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
         memcpy(new_buffer, linux_buffer, linux_length);
         /* zero out rest of memory (probably not needed, but BSS section should be 0) */
-        memset((UINT8 *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
+        memset((uint8_t *)new_buffer + linux_length, 0, kernel_size_of_image - linux_length);
 
         /* get the entry point inside the relocated kernel */
-        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)new_buffer + kernel_entry_address);
+        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *)new_buffer + kernel_entry_address);
 
         /* register a LoadedImage Protocol in order to pass on the commandline */
         err = loaded_image_register(cmdline, cmdline_len, new_buffer, linux_length, &loaded_image_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* register a LINUX_INITRD_MEDIA DevicePath to serve the initrd */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* call the kernel */

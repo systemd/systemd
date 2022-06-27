@@ -10,12 +10,6 @@
 #  include "efi-string.h"
 #  include "string-util-fundamental.h"
 
-#  define CHAR8 char
-#  define CHAR16 char16_t
-#  define UINT8 uint8_t
-#  define UINT16 uint16_t
-#  define UINT32 uint32_t
-#  define UINT64 uint64_t
 #  define UINTN size_t
 #  define TEST_STATIC static
 #endif
@@ -36,16 +30,16 @@ enum {
  * been squashed into _padN for our convenience. */
 
 typedef struct {
-        UINT32 sig;
-        UINT32 primary_seqnum;
-        UINT32 secondary_seqnum;
-        UINT64 _pad1;
-        UINT32 version_major;
-        UINT32 version_minor;
-        UINT32 type;
-        UINT32 _pad2;
-        UINT32 root_cell_offset;
-        UINT64 _pad3[507];
+        uint32_t sig;
+        uint32_t primary_seqnum;
+        uint32_t secondary_seqnum;
+        uint64_t _pad1;
+        uint32_t version_major;
+        uint32_t version_minor;
+        uint32_t type;
+        uint32_t _pad2;
+        uint32_t root_cell_offset;
+        uint64_t _pad3[507];
 } _packed_ BaseBlock;
 assert_cc(sizeof(BaseBlock) == 4096);
 assert_cc(offsetof(BaseBlock, sig) == 0);
@@ -58,20 +52,20 @@ assert_cc(offsetof(BaseBlock, root_cell_offset) == 36);
 
 /* All offsets are relative to the base block and technically point to a hive
  * cell struct. But for our usecase we don't need to bother about that one,
- * so skip over the cell_size UINT32. */
+ * so skip over the cell_size uint32_t. */
 #define HIVE_CELL_OFFSET (sizeof(BaseBlock) + 4)
 
 typedef struct {
-        UINT16 sig;
-        UINT16 _pad1[13];
-        UINT32 subkeys_offset;
-        UINT32 _pad2;
-        UINT32 n_key_values;
-        UINT32 key_values_offset;
-        UINT32 _pad3[7];
-        UINT16 key_name_len;
-        UINT16 _pad4;
-        CHAR8 key_name[];
+        uint16_t sig;
+        uint16_t _pad1[13];
+        uint32_t subkeys_offset;
+        uint32_t _pad2;
+        uint32_t n_key_values;
+        uint32_t key_values_offset;
+        uint32_t _pad3[7];
+        uint16_t key_name_len;
+        uint16_t _pad4;
+        char key_name[];
 } _packed_ Key;
 assert_cc(offsetof(Key, sig) == 0);
 assert_cc(offsetof(Key, subkeys_offset) == 28);
@@ -81,11 +75,11 @@ assert_cc(offsetof(Key, key_name_len) == 72);
 assert_cc(offsetof(Key, key_name) == 76);
 
 typedef struct {
-        UINT16 sig;
-        UINT16 n_entries;
+        uint16_t sig;
+        uint16_t n_entries;
         struct SubkeyFastEntry {
-                UINT32 key_offset;
-                CHAR8 name_hint[4];
+                uint32_t key_offset;
+                char name_hint[4];
         } _packed_ entries[];
 } _packed_ SubkeyFast;
 assert_cc(offsetof(SubkeyFast, sig) == 0);
@@ -93,13 +87,13 @@ assert_cc(offsetof(SubkeyFast, n_entries) == 2);
 assert_cc(offsetof(SubkeyFast, entries) == 4);
 
 typedef struct {
-        UINT16 sig;
-        UINT16 name_len;
-        UINT32 data_size;
-        UINT32 data_offset;
-        UINT32 data_type;
-        UINT32 _pad;
-        CHAR8 name[];
+        uint16_t sig;
+        uint16_t name_len;
+        uint32_t data_size;
+        uint32_t data_offset;
+        uint32_t data_type;
+        uint32_t _pad;
+        char name[];
 } _packed_ KeyValue;
 assert_cc(offsetof(KeyValue, sig) == 0);
 assert_cc(offsetof(KeyValue, name_len) == 2);
@@ -109,18 +103,18 @@ assert_cc(offsetof(KeyValue, data_type) == 12);
 assert_cc(offsetof(KeyValue, name) == 20);
 
 #define BAD_OFFSET(offset, len, max) \
-        ((UINT64) (offset) + (len) >= (max))
+        ((uint64_t) (offset) + (len) >= (max))
 
 #define BAD_STRUCT(type, offset, max) \
-        ((UINT64) (offset) + sizeof(type) >= (max))
+        ((uint64_t) (offset) + sizeof(type) >= (max))
 
 #define BAD_ARRAY(type, array, offset, array_len, max) \
-        ((UINT64) (offset) + offsetof(type, array) + \
-         sizeof((type){}.array[0]) * (UINT64) (array_len) >= (max))
+        ((uint64_t) (offset) + offsetof(type, array) + \
+         sizeof((type){}.array[0]) * (uint64_t) (array_len) >= (max))
 
-static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const CHAR8 *name);
+static const Key *get_key(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset, const char *name);
 
-static const Key *get_subkey(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const CHAR8 *name) {
+static const Key *get_subkey(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset, const char *name) {
         assert(bcd);
         assert(name);
 
@@ -134,8 +128,8 @@ static const Key *get_subkey(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, co
         if (BAD_ARRAY(SubkeyFast, entries, offset, subkey->n_entries, bcd_len))
                 return NULL;
 
-        for (UINT16 i = 0; i < subkey->n_entries; i++) {
-                if (!strncaseeq8((char *) name, (char *) subkey->entries[i].name_hint, sizeof(subkey->entries[i].name_hint)))
+        for (uint16_t i = 0; i < subkey->n_entries; i++) {
+                if (!strncaseeq8(name, subkey->entries[i].name_hint, sizeof(subkey->entries[i].name_hint)))
                         continue;
 
                 const Key *key = get_key(bcd, bcd_len, subkey->entries[i].key_offset, name);
@@ -149,7 +143,7 @@ static const Key *get_subkey(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, co
 /* We use NUL as registry path separators for convenience. To start from the root, begin
  * name with a NUL. Name must end with two NUL. The lookup depth is not restricted, so
  * name must be properly validated before calling get_key(). */
-static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const CHAR8 *name) {
+static const Key *get_key(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset, const char *name) {
         assert(bcd);
         assert(name);
 
@@ -164,7 +158,7 @@ static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const
                 return NULL;
 
         if (*name) {
-                if (strncaseeq8((char *) name, (char *) key->key_name, key->key_name_len) && strlen8((const char *) name) == key->key_name_len)
+                if (strncaseeq8(name, key->key_name, key->key_name_len) && strlen8(name) == key->key_name_len)
                         name += key->key_name_len;
                 else
                         return NULL;
@@ -174,7 +168,7 @@ static const Key *get_key(const UINT8 *bcd, UINT32 bcd_len, UINT32 offset, const
         return *name ? get_subkey(bcd, bcd_len, key->subkeys_offset, name) : key;
 }
 
-static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key *key, const CHAR8 *name) {
+static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const Key *key, const char *name) {
         assert(bcd);
         assert(key);
         assert(name);
@@ -182,13 +176,13 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
         if (key->n_key_values == 0)
                 return NULL;
 
-        if (BAD_OFFSET(key->key_values_offset, sizeof(UINT32) * (UINT64) key->n_key_values, bcd_len) ||
-            (UINTN)(bcd + key->key_values_offset) % sizeof(UINT32) != 0)
+        if (BAD_OFFSET(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
+            (UINTN)(bcd + key->key_values_offset) % sizeof(uint32_t) != 0)
                 return NULL;
 
-        const UINT32 *key_value_list = (const UINT32 *) (bcd + key->key_values_offset);
-        for (UINT32 i = 0; i < key->n_key_values; i++) {
-                UINT32 offset = *(key_value_list + i);
+        const uint32_t *key_value_list = (const uint32_t *) (bcd + key->key_values_offset);
+        for (uint32_t i = 0; i < key->n_key_values; i++) {
+                uint32_t offset = *(key_value_list + i);
 
                 if (BAD_STRUCT(KeyValue, offset, bcd_len))
                         continue;
@@ -209,7 +203,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
                 if (BAD_OFFSET(kv->data_offset, kv->data_size, bcd_len))
                         continue;
 
-                if (strncaseeq8((char *)name, (char *) kv->name, kv->name_len) && strlen8((const char *) name) == kv->name_len)
+                if (strncaseeq8(name, kv->name, kv->name_len) && strlen8(name) == kv->name_len)
                         return kv;
         }
 
@@ -233,7 +227,7 @@ static const KeyValue *get_key_value(const UINT8 *bcd, UINT32 bcd_len, const Key
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-TEST_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
+TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         assert(bcd);
 
         if (HIVE_CELL_OFFSET >= bcd_len)
@@ -250,38 +244,33 @@ TEST_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
         bcd += HIVE_CELL_OFFSET;
         bcd_len -= HIVE_CELL_OFFSET;
 
-        const Key *objects_key = get_key(
-                bcd, bcd_len,
-                base_block->root_cell_offset,
-                (const CHAR8 *) "\0Objects\0");
+        const Key *objects_key = get_key(bcd, bcd_len, base_block->root_cell_offset, "\0Objects\0");
         if (!objects_key)
                 return NULL;
 
         const Key *displayorder_key = get_subkey(
-                bcd, bcd_len,
-                objects_key->subkeys_offset,
-                (const CHAR8 *) "{9dea862c-5cdd-4e70-acc1-f32b344d4795}\0Elements\00024000001\0");
+                        bcd,
+                        bcd_len,
+                        objects_key->subkeys_offset,
+                        "{9dea862c-5cdd-4e70-acc1-f32b344d4795}\0Elements\00024000001\0");
         if (!displayorder_key)
                 return NULL;
 
-        const KeyValue *displayorder_value = get_key_value(
-                bcd, bcd_len,
-                displayorder_key,
-                (const CHAR8 *) "Element");
+        const KeyValue *displayorder_value = get_key_value(bcd, bcd_len, displayorder_key, "Element");
         if (!displayorder_value)
                 return NULL;
 
-        CHAR8 order_guid[sizeof("{00000000-0000-0000-0000-000000000000}\0")];
+        char order_guid[sizeof("{00000000-0000-0000-0000-000000000000}\0")];
         if (displayorder_value->data_type != REG_MULTI_SZ ||
-            displayorder_value->data_size != sizeof(CHAR16[sizeof(order_guid)]) ||
-            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(CHAR16) != 0)
+            displayorder_value->data_size != sizeof(char16_t[sizeof(order_guid)]) ||
+            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(char16_t) != 0)
                 /* BCD is multi-boot. */
                 return NULL;
 
         /* Keys are stored as ASCII in registry hives if the data fits (and GUIDS always should). */
-        CHAR16 *order_guid_utf16 = (CHAR16 *) (bcd + displayorder_value->data_offset);
+        char16_t *order_guid_utf16 = (char16_t *) (bcd + displayorder_value->data_offset);
         for (UINTN i = 0; i < sizeof(order_guid) - 2; i++) {
-                CHAR16 c = order_guid_utf16[i];
+                char16_t c = order_guid_utf16[i];
                 switch (c) {
                 case '-':
                 case '{':
@@ -305,27 +294,22 @@ TEST_STATIC CHAR16 *get_bcd_title(UINT8 *bcd, UINTN bcd_len) {
                 return NULL;
 
         const Key *description_key = get_subkey(
-                bcd, bcd_len,
-                default_key->subkeys_offset,
-                (const CHAR8 *) "Elements\00012000004\0");
+                        bcd, bcd_len, default_key->subkeys_offset, "Elements\00012000004\0");
         if (!description_key)
                 return NULL;
 
-        const KeyValue *description_value = get_key_value(
-                bcd, bcd_len,
-                description_key,
-                (const CHAR8 *) "Element");
+        const KeyValue *description_value = get_key_value(bcd, bcd_len, description_key, "Element");
         if (!description_value)
                 return NULL;
 
         if (description_value->data_type != REG_SZ ||
-            description_value->data_size < sizeof(CHAR16) ||
-            description_value->data_size % sizeof(CHAR16) != 0 ||
-            (UINTN)(bcd + description_value->data_offset) % sizeof(CHAR16))
+            description_value->data_size < sizeof(char16_t) ||
+            description_value->data_size % sizeof(char16_t) != 0 ||
+            (UINTN)(bcd + description_value->data_offset) % sizeof(char16_t))
                 return NULL;
 
         /* The data should already be NUL-terminated. */
-        CHAR16 *title = (CHAR16 *) (bcd + description_value->data_offset);
-        title[description_value->data_size / sizeof(CHAR16) - 1] = '\0';
+        char16_t *title = (char16_t *) (bcd + description_value->data_offset);
+        title[description_value->data_size / sizeof(char16_t) - 1] = '\0';
         return title;
 }

@@ -5,11 +5,12 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
+#include <stdbool.h>
 
 #include "ticks.h"
 
 #if defined(__i386__) || defined(__x86_64__)
-static BOOLEAN in_hypervisor(void) {
+static bool in_hypervisor(void) {
         uint32_t eax, ebx, ecx, edx;
 
         /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
@@ -20,15 +21,15 @@ static BOOLEAN in_hypervisor(void) {
          * environment. */
 
         if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
-                return FALSE;
+                return false;
 
         return !!(ecx & 0x80000000U);
 }
 #endif
 
 #ifdef __x86_64__
-static UINT64 ticks_read(void) {
-        UINT64 a, d;
+static uint64_t ticks_read(void) {
+        uint64_t a, d;
 
         if (in_hypervisor())
                 return 0;
@@ -37,8 +38,8 @@ static UINT64 ticks_read(void) {
         return (d << 32) | a;
 }
 #elif defined(__i386__)
-static UINT64 ticks_read(void) {
-        UINT64 val;
+static uint64_t ticks_read(void) {
+        uint64_t val;
 
         if (in_hypervisor())
                 return 0;
@@ -47,28 +48,28 @@ static UINT64 ticks_read(void) {
         return val;
 }
 #elif defined(__aarch64__)
-static UINT64 ticks_read(void) {
-        UINT64 val;
+static uint64_t ticks_read(void) {
+        uint64_t val;
         __asm__ volatile ("mrs %0, cntpct_el0" : "=r" (val));
         return val;
 }
 #else
-static UINT64 ticks_read(void) {
+static uint64_t ticks_read(void) {
         return 0;
 }
 #endif
 
 #if defined(__aarch64__)
-static UINT64 ticks_freq(void) {
-        UINT64 freq;
+static uint64_t ticks_freq(void) {
+        uint64_t freq;
         __asm__ volatile ("mrs %0, cntfrq_el0": "=r" (freq));
         return freq;
 }
 #else
 /* count TSC ticks during a millisecond delay */
-static UINT64 ticks_freq(void) {
-        UINT64 ticks_start, ticks_end;
-        static UINT64 cache = 0;
+static uint64_t ticks_freq(void) {
+        uint64_t ticks_start, ticks_end;
+        static uint64_t cache = 0;
 
         if (cache != 0)
                 return cache;
@@ -86,8 +87,8 @@ static UINT64 ticks_freq(void) {
 }
 #endif
 
-UINT64 time_usec(void) {
-        UINT64 ticks, freq;
+uint64_t time_usec(void) {
+        uint64_t ticks, freq;
 
         ticks = ticks_read();
         if (ticks == 0)

@@ -12,14 +12,14 @@
 
 static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 const EFI_TCG *tcg,
-                UINT32 pcrindex,
+                uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 UINTN buffer_size,
-                const CHAR16 *description) {
+                const char16_t *description) {
 
         _cleanup_freepool_ TCG_PCR_EVENT *tcg_event = NULL;
         EFI_PHYSICAL_ADDRESS event_log_last;
-        UINT32 event_number = 1;
+        uint32_t event_number = 1;
         UINTN desc_len;
 
         assert(tcg);
@@ -46,10 +46,10 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
 
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 EFI_TCG2 *tcg,
-                UINT32 pcrindex,
+                uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
-                UINT64 buffer_size,
-                const CHAR16 *description) {
+                uint64_t buffer_size,
+                const char16_t *description) {
 
         _cleanup_freepool_ EFI_TCG2_EVENT *tcg_event = NULL;
         UINTN desc_len;
@@ -82,21 +82,21 @@ static EFI_TCG *tcg1_interface_check(void) {
         TCG_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
-        EFI_STATUS status;
-        UINT32 features;
+        EFI_STATUS err;
+        uint32_t features;
         EFI_TCG *tcg;
 
-        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(status))
+        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG_GUID, NULL, (void **) &tcg);
+        if (err != EFI_SUCCESS)
                 return NULL;
 
-        status = tcg->StatusCheck(
+        err = tcg->StatusCheck(
                         tcg,
                         &capability,
                         &features,
                         &event_log_location,
                         &event_log_last_entry);
-        if (EFI_ERROR(status))
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         if (capability.TPMDeactivatedFlag)
@@ -112,15 +112,15 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
-        EFI_STATUS status;
+        EFI_STATUS err;
         EFI_TCG2 *tcg;
 
-        status = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
-        if (EFI_ERROR(status))
+        err = BS->LocateProtocol((EFI_GUID *) EFI_TCG2_GUID, NULL, (void **) &tcg);
+        if (err != EFI_SUCCESS)
                 return NULL;
 
-        status = tcg->GetCapability(tcg, &capability);
-        if (EFI_ERROR(status))
+        err = tcg->GetCapability(tcg, &capability);
+        if (err != EFI_SUCCESS)
                 return NULL;
 
         if (capability.StructureVersion.Major == 1 &&
@@ -137,11 +137,11 @@ static EFI_TCG2 * tcg2_interface_check(void) {
         return tcg;
 }
 
-BOOLEAN tpm_present(void) {
+bool tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 
-EFI_STATUS tpm_log_event(UINT32 pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
+EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char16_t *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
 
@@ -163,18 +163,18 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buf
         return EFI_SUCCESS;
 }
 
-EFI_STATUS tpm_log_load_options(const CHAR16 *load_options) {
+EFI_STATUS tpm_log_load_options(const char16_t *load_options) {
         EFI_STATUS err;
 
         /* Measures a load options string into the TPM2, i.e. the kernel command line */
 
         for (UINTN i = 0; i < 2; i++) {
-                UINT32 pcr = i == 0 ? TPM_PCR_INDEX_KERNEL_PARAMETERS : TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT;
+                uint32_t pcr = i == 0 ? TPM_PCR_INDEX_KERNEL_PARAMETERS : TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT;
 
                 err = tpm_log_event(pcr,
                                     POINTER_TO_PHYSICAL_ADDRESS(load_options),
                                     strsize16(load_options), load_options);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Unable to add load options (i.e. kernel command) line measurement to PCR %u: %r", pcr, err);
         }
 

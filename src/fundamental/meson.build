@@ -8,7 +8,6 @@ fundamental_headers = files(
         'macro-fundamental.h',
         'sha256.h',
         'string-util-fundamental.h',
-        'types-fundamental.h',
 )
 
 # for sd-boot
