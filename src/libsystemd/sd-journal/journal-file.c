@@ -651,8 +651,7 @@ static uint64_t minimum_header_size(Object *o) {
 
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
-static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o) {
-        assert(f);
+static int check_object(Object *o, uint64_t offset) {
         assert(o);
 
         switch (o->object.type) {
@@ -850,7 +849,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        r = journal_file_check_object(f, offset, o);
+        r = check_object(o, offset);
         if (r < 0)
                 return r;
 
@@ -921,7 +920,7 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
                                        "Attempt to read object of unexpected type: %" PRIu64,
                                        offset);
 
-        r = journal_file_check_object(f, offset, &o);
+        r = check_object(&o, offset);
         if (r < 0)
                 return r;
 
