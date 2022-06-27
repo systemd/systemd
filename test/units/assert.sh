@@ -4,9 +4,9 @@
 # utility functions for shell tests
 
 assert_true() {(
-    local rc
-
     set +ex
+
+    local rc
 
     "$@"
     rc=$?
@@ -47,9 +47,9 @@ assert_not_in() {(
 )}
 
 assert_rc() {(
-    local rc exp="${1?}"
-
     set +ex
+
+    local rc exp="${1?}"
 
     shift
     "$@"
