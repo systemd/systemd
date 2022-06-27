@@ -253,6 +253,8 @@ test_session_tear_down() {
     userdel logind-test-user
 
     rmmod scsi_debug
+
+    set -e
 }
 
 check_session() {
