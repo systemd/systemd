@@ -9,6 +9,7 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 
 test_append_files() {
     image_install -o evemu-device evemu-event crond crontab
+    image_install "${BUILD_DIR}"/test-session-properties
 }
 
 do_test "$@"
