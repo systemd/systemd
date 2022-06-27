@@ -623,6 +623,11 @@ int config_parse_private_users(
                 settings->userns_mode = USER_NAMESPACE_PICK;
                 settings->uid_shift = UID_INVALID;
                 settings->uid_range = UINT32_C(0x10000);
+        } else if (streq(rvalue, "identity")) {
+                /* identity: User namespacing on, UID range is 0:65536 */
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = 0;
+                settings->uid_range = UINT32_C(0x10000);
         } else {
                 const char *range, *shift;
                 uid_t sh, rn;
