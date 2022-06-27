@@ -17,6 +17,46 @@
 #include "socket-util.h"
 #include "util.h"
 
+static bool rtnl_message_type_is_neigh(uint16_t type) {
+        return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);
+}
+
+static bool rtnl_message_type_is_route(uint16_t type) {
+        return IN_SET(type, RTM_NEWROUTE, RTM_GETROUTE, RTM_DELROUTE);
+}
+
+static bool rtnl_message_type_is_nexthop(uint16_t type) {
+        return IN_SET(type, RTM_NEWNEXTHOP, RTM_GETNEXTHOP, RTM_DELNEXTHOP);
+}
+
+static bool rtnl_message_type_is_link(uint16_t type) {
+        return IN_SET(type,
+                      RTM_NEWLINK, RTM_SETLINK, RTM_GETLINK, RTM_DELLINK,
+                      RTM_NEWLINKPROP, RTM_DELLINKPROP, RTM_GETLINKPROP);
+}
+
+static bool rtnl_message_type_is_addr(uint16_t type) {
+        return IN_SET(type, RTM_NEWADDR, RTM_GETADDR, RTM_DELADDR);
+}
+
+static bool rtnl_message_type_is_addrlabel(uint16_t type) {
+        return IN_SET(type, RTM_NEWADDRLABEL, RTM_DELADDRLABEL, RTM_GETADDRLABEL);
+}
+
+static bool rtnl_message_type_is_routing_policy_rule(uint16_t type) {
+        return IN_SET(type, RTM_NEWRULE, RTM_DELRULE, RTM_GETRULE);
+}
+
+static bool rtnl_message_type_is_traffic_control(uint16_t type) {
+        return IN_SET(type,
+                      RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC,
+                      RTM_NEWTCLASS, RTM_DELTCLASS, RTM_GETTCLASS);
+}
+
+static bool rtnl_message_type_is_mdb(uint16_t type) {
+        return IN_SET(type, RTM_NEWMDB, RTM_DELMDB, RTM_GETMDB);
+}
+
 int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
         struct rtmsg *rtm;
 

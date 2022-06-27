@@ -148,7 +148,7 @@ sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
 
 int sd_netlink_message_get_type(sd_netlink_message *m, uint16_t *type) {
         assert_return(m, -EINVAL);
-        assert_return(type != 0, -EINVAL);
+        assert_return(type, -EINVAL);
 
         *type = m->hdr->nlmsg_type;
 
@@ -450,6 +450,29 @@ int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, c
                 return r;
 
         return 0;
+}
+
+int sd_netlink_message_append_container_data(
+                sd_netlink_message *m,
+                unsigned short container_type,
+                unsigned short type,
+                const void *data,
+                size_t len) {
+
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        r = sd_netlink_message_open_container(m, container_type);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_data(m, type, data, len);
+        if (r < 0)
+                return r;
+
+        return sd_netlink_message_close_container(m);
 }
 
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data) {
