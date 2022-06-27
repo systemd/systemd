@@ -4202,6 +4202,7 @@ summary({
         'default net.naming-scheme value' : default_net_naming_scheme,
         'default KillUserProcesses value' : kill_user_processes,
         'default locale' :                  default_locale,
+        'default nspawn locale' :           nspawn_locale,
         'default status unit format' :      status_unit_format_default,
         'default user $PATH' :
                 default_user_path != '' ? default_user_path : '(same as system services)',
