@@ -634,13 +634,13 @@ static int journal_file_move_to(
 static uint64_t minimum_header_size(Object *o) {
 
         static const uint64_t table[] = {
-                [OBJECT_DATA] = sizeof(DataObject),
-                [OBJECT_FIELD] = sizeof(FieldObject),
-                [OBJECT_ENTRY] = sizeof(EntryObject),
-                [OBJECT_DATA_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_DATA]             = sizeof(DataObject),
+                [OBJECT_FIELD]            = sizeof(FieldObject),
+                [OBJECT_ENTRY]            = sizeof(EntryObject),
+                [OBJECT_DATA_HASH_TABLE]  = sizeof(HashTableObject),
                 [OBJECT_FIELD_HASH_TABLE] = sizeof(HashTableObject),
-                [OBJECT_ENTRY_ARRAY] = sizeof(EntryArrayObject),
-                [OBJECT_TAG] = sizeof(TagObject),
+                [OBJECT_ENTRY_ARRAY]      = sizeof(EntryArrayObject),
+                [OBJECT_TAG]              = sizeof(TagObject),
         };
 
         if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
