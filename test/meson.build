@@ -138,6 +138,11 @@ if install_tests
         install_data('test-network-generator-conversion.sh',
                      install_mode : 'rwxr-xr-x',
                      install_dir : testsdir)
+
+        tests += [
+                [files('TEST-35-LOGIN/test-session-properties.c'),
+                [], [], [], '', 'manual'],
+        ]
 endif
 
 ############################################################
