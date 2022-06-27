@@ -6,45 +6,45 @@
 #include "ticks.h"
 #include "util.h"
 
-EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
+EFI_STATUS parse_boolean(const char *v, bool *b) {
         assert(b);
 
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
-        if (streq8((char *) v, "1") || streq8((char *) v, "yes") || streq8((char *) v, "y") ||
-            streq8((char *) v, "true") || streq8((char *) v, "t") || streq8((char *) v, "on")) {
-                *b = TRUE;
+        if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
+            streq8(v, "on")) {
+                *b = true;
                 return EFI_SUCCESS;
         }
 
-        if (streq8((char *) v, "0") || streq8((char *) v, "no") || streq8((char *) v, "n") ||
-            streq8((char *) v, "false") || streq8((char *) v, "f") || streq8((char *) v, "off")) {
-                *b = FALSE;
+        if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
+            streq8(v, "off")) {
+                *b = false;
                 return EFI_SUCCESS;
         }
 
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const void *buf, UINTN size, UINT32 flags) {
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags) {
         assert(vendor);
         assert(name);
         assert(buf || size == 0);
 
         flags |= EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
-        return RT->SetVariable((CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
+        return RT->SetVariable((char16_t *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
 }
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const CHAR16 *name, const CHAR16 *value, UINT32 flags) {
+EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags) {
         assert(vendor);
         assert(name);
 
         return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN i, UINT32 flags) {
-        CHAR16 str[32];
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN i, uint32_t flags) {
+        char16_t str[32];
 
         assert(vendor);
         assert(name);
@@ -52,80 +52,80 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         /* Note that SPrint has no native sized length specifier and will always use ValueToString()
          * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
          * 64bit machines. */
-        ValueToString(str, FALSE, i);
+        ValueToString(str, false, i);
         return efivar_set(vendor, name, str, flags);
 }
 
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 value, UINT32 flags) {
-        UINT8 buf[4];
+EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t value, uint32_t flags) {
+        uint8_t buf[4];
 
         assert(vendor);
         assert(name);
 
-        buf[0] = (UINT8)(value >> 0U & 0xFF);
-        buf[1] = (UINT8)(value >> 8U & 0xFF);
-        buf[2] = (UINT8)(value >> 16U & 0xFF);
-        buf[3] = (UINT8)(value >> 24U & 0xFF);
+        buf[0] = (uint8_t)(value >> 0U & 0xFF);
+        buf[1] = (uint8_t)(value >> 8U & 0xFF);
+        buf[2] = (uint8_t)(value >> 16U & 0xFF);
+        buf[3] = (uint8_t)(value >> 24U & 0xFF);
 
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 value, UINT32 flags) {
-        UINT8 buf[8];
+EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags) {
+        uint8_t buf[8];
 
         assert(vendor);
         assert(name);
 
-        buf[0] = (UINT8)(value >> 0U & 0xFF);
-        buf[1] = (UINT8)(value >> 8U & 0xFF);
-        buf[2] = (UINT8)(value >> 16U & 0xFF);
-        buf[3] = (UINT8)(value >> 24U & 0xFF);
-        buf[4] = (UINT8)(value >> 32U & 0xFF);
-        buf[5] = (UINT8)(value >> 40U & 0xFF);
-        buf[6] = (UINT8)(value >> 48U & 0xFF);
-        buf[7] = (UINT8)(value >> 56U & 0xFF);
+        buf[0] = (uint8_t)(value >> 0U & 0xFF);
+        buf[1] = (uint8_t)(value >> 8U & 0xFF);
+        buf[2] = (uint8_t)(value >> 16U & 0xFF);
+        buf[3] = (uint8_t)(value >> 24U & 0xFF);
+        buf[4] = (uint8_t)(value >> 32U & 0xFF);
+        buf[5] = (uint8_t)(value >> 40U & 0xFF);
+        buf[6] = (uint8_t)(value >> 48U & 0xFF);
+        buf[7] = (uint8_t)(value >> 56U & 0xFF);
 
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_get(const EFI_GUID *vendor, const CHAR16 *name, CHAR16 **value) {
-        _cleanup_freepool_ CHAR16 *buf = NULL;
+EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **value) {
+        _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
-        CHAR16 *val;
+        char16_t *val;
         UINTN size;
 
         assert(vendor);
         assert(name);
 
-        err = efivar_get_raw(vendor, name, (CHAR8**)&buf, &size);
-        if (EFI_ERROR(err))
+        err = efivar_get_raw(vendor, name, (char **) &buf, &size);
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Make sure there are no incomplete characters in the buffer */
-        if ((size % sizeof(CHAR16)) != 0)
+        if ((size % sizeof(char16_t)) != 0)
                 return EFI_INVALID_PARAMETER;
 
         if (!value)
                 return EFI_SUCCESS;
 
         /* Return buffer directly if it happens to be NUL terminated already */
-        if (size >= sizeof(CHAR16) && buf[size / sizeof(CHAR16) - 1] == 0) {
+        if (size >= sizeof(char16_t) && buf[size / sizeof(char16_t) - 1] == 0) {
                 *value = TAKE_PTR(buf);
                 return EFI_SUCCESS;
         }
 
         /* Make sure a terminating NUL is available at the end */
-        val = xmalloc(size + sizeof(CHAR16));
+        val = xmalloc(size + sizeof(char16_t));
 
         memcpy(val, buf, size);
-        val[size / sizeof(CHAR16) - 1] = 0; /* NUL terminate */
+        val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UINTN *i) {
-        _cleanup_freepool_ CHAR16 *val = NULL;
+EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *i) {
+        _cleanup_free_ char16_t *val = NULL;
         EFI_STATUS err;
         uint64_t u;
 
@@ -144,8 +144,8 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const CHAR16 *name, UI
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT32 *ret) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
+        _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -153,19 +153,19 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (!EFI_ERROR(err) && ret) {
-                if (size != sizeof(UINT32))
+        if (err == EFI_SUCCESS && ret) {
+                if (size != sizeof(uint32_t))
                         return EFI_BUFFER_TOO_SMALL;
 
-                *ret = (UINT32) buf[0] << 0U | (UINT32) buf[1] << 8U | (UINT32) buf[2] << 16U |
-                        (UINT32) buf[3] << 24U;
+                *ret = (uint32_t) buf[0] << 0U | (uint32_t) buf[1] << 8U | (uint32_t) buf[2] << 16U |
+                        (uint32_t) buf[3] << 24U;
         }
 
         return err;
 }
 
-EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT64 *ret) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
+        _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -173,31 +173,31 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const CHAR16 *name, UINT
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (!EFI_ERROR(err) && ret) {
-                if (size != sizeof(UINT64))
+        if (err == EFI_SUCCESS && ret) {
+                if (size != sizeof(uint64_t))
                         return EFI_BUFFER_TOO_SMALL;
 
-                *ret = (UINT64) buf[0] << 0U | (UINT64) buf[1] << 8U | (UINT64) buf[2] << 16U |
-                        (UINT64) buf[3] << 24U | (UINT64) buf[4] << 32U | (UINT64) buf[5] << 40U |
-                        (UINT64) buf[6] << 48U | (UINT64) buf[7] << 56U;
+                *ret = (uint64_t) buf[0] << 0U | (uint64_t) buf[1] << 8U | (uint64_t) buf[2] << 16U |
+                        (uint64_t) buf[3] << 24U | (uint64_t) buf[4] << 32U | (uint64_t) buf[5] << 40U |
+                        (uint64_t) buf[6] << 48U | (uint64_t) buf[7] << 56U;
         }
 
         return err;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **buffer, UINTN *size) {
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **buffer, UINTN *size) {
+        _cleanup_free_ char *buf = NULL;
         UINTN l;
         EFI_STATUS err;
 
         assert(vendor);
         assert(name);
 
-        l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
+        l = sizeof(char16_t *) * EFI_MAXIMUM_VARIABLE_SIZE;
         buf = xmalloc(l);
 
-        err = RT->GetVariable((CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
-        if (!EFI_ERROR(err)) {
+        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &l, buf);
+        if (err == EFI_SUCCESS) {
 
                 if (buffer)
                         *buffer = TAKE_PTR(buf);
@@ -209,8 +209,8 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         return err;
 }
 
-EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOOLEAN *ret) {
-        _cleanup_freepool_ CHAR8 *b = NULL;
+EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
+        _cleanup_free_ char *b = NULL;
         UINTN size;
         EFI_STATUS err;
 
@@ -219,14 +219,14 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const CHAR16 *name, BOO
         assert(ret);
 
         err = efivar_get_raw(vendor, name, &b, &size);
-        if (!EFI_ERROR(err))
+        if (err == EFI_SUCCESS)
                 *ret = *b > 0;
 
         return err;
 }
 
-void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 usec) {
-        CHAR16 str[32];
+void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec) {
+        char16_t str[32];
 
         assert(vendor);
         assert(name);
@@ -237,12 +237,12 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const CHAR16 *name, UINT64 use
                 return;
 
         /* See comment on ValueToString in efivar_set_uint_string(). */
-        ValueToString(str, FALSE, usec);
+        ValueToString(str, false, usec);
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
-        CHAR16 unichar;
+static INTN utf8_to_16(const char *stra, char16_t *c) {
+        char16_t unichar;
         UINTN len;
 
         assert(stra);
@@ -295,16 +295,16 @@ static INTN utf8_to_16(const CHAR8 *stra, CHAR16 *c) {
         return len;
 }
 
-CHAR16 *xstra_to_str(const CHAR8 *stra) {
+char16_t *xstra_to_str(const char *stra) {
         UINTN strlen;
         UINTN len;
         UINTN i;
-        CHAR16 *str;
+        char16_t *str;
 
         assert(stra);
 
-        len = strlen8((const char *) stra);
-        str = xnew(CHAR16, len + 1);
+        len = strlen8(stra);
+        str = xnew(char16_t, len + 1);
 
         strlen = 0;
         i = 0;
@@ -325,16 +325,16 @@ CHAR16 *xstra_to_str(const CHAR8 *stra) {
         return str;
 }
 
-CHAR16 *xstra_to_path(const CHAR8 *stra) {
-        CHAR16 *str;
+char16_t *xstra_to_path(const char *stra) {
+        char16_t *str;
         UINTN strlen;
         UINTN len;
         UINTN i;
 
         assert(stra);
 
-        len = strlen8((const char *) stra);
-        str = xnew(CHAR16, len + 2);
+        len = strlen8(stra);
+        str = xnew(char16_t, len + 2);
 
         str[0] = '\\';
         strlen = 1;
@@ -364,24 +364,24 @@ CHAR16 *xstra_to_path(const CHAR8 *stra) {
         return str;
 }
 
-EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **ret, UINTN *ret_size) {
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        _cleanup_freepool_ CHAR8 *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
 
         assert(dir);
         assert(name);
         assert(ret);
 
-        err = dir->Open(dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (size == 0) {
                 _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
 
                 err = get_file_info_harder(handle, &info, NULL);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 size = info->FileSize;
@@ -389,16 +389,16 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
 
         if (off > 0) {
                 err = handle->SetPosition(handle, off);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
         }
 
-        /* Allocate some extra bytes to guarantee the result is NUL-terminated for CHAR8 and CHAR16 strings. */
-        UINTN extra = size % sizeof(CHAR16) + sizeof(CHAR16);
+        /* Allocate some extra bytes to guarantee the result is NUL-terminated for char and char16_t strings. */
+        UINTN extra = size % sizeof(char16_t) + sizeof(char16_t);
 
         buf = xmalloc(size + extra);
         err = handle->Read(handle, &size, buf);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Note that handle->Read() changes size to reflect the actually bytes read. */
@@ -411,12 +411,12 @@ EFI_STATUS file_read(EFI_FILE *dir, const CHAR16 *name, UINTN off, UINTN size, C
         return err;
 }
 
-void log_error_stall(const CHAR16 *fmt, ...) {
+void log_error_stall(const char16_t *fmt, ...) {
         va_list args;
 
         assert(fmt);
 
-        INT32 attr = ST->ConOut->Mode->Attribute;
+        int32_t attr = ST->ConOut->Mode->Attribute;
         ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED|EFI_BACKGROUND_BLACK);
 
         if (ST->ConOut->Mode->CursorColumn > 0)
@@ -439,11 +439,11 @@ EFI_STATUS log_oom(void) {
         return EFI_OUT_OF_RESOURCES;
 }
 
-void print_at(UINTN x, UINTN y, UINTN attr, const CHAR16 *str) {
+void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str) {
         assert(str);
         ST->ConOut->SetCursorPosition(ST->ConOut, x, y);
         ST->ConOut->SetAttribute(ST->ConOut, attr);
-        ST->ConOut->OutputString(ST->ConOut, (CHAR16*)str);
+        ST->ConOut->OutputString(ST->ConOut, (char16_t *) str);
 }
 
 void clear_screen(UINTN attr) {
@@ -499,7 +499,7 @@ EFI_STATUS get_file_info_harder(
                 err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
         }
 
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         *ret = TAKE_PTR(fi);
@@ -531,7 +531,7 @@ EFI_STATUS readdir_harder(
                  * the buffer was too small. Therefore, start with a buffer that should handle FAT32 max
                  * file name length.
                  * As a side effect, most readdir_harder() calls will now be slightly faster. */
-                sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(CHAR16);
+                sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(char16_t);
                 *buffer = xmalloc(sz);
                 *buffer_size = sz;
         } else
@@ -544,7 +544,7 @@ EFI_STATUS readdir_harder(
                 *buffer_size = sz;
                 err = handle->Read(handle, &sz, *buffer);
         }
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         if (sz == 0) {
@@ -557,22 +557,22 @@ EFI_STATUS readdir_harder(
         return EFI_SUCCESS;
 }
 
-BOOLEAN is_ascii(const CHAR16 *f) {
+bool is_ascii(const char16_t *f) {
         if (!f)
-                return FALSE;
+                return false;
 
         for (; *f != 0; f++)
                 if (*f > 127)
-                        return FALSE;
+                        return false;
 
-        return TRUE;
+        return true;
 }
 
-CHAR16 **strv_free(CHAR16 **v) {
+char16_t **strv_free(char16_t **v) {
         if (!v)
                 return NULL;
 
-        for (CHAR16 **i = v; *i; i++)
+        for (char16_t **i = v; *i; i++)
                 free(*i);
 
         free(v);
@@ -581,7 +581,7 @@ CHAR16 **strv_free(CHAR16 **v) {
 
 EFI_STATUS open_directory(
                 EFI_FILE *root,
-                const CHAR16 *path,
+                const char16_t *path,
                 EFI_FILE **ret) {
 
         _cleanup_(file_closep) EFI_FILE *dir = NULL;
@@ -592,12 +592,12 @@ EFI_STATUS open_directory(
 
         /* Opens a file, and then verifies it is actually a directory */
 
-        err = root->Open(root, &dir, (CHAR16*) path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        err = root->Open(root, &dir, (char16_t *) path, EFI_FILE_MODE_READ, 0);
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = get_file_info_harder(dir, &file_info, NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (!FLAGS_SET(file_info->Attribute, EFI_FILE_DIRECTORY))
                 return EFI_LOAD_ERROR;
@@ -606,15 +606,15 @@ EFI_STATUS open_directory(
         return EFI_SUCCESS;
 }
 
-UINT64 get_os_indications_supported(void) {
-        UINT64 osind;
+uint64_t get_os_indications_supported(void) {
+        uint64_t osind;
         EFI_STATUS err;
 
         /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
          * supported features. */
 
         err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return 0;
 
         return osind;
@@ -624,7 +624,7 @@ UINT64 get_os_indications_supported(void) {
 __attribute__((noinline)) void debug_break(void) {
         /* This is a poor programmer's breakpoint to wait until a debugger
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
-        volatile BOOLEAN wait = TRUE;
+        volatile bool wait = true;
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
 #if defined(__i386__) || defined(__x86_64__)
@@ -638,13 +638,13 @@ __attribute__((noinline)) void debug_break(void) {
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
-static inline UINT8 inb(UINT16 port) {
-        UINT8 value;
+static inline uint8_t inb(uint16_t port) {
+        uint8_t value;
         asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
         return value;
 }
 
-static inline void outb(UINT16 port, UINT8 value) {
+static inline void outb(uint16_t port, uint8_t value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
@@ -663,12 +663,12 @@ void beep(UINTN beep_count) {
         };
 
         /* Set frequency. */
-        UINT32 counter = PIT_FREQUENCY / PITCH;
+        uint32_t counter = PIT_FREQUENCY / PITCH;
         outb(TIMER_CONTROL_PORT, TIMER_PORT_MAGIC);
         outb(TIMER_CONTROL2_PORT, counter & 0xFF);
         outb(TIMER_CONTROL2_PORT, (counter >> 8) & 0xFF);
 
-        UINT8 value = inb(SPEAKER_CONTROL_PORT);
+        uint8_t value = inb(SPEAKER_CONTROL_PORT);
 
         while (beep_count > 0) {
                 /* Turn speaker on. */

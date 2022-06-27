@@ -31,98 +31,98 @@
 #endif
 
 struct DosFileHeader {
-        UINT8   Magic[2];
-        UINT16  LastSize;
-        UINT16  nBlocks;
-        UINT16  nReloc;
-        UINT16  HdrSize;
-        UINT16  MinAlloc;
-        UINT16  MaxAlloc;
-        UINT16  ss;
-        UINT16  sp;
-        UINT16  Checksum;
-        UINT16  ip;
-        UINT16  cs;
-        UINT16  RelocPos;
-        UINT16  nOverlay;
-        UINT16  reserved[4];
-        UINT16  OEMId;
-        UINT16  OEMInfo;
-        UINT16  reserved2[10];
-        UINT32  ExeHeader;
+        uint8_t  Magic[2];
+        uint16_t LastSize;
+        uint16_t nBlocks;
+        uint16_t nReloc;
+        uint16_t HdrSize;
+        uint16_t MinAlloc;
+        uint16_t MaxAlloc;
+        uint16_t ss;
+        uint16_t sp;
+        uint16_t Checksum;
+        uint16_t ip;
+        uint16_t cs;
+        uint16_t RelocPos;
+        uint16_t nOverlay;
+        uint16_t reserved[4];
+        uint16_t OEMId;
+        uint16_t OEMInfo;
+        uint16_t reserved2[10];
+        uint32_t ExeHeader;
 } _packed_;
 
 struct CoffFileHeader {
-        UINT16  Machine;
-        UINT16  NumberOfSections;
-        UINT32  TimeDateStamp;
-        UINT32  PointerToSymbolTable;
-        UINT32  NumberOfSymbols;
-        UINT16  SizeOfOptionalHeader;
-        UINT16  Characteristics;
+        uint16_t Machine;
+        uint16_t NumberOfSections;
+        uint32_t TimeDateStamp;
+        uint32_t PointerToSymbolTable;
+        uint32_t NumberOfSymbols;
+        uint16_t SizeOfOptionalHeader;
+        uint16_t Characteristics;
 } _packed_;
 
 #define OPTHDR32_MAGIC 0x10B /* PE32  OptionalHeader */
 #define OPTHDR64_MAGIC 0x20B /* PE32+ OptionalHeader */
 
 struct PeOptionalHeader {
-        UINT16  Magic;
-        UINT8   LinkerMajor;
-        UINT8   LinkerMinor;
-        UINT32  SizeOfCode;
-        UINT32  SizeOfInitializedData;
-        UINT32  SizeOfUninitializeData;
-        UINT32  AddressOfEntryPoint;
-        UINT32  BaseOfCode;
+        uint16_t Magic;
+        uint8_t  LinkerMajor;
+        uint8_t  LinkerMinor;
+        uint32_t SizeOfCode;
+        uint32_t SizeOfInitializedData;
+        uint32_t SizeOfUninitializeData;
+        uint32_t AddressOfEntryPoint;
+        uint32_t BaseOfCode;
         union {
                 struct { /* PE32 */
-                        UINT32 BaseOfData;
-                        UINT32 ImageBase32;
+                        uint32_t BaseOfData;
+                        uint32_t ImageBase32;
                 };
-                UINT64 ImageBase64; /* PE32+ */
+                uint64_t ImageBase64; /* PE32+ */
         };
-        UINT32 SectionAlignment;
-        UINT32 FileAlignment;
-        UINT16 MajorOperatingSystemVersion;
-        UINT16 MinorOperatingSystemVersion;
-        UINT16 MajorImageVersion;
-        UINT16 MinorImageVersion;
-        UINT16 MajorSubsystemVersion;
-        UINT16 MinorSubsystemVersion;
-        UINT32 Win32VersionValue;
-        UINT32 SizeOfImage;
-        UINT32 SizeOfHeaders;
-        UINT32 CheckSum;
-        UINT16 Subsystem;
-        UINT16 DllCharacteristics;
+        uint32_t SectionAlignment;
+        uint32_t FileAlignment;
+        uint16_t MajorOperatingSystemVersion;
+        uint16_t MinorOperatingSystemVersion;
+        uint16_t MajorImageVersion;
+        uint16_t MinorImageVersion;
+        uint16_t MajorSubsystemVersion;
+        uint16_t MinorSubsystemVersion;
+        uint32_t Win32VersionValue;
+        uint32_t SizeOfImage;
+        uint32_t SizeOfHeaders;
+        uint32_t CheckSum;
+        uint16_t Subsystem;
+        uint16_t DllCharacteristics;
         /* fields with different sizes for 32/64 omitted */
 } _packed_;
 
 struct PeFileHeader {
-        UINT8   Magic[4];
+        uint8_t   Magic[4];
         struct CoffFileHeader FileHeader;
         struct PeOptionalHeader OptionalHeader;
 } _packed_;
 
 struct PeSectionHeader {
-        UINT8   Name[8];
-        UINT32  VirtualSize;
-        UINT32  VirtualAddress;
-        UINT32  SizeOfRawData;
-        UINT32  PointerToRawData;
-        UINT32  PointerToRelocations;
-        UINT32  PointerToLinenumbers;
-        UINT16  NumberOfRelocations;
-        UINT16  NumberOfLinenumbers;
-        UINT32  Characteristics;
+        uint8_t  Name[8];
+        uint32_t VirtualSize;
+        uint32_t VirtualAddress;
+        uint32_t SizeOfRawData;
+        uint32_t PointerToRawData;
+        uint32_t PointerToRelocations;
+        uint32_t PointerToLinenumbers;
+        uint16_t NumberOfRelocations;
+        uint16_t NumberOfLinenumbers;
+        uint32_t Characteristics;
 } _packed_;
 
-static inline BOOLEAN verify_dos(const struct DosFileHeader *dos) {
+static inline bool verify_dos(const struct DosFileHeader *dos) {
         assert(dos);
         return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
 }
 
-static inline BOOLEAN verify_pe(const struct PeFileHeader *pe, BOOLEAN allow_compatibility) {
+static inline bool verify_pe(const struct PeFileHeader *pe, bool allow_compatibility) {
         assert(pe);
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
@@ -141,7 +141,7 @@ static inline UINTN section_table_offset(const struct DosFileHeader *dos, const 
 static void locate_sections(
                 const struct PeSectionHeader section_table[],
                 UINTN n_table,
-                const CHAR8 **sections,
+                const char **sections,
                 UINTN *addrs,
                 UINTN *offsets,
                 UINTN *sizes) {
@@ -154,7 +154,7 @@ static void locate_sections(
                 const struct PeSectionHeader *sect = section_table + i;
 
                 for (UINTN j = 0; sections[j]; j++) {
-                        if (memcmp(sect->Name, sections[j], strlen8((const char *) sections[j])) != 0)
+                        if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
                                 continue;
 
                         if (addrs)
@@ -166,15 +166,15 @@ static void locate_sections(
         }
 }
 
-static UINT32 get_compatibility_entry_address(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
+static uint32_t get_compatibility_entry_address(const struct DosFileHeader *dos, const struct PeFileHeader *pe) {
         UINTN addr = 0, size = 0;
-        static const CHAR8 *sections[] = { (CHAR8 *) ".compat", NULL };
+        static const char *sections[] = { ".compat", NULL };
 
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
          * booting a 64bit kernel on 32bit EFI that is otherwise running on a 64bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
 
-        locate_sections((const struct PeSectionHeader *) ((const UINT8 *) dos + section_table_offset(dos, pe)),
+        locate_sections((const struct PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         sections,
                         &addr,
@@ -185,14 +185,14 @@ static UINT32 get_compatibility_entry_address(const struct DosFileHeader *dos, c
                 return 0;
 
         typedef struct {
-                UINT8 type;
-                UINT8 size;
-                UINT16 machine_type;
-                UINT32 entry_point;
+                uint8_t type;
+                uint8_t size;
+                uint16_t machine_type;
+                uint32_t entry_point;
         } _packed_ LinuxPeCompat1;
 
         while (size >= sizeof(LinuxPeCompat1) && addr % __alignof__(LinuxPeCompat1) == 0) {
-                LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((UINT8 *) dos + addr);
+                LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((uint8_t *) dos + addr);
 
                 if (compat->type == 0 || compat->size == 0 || compat->size > size)
                         break;
@@ -211,9 +211,9 @@ static UINT32 get_compatibility_entry_address(const struct DosFileHeader *dos, c
 
 EFI_STATUS pe_alignment_info(
                 const void *base,
-                UINT32 *ret_entry_point_address,
-                UINT32 *ret_size_of_image,
-                UINT32 *ret_section_alignment) {
+                uint32_t *ret_entry_point_address,
+                uint32_t *ret_size_of_image,
+                uint32_t *ret_section_alignment) {
 
         const struct DosFileHeader *dos;
         const struct PeFileHeader *pe;
@@ -225,11 +225,11 @@ EFI_STATUS pe_alignment_info(
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
-        pe = (const struct PeFileHeader*) ((const UINT8 *)base + dos->ExeHeader);
-        if (!verify_pe(pe, /* allow_compatibility= */ TRUE))
+        pe = (const struct PeFileHeader*) ((const uint8_t *)base + dos->ExeHeader);
+        if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
-        UINT32 entry_address = pe->OptionalHeader.AddressOfEntryPoint;
+        uint32_t entry_address = pe->OptionalHeader.AddressOfEntryPoint;
 
         /* Look for a compat entry point. */
         if (pe->FileHeader.Machine != TARGET_MACHINE_TYPE) {
@@ -248,8 +248,8 @@ EFI_STATUS pe_alignment_info(
 }
 
 EFI_STATUS pe_memory_locate_sections(
-                const CHAR8 *base,
-                const CHAR8 **sections,
+                const char *base,
+                const char **sections,
                 UINTN *addrs,
                 UINTN *sizes) {
         const struct DosFileHeader *dos;
@@ -266,7 +266,7 @@ EFI_STATUS pe_memory_locate_sections(
                 return EFI_LOAD_ERROR;
 
         pe = (const struct PeFileHeader*)&base[dos->ExeHeader];
-        if (!verify_pe(pe, /* allow_compatibility= */ FALSE))
+        if (!verify_pe(pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
@@ -278,8 +278,8 @@ EFI_STATUS pe_memory_locate_sections(
 
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
-                const CHAR16 *path,
-                const CHAR8 **sections,
+                const char16_t *path,
+                const char **sections,
                 UINTN *offsets,
                 UINTN *sizes) {
         _cleanup_freepool_ struct PeSectionHeader *section_table = NULL;
@@ -295,26 +295,26 @@ EFI_STATUS pe_file_locate_sections(
         assert(offsets);
         assert(sizes);
 
-        err = dir->Open(dir, &handle, (CHAR16*)path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
+        err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = sizeof(dos);
         err = handle->Read(handle, &len, &dos);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (len != sizeof(dos) || !verify_dos(&dos))
                 return EFI_LOAD_ERROR;
 
         err = handle->SetPosition(handle, dos.ExeHeader);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = sizeof(pe);
         err = handle->Read(handle, &len, &pe);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
-        if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ FALSE))
+        if (len != sizeof(pe) || !verify_pe(&pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
         section_table_len = pe.FileHeader.NumberOfSections * sizeof(struct PeSectionHeader);
@@ -323,12 +323,12 @@ EFI_STATUS pe_file_locate_sections(
                 return EFI_OUT_OF_RESOURCES;
 
         err = handle->SetPosition(handle, section_table_offset(&dos, &pe));
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         len = section_table_len;
         err = handle->Read(handle, &len, section_table);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         if (len != section_table_len)
                 return EFI_LOAD_ERROR;

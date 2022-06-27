@@ -16,11 +16,11 @@ static EFI_DEVICE_PATH *path_chop(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) 
         assert(path);
         assert(node);
 
-        UINTN len = (UINT8 *) node - (UINT8 *) path;
+        UINTN len = (uint8_t *) node - (uint8_t *) path;
         EFI_DEVICE_PATH *chopped = xmalloc(len + END_DEVICE_PATH_LENGTH);
 
         memcpy(chopped, path, len);
-        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((UINT8 *) chopped + len));
+        SetDevicePathEndNode((EFI_DEVICE_PATH *) ((uint8_t *) chopped + len));
 
         return chopped;
 }
@@ -41,9 +41,9 @@ static EFI_DEVICE_PATH *path_dup(const EFI_DEVICE_PATH *dp) {
         return dup;
 }
 
-static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
+static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
         EFI_PARTITION_TABLE_HEADER *h;
-        UINT32 crc32, crc32_saved;
+        uint32_t crc32, crc32_saved;
         EFI_STATUS err;
 
         assert(gpt_header_buffer);
@@ -52,36 +52,36 @@ static BOOLEAN verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_
 
         /* Some superficial validation of the GPT header */
         if (memcmp(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
-                return FALSE;
+                return false;
 
         if (h->Header.HeaderSize < 92 || h->Header.HeaderSize > 512)
-                return FALSE;
+                return false;
 
         if (h->Header.Revision != 0x00010000U)
-                return FALSE;
+                return false;
 
         /* Calculate CRC check */
         crc32_saved = h->Header.CRC32;
         h->Header.CRC32 = 0;
         err = BS->CalculateCrc32(gpt_header_buffer, h->Header.HeaderSize, &crc32);
         h->Header.CRC32 = crc32_saved;
-        if (EFI_ERROR(err) || crc32 != crc32_saved)
-                return FALSE;
+        if (err != EFI_SUCCESS || crc32 != crc32_saved)
+                return false;
 
         if (h->MyLBA != lba_expected)
-                return FALSE;
+                return false;
 
         if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
-                return FALSE;
+                return false;
 
         if (h->NumberOfPartitionEntries <= 0 || h->NumberOfPartitionEntries > 1024)
-                return FALSE;
+                return false;
 
         /* overflow check */
         if (h->SizeOfPartitionEntry > UINTN_MAX / h->NumberOfPartitionEntries)
-                return FALSE;
+                return false;
 
-        return TRUE;
+        return true;
 }
 
 static EFI_STATUS try_gpt(
@@ -93,7 +93,7 @@ static EFI_STATUS try_gpt(
         _cleanup_freepool_ EFI_PARTITION_ENTRY *entries = NULL;
         union GptHeaderBuffer gpt;
         EFI_STATUS err;
-        UINT32 crc32;
+        uint32_t crc32;
         UINTN size;
 
         assert(block_io);
@@ -105,7 +105,7 @@ static EFI_STATUS try_gpt(
                         block_io->Media->MediaId,
                         lba,
                         sizeof(gpt), &gpt);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
@@ -124,12 +124,12 @@ static EFI_STATUS try_gpt(
                         block_io->Media->MediaId,
                         gpt.gpt_header.PartitionEntryLBA,
                         size, entries);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (EFI_ERROR(err) || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
@@ -137,7 +137,7 @@ static EFI_STATUS try_gpt(
                 EFI_PARTITION_ENTRY *entry;
                 EFI_LBA start, end;
 
-                entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                entry = (EFI_PARTITION_ENTRY*) ((uint8_t*) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
                 if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
                         continue;
@@ -197,11 +197,11 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO *block_io;
         err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* Filter out some block devices early. (We only care about block devices that aren't
@@ -234,7 +234,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                         block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
-                if (EFI_ERROR(err)) {
+                if (err != EFI_SUCCESS) {
                         /* GPT was valid but no XBOOT loader partition found. */
                         if (err == EFI_NOT_FOUND)
                                 break;
@@ -244,7 +244,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
                 /* Patch in the data we found */
                 EFI_DEVICE_PATH *xboot_path = path_dup(partition_path);
-                memcpy((UINT8 *) xboot_path + ((UINT8 *) part_node - (UINT8 *) partition_path), &hd, sizeof(hd));
+                memcpy((uint8_t *) xboot_path + ((uint8_t *) part_node - (uint8_t *) partition_path), &hd, sizeof(hd));
                 *ret_device_path = xboot_path;
                 return EFI_SUCCESS;
         }

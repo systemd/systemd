@@ -21,81 +21,81 @@
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */
 
 struct setup_header {
-        UINT8  setup_sects;
-        UINT16 root_flags;
-        UINT32 syssize;
-        UINT16 ram_size;
-        UINT16 vid_mode;
-        UINT16 root_dev;
-        UINT16 boot_flag;
-        UINT16 jump;
-        UINT32 header;
-        UINT16 version;
-        UINT32 realmode_swtch;
-        UINT16 start_sys_seg;
-        UINT16 kernel_version;
-        UINT8  type_of_loader;
-        UINT8  loadflags;
-        UINT16 setup_move_size;
-        UINT32 code32_start;
-        UINT32 ramdisk_image;
-        UINT32 ramdisk_size;
-        UINT32 bootsect_kludge;
-        UINT16 heap_end_ptr;
-        UINT8  ext_loader_ver;
-        UINT8  ext_loader_type;
-        UINT32 cmd_line_ptr;
-        UINT32 initrd_addr_max;
-        UINT32 kernel_alignment;
-        UINT8  relocatable_kernel;
-        UINT8  min_alignment;
-        UINT16 xloadflags;
-        UINT32 cmdline_size;
-        UINT32 hardware_subarch;
-        UINT64 hardware_subarch_data;
-        UINT32 payload_offset;
-        UINT32 payload_length;
-        UINT64 setup_data;
-        UINT64 pref_address;
-        UINT32 init_size;
-        UINT32 handover_offset;
+        uint8_t  setup_sects;
+        uint16_t root_flags;
+        uint32_t syssize;
+        uint16_t ram_size;
+        uint16_t vid_mode;
+        uint16_t root_dev;
+        uint16_t boot_flag;
+        uint16_t jump;
+        uint32_t header;
+        uint16_t version;
+        uint32_t realmode_swtch;
+        uint16_t start_sys_seg;
+        uint16_t kernel_version;
+        uint8_t  type_of_loader;
+        uint8_t  loadflags;
+        uint16_t setup_move_size;
+        uint32_t code32_start;
+        uint32_t ramdisk_image;
+        uint32_t ramdisk_size;
+        uint32_t bootsect_kludge;
+        uint16_t heap_end_ptr;
+        uint8_t  ext_loader_ver;
+        uint8_t  ext_loader_type;
+        uint32_t cmd_line_ptr;
+        uint32_t initrd_addr_max;
+        uint32_t kernel_alignment;
+        uint8_t  relocatable_kernel;
+        uint8_t  min_alignment;
+        uint16_t xloadflags;
+        uint32_t cmdline_size;
+        uint32_t hardware_subarch;
+        uint64_t hardware_subarch_data;
+        uint32_t payload_offset;
+        uint32_t payload_length;
+        uint64_t setup_data;
+        uint64_t pref_address;
+        uint32_t init_size;
+        uint32_t handover_offset;
 } _packed_;
 
 /* adapted from linux' bootparam.h */
 struct boot_params {
-        UINT8  screen_info[64];         // was: struct screen_info
-        UINT8  apm_bios_info[20];       // was: struct apm_bios_info
-        UINT8  _pad2[4];
-        UINT64 tboot_addr;
-        UINT8  ist_info[16];            // was: struct ist_info
-        UINT8  _pad3[16];
-        UINT8  hd0_info[16];
-        UINT8  hd1_info[16];
-        UINT8  sys_desc_table[16];      // was: struct sys_desc_table
-        UINT8  olpc_ofw_header[16];     // was: struct olpc_ofw_header
-        UINT32 ext_ramdisk_image;
-        UINT32 ext_ramdisk_size;
-        UINT32 ext_cmd_line_ptr;
-        UINT8  _pad4[116];
-        UINT8  edid_info[128];          // was: struct edid_info
-        UINT8  efi_info[32];            // was: struct efi_info
-        UINT32 alt_mem_k;
-        UINT32 scratch;
-        UINT8  e820_entries;
-        UINT8  eddbuf_entries;
-        UINT8  edd_mbr_sig_buf_entries;
-        UINT8  kbd_status;
-        UINT8  secure_boot;
-        UINT8  _pad5[2];
-        UINT8  sentinel;
-        UINT8  _pad6[1];
+        uint8_t  screen_info[64];         // was: struct screen_info
+        uint8_t  apm_bios_info[20];       // was: struct apm_bios_info
+        uint8_t  _pad2[4];
+        uint64_t tboot_addr;
+        uint8_t  ist_info[16];            // was: struct ist_info
+        uint8_t  _pad3[16];
+        uint8_t  hd0_info[16];
+        uint8_t  hd1_info[16];
+        uint8_t  sys_desc_table[16];      // was: struct sys_desc_table
+        uint8_t  olpc_ofw_header[16];     // was: struct olpc_ofw_header
+        uint32_t ext_ramdisk_image;
+        uint32_t ext_ramdisk_size;
+        uint32_t ext_cmd_line_ptr;
+        uint8_t  _pad4[116];
+        uint8_t  edid_info[128];          // was: struct edid_info
+        uint8_t  efi_info[32];            // was: struct efi_info
+        uint32_t alt_mem_k;
+        uint32_t scratch;
+        uint8_t  e820_entries;
+        uint8_t  eddbuf_entries;
+        uint8_t  edd_mbr_sig_buf_entries;
+        uint8_t  kbd_status;
+        uint8_t  secure_boot;
+        uint8_t  _pad5[2];
+        uint8_t  sentinel;
+        uint8_t  _pad6[1];
         struct setup_header hdr;
-        UINT8  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
-        UINT32 edd_mbr_sig_buffer[16];  // was: edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]
-        UINT8  e820_table[20*128];      // was: struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]
-        UINT8  _pad8[48];
-        UINT8  eddbuf[6*82];            // was: struct edd_info eddbuf[EDDMAXNR]
-        UINT8  _pad9[276];
+        uint8_t  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
+        uint32_t edd_mbr_sig_buffer[16];  // was: edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]
+        uint8_t  e820_table[20*128];      // was: struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]
+        uint8_t  _pad8[48];
+        uint8_t  eddbuf[6*82];            // was: struct edd_info eddbuf[EDDMAXNR]
+        uint8_t  _pad9[276];
 } _packed_;
 
 #ifdef __i386__
@@ -122,7 +122,7 @@ static void linux_efi_handover(EFI_HANDLE image, struct boot_params *params) {
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
@@ -130,7 +130,7 @@ EFI_STATUS linux_exec(
         struct boot_params *boot_params;
         EFI_HANDLE initrd_handle = NULL;
         EFI_PHYSICAL_ADDRESS addr;
-        UINT8 setup_sectors;
+        uint8_t setup_sectors;
         EFI_STATUS err;
 
         assert(image);
@@ -155,7 +155,7 @@ EFI_STATUS linux_exec(
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(0x4000),
                         &addr);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         boot_params = (struct boot_params *) PHYSICAL_ADDRESS_TO_POINTER(addr);
@@ -163,7 +163,7 @@ EFI_STATUS linux_exec(
         boot_params->hdr = image_params->hdr;
         boot_params->hdr.type_of_loader = 0xff;
         setup_sectors = image_params->hdr.setup_sects > 0 ? image_params->hdr.setup_sects : 4;
-        boot_params->hdr.code32_start = (UINT32) POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + (setup_sectors + 1) * 512;
+        boot_params->hdr.code32_start = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(linux_buffer) + (setup_sectors + 1) * 512;
 
         if (cmdline) {
                 addr = 0xA0000;
@@ -173,12 +173,12 @@ EFI_STATUS linux_exec(
                                 EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(cmdline_len + 1),
                                 &addr);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return err;
 
                 memcpy(PHYSICAL_ADDRESS_TO_POINTER(addr), cmdline, cmdline_len);
-                ((CHAR8 *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
-                boot_params->hdr.cmd_line_ptr = (UINT32) addr;
+                ((char *) PHYSICAL_ADDRESS_TO_POINTER(addr))[cmdline_len] = 0;
+                boot_params->hdr.cmd_line_ptr = (uint32_t) addr;
         }
 
         /* Providing the initrd via LINUX_INITRD_MEDIA_GUID is only supported by Linux 5.8+ (5.7+ on ARM64).
@@ -187,12 +187,12 @@ EFI_STATUS linux_exec(
            If you need to know which protocol was used by the kernel, pass "efi=debug" to the kernel,
            this will print a line when InitrdMediaGuid was successfully used to load the initrd.
          */
-        boot_params->hdr.ramdisk_image = (UINT32) POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer);
-        boot_params->hdr.ramdisk_size = (UINT32) initrd_length;
+        boot_params->hdr.ramdisk_image = (uint32_t) POINTER_TO_PHYSICAL_ADDRESS(initrd_buffer);
+        boot_params->hdr.ramdisk_size = (uint32_t) initrd_length;
 
         /* register LINUX_INITRD_MEDIA_GUID */
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
         linux_efi_handover(image, boot_params);
         (void) initrd_unregister(initrd_handle);
