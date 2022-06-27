@@ -90,7 +90,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         if (!sc->states[SLEEP_HYBRID_SLEEP])
                 sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
         if (sc->hibernate_delay_sec == 0)
-                sc->hibernate_delay_sec = 2 * USEC_PER_HOUR;
+                sc->hibernate_delay_sec = 1 * USEC_PER_HOUR;
 
         /* ensure values set for all required fields */
         if (!sc->states[SLEEP_SUSPEND] || !sc->modes[SLEEP_HIBERNATE]
@@ -98,6 +98,86 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 return log_oom();
 
         *ret_sleep_config = TAKE_PTR(sc);
+
+        return 0;
+}
+
+bool is_battery_low(void) {
+        _cleanup_free_ char *bat_cap_level = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity_level", &bat_cap_level);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity_level: %m");
+                return r;
+        }
+
+        log_debug("Current battery level: %s", bat_cap_level);
+
+        return STR_IN_SET(bat_cap_level, "Critical", "Low");
+}
+
+int read_battery_capacity_percentage(void) {
+        _cleanup_free_ char *bat_cap = NULL;
+        int battery_capacity, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+
+        r = safe_atoi(bat_cap, &battery_capacity);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse battery capacity: %m");
+
+        if (battery_capacity < 0 || battery_capacity > 100)
+               return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid battery capacity");
+
+        log_debug("Current battery charge percentage: %d%%", battery_capacity);
+
+        return battery_capacity;
+}
+
+int get_battery_discharge_rate(void) {
+        _cleanup_free_ char *dirpath = NULL;
+        int stored_discharge_rate, r;
+        char *dis_rate;
+        sd_id128_t machine_id = SD_ID128_NULL;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine-id: %m");
+
+        dirpath = path_join("/var/lib/systemd/sleep", SD_ID128_TO_STRING(machine_id), "battery_discharge_percentage_rate_per_hour");
+        if (!dirpath)
+               return log_oom_debug();
+
+        r = read_one_line_file(dirpath, &dis_rate);
+        if (r < 0)
+               return log_error_errno(r, "Failed to read discharge rate from %s: %m", dirpath);
+
+        r = safe_atoi(dis_rate, &stored_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", dirpath);
+
+        return stored_discharge_rate;
+}
+
+int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
+        _cleanup_free_ char *dirpath = NULL;
+        sd_id128_t machine_id = SD_ID128_NULL;
+        int r;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine-id: %m");
+
+        dirpath = path_join("/var/lib/systemd/sleep", SD_ID128_TO_STRING(machine_id), "battery_discharge_percentage_rate_per_hour");
+        if (!dirpath)
+                return log_oom_debug();
+
+        r = write_string_filef(dirpath, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755, "%d", estimated_battery_discharge_rate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", dirpath);
 
         return 0;
 }
