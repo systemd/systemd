@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "libsss-util.h"
 #include "cryptsetup-util.h"
 
-int enroll_password(struct crypt_device *cd, const void *volume_key, size_t volume_key_size);
+int enroll_password(struct crypt_device *cd, const void *volume_key, size_t volume_key_size, Factor *factor, int keyslot);

@@ -387,6 +387,8 @@ option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libiptc support')
 option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libqrencode support')
+option('libsss', type: 'combo', choices: ['auto', 'true', 'false'],
+      description : 'Shamir\'s Secret Sharing support')
 option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gcrypt support')
 option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],

@@ -4,6 +4,8 @@ systemd_cryptsetup_sources = files(
         'cryptsetup-fido2.h',
         'cryptsetup-keyfile.c',
         'cryptsetup-keyfile.h',
+        'cryptsetup-passphrase.c',
+        'cryptsetup-passphrase.h',
         'cryptsetup-pkcs11.h',
         'cryptsetup-tpm2.h',
         'cryptsetup.c')

@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "libsss-util.h"
 #include "cryptsetup-util.h"
 #include "log.h"
 #include "time-util.h"
@@ -24,10 +25,14 @@ int decrypt_pkcs11_key(
                 size_t *ret_decrypted_key_size);
 
 int find_pkcs11_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot);
 
 #else
@@ -51,10 +56,14 @@ static inline int decrypt_pkcs11_key(
 }
 
 static inline int find_pkcs11_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 char **ret_uri,
                 void **ret_encrypted_key,
                 size_t *ret_encrypted_key_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

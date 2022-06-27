@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "libsss-util.h"
 #include "cryptsetup-tpm2.h"
 #include "env-util.h"
 #include "fileio.h"
@@ -72,6 +73,7 @@ int acquire_tpm2_key(
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
+        _cleanup_free_ unsigned char *encrypted_char = NULL;
         _cleanup_free_ void *loaded_blob = NULL;
         _cleanup_free_ char *auto_device = NULL;
         size_t blob_size;
@@ -159,6 +161,9 @@ int acquire_tpm2_key(
 }
 
 int find_tpm2_auto_data(
+                Factor *factor,
+                Factor *factor_list,
+                uint16_t factor_number,
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
@@ -169,6 +174,7 @@ int find_tpm2_auto_data(
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
                 size_t *ret_policy_hash_size,
+                unsigned char **ret_encrypted_share,
                 int *ret_keyslot,
                 int *ret_token,
                 TPM2Flags *ret_flags) {
@@ -188,7 +194,17 @@ int find_tpm2_auto_data(
                 JsonVariant *w, *e;
                 int ks;
 
+                /* If the asked factor is already assigned to a token, it means this token was not a valid one,
+                 * thus we try to fetch the next one to check the integrity. */
+                if (factor->token > -1) {
+                        token = factor->token + 1;
+                        factor->token = -1;
+                }
+
+                if (is_factor_already_assigned(factor_list, factor_number, token))
+                        continue ;
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-tpm2", &v);
+
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
                         continue;
                 if (r < 0)
@@ -200,6 +216,18 @@ int find_tpm2_auto_data(
                          * us, but by the LUKS2 spec */
                         log_warning_errno(ks, "Failed to extract keyslot index from TPM2 JSON data token %i, skipping: %m", token);
                         continue;
+                }
+
+                if (*ret_keyslot >= 0 && *ret_keyslot != ks) {
+                        continue ;
+                }
+                *ret_keyslot = ks;
+                if (factor_number > 1) {
+                        r = fetch_sss_json_data(factor, v, ret_encrypted_share);
+                        if (r == -EAGAIN)
+                                continue;
+                        if (r < 0)
+                                return r;
                 }
 
                 w = json_variant_by_key(v, "tpm2-pcrs");
@@ -226,9 +254,6 @@ int find_tpm2_auto_data(
                 if (search_pcr_mask != UINT32_MAX &&
                     search_pcr_mask != pcr_mask) /* PCR mask doesn't match what is configured, ignore this entry */
                         continue;
-
-                assert(keyslot < 0);
-                keyslot = ks;
 
                 assert(pcr_bank == UINT16_MAX);
                 assert(primary_alg == TPM2_ALG_ECC);
@@ -288,7 +313,6 @@ int find_tpm2_auto_data(
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
-
                 w = json_variant_by_key(v, "tpm2-pin");
                 if (w) {
                         if (!json_variant_is_boolean(w))
@@ -299,6 +323,7 @@ int find_tpm2_auto_data(
                                 flags |= TPM2_FLAGS_USE_PIN;
                 }
 
+                factor->token = token;
                 break;
         }
 
@@ -314,7 +339,6 @@ int find_tpm2_auto_data(
         *ret_blob_size = blob_size;
         *ret_policy_hash = TAKE_PTR(policy_hash);
         *ret_policy_hash_size = policy_hash_size;
-        *ret_keyslot = keyslot;
         *ret_token = token;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
