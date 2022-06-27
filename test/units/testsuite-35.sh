@@ -474,6 +474,21 @@ EOF
     assert_eq "$(systemctl --property SubState --value show user@"$(id -u logind-test-user)".service)" "dead"
 }
 
+test_session_properties() {
+    local s
+
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap cleanup_session RETURN
+    create_session
+
+    s=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    /usr/lib/systemd/tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
+}
+
 : >/failed
 
 setup_test_user
@@ -485,6 +500,7 @@ test_shutdown
 test_session
 test_lock_idle_action
 test_no_user_instance_for_cron
+test_session_properties
 
 touch /testok
 rm /failed
