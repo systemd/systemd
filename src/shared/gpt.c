@@ -31,6 +31,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
+        _GPT_ARCH_SEXTET(PARISC,      "parisc"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
         _GPT_ARCH_SEXTET(PPC64_LE,     "ppc64-le"),
