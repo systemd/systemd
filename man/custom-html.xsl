@@ -124,7 +124,7 @@
 <xsl:template match="citerefentry[@project='dbus']">
   <a>
     <xsl:attribute name="href">
-      <xsl:text>http://dbus.freedesktop.org/doc/</xsl:text>
+      <xsl:text>https://dbus.freedesktop.org/doc/</xsl:text>
       <xsl:value-of select="refentrytitle"/>
       <xsl:text>.</xsl:text>
       <xsl:value-of select="manvolnum"/>

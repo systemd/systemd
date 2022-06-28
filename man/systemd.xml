@@ -323,7 +323,7 @@
 
         <listitem><para>Similar rules apply for the user unit
         directories. However, here the
-        <ulink url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        <ulink url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> is followed to find
         units. Applications should place their unit files in the
         directory returned by <command>pkg-config systemd
@@ -687,7 +687,7 @@
 
         <listitem><para>The systemd user manager uses these variables
         in accordance to the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> to find its
         configuration.</para></listitem>
       </varlistentry>

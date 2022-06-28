@@ -79,7 +79,7 @@
     <literal>i</literal>, <literal>u</literal>, <literal>x</literal>,
     <literal>t</literal>, <literal>d</literal> (but not
     <literal>b</literal>), as defined by the <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
     Types</ulink> section of the D-Bus specification, and listed in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Pointer <parameter>p</parameter> must point to an array of size
@@ -172,7 +172,7 @@
       <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
-      <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
     </para>
   </refsect1>
 

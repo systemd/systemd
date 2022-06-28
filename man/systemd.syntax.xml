@@ -69,7 +69,7 @@
     </para>
 
     <para>The syntax is inspired by
-    <ulink url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG Desktop Entry Specification</ulink>
+    <ulink url="https://standards.freedesktop.org/desktop-entry-spec/latest/">XDG Desktop Entry Specification</ulink>
     <filename>.desktop</filename> files, which are in turn inspired by Microsoft Windows
     <filename>.ini</filename> files.
     </para>

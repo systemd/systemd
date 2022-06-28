@@ -69,7 +69,7 @@ static int verify_vc_kbmode(int fd) {
          * Otherwise we would (likely) interfere with X11's processing of the
          * key events.
          *
-         * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
+         * https://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
          */
 
         if (ioctl(fd, KDGKBMODE, &curr_mode) < 0)
