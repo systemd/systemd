@@ -14,6 +14,9 @@ DefaultDependencies=no
 Requires=systemd-journald.socket
 After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket syslog.socket
 Before=sysinit.target
+# We want journald to keep running until the very last moment to make sure we capture as many logs as we can
+# so let's exclude it from isolate requests.
+IgnoreOnIsolate=yes
 
 [Service]
 DeviceAllow=char-* rw
