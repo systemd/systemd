@@ -670,6 +670,11 @@ static int verify_entry(
                         return -EBADMSG;
                 }
 
+                /* Pointer might have moved, reposition */
+                r = journal_file_move_to_object(f, OBJECT_DATA, q, &u);
+                if (r < 0)
+                        return r;
+
                 r = journal_file_move_to_entry_by_offset_for_data(f, u, p, DIRECTION_DOWN, NULL, NULL);
                 if (r < 0)
                         return r;
