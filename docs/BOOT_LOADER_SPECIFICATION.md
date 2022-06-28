@@ -308,7 +308,7 @@ does not exist, no assumptions should be made.
 A unified kernel image is a single EFI PE executable combining an EFI stub
 loader, a kernel image, an initramfs image, and the kernel command line. See
 the description of the `--uefi` option in
-[dracut(8)](http://man7.org/linux/man-pages/man8/dracut.8.html). Such unified
+[dracut(8)](https://man7.org/linux/man-pages/man8/dracut.8.html). Such unified
 images are installed in the`$BOOT/EFI/Linux/` and `$XBOOTLDR/EFI/Linux/`
 directories and must have the extension `.efi`.
 Support for images of this type is of course specific to systems with EFI
