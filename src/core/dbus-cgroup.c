@@ -737,7 +737,7 @@ static int bus_cgroup_set_transient_property(
 
                         unit_write_setting(u, flags, name, buf);
 
-                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                        if (c->bpf_foreign_programs) {
                                 r = bpf_foreign_supported();
                                 if (r < 0)
                                         return r;

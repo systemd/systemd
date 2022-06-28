@@ -394,7 +394,7 @@ int config_parse_dnssd_txt(
                 last = i;
         }
 
-        if (!LIST_IS_EMPTY(txt_data->txt)) {
+        if (txt_data->txt) {
                 LIST_PREPEND(items, s->txt_data_items, txt_data);
                 TAKE_PTR(txt_data);
         }

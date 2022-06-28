@@ -240,7 +240,7 @@ int main(int argc, const char *argv[]) {
 
         LIST_JOIN(item, head, head2);
         assert_se(head2 == NULL);
-        assert_se(!LIST_IS_EMPTY(head));
+        assert_se(head);
 
         for (i = 0; i < ELEMENTSOF(items); i++)
                 LIST_REMOVE(item, head, &items[i]);

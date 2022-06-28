@@ -1689,7 +1689,7 @@ static bool unit_get_needs_bpf_foreign_program(Unit *u) {
         if (!c)
                 return false;
 
-        return !LIST_IS_EMPTY(c->bpf_foreign_programs);
+        return !!c->bpf_foreign_programs;
 }
 
 static bool unit_get_needs_socket_bind(Unit *u) {
