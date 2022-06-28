@@ -140,7 +140,7 @@ _public_ int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        return fd_inc_rcvbuf(nl->fd, size);
+        return fd_increase_rxbuf(nl->fd, size);
 }
 
 static sd_netlink *netlink_free(sd_netlink *nl) {
