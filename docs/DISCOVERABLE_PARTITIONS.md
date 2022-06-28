@@ -49,6 +49,7 @@ boot loader communicates this information to the OS, by implementing the
 | _Root Partition (LoongArch 64-bit)_ | `77055800-792c-4f94-b39a-98c91b762bb6` | ditto | ditto |
 | _Root Partition (32-bit MIPS LittleEndian (mipsel))_ | `37c58c8a-d913-4156-a25f-48b1b64e07f0` | ditto | ditto |
 | _Root Partition (64-bit MIPS LittleEndian (mips64el))_ | `700bda43-7a34-4507-b179-eeb93d7a7ca3` | ditto | ditto |
+| _Root Partition (HPPA/PARISC)_ | `1aacdb3b-5444-4138-bd9e-e5c2239b2346` | ditto | ditto |
 | _Root Partition (32-bit PowerPC)_ | `1de3f1ef-fa98-47b5-8dcd-4a860a654d78` | ditto | ditto |
 | _Root Partition (64-bit PowerPC BigEndian)_ | `912ade1d-a839-4913-8964-a10eee08fbd2` | ditto | ditto |
 | _Root Partition (64-bit PowerPC LittleEndian)_ | `c31c45e6-3f39-412e-80fb-4809c4980599` | ditto | ditto |
@@ -67,6 +68,7 @@ boot loader communicates this information to the OS, by implementing the
 | _`/usr/` Partition (LoongArch 64-bit)_ | `e611c702-575c-4cbe-9a46-434fa0bf7e3f` | ditto | ditto |
 | _`/usr/` Partition (32-bit MIPS LittleEndian (mipsel))_ | `0f4868e9-9952-4706-979f-3ed3a473e947` | ditto | ditto |
 | _`/usr/` Partition (64-bit MIPS LittleEndian (mips64el))_ | `c97c1f32-ba06-40b4-9f22-236061b08aa8` | ditto | ditto |
+| _`/usr/` Partition (HPPA/PARISC)_ | `dc4a4480-6917-4262-a4ec-db9384949f25` | ditto | ditto |
 | _`/usr/` Partition (32-bit PowerPC)_ | `7d14fec5-cc71-415d-9d6c-06bf0b3c3eaf` | ditto | ditto |
 | _`/usr/` Partition (64-bit PowerPC BigEndian)_ | `2c9739e2-f068-46b3-9fd0-01c5a9afbcca` | ditto | ditto |
 | _`/usr/` Partition (64-bit PowerPC LittleEndian)_ | `15bb03af-77e7-4d4a-b12b-c0d084f7491c` | ditto | ditto |
@@ -85,6 +87,7 @@ boot loader communicates this information to the OS, by implementing the
 | _Root Verity Partition (LoongArch 64-bit)_ | `f3393b22-e9af-4613-a948-9d3bfbd0c535` | ditto | ditto |
 | _Root Verity Partition (32-bit MIPS LittleEndian (mipsel))_ | `d7d150d2-2a04-4a33-8f12-16651205ff7b` | ditto | ditto |
 | _Root Verity Partition (64-bit MIPS LittleEndian (mips64el))_ | `16b417f8-3e06-4f57-8dd2-9b5232f41aa6` | ditto | ditto |
+| _Root Verity Partition (HPPA/PARISC)_ | `d212a430-fbc5-49f9-a983-a7feef2b8d0e` | ditto | ditto |
 | _Root Verity Partition (64-bit PowerPC LittleEndian)_ | `906bd944-4589-4aae-a4e4-dd983917446a` | ditto | ditto |
 | _Root Verity Partition (64-bit PowerPC BigEndian)_ | `9225a9a3-3c19-4d89-b4f6-eeff88f17631` | ditto | ditto |
 | _Root Verity Partition (32-bit PowerPC)_ | `98cfe649-1588-46dc-b2f0-add147424925` | ditto | ditto |
@@ -103,6 +106,7 @@ boot loader communicates this information to the OS, by implementing the
 | _`/usr/` Verity Partition (LoongArch 64-bit)_ | `f46b2c26-59ae-48f0-9106-c50ed47f673d` | ditto | ditto |
 | _`/usr/` Verity Partition (32-bit MIPS LittleEndian (mipsel))_ | `46b98d8d-b55c-4e8f-aab3-37fca7f80752` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit MIPS LittleEndian (mips64el))_ | `3c3d61fe-b5f3-414d-bb71-8739a694a4ef` | ditto | ditto |
+| _`/usr/` Verity Partition (HPPA/PARISC)_ | `5843d618-ec37-48d7-9f12-cea8e08768b2` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit PowerPC LittleEndian)_ | `ee2b9983-21e8-4153-86d9-b6901a54d1ce` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit PowerPC BigEndian)_ | `bdb528a5-a259-475f-a87d-da53fa736a07` | ditto | ditto |
 | _`/usr/` Verity Partition (32-bit PowerPC)_ | `df765d00-270e-49e5-bc75-f47bb2118b09` | ditto | ditto |
@@ -121,6 +125,7 @@ boot loader communicates this information to the OS, by implementing the
 | _Root Verity Signature Partition (LoongArch 64-bit)_ | `5afb67eb-ecc8-4f85-ae8e-ac1e7c50e7d0` | ditto | ditto |
 | _Root Verity Signature Partition (32-bit MIPS LittleEndian (mipsel))_ | `c919cc1f-4456-4eff-918c-f75e94525ca5` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit MIPS LittleEndian (mips64el))_ | `904e58ef-5c65-4a31-9c57-6af5fc7c5de7` | ditto | ditto |
+| _Root Verity Signature Partition (HPPA/PARISC)_ | `15de6170-65d3-431c-916e-b0dcd8393f25` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit PowerPC LittleEndian)_ | `d4a236e7-e873-4c07-bf1d-bf6cf7f1c3c6` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit PowerPC BigEndian)_ | `f5e2c20c-45b2-4ffa-bce9-2a60737e1aaf` | ditto | ditto |
 | _Root Verity Signature Partition (32-bit PowerPC)_ | `1b31b5aa-add9-463a-b2ed-bd467fc857e7` | ditto | ditto |
@@ -137,6 +142,7 @@ boot loader communicates this information to the OS, by implementing the
 | _`/usr/` Verity Signature Partition (64-bit ARM/AArch64)_ | `c23ce4ff-44bd-4b00-b2d4-b41b3419e02a` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (Itanium/IA-64)_ | `8de58bc2-2a43-460d-b14e-a76e4a17b47f` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (LoongArch 64-bit)_ | `b024f315-d330-444c-8461-44bbde524e99` | ditto | ditto |
+| _`/usr/` Verity Signature Partition (HPPA/PARISC)_ | `450dd7d1-3224-45ec-9cf2-a43a346d71ee` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (32-bit MIPS LittleEndian (mipsel))_ | `3e23ca0b-a4bc-4b4e-8087-5ab6a26aa8a9` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit MIPS LittleEndian (mips64el))_ | `f2c2c7ee-adcc-4351-b5c6-ee9816b66e16` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit PowerPC LittleEndian)_ | `c8bfbd1e-268e-4521-8bba-bf314c399557` | ditto | ditto |
