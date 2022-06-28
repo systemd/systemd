@@ -1005,7 +1005,7 @@ static int manager_setup_notify(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate notification socket: %m");
 
-                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
+                fd_increase_rxbuf(fd, NOTIFY_RCVBUF_SIZE);
 
                 m->notify_socket = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/notify");
                 if (!m->notify_socket)
@@ -1093,7 +1093,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to allocate cgroups agent socket: %m");
 
-                fd_inc_rcvbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
+                fd_increase_rxbuf(fd, CGROUPS_AGENT_RCVBUF_SIZE);
 
                 (void) sockaddr_un_unlink(&sa.un);
 
@@ -1157,7 +1157,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->user_lookup_fds) < 0)
                         return log_error_errno(errno, "Failed to allocate user lookup socket: %m");
 
-                (void) fd_inc_rcvbuf(m->user_lookup_fds[0], NOTIFY_RCVBUF_SIZE);
+                (void) fd_increase_rxbuf(m->user_lookup_fds[0], NOTIFY_RCVBUF_SIZE);
         }
 
         if (!m->user_lookup_event_source) {
