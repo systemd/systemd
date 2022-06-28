@@ -80,7 +80,7 @@
         <listitem><para>A low power state where the system is initially suspended
         (the state is stored in RAM). The system is first suspended for the duration
         specified in
-        <filename>/var/lib/systemd/sleep/$machine_id/battery_discharge_percentage_rate_per_hour</filename>
+	<filename>/var/lib/systemd/sleep/$machine_id/battery_discharge_percentage_rate_per_hour</filename>
         This file is created after initial suspend-resume cycle. The value is calculated using
         the battery capacity percentage difference over a timespan. In case of manual wakeup
         before RTC alarm, the timespan is the duration for which system was suspended.
