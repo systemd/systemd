@@ -25,7 +25,7 @@ for high-quality random numbers cannot be fulfilled.
 The Linux kernel provides three relevant userspace APIs to request random data
 from the kernel's entropy pool:
 
-* The [`getrandom()`](http://man7.org/linux/man-pages/man2/getrandom.2.html)
+* The [`getrandom()`](https://man7.org/linux/man-pages/man2/getrandom.2.html)
   system call with its `flags` parameter set to 0. If invoked the calling
   program will synchronously block until the random pool is fully initialized
   and the requested bytes can be provided.
@@ -35,7 +35,7 @@ from the kernel's entropy pool:
   pool is not initialized yet.
 
 * Reading from the
-  [`/dev/urandom`](http://man7.org/linux/man-pages/man4/urandom.4.html)
+  [`/dev/urandom`](https://man7.org/linux/man-pages/man4/urandom.4.html)
   pseudo-device will always return random bytes immediately, even if the pool
   is not initialized. The provided random bytes will be of low quality in this
   case however. Moreover the kernel will log about all programs using this
@@ -294,7 +294,7 @@ This primarily leaves two kind of systems in the cold:
    do use it in many cases, but not in all. Please read the above again!
 
 2. *Why don't you use
-   [getentropy()](http://man7.org/linux/man-pages/man3/getentropy.3.html)? That's
+   [getentropy()](https://man7.org/linux/man-pages/man3/getentropy.3.html)? That's
    all you need!*
 
    Same story. That call is just a different name for `getrandom()` with
@@ -303,7 +303,7 @@ This primarily leaves two kind of systems in the cold:
    are trying to address here.
 
 3. *Why don't you generate your UUIDs with
-   [`uuidd`](http://man7.org/linux/man-pages/man8/uuidd.8.html)? That's all you
+   [`uuidd`](https://man7.org/linux/man-pages/man8/uuidd.8.html)? That's all you
    need!*
 
    First of all, that's a system service, i.e. something that runs as "payload"
