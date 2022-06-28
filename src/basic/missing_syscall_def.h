@@ -23,6 +23,7 @@
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
 #  elif defined(__powerpc__)
 #  elif defined(__riscv)
 #    if __riscv_xlen == 32
@@ -68,6 +69,8 @@
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_bpf 341
 #  elif defined(__powerpc__)
 #    define systemd_NR_bpf 361
 #  elif defined(__riscv)
@@ -134,6 +137,8 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_close_range 436
 #  elif defined(__powerpc__)
 #    define systemd_NR_close_range 436
 #  elif defined(__riscv)
@@ -200,6 +205,8 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_copy_file_range 346
 #  elif defined(__powerpc__)
 #    define systemd_NR_copy_file_range 379
 #  elif defined(__riscv)
@@ -266,6 +273,8 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_epoll_pwait2 441
 #  elif defined(__powerpc__)
 #    define systemd_NR_epoll_pwait2 441
 #  elif defined(__riscv)
@@ -332,6 +341,8 @@ assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_getrandom 339
 #  elif defined(__powerpc__)
 #    define systemd_NR_getrandom 359
 #  elif defined(__riscv)
@@ -398,6 +409,8 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_memfd_create 340
 #  elif defined(__powerpc__)
 #    define systemd_NR_memfd_create 360
 #  elif defined(__riscv)
@@ -464,6 +477,8 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_mount_setattr 442
 #  elif defined(__powerpc__)
 #    define systemd_NR_mount_setattr 442
 #  elif defined(__riscv)
@@ -530,6 +545,8 @@ assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_move_mount 429
 #  elif defined(__powerpc__)
 #    define systemd_NR_move_mount 429
 #  elif defined(__riscv)
@@ -596,6 +613,8 @@ assert_cc(__NR_move_mount == systemd_NR_move_mount);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_name_to_handle_at 325
 #  elif defined(__powerpc__)
 #    define systemd_NR_name_to_handle_at 345
 #  elif defined(__riscv)
@@ -662,6 +681,8 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_open_tree 428
 #  elif defined(__powerpc__)
 #    define systemd_NR_open_tree 428
 #  elif defined(__riscv)
@@ -728,6 +749,8 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_openat2 437
 #  elif defined(__powerpc__)
 #    define systemd_NR_openat2 437
 #  elif defined(__riscv)
@@ -794,6 +817,8 @@ assert_cc(__NR_openat2 == systemd_NR_openat2);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pidfd_open 434
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_open 434
 #  elif defined(__riscv)
@@ -860,6 +885,8 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__riscv)
@@ -926,6 +953,8 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pkey_mprotect 351
 #  elif defined(__powerpc__)
 #    define systemd_NR_pkey_mprotect 386
 #  elif defined(__riscv)
@@ -992,6 +1021,8 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_renameat2 337
 #  elif defined(__powerpc__)
 #    define systemd_NR_renameat2 357
 #  elif defined(__riscv)
@@ -1058,6 +1089,8 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_setns 328
 #  elif defined(__powerpc__)
 #    define systemd_NR_setns 350
 #  elif defined(__riscv)
@@ -1124,6 +1157,8 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_statx 349
 #  elif defined(__powerpc__)
 #    define systemd_NR_statx 383
 #  elif defined(__riscv)
