@@ -51,7 +51,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
-static int mount_process_proc_self_mountinfo(Manager *m);
+static int mount_process_proc_self_mountinfo(Manager *m, bool force);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
@@ -1387,7 +1387,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        (void) mount_process_proc_self_mountinfo(u->manager, true);
 
         m->control_pid = 0;
 
@@ -1981,7 +1981,7 @@ static int drain_libmount(Manager *m) {
         return rescan;
 }
 
-static int mount_process_proc_self_mountinfo(Manager *m) {
+static int mount_process_proc_self_mountinfo(Manager *m, bool force) {
         _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         const char *what;
         int r;
@@ -1989,8 +1989,11 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         assert(m);
 
         r = drain_libmount(m);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+
+        if (r == 0 && !force)
+                return 0;
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
@@ -2106,7 +2109,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         assert(m);
         assert(revents & EPOLLIN);
 
-        return mount_process_proc_self_mountinfo(m);
+        return mount_process_proc_self_mountinfo(m, false);
 }
 
 static void mount_reset_failed(Unit *u) {
