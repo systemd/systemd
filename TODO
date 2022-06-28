@@ -1102,7 +1102,7 @@ Features:
 * there's probably something wrong with having user mounts below /sys,
   as we have for debugfs. for example, src/core/mount.c handles mounts
   prefixed with /sys generally special.
-  http://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
+  https://lists.freedesktop.org/archives/systemd-devel/2015-June/032962.html
 
 * fstab-generator: default to tmpfs-as-root if only usr= is specified on the kernel cmdline
 
@@ -1115,7 +1115,7 @@ Features:
 * add a job mode that will fail if a transaction would mean stopping
   running units. Use this in timedated to manage the NTP service
   state.
-  http://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
+  https://lists.freedesktop.org/archives/systemd-devel/2015-April/030229.html
 
 * The udev blkid built-in should expose a property that reflects
   whether media was sensed in USB CF/SD card readers. This should then
@@ -1126,13 +1126,13 @@ Features:
 * hostnamectl: show root image uuid
 
 * Find a solution for SMACK capabilities stuff:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-December/026188.html
 
 * synchronize console access with BSD locks:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-October/024582.html
 
 * as soon as we have sender timestamps, revisit coalescing multiple parallel daemon reloads:
-  http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
+  https://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
 * figure out when we can use the coarse timers
 
@@ -1251,9 +1251,9 @@ Features:
     log both units as UNIT=, so that journalctl -u triggers on both.
   - generate better errors when people try to set transient properties
     that are not supported...
-    http://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
+    https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
   - maybe introduce WantsMountsFor=? Usecase:
-    http://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
+    https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.

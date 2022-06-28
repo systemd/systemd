@@ -12,7 +12,7 @@
 
 #define BUS_INTROSPECT_DOCTYPE                                       \
         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
-        "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
 
 #define BUS_INTROSPECT_INTERFACE_PEER                                \
         " <interface name=\"org.freedesktop.DBus.Peer\">\n"             \
