@@ -235,7 +235,7 @@ static int lock_device(
 
                 if (deadline == USEC_INFINITY)  {
 
-                        log_info("Device '%s' is currently locked, waiting…", path);
+                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                         if (flock(fd, LOCK_EX) < 0)
                                 return log_error_errno(errno, "Failed to lock device '%s': %m", path);
@@ -251,8 +251,9 @@ static int lock_device(
                          * instead do the lock out-of-process: fork off a child that does the locking, and
                          * that we'll wait on and kill if it takes too long. */
 
-                        log_info("Device '%s' is currently locked, waiting %s…",
-                                 path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0));
+                        log_info("Device '%s' is currently locked, waiting %s%s",
+                                 path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0),
+                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                         BLOCK_SIGNALS(SIGCHLD);
 
@@ -311,7 +312,7 @@ static int lock_device(
                 }
         }
 
-        log_debug("Successfully locked %s (%u:%u)…", path, major(devno), minor(devno));
+        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         return TAKE_FD(fd);
 }

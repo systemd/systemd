@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "list.h"
@@ -236,8 +237,9 @@ static void varlink_set_state(Varlink *v, VarlinkState state) {
                 varlink_log(v, "Setting state %s",
                             varlink_state_to_string(state));
         else
-                varlink_log(v, "Changing state %s → %s",
+                varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
+                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
         v->state = state;

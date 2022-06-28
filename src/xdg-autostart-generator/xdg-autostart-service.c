@@ -483,8 +483,9 @@ static int xdg_autostart_generate_desktop_condition(
                 if (!e_autostart_condition)
                         return log_oom();
 
-                log_debug("%s: ExecCondition converted to %s --condition \"%s\"…",
-                          service->path, gnome_autostart_condition_path, e_autostart_condition);
+                log_debug("%s: ExecCondition converted to %s --condition \"%s\"%s",
+                          service->path, gnome_autostart_condition_path, e_autostart_condition,
+                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                 fprintf(f,
                          "ExecCondition=%s --condition \"%s\"\n",
@@ -638,6 +639,7 @@ int xdg_autostart_service_generate_unit(
         if (r < 0)
                 return r;
 
-        log_debug("%s: symlinking %s in xdg-desktop-autostart.target/.wants…", service->path, service->name);
+        log_debug("%s: symlinking %s in xdg-desktop-autostart.target/.wants%s",
+                  service->path, service->name, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         return generator_add_symlink(dest, "xdg-desktop-autostart.target", "wants", service->name);
 }
