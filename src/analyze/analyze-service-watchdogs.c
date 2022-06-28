@@ -2,7 +2,7 @@
 
 #include "analyze.h"
 #include "analyze-service-watchdogs.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "parse-util.h"
 

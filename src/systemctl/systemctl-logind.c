@@ -4,7 +4,7 @@
 
 #include "sd-login.h"
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "login-util.h"
 #include "process-util.h"

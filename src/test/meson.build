@@ -47,6 +47,8 @@ tests += [
 
         [files('test-engine.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -58,18 +60,24 @@ tests += [
 
         [files('test-manager.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
 
         [files('test-emergency-action.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
 
         [files('test-chown-rec.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
@@ -78,6 +86,8 @@ tests += [
 
         [files('test-job-type.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -89,6 +99,8 @@ tests += [
 
         [files('test-ns.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -100,6 +112,8 @@ tests += [
 
         [files('test-loopback.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -118,6 +132,8 @@ tests += [
 
         [files('test-unit-name.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -129,6 +145,8 @@ tests += [
 
         [files('test-load-fragment.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -142,6 +160,8 @@ tests += [
 
         [files('test-unit-serialize.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -173,11 +193,15 @@ tests += [
         [files('test-recurse-dir.c')],
 
         [files('test-compress.c'),
-         [libshared,
+         [libbasic,
+          libsystemd,
+          libshared,
           libbasic_compress]],
 
         [files('test-compress-benchmark.c'),
-         [libshared,
+         [libbasic,
+          libsystemd,
+          libshared,
           libbasic_compress],
          [],
          [], '', 'timeout=90'],
@@ -322,6 +346,8 @@ tests += [
 
         [files('test-namespace.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           libblkid],
@@ -348,6 +374,8 @@ tests += [
 
         [files('test-loop-block.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           libblkid],
@@ -356,10 +384,12 @@ tests += [
         [files('test-selinux.c')],
 
         [files('test-sizeof.c'),
-         [libbasic]],
+         [libbasic_static]],
 
         [files('test-bpf-devices.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [libmount,
           threads,
@@ -371,6 +401,8 @@ tests += [
 
         [files('test-bpf-firewall.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [libmount,
           threads,
@@ -382,12 +414,16 @@ tests += [
 
         [files('test-bpf-foreign-programs.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
 
         [files('test-bpf-lsm.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [libmount,
           threads,
@@ -399,6 +435,8 @@ tests += [
 
         [files('test-watch-pid.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [libmount,
           threads,
@@ -437,6 +475,8 @@ tests += [
          [libcore,
           libjournal_core,
           libudevd_core,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           libseccomp,
@@ -504,18 +544,24 @@ tests += [
 
         [files('test-cgroup-cpu.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
 
         [files('test-cgroup-unit-default.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes],
 
         [files('test-cgroup-mask.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -552,6 +598,8 @@ tests += [
 
         [files('test-path.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -563,6 +611,8 @@ tests += [
 
         [files('test-execute.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -578,6 +628,8 @@ tests += [
 
         [files('test-install.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [],
          core_includes, '', 'manual'],
@@ -587,6 +639,8 @@ tests += [
 
         [files('test-sched-prio.c'),
          [libcore,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -618,6 +672,8 @@ tests += [
 
         [files('test-udev.c'),
          [libudevd_core,
+          libbasic,
+          libsystemd,
           libshared],
          [threads,
           librt,
@@ -632,7 +688,9 @@ tests += [
         [files('test-id128.c')],
 
         [files('test-cryptolib.c'),
-         [libshared],
+         [libbasic,
+          libsystemd,
+          libshared],
          [lib_openssl_or_gcrypt],
          [], 'HAVE_OPENSSL_OR_GCRYPT'],
 
@@ -695,7 +753,9 @@ tests += [
 tests += [
         [files('test-socket-bind.c'),
          [libcore,
-         libshared],
+          libbasic,
+          libsystemd,
+          libshared],
          [libdl],
          core_includes,
          'BPF_FRAMEWORK'],

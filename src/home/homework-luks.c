@@ -14,6 +14,7 @@
 #include "sd-daemon.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -33,7 +34,6 @@
 #include "home-util.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
-#include "id128-util.h"
 #include "io-util.h"
 #include "keyring-util.h"
 #include "memory-util.h"
@@ -703,7 +703,7 @@ static int luks_validate(
                 if (!pp)
                         return errno > 0 ? -errno : -EIO;
 
-                if (id128_equal_string(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
+                if (sd_id128_string_equal(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
                         continue;
 
                 if (!streq_ptr(blkid_partition_get_name(pp), label))

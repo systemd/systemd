@@ -2411,6 +2411,10 @@ fail:
 }
 
 _public_ int sd_event_source_get_enabled(sd_event_source *s, int *ret) {
+        /* Quick mode: the event source doesn't exist and we only want to query boolean enablement state. */
+        if (!s && !ret)
+                return false;
+
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -2588,8 +2592,13 @@ static int event_source_online(
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
-        assert_return(s, -EINVAL);
         assert_return(IN_SET(m, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
+
+        /* Quick mode: if the source doesn't exist, SD_EVENT_OFF is a noop. */
+        if (m == SD_EVENT_OFF && !s)
+                return 0;
+
+        assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         /* If we are dead anyway, we are fine with turning off sources, but everything else needs to fail. */

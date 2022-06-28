@@ -4,6 +4,7 @@
 #include "log.h"
 #include "tests.h"
 
+#include "bus-compat.h"
 #include "test-vtable-data.h"
 
 static void test_manual_introspection_one(const sd_bus_vtable vtable[]) {

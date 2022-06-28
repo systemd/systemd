@@ -771,16 +771,15 @@ static void shared_hash_key_initialize(void) {
 static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
-        bool up;
 
-        up = mempool_enabled();
+        bool use_pool = mempool_enabled && mempool_enabled();
 
-        h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
+        h = use_pool ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
                 return NULL;
 
         h->type = type;
-        h->from_pool = up;
+        h->from_pool = use_pool;
         h->hash_ops = hash_ops ?: &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {

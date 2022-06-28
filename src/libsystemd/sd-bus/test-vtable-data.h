@@ -73,34 +73,6 @@ static const sd_bus_vtable test_vtable_deprecated[] = {
         SD_BUS_VTABLE_END
 };
 
-struct sd_bus_vtable_221 {
-        uint8_t type:8;
-        uint64_t flags:56;
-        union {
-                struct {
-                        size_t element_size;
-                } start;
-                struct {
-                        const char *member;
-                        const char *signature;
-                        const char *result;
-                        sd_bus_message_handler_t handler;
-                        size_t offset;
-                } method;
-                struct {
-                        const char *member;
-                        const char *signature;
-                } signal;
-                struct {
-                        const char *member;
-                        const char *signature;
-                        sd_bus_property_get_t get;
-                        sd_bus_property_set_t set;
-                        size_t offset;
-                } property;
-        } x;
-};
-
 static const struct sd_bus_vtable_221 vtable_format_221[] = {
         {
                 .type = _SD_BUS_VTABLE_START,

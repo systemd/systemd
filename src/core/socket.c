@@ -12,7 +12,7 @@
 
 #include "alloc-util.h"
 #include "bpf-firewall.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"

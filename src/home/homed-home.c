@@ -11,6 +11,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-error-util.h"
 #include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
