@@ -30,7 +30,7 @@
 <xsl:template match="citerefentry[@project='man-pages'] | citerefentry[manvolnum='2'] | citerefentry[manvolnum='4']">
   <a>
     <xsl:attribute name="href">
-      <xsl:text>http://man7.org/linux/man-pages/man</xsl:text>
+      <xsl:text>https://man7.org/linux/man-pages/man</xsl:text>
       <xsl:value-of select="manvolnum"/>
       <xsl:text>/</xsl:text>
       <xsl:value-of select="refentrytitle"/>
