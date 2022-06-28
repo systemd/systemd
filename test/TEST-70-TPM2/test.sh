@@ -21,6 +21,11 @@ test_append_files() {
         install_dmevent
         generate_module_dependencies
         inst_binary tpm2_pcrextend
+
+        # On Debian, cryptsetup does not link against libgcc_s.so.1
+        if get_bool "$LOOKS_LIKE_DEBIAN"; then
+            inst_library "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/libgcc_s.so.1"
+        fi
     )
 }
 
