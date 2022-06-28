@@ -216,7 +216,7 @@ int bus_read_mount_options(
         if (r < 0)
                 return r;
 
-        if (!LIST_IS_EMPTY(options)) {
+        if (options) {
                 if (ret_format_str) {
                         char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
                         if (!final)

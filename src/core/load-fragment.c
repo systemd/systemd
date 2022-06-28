@@ -1691,11 +1691,11 @@ int config_parse_root_image_options(
                 LIST_APPEND(mount_options, options, TAKE_PTR(o));
         }
 
-        /* empty spaces/separators only */
-        if (LIST_IS_EMPTY(options))
-                c->root_image_options = mount_options_free_all(c->root_image_options);
-        else
+        if (options)
                 LIST_JOIN(mount_options, c->root_image_options, options);
+        else
+                /* empty spaces/separators only */
+                c->root_image_options = mount_options_free_all(c->root_image_options);
 
         return 0;
 }

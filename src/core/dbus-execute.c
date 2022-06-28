@@ -1698,16 +1698,16 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (LIST_IS_EMPTY(options)) {
-                                c->root_image_options = mount_options_free_all(c->root_image_options);
-                                unit_write_settingf(u, flags, name, "%s=", name);
-                        } else {
+                        if (options) {
                                 LIST_JOIN(mount_options, c->root_image_options, options);
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, name,
                                                 "%s=%s",
                                                 name,
                                                 format_str);
+                        } else {
+                                c->root_image_options = mount_options_free_all(c->root_image_options);
+                                unit_write_settingf(u, flags, name, "%s=", name);
                         }
                 }
 

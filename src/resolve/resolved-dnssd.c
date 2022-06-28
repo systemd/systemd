@@ -107,7 +107,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                                        "%s doesn't define service type",
                                        service->name);
 
-        if (LIST_IS_EMPTY(service->txt_data_items)) {
+        if (!service->txt_data_items) {
                 txt_data = new0(DnssdTxtData, 1);
                 if (!txt_data)
                         return log_oom();

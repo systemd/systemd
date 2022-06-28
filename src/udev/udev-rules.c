@@ -1063,7 +1063,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
         head_old = TAKE_PTR(rule_line->tokens);
         rule_line->current_token = NULL;
 
-        while (!LIST_IS_EMPTY(head_old)) {
+        while (head_old) {
                 UdevRuleToken *min_token = NULL;
 
                 LIST_FOREACH(tokens, t, head_old)

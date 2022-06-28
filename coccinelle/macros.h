@@ -189,8 +189,6 @@
              (i) != (p);                                                \
              (i) = (i)->name##_next ? (i)->name##_next : (head))
 
-#define LIST_IS_EMPTY(head)                                             \
-        (!(head))
 #define LIST_JOIN(name,a,b)                                             \
         do {                                                            \
                 assert(b);                                              \
