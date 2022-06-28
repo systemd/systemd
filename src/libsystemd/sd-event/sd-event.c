@@ -1799,7 +1799,7 @@ static void event_free_inode_data(
         if (!d)
                 return;
 
-        assert(!d->event_sources);
+        assert(LIST_IS_EMPTY(d->event_sources));
 
         if (d->fd >= 0) {
                 LIST_REMOVE(to_close, e->inode_data_to_close, d);
@@ -1862,7 +1862,7 @@ static void event_gc_inode_data(
         if (!d)
                 return;
 
-        if (d->event_sources)
+        if (!LIST_IS_EMPTY(d->event_sources))
                 return;
 
         inotify_data = d->inotify_data;
@@ -3874,7 +3874,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         event_close_inode_data_fds(e);
 
-        if (event_next_pending(e) || e->need_process_child)
+        if (event_next_pending(e) || e->need_process_child || !LIST_IS_EMPTY(e->inotify_data_buffered))
                 goto pending;
 
         e->state = SD_EVENT_ARMED;
@@ -3954,7 +3954,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
-        if (e->inotify_data_buffered)
+        if (!LIST_IS_EMPTY(e->inotify_data_buffered))
                 timeout = 0;
 
         for (;;) {
