@@ -136,6 +136,54 @@ int read_battery_capacity_percentage(void) {
         return battery_capacity;
 }
 
+int get_battery_discharge_rate(void) {
+        _cleanup_free_ char *dirpath = NULL;
+        int stored_discharge_rate, r;
+        char *dis_rate;
+        sd_id128_t machine_id = SD_ID128_NULL;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine-id: %m");
+
+        dirpath = path_join("/var/lib/systemd/sleep", SD_ID128_TO_STRING(machine_id), "battery_discharge_percentage_rate_per_hour");
+        if (!dirpath)
+               return log_oom_debug();
+
+        r = read_one_line_file(dirpath, &dis_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read discharge rate from %s: %m", dirpath);
+
+        r = safe_atoi(dis_rate, &stored_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", dirpath);
+
+        if (stored_discharge_rate > 0 && stored_discharge_rate < 200)
+               return stored_discharge_rate;
+        else
+               return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid battery discharge percentage rate per hour: %m%%");
+}
+
+int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
+        _cleanup_free_ char *dirpath = NULL;
+        sd_id128_t machine_id = SD_ID128_NULL;
+        int r;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine-id: %m");
+
+        dirpath = path_join("/var/lib/systemd/sleep", SD_ID128_TO_STRING(machine_id), "battery_discharge_percentage_rate_per_hour");
+        if (!dirpath)
+                return log_oom_debug();
+
+        r = write_string_filef(dirpath, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755, "%d", estimated_battery_discharge_rate);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s: %m", dirpath);
+
+        return 0;
+}
+
 int can_sleep_state(char **types) {
         _cleanup_free_ char *text = NULL;
         int r;
