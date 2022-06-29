@@ -284,6 +284,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                 before_timestamp = now(CLOCK_BOOTTIME);
 
+                previous_discharge_rate = get_battery_discharge_rate();
+                if (previous_discharge_rate > 0)
+                        suspend_interval = ((last_capacity / previous_discharge_rate) * 60 - 30) * USEC_PER_MINUTE;
+                else if (previous_discharge_rate != -ENOENT)
+                        log_error_errno(previous_discharge_rate, "Error fetching battery discharge rate, ignoring: %m");
 
                 log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
 
@@ -318,6 +323,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                         log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
 
+                        if (estimated_discharge_rate > 0 && estimated_discharge_rate < 200) {
+                                r = put_battery_discharge_rate(estimated_discharge_rate);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to update battery discharge rate: ignoring %m");
+                        }
                         return 0;
                 }
 
@@ -333,6 +343,12 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 estimated_discharge_rate = (last_capacity - current_capacity) / (suspend_interval * USEC_PER_HOUR);
 
                 log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
+
+                if (estimated_discharge_rate > 0 && estimated_discharge_rate < 200) {
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to update battery discharge rate, ignoring: %m");
+                }
 
         } while (!battery_is_low());
 
