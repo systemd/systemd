@@ -263,41 +263,88 @@ static int execute(
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _cleanup_close_ int tfd = -1;
-        struct itimerspec ts = {};
+        usec_t suspend_interval = sleep_config->hibernate_delay_sec, before_timestamp, after_timestamp;
         int r;
 
         assert(sleep_config);
 
-        tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
-        if (tfd < 0)
-                return log_error_errno(errno, "Error creating timerfd: %m");
+        while(!battery_is_low()) {
+                _cleanup_close_ int tfd = -1;
+                struct itimerspec ts = {};
+                int last_capacity = 0, current_capacity = 0, previous_discharge_rate, estimated_discharge_rate = 0;
 
-        log_debug("Set timerfd wake alarm for %s",
-                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (tfd < 0)
+                        return log_error_errno(errno, "Error creating timerfd: %m");
 
-        timespec_store(&ts.it_value, sleep_config->hibernate_delay_sec);
+                /* Store current battery capacity and current time before suspension */
+                r = read_battery_capacity_percentage();
+                if (r > 0) {
+                        last_capacity = r;
+                        before_timestamp = now(CLOCK_BOOTTIME);
+                } else if (r == -ENOENT)
+                        log_debug_errno(r, "Suspend Interval value set to %s: %m", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
+                        /* In case of no battery, system will be suspended for hibernatedelaysec interval */
+                else
+                        return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
-        r = timerfd_settime(tfd, 0, &ts, NULL);
-        if (r < 0)
-                return log_error_errno(errno, "Error setting hibernate timer: %m");
+                last_capacity = r;
+                before_timestamp = now(CLOCK_BOOTTIME);
 
-        r = execute(sleep_config, SLEEP_SUSPEND, NULL);
-        if (r < 0)
-                return r;
 
-        r = fd_wait_for_event(tfd, POLLIN, 0);
-        if (r < 0)
-                return log_error_errno(r, "Error polling timerfd: %m");
-        if (!FLAGS_SET(r, POLLIN)) /* We woke up before the alarm time, we are done. */
-                return 0;
+                log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
 
-        tfd = safe_close(tfd);
+                log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
+                /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
+                timespec_store(&ts.it_value, suspend_interval);
 
-        /* If woken up after alarm time, hibernate */
-        log_debug("Attempting to hibernate after waking from %s timer",
-                  FORMAT_TIMESPAN(sleep_config->hibernate_delay_sec, USEC_PER_SEC));
+                r = timerfd_settime(tfd, 0, &ts, NULL);
+                if (r < 0)
+                        return log_error_errno(errno, "Error setting battery estimate timer: %m");
 
+                r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                if (r < 0)
+                        return r;
+
+                r = fd_wait_for_event(tfd, POLLIN, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Error polling timerfd: %m");
+
+                r = read_battery_capacity_percentage();
+                if (r > 0)
+                        current_capacity = r;
+                else if (r == -ENOENT) {
+                        log_debug_errno(r, "Battery capacity percentage unavailable, cannot estimate discharge rate: %m");
+                        break;
+                        /* In case of no battery, exit loop and then system will be hibernated */
+                } else
+                        return log_error_errno(r, "Error fetching battery capacity percentage: %m");
+
+                if (!FLAGS_SET(r, POLLIN) && (current_capacity < last_capacity)) {
+                        /* We woke up before alarm time, estimate discharge rate using suspension duration. */
+                        after_timestamp = now(CLOCK_BOOTTIME);
+                        estimated_discharge_rate = ((last_capacity - current_capacity) * 60 * 60 * USEC_PER_SEC) / (after_timestamp - before_timestamp);
+                        /* The capacity difference is multiplied with 3600 to convert it to per hour */
+                        log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
+
+                        return 0;
+                }
+
+                if (current_capacity > last_capacity)
+                        log_debug("Battery was charged during suspension");
+                else {
+                        log_debug("Attempting to estimate battery duscharge rate after waking from %s hours sleep timer",
+                                  FORMAT_TIMESPAN(suspend_interval, USEC_PER_HOUR));
+
+                        /* If woken up after alarm time, estimate discharge rate for suspend interval */
+                        estimated_discharge_rate = (last_capacity - current_capacity) / (suspend_interval * USEC_PER_HOUR);
+
+                        log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
+
+                }
+        }
+
+        log_debug("Attempting to hibernate");
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);
         if (r < 0) {
                 log_notice("Couldn't hibernate, will try to suspend again.");
