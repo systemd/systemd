@@ -1056,21 +1056,19 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
 }
 
 static void sort_tokens(UdevRuleLine *rule_line) {
-        UdevRuleToken *head_old;
-
         assert(rule_line);
 
-        head_old = TAKE_PTR(rule_line->tokens);
+        UdevRuleToken *old_tokens = TAKE_PTR(rule_line->tokens);
         rule_line->current_token = NULL;
 
-        while (head_old) {
+        while (old_tokens) {
                 UdevRuleToken *min_token = NULL;
 
-                LIST_FOREACH(tokens, t, head_old)
+                LIST_FOREACH(tokens, t, old_tokens)
                         if (!min_token || min_token->type > t->type)
                                 min_token = t;
 
-                LIST_REMOVE(tokens, head_old, min_token);
+                LIST_REMOVE(tokens, old_tokens, min_token);
                 rule_line_append_token(rule_line, min_token);
         }
 }
