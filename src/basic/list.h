@@ -170,9 +170,6 @@
              i != (p);                                                  \
              i = i->name##_next ? i->name##_next : (head))
 
-#define LIST_IS_EMPTY(head)                                             \
-        (!(head))
-
 /* Join two lists tail to head: a->b, c->d to a->b->c->d and de-initialise second list */
 #define LIST_JOIN(name,a,b)                                             \
         do {                                                            \
