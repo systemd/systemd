@@ -1988,7 +1988,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                         if (r < 0)
                                 return r;
 
-                        LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                        LIST_INSERT_AFTER(items, txt_data->txts, last, i);
                         last = i;
 
                         r = sd_bus_message_exit_container(message);
@@ -2003,7 +2003,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 if (r < 0)
                         return r;
 
-                if (txt_data->txt) {
+                if (txt_data->txts) {
                         LIST_PREPEND(items, service->txt_data_items, txt_data);
                         txt_data = NULL;
                 }
@@ -2022,7 +2022,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 if (!txt_data)
                         return log_oom();
 
-                r = dns_txt_item_new_empty(&txt_data->txt);
+                r = dns_txt_item_new_empty(&txt_data->txts);
                 if (r < 0)
                         return r;
 

@@ -13,13 +13,13 @@ typedef struct DnsTxtItem DnsTxtItem;
 
 enum {
         DNS_TXT_ITEM_TEXT,
-        DNS_TXT_ITEM_DATA
+        DNS_TXT_ITEM_DATA,
 };
 
 struct DnssdTxtData {
         DnsResourceRecord *rr;
 
-        LIST_HEAD(DnsTxtItem, txt);
+        LIST_HEAD(DnsTxtItem, txts);
 
         LIST_FIELDS(DnssdTxtData, items);
 };
