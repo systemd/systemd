@@ -49,19 +49,19 @@ static bool event_source_is_offline(sd_event_source *s) {
 }
 
 static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
-        [SOURCE_IO] = "io",
-        [SOURCE_TIME_REALTIME] = "realtime",
-        [SOURCE_TIME_BOOTTIME] = "bootime",
-        [SOURCE_TIME_MONOTONIC] = "monotonic",
+        [SOURCE_IO]                  = "io",
+        [SOURCE_TIME_REALTIME]       = "realtime",
+        [SOURCE_TIME_BOOTTIME]       = "bootime",
+        [SOURCE_TIME_MONOTONIC]      = "monotonic",
         [SOURCE_TIME_REALTIME_ALARM] = "realtime-alarm",
         [SOURCE_TIME_BOOTTIME_ALARM] = "boottime-alarm",
-        [SOURCE_SIGNAL] = "signal",
-        [SOURCE_CHILD] = "child",
-        [SOURCE_DEFER] = "defer",
-        [SOURCE_POST] = "post",
-        [SOURCE_EXIT] = "exit",
-        [SOURCE_WATCHDOG] = "watchdog",
-        [SOURCE_INOTIFY] = "inotify",
+        [SOURCE_SIGNAL]              = "signal",
+        [SOURCE_CHILD]               = "child",
+        [SOURCE_DEFER]               = "defer",
+        [SOURCE_POST]                = "post",
+        [SOURCE_EXIT]                = "exit",
+        [SOURCE_WATCHDOG]            = "watchdog",
+        [SOURCE_INOTIFY]             = "inotify",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
