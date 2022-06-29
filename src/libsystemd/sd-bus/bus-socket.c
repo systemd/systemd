@@ -156,75 +156,86 @@ static int bus_socket_write_auth(sd_bus *b) {
 }
 
 static int bus_socket_auth_verify_client(sd_bus *b) {
-        char *d, *e, *f, *start;
+        char *l, *lines[4] = {};
         sd_id128_t peer;
+        size_t i, n;
         int r;
 
         assert(b);
 
         /*
-         * We expect three response lines:
-         *   "DATA\r\n"
+         * We expect up to three response lines:
+         *   "DATA\r\n"                 (optional)
          *   "OK <server-id>\r\n"
          *   "AGREE_UNIX_FD\r\n"        (optional)
          */
 
-        d = memmem_safe(b->rbuffer, b->rbuffer_size, "\r\n", 2);
-        if (!d)
-                return 0;
-
-        e = memmem_safe(d + 2, b->rbuffer_size - (d - (char*) b->rbuffer) - 2, "\r\n", 2);
-        if (!e)
-                return 0;
-
-        if (b->accept_fd) {
-                f = memmem_safe(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
-                if (!f)
-                        return 0;
-
-                start = f + 2;
-        } else {
-                f = NULL;
-                start = e + 2;
+        n = 0;
+        lines[n] = b->rbuffer;
+        for (i = 0; i < 3; ++i) {
+                l = memmem_safe(lines[n], b->rbuffer_size - (lines[n] - (char*) b->rbuffer), "\r\n", 2);
+                if (l)
+                        lines[++n] = l + 2;
+                else
+                        break;
         }
 
-        /* Nice! We got all the lines we need. First check the DATA line. */
+        /*
+         * If we sent a non-empty initial response, then we just expect an OK
+         * reply. We currently do this if, and only if, we picked ANONYMOUS.
+         * If we did not send an initial response, then we expect a DATA
+         * challenge, reply with our own DATA, and expect an OK reply. We do
+         * this for EXTERNAL.
+         * If FD negotiation was requested, we additionally expect
+         * an AGREE_UNIX_FD response in all cases.
+         */
+        if (n < (b->anonymous_auth ? 1U : 2U) + !!b->accept_fd)
+                return 0; /* wait for more data */
 
-        if (d - (char*) b->rbuffer == 4) {
-                if (memcmp(b->rbuffer, "DATA", 4))
+        i = 0;
+
+        /* In case of EXTERNAL, verify the first response was DATA. */
+        if (!b->anonymous_auth) {
+                l = lines[i++];
+                if (lines[i] - l == 4 + 2) {
+                        if (memcmp(l, "DATA", 4))
+                                return -EPERM;
+                } else if (lines[i] - l == 3 + 32 + 2) {
+                        /*
+                         * Old versions of the server-side implementation of
+                         * `sd-bus` replied with "OK <id>" to "AUTH" requests
+                         * from a client, even if the "AUTH" line did not
+                         * contain inlined arguments. Therefore, we also accept
+                         * "OK <id>" here, even though it is technically the
+                         * wrong reply. We ignore the "<id>" parameter, though,
+                         * since it has no real value.
+                         */
+                        if (memcmp(l, "OK ", 3))
+                                return -EPERM;
+                } else
                         return -EPERM;
-        } else if (d - (char*) b->rbuffer == 3 + 32) {
-                /*
-                 * Old versions of the server-side implementation of `sd-bus` replied with "OK <id>" to
-                 * "AUTH" requests from a client, even if the "AUTH" line did not contain inlined
-                 * arguments. Therefore, we also accept "OK <id>" here, even though it is technically the
-                 * wrong reply. We ignore the "<id>" parameter, though, since it has no real value.
-                 */
-                if (memcmp(b->rbuffer, "OK ", 3))
-                        return -EPERM;
-        } else
-                return -EPERM;
+        }
 
         /* Now check the OK line. */
+        l = lines[i++];
 
-        if (e - d != 2 + 3 + 32)
+        if (lines[i] - l != 3 + 32 + 2)
                 return -EPERM;
-
-        if (memcmp(d + 2, "OK ", 3))
+        if (memcmp(l, "OK ", 3))
                 return -EPERM;
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
 
-        for (unsigned i = 0; i < 32; i += 2) {
+        for (unsigned j = 0; j < 32; j += 2) {
                 int x, y;
 
-                x = unhexchar(d[2 + 3 + i]);
-                y = unhexchar(d[2 + 3 + i + 1]);
+                x = unhexchar(l[3 + j]);
+                y = unhexchar(l[3 + j + 1]);
 
                 if (x < 0 || y < 0)
                         return -EINVAL;
 
-                peer.bytes[i/2] = ((uint8_t) x << 4 | (uint8_t) y);
+                peer.bytes[j/2] = ((uint8_t) x << 4 | (uint8_t) y);
         }
 
         if (!sd_id128_is_null(b->server_id) &&
@@ -234,15 +245,15 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         b->server_id = peer;
 
         /* And possibly check the third line, too */
+        if (b->accept_fd) {
+                l = lines[i++];
+                b->can_fds = !!memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
+        }
 
-        if (f)
-                b->can_fds =
-                        (f - e == STRLEN("\r\nAGREE_UNIX_FD")) &&
-                        memcmp(e + 2, "AGREE_UNIX_FD",
-                               STRLEN("AGREE_UNIX_FD")) == 0;
+        assert(i == n);
 
-        b->rbuffer_size -= (start - (char*) b->rbuffer);
-        memmove(b->rbuffer, start, b->rbuffer_size);
+        b->rbuffer_size -= (lines[i] - (char*) b->rbuffer);
+        memmove(b->rbuffer, lines[i], b->rbuffer_size);
 
         r = bus_start_running(b);
         if (r < 0)
@@ -646,9 +657,8 @@ static int bus_socket_start_auth_client(sd_bus *b) {
                  * message broker to aid debugging of clients. We fully anonymize the connection and use a
                  * static default.
                  */
-                "\0AUTH ANONYMOUS\r\n"
-                /* HEX a n o n y m o u s */
-                "DATA 616e6f6e796d6f7573\r\n"
+                /*            HEX a n o n y m o u s */
+                "\0AUTH ANONYMOUS 616e6f6e796d6f7573\r\n"
         };
         static const char sasl_auth_external[] = {
                 "\0AUTH EXTERNAL\r\n"
