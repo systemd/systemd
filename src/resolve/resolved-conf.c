@@ -390,11 +390,11 @@ int config_parse_dnssd_txt(
                         assert_not_reached();
                 }
 
-                LIST_INSERT_AFTER(items, txt_data->txt, last, i);
+                LIST_INSERT_AFTER(items, txt_data->txts, last, i);
                 last = i;
         }
 
-        if (txt_data->txt) {
+        if (txt_data->txts) {
                 LIST_PREPEND(items, s->txt_data_items, txt_data);
                 TAKE_PTR(txt_data);
         }

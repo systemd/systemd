@@ -17,7 +17,7 @@ DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
                 return NULL;
 
         dns_resource_record_unref(txt_data->rr);
-        dns_txt_item_free_all(txt_data->txt);
+        dns_txt_item_free_all(txt_data->txts);
 
         return mfree(txt_data);
 }
@@ -112,7 +112,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                 if (!txt_data)
                         return log_oom();
 
-                r = dns_txt_item_new_empty(&txt_data->txt);
+                r = dns_txt_item_new_empty(&txt_data->txts);
                 if (r < 0)
                         return r;
 
@@ -237,7 +237,7 @@ int dnssd_update_rrs(DnssdService *s) {
                         goto oom;
 
                 txt_data->rr->ttl = MDNS_DEFAULT_TTL;
-                txt_data->rr->txt.items = dns_txt_item_copy(txt_data->txt);
+                txt_data->rr->txt.items = dns_txt_item_copy(txt_data->txts);
                 if (!txt_data->rr->txt.items)
                         goto oom;
         }
