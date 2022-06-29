@@ -124,7 +124,7 @@ struct sd_event {
         Hashmap *inotify_data; /* indexed by priority */
 
         /* A list of inode structures that still have an fd open, that we need to close before the next loop iteration */
-        LIST_HEAD(struct inode_data, inode_data_to_close);
+        LIST_HEAD(struct inode_data, inode_data_to_close_list);
 
         /* A list of inotify objects that already have events buffered which aren't processed yet */
         LIST_HEAD(struct inotify_data, buffered_inotify_data_list);
@@ -1804,7 +1804,7 @@ static void event_free_inode_data(
         assert(!d->event_sources);
 
         if (d->fd >= 0) {
-                LIST_REMOVE(to_close, e->inode_data_to_close, d);
+                LIST_REMOVE(to_close, e->inode_data_to_close_list, d);
                 safe_close(d->fd);
         }
 
@@ -2066,7 +2066,7 @@ static int event_add_inotify_fd_internal(
                         }
                 }
 
-                LIST_PREPEND(to_close, e->inode_data_to_close, inode_data);
+                LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
         }
 
         /* Link our event source to the inode data object */
@@ -2353,7 +2353,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                                 goto fail;
                         }
 
-                        LIST_PREPEND(to_close, s->event->inode_data_to_close, new_inode_data);
+                        LIST_PREPEND(to_close, s->event->inode_data_to_close_list, new_inode_data);
                 }
 
                 /* Move the event source to the new inode data structure */
@@ -3827,11 +3827,11 @@ static void event_close_inode_data_fds(sd_event *e) {
          * for the inode). Hence, let's close them when entering the first iteration after they were added, as a
          * compromise. */
 
-        while ((d = e->inode_data_to_close)) {
+        while ((d = e->inode_data_to_close_list)) {
                 assert(d->fd >= 0);
                 d->fd = safe_close(d->fd);
 
-                LIST_REMOVE(to_close, e->inode_data_to_close, d);
+                LIST_REMOVE(to_close, e->inode_data_to_close_list, d);
         }
 }
 
