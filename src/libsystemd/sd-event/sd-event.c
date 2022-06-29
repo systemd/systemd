@@ -127,7 +127,7 @@ struct sd_event {
         LIST_HEAD(struct inode_data, inode_data_to_close);
 
         /* A list of inotify objects that already have events buffered which aren't processed yet */
-        LIST_HEAD(struct inotify_data, inotify_data_buffered);
+        LIST_HEAD(struct inotify_data, buffered_inotify_data_list);
 
         pid_t original_pid;
 
@@ -1692,7 +1692,7 @@ static void event_free_inotify_data(sd_event *e, struct inotify_data *d) {
         assert(hashmap_isempty(d->wd));
 
         if (d->buffer_filled > 0)
-                LIST_REMOVE(buffered, e->inotify_data_buffered, d);
+                LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 
         hashmap_free(d->inodes);
         hashmap_free(d->wd);
@@ -3419,7 +3419,7 @@ static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t
 
         assert(n > 0);
         d->buffer_filled = (size_t) n;
-        LIST_PREPEND(buffered, e->inotify_data_buffered, d);
+        LIST_PREPEND(buffered, e->buffered_inotify_data_list, d);
 
         return 1;
 }
@@ -3437,7 +3437,7 @@ static void event_inotify_data_drop(sd_event *e, struct inotify_data *d, size_t 
         d->buffer_filled -= sz;
 
         if (d->buffer_filled == 0)
-                LIST_REMOVE(buffered, e->inotify_data_buffered, d);
+                LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 }
 
 static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
@@ -3530,7 +3530,7 @@ static int process_inotify(sd_event *e) {
 
         assert(e);
 
-        LIST_FOREACH(buffered, d, e->inotify_data_buffered) {
+        LIST_FOREACH(buffered, d, e->buffered_inotify_data_list) {
                 r = event_inotify_data_process(e, d);
                 if (r < 0)
                         return r;
@@ -3885,7 +3885,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         event_close_inode_data_fds(e);
 
-        if (event_next_pending(e) || e->need_process_child || e->inotify_data_buffered)
+        if (event_next_pending(e) || e->need_process_child || e->buffered_inotify_data_list)
                 goto pending;
 
         e->state = SD_EVENT_ARMED;
@@ -3965,7 +3965,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
-        if (e->inotify_data_buffered)
+        if (e->buffered_inotify_data_list)
                 timeout = 0;
 
         for (;;) {
