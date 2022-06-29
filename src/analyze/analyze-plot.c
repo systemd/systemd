@@ -3,7 +3,7 @@
 #include "analyze.h"
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-map-properties.h"
 #include "sort-util.h"
 #include "version.h"

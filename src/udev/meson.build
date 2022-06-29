@@ -99,7 +99,9 @@ link_config_gperf_c = custom_target(
 ############################################################
 
 if get_option('link-udev-shared')
-        udev_link_with = [libshared]
+        udev_link_with = [libbasic,
+                          libsystemd,
+                          libshared]
         udev_rpath = rootpkglibdir
 else
         udev_link_with = [libshared_static,
@@ -178,6 +180,7 @@ endif
 fuzzers += [
         [files('net/fuzz-link-parser.c'),
          [libudevd_core,
+          libbasic,
           libshared],
          [threads,
           libacl],
@@ -185,6 +188,7 @@ fuzzers += [
 
         [files('fuzz-udev-rules.c'),
          [libudevd_core,
+          libbasic,
           libshared],
          [threads,
           libacl]],
@@ -198,18 +202,21 @@ fuzzers += [
 tests += [
         [files('test-udev-event.c'),
          [libudevd_core,
+          libbasic,
           libshared],
          [threads,
           libacl]],
 
         [files('test-udev-node.c'),
          [libudevd_core,
+          libbasic,
           libshared],
          [threads,
           libacl]],
 
         [files('test-udev-builtin.c'),
          [libudevd_core,
+          libbasic,
           libshared],
          [threads,
           libacl]],

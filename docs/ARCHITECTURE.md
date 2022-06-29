@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Code Map
 
-This section will attempt to provide a high-level overview of the various
+This document attempts to provide a high-level overview of the various
 components of the systemd repository.
 
 ## Source Code
@@ -21,30 +21,72 @@ names are self-explanatory.
 
 ### Shared Code
 
-You might wonder what kind of common code belongs in `src/shared/` and what
-belongs in `src/basic/`. The split is like this: anything that is used to
-implement the public shared objects we provide (`sd-bus`, `sd-login`,
-`sd-id128`, `nss-systemd`, `nss-mymachines`, `nss-resolve`, `nss-myhostname`,
-`pam_systemd`), must be located in `src/basic` (those objects are not allowed
-to link to `libsystemd-shared.so`). Conversely, anything which is shared
-between multiple components and does not need to be in `src/basic/`, should be
-in `src/shared/`.
+The code that is shared between components is split into a few directories,
+each with a different purpose:
+
+- `src/basic/` and `src/fundamental/` — those directories contain code
+  primitives that are used by all other code. `src/fundamental/` is stricter,
+  because it also used for EFI and user-space code, while `src/basic/` is only
+  used for for user-space code. The code in `src/fundamental/` cannot depend on
+  any other code in the tree, and `src/basic/` can depend only on itself and
+  `src/fundamental/`. For user-space, those subdirectories are exported as
+  `libsystemd-basic.so`, but also linked statically in other places.
+
+- `src/libsystemd/` implements the `libsystemd.so` shared library (also
+  available as static `libsystemd.a`). This code can depend on `src/basic/` and
+  `src/fundamental/`. It is split in two parts: `src/libsystemd/internal`
+  contains functions which are used by the library code, but are also used
+  internally elsewhere. Individual subdirectories `src/libsystemd/sd-bus/`,
+  `src/libsystemd/sd-id128/`, … contain code that is implements various
+  portions of `libsystemd.so`. `libsystemd.so` is linked to
+  `libsystemd-basic.so`.
+
+- `src/shared/` provides various utilities and code shared between other
+  components that is exposed as the `libsystemd-shared.so` shared library.
+  `libsystemd-shared.so` is linked to both `libsystemd.so` and
+  `libsystemd-basic.so`.
+
+The other subdirectories implement individual components. They may depend only
+on `src/fundamental/` + `src/basic/`, or also on `libsystemd.so`, or also on
+`libsystemd-shared.so`.  Since `libsystemd-shared.so` links to `libsystemd.so`,
+and both `libsystemd-shared.so` and `libsystemd.so` link to
+`libsystemd-basic.so`, it doesn't make sense to try to avoid linking to those
+"lower-level" libaries if the program is already linked to a "higher-level"
+library.
+
+You might wonder what kind of code belongs where. In general, the rule is that
+code should linked as few times as possible, ideally only once. Thus code that
+is used by "higher-level" components (e.g. our binaries which are linked to
+`libsystemd-shared.so`), would go to a subdirectory specific to that component
+if it is only used there. If the code is to be shared between components, it'd
+go to `src/shared`. If it needs to be also shared with components that do not
+link to `src/shared`, it could be moved to either `src/basic` or
+`src/libsystemd/internal`, with the former being preferred, but if it requires
+any of the code from `src/libsystemd`, then `src/basic` is not an option.
+Finally, any code that is used only for EFI goes under `src/boot/efi/`, or
+`src/fundamental/` if is shared with non-EFI compoenents.
 
 To summarize:
 
+`src/fundamental/`
+- may be used by all code in the tree
+- may not use any code outside of `src/fundamental/`
+
 `src/basic/`
 - may be used by all code in the tree
-- may not use any code outside of `src/basic/`
+- may not use any code outside of `src/fundamental/` and `src/basic/`
 
 `src/libsystemd/`
-- may be used by all code in the tree, except for code in `src/basic/`
-- may not use any code outside of `src/basic/`, `src/libsystemd/`
+- may be used by all code in the tree that links to `libsystem.so`
+- may not use any code outside of `src/fundamental/`, `src/basic/`, and
+  `src/libsystemd/`
 
 `src/shared/`
 - may be used by all code in the tree, except for code in `src/basic/`,
-`src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
-`src/journal/` that end up in `libjournal-client.a` convenience library.
-- may not use any code outside of `src/basic/`, `src/libsystemd/`, `src/shared/`
+  `src/libsystemd/`, `src/nss-*`, `src/login/pam_systemd.*`, and files under
+  `src/journal/` that end up in `libjournal-client.a` convenience library.
+- may not use any code outside of `src/fundamental/`, `src/basic/`,
+  `src/libsystemd/`, `src/shared/`
 
 ### PID 1
 

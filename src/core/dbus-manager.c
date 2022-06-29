@@ -9,6 +9,7 @@
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
+#include "bus-error-util.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "chase-symlinks.h"

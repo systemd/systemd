@@ -3,9 +3,9 @@
 #include <errno.h>
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
-#include "device-private.h"
+#include "device-util.h"
 #include "path-util.h"
 #include "udevadm-util.h"
 #include "unit-name.h"

@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
