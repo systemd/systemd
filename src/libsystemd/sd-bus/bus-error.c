@@ -237,7 +237,7 @@ _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *mes
         return -r;
 }
 
-int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
+_public_ int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
         int r;
 
         if (!name)
@@ -277,7 +277,7 @@ _public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *fo
                 va_list ap;
 
                 va_start(ap, format);
-                r = bus_error_setfv(e, name, format, ap);
+                r = sd_bus_error_setfv(e, name, format, ap);
                 assert(!name || r < 0);
                 va_end(ap);
 

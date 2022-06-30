@@ -4,6 +4,7 @@
 #include <sys/vfs.h>
 
 #include "sd-device.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "blkid-util.h"
@@ -13,7 +14,6 @@
 #include "errno-util.h"
 #include "find-esp.h"
 #include "gpt.h"
-#include "id128-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -85,7 +85,7 @@ static int verify_esp_blkid(
         r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
         if (r != 0)
                 return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
-        if (id128_equal_string(v, GPT_ESP) <= 0)
+        if (sd_id128_string_equal(v, GPT_ESP) <= 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -178,7 +178,7 @@ static int verify_esp_udev(
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device property: %m");
-        if (id128_equal_string(v, GPT_ESP) <= 0)
+        if (sd_id128_string_equal(v, GPT_ESP) <= 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
@@ -510,7 +510,7 @@ static int verify_xbootldr_blkid(
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
-                if (id128_equal_string(v, GPT_XBOOTLDR) <= 0)
+                if (sd_id128_string_equal(v, GPT_XBOOTLDR) <= 0)
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "%s: Partitition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
@@ -576,7 +576,7 @@ static int verify_xbootldr_udev(
                 if (r < 0)
                         return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_TYPE: %m");
 
-                r = id128_equal_string(v, GPT_XBOOTLDR);
+                r = sd_id128_string_equal(v, GPT_XBOOTLDR);
                 if (r < 0)
                         return log_device_error_errno(d, r, "Failed to parse ID_PART_ENTRY_TYPE=%s: %m", v);
                 if (r == 0)
