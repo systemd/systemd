@@ -203,6 +203,14 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_TIME_SYNC              SD_ID128_MAKE(7c,8a,41,f3,7b,76,49,41,a0,e1,78,0b,1b,e2,f0,37)
 #define SD_MESSAGE_TIME_SYNC_STR          SD_ID128_MAKE_STR(7c,8a,41,f3,7b,76,49,41,a0,e1,78,0b,1b,e2,f0,37)
 
+#define SD_MESSAGE_LOGIND_SHUTDOWN        SD_ID128_MAKE(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
+#define SD_MESSAGE_LOGIND_SHUTDOWN_STR    SD_ID128_MAKE_STR(9e,70,66,27,9d,c8,40,3d,a7,9c,e4,b1,a6,90,64,b2)
+
+#define SD_MESSAGE_LOGIND_SHUTDOWN_CANCELED \
+                                          SD_ID128_MAKE(24,9f,6f,b9,e6,e2,42,8c,96,f3,f0,87,56,81,ff,a3)
+#define SD_MESSAGE_LOGIND_SHUTDOWN_CANCELED_STR \
+                                          SD_ID128_MAKE_STR(24,9f,6f,b9,e6,e2,42,8c,96,f3,f0,87,56,81,ff,a3)
+
 _SD_END_DECLARATIONS;
 
 #endif
