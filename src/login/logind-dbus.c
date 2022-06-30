@@ -2347,7 +2347,6 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
 
         if (m->enable_wall_messages) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                _cleanup_free_ char *username = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
 
@@ -2357,7 +2356,14 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                         (void) sd_bus_creds_get_tty(creds, &tty);
                 }
 
-                username = uid_to_name(uid);
+                _cleanup_free_ char *username = uid_to_name(uid);
+
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("System shutdown has been cancelled"),
+                           "ACTION=%s", handle_action_to_string(a->handle),
+                           "MESSAGE_ID=" SD_MESSAGE_LOGIND_SHUTDOWN_CANCELED_STR,
+                           username ? "OPERATOR=%s" : NULL, username);
+
                 utmp_wall("System shutdown has been cancelled",
                           username, tty, logind_wall_tty_filter, m);
         }
