@@ -135,6 +135,62 @@ int read_battery_capacity_percentage(void) {
         return battery_capacity;
 }
 
+char *get_battery_discharge_rate_filepath(void) {
+        char *filepath;
+        sd_id128_t machine_id;
+        int r;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get machine ID: %m");
+                return NULL;
+        }
+
+        filepath = path_join("/var/lib/systemd/sleep", SD_ID128_TO_STRING(machine_id), "battery_discharge_percentage_rate_per_hour");
+        if (!filepath) {
+                log_oom_debug();
+                return NULL;
+        }
+        log_debug("filepath is %s", filepath);
+        return filepath;
+}
+
+int get_battery_discharge_rate(void) {
+        char *discharge_rate, *filepath;
+        int stored_discharge_rate, r;
+
+        filepath = get_battery_discharge_rate_filepath();
+        if (!filepath || NULL)
+               return log_oom_debug();
+
+        r = read_one_line_file(filepath, &discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read discharge rate from %s: %m", filepath);
+
+        r = safe_atoi(discharge_rate, &stored_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", filepath);
+
+        if (stored_discharge_rate > 0 && stored_discharge_rate < 200)
+               return stored_discharge_rate;
+        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid battery discharge percentage rate per hour: %m");
+}
+
+int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
+        char *filepath;
+        int r;
+
+        filepath = get_battery_discharge_rate_filepath();
+        if (!filepath || NULL)
+               return log_oom_debug();
+
+        r = write_string_filef(filepath, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755, "%d", estimated_battery_discharge_rate);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s: %m", filepath);
+
+        return 0;
+}
+
 int can_sleep_state(char **types) {
         _cleanup_free_ char *text = NULL;
         int r;
