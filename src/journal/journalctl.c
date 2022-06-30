@@ -2164,7 +2164,7 @@ int main(int argc, char *argv[]) {
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        sd_id128_t previous_boot_id;
+        sd_id128_t previous_boot_id = {};  /* Unnecessary initialization to appease gcc */
         int n_shown = 0, r, poll_fd = -1;
 
         setlocale(LC_ALL, "");
