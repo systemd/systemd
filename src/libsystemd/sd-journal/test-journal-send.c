@@ -3,11 +3,15 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#endif
 
 #include "sd-journal.h"
 
+#include "fd-util.h"
 #include "fileio.h"
-#include "journal-send.h"
+#include "journal-internal.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "tests.h"
@@ -103,7 +107,11 @@ static int outro(void) {
         /* Sleep a bit to make it easy for journald to collect metadata. */
         sleep(1);
 
-        close_journal_fd();
+#if HAVE_VALGRIND_VALGRIND_H
+        /* Be nice to valgrind. This operation is not atomic, and can only be done in a test. */
+        if (RUNNING_ON_VALGRIND)
+                safe_close(journal_send_fd());
+#endif
 
         return EXIT_SUCCESS;
 }

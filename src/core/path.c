@@ -5,7 +5,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "bus-util.h"
 #include "dbus-path.h"
 #include "dbus-unit.h"

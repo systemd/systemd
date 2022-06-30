@@ -190,7 +190,7 @@ _public_ int sd_is_special(int fd, const char *path) {
         return 1;
 }
 
-static int sd_is_socket_internal(int fd, int type, int listening) {
+static int is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
 
         assert_return(fd >= 0, -EBADF);
@@ -239,7 +239,7 @@ _public_ int sd_is_socket(int fd, int family, int type, int listening) {
         assert_return(fd >= 0, -EBADF);
         assert_return(family >= 0, -EINVAL);
 
-        r = sd_is_socket_internal(fd, type, listening);
+        r = is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
 
@@ -267,7 +267,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         assert_return(fd >= 0, -EBADF);
         assert_return(IN_SET(family, 0, AF_INET, AF_INET6), -EINVAL);
 
-        r = sd_is_socket_internal(fd, type, listening);
+        r = is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
 
@@ -307,7 +307,7 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
         assert_return(addr_len >= sizeof(sa_family_t), -ENOBUFS);
         assert_return(IN_SET(addr->sa_family, AF_INET, AF_INET6), -EPFNOSUPPORT);
 
-        r = sd_is_socket_internal(fd, type, listening);
+        r = is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
 
@@ -362,7 +362,7 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 
         assert_return(fd >= 0, -EBADF);
 
-        r = sd_is_socket_internal(fd, type, listening);
+        r = is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
 

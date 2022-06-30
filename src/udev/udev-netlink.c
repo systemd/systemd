@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "device-private.h"
+#include "device-util.h"
 #include "hexdecoct.h"
 #include "netlink-util.h"
 #include "strv.h"

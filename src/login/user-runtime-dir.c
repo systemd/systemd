@@ -5,7 +5,7 @@
 
 #include "sd-bus.h"
 
-#include "bus-error.h"
+#include "bus-error-util.h"
 #include "dev-setup.h"
 #include "format-util.h"
 #include "fs-util.h"
