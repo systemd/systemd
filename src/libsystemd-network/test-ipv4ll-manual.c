@@ -39,7 +39,7 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         }
 }
 
-static int client_run(int ifindex, const char *seed_str, const struct ether_addr *ha, sd_event *e) {
+static int client_run(int ifindex, const char *seed_str, const struct in_addr *start_address, const struct ether_addr *ha, sd_event *e) {
         sd_ipv4ll *ll;
 
         assert_se(sd_ipv4ll_new(&ll) >= 0);
@@ -57,6 +57,9 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
                 assert_se(sd_ipv4ll_set_address_seed(ll, seed) >= 0);
         }
 
+        if (start_address && in4_addr_is_set(start_address))
+                assert_se(sd_ipv4ll_set_address(ll, start_address) >= 0);
+
         log_info("starting IPv4LL client");
 
         assert_se(sd_ipv4ll_start(ll) >= 0);
@@ -68,7 +71,7 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
         return EXIT_SUCCESS;
 }
 
-static int test_ll(const char *ifname, const char *seed) {
+static int test_ll(const char *ifname, const char *seed, const struct in_addr *start_address) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
@@ -87,7 +90,7 @@ static int test_ll(const char *ifname, const char *seed) {
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);
 
-        client_run(ifindex, seed, &ha, e);
+        client_run(ifindex, seed, start_address, &ha, e);
 
         return EXIT_SUCCESS;
 }
@@ -96,12 +99,19 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (argc == 2)
-                return test_ll(argv[1], NULL);
-        else if (argc == 3)
-                return test_ll(argv[1], argv[2]);
-        else {
+                return test_ll(argv[1], NULL, NULL);
+        else if (argc == 3) {
+                int r;
+                union in_addr_union a;
+
+                r = in_addr_from_string(AF_INET, argv[2], &a);
+                if (r < 0)
+                        return test_ll(argv[1], argv[2], NULL);
+                else
+                        return test_ll(argv[1], NULL, &a.in);
+        } else {
                 log_error("This program takes one or two arguments.\n"
-                          "\t %s <ifname> [<seed>]", program_invocation_short_name);
+                          "\t %s <ifname> [<seed>|<start_address>]", program_invocation_short_name);
                 return EXIT_FAILURE;
         }
 }

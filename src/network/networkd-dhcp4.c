@@ -1071,6 +1071,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                }
+
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
@@ -1153,6 +1159,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
+
+                                if (in4_addr_is_set(&link->network->ipv4ll_start_address)) {
+                                        r = sd_ipv4ll_set_address(link->ipv4ll, &link->network->ipv4ll_start_address);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not set IPv4 link-local start address: %m");;
+                                }
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
