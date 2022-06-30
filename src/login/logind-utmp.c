@@ -64,30 +64,37 @@ bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
 }
 
 static int warn_wall(Manager *m, usec_t n) {
-        int r;
-
         assert(m);
 
-        if (!m->enable_wall_messages || !m->scheduled_shutdown_action)
+        if (!m->scheduled_shutdown_action)
                 return 0;
 
-        usec_t left = m->scheduled_shutdown_timeout > n;
+        bool left = m->scheduled_shutdown_timeout > n;
 
-        _cleanup_free_ char *l = NULL, *username = NULL;
-
-        r = asprintf(&l, "%s%sThe system will %s %s%s!",
+        _cleanup_free_ char *l = NULL;
+        if (asprintf(&l, "%s%sThe system will %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
                      handle_action_verb_to_string(m->scheduled_shutdown_action->handle),
                      left ? "at " : "now",
-                     left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "");
-        if (r < 0) {
+                     left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "") < 0) {
+
                 log_oom();
-                return 0;
+                return 1;  /* We're out-of-memory for now, but let's try to print the message later */
         }
 
-        username = uid_to_name(m->scheduled_shutdown_uid);
-        utmp_wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
+        _cleanup_free_ char *username = uid_to_name(m->scheduled_shutdown_uid);
+
+        int level = left ? LOG_INFO : LOG_NOTICE;
+
+        log_struct(level,
+                   LOG_MESSAGE("%s", l),
+                   "ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action->handle),
+                   "MESSAGE_ID=" SD_MESSAGE_LOGIND_SHUTDOWN_STR,
+                   username ? "OPERATOR=%s" : NULL, username);
+
+        if (m->enable_wall_messages)
+                utmp_wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
 }
