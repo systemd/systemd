@@ -299,11 +299,19 @@ static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
         return 1;
 }
 
-int sd_ipv4ll_start(sd_ipv4ll *ll) {
+int sd_ipv4ll_start(sd_ipv4ll *ll, const struct in_addr *start_address) {
+        int r;
+
         assert_return(ll, -EINVAL);
 
         if (sd_ipv4ll_is_running(ll))
                 return 0;
+
+        if (start_address && start_address->s_addr != 0) {
+                r = sd_ipv4ll_set_address(ll, start_address);
+                if (r < 0)
+                        return r;
+        }
 
         return ipv4ll_start_internal(ll, true);
 }
