@@ -39,7 +39,7 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         }
 }
 
-static int client_run(int ifindex, const char *seed_str, const struct ether_addr *ha, sd_event *e) {
+static int client_run(int ifindex, const char *seed_str, const char *start_address_str, const struct ether_addr *ha, sd_event *e) {
         sd_ipv4ll *ll;
 
         assert_se(sd_ipv4ll_new(&ll) >= 0);
@@ -59,7 +59,14 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
 
         log_info("starting IPv4LL client");
 
-        assert_se(sd_ipv4ll_start(ll) >= 0);
+        if (start_address_str) {
+                struct in_addr start_address;
+
+                assert_se(safe_atou32(start_address_str, &start_address.s_addr) >= 0);
+                assert_se(sd_ipv4ll_start(ll, &start_address) >= 0);
+        } else {
+                assert_se(sd_ipv4ll_start(ll, NULL) >= 0);
+        }
 
         assert_se(sd_event_loop(e) >= 0);
 
@@ -68,7 +75,7 @@ static int client_run(int ifindex, const char *seed_str, const struct ether_addr
         return EXIT_SUCCESS;
 }
 
-static int test_ll(const char *ifname, const char *seed) {
+static int test_ll(const char *ifname, const char *seed, const char *start_address) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
@@ -87,7 +94,7 @@ static int test_ll(const char *ifname, const char *seed) {
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);
 
-        client_run(ifindex, seed, &ha, e);
+        client_run(ifindex, seed, start_address, &ha, e);
 
         return EXIT_SUCCESS;
 }
@@ -96,12 +103,14 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (argc == 2)
-                return test_ll(argv[1], NULL);
+                return test_ll(argv[1], NULL, NULL);
         else if (argc == 3)
-                return test_ll(argv[1], argv[2]);
+                return test_ll(argv[1], argv[2], NULL);
+        else if (argc == 4)
+                return test_ll(argv[1], argv[2], argv[3]);
         else {
-                log_error("This program takes one or two arguments.\n"
-                          "\t %s <ifname> [<seed>]", program_invocation_short_name);
+                log_error("This program takes one, two or three arguments.\n"
+                          "\t %s <ifname> [<seed>] [<start_address>]", program_invocation_short_name);
                 return EXIT_FAILURE;
         }
 }
