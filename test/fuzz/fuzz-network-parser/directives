@@ -235,6 +235,7 @@ VXLAN=
 L2TP=
 MACsec=
 LinkLocalAddressing=
+IPv4LLStartAddress=
 IPv6LinkLocalAddressGenerationMode=
 IPv6StableSecretAddress=
 ConfigureWithoutCarrier=
