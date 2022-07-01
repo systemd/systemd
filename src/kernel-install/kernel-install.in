@@ -312,11 +312,15 @@ MAKE_ENTRY_DIR_ABS=$?
 
 ret=0
 
-PLUGINS="$(
-    dropindirs_sort ".install" \
-        "/etc/kernel/install.d" \
-        "/usr/lib/kernel/install.d"
-)"
+if [ -n "$KERNEL_INSTALL_PLUGINS" ]; then
+    PLUGINS="$KERNEL_INSTALL_PLUGINS"
+else
+    PLUGINS="$(
+        dropindirs_sort ".install" \
+            "/etc/kernel/install.d" \
+            "/usr/lib/kernel/install.d"
+    )"
+fi
 IFS="
 "
 
