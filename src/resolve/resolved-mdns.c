@@ -410,12 +410,28 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         }
                 }
 
-                LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
-                        r = dns_answer_match_key(p->answer, t->key, NULL);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to match resource key, ignoring: %m");
-                        else if (r > 0) /* This packet matches the transaction, let's pass it on as reply */
+                for (bool match = true; match;) {
+                        match = false;
+                        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+                                if (t->state != DNS_TRANSACTION_PENDING)
+                                        continue;
+
+                                r = dns_answer_match_key(p->answer, dns_transaction_key(t), NULL);
+                                if (r <= 0) {
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to match resource key, ignoring: %m");
+                                        continue;
+                                }
+
+                                /* This packet matches the transaction, let's pass it on as reply */
                                 dns_transaction_process_reply(t, p, false);
+
+                                /* The dns_transaction_process_reply() -> dns_transaction_complete() ->
+                                 * dns_query_candidate_stop() may free multiple transactions. Hence, restart
+                                 * the loop. */
+                                match = true;
+                                break;
+                        }
                 }
 
                 dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, false, _DNSSEC_RESULT_INVALID, UINT32_MAX, p->family, &p->sender);
