@@ -83,7 +83,7 @@ if [ "${0##*/}" = "installkernel" ]; then
     # kernel's install.sh invokes us as
     #   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
     # We ignore the last two arguments.
-    set -- "$1"
+    set -- "${1:?}" "${2:?}"
 else
     COMMAND="$1"
     [ $# -ge 1 ] && shift
