@@ -1494,7 +1494,7 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         if (r == 0 && endswith(unit, ".slice")) {
                 const char *m5;
 
-                m5 = strjoina("_SYSTEMD_SLICE=", unit);
+                m5 = strjoina("_SYSTEMD_USER_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
                 (void)(
