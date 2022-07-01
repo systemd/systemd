@@ -209,20 +209,52 @@ test_shutdown() {
     fi
 }
 
+test_session_set_up() {
+    # add user
+    useradd -s /bin/bash logind-test-user
+
+    # login with the test user to start a session
+    mkdir -p /run/systemd/system/getty@tty2.service.d
+    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
+[Service]
+Type=simple
+ExecStart=
+ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+EOF
+    systemctl daemon-reload
+    systemctl start getty@tty2.service
+
+    # check session
+    ret=1
+    for ((i = 0; i < 30; i++)); do
+        if (( i != 0)); then sleep 1; fi
+        if check_session; then
+            ret=0
+            break
+        fi
+    done
+    if [[ "$ret" == "1" ]]; then
+        exit 1
+    fi
+}
+
 test_session_tear_down() {
     set +e
 
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
 
+    loginctl terminate-session $SESSION
     systemctl stop getty@tty2.service
     rm -rf /run/systemd/system/getty@tty2.service.d
     systemctl daemon-reload
 
-    pkill -u logind-test-user
+    pkill -u logind-test-user -9
     userdel logind-test-user
 
     rmmod scsi_debug
+
+    set -e
 }
 
 check_session() {
@@ -268,32 +300,7 @@ test_session() {
 
     trap test_session_tear_down RETURN
 
-    # add user
-    useradd -s /bin/bash logind-test-user
-
-    # login with the test user to start a session
-    mkdir -p /run/systemd/system/getty@tty2.service.d
-    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
-[Service]
-Type=simple
-ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
-EOF
-    systemctl daemon-reload
-    systemctl start getty@tty2.service
-
-    # check session
-    ret=1
-    for ((i = 0; i < 30; i++)); do
-        if (( i != 0)); then sleep 1; fi
-        if check_session; then
-            ret=0
-            break
-        fi
-    done
-    if [[ "$ret" == "1" ]]; then
-        exit 1
-    fi
+    test_session_set_up
 
     # scsi_debug should not be loaded yet
     if [[ -d /sys/bus/pseudo/drivers/scsi_debug ]]; then
@@ -360,6 +367,21 @@ EOF
     fi
 }
 
+test_session_properties() {
+    trap test_session_tear_down RETURN
+    test_session_set_up
+
+    local s=$(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListSessions |\
+        awk '{ if ($5 == "\"logind-test-user\"") print $7 }' | tr -d \")
+    if [[ -z "$s" ]]; then
+        echo "failed to determine user session" >&2
+        busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListSessions >&2
+        exit 1
+    fi
+
+    /usr/lib/systemd/tests/manual/test-session-properties "$s"
+}
+
 : >/failed
 
 test_enable_debug
@@ -368,6 +390,7 @@ test_started
 test_suspend_on_lid
 test_shutdown
 test_session
+test_session_properties
 
 touch /testok
 rm /failed

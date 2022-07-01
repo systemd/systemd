@@ -7,4 +7,8 @@ TEST_DESCRIPTION="LOGIN"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+test_append_files() {
+    image_install "${BUILD_DIR}"/test-session-properties
+}
+
 do_test "$@"
