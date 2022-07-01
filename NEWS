@@ -5332,7 +5332,7 @@ CHANGES WITH 240:
           a client with a Wi-Fi and Ethernet both connected to the internet).
 
           Consult the kernel documentation for details on this sysctl:
-          https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+          https://www.kernel.org/doc/html/latest/networking/ip-sysctl.html
 
         * The v239 change to turn on "net.ipv4.tcp_ecn" by default has been
           reverted.

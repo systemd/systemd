@@ -670,7 +670,7 @@ Table=1234</programlisting></para>
           enable IP packet forwarding for the specified address family. This controls the
           <filename>net.ipv4.ip_forward</filename> and <filename>net.ipv6.conf.all.forwarding</filename>
           sysctl options of the network interface (see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://www.kernel.org/doc/html/latest/networking/ip-sysctl.html">IP Sysctl</ulink>
           for details about sysctl options). Defaults to <literal>no</literal>.</para>
 
           <para>Note: this setting controls a global kernel option, and does so one way only: if a
@@ -726,7 +726,7 @@ Table=1234</programlisting></para>
           section, see below.</para>
 
           <para>Also see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://www.kernel.org/doc/html/latest/networking/ip-sysctl.html">IP Sysctl</ulink>
           in the kernel documentation regarding <literal>accept_ra</literal>, but note that systemd's
           setting of <constant>1</constant> (i.e. true) corresponds to kernel's setting of
           <constant>2</constant>.</para>

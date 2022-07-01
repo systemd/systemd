@@ -1103,7 +1103,7 @@
         <term><varname>USBFunctionDescriptors=</varname></term>
         <listitem><para>Configure the location of a file containing
         <ulink
-        url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
+        url="https://www.kernel.org/doc/html/latest/usb/functionfs.html">USB
         FunctionFS</ulink> descriptors, for implementation of USB
         gadget functions. This is used only in conjunction with a
         socket unit with <varname>ListenUSBFunction=</varname>

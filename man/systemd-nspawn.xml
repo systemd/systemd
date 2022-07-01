@@ -1492,21 +1492,16 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         temporary directory on a read-only <filename>/var/</filename> directory.</para>
 
         <para>For details about overlay file systems, see <ulink
-        url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note
-        that the semantics of overlay file systems are substantially
-        different from normal file systems, in particular regarding
-        reported device and inode information. Device and inode
-        information may change for a file while it is being written
-        to, and processes might see out-of-date versions of files at
-        times. Note that this switch automatically derives the
-        <literal>workdir=</literal> mount option for the overlay file
-        system from the top-level directory tree, making it a sibling
-        of it. It is hence essential that the top-level directory tree
-        is not a mount point itself (since the working directory must
-        be on the same file system as the top-most directory
-        tree). Also note that the <literal>lowerdir=</literal> mount
-        option receives the paths to stack in the opposite order of
-        this switch.</para>
+        url="https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
+        Note that the semantics of overlay file systems are substantially different from normal file systems,
+        in particular regarding reported device and inode information. Device and inode information may
+        change for a file while it is being written to, and processes might see out-of-date versions of files
+        at times. Note that this switch automatically derives the <literal>workdir=</literal> mount option
+        for the overlay file system from the top-level directory tree, making it a sibling of it. It is hence
+        essential that the top-level directory tree is not a mount point itself (since the working directory
+        must be on the same file system as the top-most directory tree). Also note that the
+        <literal>lowerdir=</literal> mount option receives the paths to stack in the opposite order of this
+        switch.</para>
 
         <para>Note that this option cannot be used to replace the root file system of the container with an overlay
         file system. However, the <option>--volatile=</option> option described above provides similar functionality,
