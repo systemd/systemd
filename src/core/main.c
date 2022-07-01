@@ -1721,10 +1721,6 @@ static void filter_args(
                         continue;
                 }
 
-                if (startswith(src[i],
-                               in_initrd() ? "rd.systemd.unit=" : "systemd.unit="))
-                        continue;
-
                 if (runlevel_to_target(src[i]))
                         continue;
 
