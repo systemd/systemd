@@ -52,10 +52,10 @@ case "$COMMAND" in
         ;;
 esac
 
-if [ -r /etc/os-release ]; then
+if [ -f /etc/os-release ]; then
     # shellcheck source=/dev/null
     . /etc/os-release
-elif [ -r /usr/lib/os-release ]; then
+elif [ -f /usr/lib/os-release ]; then
     # shellcheck source=/dev/null
     . /usr/lib/os-release
 fi
@@ -65,9 +65,9 @@ fi
 SORT_KEY="$IMAGE_ID"
 [ -z "$SORT_KEY" ] && SORT_KEY="$ID"
 
-if [ -r /etc/kernel/cmdline ]; then
+if [ -f /etc/kernel/cmdline ]; then
     BOOT_OPTIONS="$(tr -s "$IFS" ' ' </etc/kernel/cmdline)"
-elif [ -r /usr/lib/kernel/cmdline ]; then
+elif [ -f /usr/lib/kernel/cmdline ]; then
     BOOT_OPTIONS="$(tr -s "$IFS" ' ' </usr/lib/kernel/cmdline)"
 else
     BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
@@ -83,7 +83,7 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
-if [ -r /etc/kernel/tries ]; then
+if [ -f /etc/kernel/tries ]; then
     read -r TRIES </etc/kernel/tries
     if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
         echo "/etc/kernel/tries does not contain an integer." >&2
