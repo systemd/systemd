@@ -312,15 +312,20 @@ MAKE_ENTRY_DIR_ABS=$?
 
 ret=0
 
-PLUGINS="$(
-    dropindirs_sort ".install" \
-        "/etc/kernel/install.d" \
-        "/usr/lib/kernel/install.d"
-)"
-IFS="
-"
+if [ -z "$KERNEL_INSTALL_PLUGINS" ]; then
+    KERNEL_INSTALL_PLUGINS="$(
+        dropindirs_sort ".install" \
+            "/etc/kernel/install.d" \
+            "/usr/lib/kernel/install.d"
+    )"
+fi
 
-[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && printf '%s\n' "Plugin files:" "$PLUGINS"
+if [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ]; then
+    printf '%s\n' "Plugin files:"
+    for f in $KERNEL_INSTALL_PLUGINS; do
+        printf '%s\n' "$f"
+    done
+fi
 
 case "$COMMAND" in
     add)
@@ -346,7 +351,7 @@ case "$COMMAND" in
             fi
         fi
 
-        for f in $PLUGINS; do
+        for f in $KERNEL_INSTALL_PLUGINS; do
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS" "$@"
             "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
 
@@ -357,7 +362,7 @@ case "$COMMAND" in
         ;;
 
     remove)
-        for f in $PLUGINS; do
+        for f in $KERNEL_INSTALL_PLUGINS; do
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
             "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
             err=$?
