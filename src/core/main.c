@@ -1721,13 +1721,6 @@ static void filter_args(
                         continue;
                 }
 
-                if (startswith(src[i],
-                               in_initrd() ? "rd.systemd.unit=" : "systemd.unit="))
-                        continue;
-
-                if (runlevel_to_target(src[i]))
-                        continue;
-
                 /* Seems we have a good old option. Let's pass it over to the new instance. */
                 dst[(*dst_index)++] = src[i];
         }
