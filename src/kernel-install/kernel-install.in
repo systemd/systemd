@@ -101,9 +101,12 @@ else
     shift
 fi
 
-# These two settings are settable in install.conf
+# These two settings are only settable via install.conf
 layout=
 initrd_generator=
+# These two settings can be inherited from the environment
+_MACHINE_ID_SAVED="$MACHINE_ID"
+_BOOT_ROOT_SAVED="$BOOT_ROOT"
 
 if [ -r "/etc/kernel/install.conf" ]; then
     install_conf="/etc/kernel/install.conf"
@@ -117,7 +120,6 @@ if [ -n "$install_conf" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Reading $install_conf…"
     # shellcheck source=/dev/null
     . "$install_conf"
-    # FIXME: This may override configuration in environment variables, e.g. $BOOT_ROOT.
 fi
 
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$layout" ] && \
@@ -125,10 +127,23 @@ fi
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$initrd_generator" ] && \
     echo "$install_conf configures initrd_generator=$initrd_generator"
 
-[ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-    echo "machine-id $MACHINE_ID set via environment or install.conf"
-[ -n "$BOOT_ROOT" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-    echo "BOOT_ROOT=$BOOT_ROOT set via environment or install.conf"
+if [ -n "$_MACHINE_ID_SAVED" ]; then
+     MACHINE_ID="$_MACHINE_ID_SAVED"
+     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+         echo "MACHINE_ID=$MACHINE_ID set via environment"
+else
+    [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "MACHINE_ID=$MACHINE_ID set via install.conf"
+fi
+
+if [ -n "$_BOOT_ROOT_SAVED" ]; then
+     BOOT_ROOT="$_BOOT_ROOT_SAVED"
+     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+         echo "BOOT_ROOT=$BOOT_ROOT set via environment"
+else
+    [ -n "$BOOT_ROOT" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "BOOT_ROOT=$BOOT_ROOT set via install.conf"
+fi
 
 # If /etc/machine-id is initialized we'll use it, otherwise we'll use a freshly
 # generated one. If the user configured an explicit machine ID to use in
