@@ -108,9 +108,9 @@ initrd_generator=
 _MACHINE_ID_SAVED="$MACHINE_ID"
 _BOOT_ROOT_SAVED="$BOOT_ROOT"
 
-if [ -r "/etc/kernel/install.conf" ]; then
+if [ -f "/etc/kernel/install.conf" ]; then
     install_conf="/etc/kernel/install.conf"
-elif [ -r "/usr/lib/kernel/install.conf" ]; then
+elif [ -f "/usr/lib/kernel/install.conf" ]; then
     install_conf="/usr/lib/kernel/install.conf"
 else
     install_conf=
@@ -150,11 +150,14 @@ fi
 # /etc/machine-info to use for our purpose, we'll use that instead (for
 # compatibility).
 # shellcheck source=/dev/null
-if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"; then
+if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ]; then
+    . /etc/machine-info
+    MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
     [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "machine-id $MACHINE_ID acquired from /etc/machine-info"
 fi
-if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id; then
+if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ]; then
+    read -r MACHINE_ID </etc/machine-id
     [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "machine-id $MACHINE_ID acquired from /etc/machine-id"
 fi
@@ -168,7 +171,8 @@ fi
 # $BOOT where we want to place the kernel/initrd and related resources, as well
 # for naming the .conf boot loader spec entry. Typically this is just the
 # machine ID, but it can be anything else, too, if we are told so.
-if [ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token; then
+if [ -z "$ENTRY_TOKEN" ] && [ -f /etc/kernel/entry-token ]; then
+    read -r ENTRY_TOKEN </etc/kernel/entry-token
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "entry-token \"$ENTRY_TOKEN\" acquired from /etc/kernel/entry-token"
 fi
@@ -178,7 +182,7 @@ if [ -z "$ENTRY_TOKEN" ]; then
     # string "Default"
     ENTRY_TOKEN_SEARCH="$MACHINE_ID"
     # shellcheck source=/dev/null
-    [ -r /etc/os-release ] && . /etc/os-release
+    [ -f /etc/os-release ] && . /etc/os-release
     [ -n "$IMAGE_ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $IMAGE_ID"
     [ -n "$ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $ID"
     ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH Default"
