@@ -255,6 +255,11 @@
       <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be
       read from this directory.</para>
 
+      <para><varname>$KERNEL_INSTALL_PLUGINS</varname> can be set to override the list of plugins executed by
+      <command>kernel-install</command>. The argument is a whitespace-separated list of paths.
+      <literal>KERNEL_INSTALL_PLUGINS=:</literal> may be used to prevent any plugins from running.
+      </para>
+
       <para><varname>$MACHINE_ID</varname> can be set for <command>kernel-install</command> to override
       <varname>$KERNEL_INSTALL_MACHINE_ID</varname>, the machine ID.</para>
 
