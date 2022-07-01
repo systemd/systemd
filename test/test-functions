@@ -1737,6 +1737,13 @@ install_basic_tools() {
     image_install -o ldconfig.real
     # for TEST-35-LOGIN
     image_install -o evemu-device evemu-event
+    if command -v expect >/dev/null && command -v tclsh >/dev/null ; then
+        # shellcheck disable=SC2016
+        version="$(tclsh <<< 'puts $tcl_version')"
+
+        image_install expect
+        inst_recursive /usr/lib64/tcl"$version" /usr/share/tcl"$version"
+    fi
 }
 
 install_debug_tools() {
