@@ -94,6 +94,7 @@ struct Manager {
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;
+        bool was_idle;
 
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
