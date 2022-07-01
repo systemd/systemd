@@ -405,7 +405,7 @@ static int peer_resolve_endpoint(WireguardPeer *peer) {
                 /* Not necessary to resolve the endpoint. */
                 return 0;
 
-        if (event_source_is_enabled(peer->resolve_retry_event_source) > 0)
+        if (sd_event_source_get_enabled(peer->resolve_retry_event_source, NULL) > 0)
                 /* Timer event source is enabled. The endpoint will be resolved later. */
                 return 0;
 
