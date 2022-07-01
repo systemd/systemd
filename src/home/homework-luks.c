@@ -180,7 +180,7 @@ static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id1
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return negative_errno();
 
         return probe_file_system_by_fd(fd, ret_fstype, ret_uuid);
 }
@@ -1230,7 +1230,7 @@ int home_setup_luks(
                 PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
-        sd_id128_t found_partition_uuid = SD_ID128_NULL, found_luks_uuid = SD_ID128_NULL, found_fs_uuid = SD_ID128_NULL;
+        sd_id128_t found_partition_uuid, found_fs_uuid, found_luks_uuid = SD_ID128_NULL;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         size_t volume_key_size = 0;
