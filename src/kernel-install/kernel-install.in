@@ -108,7 +108,9 @@ initrd_generator=
 _MACHINE_ID_SAVED="$MACHINE_ID"
 _BOOT_ROOT_SAVED="$BOOT_ROOT"
 
-if [ -f "/etc/kernel/install.conf" ]; then
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    install_conf="$KERNEL_INSTALL_CONF_ROOT/install.conf"
+elif [ -f "/etc/kernel/install.conf" ]; then
     install_conf="/etc/kernel/install.conf"
 elif [ -f "/usr/lib/kernel/install.conf" ]; then
     install_conf="/usr/lib/kernel/install.conf"
@@ -116,7 +118,7 @@ else
     install_conf=
 fi
 
-if [ -n "$install_conf" ]; then
+if [ -f "$install_conf" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Reading $install_conf…"
     # shellcheck source=/dev/null
     . "$install_conf"
@@ -171,10 +173,12 @@ fi
 # $BOOT where we want to place the kernel/initrd and related resources, as well
 # for naming the .conf boot loader spec entry. Typically this is just the
 # machine ID, but it can be anything else, too, if we are told so.
-if [ -z "$ENTRY_TOKEN" ] && [ -f /etc/kernel/entry-token ]; then
-    read -r ENTRY_TOKEN </etc/kernel/entry-token
+ENTRY_TOKEN_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/entry-token"
+
+if [ -z "$ENTRY_TOKEN" ] && [ -f "$ENTRY_TOKEN_FILE" ]; then
+    read -r ENTRY_TOKEN <"$ENTRY_TOKEN_FILE"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-        echo "entry-token \"$ENTRY_TOKEN\" acquired from /etc/kernel/entry-token"
+        echo "entry-token \"$ENTRY_TOKEN\" acquired from $ENTRY_TOKEN_FILE"
 fi
 if [ -z "$ENTRY_TOKEN" ]; then
     # If not configured explicitly, then use a few candidates: the machine ID,

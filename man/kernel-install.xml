@@ -250,13 +250,18 @@
     <refsect2>
       <title>Environment variables understood by <command>kernel-install</command></title>
 
+      <para><varname>$KERNEL_INSTALL_CONF_ROOT</varname> can be set to override the location of the
+      configuration files read by <command>kernel-install</command>. When set,
+      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be
+      read from this directory.</para>
+
       <para><varname>$MACHINE_ID</varname> can be set for <command>kernel-install</command> to override
       <varname>$KERNEL_INSTALL_MACHINE_ID</varname>, the machine ID.</para>
 
       <para><varname>$BOOT_ROOT</varname> can be set for <command>kernel-install</command> to override
       <varname>$KERNEL_INSTALL_BOOT_ROOT</varname>, the installation location for boot entries.</para>
 
-      <para>Those variables may also be set in <filename>install.conf</filename>. Variables set in the
+      <para>The last two variables may also be set in <filename>install.conf</filename>. Variables set in the
       environment take precedence over the values specified in the config file.</para>
     </refsect2>
   </refsect1>
@@ -286,9 +291,10 @@
         </term>
           <listitem>
             <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
-            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.  If that file does not
-            exist, <filename>/usr/lib/kernel/cmdline</filename> is used.  If that also does not exist,
-            <filename>/proc/cmdline</filename> is used.</para>
+            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use. If that file
+            does not exist, <filename>/usr/lib/kernel/cmdline</filename> is used. If that also does not
+            exist, <filename>/proc/cmdline</filename> is used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname>
+            may be used to override the path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -301,7 +307,8 @@
             <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>. This
             is useful for boot loaders such as
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> which
-            implement boot attempt counting with a counter embedded in the entry file name.</para>
+            implement boot attempt counting with a counter embedded in the entry file name.
+            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -310,8 +317,9 @@
         </term>
           <listitem>
             <para>If this file exists it is read and used as "entry token" for this system, i.e. is used for
-            naming Boot Loader Specification entries, see
-            <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> above for details.</para>
+            naming Boot Loader Specification entries, see <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>
+            above for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the
+            path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -346,6 +354,7 @@
             <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             <filename>/etc/kernel/install.conf</filename> will be read if present, and
             <filename>/usr/lib/kernel/install.conf</filename> otherwise. This file is optional.
+            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
             </para>
 
             <para>Currently, the following keys are supported:
