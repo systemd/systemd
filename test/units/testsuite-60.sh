@@ -202,6 +202,45 @@ EOF
     }
 }
 
+test_issue_23796() {
+    local mount_path mount_mytmpfs
+
+    mount_path="$(command -v mount 2>/dev/null)"
+    mount_mytmpfs="${mount_path/\/bin/\/sbin}.mytmpfs"
+    cat >"$mount_mytmpfs" <<EOF
+#!/bin/bash
+sleep ".\$RANDOM"
+exec -- $mount_path -t tmpfs tmpfs "\$2"
+EOF
+    chmod +x "$mount_mytmpfs"
+
+    mkdir -p /run/systemd/system
+    cat >/run/systemd/system/tmp-hoge.mount <<EOF
+[Mount]
+What=mytmpfs
+Where=/tmp/hoge
+Type=mytmpfs
+EOF
+
+    # shellcheck disable=SC2064
+    trap "rm -f /run/systemd/system/tmp-hoge.mount '$mount_mytmpfs'" RETURN
+
+    for ((i = 0; i < 10; i++)); do
+        systemctl --no-block start tmp-hoge.mount
+        sleep ".$RANDOM"
+        systemctl daemon-reexec
+
+        sleep 1
+
+        if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] || \
+           journalctl -u tmp-hoge.mount -q --grep "but there is no mount"; then
+                exit 1
+        fi
+
+        systemctl stop tmp-hoge.mount
+    done
+}
+
 : >/failed
 
 systemd-analyze log-level debug
@@ -262,6 +301,9 @@ test_dependencies
 
 # test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
 test_issue_20329
+
+# test for reexecuting with background mount job
+test_issue_23796
 
 systemd-analyze log-level info
 
