@@ -19,4 +19,4 @@ ConditionPathIsReadWrite=/sys
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=-udevadm trigger --type=all --action=add --prioritized-subsystem=block,tpmrm
+ExecStart=-udevadm trigger --type=all --action=add --prioritized-subsystem=module,block,tpmrm,tty,net
