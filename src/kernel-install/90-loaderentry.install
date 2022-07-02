@@ -18,9 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-COMMAND="$1"
-KERNEL_VERSION="$2"
-ENTRY_DIR_ABS="$3"
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+ENTRY_DIR_ABS="${3:?}"
 KERNEL_IMAGE="$4"
 INITRD_OPTIONS_SHIFT=4
 
