@@ -10,3 +10,6 @@
 [Unit]
 Description=User Core Session Slice
 Documentation=man:systemd.special(7)
+
+[Slice]
+CPUWeight=100

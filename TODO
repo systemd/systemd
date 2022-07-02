@@ -1233,6 +1233,8 @@ Features:
   - when reloading configuration, apply new cgroup configuration
   - when recursively showing the cgroup hierarchy, optionally also show
     the hierarchies of child processes
+- add settings for cgroup.max.descendants and cgroup.max.depth,
+  maybe use them for user@.service
 
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
