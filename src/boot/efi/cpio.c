@@ -71,7 +71,7 @@ static EFI_STATUS pack_cpio_one(
 
         /* Serializes one file in the cpio format understood by the kernel initrd logic.
          *
-         * See: https://www.kernel.org/doc/Documentation/early-userspace/buffer-format.txt */
+         * See: https://www.kernel.org/doc/html/latest/driver-api/early-userspace/buffer-format.html */
 
         if (contents_size > UINT32_MAX) /* cpio cannot deal with > 32bit file sizes */
                 return EFI_LOAD_ERROR;
