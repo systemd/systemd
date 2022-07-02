@@ -210,7 +210,7 @@
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>
+    url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
     for more information about control groups, or short "cgroups").
     systemd uses this to effectively keep track of processes. Control
     group information is maintained in the kernel, and is accessible
