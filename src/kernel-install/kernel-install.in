@@ -20,6 +20,8 @@
 
 skip_remaining=77
 
+set -e
+
 usage()
 {
     echo "Usage:"
