@@ -48,7 +48,7 @@ case "$COMMAND" in
     add)
         ;;
     *)
-        exit 1
+        exit 0
         ;;
 esac
 
