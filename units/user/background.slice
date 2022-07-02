@@ -10,3 +10,6 @@
 [Unit]
 Description=User Background Tasks Slice
 Documentation=man:systemd.special(7)
+
+[Slice]
+CPUWeight=30
