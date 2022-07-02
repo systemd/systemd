@@ -327,11 +327,11 @@
           <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
           <literal>no</literal>.</para>
 
-          <para>Note that DHCPv6 will by default be triggered by Router Advertisement, if that is
-          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the
-          DHCPv6 client will be started in the mode specified by the <variable>WithoutRA=</variable>
-          setting in the [DHCPv6] section, regardless of the presence of routers on the link, or
-          what flags the routers pass. See <literal>IPv6AcceptRA=</literal>.</para>
+          <para>Note that DHCPv6 will by default be triggered by Router Advertisements, if reception is
+          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the DHCPv6
+          client will be started in the mode specified by the <varname>WithoutRA=</varname> setting in the
+          [DHCPv6] section, regardless of the presence of routers on the link, or what flags the routers
+          pass. See <varname>IPv6AcceptRA=</varname>.</para>
 
           <para>Furthermore, note that by default the domain name specified through DHCP is not used
           for name resolution. See option <option>UseDomains=</option> below.</para>
