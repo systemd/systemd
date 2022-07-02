@@ -40,4 +40,5 @@ case "$COMMAND" in
         ;;
     *)
         exit 0
+        ;;
 esac
