@@ -1044,6 +1044,7 @@ static int object_manager_serialize_path(
                 const char *prefix,
                 const char *path,
                 bool require_fallback,
+                bool *found_object_manager,
                 sd_bus_error *error) {
 
         const char *previous_interface = NULL;
@@ -1055,11 +1056,15 @@ static int object_manager_serialize_path(
         assert(reply);
         assert(prefix);
         assert(path);
+        assert(found_object_manager);
         assert(error);
 
         n = hashmap_get(bus->nodes, prefix);
         if (!n)
                 return 0;
+
+        if (!require_fallback && n->object_managers)
+                *found_object_manager = true;
 
         LIST_FOREACH(vtables, i, n->vtables) {
                 void *u;
@@ -1103,9 +1108,12 @@ static int object_manager_serialize_path(
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
-                        if (r < 0)
-                                return r;
+                        if (*found_object_manager) {
+                                r = sd_bus_message_append(
+                                                reply, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         found_something = true;
                 }
@@ -1180,6 +1188,7 @@ static int object_manager_serialize_path_and_fallbacks(
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
+        bool found_object_manager = false;
 
         assert(bus);
         assert(reply);
@@ -1187,7 +1196,7 @@ static int object_manager_serialize_path_and_fallbacks(
         assert(error);
 
         /* First, add all vtables registered for this path */
-        r = object_manager_serialize_path(bus, reply, path, path, false, error);
+        r = object_manager_serialize_path(bus, reply, path, path, false, &found_object_manager, error);
         if (r < 0)
                 return r;
         if (bus->nodes_modified)
@@ -1201,7 +1210,7 @@ static int object_manager_serialize_path_and_fallbacks(
                 return -ENOMEM;
 
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
-                r = object_manager_serialize_path(bus, reply, prefix, path, true, error);
+                r = object_manager_serialize_path(bus, reply, prefix, path, true, &found_object_manager, error);
                 if (r < 0)
                         return r;
                 if (bus->nodes_modified)
