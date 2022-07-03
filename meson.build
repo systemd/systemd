@@ -3794,6 +3794,10 @@ foreach tuple : tests
                 type = ''
         endif
 
+        suite = fs.name(fs.parent('@0@'.format(sources[0])))
+        # FIXME: Use str.replace() with meson >= 0.58.0
+        suite = suite.split('sd-')[-1]
+
         if condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
@@ -3816,7 +3820,8 @@ foreach tuple : tests
                 elif want_tests != 'false'
                         test(name, exe,
                              env : test_env,
-                             timeout : timeout)
+                             timeout : timeout,
+                             suite : suite)
                 endif
         else
                 message('Not compiling @0@ because @1@ is not true'.format(name, condition))
