@@ -1568,11 +1568,12 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 return DNS_TIMEOUT_USEC;
 
         case DNS_PROTOCOL_MDNS:
-                assert(t->n_attempts > 0);
                 if (t->probing)
                         return MDNS_PROBING_INTERVAL_USEC;
-                else
-                        return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+
+                /* See RFC 6762 Section 5.1 suggests that timeout should be a few seconds. */
+                assert(t->n_attempts > 0);
+                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
 
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
