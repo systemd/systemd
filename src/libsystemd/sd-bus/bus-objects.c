@@ -1557,13 +1557,18 @@ void bus_node_gc(sd_bus *b, struct node *n) {
         free(n);
 }
 
-static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const char *path) {
+static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const char *path, bool* path_has_object_manager) {
         struct node *n;
 
         assert(bus);
         assert(path);
+        assert(path_has_object_manager);
 
         n = hashmap_get(bus->nodes, path);
+
+        if (n)
+                *path_has_object_manager = n->object_managers;
+
         if (!n) {
                 _cleanup_free_ char *prefix = NULL;
                 size_t pl;
@@ -2432,7 +2437,7 @@ static int object_added_append_all_prefix(
         return 0;
 }
 
-static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
+static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
@@ -2470,9 +2475,11 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
         r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.Properties", 0);
         if (r < 0)
                 return r;
-        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
-        if (r < 0)
-                return r;
+        if (path_has_object_manager){
+                r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
+                if (r < 0)
+                        return r;
+        }
 
         r = object_added_append_all_prefix(bus, m, s, path, path, false);
         if (r < 0)
@@ -2521,7 +2528,8 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        bool path_has_object_manager = false;
+        r = bus_find_parent_object_manager(bus, &object_manager, path, &path_has_object_manager);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2545,7 +2553,7 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
                 if (r < 0)
                         return r;
 
-                r = object_added_append_all(bus, m, path);
+                r = object_added_append_all(bus, m, path, path_has_object_manager);
                 if (r < 0)
                         return r;
 
@@ -2621,7 +2629,7 @@ static int object_removed_append_all_prefix(
         return 0;
 }
 
-static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path) {
+static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
@@ -2646,9 +2654,12 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
         r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.Properties");
         if (r < 0)
                 return r;
-        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.ObjectManager");
-        if (r < 0)
-                return r;
+
+        if (path_has_object_manager){
+                r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.ObjectManager");
+                if (r < 0)
+                        return r;
+        }
 
         r = object_removed_append_all_prefix(bus, m, s, path, path, false);
         if (r < 0)
@@ -2697,7 +2708,8 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        bool path_has_object_manager = false;
+        r = bus_find_parent_object_manager(bus, &object_manager, path, &path_has_object_manager);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2721,7 +2733,7 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
                 if (r < 0)
                         return r;
 
-                r = object_removed_append_all(bus, m, path);
+                r = object_removed_append_all(bus, m, path, path_has_object_manager);
                 if (r < 0)
                         return r;
 
@@ -2858,7 +2870,8 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
         if (strv_isempty(interfaces))
                 return 0;
 
-        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        bool path_has_object_manager = false;
+        r = bus_find_parent_object_manager(bus, &object_manager, path, &path_has_object_manager);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2945,7 +2958,8 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
         if (strv_isempty(interfaces))
                 return 0;
 
-        r = bus_find_parent_object_manager(bus, &object_manager, path);
+        bool path_has_object_manager = false;
+        r = bus_find_parent_object_manager(bus, &object_manager, path, &path_has_object_manager);
         if (r < 0)
                 return r;
         if (r == 0)
