@@ -1951,10 +1951,12 @@ int dns_transaction_go(DnsTransaction *t) {
 
         if (!t->initial_jitter_scheduled &&
             IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
-                usec_t jitter, accuracy;
+                usec_t jitter;
 
-                /* RFC 4795 Section 2.7 suggests all queries should be delayed by a random time from 0 to
-                 * JITTER_INTERVAL. */
+                /* RFC 4795 Section 2.7 suggests all LLMNR queries should be delayed by a random time from 0 to
+                 * JITTER_INTERVAL.
+                 * RFC 6762 Section 8.1 suggests initial probe queries should be delayed by a random time from
+                 * 0 to 250ms. */
 
                 t->initial_jitter_scheduled = true;
 
@@ -1962,12 +1964,13 @@ int dns_transaction_go(DnsTransaction *t) {
 
                 case DNS_PROTOCOL_LLMNR:
                         jitter = random_u64_range(LLMNR_JITTER_INTERVAL_USEC);
-                        accuracy = LLMNR_JITTER_INTERVAL_USEC;
                         break;
 
                 case DNS_PROTOCOL_MDNS:
-                        jitter = usec_add(random_u64_range(MDNS_JITTER_RANGE_USEC), MDNS_JITTER_MIN_USEC);
-                        accuracy = MDNS_JITTER_RANGE_USEC;
+                        if (t->probing)
+                                jitter = random_u64_range(MDNS_PROBING_INTERVAL_USEC);
+                        else
+                                jitter = 0;
                         break;
                 default:
                         assert_not_reached();
@@ -1979,7 +1982,7 @@ int dns_transaction_go(DnsTransaction *t) {
                                 t->scope->manager->event,
                                 &t->timeout_event_source,
                                 CLOCK_BOOTTIME,
-                                jitter, accuracy,
+                                jitter, 0,
                                 on_transaction_timeout, t);
                 if (r < 0)
                         return r;
