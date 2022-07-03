@@ -3794,6 +3794,13 @@ foreach tuple : tests
                 type = ''
         endif
 
+        path = '@0@'.format(sources[0])
+        if path.startswith('src/libsystemd/')
+                suite = path.split('/')[2].replace('sd-', '')
+        else
+                suite = path.split('/')[1]
+        endif
+
         if condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
@@ -3816,7 +3823,8 @@ foreach tuple : tests
                 elif want_tests != 'false'
                         test(name, exe,
                              env : test_env,
-                             timeout : timeout)
+                             timeout : timeout,
+                             suite : suite)
                 endif
         else
                 message('Not compiling @0@ because @1@ is not true'.format(name, condition))
