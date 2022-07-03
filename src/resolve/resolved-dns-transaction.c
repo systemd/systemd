@@ -1551,6 +1551,33 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         return 0;
 }
 
+static int dns_transaction_setup_timeout(
+                DnsTransaction *t,
+                usec_t timeout_usec /* relative */,
+                usec_t next_usec /* CLOCK_BOOTTIME */) {
+
+        int r;
+
+        assert(t);
+
+        dns_transaction_stop_timeout(t);
+
+        r = sd_event_add_time_relative(
+                t->scope->manager->event,
+                &t->timeout_event_source,
+                CLOCK_BOOTTIME,
+                timeout_usec, 0,
+                on_transaction_timeout, t);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+
+        t->next_attempt_after = next_usec;
+        t->state = DNS_TRANSACTION_PENDING;
+        return 0;
+}
+
 static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
@@ -1827,21 +1854,10 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r <= 0)
                         continue;
 
-                ts += transaction_get_resend_timeout(other);
-
-                r = sd_event_add_time(
-                                other->scope->manager->event,
-                                &other->timeout_event_source,
-                                CLOCK_BOOTTIME,
-                                ts, 0,
-                                on_transaction_timeout, other);
+                usec_t timeout = transaction_get_resend_timeout(other);
+                r = dns_transaction_setup_timeout(other, timeout, usec_add(ts, timeout));
                 if (r < 0)
                         return r;
-
-                (void) sd_event_source_set_description(other->timeout_event_source, "dns-transaction-timeout");
-
-                other->state = DNS_TRANSACTION_PENDING;
-                other->next_attempt_after = ts;
 
                 qdcount++;
 
@@ -1959,6 +1975,7 @@ int dns_transaction_go(DnsTransaction *t) {
                  * 0 to 250ms. */
 
                 t->initial_jitter_scheduled = true;
+                t->n_attempts = 0;
 
                 switch (t->scope->protocol) {
 
@@ -1976,22 +1993,9 @@ int dns_transaction_go(DnsTransaction *t) {
                         assert_not_reached();
                 }
 
-                assert(!t->timeout_event_source);
-
-                r = sd_event_add_time_relative(
-                                t->scope->manager->event,
-                                &t->timeout_event_source,
-                                CLOCK_BOOTTIME,
-                                jitter, 0,
-                                on_transaction_timeout, t);
+                r = dns_transaction_setup_timeout(t, jitter, ts);
                 if (r < 0)
                         return r;
-
-                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
-
-                t->n_attempts = 0;
-                t->next_attempt_after = ts;
-                t->state = DNS_TRANSACTION_PENDING;
 
                 log_debug("Delaying %s transaction %" PRIu16 " for " USEC_FMT "us.",
                           dns_protocol_to_string(t->scope->protocol),
@@ -2066,21 +2070,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 return dns_transaction_go(t);
         }
 
-        ts += transaction_get_resend_timeout(t);
-
-        r = sd_event_add_time(
-                        t->scope->manager->event,
-                        &t->timeout_event_source,
-                        CLOCK_BOOTTIME,
-                        ts, 0,
-                        on_transaction_timeout, t);
+        usec_t timeout = transaction_get_resend_timeout(t);
+        r = dns_transaction_setup_timeout(t, timeout, usec_add(ts, timeout));
         if (r < 0)
                 return r;
-
-        (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
-
-        t->state = DNS_TRANSACTION_PENDING;
-        t->next_attempt_after = ts;
 
         return 1;
 }
