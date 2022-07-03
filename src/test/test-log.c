@@ -27,50 +27,65 @@ static void test_file(void) {
 }
 
 static void test_log_struct(void) {
-        log_struct(LOG_INFO,
-                   "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
-                   "SERVICE=piepapo");
+        log_struct(LOG_INFO, "MESSAGE=Waldo PID=" PID_FMT " (no errno)", getpid_cached(), "SERVICE=piepapo");
 
         /* The same as above, just using LOG_MESSAGE(), which is generally recommended */
         log_struct(LOG_INFO,
-                   LOG_MESSAGE("Waldo PID="PID_FMT" (no errno)", getpid_cached()),
+                   LOG_MESSAGE("Waldo PID=" PID_FMT " (no errno)", getpid_cached()),
                    "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, EILSEQ,
-                         LOG_MESSAGE("Waldo PID="PID_FMT": %m (normal)", getpid_cached()),
-                         "SERVICE=piepapo");
+        log_struct_errno(
+                        LOG_INFO,
+                        EILSEQ,
+                        LOG_MESSAGE("Waldo PID=" PID_FMT ": %m (normal)", getpid_cached()),
+                        "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, SYNTHETIC_ERRNO(EILSEQ),
-                         LOG_MESSAGE("Waldo PID="PID_FMT": %m (synthetic)", getpid_cached()),
-                         "SERVICE=piepapo");
+        log_struct_errno(
+                        LOG_INFO,
+                        SYNTHETIC_ERRNO(EILSEQ),
+                        LOG_MESSAGE("Waldo PID=" PID_FMT ": %m (synthetic)", getpid_cached()),
+                        "SERVICE=piepapo");
 
         log_struct(LOG_INFO,
-                   LOG_MESSAGE("Foobar PID="PID_FMT, getpid_cached()),
+                   LOG_MESSAGE("Foobar PID=" PID_FMT, getpid_cached()),
                    "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
-                   (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
+                   (int) 1,
+                   'A',
+                   (short) 2,
+                   (long int) 3,
+                   (long long int) 4,
+                   (void *) 1,
+                   "foo",
+                   (float) 2.5f,
+                   (double) 3.5,
+                   (long double) 4.5,
                    "SUFFIX=GOT IT");
 }
 
 static void test_long_lines(void) {
-        log_object_internal(LOG_NOTICE,
-                            EUCLEAN,
-                            X1000("abcd_") ".txt",
-                            1000000,
-                            X1000("fff") "unc",
-                            "OBJECT=",
-                            X1000("obj_") "ect",
-                            "EXTRA=",
-                            X1000("ext_") "tra",
-                            "asdfasdf %s asdfasdfa", "foobar");
+        log_object_internal(
+                        LOG_NOTICE,
+                        EUCLEAN,
+                        X1000("abcd_") ".txt",
+                        1000000,
+                        X1000("fff") "unc",
+                        "OBJECT=",
+                        X1000("obj_") "ect",
+                        "EXTRA=",
+                        X1000("ext_") "tra",
+                        "asdfasdf %s asdfasdfa",
+                        "foobar");
 }
 
 static void test_log_syntax(void) {
         assert_se(log_syntax("unit", LOG_ERR, "filename", 10, EINVAL, "EINVAL: %s: %m", "hogehoge") == -EINVAL);
-        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge") == -ENOENT);
-        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge") ==
+                  -ENOENT);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") ==
+                  -ENOTTY);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         test_file();
 
         assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);

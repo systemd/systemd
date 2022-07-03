@@ -78,17 +78,15 @@ TEST(copy_tree) {
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
-        char **symlinks = STRV_MAKE("link", "file",
-                                    "link2", "dir1/file");
-        char **hardlinks = STRV_MAKE("hlink", "file",
-                                     "hlink2", "dir1/file");
+        char **symlinks = STRV_MAKE("link", "file", "link2", "dir1/file");
+        char **hardlinks = STRV_MAKE("hlink", "file", "hlink2", "dir1/file");
         const char *unixsockp;
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */
 
-        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *f, *c;
@@ -96,7 +94,8 @@ TEST(copy_tree) {
 
                 assert_se(f = path_join(original_dir, *p));
 
-                assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) == 0);
+                assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755) ==
+                          0);
 
                 assert_se(base64mem(*p, strlen(*p), &c) >= 0);
 
@@ -126,9 +125,13 @@ TEST(copy_tree) {
         }
 
         unixsockp = strjoina(original_dir, "unixsock");
-        assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
+        assert_se(mknod(unixsockp, S_IFSOCK | 0644, 0) >= 0);
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS) == 0);
+        assert_se(copy_tree(original_dir,
+                            copy_dir,
+                            UID_INVALID,
+                            GID_INVALID,
+                            COPY_REFLINK | COPY_MERGE | COPY_HARDLINKS) == 0);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf, *f, *c = NULL;
@@ -181,21 +184,22 @@ TEST(copy_tree) {
         assert_se(S_ISSOCK(st.st_mode));
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
-        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
+        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) <
+                  0);
 
-        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 TEST(copy_bytes) {
-        _cleanup_close_pair_ int pipefd[2] = {-1, -1};
+        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
         _cleanup_close_ int infd = -1;
         int r, r2;
         char buf[1024], buf2[1024];
 
-        infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
+        infd = open("/usr/lib/os-release", O_RDONLY | O_CLOEXEC);
         if (infd < 0)
-                infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+                infd = open("/etc/os-release", O_RDONLY | O_CLOEXEC);
         assert_se(infd >= 0);
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
@@ -310,7 +314,8 @@ TEST(copy_proc) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
         _cleanup_free_ char *f = NULL, *a = NULL, *b = NULL;
 
-        /* Check if copying data from /proc/ works correctly, i.e. let's see if https://lwn.net/Articles/846403/ is a problem for us */
+        /* Check if copying data from /proc/ works correctly, i.e. let's see if
+         * https://lwn.net/Articles/846403/ is a problem for us */
 
         assert_se(mkdtemp_malloc(NULL, &p) >= 0);
         assert_se(f = path_join(p, "version"));

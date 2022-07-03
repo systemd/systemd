@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
+#        include <valgrind/valgrind.h>
 #endif
 
 #include "alloc-util.h"
@@ -50,28 +50,28 @@ static void test_get_process_comm_one(pid_t pid) {
 
         log_info("/* %s */", __func__);
 
-        xsprintf(path, "/proc/"PID_FMT"/comm", pid);
+        xsprintf(path, "/proc/" PID_FMT "/comm", pid);
 
         if (stat(path, &st) == 0) {
                 assert_se(get_process_comm(pid, &a) >= 0);
-                log_info("PID"PID_FMT" comm: '%s'", pid, a);
+                log_info("PID" PID_FMT " comm: '%s'", pid, a);
         } else
                 log_warning("%s not exist.", path);
 
         assert_se(get_process_cmdline(pid, 0, PROCESS_CMDLINE_COMM_FALLBACK, &c) >= 0);
-        log_info("PID"PID_FMT" cmdline: '%s'", pid, c);
+        log_info("PID" PID_FMT " cmdline: '%s'", pid, c);
 
         assert_se(get_process_cmdline(pid, 8, 0, &d) >= 0);
-        log_info("PID"PID_FMT" cmdline truncated to 8: '%s'", pid, d);
+        log_info("PID" PID_FMT " cmdline truncated to 8: '%s'", pid, d);
 
         free(d);
         assert_se(get_process_cmdline(pid, 1, 0, &d) >= 0);
-        log_info("PID"PID_FMT" cmdline truncated to 1: '%s'", pid, d);
+        log_info("PID" PID_FMT " cmdline truncated to 1: '%s'", pid, d);
 
         r = get_process_ppid(pid, &e);
         assert_se(pid == 1 ? r == -EADDRNOTAVAIL : r >= 0);
         if (r >= 0) {
-                log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
+                log_info("PID" PID_FMT " PPID: " PID_FMT, pid, e);
                 assert_se(e > 0);
         }
 
@@ -79,23 +79,23 @@ static void test_get_process_comm_one(pid_t pid) {
 
         r = get_process_exe(pid, &f);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("PID"PID_FMT" exe: '%s'", pid, strna(f));
+        log_info("PID" PID_FMT " exe: '%s'", pid, strna(f));
 
         assert_se(get_process_uid(pid, &u) == 0);
-        log_info("PID"PID_FMT" UID: "UID_FMT, pid, u);
+        log_info("PID" PID_FMT " UID: " UID_FMT, pid, u);
 
         assert_se(get_process_gid(pid, &g) == 0);
-        log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
+        log_info("PID" PID_FMT " GID: " GID_FMT, pid, g);
 
         r = get_process_environ(pid, &env);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
+        log_info("PID" PID_FMT " strlen(environ): %zi", pid, env ? (ssize_t) strlen(env) : (ssize_t) -errno);
 
         if (!detect_container())
                 assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
         (void) getenv_for_pid(pid, "PATH", &i);
-        log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
+        log_info("PID" PID_FMT " $PATH: '%s'", pid, strna(i));
 }
 
 TEST(get_process_comm) {
@@ -115,7 +115,7 @@ static void test_get_process_cmdline_one(pid_t pid) {
         int r;
 
         r = get_process_cmdline(pid, SIZE_MAX, 0, &c);
-        log_info("PID "PID_FMT": %s", pid, r >= 0 ? c : errno_to_name(r));
+        log_info("PID " PID_FMT ": %s", pid, r >= 0 ? c : errno_to_name(r));
 
         r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &d);
         log_info("      %s", r >= 0 ? d : errno_to_name(r));
@@ -138,7 +138,7 @@ TEST(get_process_cmdline) {
 
         assert_se(d = opendir("/proc"));
 
-        FOREACH_DIRENT(de, d, return) {
+        FOREACH_DIRENT(de, d, return ) {
                 pid_t pid;
 
                 if (de->d_type != DT_DIR)
@@ -280,7 +280,7 @@ TEST(get_process_cmdline_harder) {
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
                 log_warning_errno(errno, "mount(..., \"/\", MS_SLAVE|MS_REC, ...) failed: %m");
                 assert_se(IN_SET(errno, EPERM, EACCES));
                 return;
@@ -314,7 +314,8 @@ TEST(get_process_cmdline_harder) {
         assert_se(streq(line, "[testa]"));
         line = mfree(line);
 
-        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE, &line) >= 0);
+        assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE, &line) >=
+                  0);
         log_debug("'%s'", line);
         assert_se(streq(line, "\"[testa]\"")); /* quoting is enabled here */
         line = mfree(line);
@@ -483,8 +484,8 @@ TEST(get_process_cmdline_harder) {
         /* Test with multiple arguments that do require quoting */
 
 #define CMDLINE1 "foo\0'bar'\0\"bar$\"\0x y z\0!``\0"
-#define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\""
-#define EXPECT1p  "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
+#define EXPECT1 "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\""
+#define EXPECT1p "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
         assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
@@ -502,8 +503,8 @@ TEST(get_process_cmdline_harder) {
         line = mfree(line);
 
 #define CMDLINE2 "foo\0\1\2\3\0\0"
-#define EXPECT2  "foo \"\\001\\002\\003\""
-#define EXPECT2p  "foo $'\\001\\002\\003'"
+#define EXPECT2 "foo \"\\001\\002\\003\""
+#define EXPECT2p "foo $'\\001\\002\\003'"
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
         assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
@@ -531,9 +532,7 @@ static void test_rename_process_now(const char *p, int ret) {
         log_info("/* %s(%s) */", __func__, p);
 
         r = rename_process(p);
-        assert_se(r == ret ||
-                  (ret == 0 && r >= 0) ||
-                  (ret > 0 && r > 0));
+        assert_se(r == ret || (ret == 0 && r >= 0) || (ret > 0 && r > 0));
 
         log_debug_errno(r, "rename_process(%s): %m", p);
 
@@ -548,7 +547,7 @@ static void test_rename_process_now(const char *p, int ret) {
 
         assert_se(get_process_comm(0, &comm) >= 0);
         log_debug("comm = <%s>", comm);
-        assert_se(strneq(comm, p, TASK_COMM_LEN-1));
+        assert_se(strneq(comm, p, TASK_COMM_LEN - 1));
         /* We expect comm to be at most 16 bytes (TASK_COMM_LEN). The kernel may raise this limit in the
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
@@ -559,7 +558,10 @@ static void test_rename_process_now(const char *p, int ret) {
                 if (r == 0 && detect_container() > 0)
                         log_info("cmdline = <%s> (not verified, Running in unprivileged container?)", cmdline);
                 else {
-                        log_info("cmdline = <%s> (expected <%.*s>)", cmdline, (int) strlen("test-process-util"), p);
+                        log_info("cmdline = <%s> (expected <%.*s>)",
+                                 cmdline,
+                                 (int) strlen("test-process-util"),
+                                 p);
 
                         bool skip = cmdline[0] == '"'; /* A shortcut to check if the string is quoted */
 
@@ -614,7 +616,7 @@ TEST(rename_process_multi) {
         /* child */
         test_rename_process_now("one", 1);
         test_rename_process_now("more", 0); /* longer than "one", hence truncated */
-        (void) setresuid(99, 99, 99); /* change uid when running privileged */
+        (void) setresuid(99, 99, 99);       /* change uid when running privileged */
         test_rename_process_now("time!", 0);
         test_rename_process_now("0", 1); /* shorter than "one", should fit */
         _exit(EXIT_SUCCESS);
@@ -622,7 +624,9 @@ TEST(rename_process_multi) {
 
 TEST(rename_process) {
         test_rename_process_one("foo", 1); /* should always fit */
-        test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
+        test_rename_process_one(
+                        "this is a really really long process name, followed by some more words",
+                        0);                    /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */
 }
 
@@ -691,7 +695,10 @@ TEST(safe_fork) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NULL_STDIO|FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(test-child)",
+                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_NULL_STDIO |
+                                      FORK_REOPEN_LOG,
+                      &pid);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -731,8 +738,7 @@ static void test_ioprio_class_from_to_string_one(const char *val, int expected, 
 
                 assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
                 /* We sometimes get a class number and sometimes a name back */
-                assert_se(streq(s, val) ||
-                          safe_atou(val, &ret) == 0);
+                assert_se(streq(s, val) || safe_atou(val, &ret) == 0);
 
                 /* Make sure normalization works, i.e. NONE → BE gets normalized */
                 combined = ioprio_normalize(ioprio_prio_value(expected, 0));
@@ -758,7 +764,8 @@ TEST(setpriority_closest) {
         int r;
 
         r = safe_fork("(test-setprio)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG, NULL);
+                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT | FORK_LOG,
+                      NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -790,7 +797,7 @@ TEST(setpriority_closest) {
                 assert_se(errno == 0 && p == q);
 
                 /* It should also be possible to set the nice level to one higher */
-                if (p < PRIO_MAX-1) {
+                if (p < PRIO_MAX - 1) {
                         assert_se(setpriority_closest(++p) > 0);
 
                         errno = 0;
@@ -799,7 +806,7 @@ TEST(setpriority_closest) {
                 }
 
                 /* It should also be possible to set the nice level to two higher */
-                if (p < PRIO_MAX-1) {
+                if (p < PRIO_MAX - 1) {
                         assert_se(setpriority_closest(++p) > 0);
 
                         errno = 0;
@@ -849,11 +856,11 @@ TEST(get_process_ppid) {
 
         /* the process with the PID above the global limit definitely doesn't exist. Verify that */
         assert_se(procfs_get_pid_max(&limit) >= 0);
-        log_debug("kernel.pid_max = %"PRIu64, limit);
+        log_debug("kernel.pid_max = %" PRIu64, limit);
 
         if (limit < INT_MAX) {
                 r = get_process_ppid(limit + 1, NULL);
-                log_debug_errno(r, "get_process_limit(%"PRIu64") → %d/%m", limit + 1, r);
+                log_debug_errno(r, "get_process_limit(%" PRIu64 ") → %d/%m", limit + 1, r);
                 assert(r == -ESRCH);
         }
 

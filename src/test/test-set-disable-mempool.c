@@ -9,7 +9,7 @@
 
 #define NUM 100
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         Set **s = p;
 
         assert_se(s);
@@ -35,7 +35,7 @@ static void test_one(const char *val) {
         assert_se(setenv("SYSTEMD_MEMPOOL", val, true) == 0);
 
         assert_se(is_main_thread());
-        assert_se(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
+        assert_se(mempool_enabled); /* It is a weak symbol, but we expect it to be available */
         assert_se(!mempool_enabled());
 
         assert_se(s = set_new(NULL));

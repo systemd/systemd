@@ -84,15 +84,10 @@ TEST_RET(fiemap) {
 }
 
 TEST(sleep) {
-        _cleanup_strv_free_ char
-                **standby = strv_new("standby"),
-                **mem = strv_new("mem"),
-                **disk = strv_new("disk"),
-                **suspend = strv_new("suspend"),
-                **reboot = strv_new("reboot"),
-                **platform = strv_new("platform"),
-                **shutdown = strv_new("shutdown"),
-                **freeze = strv_new("freeze");
+        _cleanup_strv_free_ char **standby = strv_new("standby"), **mem = strv_new("mem"),
+                                 **disk = strv_new("disk"), **suspend = strv_new("suspend"),
+                                 **reboot = strv_new("reboot"), **platform = strv_new("platform"),
+                                 **shutdown = strv_new("shutdown"), **freeze = strv_new("freeze");
         int r;
 
         printf("Secure boot: %sd\n", enable_disable(is_efi_secure_boot()));

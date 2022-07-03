@@ -20,9 +20,9 @@ TEST(xescape) {
 }
 
 static void test_xescape_full_one(bool eight_bits) {
-        const char* escaped = !eight_bits ?
-                "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb" :
-                "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
+        const char *escaped = !eight_bits ?
+                        "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb" :
+                        "a\\x62c\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\177\234\313";
         const unsigned full_fit = !eight_bits ? 55 : 46;
         XEscapeFlags flags = eight_bits * XESCAPE_8_BIT;
 
@@ -39,7 +39,8 @@ static void test_xescape_full_one(bool eight_bits) {
                         assert_se(streq(t, escaped));
                 else if (i >= 3) {
                         /* We need up to four columns, so up to three three columns may be wasted */
-                        assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 || strlen(t) == i - 3);
+                        assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 ||
+                                  strlen(t) == i - 3);
                         assert_se(strneq(t, escaped, i - 3) || strneq(t, escaped, i - 4) ||
                                   strneq(t, escaped, i - 5) || strneq(t, escaped, i - 6));
                         assert_se(endswith(t, "..."));
@@ -48,8 +49,11 @@ static void test_xescape_full_one(bool eight_bits) {
                         assert_se(strneq(t, "...", i));
                 }
 
-                assert_se(q = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i,
-                                           flags | XESCAPE_FORCE_ELLIPSIS));
+                assert_se(q = xescape_full(
+                                          "abc\\\"\b\f\n\r\t\v\a\003\177\234\313",
+                                          "b",
+                                          i,
+                                          flags | XESCAPE_FORCE_ELLIPSIS));
 
                 log_info("%02d: <%s>", i, q);
                 if (i > 0)
@@ -67,8 +71,11 @@ TEST(test_xescape_full) {
 TEST(cunescape) {
         _cleanup_free_ char *unescaped;
 
-        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
-        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) <
+                  0);
+        assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00",
+                            UNESCAPE_RELAX,
+                            &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "abc\\\"\b\f\a\n\r\t\v\003\177\234\313\\000\\x00"));
         unescaped = mfree(unescaped);
 
@@ -207,16 +214,11 @@ static void test_quote_command_line_one(char **argv, const char *expected) {
 }
 
 TEST(quote_command_line) {
-        test_quote_command_line_one(STRV_MAKE("true", "true"),
-                                    "true true");
-        test_quote_command_line_one(STRV_MAKE("true", "with a space"),
-                                    "true \"with a space\"");
-        test_quote_command_line_one(STRV_MAKE("true", "with a 'quote'"),
-                                    "true \"with a 'quote'\"");
-        test_quote_command_line_one(STRV_MAKE("true", "with a \"quote\""),
-                                    "true \"with a \\\"quote\\\"\"");
-        test_quote_command_line_one(STRV_MAKE("true", "$dollar"),
-                                    "true \"\\$dollar\"");
+        test_quote_command_line_one(STRV_MAKE("true", "true"), "true true");
+        test_quote_command_line_one(STRV_MAKE("true", "with a space"), "true \"with a space\"");
+        test_quote_command_line_one(STRV_MAKE("true", "with a 'quote'"), "true \"with a 'quote'\"");
+        test_quote_command_line_one(STRV_MAKE("true", "with a \"quote\""), "true \"with a \\\"quote\\\"\"");
+        test_quote_command_line_one(STRV_MAKE("true", "$dollar"), "true \"\\$dollar\"");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

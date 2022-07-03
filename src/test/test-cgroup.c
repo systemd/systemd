@@ -53,8 +53,7 @@ TEST(cg_create) {
         _cleanup_free_ char *here = NULL;
         assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);
 
-        const char *test_a = prefix_roota(here, "/test-a"),
-                   *test_b = prefix_roota(here, "/test-b"),
+        const char *test_a = prefix_roota(here, "/test-a"), *test_b = prefix_roota(here, "/test-b"),
                    *test_c = prefix_roota(here, "/test-b/test-c"),
                    *test_d = prefix_roota(here, "/test-b/test-d");
         char *path;
@@ -109,7 +108,8 @@ TEST(cg_create) {
         assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, 0, 0, NULL, NULL, NULL) == 0);
         assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, 0, 0, NULL, NULL, NULL) > 0);
 
-        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0) > 0);
+        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0) >
+                  0);
 
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b) > 0);
@@ -121,7 +121,8 @@ TEST(cg_create) {
 
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_b) == 0);
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) < 0);
-        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, SYSTEMD_CGROUP_CONTROLLER, here, 0) > 0);
+        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, SYSTEMD_CGROUP_CONTROLLER, here, 0) >
+                  0);
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
 }
 

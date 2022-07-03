@@ -56,12 +56,17 @@ static int method_done(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
         return 0;
 }
 
-static int reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+static int
+                reply(Varlink *link,
+                      JsonVariant *parameters,
+                      const char *error_id,
+                      VarlinkReplyFlags flags,
+                      void *userdata) {
         JsonVariant *sum;
 
         sum = json_variant_by_key(parameters, "sum");
 
-        assert_se(json_variant_integer(sum) == 7+22);
+        assert_se(json_variant_integer(sum) == 7 + 22);
 
         if (++n_done == 2)
                 sd_event_exit(varlink_get_event(link), EXIT_FAILURE);
@@ -81,7 +86,12 @@ static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
         return 0;
 }
 
-static int overload_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
+static int
+                overload_reply(Varlink *link,
+                               JsonVariant *parameters,
+                               const char *error_id,
+                               VarlinkReplyFlags flags,
+                               void *userdata) {
 
         /* This method call reply should always be called with a disconnection, since the method call should
          * be talking to an overloaded server */
@@ -108,7 +118,7 @@ static void flood_test(const char *address) {
         assert_se(sd_event_default(&e) >= 0);
 
         /* Flood the server with connections */
-        assert_se(connections = new0(Varlink*, OVERLOAD_CONNECTIONS));
+        assert_se(connections = new0(Varlink *, OVERLOAD_CONNECTIONS));
         for (k = 0; k < OVERLOAD_CONNECTIONS; k++) {
                 _cleanup_free_ char *t = NULL;
                 log_debug("connection %zu", k);
@@ -117,7 +127,9 @@ static void flood_test(const char *address) {
                 assert_se(asprintf(&t, "flood-%zu", k) >= 0);
                 assert_se(varlink_set_description(connections[k], t) >= 0);
                 assert_se(varlink_attach_event(connections[k], e, k) >= 0);
-                assert_se(varlink_sendb(connections[k], "io.test.Rubbish", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("id", JSON_BUILD_INTEGER(k)))) >= 0);
+                assert_se(varlink_sendb(connections[k],
+                                        "io.test.Rubbish",
+                                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("id", JSON_BUILD_INTEGER(k)))) >= 0);
         }
 
         /* Then, create one more, which should fail */
@@ -126,7 +138,10 @@ static void flood_test(const char *address) {
         assert_se(varlink_set_description(c, "overload-client") >= 0);
         assert_se(varlink_attach_event(c, e, k) >= 0);
         assert_se(varlink_bind_reply(c, overload_reply) >= 0);
-        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >= 0);
+        assert_se(varlink_invokeb(c,
+                                  "io.test.Overload",
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >=
+                  0);
 
         /* Unblock it */
         log_debug("Unblocking server...");
@@ -146,8 +161,10 @@ static void *thread(void *arg) {
         JsonVariant *o = NULL;
         const char *e;
 
-        assert_se(json_build(&i, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(88)),
-                                                   JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(99)))) >= 0);
+        assert_se(json_build(&i,
+                             JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(88)),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(99)))) >= 0);
 
         assert_se(varlink_connect_address(&c, arg) >= 0);
         assert_se(varlink_set_description(c, "thread-client") >= 0);
@@ -156,7 +173,12 @@ static void *thread(void *arg) {
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 
-        assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
+        assert_se(varlink_callb(c,
+                                "io.test.IDontExist",
+                                &o,
+                                &e,
+                                NULL,
+                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
         assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
         assert_se(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
 
@@ -203,7 +225,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_default(&e) >= 0);
 
-        assert_se(pipe2(block_fds, O_NONBLOCK|O_CLOEXEC) >= 0);
+        assert_se(pipe2(block_fds, O_NONBLOCK | O_CLOEXEC) >= 0);
         assert_se(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, NULL) >= 0);
         assert_se(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT) >= 0);
         block_write_fd = TAKE_FD(block_fds[1]);
@@ -222,14 +244,16 @@ int main(int argc, char *argv[]) {
         assert_se(varlink_set_description(c, "main-client") >= 0);
         assert_se(varlink_bind_reply(c, reply) >= 0);
 
-        assert_se(json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
-                                                   JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
+        assert_se(json_build(&v,
+                             JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
 
         assert_se(varlink_invoke(c, "io.test.DoSomething", v) >= 0);
 
         assert_se(varlink_attach_event(c, e, 0) >= 0);
 
-        assert_se(pthread_create(&t, NULL, thread, (void*) sp) == 0);
+        assert_se(pthread_create(&t, NULL, thread, (void *) sp) == 0);
 
         assert_se(sd_event_loop(e) >= 0);
 

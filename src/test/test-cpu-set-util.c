@@ -92,7 +92,8 @@ TEST(parse_cpu_set) {
         cpu_set_reset(&c);
 
         /* Commas with spaces (and trailing comma, space) */
-        assert_se(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
+        assert_se(parse_cpu_set_full("0, 1, 2, 3, 4, 5, 6, 7, 63, ", &c, true, NULL, "fake", 1, "CPUAffinity") >=
+                  0);
         assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 9);
         for (cpu = 0; cpu < 8; cpu++)
@@ -188,11 +189,12 @@ TEST(parse_cpu_set) {
 
         /* Empty string */
         assert_se(parse_cpu_set_full("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
-        assert_se(!c.set);                /* empty string returns NULL */
+        assert_se(!c.set); /* empty string returns NULL */
         assert_se(c.allocated == 0);
 
         /* Runaway quoted string */
-        assert_se(parse_cpu_set_full("0 1 2 3 \"4 5 6 7 ", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
+        assert_se(parse_cpu_set_full("0 1 2 3 \"4 5 6 7 ", &c, true, NULL, "fake", 1, "CPUAffinity") ==
+                  -EINVAL);
         assert_se(!c.set);
         assert_se(c.allocated == 0);
 
@@ -241,9 +243,9 @@ TEST(cpu_set_to_from_dbus) {
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
         static const char expected[32] =
-                "\x0A\x01\x00\x00\x00\x00\x00\x00\x00\x00"
-                "\x00\x00\xF0\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-                "\xFF\xFF\xFF\xFF\xFF\x01";
+                        "\x0A\x01\x00\x00\x00\x00\x00\x00\x00\x00"
+                        "\x00\x00\xF0\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+                        "\xFF\xFF\xFF\xFF\xFF\x01";
 
         assert_se(cpu_set_to_dbus(&c, &array, &allocated) == 0);
         assert_se(array);

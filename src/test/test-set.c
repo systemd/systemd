@@ -15,9 +15,9 @@ TEST(set_steal_first) {
         m = set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(set_put(m, (void*) "1") == 1);
-        assert_se(set_put(m, (void*) "22") == 1);
-        assert_se(set_put(m, (void*) "333") == 1);
+        assert_se(set_put(m, (void *) "1") == 1);
+        assert_se(set_put(m, (void *) "22") == 1);
+        assert_se(set_put(m, (void *) "333") == 1);
 
         while ((val = set_steal_first(m)))
                 seen[strlen(val) - 1]++;
@@ -50,7 +50,8 @@ TEST(set_free_with_destructor) {
         assert_se(items[3].seen == 0);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
 TEST(set_free_with_hash_ops) {
         Set *m;
@@ -74,14 +75,14 @@ TEST(set_put) {
         m = set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(set_put(m, (void*) "1") == 1);
-        assert_se(set_put(m, (void*) "22") == 1);
-        assert_se(set_put(m, (void*) "333") == 1);
-        assert_se(set_put(m, (void*) "333") == 0);
-        assert_se(set_remove(m, (void*) "333"));
-        assert_se(set_put(m, (void*) "333") == 1);
-        assert_se(set_put(m, (void*) "333") == 0);
-        assert_se(set_put(m, (void*) "22") == 0);
+        assert_se(set_put(m, (void *) "1") == 1);
+        assert_se(set_put(m, (void *) "22") == 1);
+        assert_se(set_put(m, (void *) "333") == 1);
+        assert_se(set_put(m, (void *) "333") == 0);
+        assert_se(set_remove(m, (void *) "333"));
+        assert_se(set_put(m, (void *) "333") == 1);
+        assert_se(set_put(m, (void *) "333") == 0);
+        assert_se(set_put(m, (void *) "22") == 0);
 
         _cleanup_free_ char **t = set_get_strv(m);
         assert_se(strv_contains(t, "1"));

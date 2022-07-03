@@ -22,7 +22,8 @@ static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in6_addr *addresses6 = NULL;
         union in_addr_union a, b, c, d, e, f;
         int size;
-        const char *addresses_string = "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
+        const char *addresses_string =
+                        "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
 
         assert_se(in_addr_from_string(AF_INET, "0:0:0:0:0:FFFF:204.152.189.116", &a) < 0);
         assert_se(in_addr_from_string(AF_INET6, "192.168.0.1", &d) < 0);
@@ -109,7 +110,8 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
         uint32_t t;
 
         if (!STR_IN_SET(name, "default", "main", "local")) {
-                assert_se(streq(hashmap_get(manager->route_table_names_by_number, UINT32_TO_PTR(number)), name));
+                assert_se(streq(hashmap_get(manager->route_table_names_by_number, UINT32_TO_PTR(number)),
+                                name));
                 assert_se(PTR_TO_UINT32(hashmap_get(manager->route_table_numbers_by_name, name)) == number);
         }
 
@@ -126,9 +128,31 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
 }
 
 static void test_route_tables(Manager *manager) {
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager) >= 0);
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "bbb:11111 ccc:22222", manager, manager) >= 0);
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "ddd:22222", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager",
+                                  "filename",
+                                  1,
+                                  "section",
+                                  1,
+                                  "RouteTable",
+                                  0,
+                                  "hoge:123 foo:456 aaa:111",
+                                  manager,
+                                  manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager",
+                                  "filename",
+                                  1,
+                                  "section",
+                                  1,
+                                  "RouteTable",
+                                  0,
+                                  "bbb:11111 ccc:22222",
+                                  manager,
+                                  manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager", "filename", 1, "section", 1, "RouteTable", 0, "ddd:22222", manager, manager) >=
+                  0);
 
         test_route_tables_one(manager, "hoge", 123);
         test_route_tables_one(manager, "foo", 456);
@@ -142,13 +166,35 @@ static void test_route_tables(Manager *manager) {
         test_route_tables_one(manager, "main", 254);
         test_route_tables_one(manager, "local", 255);
 
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager", "filename", 1, "section", 1, "RouteTable", 0, "", manager, manager) >=
+                  0);
         assert_se(!manager->route_table_names_by_number);
         assert_se(!manager->route_table_numbers_by_name);
 
         /* Invalid pairs */
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "main:123 default:333 local:999", manager, manager) >= 0);
-        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "1234:321 :567 hoge:foo aaa:-888", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager",
+                                  "filename",
+                                  1,
+                                  "section",
+                                  1,
+                                  "RouteTable",
+                                  0,
+                                  "main:123 default:333 local:999",
+                                  manager,
+                                  manager) >= 0);
+        assert_se(config_parse_route_table_names(
+                                  "manager",
+                                  "filename",
+                                  1,
+                                  "section",
+                                  1,
+                                  "RouteTable",
+                                  0,
+                                  "1234:321 :567 hoge:foo aaa:-888",
+                                  manager,
+                                  manager) >= 0);
         assert_se(!manager->route_table_names_by_number);
         assert_se(!manager->route_table_numbers_by_name);
 
@@ -159,12 +205,12 @@ static void test_route_tables(Manager *manager) {
 
 static int test_load_config(Manager *manager) {
         int r;
-/*  TODO: should_reload, is false if the config dirs do not exist, so
- *        so we can't do this test here, move it to a test for paths_check_timestamps
- *        directly
- *
- *        assert_se(network_should_reload(manager) == true);
-*/
+        /*  TODO: should_reload, is false if the config dirs do not exist, so
+         *        so we can't do this test here, move it to a test for paths_check_timestamps
+         *        directly
+         *
+         *        assert_se(network_should_reload(manager) == true);
+         */
 
         r = manager_load_config(manager);
         if (r == -EPERM)
@@ -256,7 +302,9 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong fqdn, cut to first dot, no errors */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &shortened);
+                r = shorten_overlong(
+                                "name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com",
+                                &shortened);
                 assert_se(r == 1);
                 assert_se(streq("name1", shortened));
         }
@@ -264,7 +312,9 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong hostname, cut to HOST_MAX_LEN, no errors */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
+                r = shorten_overlong(
+                                "test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname",
+                                &shortened);
                 assert_se(r == 1);
                 assert_se(streq("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom", shortened));
         }
@@ -272,11 +322,12 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong fqdn, cut to first dot, empty result error */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &shortened);
+                r = shorten_overlong(
+                                ".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com",
+                                &shortened);
                 assert_se(r == -EDOM);
                 assert_se(shortened == NULL);
         }
-
 }
 
 int main(void) {

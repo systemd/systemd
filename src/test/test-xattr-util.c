@@ -31,7 +31,7 @@ TEST(getxattr_at_malloc) {
                 goto cleanup;
         assert_se(r >= 0);
 
-        fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        fd = open(t, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
 
         assert_se(getxattr_at_malloc(fd, "test", "user.foo", 0, &value) == 3);
@@ -43,13 +43,13 @@ TEST(getxattr_at_malloc) {
         value = mfree(value);
 
         safe_close(fd);
-        fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
         r = getxattr_at_malloc(fd, "usr", "user.idontexist", 0, &value);
         assert_se(r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r));
 
         safe_close(fd);
-        fd = open(x, O_PATH|O_CLOEXEC);
+        fd = open(x, O_PATH | O_CLOEXEC);
         assert_se(fd >= 0);
         assert_se(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value) == 3);
         assert_se(streq(value, "bar"));
@@ -81,8 +81,7 @@ TEST(getcrtime) {
         r = fd_setcrtime(fd, 1519126446UL * USEC_PER_SEC);
         if (!IN_SET(r, -EOPNOTSUPP, -ENOTTY)) {
                 assert_se(fd_getcrtime(fd, &usec) >= 0);
-                assert_se(k < 1519126446UL * USEC_PER_SEC ||
-                          usec == 1519126446UL * USEC_PER_SEC);
+                assert_se(k < 1519126446UL * USEC_PER_SEC || usec == 1519126446UL * USEC_PER_SEC);
         }
 }
 

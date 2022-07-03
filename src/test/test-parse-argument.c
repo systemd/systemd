@@ -30,7 +30,7 @@ TEST(parse_path_argument) {
 }
 
 TEST(parse_signal_argument) {
-        int  signal = -1;
+        int signal = -1;
 
         assert_se(parse_signal_argument("help", &signal) == 0);
         assert_se(signal == -1);

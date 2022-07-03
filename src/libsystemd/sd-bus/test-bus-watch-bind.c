@@ -38,7 +38,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static void* thread_server(void *p) {
+static void *thread_server(void *p) {
         _cleanup_free_ char *suffixed = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union u;
@@ -71,7 +71,7 @@ static void* thread_server(void *p) {
         assert_se(r >= 0);
         sa_len = r;
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
         assert_se(fd >= 0);
 
         assert_se(bind(fd, &u.sa, sa_len) >= 0);
@@ -95,7 +95,7 @@ static void* thread_server(void *p) {
 
                 assert_se(sd_event_new(&event) >= 0);
 
-                bus_fd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+                bus_fd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
                 assert_se(bus_fd >= 0);
 
                 log_debug("Accepted server connection");
@@ -125,7 +125,7 @@ static void* thread_server(void *p) {
         return NULL;
 }
 
-static void* thread_client1(void *p) {
+static void *thread_client1(void *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path = p, *t;
@@ -155,7 +155,7 @@ static int client2_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret
         return 0;
 }
 
-static void* thread_client2(void *p) {
+static void *thread_client2(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = p, *t;
@@ -172,7 +172,16 @@ static void* thread_client2(void *p) {
         assert_se(sd_bus_attach_event(bus, event, 0) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
-        assert_se(sd_bus_call_method_async(bus, NULL, "foo.bar", "/foo", "foo.TestInterface", "Foobar", client2_callback, NULL, NULL) >= 0);
+        assert_se(sd_bus_call_method_async(
+                                  bus,
+                                  NULL,
+                                  "foo.bar",
+                                  "/foo",
+                                  "foo.TestInterface",
+                                  "Foobar",
+                                  client2_callback,
+                                  NULL,
+                                  NULL) >= 0);
 
         assert_se(sd_event_loop(event) >= 0);
 
@@ -193,7 +202,8 @@ static void request_exit(const char *path) {
         assert_se(sd_bus_set_description(bus, "request-exit") >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
-        assert_se(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL) >= 0);
+        assert_se(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL) >=
+                  0);
 }
 
 int main(int argc, char *argv[]) {
@@ -203,8 +213,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
-         * doesn't support inotify properly. */
+        /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs
+         * that doesn't support inotify properly. */
         assert_se(mkdtemp_malloc("/dev/shm/systemd-watch-bind-XXXXXX", &d) >= 0);
 
         path = strjoina(d, "/this/is/a/socket");

@@ -26,13 +26,13 @@ static void test_rm_rf_chmod_inner(void) {
         assert_se(chmod(x, 0500) >= 0);
         assert_se(chmod(d, 0500) >= 0);
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_ROOT) == -EACCES);
+        assert_se(rm_rf(d, REMOVE_PHYSICAL | REMOVE_ROOT) == -EACCES);
 
         assert_se(access(d, F_OK) >= 0);
         assert_se(access(x, F_OK) >= 0);
         assert_se(access(y, F_OK) >= 0);
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_ROOT|REMOVE_CHMOD) >= 0);
+        assert_se(rm_rf(d, REMOVE_PHYSICAL | REMOVE_ROOT | REMOVE_CHMOD) >= 0);
 
         errno = 0;
         assert_se(access(d, F_OK) < 0 && errno == ENOENT);
@@ -45,7 +45,7 @@ TEST(rm_rf_chmod) {
                 /* This test only works unpriv (as only then the access mask for the owning user matters),
                  * hence drop privs here */
 
-                r = safe_fork("(setresuid)", FORK_DEATHSIG|FORK_WAIT, NULL);
+                r = safe_fork("(setresuid)", FORK_DEATHSIG | FORK_WAIT, NULL);
                 assert_se(r >= 0);
 
                 if (r == 0) {

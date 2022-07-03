@@ -16,8 +16,7 @@ static void test_should_pass(const char *p) {
 
         assert_se(parse_timestamp(buf, &q) >= 0);
         if (q != t)
-                log_error("round-trip failed: \"%s\" → \"%s\"",
-                          buf, FORMAT_TIMESTAMP_STYLE(q, TIMESTAMP_US));
+                log_error("round-trip failed: \"%s\" → \"%s\"", buf, FORMAT_TIMESTAMP_STYLE(q, TIMESTAMP_US));
         assert_se(q == t);
 
         assert_se(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));

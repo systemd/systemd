@@ -171,7 +171,7 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c1);
         assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup) == -EEXIST);
 
-         /* make sure certain values from h1 get updated in h2 */
+        /* make sure certain values from h1 get updated in h2 */
         c1->pgscan = UINT64_MAX;
         c1->mem_pressure_limit = 6789;
         c1->mem_pressure_limit_hit_start = 42;
@@ -200,8 +200,7 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
 static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
         _cleanup_hashmap_free_ Hashmap *h_old = NULL, *h_new = NULL;
         OomdCGroupContext *c_old, *c_new;
-        char **paths = STRV_MAKE("/0.slice",
-                                 "/1.slice");
+        char **paths = STRV_MAKE("/0.slice", "/1.slice");
 
         OomdCGroupContext ctx_old[2] = {
                 { .path = paths[0],
@@ -217,10 +216,8 @@ static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
         };
 
         OomdCGroupContext ctx_new[2] = {
-                { .path = paths[0],
-                  .pgscan = 57 },
-                { .path = paths[1],
-                  .pgscan = 101 },
+                { .path = paths[0], .pgscan = 57 },
+                { .path = paths[1], .pgscan = 101 },
         };
 
         assert_se(h_old = hashmap_new(&string_hash_ops));
@@ -262,24 +259,31 @@ static void test_oomd_system_context_acquire(void) {
 
         assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(write_string_file(path, "some\nwords\nacross\nmultiple\nlines", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(path, "some\nwords\nacross\nmultiple\nlines", WRITE_STRING_FILE_CREATE) ==
+                  0);
         assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(write_string_file(path, "MemTotal:       32495256 kB trailing\n"
-                                          "MemFree:         9880512 kB data\n"
-                                          "SwapTotal:       8388604 kB is\n"
-                                          "SwapFree:           7604 kB bad\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(
+                                  path,
+                                  "MemTotal:       32495256 kB trailing\n"
+                                  "MemFree:         9880512 kB data\n"
+                                  "SwapTotal:       8388604 kB is\n"
+                                  "SwapFree:           7604 kB bad\n",
+                                  WRITE_STRING_FILE_CREATE) == 0);
         assert_se(oomd_system_context_acquire(path, &ctx) == -EINVAL);
 
-        assert_se(write_string_file(path, "MemTotal:       32495256 kB\n"
-                                          "MemFree:         9880512 kB\n"
-                                          "MemAvailable:   21777088 kB\n"
-                                          "Buffers:            5968 kB\n"
-                                          "Cached:         14344796 kB\n"
-                                          "Unevictable:      740004 kB\n"
-                                          "Mlocked:            4484 kB\n"
-                                          "SwapTotal:       8388604 kB\n"
-                                          "SwapFree:           7604 kB\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(
+                                  path,
+                                  "MemTotal:       32495256 kB\n"
+                                  "MemFree:         9880512 kB\n"
+                                  "MemAvailable:   21777088 kB\n"
+                                  "Buffers:            5968 kB\n"
+                                  "Cached:         14344796 kB\n"
+                                  "Unevictable:      740004 kB\n"
+                                  "Mlocked:            4484 kB\n"
+                                  "SwapTotal:       8388604 kB\n"
+                                  "SwapFree:           7604 kB\n",
+                                  WRITE_STRING_FILE_CREATE) == 0);
         assert_se(oomd_system_context_acquire(path, &ctx) == 0);
         assert_se(ctx.mem_total == 33275142144);
         assert_se(ctx.mem_used == 10975404032);
@@ -335,7 +339,7 @@ static void test_oomd_pressure_above(void) {
 }
 
 static void test_oomd_mem_and_swap_free_below(void) {
-        OomdSystemContext ctx = (OomdSystemContext) {
+        OomdSystemContext ctx = (OomdSystemContext){
                 .mem_total = 20971512 * 1024U,
                 .mem_used = 3310136 * 1024U,
                 .swap_total = 20971512 * 1024U,
@@ -344,7 +348,7 @@ static void test_oomd_mem_and_swap_free_below(void) {
         assert_se(oomd_mem_available_below(&ctx, 2000) == false);
         assert_se(oomd_swap_free_below(&ctx, 2000) == true);
 
-        ctx = (OomdSystemContext) {
+        ctx = (OomdSystemContext){
                 .mem_total = 20971512 * 1024U,
                 .mem_used = 20971440 * 1024U,
                 .swap_total = 20971512 * 1024U,
@@ -353,7 +357,7 @@ static void test_oomd_mem_and_swap_free_below(void) {
         assert_se(oomd_mem_available_below(&ctx, 2000) == true);
         assert_se(oomd_swap_free_below(&ctx, 2000) == false);
 
-        ctx = (OomdSystemContext) {
+        ctx = (OomdSystemContext){
                 .mem_total = 0,
                 .mem_used = 0,
                 .swap_total = 0,
@@ -366,40 +370,21 @@ static void test_oomd_mem_and_swap_free_below(void) {
 static void test_oomd_sort_cgroups(void) {
         _cleanup_hashmap_free_ Hashmap *h = NULL;
         _cleanup_free_ OomdCGroupContext **sorted_cgroups;
-        char **paths = STRV_MAKE("/herp.slice",
-                                 "/herp.slice/derp.scope",
-                                 "/herp.slice/derp.scope/sheep.service",
-                                 "/zupa.slice",
-                                 "/boop.slice",
-                                 "/omitted.slice",
-                                 "/avoid.slice");
+        char **paths = STRV_MAKE(
+                        "/herp.slice",
+                        "/herp.slice/derp.scope",
+                        "/herp.slice/derp.scope/sheep.service",
+                        "/zupa.slice",
+                        "/boop.slice",
+                        "/omitted.slice",
+                        "/avoid.slice");
 
         OomdCGroupContext ctx[7] = {
-                { .path = paths[0],
-                  .swap_usage = 20,
-                  .last_pgscan = 0,
-                  .pgscan = 33,
-                  .current_memory_usage = 10 },
-                { .path = paths[1],
-                  .swap_usage = 60,
-                  .last_pgscan = 33,
-                  .pgscan = 1,
-                  .current_memory_usage = 20 },
-                { .path = paths[2],
-                  .swap_usage = 40,
-                  .last_pgscan = 1,
-                  .pgscan = 33,
-                  .current_memory_usage = 40 },
-                { .path = paths[3],
-                  .swap_usage = 10,
-                  .last_pgscan = 33,
-                  .pgscan = 2,
-                  .current_memory_usage = 10 },
-                { .path = paths[4],
-                  .swap_usage = 11,
-                  .last_pgscan = 33,
-                  .pgscan = 33,
-                  .current_memory_usage = 10 },
+                { .path = paths[0], .swap_usage = 20, .last_pgscan = 0, .pgscan = 33, .current_memory_usage = 10 },
+                { .path = paths[1], .swap_usage = 60, .last_pgscan = 33, .pgscan = 1, .current_memory_usage = 20 },
+                { .path = paths[2], .swap_usage = 40, .last_pgscan = 1, .pgscan = 33, .current_memory_usage = 40 },
+                { .path = paths[3], .swap_usage = 10, .last_pgscan = 33, .pgscan = 2, .current_memory_usage = 10 },
+                { .path = paths[4], .swap_usage = 11, .last_pgscan = 33, .pgscan = 33, .current_memory_usage = 10 },
                 { .path = paths[5],
                   .swap_usage = 90,
                   .last_pgscan = 0,
@@ -431,7 +416,8 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[5] == &ctx[6]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, NULL, &sorted_cgroups) == 6);
+        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, NULL, &sorted_cgroups) ==
+                  6);
         assert_se(sorted_cgroups[0] == &ctx[0]);
         assert_se(sorted_cgroups[1] == &ctx[2]);
         assert_se(sorted_cgroups[2] == &ctx[3]);
@@ -440,7 +426,11 @@ static void test_oomd_sort_cgroups(void) {
         assert_se(sorted_cgroups[5] == &ctx[6]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        assert_se(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, "/herp.slice/derp.scope", &sorted_cgroups) == 2);
+        assert_se(oomd_sort_cgroup_contexts(
+                                  h,
+                                  compare_pgscan_rate_and_memory_usage,
+                                  "/herp.slice/derp.scope",
+                                  &sorted_cgroups) == 2);
         assert_se(sorted_cgroups[0] == &ctx[2]);
         assert_se(sorted_cgroups[1] == &ctx[1]);
         assert_se(sorted_cgroups[2] == 0);

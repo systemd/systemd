@@ -55,19 +55,19 @@ TEST(signal_from_string) {
         test_signal_to_string_one(SIGHUP);
         test_signal_to_string_one(SIGTERM);
         test_signal_to_string_one(SIGRTMIN);
-        test_signal_to_string_one(SIGRTMIN+3);
-        test_signal_to_string_one(SIGRTMAX-4);
+        test_signal_to_string_one(SIGRTMIN + 3);
+        test_signal_to_string_one(SIGRTMAX - 4);
 
         test_signal_from_string_one("RTMIN", SIGRTMIN);
         test_signal_from_string_one("RTMAX", SIGRTMAX);
 
-        xsprintf(buf, "RTMIN+%d", SIGRTMAX-SIGRTMIN);
+        xsprintf(buf, "RTMIN+%d", SIGRTMAX - SIGRTMIN);
         test_signal_from_string_one(buf, SIGRTMAX);
 
         xsprintf(buf, "RTMIN+%d", INT_MAX);
         test_signal_from_string_one(buf, -ERANGE);
 
-        xsprintf(buf, "RTMAX-%d", SIGRTMAX-SIGRTMIN);
+        xsprintf(buf, "RTMAX-%d", SIGRTMAX - SIGRTMIN);
         test_signal_from_string_one(buf, SIGRTMIN);
 
         xsprintf(buf, "RTMAX-%d", INT_MAX);

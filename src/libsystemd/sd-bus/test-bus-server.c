@@ -78,7 +78,8 @@ static void *server(void *p) {
                         r = sd_bus_message_new_method_error(
                                         m,
                                         &reply,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
+                                        &SD_BUS_ERROR_MAKE_CONST(
+                                                        SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to allocate return: %m");
                                 goto fail;
@@ -118,12 +119,7 @@ static int client(struct context *c) {
         assert_se(sd_bus_start(bus) >= 0);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "Exit");
+                        bus, &m, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "Exit");
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate method call: %m");
 
@@ -134,8 +130,11 @@ static int client(struct context *c) {
         return 0;
 }
 
-static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,
-                    bool client_anonymous_auth, bool server_anonymous_auth) {
+static int
+                test_one(bool client_negotiate_unix_fds,
+                         bool server_negotiate_unix_fds,
+                         bool client_anonymous_auth,
+                         bool server_anonymous_auth) {
 
         struct context c;
         pthread_t s;

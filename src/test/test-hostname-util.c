@@ -25,8 +25,11 @@ TEST(hostname_is_valid) {
         assert_se(!hostname_is_valid(".foobar", 0));
         assert_se(!hostname_is_valid("foo..bar", 0));
         assert_se(!hostname_is_valid("foo.bar..", 0));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", 0));
-        assert_se(!hostname_is_valid("au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", 0));
+        assert_se(!hostname_is_valid(
+                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                        0));
+        assert_se(!hostname_is_valid(
+                        "au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", 0));
 
         assert_se(hostname_is_valid("foobar", VALID_HOSTNAME_TRAILING_DOT));
         assert_se(hostname_is_valid("foobar.com", VALID_HOSTNAME_TRAILING_DOT));
@@ -43,7 +46,9 @@ TEST(hostname_is_valid) {
         assert_se(!hostname_is_valid(".foobar", VALID_HOSTNAME_TRAILING_DOT));
         assert_se(!hostname_is_valid("foo..bar", VALID_HOSTNAME_TRAILING_DOT));
         assert_se(!hostname_is_valid("foo.bar..", VALID_HOSTNAME_TRAILING_DOT));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid(
+                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                        VALID_HOSTNAME_TRAILING_DOT));
 }
 
 TEST(hostname_cleanup) {
@@ -86,9 +91,11 @@ TEST(hostname_cleanup) {
         s = strdupa_safe("foo.bar..");
         assert_se(streq(hostname_cleanup(s), "foo.bar"));
         s = strdupa_safe("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        assert_se(streq(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        assert_se(streq(hostname_cleanup(s),
+                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
         s = strdupa_safe("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        assert_se(streq(hostname_cleanup(s),
+                        "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
 TEST(hostname_malloc) {

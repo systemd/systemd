@@ -24,45 +24,58 @@ TEST(mount_option_mangle) {
         char *opts = NULL;
         unsigned long f;
 
-        assert_se(mount_option_mangle(NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
-        assert_se(f == (MS_RDONLY|MS_NOSUID));
+        assert_se(mount_option_mangle(NULL, MS_RDONLY | MS_NOSUID, &f, &opts) == 0);
+        assert_se(f == (MS_RDONLY | MS_NOSUID));
         assert_se(opts == NULL);
 
-        assert_se(mount_option_mangle("", MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
-        assert_se(f == (MS_RDONLY|MS_NOSUID));
+        assert_se(mount_option_mangle("", MS_RDONLY | MS_NOSUID, &f, &opts) == 0);
+        assert_se(f == (MS_RDONLY | MS_NOSUID));
         assert_se(opts == NULL);
 
         assert_se(mount_option_mangle("ro,nosuid,nodev,noexec", 0, &f, &opts) == 0);
-        assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
+        assert_se(f == (MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC));
         assert_se(opts == NULL);
 
         assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=755", 0, &f, &opts) == 0);
-        assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
+        assert_se(f == (MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC));
         assert_se(streq(opts, "mode=755"));
         opts = mfree(opts);
 
         assert_se(mount_option_mangle("rw,nosuid,foo,hogehoge,nodev,mode=755", 0, &f, &opts) == 0);
-        assert_se(f == (MS_NOSUID|MS_NODEV));
+        assert_se(f == (MS_NOSUID | MS_NODEV));
         assert_se(streq(opts, "foo,hogehoge,mode=755"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,nosuid,nodev,noexec,relatime,net_cls,net_prio", MS_RDONLY, &f, &opts) == 0);
-        assert_se(f == (MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_RELATIME));
+        assert_se(mount_option_mangle("rw,nosuid,nodev,noexec,relatime,net_cls,net_prio", MS_RDONLY, &f, &opts) ==
+                  0);
+        assert_se(f == (MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME));
         assert_se(streq(opts, "net_cls,net_prio"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000", MS_RDONLY, &f, &opts) == 0);
-        assert_se(f == (MS_NOSUID|MS_NODEV|MS_RELATIME));
+        assert_se(mount_option_mangle(
+                                  "rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000",
+                                  MS_RDONLY,
+                                  &f,
+                                  &opts) == 0);
+        assert_se(f == (MS_NOSUID | MS_NODEV | MS_RELATIME));
         assert_se(streq(opts, "size=1630748k,mode=700,uid=1000,gid=1000"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("size=1630748k,rw,gid=1000,,,nodev,relatime,,mode=700,nosuid,uid=1000", MS_RDONLY, &f, &opts) == 0);
-        assert_se(f == (MS_NOSUID|MS_NODEV|MS_RELATIME));
+        assert_se(mount_option_mangle(
+                                  "size=1630748k,rw,gid=1000,,,nodev,relatime,,mode=700,nosuid,uid=1000",
+                                  MS_RDONLY,
+                                  &f,
+                                  &opts) == 0);
+        assert_se(f == (MS_NOSUID | MS_NODEV | MS_RELATIME));
         assert_se(streq(opts, "size=1630748k,gid=1000,mode=700,uid=1000"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,exec,size=8143984k,nr_inodes=2035996,mode=755", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, &f, &opts) == 0);
-        assert_se(f == (MS_NOSUID|MS_NODEV));
+        assert_se(mount_option_mangle(
+                                  "rw,exec,size=8143984k,nr_inodes=2035996,mode=755",
+                                  MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV,
+                                  &f,
+                                  &opts) == 0);
+        assert_se(f == (MS_NOSUID | MS_NODEV));
         assert_se(streq(opts, "size=8143984k,nr_inodes=2035996,mode=755"));
         opts = mfree(opts);
 
@@ -71,11 +84,17 @@ TEST(mount_option_mangle) {
         assert_se(streq(opts, "fmask=0022,dmask=0022"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
+        assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) <
+                  0);
 
-        assert_se(mount_option_mangle("mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle(
+                                  "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"",
+                                  0,
+                                  &f,
+                                  &opts) == 0);
         assert_se(f == 0);
-        assert_se(streq(opts, "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
+        assert_se(streq(opts,
+                        "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
         opts = mfree(opts);
 }
 
@@ -116,13 +135,14 @@ TEST(mount_flags_to_string) {
         test_mount_flags_to_string_one(MS_I_VERSION, "MS_I_VERSION");
         test_mount_flags_to_string_one(MS_STRICTATIME, "MS_STRICTATIME");
         test_mount_flags_to_string_one(MS_LAZYTIME, "MS_LAZYTIME");
-        test_mount_flags_to_string_one(MS_LAZYTIME|MS_STRICTATIME, "MS_STRICTATIME|MS_LAZYTIME");
-        test_mount_flags_to_string_one(UINT_MAX,
-                                       "MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_SYNCHRONOUS|MS_REMOUNT|"
-                                       "MS_MANDLOCK|MS_DIRSYNC|MS_NOSYMFOLLOW|MS_NOATIME|MS_NODIRATIME|"
-                                       "MS_BIND|MS_MOVE|MS_REC|MS_SILENT|MS_POSIXACL|MS_UNBINDABLE|"
-                                       "MS_PRIVATE|MS_SLAVE|MS_SHARED|MS_RELATIME|MS_KERNMOUNT|"
-                                       "MS_I_VERSION|MS_STRICTATIME|MS_LAZYTIME|fc000200");
+        test_mount_flags_to_string_one(MS_LAZYTIME | MS_STRICTATIME, "MS_STRICTATIME|MS_LAZYTIME");
+        test_mount_flags_to_string_one(
+                        UINT_MAX,
+                        "MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_SYNCHRONOUS|MS_REMOUNT|"
+                        "MS_MANDLOCK|MS_DIRSYNC|MS_NOSYMFOLLOW|MS_NOATIME|MS_NODIRATIME|"
+                        "MS_BIND|MS_MOVE|MS_REC|MS_SILENT|MS_POSIXACL|MS_UNBINDABLE|"
+                        "MS_PRIVATE|MS_SLAVE|MS_SHARED|MS_RELATIME|MS_KERNMOUNT|"
+                        "MS_I_VERSION|MS_STRICTATIME|MS_LAZYTIME|fc000200");
 }
 
 TEST(bind_remount_recursive) {
@@ -155,14 +175,19 @@ TEST(bind_remount_recursive) {
                         assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Make the subdir a bind mount */
-                        assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
+                        assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND | MS_REC, NULL) >= 0);
 
                         /* Ensure it's still writable */
                         assert_se(statvfs(subdir, &svfs) >= 0);
                         assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Now mark the path we currently run for read-only */
-                        assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >= 0);
+                        assert_se(bind_remount_recursive(
+                                                  p,
+                                                  MS_RDONLY,
+                                                  MS_RDONLY,
+                                                  path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >=
+                                  0);
 
                         /* Ensure that this worked on the top-level */
                         assert_se(statvfs(p, &svfs) >= 0);
@@ -199,10 +224,15 @@ TEST(bind_remount_one) {
 
                 assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
 
-                assert_se(bind_remount_one_with_mountinfo("/run", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
-                assert_se(bind_remount_one_with_mountinfo("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC, proc_self_mountinfo) >= 0);
-                assert_se(bind_remount_one_with_mountinfo("/proc/idontexist", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -ENOENT);
-                assert_se(bind_remount_one_with_mountinfo("/proc/self", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -EINVAL);
+                assert_se(bind_remount_one_with_mountinfo("/run", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >=
+                          0);
+                assert_se(bind_remount_one_with_mountinfo(
+                                          "/run", MS_NOEXEC, MS_RDONLY | MS_NOEXEC, proc_self_mountinfo) >= 0);
+                assert_se(bind_remount_one_with_mountinfo(
+                                          "/proc/idontexist", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) ==
+                          -ENOENT);
+                assert_se(bind_remount_one_with_mountinfo(
+                                          "/proc/self", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) == -EINVAL);
                 assert_se(bind_remount_one_with_mountinfo("/", MS_RDONLY, MS_RDONLY, proc_self_mountinfo) >= 0);
 
                 _exit(EXIT_SUCCESS);

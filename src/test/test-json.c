@@ -50,8 +50,7 @@ static void test_tokenizer_one(const char *data, ...) {
 
                         d = va_arg(ap, double);
 
-                        assert_se(fabsl(d - v.real) < 1e-10 ||
-                                  fabsl((d - v.real) / v.real) < 1e-10);
+                        assert_se(fabsl(d - v.real) < 1e-10 || fabsl((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
                         int64_t i;
@@ -131,7 +130,7 @@ static void test_variant_one(const char *data, Test test) {
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
-        r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
+        r = json_variant_format(v, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
@@ -164,8 +163,10 @@ static void test_1(JsonVariant *v) {
         /* check  foo[0] = 1, foo[1] = 2, foo[2] = 3 */
         for (i = 0; i < 3; ++i) {
                 q = json_variant_by_index(p, i);
-                assert_se(q && json_variant_type(q) == JSON_VARIANT_UNSIGNED && json_variant_unsigned(q) == (i+1));
-                assert_se(q && json_variant_has_type(q, JSON_VARIANT_INTEGER) && json_variant_integer(q) == (i+1));
+                assert_se(q && json_variant_type(q) == JSON_VARIANT_UNSIGNED &&
+                          json_variant_unsigned(q) == (i + 1));
+                assert_se(q && json_variant_has_type(q, JSON_VARIANT_INTEGER) &&
+                          json_variant_integer(q) == (i + 1));
         }
 
         /* has bar */
@@ -250,7 +251,11 @@ static void test_zeroes(JsonVariant *v) {
 
                 assert_se(!json_variant_is_negative(w));
 
-                assert_se(IN_SET(json_variant_type(w), JSON_VARIANT_INTEGER, JSON_VARIANT_UNSIGNED, JSON_VARIANT_REAL));
+                assert_se(
+                                IN_SET(json_variant_type(w),
+                                       JSON_VARIANT_INTEGER,
+                                       JSON_VARIANT_UNSIGNED,
+                                       JSON_VARIANT_REAL));
 
                 for (j = 0; j < json_variant_elements(v); j++) {
                         JsonVariant *q;
@@ -282,30 +287,43 @@ TEST(build) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("one", JSON_BUILD_INTEGER(7)),
-                                                   JSON_BUILD_PAIR("two", JSON_BUILD_REAL(2.0)),
-                                                   JSON_BUILD_PAIR("three", JSON_BUILD_INTEGER(0)))) >= 0);
+        assert_se(json_build(&a,
+                             JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("one", JSON_BUILD_INTEGER(7)),
+                                             JSON_BUILD_PAIR("two", JSON_BUILD_REAL(2.0)),
+                                             JSON_BUILD_PAIR("three", JSON_BUILD_INTEGER(0)))) >= 0);
 
-        assert_se(json_build(&b, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("two", JSON_BUILD_INTEGER(2)),
-                                                   JSON_BUILD_PAIR("three", JSON_BUILD_REAL(0)),
-                                                   JSON_BUILD_PAIR("one", JSON_BUILD_REAL(7)))) >= 0);
+        assert_se(json_build(&b,
+                             JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("two", JSON_BUILD_INTEGER(2)),
+                                             JSON_BUILD_PAIR("three", JSON_BUILD_REAL(0)),
+                                             JSON_BUILD_PAIR("one", JSON_BUILD_REAL(7)))) >= 0);
 
         assert_se(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        const char* arr_1234[] = {"one", "two", "three", "four", NULL};
-        assert_se(json_build(&a, JSON_BUILD_ARRAY(JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
-                                                                    JSON_BUILD_PAIR("y", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("this", JSON_BUILD_NULL)))),
-                                                  JSON_BUILD_VARIANT(NULL),
-                                                  JSON_BUILD_LITERAL(NULL),
-                                                  JSON_BUILD_STRING(NULL),
-                                                  JSON_BUILD_NULL,
-                                                  JSON_BUILD_INTEGER(77),
-                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")),
-                                                                   JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
-                                                  JSON_BUILD_STRV((char**) arr_1234))) >= 0);
+        const char *arr_1234[] = { "one", "two", "three", "four", NULL };
+        assert_se(json_build(&a,
+                             JSON_BUILD_ARRAY(
+                                             JSON_BUILD_OBJECT(
+                                                             JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
+                                                             JSON_BUILD_PAIR("y",
+                                                                             JSON_BUILD_OBJECT(JSON_BUILD_PAIR(
+                                                                                             "this",
+                                                                                             JSON_BUILD_NULL)))),
+                                             JSON_BUILD_VARIANT(NULL),
+                                             JSON_BUILD_LITERAL(NULL),
+                                             JSON_BUILD_STRING(NULL),
+                                             JSON_BUILD_NULL,
+                                             JSON_BUILD_INTEGER(77),
+                                             JSON_BUILD_ARRAY(
+                                                             JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST(
+                                                                             "foobar")),
+                                                             JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST(
+                                                                             "zzz"))),
+                                             JSON_BUILD_STRV((char **) arr_1234))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
@@ -329,48 +347,55 @@ TEST(build) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_OBJECT(
+        assert_se(json_build(&a,
+                             JSON_BUILD_OBJECT(
                                              JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
                                              JSON_BUILD_PAIR("z", JSON_BUILD_CONST_STRING("a")),
-                                             JSON_BUILD_PAIR("b", JSON_BUILD_CONST_STRING("c"))
-                             )) >= 0);
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_CONST_STRING("c")))) >= 0);
 
-        assert_se(json_build(&b, JSON_BUILD_OBJECT(
+        assert_se(json_build(&b,
+                             JSON_BUILD_OBJECT(
                                              JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
                                              JSON_BUILD_PAIR_CONDITION(false, "p", JSON_BUILD_STRING("q")),
                                              JSON_BUILD_PAIR_CONDITION(true, "z", JSON_BUILD_CONST_STRING("a")),
-                                             JSON_BUILD_PAIR_CONDITION(false, "j", JSON_BUILD_ARRAY(JSON_BUILD_STRING("k"), JSON_BUILD_CONST_STRING("u"), JSON_BUILD_CONST_STRING("i"))),
-                                             JSON_BUILD_PAIR("b", JSON_BUILD_CONST_STRING("c"))
-                             )) >= 0);
+                                             JSON_BUILD_PAIR_CONDITION(
+                                                             false,
+                                                             "j",
+                                                             JSON_BUILD_ARRAY(
+                                                                             JSON_BUILD_STRING("k"),
+                                                                             JSON_BUILD_CONST_STRING("u"),
+                                                                             JSON_BUILD_CONST_STRING("i"))),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_CONST_STRING("c")))) >= 0);
 
         assert_se(json_variant_equal(a, b));
 }
 
 TEST(source) {
         static const char data[] =
-                "\n"
-                "\n"
-                "{\n"
-                "\"foo\" : \"bar\", \n"
-                "\"qüüx\" : [ 1, 2, 3,\n"
-                "4,\n"
-                "5 ],\n"
-                "\"miep\" : { \"hallo\" : 1 },\n"
-                "\n"
-                "\"zzzzzz\" \n"
-                ":\n"
-                "[ true, \n"
-                "false, 7.5, {} ]\n"
-                "}\n";
+                        "\n"
+                        "\n"
+                        "{\n"
+                        "\"foo\" : \"bar\", \n"
+                        "\"qüüx\" : [ 1, 2, 3,\n"
+                        "4,\n"
+                        "5 ],\n"
+                        "\"miep\" : { \"hallo\" : 1 },\n"
+                        "\n"
+                        "\"zzzzzz\" \n"
+                        ":\n"
+                        "[ true, \n"
+                        "false, 7.5, {} ]\n"
+                        "}\n";
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         printf("--- original begin ---\n"
                "%s"
-               "--- original end ---\n", data);
+               "--- original end ---\n",
+               data);
 
-        assert_se(f = fmemopen_unlocked((void*) data, strlen(data), "r"));
+        assert_se(f = fmemopen_unlocked((void *) data, strlen(data), "r"));
 
         assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) >= 0);
 
@@ -379,7 +404,7 @@ TEST(source) {
         printf("\n--- non-pretty end ---\n");
 
         printf("--- pretty begin ---\n");
-        json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR|JSON_FORMAT_SOURCE, stdout, NULL);
+        json_variant_dump(v, JSON_FORMAT_PRETTY | JSON_FORMAT_COLOR | JSON_FORMAT_SOURCE, stdout, NULL);
         printf("--- pretty end ---\n");
 }
 
@@ -398,7 +423,8 @@ TEST(depth) {
                 if (i & 1)
                         r = json_variant_new_array(&w, &v, 1);
                 else
-                        r = json_variant_new_object(&w, (JsonVariant*[]) { JSON_VARIANT_STRING_CONST("key"), v }, 2);
+                        r = json_variant_new_object(
+                                        &w, (JsonVariant *[]){ JSON_VARIANT_STRING_CONST("key"), v }, 2);
                 if (r == -ELNRNG) {
                         log_info("max depth at %u", i);
                         break;
@@ -425,7 +451,8 @@ TEST(normalize) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
 
-        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+        assert_se(json_build(&v,
+                             JSON_BUILD_OBJECT(
                                              JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")),
                                              JSON_BUILD_PAIR("c", JSON_BUILD_CONST_STRING("y")),
                                              JSON_BUILD_PAIR("a", JSON_BUILD_CONST_STRING("z")))) >= 0);
@@ -437,7 +464,8 @@ TEST(normalize) {
         assert_se(streq(t, "{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}"));
         t = mfree(t);
 
-        assert_se(json_build(&w, JSON_BUILD_OBJECT(
+        assert_se(json_build(&w,
+                             JSON_BUILD_OBJECT(
                                              JSON_BUILD_PAIR("bar", JSON_BUILD_STRING("zzz")),
                                              JSON_BUILD_PAIR("foo", JSON_BUILD_VARIANT(v)))) >= 0);
 
@@ -476,11 +504,11 @@ TEST(bisect) {
                         continue;
 
                 _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-                assert_se(json_variant_new_stringn(&w, (char[4]) { '<', c, c, '>' }, 4) >= 0);
-                assert_se(json_variant_set_field(&v, (char[2]) { c, 0 }, w) >= 0);
+                assert_se(json_variant_new_stringn(&w, (char[4]){ '<', c, c, '>' }, 4) >= 0);
+                assert_se(json_variant_set_field(&v, (char[2]){ c, 0 }, w) >= 0);
         }
 
-        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+        json_variant_dump(v, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, NULL, NULL);
 
         assert_se(!json_variant_is_sorted(v));
         assert_se(!json_variant_is_normalized(v));
@@ -488,13 +516,13 @@ TEST(bisect) {
         assert_se(json_variant_is_sorted(v));
         assert_se(json_variant_is_normalized(v));
 
-        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+        json_variant_dump(v, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, NULL, NULL);
 
         for (char c = 'a'; c <= 'z'; c++) {
                 JsonVariant *k;
                 const char *z;
 
-                k = json_variant_by_key(v, (char[2]) { c, 0 });
+                k = json_variant_by_key(v, (char[2]){ c, 0 });
                 assert_se(!k == ((c % 3) == 0));
 
                 if (!k)
@@ -502,7 +530,7 @@ TEST(bisect) {
 
                 assert_se(json_variant_is_string(k));
 
-                z = (char[5]){ '<', c, c, '>', 0};
+                z = (char[5]){ '<', c, c, '>', 0 };
                 assert_se(streq(json_variant_string(k), z));
         }
 }
@@ -512,13 +540,16 @@ static void test_float_match(JsonVariant *v) {
 
         assert_se(json_variant_is_array(v));
         assert_se(json_variant_elements(v) == 9);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
+        assert_se(fabsl((double) 1.0 - ((double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <=
+                  delta);
+        assert_se(fabsl((double) 1.0 - ((double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <=
+                  delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
-                  fabsl((double) 1.0 - ((double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+                  fabsl((double) 1.0 - ((double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <=
+                                  delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
                   json_variant_is_integer(json_variant_by_index(v, 6)) &&
                   json_variant_integer(json_variant_by_index(v, 6)) == 0);
@@ -534,7 +565,8 @@ TEST(float) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *text = NULL;
 
-        assert_se(json_build(&v, JSON_BUILD_ARRAY(
+        assert_se(json_build(&v,
+                             JSON_BUILD_ARRAY(
                                              JSON_BUILD_REAL(DBL_MIN),
                                              JSON_BUILD_REAL(DBL_MAX),
                                              JSON_BUILD_REAL(NAN),
@@ -545,14 +577,14 @@ TEST(float) {
                                              JSON_BUILD_REAL(10),
                                              JSON_BUILD_REAL(-10))) >= 0);
 
-        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+        json_variant_dump(v, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, NULL, NULL);
 
         test_float_match(v);
 
         assert_se(json_variant_format(v, 0, &text) >= 0);
         assert_se(json_parse(text, 0, &w, NULL, NULL) >= 0);
 
-        json_variant_dump(w, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+        json_variant_dump(w, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, NULL, NULL);
 
         test_float_match(w);
 }
@@ -588,8 +620,16 @@ TEST(tokenizer) {
         test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
         test_tokenizer_one("18446744073709551615", JSON_TOKEN_UNSIGNED, (uint64_t) UINT64_MAX, JSON_TOKEN_END);
         test_tokenizer_one("-9223372036854775808", JSON_TOKEN_INTEGER, (int64_t) INT64_MIN, JSON_TOKEN_END);
-        test_tokenizer_one("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
-        test_tokenizer_one("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
+        test_tokenizer_one(
+                        "18446744073709551616",
+                        JSON_TOKEN_REAL,
+                        (double) 18446744073709551616.0L,
+                        JSON_TOKEN_END);
+        test_tokenizer_one(
+                        "-9223372036854775809",
+                        JSON_TOKEN_REAL,
+                        (double) -9223372036854775809.0L,
+                        JSON_TOKEN_END);
         test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
         test_tokenizer_one("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
         test_tokenizer_one("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
@@ -605,8 +645,31 @@ TEST(tokenizer) {
         test_tokenizer_one("\"\"", JSON_TOKEN_STRING, "", JSON_TOKEN_END);
         test_tokenizer_one("\"foo\"", JSON_TOKEN_STRING, "foo", JSON_TOKEN_END);
         test_tokenizer_one("\"foo\\nfoo\"", JSON_TOKEN_STRING, "foo\nfoo", JSON_TOKEN_END);
-        test_tokenizer_one("{\"foo\" : \"bar\"}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_STRING, "bar", JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer_one("{\"foo\" : [true, false]}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_COMMA, JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one(
+                        "{\"foo\" : \"bar\"}",
+                        JSON_TOKEN_OBJECT_OPEN,
+                        JSON_TOKEN_STRING,
+                        "foo",
+                        JSON_TOKEN_COLON,
+                        JSON_TOKEN_STRING,
+                        "bar",
+                        JSON_TOKEN_OBJECT_CLOSE,
+                        JSON_TOKEN_END);
+        test_tokenizer_one(
+                        "{\"foo\" : [true, false]}",
+                        JSON_TOKEN_OBJECT_OPEN,
+                        JSON_TOKEN_STRING,
+                        "foo",
+                        JSON_TOKEN_COLON,
+                        JSON_TOKEN_ARRAY_OPEN,
+                        JSON_TOKEN_BOOLEAN,
+                        true,
+                        JSON_TOKEN_COMMA,
+                        JSON_TOKEN_BOOLEAN,
+                        false,
+                        JSON_TOKEN_ARRAY_CLOSE,
+                        JSON_TOKEN_OBJECT_CLOSE,
+                        JSON_TOKEN_END);
         test_tokenizer_one("\"\xef\xbf\xbd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
         test_tokenizer_one("\"\\ufffd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
         test_tokenizer_one("\"\\uf\"", -EINVAL);
@@ -614,15 +677,33 @@ TEST(tokenizer) {
         test_tokenizer_one("\"\\udc00\\udc00\"", -EINVAL);
         test_tokenizer_one("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
 
-        test_tokenizer_one("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uint64_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uint64_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (int64_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer_one(
+                        "[1, 2, -3]",
+                        JSON_TOKEN_ARRAY_OPEN,
+                        JSON_TOKEN_UNSIGNED,
+                        (uint64_t) 1,
+                        JSON_TOKEN_COMMA,
+                        JSON_TOKEN_UNSIGNED,
+                        (uint64_t) 2,
+                        JSON_TOKEN_COMMA,
+                        JSON_TOKEN_INTEGER,
+                        (int64_t) -3,
+                        JSON_TOKEN_ARRAY_CLOSE,
+                        JSON_TOKEN_END);
 }
 
 TEST(variant) {
         test_variant_one("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
-        test_variant_one("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
-        test_variant_one("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
+        test_variant_one(
+                        "{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}",
+                        test_2);
+        test_variant_one(
+                        "{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}",
+                        NULL);
 
-        test_variant_one("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
+        test_variant_one(
+                        "[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]",
+                        test_zeroes);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

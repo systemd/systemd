@@ -18,10 +18,7 @@ static void load_bcd(const char *path, void **ret_bcd, size_t *ret_bcd_len) {
         assert_se(decompress_blob_zstd(compressed, len, ret_bcd, ret_bcd_len, SIZE_MAX) >= 0);
 }
 
-static void test_get_bcd_title_one(
-                const char *path,
-                const char16_t *title_expect,
-                size_t title_len_expect) {
+static void test_get_bcd_title_one(const char *path, const char16_t *title_expect, size_t title_len_expect) {
 
         size_t len;
         _cleanup_free_ void *bcd = NULL;
@@ -140,14 +137,14 @@ TEST(argv_bcds) {
                 _cleanup_free_ void *bcd = NULL;
 
                 assert_se(read_full_file_full(
-                        AT_FDCWD,
-                        saved_argv[i],
-                        UINT64_MAX,
-                        SIZE_MAX,
-                        0,
-                        NULL,
-                        (char **) &bcd,
-                        &len) >= 0);
+                                          AT_FDCWD,
+                                          saved_argv[i],
+                                          UINT64_MAX,
+                                          SIZE_MAX,
+                                          0,
+                                          NULL,
+                                          (char **) &bcd,
+                                          &len) >= 0);
 
                 char16_t *title = get_bcd_title(bcd, len);
                 if (title) {

@@ -16,7 +16,7 @@ static void test_sha256_one(const char *key, const char *expect) {
 
         log_debug("\"%s\" → %s", key, expect);
 
-        assert_se(str = new(char, strlen(key) + 4));
+        assert_se(str = new (char, strlen(key) + 4));
 
         /* This tests unaligned buffers. */
 

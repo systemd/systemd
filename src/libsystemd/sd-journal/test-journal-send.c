@@ -23,28 +23,18 @@ TEST(journal_print) {
 TEST(journal_send) {
         _cleanup_free_ char *huge = NULL;
 
-#define HUGE_SIZE (4096*1024)
+#define HUGE_SIZE (4096 * 1024)
         assert_se(huge = malloc(HUGE_SIZE));
 
         /* utf-8 and non-utf-8, message-less and message-ful iovecs */
-        struct iovec graph1[] = {
-                {(char*) "GRAPH=graph", STRLEN("GRAPH=graph")}
-        };
-        struct iovec graph2[] = {
-                {(char*) "GRAPH=graph\n", STRLEN("GRAPH=graph\n")}
-        };
-        struct iovec message1[] = {
-                {(char*) "MESSAGE=graph", STRLEN("MESSAGE=graph")}
-        };
-        struct iovec message2[] = {
-                {(char*) "MESSAGE=graph\n", STRLEN("MESSAGE=graph\n")}
-        };
+        struct iovec graph1[] = { { (char *) "GRAPH=graph", STRLEN("GRAPH=graph") } };
+        struct iovec graph2[] = { { (char *) "GRAPH=graph\n", STRLEN("GRAPH=graph\n") } };
+        struct iovec message1[] = { { (char *) "MESSAGE=graph", STRLEN("MESSAGE=graph") } };
+        struct iovec message2[] = { { (char *) "MESSAGE=graph\n", STRLEN("MESSAGE=graph\n") } };
 
         assert_se(sd_journal_print(LOG_INFO, "piepapo") == 0);
 
-        assert_se(sd_journal_send("MESSAGE=foobar",
-                                  "VALUE=%i", 7,
-                                  NULL) == 0);
+        assert_se(sd_journal_send("MESSAGE=foobar", "VALUE=%i", 7, NULL) == 0);
 
         errno = ENOENT;
         assert_se(sd_journal_perror("Foobar") == 0);
@@ -55,9 +45,7 @@ TEST(journal_send) {
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
         huge[HUGE_SIZE - 1] = '\0';
 
-        assert_se(sd_journal_send("MESSAGE=Huge field attached",
-                                  huge,
-                                  NULL) == 0);
+        assert_se(sd_journal_send("MESSAGE=Huge field attached", huge, NULL) == 0);
 
         assert_se(sd_journal_send("MESSAGE=uiui",
                                   "VALUE=A",
@@ -76,10 +64,14 @@ TEST(journal_send) {
         assert_se(sd_journal_send("MESSAGE=Hello World!",
                                   "MESSAGE_ID=52fb62f99e2c49d89cfbf9d6de5e3555",
                                   "PRIORITY=5",
-                                  "HOME=%s", getenv("HOME"),
-                                  "TERM=%s", getenv("TERM"),
-                                  "PAGE_SIZE=%li", sysconf(_SC_PAGESIZE),
-                                  "N_CPUS=%li", sysconf(_SC_NPROCESSORS_ONLN),
+                                  "HOME=%s",
+                                  getenv("HOME"),
+                                  "TERM=%s",
+                                  getenv("TERM"),
+                                  "PAGE_SIZE=%li",
+                                  sysconf(_SC_PAGESIZE),
+                                  "N_CPUS=%li",
+                                  sysconf(_SC_NPROCESSORS_ONLN),
                                   NULL) == 0);
 
         assert_se(sd_journal_sendv(graph1, 1) == 0);

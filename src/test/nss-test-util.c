@@ -7,7 +7,7 @@
 #include "nss-test-util.h"
 #include "string-util.h"
 
-const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
+const char *nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
         switch (status) {
         case NSS_STATUS_TRYAGAIN:
                 return "NSS_STATUS_TRYAGAIN";
@@ -25,7 +25,7 @@ const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_l
         }
 };
 
-void* nss_open_handle(const char *dir, const char *module, int flags) {
+void *nss_open_handle(const char *dir, const char *module, int flags) {
         const char *path = NULL;
         void *handle;
 

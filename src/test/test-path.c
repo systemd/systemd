@@ -22,8 +22,14 @@
 typedef void (*test_function_t)(Manager *m);
 
 static int setup_test(Manager **m) {
-        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
-                                      "directorynotempty", "makedirectory");
+        char **tests_path = STRV_MAKE(
+                        "exists",
+                        "existsglobFOOBAR",
+                        "changed",
+                        "modified",
+                        "unit",
+                        "directorynotempty",
+                        "makedirectory");
         Manager *tmp = NULL;
         int r;
 
@@ -45,7 +51,7 @@ static int setup_test(Manager **m) {
                 p = strjoin("/tmp/test-path_", *test_path);
                 assert_se(p);
 
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL);
         }
 
         *m = tmp;
@@ -76,8 +82,13 @@ static Service *service_for_path(Manager *m, Path *path, const char *service_nam
         return SERVICE(service_unit);
 }
 
-static int _check_states(unsigned line,
-                         Manager *m, Path *path, Service *service, PathState path_state, ServiceState service_state) {
+static int
+                _check_states(unsigned line,
+                              Manager *m,
+                              Path *path,
+                              Service *service,
+                              PathState path_state,
+                              ServiceState service_state) {
         assert_se(m);
         assert_se(service);
 
@@ -101,17 +112,17 @@ static int _check_states(unsigned line,
                          service_state_to_string(service->state),
                          service_result_to_string(service->result));
 
-                if (service->state == SERVICE_FAILED &&
-                    service->main_exec_status.status == EXIT_CGROUP &&
+                if (service->state == SERVICE_FAILED && service->main_exec_status.status == EXIT_CGROUP &&
                     !ci_environment())
                         /* On a general purpose system we may fail to start the service for reasons which are
                          * not under our control: permission limits, resource exhaustion, etc. Let's skip the
                          * test in those cases. On developer machines we require proper setup. */
-                        return log_notice_errno(SYNTHETIC_ERRNO(ECANCELED),
-                                                "Failed to start service %s, aborting test: %s/%s",
-                                                UNIT(service)->id,
-                                                service_state_to_string(service->state),
-                                                service_result_to_string(service->result));
+                        return log_notice_errno(
+                                        SYNTHETIC_ERRNO(ECANCELED),
+                                        "Failed to start service %s, aborting test: %s/%s",
+                                        UNIT(service)->id,
+                                        service_state_to_string(service->state),
+                                        service_result_to_string(service->result));
 
                 if (n >= end) {
                         log_error("Test timeout when testing %s", UNIT(path)->id);
@@ -149,7 +160,7 @@ static void test_path_exists(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
         assert_se(unit_stop(UNIT(service)) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
@@ -183,7 +194,7 @@ static void test_path_existsglob(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
         assert_se(unit_stop(UNIT(service)) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
@@ -229,7 +240,7 @@ static void test_path_changed(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL);
         assert_se(unit_stop(unit) >= 0);
 }
 
@@ -271,7 +282,7 @@ static void test_path_modified(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL);
         assert_se(unit_stop(unit) >= 0);
 }
 
@@ -296,7 +307,7 @@ static void test_path_unit(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
         assert_se(unit_stop(UNIT(service)) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
@@ -337,7 +348,7 @@ static void test_path_directorynotempty(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
         assert_se(unit_stop(UNIT(service)) >= 0);
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
@@ -368,7 +379,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         assert_se((s.st_mode & S_IRWXO) == 0004);
 
         assert_se(unit_stop(unit) >= 0);
-        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 int main(int argc, char *argv[]) {

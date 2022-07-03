@@ -35,7 +35,12 @@ TEST(string_erase) {
 
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
         log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
-                  __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
+                  __func__,
+                  strnull(*t),
+                  strnull(src),
+                  l,
+                  strnull(expected),
+                  yes_no(change));
 
         int r = free_and_strndup(t, src, l);
         assert_se(streq_ptr(*t, expected));
@@ -48,43 +53,35 @@ TEST(free_and_strndup) {
                 size_t len;
                 const char *expected;
         } cases[] = {
-                     {"abc", 0, ""},
-                     {"abc", 0, ""},
-                     {"abc", 1, "a"},
-                     {"abc", 2, "ab"},
-                     {"abc", 3, "abc"},
-                     {"abc", 4, "abc"},
-                     {"abc", 5, "abc"},
-                     {"abc", 5, "abc"},
-                     {"abc", 4, "abc"},
-                     {"abc", 3, "abc"},
-                     {"abc", 2, "ab"},
-                     {"abc", 1, "a"},
-                     {"abc", 0, ""},
+                { "abc", 0, "" },    { "abc", 0, "" },
+                { "abc", 1, "a" },   { "abc", 2, "ab" },
+                { "abc", 3, "abc" }, { "abc", 4, "abc" },
+                { "abc", 5, "abc" }, { "abc", 5, "abc" },
+                { "abc", 4, "abc" }, { "abc", 3, "abc" },
+                { "abc", 2, "ab" },  { "abc", 1, "a" },
+                { "abc", 0, "" },
 
-                     {"", 0, ""},
-                     {"", 1, ""},
-                     {"", 2, ""},
-                     {"", 0, ""},
-                     {"", 1, ""},
-                     {"", 2, ""},
-                     {"", 2, ""},
-                     {"", 1, ""},
-                     {"", 0, ""},
+                { "", 0, "" },       { "", 1, "" },
+                { "", 2, "" },       { "", 0, "" },
+                { "", 1, "" },       { "", 2, "" },
+                { "", 2, "" },       { "", 1, "" },
+                { "", 0, "" },
 
-                     {NULL, 0, NULL},
+                { NULL, 0, NULL },
 
-                     {"foo", 3, "foo"},
-                     {"foobar", 6, "foobar"},
+                { "foo", 3, "foo" }, { "foobar", 6, "foobar" },
         };
 
         _cleanup_free_ char *t = NULL;
         const char *prev_expected = t;
 
         for (unsigned i = 0; i < ELEMENTSOF(cases); i++) {
-                test_free_and_strndup_one(&t,
-                                          cases[i].src, cases[i].len, cases[i].expected,
-                                          !streq_ptr(cases[i].expected, prev_expected));
+                test_free_and_strndup_one(
+                                &t,
+                                cases[i].src,
+                                cases[i].len,
+                                cases[i].expected,
+                                !streq_ptr(cases[i].expected, prev_expected));
                 prev_expected = t;
         }
 }
@@ -376,11 +373,7 @@ TEST(strcmp_ptr) {
 TEST(foreach_word) {
         const char *test = "test abc d\te   f   ";
         const char * const expected[] = {
-                "test",
-                "abc",
-                "d",
-                "e",
-                "f",
+                "test", "abc", "d", "e", "f",
         };
 
         size_t i = 0;
@@ -399,7 +392,7 @@ TEST(foreach_word) {
         }
 }
 
-static void check(const char *test, char** expected, bool trailing) {
+static void check(const char *test, char **expected, bool trailing) {
         size_t i = 0;
         int r;
 
@@ -424,27 +417,12 @@ static void check(const char *test, char** expected, bool trailing) {
 
 TEST(foreach_word_quoted) {
         check("test a b c 'd' e '' '' hhh '' '' \"a b c\"",
-              STRV_MAKE("test",
-                        "a",
-                        "b",
-                        "c",
-                        "d",
-                        "e",
-                        "",
-                        "",
-                        "hhh",
-                        "",
-                        "",
-                        "a b c"),
+              STRV_MAKE("test", "a", "b", "c", "d", "e", "", "", "hhh", "", "", "a b c"),
               false);
 
-        check("test \"xxx",
-              STRV_MAKE("test"),
-              true);
+        check("test \"xxx", STRV_MAKE("test"), true);
 
-        check("test\\",
-              STRV_MAKE_EMPTY,
-              true);
+        check("test\\", STRV_MAKE_EMPTY, true);
 }
 
 TEST(endswith) {
@@ -476,10 +454,7 @@ TEST(delete_chars) {
 }
 
 TEST(delete_trailing_chars) {
-        char *s,
-                input1[] = " \n \r k \n \r ",
-                input2[] = "kkkkthiskkkiskkkaktestkkk",
-                input3[] = "abcdef";
+        char *s, input1[] = " \n \r k \n \r ", input2[] = "kkkkthiskkkiskkkaktestkkk", input3[] = "abcdef";
 
         s = delete_trailing_chars(input1, WHITESPACE);
         assert_se(streq(s, " \n \r k"));
@@ -499,10 +474,7 @@ TEST(delete_trailing_chars) {
 }
 
 TEST(delete_trailing_slashes) {
-        char s1[] = "foobar//",
-             s2[] = "foobar/",
-             s3[] = "foobar",
-             s4[] = "";
+        char s1[] = "foobar//", s2[] = "foobar/", s3[] = "foobar", s4[] = "";
 
         assert_se(streq(delete_trailing_chars(s1, "_"), "foobar//"));
         assert_se(streq(delete_trailing_chars(s1, "/"), "foobar"));
@@ -512,9 +484,7 @@ TEST(delete_trailing_slashes) {
 }
 
 TEST(skip_leading_chars) {
-        char input1[] = " \n \r k \n \r ",
-                input2[] = "kkkkthiskkkiskkkaktestkkk",
-                input3[] = "abcdef";
+        char input1[] = " \n \r k \n \r ", input2[] = "kkkkthiskkkiskkkaktestkkk", input3[] = "abcdef";
 
         assert_se(streq(skip_leading_chars(input1, WHITESPACE), "k \n \r "));
         assert_se(streq(skip_leading_chars(input2, "k"), "thiskkkiskkkaktestkkk"));
@@ -599,13 +569,14 @@ TEST(memory_startswith_no_case) {
         assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
         assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
 
-        assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
-        assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
-        assert_se(memory_startswith_no_case((char[2]){'X', 'x'}, 2, "Xx"));
-        assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
+        assert_se(memory_startswith_no_case((char[2]){ 'x', 'x' }, 2, "xx"));
+        assert_se(memory_startswith_no_case((char[2]){ 'x', 'X' }, 2, "xX"));
+        assert_se(memory_startswith_no_case((char[2]){ 'X', 'x' }, 2, "Xx"));
+        assert_se(memory_startswith_no_case((char[2]){ 'X', 'X' }, 2, "XX"));
 }
 
-static void test_string_truncate_lines_one(const char *input, size_t n_lines, const char *output, bool truncation) {
+static void test_string_truncate_lines_one(
+                const char *input, size_t n_lines, const char *output, bool truncation) {
         _cleanup_free_ char *b = NULL;
         int k;
 
@@ -780,10 +751,10 @@ TEST(string_contains_word_strv) {
 }
 
 TEST(string_contains_word) {
-        assert_se( string_contains_word("a b cc", NULL, "a"));
-        assert_se( string_contains_word("a b cc", NULL, "b"));
+        assert_se(string_contains_word("a b cc", NULL, "a"));
+        assert_se(string_contains_word("a b cc", NULL, "b"));
         assert_se(!string_contains_word("a b cc", NULL, "c"));
-        assert_se( string_contains_word("a b cc", NULL, "cc"));
+        assert_se(string_contains_word("a b cc", NULL, "cc"));
         assert_se(!string_contains_word("a b cc", NULL, "d"));
         assert_se(!string_contains_word("a b cc", NULL, "a b"));
         assert_se(!string_contains_word("a b cc", NULL, "a b c"));
@@ -793,10 +764,10 @@ TEST(string_contains_word) {
         assert_se(!string_contains_word("a b cc", NULL, " b "));
         assert_se(!string_contains_word("a b cc", NULL, " cc"));
 
-        assert_se( string_contains_word("  a  b\t\tcc", NULL, "a"));
-        assert_se( string_contains_word("  a  b\t\tcc", NULL, "b"));
+        assert_se(string_contains_word("  a  b\t\tcc", NULL, "a"));
+        assert_se(string_contains_word("  a  b\t\tcc", NULL, "b"));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, "c"));
-        assert_se( string_contains_word("  a  b\t\tcc", NULL, "cc"));
+        assert_se(string_contains_word("  a  b\t\tcc", NULL, "cc"));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, "d"));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, "a b"));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, "a b\t\tc"));
@@ -809,28 +780,28 @@ TEST(string_contains_word) {
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, ""));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, " "));
         assert_se(!string_contains_word("  a  b\t\tcc", NULL, "  "));
-        assert_se( string_contains_word("  a  b\t\tcc", " ", ""));
-        assert_se( string_contains_word("  a  b\t\tcc", "\t", ""));
-        assert_se( string_contains_word("  a  b\t\tcc", WHITESPACE, ""));
+        assert_se(string_contains_word("  a  b\t\tcc", " ", ""));
+        assert_se(string_contains_word("  a  b\t\tcc", "\t", ""));
+        assert_se(string_contains_word("  a  b\t\tcc", WHITESPACE, ""));
 
-        assert_se( string_contains_word("a:b:cc", ":#", "a"));
-        assert_se( string_contains_word("a:b:cc", ":#", "b"));
+        assert_se(string_contains_word("a:b:cc", ":#", "a"));
+        assert_se(string_contains_word("a:b:cc", ":#", "b"));
         assert_se(!string_contains_word("a:b:cc", ":#", "c"));
-        assert_se( string_contains_word("a:b:cc", ":#", "cc"));
+        assert_se(string_contains_word("a:b:cc", ":#", "cc"));
         assert_se(!string_contains_word("a:b:cc", ":#", "d"));
         assert_se(!string_contains_word("a:b:cc", ":#", "a:b"));
         assert_se(!string_contains_word("a:b:cc", ":#", "a:b:c"));
         assert_se(!string_contains_word("a:b:cc", ":#", "b:c"));
         assert_se(!string_contains_word("a#b#cc", ":#", "b:cc"));
-        assert_se( string_contains_word("a#b#cc", ":#", "b"));
-        assert_se( string_contains_word("a#b#cc", ":#", "cc"));
+        assert_se(string_contains_word("a#b#cc", ":#", "b"));
+        assert_se(string_contains_word("a#b#cc", ":#", "cc"));
         assert_se(!string_contains_word("a:b:cc", ":#", "a:"));
         assert_se(!string_contains_word("a:b cc", ":#", "b"));
-        assert_se( string_contains_word("a:b cc", ":#", "b cc"));
+        assert_se(string_contains_word("a:b cc", ":#", "b cc"));
         assert_se(!string_contains_word("a:b:cc", ":#", ":cc"));
 }
 
-static void test_strverscmp_improved_one(const char* a, const char *b, int expected) {
+static void test_strverscmp_improved_one(const char *a, const char *b, int expected) {
         int r = strverscmp_improved(a, b);
 
         log_info("'%s' %s '%s'%s",
@@ -852,31 +823,10 @@ static void test_strverscmp_improved_newer(const char *older, const char *newer)
 
 TEST(strverscmp_improved) {
         static const char * const versions[] = {
-                "~1",
-                "",
-                "ab",
-                "abb",
-                "abc",
-                "0001",
-                "002",
-                "12",
-                "122",
-                "122.9",
-                "123~rc1",
-                "123",
-                "123-a",
-                "123-a.1",
-                "123-a1",
-                "123-a1.1",
-                "123-3",
-                "123-3.1",
-                "123^patch1",
-                "123^1",
-                "123.a-1",
-                "123.1-1",
-                "123a-1",
-                "124",
-                NULL,
+                "~1",      "",         "ab",    "abb",     "abc",        "0001",  "002",
+                "12",      "122",      "122.9", "123~rc1", "123",        "123-a", "123-a.1",
+                "123-a1",  "123-a1.1", "123-3", "123-3.1", "123^patch1", "123^1", "123.a-1",
+                "123.1-1", "123a-1",   "124",   NULL,
         };
 
         STRV_FOREACH(p, versions)
@@ -948,8 +898,7 @@ TEST(strverscmp_improved) {
         assert_se(strverscmp_improved("1๐๑๒๓๔๕๖๗๘๙", "1") == 0);
 }
 
-#define RPMVERCMP(a, b, c) \
-        test_strverscmp_improved_one(STRINGIFY(a), STRINGIFY(b), (c))
+#define RPMVERCMP(a, b, c) test_strverscmp_improved_one(STRINGIFY(a), STRINGIFY(b), (c))
 
 TEST(strverscmp_improved_rpm) {
         /* Tests copied from rmp's rpmio test suite, under the LGPL license:
@@ -977,18 +926,18 @@ TEST(strverscmp_improved_rpm) {
         RPMVERCMP(5.5p1, 5.5p10, -1);
         RPMVERCMP(5.5p10, 5.5p1, 1);
 
-        RPMVERCMP(10xyz, 10.1xyz, 1);    /* Note: this is reversed from rpm's vercmp */
-        RPMVERCMP(10.1xyz, 10xyz, -1);   /* Note: this is reversed from rpm's vercmp */
+        RPMVERCMP(10xyz, 10.1xyz, 1);  /* Note: this is reversed from rpm's vercmp */
+        RPMVERCMP(10.1xyz, 10xyz, -1); /* Note: this is reversed from rpm's vercmp */
 
         RPMVERCMP(xyz10, xyz10, 0);
-        RPMVERCMP(xyz10, xyz10.1, -1);
-        RPMVERCMP(xyz10.1, xyz10, 1);
+        RPMVERCMP(xyz10, xyz10 .1, -1);
+        RPMVERCMP(xyz10 .1, xyz10, 1);
 
-        RPMVERCMP(xyz.4, xyz.4, 0);
-        RPMVERCMP(xyz.4, 8, -1);
-        RPMVERCMP(8, xyz.4, 1);
-        RPMVERCMP(xyz.4, 2, -1);
-        RPMVERCMP(2, xyz.4, 1);
+        RPMVERCMP(xyz .4, xyz .4, 0);
+        RPMVERCMP(xyz .4, 8, -1);
+        RPMVERCMP(8, xyz .4, 1);
+        RPMVERCMP(xyz .4, 2, -1);
+        RPMVERCMP(2, xyz .4, 1);
 
         RPMVERCMP(5.5p2, 5.6p1, -1);
         RPMVERCMP(5.6p1, 5.5p2, 1);
@@ -1020,58 +969,58 @@ TEST(strverscmp_improved_rpm) {
         RPMVERCMP(20101122, 20101121, 1);
 
         RPMVERCMP(2_0, 2_0, 0);
-        RPMVERCMP(2.0, 2_0, -1);   /* Note: in rpm those compare equal */
-        RPMVERCMP(2_0, 2.0, 1);    /* Note: in rpm those compare equal */
+        RPMVERCMP(2.0, 2_0, -1); /* Note: in rpm those compare equal */
+        RPMVERCMP(2_0, 2.0, 1);  /* Note: in rpm those compare equal */
 
         /* RhBug:178798 case */
         RPMVERCMP(a, a, 0);
-        RPMVERCMP(a+, a+, 0);
-        RPMVERCMP(a+, a_, 0);
-        RPMVERCMP(a_, a+, 0);
+        RPMVERCMP(a +, a +, 0);
+        RPMVERCMP(a +, a_, 0);
+        RPMVERCMP(a_, a +, 0);
         RPMVERCMP(+a, +a, 0);
         RPMVERCMP(+a, _a, 0);
         RPMVERCMP(_a, +a, 0);
         RPMVERCMP(+_, +_, 0);
-        RPMVERCMP(_+, +_, 0);
-        RPMVERCMP(_+, _+, 0);
+        RPMVERCMP(_ +, +_, 0);
+        RPMVERCMP(_ +, _ +, 0);
         RPMVERCMP(+, _, 0);
         RPMVERCMP(_, +, 0);
 
         /* Basic testcases for tilde sorting */
-        RPMVERCMP(1.0~rc1, 1.0~rc1, 0);
-        RPMVERCMP(1.0~rc1, 1.0, -1);
-        RPMVERCMP(1.0, 1.0~rc1, 1);
-        RPMVERCMP(1.0~rc1, 1.0~rc2, -1);
-        RPMVERCMP(1.0~rc2, 1.0~rc1, 1);
-        RPMVERCMP(1.0~rc1~git123, 1.0~rc1~git123, 0);
-        RPMVERCMP(1.0~rc1~git123, 1.0~rc1, -1);
-        RPMVERCMP(1.0~rc1, 1.0~rc1~git123, 1);
+        RPMVERCMP(1.0 ~rc1, 1.0 ~rc1, 0);
+        RPMVERCMP(1.0 ~rc1, 1.0, -1);
+        RPMVERCMP(1.0, 1.0 ~rc1, 1);
+        RPMVERCMP(1.0 ~rc1, 1.0 ~rc2, -1);
+        RPMVERCMP(1.0 ~rc2, 1.0 ~rc1, 1);
+        RPMVERCMP(1.0 ~rc1 ~git123, 1.0 ~rc1 ~git123, 0);
+        RPMVERCMP(1.0 ~rc1 ~git123, 1.0 ~rc1, -1);
+        RPMVERCMP(1.0 ~rc1, 1.0 ~rc1 ~git123, 1);
 
         /* Basic testcases for caret sorting */
-        RPMVERCMP(1.0^, 1.0^, 0);
-        RPMVERCMP(1.0^, 1.0, 1);
-        RPMVERCMP(1.0, 1.0^, -1);
-        RPMVERCMP(1.0^git1, 1.0^git1, 0);
-        RPMVERCMP(1.0^git1, 1.0, 1);
-        RPMVERCMP(1.0, 1.0^git1, -1);
-        RPMVERCMP(1.0^git1, 1.0^git2, -1);
-        RPMVERCMP(1.0^git2, 1.0^git1, 1);
-        RPMVERCMP(1.0^git1, 1.01, -1);
-        RPMVERCMP(1.01, 1.0^git1, 1);
-        RPMVERCMP(1.0^20160101, 1.0^20160101, 0);
-        RPMVERCMP(1.0^20160101, 1.0.1, -1);
-        RPMVERCMP(1.0.1, 1.0^20160101, 1);
-        RPMVERCMP(1.0^20160101^git1, 1.0^20160101^git1, 0);
-        RPMVERCMP(1.0^20160102, 1.0^20160101^git1, 1);
-        RPMVERCMP(1.0^20160101^git1, 1.0^20160102, -1);
+        RPMVERCMP(1.0 ^, 1.0 ^, 0);
+        RPMVERCMP(1.0 ^, 1.0, 1);
+        RPMVERCMP(1.0, 1.0 ^, -1);
+        RPMVERCMP(1.0 ^ git1, 1.0 ^ git1, 0);
+        RPMVERCMP(1.0 ^ git1, 1.0, 1);
+        RPMVERCMP(1.0, 1.0 ^ git1, -1);
+        RPMVERCMP(1.0 ^ git1, 1.0 ^ git2, -1);
+        RPMVERCMP(1.0 ^ git2, 1.0 ^ git1, 1);
+        RPMVERCMP(1.0 ^ git1, 1.01, -1);
+        RPMVERCMP(1.01, 1.0 ^ git1, 1);
+        RPMVERCMP(1.0 ^ 20160101, 1.0 ^ 20160101, 0);
+        RPMVERCMP(1.0 ^ 20160101, 1.0.1, -1);
+        RPMVERCMP(1.0.1, 1.0 ^ 20160101, 1);
+        RPMVERCMP(1.0 ^ 20160101 ^ git1, 1.0 ^ 20160101 ^ git1, 0);
+        RPMVERCMP(1.0 ^ 20160102, 1.0 ^ 20160101 ^ git1, 1);
+        RPMVERCMP(1.0 ^ 20160101 ^ git1, 1.0 ^ 20160102, -1);
 
         /* Basic testcases for tilde and caret sorting */
-        RPMVERCMP(1.0~rc1^git1, 1.0~rc1^git1, 0);
-        RPMVERCMP(1.0~rc1^git1, 1.0~rc1, 1);
-        RPMVERCMP(1.0~rc1, 1.0~rc1^git1, -1);
-        RPMVERCMP(1.0^git1~pre, 1.0^git1~pre, 0);
-        RPMVERCMP(1.0^git1, 1.0^git1~pre, 1);
-        RPMVERCMP(1.0^git1~pre, 1.0^git1, -1);
+        RPMVERCMP(1.0 ~rc1 ^ git1, 1.0 ~rc1 ^ git1, 0);
+        RPMVERCMP(1.0 ~rc1 ^ git1, 1.0 ~rc1, 1);
+        RPMVERCMP(1.0 ~rc1, 1.0 ~rc1 ^ git1, -1);
+        RPMVERCMP(1.0 ^ git1 ~pre, 1.0 ^ git1 ~pre, 0);
+        RPMVERCMP(1.0 ^ git1, 1.0 ^ git1 ~pre, 1);
+        RPMVERCMP(1.0 ^ git1 ~pre, 1.0 ^ git1, -1);
 
         /* These are included here to document current, arguably buggy behaviors
          * for reference purposes and for easy checking against unintended
@@ -1104,10 +1053,12 @@ TEST(strextendf) {
         assert_se(streq(p, "<77><99>"));
 
         assert_se(strextendf(&p, "<%80i>", 88) >= 0);
-        assert_se(streq(p, "<77><99><                                                                              88>"));
+        assert_se(streq(p,
+                        "<77><99><                                                                              88>"));
 
         assert_se(strextendf(&p, "<%08x>", 0x1234) >= 0);
-        assert_se(streq(p, "<77><99><                                                                              88><00001234>"));
+        assert_se(streq(p,
+                        "<77><99><                                                                              88><00001234>"));
 
         p = mfree(p);
 
@@ -1118,10 +1069,12 @@ TEST(strextendf) {
         assert_se(streq(p, "<77>,<99>"));
 
         assert_se(strextendf_with_separator(&p, ",", "<%80i>", 88) >= 0);
-        assert_se(streq(p, "<77>,<99>,<                                                                              88>"));
+        assert_se(streq(p,
+                        "<77>,<99>,<                                                                              88>"));
 
         assert_se(strextendf_with_separator(&p, ",", "<%08x>", 0x1234) >= 0);
-        assert_se(streq(p, "<77>,<99>,<                                                                              88>,<00001234>"));
+        assert_se(streq(p,
+                        "<77>,<99>,<                                                                              88>,<00001234>"));
 }
 
 TEST(string_replace_char) {

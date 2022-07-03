@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_CRYPT_H
-#  include <crypt.h>
+#        include <crypt.h>
 #else
-#  include <unistd.h>
+#        include <unistd.h>
 #endif
 
 #include "strv.h"
@@ -88,22 +88,26 @@ static void test_hash_password_full(void) {
                         assert_se(test_password_many(STRV_MAKE(hashed), i) == true);
                         assert_se(test_password_many(STRV_MAKE(hashed), "foobar") == false);
                         assert_se(test_password_many(STRV_MAKE(hashed, hashed, hashed), "foobar") == false);
-                        assert_se(test_password_many(STRV_MAKE("$y$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH",
-                                                               hashed,
-                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
-                                                     i) == true);
-                        assert_se(test_password_many(STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
-                                                               hashed,
-                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
-                                                     i) == true);
-                        assert_se(test_password_many(STRV_MAKE("$y$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH",
-                                                               hashed,
-                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
-                                                     "") == false);
-                        assert_se(test_password_many(STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
-                                                               hashed,
-                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
-                                                     "") == false);
+                        assert_se(test_password_many(
+                                                  STRV_MAKE("$y$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH",
+                                                            hashed,
+                                                            "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                  i) == true);
+                        assert_se(test_password_many(
+                                                  STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
+                                                            hashed,
+                                                            "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                  i) == true);
+                        assert_se(test_password_many(
+                                                  STRV_MAKE("$y$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH",
+                                                            hashed,
+                                                            "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                  "") == false);
+                        assert_se(test_password_many(
+                                                  STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
+                                                            hashed,
+                                                            "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                  "") == false);
                 }
 }
 
@@ -111,7 +115,8 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
 #if defined(__powerpc__) && !defined(XCRYPT_VERSION_MAJOR)
-        return log_tests_skipped("crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
+        return log_tests_skipped(
+                        "crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
 #endif
 
         test_crypt_preferred_method();

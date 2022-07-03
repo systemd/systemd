@@ -41,7 +41,9 @@ static void test_bus_new_method_call(void) {
 
         assert_se(use_system_bus ? sd_bus_open_system(&bus) >= 0 : sd_bus_open_user(&bus) >= 0);
 
-        assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >= 0);
+        assert_se(sd_bus_message_new_method_call(
+                                  bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >=
+                  0);
 
         assert_se(m->n_ref == 1); /* We hold the only reference to the message */
         assert_se(bus->n_ref >= 2);

@@ -23,27 +23,24 @@ static void test_resolve_one(const char *name) {
         int r;
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
-        log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
+        log_info_errno(r, "name_to_uid_offline: %s → " UID_FMT ": %m", name, uid);
         assert_se(relaxed || r == 0);
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
-        log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
+        log_info_errno(r, "name_to_uid_offline: %s → " UID_FMT ": %m", name, uid);
         assert_se(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
-        log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
+        log_info_errno(r, "name_to_gid_offline: %s → " GID_FMT ": %m", name, gid);
         assert_se(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
-        log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
+        log_info_errno(r, "name_to_gid_offline: %s → " GID_FMT ": %m", name, gid);
         assert_se(relaxed || r == 0);
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "root",           required_argument,   NULL, 'r' },
-                {}
-        };
+        static const struct option options[] = { { "root", required_argument, NULL, 'r' }, {} };
 
         int c;
 

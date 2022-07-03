@@ -178,7 +178,7 @@ TEST(fdset_steal_first) {
 }
 
 TEST(fdset_new_array) {
-        int fds[] = {10, 11, 12, 13};
+        int fds[] = { 10, 11, 12, 13 };
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
         assert_se(fdset_new_array(&fdset, fds, 4) >= 0);

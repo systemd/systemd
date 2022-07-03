@@ -21,7 +21,7 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(sd_device_new_from_ifindex(&dev_with_netlink, ifindex) >= 0);
 
         /* check iftype */
-        log_debug("iftype: %"PRIu16" (%s)", info.iftype, strna(arphrd_to_name(info.iftype)));
+        log_debug("iftype: %" PRIu16 " (%s)", info.iftype, strna(arphrd_to_name(info.iftype)));
         assert_se(sd_device_get_sysattr_value(dev, "type", &s) >= 0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.iftype);
@@ -60,7 +60,7 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(streq(s, info.ifname));
 
         /* check mtu */
-        log_debug("mtu: %"PRIu32, info.mtu);
+        log_debug("mtu: %" PRIu32, info.mtu);
         assert_se(sd_device_get_sysattr_value(dev, "mtu", &s) >= 0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.mtu);
@@ -69,7 +69,7 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(u == info.mtu);
 
         /* check iflink */
-        log_debug("iflink: %"PRIu32, info.iflink);
+        log_debug("iflink: %" PRIu32, info.iflink);
         assert_se(sd_device_get_sysattr_value(dev, "iflink", &s) >= 0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.iflink);
@@ -78,7 +78,7 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(u == info.iflink);
 
         /* check link_mode */
-        log_debug("link_mode: %"PRIu8, info.link_mode);
+        log_debug("link_mode: %" PRIu8, info.link_mode);
         assert_se(sd_device_get_sysattr_value(dev, "link_mode", &s) >= 0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.link_mode);
@@ -94,25 +94,24 @@ static void test_link_info_one(sd_netlink *rtnl, int ifindex) {
         assert_se(streq(s, strempty(info.ifalias)));
 
         /* check netdev_group */
-        log_debug("netdev_group: %"PRIu32, info.group);
+        log_debug("netdev_group: %" PRIu32, info.group);
         assert_se(sd_device_get_sysattr_value(dev, "netdev_group", &s) >= 0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.group);
-        assert_se(device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "netdev_group", &s) >= 0);
+        assert_se(device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "netdev_group", &s) >=
+                  0);
         assert_se(safe_atou(s, &u) >= 0);
         assert_se(u == info.group);
 
         /* check phys_port_id */
-        log_debug("phys_port_id: (%s)",
-                  info.phys_port_id_supported ? "supported" : "unsupported");
+        log_debug("phys_port_id: (%s)", info.phys_port_id_supported ? "supported" : "unsupported");
         s = t = NULL;
         (void) sd_device_get_sysattr_value(dev, "phys_port_id", &s);
         (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_port_id", &t);
         assert_se(streq_ptr(s, t));
 
         /* check phys_switch_id */
-        log_debug("phys_switch_id: (%s)",
-                  info.phys_switch_id_supported ? "supported" : "unsupported");
+        log_debug("phys_switch_id: (%s)", info.phys_switch_id_supported ? "supported" : "unsupported");
         s = t = NULL;
         (void) sd_device_get_sysattr_value(dev, "phys_switch_id", &s);
         (void) device_get_sysattr_value_maybe_from_netlink(dev_with_netlink, &rtnl, "phys_switch_id", &t);

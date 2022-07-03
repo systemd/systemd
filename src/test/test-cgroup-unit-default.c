@@ -11,10 +11,9 @@
 TEST_RET(default_memory_low, .sd_booted = true) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *root, *dml,
-             *dml_passthrough, *dml_passthrough_empty, *dml_passthrough_set_dml, *dml_passthrough_set_ml,
-             *dml_override, *dml_override_empty,
-             *dml_discard, *dml_discard_empty, *dml_discard_set_ml;
+        Unit *root, *dml, *dml_passthrough, *dml_passthrough_empty, *dml_passthrough_set_dml,
+                        *dml_passthrough_set_ml, *dml_override, *dml_override_empty, *dml_discard,
+                        *dml_discard_empty, *dml_discard_set_ml;
         uint64_t dml_tree_default;
         int r;
 
@@ -51,9 +50,10 @@ TEST_RET(default_memory_low, .sd_booted = true) {
          *                                            └───────────┬───────────┘
          *                    ┌───────────────────────────────────┼───────────────────────────────────┐
          *             no new settings                   DefaultMemoryLow=15                     MemoryLow=0
-         *    ┌───────────────┴───────────────┐  ┌────────────────┴────────────────┐  ┌───────────────┴────────────────┐
-         *    │ dml-passthrough-empty.service │  │ dml-passthrough-set-dml.service │  │ dml-passthrough-set-ml.service │
-         *    └───────────────────────────────┘  └─────────────────────────────────┘  └────────────────────────────────┘
+         *    ┌───────────────┴───────────────┐  ┌────────────────┴────────────────┐
+         * ┌───────────────┴────────────────┐ │ dml-passthrough-empty.service │  │
+         * dml-passthrough-set-dml.service │  │ dml-passthrough-set-ml.service │ └───────────────────────────────┘
+         * └─────────────────────────────────┘  └────────────────────────────────┘
          *
          * 2. dml-override.slice sets DefaultMemoryLow=10. As such, dml-override-empty.service should also
          *    end up with a memory.low of 10. dml-override.slice should still have a memory.low of 50.
@@ -92,23 +92,29 @@ TEST_RET(default_memory_low, .sd_booted = true) {
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough.slice", NULL, &dml_passthrough) >= 0);
         assert_se(UNIT_GET_SLICE(dml_passthrough) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-empty.service", NULL, &dml_passthrough_empty) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-passthrough-empty.service", NULL, &dml_passthrough_empty) >= 0);
         assert_se(UNIT_GET_SLICE(dml_passthrough_empty) == dml_passthrough);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-dml.service", NULL, &dml_passthrough_set_dml) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-passthrough-set-dml.service", NULL, &dml_passthrough_set_dml) >= 0);
         assert_se(UNIT_GET_SLICE(dml_passthrough_set_dml) == dml_passthrough);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-passthrough-set-ml.service", NULL, &dml_passthrough_set_ml) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-passthrough-set-ml.service", NULL, &dml_passthrough_set_ml) >= 0);
         assert_se(UNIT_GET_SLICE(dml_passthrough_set_ml) == dml_passthrough);
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-override.slice", NULL, &dml_override) >= 0);
         assert_se(UNIT_GET_SLICE(dml_override) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-override-empty.service", NULL, &dml_override_empty) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-override-empty.service", NULL, &dml_override_empty) >= 0);
         assert_se(UNIT_GET_SLICE(dml_override_empty) == dml_override);
 
         assert_se(manager_load_startable_unit_or_warn(m, "dml-discard.slice", NULL, &dml_discard) >= 0);
         assert_se(UNIT_GET_SLICE(dml_discard) == dml);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-empty.service", NULL, &dml_discard_empty) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-discard-empty.service", NULL, &dml_discard_empty) >= 0);
         assert_se(UNIT_GET_SLICE(dml_discard_empty) == dml_discard);
-        assert_se(manager_load_startable_unit_or_warn(m, "dml-discard-set-ml.service", NULL, &dml_discard_set_ml) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(
+                                  m, "dml-discard-set-ml.service", NULL, &dml_discard_set_ml) >= 0);
         assert_se(UNIT_GET_SLICE(dml_discard_set_ml) == dml_discard);
 
         assert_se(root = UNIT_GET_SLICE(dml));

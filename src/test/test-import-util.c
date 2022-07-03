@@ -33,7 +33,8 @@ TEST(import_url_last_component) {
         test_import_url_last_component_one("x:y/z", "z", 0);
 }
 
-static void test_import_url_change_suffix_one(const char *input, size_t n, const char *suffix, const char *output, int ret) {
+static void test_import_url_change_suffix_one(
+                const char *input, size_t n, const char *suffix, const char *output, int ret) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(import_url_change_suffix(input, n, suffix, &s) == ret);
@@ -41,14 +42,26 @@ static void test_import_url_change_suffix_one(const char *input, size_t n, const
 }
 
 TEST(import_url_change_suffix) {
-        test_import_url_change_suffix_one("https://foobar/waldo/quux", 1, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux/", 1, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux///?mief", 1, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux///?mief#opopo", 1, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux/quff", 2, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux/quff/", 2, "wuff", "https://foobar/waldo/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux/quff", 0, "wuff", "https://foobar/waldo/quux/quff/wuff", 0);
-        test_import_url_change_suffix_one("https://foobar/waldo/quux/quff?aa?bb##4", 0, "wuff", "https://foobar/waldo/quux/quff/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux", 1, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux/", 1, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux///?mief", 1, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux///?mief#opopo", 1, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux/quff", 2, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux/quff/", 2, "wuff", "https://foobar/waldo/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux/quff", 0, "wuff", "https://foobar/waldo/quux/quff/wuff", 0);
+        test_import_url_change_suffix_one(
+                        "https://foobar/waldo/quux/quff?aa?bb##4",
+                        0,
+                        "wuff",
+                        "https://foobar/waldo/quux/quff/wuff",
+                        0);
         test_import_url_change_suffix_one("https://", 0, "wuff", NULL, -EINVAL);
         test_import_url_change_suffix_one("", 0, "wuff", NULL, -EINVAL);
         test_import_url_change_suffix_one(":", 0, "wuff", NULL, -EINVAL);

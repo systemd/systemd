@@ -231,9 +231,9 @@ TEST(hashmap_update) {
 TEST(hashmap_put) {
         Hashmap *m = NULL;
         int valid_hashmap_put;
-        void *val1 = (void*) "val 1";
-        void *val2 = (void*) "val 2";
-        _cleanup_free_ char* key1 = NULL;
+        void *val1 = (void *) "val 1";
+        void *val2 = (void *) "val 2";
+        _cleanup_free_ char *key1 = NULL;
 
         assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) == 1);
         assert_se(m);
@@ -262,8 +262,8 @@ TEST(hashmap_remove1) {
         r = hashmap_remove(m, "no such key");
         assert_se(r == NULL);
 
-        hashmap_put(m, "key 1", (void*) "val 1");
-        hashmap_put(m, "key 2", (void*) "val 2");
+        hashmap_put(m, "key 1", (void *) "val 1");
+        hashmap_put(m, "key 2", (void *) "val 2");
 
         r = hashmap_remove(m, "key 1");
         assert_se(streq(r, "val 1"));
@@ -349,22 +349,22 @@ TEST(hashmap_remove_and_put) {
         valid = hashmap_remove_and_put(m, "invalid key", "new key", NULL);
         assert_se(valid == -ENOENT);
 
-        valid = hashmap_put(m, "key 1", (void*) (const char *) "val 1");
+        valid = hashmap_put(m, "key 1", (void *) (const char *) "val 1");
         assert_se(valid == 1);
 
-        valid = hashmap_remove_and_put(NULL, "key 1", "key 2", (void*) (const char *) "val 2");
+        valid = hashmap_remove_and_put(NULL, "key 1", "key 2", (void *) (const char *) "val 2");
         assert_se(valid == -ENOENT);
 
-        valid = hashmap_remove_and_put(m, "key 1", "key 2", (void*) (const char *) "val 2");
+        valid = hashmap_remove_and_put(m, "key 1", "key 2", (void *) (const char *) "val 2");
         assert_se(valid == 0);
 
         r = hashmap_get(m, "key 2");
         assert_se(streq(r, "val 2"));
         assert_se(!hashmap_get(m, "key 1"));
 
-        valid = hashmap_put(m, "key 3", (void*) (const char *) "val 3");
+        valid = hashmap_put(m, "key 3", (void *) (const char *) "val 3");
         assert_se(valid == 1);
-        valid = hashmap_remove_and_put(m, "key 3", "key 2", (void*) (const char *) "val 2");
+        valid = hashmap_remove_and_put(m, "key 3", "key 2", (void *) (const char *) "val 2");
         assert_se(valid == -EEXIST);
 }
 
@@ -411,15 +411,14 @@ TEST(hashmap_remove_and_replace) {
                 hashmap_clear(m);
 
                 for (j = 1; j < 7; j++)
-                        hashmap_put(m, UINT_TO_PTR(10*i + j), UINT_TO_PTR(10*i + j));
-                valid = hashmap_remove_and_replace(m, UINT_TO_PTR(10*i + 1),
-                                                   UINT_TO_PTR(10*i + 2),
-                                                   UINT_TO_PTR(10*i + 2));
+                        hashmap_put(m, UINT_TO_PTR(10 * i + j), UINT_TO_PTR(10 * i + j));
+                valid = hashmap_remove_and_replace(
+                                m, UINT_TO_PTR(10 * i + 1), UINT_TO_PTR(10 * i + 2), UINT_TO_PTR(10 * i + 2));
                 assert_se(valid == 0);
-                assert_se(!hashmap_get(m, UINT_TO_PTR(10*i + 1)));
+                assert_se(!hashmap_get(m, UINT_TO_PTR(10 * i + 1)));
                 for (j = 2; j < 7; j++) {
-                        r = hashmap_get(m, UINT_TO_PTR(10*i + j));
-                        assert_se(r == UINT_TO_PTR(10*i + j));
+                        r = hashmap_get(m, UINT_TO_PTR(10 * i + j));
+                        assert_se(r == UINT_TO_PTR(10 * i + j));
                 }
         }
 }
@@ -445,15 +444,15 @@ TEST(hashmap_foreach_key) {
         const char *s;
         const char *key;
         static const char key_table[] =
-                "key 1\0"
-                "key 2\0"
-                "key 3\0"
-                "key 4\0";
+                        "key 1\0"
+                        "key 2\0"
+                        "key 3\0"
+                        "key 4\0";
 
         m = hashmap_new(&string_hash_ops);
 
         NULSTR_FOREACH(key, key_table)
-                hashmap_put(m, key, (void*) (const char*) "my dummy val");
+                hashmap_put(m, key, (void *) (const char *) "my dummy val");
 
         HASHMAP_FOREACH_KEY(s, key, m) {
                 assert_se(s);
@@ -700,7 +699,7 @@ TEST(hashmap_many) {
                 const struct hash_ops *ops;
                 unsigned n_entries;
         } tests[] = {
-                { "trivial_hashmap_ops",  NULL,                  slow ? 1 << 20 : 240 },
+                { "trivial_hashmap_ops", NULL, slow ? 1 << 20 : 240 },
                 { "crippled_hashmap_ops", &crippled_hashmap_ops, slow ? 1 << 14 : 140 },
         };
 
@@ -711,16 +710,19 @@ TEST(hashmap_many) {
 
                 assert_se(h = hashmap_new(tests[j].ops));
 
-                for (i = 1; i < tests[j].n_entries*3; i+=3) {
+                for (i = 1; i < tests[j].n_entries * 3; i += 3) {
                         assert_se(hashmap_put(h, UINT_TO_PTR(i), UINT_TO_PTR(i)) >= 0);
                         assert_se(PTR_TO_UINT(hashmap_get(h, UINT_TO_PTR(i))) == i);
                 }
 
-                for (i = 1; i < tests[j].n_entries*3; i++)
+                for (i = 1; i < tests[j].n_entries * 3; i++)
                         assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
 
                 log_info("%s %u <= %u * 0.8 = %g",
-                         tests[j].title, hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
+                         tests[j].title,
+                         hashmap_size(h),
+                         hashmap_buckets(h),
+                         hashmap_buckets(h) * 0.8);
 
                 assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.8);
                 assert_se(hashmap_size(h) == tests[j].n_entries);
@@ -752,7 +754,7 @@ TEST(hashmap_free) {
                 const struct hash_ops *ops;
                 unsigned expect_counter;
         } tests[] = {
-                { "string_hash_ops",      &boring_hash_ops, 2 * n_entries},
+                { "string_hash_ops", &boring_hash_ops, 2 * n_entries },
                 { "custom_free_hash_ops", &custom_hash_ops, 0 },
         };
 
@@ -814,9 +816,9 @@ TEST(hashmap_first) {
         assert_se(m);
 
         assert_se(!hashmap_first(m));
-        assert_se(hashmap_put(m, "key 1", (void*) "val 1") == 1);
+        assert_se(hashmap_put(m, "key 1", (void *) "val 1") == 1);
         assert_se(streq(hashmap_first(m), "val 1"));
-        assert_se(hashmap_put(m, "key 2", (void*) "val 2") == 1);
+        assert_se(hashmap_put(m, "key 2", (void *) "val 2") == 1);
 #ifdef ORDERED
         assert_se(streq(hashmap_first(m), "val 1"));
         assert_se(hashmap_remove(m, "key 1"));
@@ -862,9 +864,9 @@ TEST(hashmap_steal_first) {
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(hashmap_put(m, "key 1", (void*) "1") == 1);
-        assert_se(hashmap_put(m, "key 2", (void*) "22") == 1);
-        assert_se(hashmap_put(m, "key 3", (void*) "333") == 1);
+        assert_se(hashmap_put(m, "key 1", (void *) "1") == 1);
+        assert_se(hashmap_put(m, "key 2", (void *) "22") == 1);
+        assert_se(hashmap_put(m, "key 3", (void *) "333") == 1);
 
         while ((val = hashmap_steal_first(m)))
                 seen[strlen(val) - 1]++;
@@ -934,7 +936,7 @@ TEST(hashmap_reserve) {
         assert_se(hashmap_buckets(m) >= 1000);
         assert_se(hashmap_isempty(m));
 
-        assert_se(hashmap_put(m, "key 1", (void*) "val 1") == 1);
+        assert_se(hashmap_put(m, "key 1", (void *) "val 1") == 1);
 
         assert_se(hashmap_reserve(m, UINT_MAX) == -ENOMEM);
         assert_se(hashmap_reserve(m, UINT_MAX - 1) == -ENOMEM);

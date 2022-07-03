@@ -30,12 +30,10 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "action",  required_argument, NULL, 'a' },
-                { "version", no_argument,       NULL, 'V' },
-                { "help",    no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "action", required_argument, NULL, 'a' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         int r, c;
 
@@ -60,13 +58,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_command = argv[optind++];
         if (!arg_command)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Command missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command missing.");
 
         arg_syspath = argv[optind++];
         if (!arg_syspath)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "device is missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "device is missing.");
 
         return 1;
 }

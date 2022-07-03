@@ -22,8 +22,7 @@ TEST(failed_enumerate) {
         assert_se(sd_hwdb_enumerate(hwdb, NULL, &value) == -EINVAL);
 }
 
-#define DELL_MODALIAS \
-        "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY:"
+#define DELL_MODALIAS "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY:"
 
 TEST(basic_enumerate) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;

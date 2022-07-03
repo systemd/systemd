@@ -9,14 +9,14 @@
 
 #include "device-util.h"
 
-#define handle_error_errno(error, msg)                          \
-        ({                                                      \
-                errno = abs(error);                             \
-                perror(msg);                                    \
-                EXIT_FAILURE;                                   \
+#define handle_error_errno(error, msg) \
+        ({                             \
+                errno = abs(error);    \
+                perror(msg);           \
+                EXIT_FAILURE;          \
         })
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         sd_device **d = p;
 
         *d = sd_device_unref(*d);

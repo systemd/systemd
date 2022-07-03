@@ -27,37 +27,49 @@
 #include "time-util.h"
 
 #define DHCP6_CLIENT_EVENT_TEST_ADVERTISED 77
-#define IA_ID_BYTES                                                     \
-        0x0e, 0xcf, 0xa3, 0x7d
-#define IA_NA_ADDRESS1_BYTES                                            \
+#define IA_ID_BYTES 0x0e, 0xcf, 0xa3, 0x7d
+#define IA_NA_ADDRESS1_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x78, 0xee, 0x1c, 0xf3, 0x09, 0x3c, 0x55, 0xad
-#define IA_NA_ADDRESS2_BYTES                                            \
+#define IA_NA_ADDRESS2_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x78, 0xee, 0x1c, 0xf3, 0x09, 0x3c, 0x55, 0xae
-#define IA_PD_PREFIX1_BYTES                                             \
+#define IA_PD_PREFIX1_BYTES \
         0x2a, 0x02, 0x81, 0x0d, 0x98, 0x80, 0x37, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-#define IA_PD_PREFIX2_BYTES                                             \
+#define IA_PD_PREFIX2_BYTES \
         0x2a, 0x02, 0x81, 0x0d, 0x98, 0x80, 0x37, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-#define DNS1_BYTES                                                      \
+#define DNS1_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
-#define DNS2_BYTES                                                      \
+#define DNS2_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02
-#define SNTP1_BYTES                                                     \
+#define SNTP1_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03
-#define SNTP2_BYTES                                                     \
+#define SNTP2_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04
-#define NTP1_BYTES                                                      \
+#define NTP1_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05
-#define NTP2_BYTES                                                      \
+#define NTP2_BYTES \
         0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06
-#define CLIENT_ID_BYTES                                                 \
-        0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2
-#define SERVER_ID_BYTES                                                 \
-        0x00, 0x01, 0x00, 0x01, 0x19, 0x40, 0x5c, 0x53, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53
+#define CLIENT_ID_BYTES 0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2
+#define SERVER_ID_BYTES 0x00, 0x01, 0x00, 0x01, 0x19, 0x40, 0x5c, 0x53, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53
 
-static const struct in6_addr local_address =
-        { { { 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, } } };
-static const struct in6_addr mcast_address =
-        IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
+static const struct in6_addr local_address = { { {
+                0xfe,
+                0x80,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x01,
+} } };
+static const struct in6_addr mcast_address = IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
 static const struct in6_addr ia_na_address1 = { { { IA_NA_ADDRESS1_BYTES } } };
 static const struct in6_addr ia_na_address2 = { { { IA_NA_ADDRESS2_BYTES } } };
 static const struct in6_addr ia_pd_prefix1 = { { { IA_PD_PREFIX1_BYTES } } };
@@ -73,7 +85,10 @@ static const uint8_t server_id[] = { SERVER_ID_BYTES };
 static const struct ether_addr mac = {
         .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' },
 };
-static int test_fd[2] = { -1, -1, };
+static int test_fd[2] = {
+        -1,
+        -1,
+};
 static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
@@ -147,23 +162,23 @@ TEST(parse_domain) {
         _cleanup_strv_free_ char **list = NULL;
         uint8_t *data;
 
-        data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };
+        data = (uint8_t[]){ 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };
         assert_se(dhcp6_option_parse_domainname(data, 13, &domain) >= 0);
         assert_se(domain);
         assert_se(streq(domain, "example.com"));
         domain = mfree(domain);
 
-        data = (uint8_t []) { 4, 't', 'e', 's', 't' };
+        data = (uint8_t[]){ 4, 't', 'e', 's', 't' };
         assert_se(dhcp6_option_parse_domainname(data, 5, &domain) >= 0);
         assert_se(domain);
         assert_se(streq(domain, "test"));
         domain = mfree(domain);
 
-        data = (uint8_t []) { 0 };
+        data = (uint8_t[]){ 0 };
         assert_se(dhcp6_option_parse_domainname(data, 1, &domain) < 0);
 
-        data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
-                              6, 'f', 'o', 'o', 'b', 'a', 'r', 0 };
+        data = (uint8_t[]){ 7,   'e', 'x', 'a', 'm', 'p', 'l', 'e', 3,   'c', 'o',
+                            'm', 0,   6,   'f', 'o', 'o', 'b', 'a', 'r', 0 };
         assert_se(dhcp6_option_parse_domainname_list(data, 21, &list) >= 0);
         assert_se(list);
         assert_se(streq(list[0], "example.com"));
@@ -171,28 +186,54 @@ TEST(parse_domain) {
         assert_se(!list[2]);
         list = strv_free(list);
 
-        data = (uint8_t []) { 1, 'a', 0, 20, 'b', 'c' };
+        data = (uint8_t[]){ 1, 'a', 0, 20, 'b', 'c' };
         assert_se(dhcp6_option_parse_domainname_list(data, 6, &list) < 0);
 
-        data = (uint8_t []) { 0 , 0 };
+        data = (uint8_t[]){ 0, 0 };
         assert_se(dhcp6_option_parse_domainname_list(data, 2, &list) < 0);
 }
 
 TEST(option) {
         uint8_t packet[] = {
-                'F', 'O', 'O', 'H', 'O', 'G', 'E',
-                0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x07,
-                'A', 'B', 'C', 'D', 'E', 'F', 'G',
-                0x00, SD_DHCP6_OPTION_VENDOR_CLASS, 0x00, 0x09,
-                '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                'B', 'A', 'R',
+                'F',
+                'O',
+                'O',
+                'H',
+                'O',
+                'G',
+                'E',
+                0x00,
+                SD_DHCP6_OPTION_ORO,
+                0x00,
+                0x07,
+                'A',
+                'B',
+                'C',
+                'D',
+                'E',
+                'F',
+                'G',
+                0x00,
+                SD_DHCP6_OPTION_VENDOR_CLASS,
+                0x00,
+                0x09,
+                '1',
+                '2',
+                '3',
+                '4',
+                '5',
+                '6',
+                '7',
+                '8',
+                '9',
+                'B',
+                'A',
+                'R',
         };
         uint8_t result[] = {
-                'F', 'O', 'O', 'H', 'O', 'G', 'E',
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                'B', 'A', 'R',
+                'F',  'O',  'O',  'H',  'O',  'G',  'E',  0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 'B',  'A',  'R',
         };
         _cleanup_free_ uint8_t *buf = NULL;
         size_t offset, pos, optlen, outlen = sizeof(result);
@@ -209,7 +250,7 @@ TEST(option) {
         assert_se(dhcp6_option_parse(packet, 0, &offset, &optcode, &optlen, &optval) == -EBADMSG);
 
         /* Tests for reading unaligned data. */
-        assert_se(buf = new(uint8_t, sizeof(packet)));
+        assert_se(buf = new (uint8_t, sizeof(packet)));
         for (size_t i = 0; i <= 7; i++) {
                 memcpy(buf, packet + i, sizeof(packet) - i);
                 offset = 7 - i;
@@ -255,69 +296,294 @@ TEST(option) {
 TEST(option_status) {
         uint8_t option1[] = {
                 /* IA NA */
-                0x00, 0x03, 0x00, 0x12, 0x1a, 0x1d, 0x1a, 0x1d,
-                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                0x00,
+                0x03,
+                0x00,
+                0x12,
+                0x1a,
+                0x1d,
+                0x1a,
+                0x1d,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x02,
+                0x00,
+                0x02,
                 /* status option */
-                0x00, 0x0d, 0x00, 0x02, 0x00, 0x01,
+                0x00,
+                0x0d,
+                0x00,
+                0x02,
+                0x00,
+                0x01,
         };
         static const uint8_t option2[] = {
                 /* IA NA */
-                0x00, 0x03, 0x00, 0x2e, 0x1a, 0x1d, 0x1a, 0x1d,
-                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                0x00,
+                0x03,
+                0x00,
+                0x2e,
+                0x1a,
+                0x1d,
+                0x1a,
+                0x1d,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x02,
+                0x00,
+                0x02,
                 /* IA Addr */
-                0x00, 0x05, 0x00, 0x1e,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
-                0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x00,
+                0x05,
+                0x00,
+                0x1e,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x07,
+                0x08,
+                0x09,
+                0x0a,
+                0x0b,
+                0x0c,
+                0x0d,
+                0x0e,
+                0x0f,
+                0x10,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x0a,
+                0x0b,
+                0x0c,
+                0x0d,
                 /* IA address status option */
-                0x00, 0x0d, 0x00, 0x02, 0x00, 0x01,
+                0x00,
+                0x0d,
+                0x00,
+                0x02,
+                0x00,
+                0x01,
         };
         static const uint8_t option3[] = {
                 /* IA NA */
-                0x00, 0x03, 0x00, 0x34, 0x1a, 0x1d, 0x1a, 0x1d,
-                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                0x00,
+                0x03,
+                0x00,
+                0x34,
+                0x1a,
+                0x1d,
+                0x1a,
+                0x1d,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x02,
+                0x00,
+                0x02,
                 /* IA Addr */
-                0x00, 0x05, 0x00, 0x24,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
-                0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x00,
+                0x05,
+                0x00,
+                0x24,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x07,
+                0x08,
+                0x09,
+                0x0a,
+                0x0b,
+                0x0c,
+                0x0d,
+                0x0e,
+                0x0f,
+                0x10,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x0a,
+                0x0b,
+                0x0c,
+                0x0d,
                 /* IA address status option */
-                0x00, 0x0d, 0x00, 0x08, 0x00, 0x00, 'f',  'o',
-                'o',  'b',  'a',  'r',
+                0x00,
+                0x0d,
+                0x00,
+                0x08,
+                0x00,
+                0x00,
+                'f',
+                'o',
+                'o',
+                'b',
+                'a',
+                'r',
         };
         static const uint8_t option4[] = {
                 /* IA PD */
-                0x00, 0x19, 0x00, 0x2f, 0x1a, 0x1d, 0x1a, 0x1d,
-                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                0x00,
+                0x19,
+                0x00,
+                0x2f,
+                0x1a,
+                0x1d,
+                0x1a,
+                0x1d,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x02,
+                0x00,
+                0x02,
                 /* IA PD Prefix */
-                0x00, 0x1a, 0x00, 0x1f,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x80, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe,
-                0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00,
+                0x1a,
+                0x00,
+                0x1f,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x07,
+                0x08,
+                0x80,
+                0x20,
+                0x01,
+                0x0d,
+                0xb8,
+                0xde,
+                0xad,
+                0xbe,
+                0xef,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
                 0x00,
                 /* PD prefix status option */
-                0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
+                0x00,
+                0x0d,
+                0x00,
+                0x02,
+                0x00,
+                0x00,
         };
         static const uint8_t option5[] = {
                 /* IA PD */
-                0x00, 0x19, 0x00, 0x52, 0x1a, 0x1d, 0x1a, 0x1d,
-                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                0x00,
+                0x19,
+                0x00,
+                0x52,
+                0x1a,
+                0x1d,
+                0x1a,
+                0x1d,
+                0x00,
+                0x01,
+                0x00,
+                0x01,
+                0x00,
+                0x02,
+                0x00,
+                0x02,
                 /* IA PD Prefix #1 */
-                0x00, 0x1a, 0x00, 0x1f,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x80, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe,
-                0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00,
+                0x1a,
+                0x00,
+                0x1f,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x07,
+                0x08,
+                0x80,
+                0x20,
+                0x01,
+                0x0d,
+                0xb8,
+                0xde,
+                0xad,
+                0xbe,
+                0xef,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
                 0x00,
                 /* PD prefix status option */
-                0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
+                0x00,
+                0x0d,
+                0x00,
+                0x02,
+                0x00,
+                0x00,
                 /* IA PD Prefix #2 */
-                0x00, 0x1a, 0x00, 0x1f,
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x80, 0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x0l, 0xd0,
-                0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00,
+                0x1a,
+                0x00,
+                0x1f,
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x07,
+                0x08,
+                0x80,
+                0x20,
+                0x01,
+                0x0d,
+                0xb8,
+                0xc0,
+                0x0l,
+                0xd0,
+                0x0d,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
                 0x00,
                 /* PD prefix status option */
-                0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
+                0x00,
+                0x0d,
+                0x00,
+                0x02,
+                0x00,
+                0x00,
         };
         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
         DHCP6Option *option;
@@ -326,7 +592,7 @@ TEST(option_status) {
 
         memcpy(&iaid, option1 + 4, sizeof(iaid));
 
-        option = (DHCP6Option*) option1;
+        option = (DHCP6Option *) option1;
         assert_se(sizeof(option1) == sizeof(DHCP6Option) + be16toh(option->len));
 
         r = dhcp6_option_parse_ia(NULL, 0, be16toh(option->code), be16toh(option->len), option->data, &ia);
@@ -343,12 +609,12 @@ TEST(option_status) {
         r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         assert_se(r == -EBADMSG);
 
-        option = (DHCP6Option*) option2;
+        option = (DHCP6Option *) option2;
         assert_se(sizeof(option2) == sizeof(DHCP6Option) + be16toh(option->len));
         r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         assert_se(r == -ENODATA);
 
-        option = (DHCP6Option*) option3;
+        option = (DHCP6Option *) option3;
         assert_se(sizeof(option3) == sizeof(DHCP6Option) + be16toh(option->len));
         r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         assert_se(r >= 0);
@@ -356,7 +622,7 @@ TEST(option_status) {
         assert_se(ia->addresses);
         ia = dhcp6_ia_free(ia);
 
-        option = (DHCP6Option*) option4;
+        option = (DHCP6Option *) option4;
         assert_se(sizeof(option4) == sizeof(DHCP6Option) + be16toh(option->len));
         r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         assert_se(r >= 0);
@@ -367,7 +633,7 @@ TEST(option_status) {
         assert_se(memcmp(&ia->header.lifetime_t2, &option4[12], 4) == 0);
         ia = dhcp6_ia_free(ia);
 
-        option = (DHCP6Option*) option5;
+        option = (DHCP6Option *) option5;
         assert_se(sizeof(option5) == sizeof(DHCP6Option) + be16toh(option->len));
         r = dhcp6_option_parse_ia(NULL, iaid, be16toh(option->code), be16toh(option->len), option->data, &ia);
         assert_se(r >= 0);
@@ -381,54 +647,215 @@ TEST(client_parse_message_issue_22099) {
                 /* Message type */
                 DHCP6_MESSAGE_REPLY,
                 /* Transaction ID */
-                0x7c, 0x4c, 0x16,
+                0x7c,
+                0x4c,
+                0x16,
                 /* Rapid commit */
-                0x00, SD_DHCP6_OPTION_RAPID_COMMIT, 0x00, 0x00,
+                0x00,
+                SD_DHCP6_OPTION_RAPID_COMMIT,
+                0x00,
+                0x00,
                 /* NTP servers */
-                0x00, SD_DHCP6_OPTION_NTP_SERVER, 0x00, 0x14,
+                0x00,
+                SD_DHCP6_OPTION_NTP_SERVER,
+                0x00,
+                0x14,
                 /* NTP server (broken sub option and sub option length) */
-                0x01, 0x00, 0x10, 0x00,
-                0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xde, 0x15, 0xc8, 0xff, 0xfe, 0xef, 0x1e, 0x4e,
+                0x01,
+                0x00,
+                0x10,
+                0x00,
+                0xfd,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0xde,
+                0x15,
+                0xc8,
+                0xff,
+                0xfe,
+                0xef,
+                0x1e,
+                0x4e,
                 /* Client ID */
-                0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
-                0x00, 0x02, /* DUID-EN */
-                0x00, 0x00, 0xab, 0x11, /* pen */
-                0x5c, 0x6b, 0x90, 0xec, 0xda, 0x95, 0x15, 0x45, /* id */
+                0x00,
+                SD_DHCP6_OPTION_CLIENTID,
+                0x00,
+                0x0e,
+                0x00,
+                0x02, /* DUID-EN */
+                0x00,
+                0x00,
+                0xab,
+                0x11, /* pen */
+                0x5c,
+                0x6b,
+                0x90,
+                0xec,
+                0xda,
+                0x95,
+                0x15,
+                0x45, /* id */
                 /* Server ID */
-                0x00, SD_DHCP6_OPTION_SERVERID, 0x00, 0x0a,
-                0x00, 0x03, /* DUID-LL */
-                0x00, 0x01, /* htype */
-                0xdc, 0x15, 0xc8, 0xef, 0x1e, 0x4e, /* haddr */
+                0x00,
+                SD_DHCP6_OPTION_SERVERID,
+                0x00,
+                0x0a,
+                0x00,
+                0x03, /* DUID-LL */
+                0x00,
+                0x01, /* htype */
+                0xdc,
+                0x15,
+                0xc8,
+                0xef,
+                0x1e,
+                0x4e, /* haddr */
                 /* preference */
-                0x00, SD_DHCP6_OPTION_PREFERENCE, 0x00, 0x01,
+                0x00,
+                SD_DHCP6_OPTION_PREFERENCE,
+                0x00,
+                0x01,
                 0x00,
                 /* DNS servers */
-                0x00, SD_DHCP6_OPTION_DNS_SERVER, 0x00, 0x10,
-                0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xde, 0x15, 0xc8, 0xff, 0xfe, 0xef, 0x1e, 0x4e,
+                0x00,
+                SD_DHCP6_OPTION_DNS_SERVER,
+                0x00,
+                0x10,
+                0xfd,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0xde,
+                0x15,
+                0xc8,
+                0xff,
+                0xfe,
+                0xef,
+                0x1e,
+                0x4e,
                 /* v6 pcp server */
-                0x00, SD_DHCP6_OPTION_V6_PCP_SERVER, 0x00, 0x10,
-                0x2a, 0x02, 0x81, 0x0d, 0x98, 0x80, 0x37, 0x00, 0xde, 0x15, 0xc8, 0xff, 0xfe, 0xef, 0x1e, 0x4e,
+                0x00,
+                SD_DHCP6_OPTION_V6_PCP_SERVER,
+                0x00,
+                0x10,
+                0x2a,
+                0x02,
+                0x81,
+                0x0d,
+                0x98,
+                0x80,
+                0x37,
+                0x00,
+                0xde,
+                0x15,
+                0xc8,
+                0xff,
+                0xfe,
+                0xef,
+                0x1e,
+                0x4e,
                 /* IA_NA */
-                0x00, SD_DHCP6_OPTION_IA_NA, 0x00, 0x28,
-                0xcc, 0x59, 0x11, 0x7b, /* iaid */
-                0x00, 0x00, 0x07, 0x08, /* lifetime T1 */
-                0x00, 0x00, 0x0b, 0x40, /* lifetime T2 */
+                0x00,
+                SD_DHCP6_OPTION_IA_NA,
+                0x00,
+                0x28,
+                0xcc,
+                0x59,
+                0x11,
+                0x7b, /* iaid */
+                0x00,
+                0x00,
+                0x07,
+                0x08, /* lifetime T1 */
+                0x00,
+                0x00,
+                0x0b,
+                0x40, /* lifetime T2 */
                 /* IA_NA (iaaddr suboption) */
-                0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
-                0x2a, 0x02, 0x81, 0x0d, 0x98, 0x80, 0x37, 0x00, 0x6a, 0x05, 0xca, 0xff, 0xfe, 0xf1, 0x51, 0x53, /* address */
-                0x00, 0x00, 0x0e, 0x10, /* preferred lifetime */
-                0x00, 0x00, 0x1c, 0x20, /* valid lifetime */
+                0x00,
+                SD_DHCP6_OPTION_IAADDR,
+                0x00,
+                0x18,
+                0x2a,
+                0x02,
+                0x81,
+                0x0d,
+                0x98,
+                0x80,
+                0x37,
+                0x00,
+                0x6a,
+                0x05,
+                0xca,
+                0xff,
+                0xfe,
+                0xf1,
+                0x51,
+                0x53, /* address */
+                0x00,
+                0x00,
+                0x0e,
+                0x10, /* preferred lifetime */
+                0x00,
+                0x00,
+                0x1c,
+                0x20, /* valid lifetime */
                 /* IA_PD */
-                0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x29,
-                0xcc, 0x59, 0x11, 0x7b, /* iaid */
-                0x00, 0x00, 0x07, 0x08, /* lifetime T1 */
-                0x00, 0x00, 0x0b, 0x40, /* lifetime T2 */
+                0x00,
+                SD_DHCP6_OPTION_IA_PD,
+                0x00,
+                0x29,
+                0xcc,
+                0x59,
+                0x11,
+                0x7b, /* iaid */
+                0x00,
+                0x00,
+                0x07,
+                0x08, /* lifetime T1 */
+                0x00,
+                0x00,
+                0x0b,
+                0x40, /* lifetime T2 */
                 /* IA_PD (iaprefix suboption) */
-                0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-                0x00, 0x00, 0x0e, 0x10, /* preferred lifetime */
-                0x00, 0x00, 0x1c, 0x20, /* valid lifetime */
+                0x00,
+                SD_DHCP6_OPTION_IA_PD_PREFIX,
+                0x00,
+                0x19,
+                0x00,
+                0x00,
+                0x0e,
+                0x10, /* preferred lifetime */
+                0x00,
+                0x00,
+                0x1c,
+                0x20, /* valid lifetime */
                 0x3a, /* prefixlen */
-                0x2a, 0x02, 0x81, 0x0d, 0x98, 0x80, 0x37, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* prefix */
+                0x2a,
+                0x02,
+                0x81,
+                0x0d,
+                0x98,
+                0x80,
+                0x37,
+                0xc0,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00, /* prefix */
         };
         static const uint8_t duid[] = {
                 0x00, 0x00, 0xab, 0x11, 0x5c, 0x6b, 0x90, 0xec, 0xda, 0x95, 0x15, 0x45,
@@ -440,291 +867,788 @@ TEST(client_parse_message_issue_22099) {
         assert_se(sd_dhcp6_client_set_iaid(client, 0xcc59117b) >= 0);
         assert_se(sd_dhcp6_client_set_duid(client, 2, duid, sizeof(duid)) >= 0);
 
-        assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
+        assert_se(dhcp6_lease_new_from_message(
+                                  client, (const DHCP6Message *) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
 }
 
 static const uint8_t msg_information_request[] = {
         /* Message type */
         DHCP6_MESSAGE_INFORMATION_REQUEST,
         /* Transaction ID */
-        0x0f, 0xb4, 0xe5,
+        0x0f,
+        0xb4,
+        0xe5,
         /* MUD URL */
         /* ORO */
-        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x0c,
-        0x00, SD_DHCP6_OPTION_DNS_SERVER,
-        0x00, SD_DHCP6_OPTION_DOMAIN,
-        0x00, SD_DHCP6_OPTION_SNTP_SERVER,
-        0x00, SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
-        0x00, SD_DHCP6_OPTION_INF_MAX_RT,
+        0x00,
+        SD_DHCP6_OPTION_ORO,
+        0x00,
+        0x0c,
+        0x00,
+        SD_DHCP6_OPTION_DNS_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_DOMAIN,
+        0x00,
+        SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME,
+        0x00,
+        SD_DHCP6_OPTION_NTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_INF_MAX_RT,
         /* Client ID */
-        0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_CLIENTID,
+        0x00,
+        0x0e,
         CLIENT_ID_BYTES,
         /* Extra options */
         /* Elapsed time */
-        0x00, SD_DHCP6_OPTION_ELAPSED_TIME, 0x00, 0x02,
-        0x00, 0x00,
+        0x00,
+        SD_DHCP6_OPTION_ELAPSED_TIME,
+        0x00,
+        0x02,
+        0x00,
+        0x00,
 };
 
 static const uint8_t msg_solicit[] = {
         /* Message type */
         DHCP6_MESSAGE_SOLICIT,
         /* Transaction ID */
-        0x0f, 0xb4, 0xe5,
+        0x0f,
+        0xb4,
+        0xe5,
         /* Rapid commit */
-        0x00, SD_DHCP6_OPTION_RAPID_COMMIT, 0x00, 0x00,
+        0x00,
+        SD_DHCP6_OPTION_RAPID_COMMIT,
+        0x00,
+        0x00,
         /* IA_NA */
-        0x00, SD_DHCP6_OPTION_IA_NA, 0x00, 0x0c,
+        0x00,
+        SD_DHCP6_OPTION_IA_NA,
+        0x00,
+        0x0c,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x00, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T2 */
         /* IA_PD */
-        0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x0c,
+        0x00,
+        SD_DHCP6_OPTION_IA_PD,
+        0x00,
+        0x0c,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x00, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T2 */
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x11,
+        0x00,
+        SD_DHCP6_OPTION_CLIENT_FQDN,
+        0x00,
+        0x11,
         DHCP6_FQDN_FLAG_S,
-        0x04, 'h', 'o', 's', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x04,
+        'h',
+        'o',
+        's',
+        't',
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* User Class */
         /* Vendor Class */
         /* Vendor Options */
         /* MUD URL */
         /* ORO */
-        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x0a,
-        0x00, SD_DHCP6_OPTION_DNS_SERVER,
-        0x00, SD_DHCP6_OPTION_DOMAIN,
-        0x00, SD_DHCP6_OPTION_SNTP_SERVER,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
-        0x00, SD_DHCP6_OPTION_SOL_MAX_RT,
+        0x00,
+        SD_DHCP6_OPTION_ORO,
+        0x00,
+        0x0a,
+        0x00,
+        SD_DHCP6_OPTION_DNS_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_DOMAIN,
+        0x00,
+        SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_NTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_SOL_MAX_RT,
         /* Client ID */
-        0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_CLIENTID,
+        0x00,
+        0x0e,
         CLIENT_ID_BYTES,
         /* Extra options */
         /* Elapsed time */
-        0x00, SD_DHCP6_OPTION_ELAPSED_TIME, 0x00, 0x02,
-        0x00, 0x00,
+        0x00,
+        SD_DHCP6_OPTION_ELAPSED_TIME,
+        0x00,
+        0x02,
+        0x00,
+        0x00,
 };
 
 static const uint8_t msg_request[] = {
         /* Message type */
         DHCP6_MESSAGE_REQUEST,
         /* Transaction ID */
-        0x00, 0x00, 0x00,
+        0x00,
+        0x00,
+        0x00,
         /* Server ID */
-        0x00, SD_DHCP6_OPTION_SERVERID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_SERVERID,
+        0x00,
+        0x0e,
         SERVER_ID_BYTES,
         /* IA_NA */
-        0x00, SD_DHCP6_OPTION_IA_NA, 0x00, 0x44,
+        0x00,
+        SD_DHCP6_OPTION_IA_NA,
+        0x00,
+        0x44,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x00, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T2 */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS1_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0x00, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* valid lifetime */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS2_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0x00, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* valid lifetime */
         /* IA_PD */
-        0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x46,
+        0x00,
+        SD_DHCP6_OPTION_IA_PD,
+        0x00,
+        0x46,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x00, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x00, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* lifetime T2 */
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x00, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0x00, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX1_BYTES,
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x00, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0x00, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x00, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX2_BYTES,
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x11,
+        0x00,
+        SD_DHCP6_OPTION_CLIENT_FQDN,
+        0x00,
+        0x11,
         DHCP6_FQDN_FLAG_S,
-        0x04, 'h', 'o', 's', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x04,
+        'h',
+        'o',
+        's',
+        't',
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* User Class */
         /* Vendor Class */
         /* Vendor Options */
         /* MUD URL */
         /* ORO */
-        0x00, SD_DHCP6_OPTION_ORO, 0x00, 0x08,
-        0x00, SD_DHCP6_OPTION_DNS_SERVER,
-        0x00, SD_DHCP6_OPTION_DOMAIN,
-        0x00, SD_DHCP6_OPTION_SNTP_SERVER,
-        0x00, SD_DHCP6_OPTION_NTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_ORO,
+        0x00,
+        0x08,
+        0x00,
+        SD_DHCP6_OPTION_DNS_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_DOMAIN,
+        0x00,
+        SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00,
+        SD_DHCP6_OPTION_NTP_SERVER,
         /* Client ID */
-        0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_CLIENTID,
+        0x00,
+        0x0e,
         CLIENT_ID_BYTES,
         /* Extra options */
         /* Elapsed time */
-        0x00, SD_DHCP6_OPTION_ELAPSED_TIME, 0x00, 0x02,
-        0x00, 0x00,
+        0x00,
+        SD_DHCP6_OPTION_ELAPSED_TIME,
+        0x00,
+        0x02,
+        0x00,
+        0x00,
 };
 
 static const uint8_t msg_reply[] = {
         /* Message type */
         DHCP6_MESSAGE_REPLY,
         /* Transaction ID */
-        0x0f, 0xb4, 0xe5,
+        0x0f,
+        0xb4,
+        0xe5,
         /* Client ID */
-        0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_CLIENTID,
+        0x00,
+        0x0e,
         CLIENT_ID_BYTES,
         /* Server ID */
-        0x00, SD_DHCP6_OPTION_SERVERID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_SERVERID,
+        0x00,
+        0x0e,
         SERVER_ID_BYTES,
         /* Rapid commit */
-        0x00, SD_DHCP6_OPTION_RAPID_COMMIT, 0x00, 0x01,
+        0x00,
+        SD_DHCP6_OPTION_RAPID_COMMIT,
+        0x00,
+        0x01,
         0x00,
         /* IA_NA */
-        0x00, SD_DHCP6_OPTION_IA_NA, 0x00, 0x66,
+        0x00,
+        SD_DHCP6_OPTION_IA_NA,
+        0x00,
+        0x66,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x50, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x78, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x50, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x78, /* lifetime T2 */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS2_BYTES,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS1_BYTES,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         /* IA_NA (status code suboption) */
-        0x00, SD_DHCP6_OPTION_STATUS_CODE, 0x00, 0x1e,
-        0x00, 0x00, /* status code */
-        0x41, 0x6c, 0x6c, 0x20, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x20, 0x77, 0x65,
-        0x72, 0x65, 0x20, 0x61, 0x73, 0x73, 0x69, 0x67, 0x6e, 0x65, 0x64, 0x2e, /* status message */
+        0x00,
+        SD_DHCP6_OPTION_STATUS_CODE,
+        0x00,
+        0x1e,
+        0x00,
+        0x00, /* status code */
+        0x41,
+        0x6c,
+        0x6c,
+        0x20,
+        0x61,
+        0x64,
+        0x64,
+        0x72,
+        0x65,
+        0x73,
+        0x73,
+        0x65,
+        0x73,
+        0x20,
+        0x77,
+        0x65,
+        0x72,
+        0x65,
+        0x20,
+        0x61,
+        0x73,
+        0x73,
+        0x69,
+        0x67,
+        0x6e,
+        0x65,
+        0x64,
+        0x2e, /* status message */
         /* IA_PD */
-        0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x46,
+        0x00,
+        SD_DHCP6_OPTION_IA_PD,
+        0x00,
+        0x46,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x50, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x78, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x50, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x78, /* lifetime T2 */
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX2_BYTES,
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX1_BYTES,
         /* DNS servers */
-        0x00, SD_DHCP6_OPTION_DNS_SERVER, 0x00, 0x20,
+        0x00,
+        SD_DHCP6_OPTION_DNS_SERVER,
+        0x00,
+        0x20,
         DNS1_BYTES,
         DNS2_BYTES,
         /* SNTP servers */
-        0x00, SD_DHCP6_OPTION_SNTP_SERVER, 0x00, 0x20,
+        0x00,
+        SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00,
+        0x20,
         SNTP1_BYTES,
         SNTP2_BYTES,
         /* NTP servers */
-        0x00, SD_DHCP6_OPTION_NTP_SERVER, 0x00, 0x37,
+        0x00,
+        SD_DHCP6_OPTION_NTP_SERVER,
+        0x00,
+        0x37,
         /* NTP server (address suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_ADDR, 0x00, 0x10,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_ADDR,
+        0x00,
+        0x10,
         NTP1_BYTES,
         /* NTP server (address suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_ADDR, 0x00, 0x10,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_ADDR,
+        0x00,
+        0x10,
         NTP2_BYTES,
         /* NTP server (fqdn suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_FQDN, 0x00, 0x0b,
-        0x03, 'n', 't', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_FQDN,
+        0x00,
+        0x0b,
+        0x03,
+        'n',
+        't',
+        'p',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* Domain list */
-        0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
-        0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x00,
+        SD_DHCP6_OPTION_DOMAIN,
+        0x00,
+        0x0b,
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
-        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        0x00,
+        SD_DHCP6_OPTION_CLIENT_FQDN,
+        0x00,
+        0x12,
+        0x01,
+        0x06,
+        'c',
+        'l',
+        'i',
+        'e',
+        'n',
+        't',
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
 };
 
 static const uint8_t msg_advertise[] = {
         /* Message type */
         DHCP6_MESSAGE_ADVERTISE,
         /* Transaction ID */
-        0x0f, 0xb4, 0xe5,
+        0x0f,
+        0xb4,
+        0xe5,
         /* Client ID */
-        0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_CLIENTID,
+        0x00,
+        0x0e,
         CLIENT_ID_BYTES,
         /* Server ID */
-        0x00, SD_DHCP6_OPTION_SERVERID, 0x00, 0x0e,
+        0x00,
+        SD_DHCP6_OPTION_SERVERID,
+        0x00,
+        0x0e,
         SERVER_ID_BYTES,
         /* Preference */
-        0x00, SD_DHCP6_OPTION_PREFERENCE, 0x00, 0x01,
+        0x00,
+        SD_DHCP6_OPTION_PREFERENCE,
+        0x00,
+        0x01,
         0xff,
         /* IA_NA */
-        0x00, SD_DHCP6_OPTION_IA_NA, 0x00, 0x7a,
+        0x00,
+        SD_DHCP6_OPTION_IA_NA,
+        0x00,
+        0x7a,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x50, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x78, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x50, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x78, /* lifetime T2 */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS2_BYTES, /* address */
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         /* IA_NA (IAADDR suboption) */
-        0x00, SD_DHCP6_OPTION_IAADDR, 0x00, 0x18,
+        0x00,
+        SD_DHCP6_OPTION_IAADDR,
+        0x00,
+        0x18,
         IA_NA_ADDRESS1_BYTES, /* address */
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         /* IA_NA (status code suboption) */
-        0x00, SD_DHCP6_OPTION_STATUS_CODE, 0x00, 0x32,
-        0x00, 0x00, /* status code */
-        0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x28, 0x65, 0x73, 0x29, 0x20, 0x72, 0x65, 0x6e, 0x65,
-        0x77, 0x65, 0x64, 0x2e, 0x20, 0x47, 0x72, 0x65, 0x65, 0x74, 0x69, 0x6e, 0x67, 0x73, 0x20, 0x66,
-        0x72, 0x6f, 0x6d, 0x20, 0x70, 0x6c, 0x61, 0x6e, 0x65, 0x74, 0x20, 0x45, 0x61, 0x72, 0x74, 0x68, /* status message */
+        0x00,
+        SD_DHCP6_OPTION_STATUS_CODE,
+        0x00,
+        0x32,
+        0x00,
+        0x00, /* status code */
+        0x41,
+        0x64,
+        0x64,
+        0x72,
+        0x65,
+        0x73,
+        0x73,
+        0x28,
+        0x65,
+        0x73,
+        0x29,
+        0x20,
+        0x72,
+        0x65,
+        0x6e,
+        0x65,
+        0x77,
+        0x65,
+        0x64,
+        0x2e,
+        0x20,
+        0x47,
+        0x72,
+        0x65,
+        0x65,
+        0x74,
+        0x69,
+        0x6e,
+        0x67,
+        0x73,
+        0x20,
+        0x66,
+        0x72,
+        0x6f,
+        0x6d,
+        0x20,
+        0x70,
+        0x6c,
+        0x61,
+        0x6e,
+        0x65,
+        0x74,
+        0x20,
+        0x45,
+        0x61,
+        0x72,
+        0x74,
+        0x68, /* status message */
         /* IA_PD */
-        0x00, SD_DHCP6_OPTION_IA_PD, 0x00, 0x46,
+        0x00,
+        SD_DHCP6_OPTION_IA_PD,
+        0x00,
+        0x46,
         IA_ID_BYTES,
-        0x00, 0x00, 0x00, 0x50, /* lifetime T1 */
-        0x00, 0x00, 0x00, 0x78, /* lifetime T2 */
+        0x00,
+        0x00,
+        0x00,
+        0x50, /* lifetime T1 */
+        0x00,
+        0x00,
+        0x00,
+        0x78, /* lifetime T2 */
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX2_BYTES,
         /* IA_PD (IA_PD_PREFIX suboption) */
-        0x00, SD_DHCP6_OPTION_IA_PD_PREFIX, 0x00, 0x19,
-        0x00, 0x00, 0x00, 0x96, /* preferred lifetime */
-        0x00, 0x00, 0x00, 0xb4, /* valid lifetime */
+        0x00,
+        SD_DHCP6_OPTION_IA_PD_PREFIX,
+        0x00,
+        0x19,
+        0x00,
+        0x00,
+        0x00,
+        0x96, /* preferred lifetime */
+        0x00,
+        0x00,
+        0x00,
+        0xb4, /* valid lifetime */
         0x40, /* prefixlen */
         IA_PD_PREFIX1_BYTES,
         /* DNS servers */
-        0x00, SD_DHCP6_OPTION_DNS_SERVER, 0x00, 0x20,
+        0x00,
+        SD_DHCP6_OPTION_DNS_SERVER,
+        0x00,
+        0x20,
         DNS1_BYTES,
         DNS2_BYTES,
         /* SNTP servers */
-        0x00, SD_DHCP6_OPTION_SNTP_SERVER, 0x00, 0x20,
+        0x00,
+        SD_DHCP6_OPTION_SNTP_SERVER,
+        0x00,
+        0x20,
         SNTP1_BYTES,
         SNTP2_BYTES,
         /* NTP servers */
-        0x00, SD_DHCP6_OPTION_NTP_SERVER, 0x00, 0x37,
+        0x00,
+        SD_DHCP6_OPTION_NTP_SERVER,
+        0x00,
+        0x37,
         /* NTP server (address suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_ADDR, 0x00, 0x10,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_ADDR,
+        0x00,
+        0x10,
         NTP1_BYTES,
         /* NTP server (address suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_ADDR, 0x00, 0x10,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_ADDR,
+        0x00,
+        0x10,
         NTP2_BYTES,
         /* NTP server (fqdn suboption) */
-        0x00, DHCP6_NTP_SUBOPTION_SRV_FQDN, 0x00, 0x0b,
-        0x03, 'n', 't', 'p', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x00,
+        DHCP6_NTP_SUBOPTION_SRV_FQDN,
+        0x00,
+        0x0b,
+        0x03,
+        'n',
+        't',
+        'p',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* Domain list */
-        0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
-        0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        0x00,
+        SD_DHCP6_OPTION_DOMAIN,
+        0x00,
+        0x0b,
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
+        0x00,
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
-        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        0x00,
+        SD_DHCP6_OPTION_CLIENT_FQDN,
+        0x00,
+        0x12,
+        0x01,
+        0x06,
+        'c',
+        'l',
+        'i',
+        'e',
+        'n',
+        't',
+        0x03,
+        'l',
+        'a',
+        'b',
+        0x05,
+        'i',
+        'n',
+        't',
+        'r',
+        'a',
 };
 
 static void test_client_verify_information_request(const DHCP6Message *msg, size_t len) {
@@ -749,7 +1673,9 @@ static void test_client_verify_request(const DHCP6Message *msg, size_t len) {
         assert_se(len == sizeof(msg_request));
         assert_se(msg->type == DHCP6_MESSAGE_REQUEST);
         /* The transaction ID and elapsed time value are not deterministic. Skip them. */
-        assert_se(memcmp(msg->options, msg_request + offsetof(DHCP6Message, options), len - offsetof(DHCP6Message, options) - sizeof(be16_t)) == 0);
+        assert_se(memcmp(msg->options,
+                         msg_request + offsetof(DHCP6Message, options),
+                         len - offsetof(DHCP6Message, options) - sizeof(be16_t)) == 0);
 }
 
 static void test_lease_common(sd_dhcp6_client *client) {
@@ -867,7 +1793,8 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
 
                 assert_se(sd_dhcp6_client_set_information_request(client, false) >= 0);
                 assert_se(sd_dhcp6_client_start(client) >= 0);
-                assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_advertise)->transaction_id) >= 0);
+                assert_se(dhcp6_client_set_transaction_id(
+                                          client, ((const DHCP6Message *) msg_advertise)->transaction_id) >= 0);
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
@@ -881,7 +1808,9 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                 case 3:
                         assert_se(sd_dhcp6_client_stop(client) >= 0);
                         assert_se(sd_dhcp6_client_start(client) >= 0);
-                        assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
+                        assert_se(dhcp6_client_set_transaction_id(
+                                                  client,
+                                                  ((const DHCP6Message *) msg_reply)->transaction_id) >= 0);
                         break;
 
                 case 4:
@@ -908,7 +1837,8 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                 assert_se(dhcp6_lease_get_preference(lease, &preference) >= 0);
                 assert_se(preference == 0xff);
 
-                assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
+                assert_se(dhcp6_client_set_transaction_id(
+                                          client, ((const DHCP6Message *) msg_reply)->transaction_id) >= 0);
                 break;
         }
         default:
@@ -968,16 +1898,16 @@ TEST(dhcp6_client) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
-                                             2 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, NULL, CLOCK_BOOTTIME, 2 * USEC_PER_SEC, 0, NULL, INT_TO_PTR(-ETIMEDOUT)) >=
+                  0);
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
         assert_se(sd_dhcp6_client_set_ifindex(client, test_ifindex) == 0);
         assert_se(sd_dhcp6_client_set_local_address(client, &local_address) >= 0);
         assert_se(sd_dhcp6_client_set_fqdn(client, "host.lab.intra") >= 0);
-        assert_se(sd_dhcp6_client_set_iaid(client, unaligned_read_be32((uint8_t[]) { IA_ID_BYTES })) >= 0);
+        assert_se(sd_dhcp6_client_set_iaid(client, unaligned_read_be32((uint8_t[]){ IA_ID_BYTES })) >= 0);
         dhcp6_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER) >= 0);
@@ -990,7 +1920,8 @@ TEST(dhcp6_client) {
 
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
-        assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
+        assert_se(dhcp6_client_set_transaction_id(
+                                  client, ((const DHCP6Message *) msg_reply)->transaction_id) >= 0);
 
         assert_se(client_ref = sd_dhcp6_client_ref(client));
 

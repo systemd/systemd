@@ -11,7 +11,8 @@
 #include "tests.h"
 #include "time-util.h"
 
-static void test_rlimit_parse_format_one(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
+static void test_rlimit_parse_format_one(
+                int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;
         struct rlimit rl = {
                 .rlim_cur = 4711,
@@ -39,9 +40,16 @@ TEST(rlimit_parse_format) {
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "4:5", 4, 5, 0, "4:5");
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "6", 6, 6, 0, "6");
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
-        test_rlimit_parse_format_one(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
+        test_rlimit_parse_format_one(
+                        RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, 0, "8:infinity");
-        test_rlimit_parse_format_one(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
+        test_rlimit_parse_format_one(
+                        RLIMIT_CPU,
+                        "25min:13h",
+                        (25 * USEC_PER_MINUTE) / USEC_PER_SEC,
+                        (13 * USEC_PER_HOUR) / USEC_PER_SEC,
+                        0,
+                        "1500:46800");
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
         test_rlimit_parse_format_one(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);

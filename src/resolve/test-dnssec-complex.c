@@ -32,7 +32,7 @@ static void prefix_random(const char *name, char **ret) {
         }
 
         *ret = m;
- }
+}
 
 static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const char *result) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
@@ -103,10 +103,9 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 assert_se(!result);
                 log_info("[OK] %s/%s succeeded.", name, af);
         }
-
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
         /* Note that this is a manual test as it requires:
@@ -148,7 +147,10 @@ int main(int argc, char* argv[]) {
         /* NXDOMAIN in NSEC domain */
         test_rr_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
         test_hostname_lookup(bus, "hhh.nasa.gov", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
-        test_rr_lookup(bus, "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", DNS_TYPE_SRV, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus,
+                       "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net",
+                       DNS_TYPE_SRV,
+                       _BUS_ERROR_DNS "NXDOMAIN");
 
         /* wildcard, NSEC zone */
         test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);
@@ -215,9 +217,12 @@ int main(int argc, char* argv[]) {
         /* DNAME, pointing to NXDOMAIN */
         test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
         test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_RP, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(
+                        bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(
+                        bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
+        test_hostname_lookup(
+                        bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
 
         return 0;
 }

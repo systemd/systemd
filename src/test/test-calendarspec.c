@@ -19,7 +19,10 @@ static void _test_one(int line, const char *input, const char *output) {
         assert_se(r >= 0);
 
         assert_se(calendar_spec_to_string(c, &p) >= 0);
-        log_info("line %d: \"%s\" → \"%s\"%s%s", line, input, p,
+        log_info("line %d: \"%s\" → \"%s\"%s%s",
+                 line,
+                 input,
+                 p,
                  !streq(p, output) ? " expected:" : "",
                  !streq(p, output) ? output : "");
 
@@ -71,7 +74,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         assert_se(set_unset_env("TZ", old_tz, true) == 0);
         tzset();
 }
-#define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
+#define test_next(input, new_tz, after, expect) _test_next(__LINE__, input, new_tz, after, expect)
 
 TEST(timestamp) {
         char buf[FORMAT_TIMESTAMP_MAX];
@@ -103,11 +106,15 @@ TEST(hourly_bug_4031) {
         n = now(CLOCK_REALTIME);
         assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
 
-        log_info("Now: %s (%"PRIu64")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
-        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US), u);
+        log_info("Now: %s (%" PRIu64 ")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
+        log_info("Next hourly: %s (%" PRIu64 ")",
+                 r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US),
+                 u);
 
         assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
-        log_info("Next hourly: %s (%"PRIu64")", r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(w, TIMESTAMP_US), w);
+        log_info("Next hourly: %s (%" PRIu64 ")",
+                 r < 0 ? strerror_safe(r) : FORMAT_TIMESTAMP_STYLE(w, TIMESTAMP_US),
+                 w);
 
         assert_se(n < u);
         assert_se(u <= n + USEC_PER_HOUR);

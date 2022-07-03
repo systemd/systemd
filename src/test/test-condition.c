@@ -181,23 +181,27 @@ TEST(condition_test_control_group_controller) {
                 log_info("chosen controller is '%s'", local_controller_name);
                 if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
                         log_info("this controller is available");
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        condition = condition_new(
+                                        CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
                         assert_se(condition_test(condition, environ) > 0);
                         condition_free(condition);
 
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        condition = condition_new(
+                                        CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
                         assert_se(condition_test(condition, environ) == 0);
                         condition_free(condition);
                 } else {
                         log_info("this controller is unavailable");
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        condition = condition_new(
+                                        CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
                         assert_se(condition_test(condition, environ) == 0);
                         condition_free(condition);
 
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        condition = condition_new(
+                                        CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
                         assert_se(condition_test(condition, environ) > 0);
                         condition_free(condition);
@@ -304,7 +308,11 @@ TEST(condition_test_kernel_command_line) {
         Condition *condition;
         int r;
 
-        condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
+        condition = condition_new(
+                        CONDITION_KERNEL_COMMAND_LINE,
+                        "thisreallyshouldntbeonthekernelcommandline",
+                        false,
+                        false);
         assert_se(condition);
         r = condition_test(condition, environ);
         if (ERRNO_IS_PRIVILEGE(r))
@@ -323,7 +331,8 @@ TEST(condition_test_kernel_version) {
         struct utsname u;
         const char *v;
 
-        condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
+        condition = condition_new(
+                        CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
@@ -469,7 +478,8 @@ TEST(condition_test_cpufeature) {
         assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
-        condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false);
+        condition = condition_new(
+                        CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
@@ -598,8 +608,8 @@ TEST(condition_test_virtualization) {
 
 TEST(condition_test_user) {
         Condition *condition;
-        char* uid;
-        char* username;
+        char *uid;
+        char *username;
         int r;
 
         condition = condition_new(CONDITION_USER, "garbage oifdsjfoidsjoj", false, false);
@@ -609,7 +619,7 @@ TEST(condition_test_user) {
         assert_se(r == 0);
         condition_free(condition);
 
-        assert_se(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)) > 0);
+        assert_se(asprintf(&uid, "%" PRIu32, UINT32_C(0xFFFF)) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -618,7 +628,7 @@ TEST(condition_test_user) {
         condition_free(condition);
         free(uid);
 
-        assert_se(asprintf(&uid, "%u", (unsigned)getuid()) > 0);
+        assert_se(asprintf(&uid, "%u", (unsigned) getuid()) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -627,7 +637,7 @@ TEST(condition_test_user) {
         condition_free(condition);
         free(uid);
 
-        assert_se(asprintf(&uid, "%u", (unsigned)getuid()+1) > 0);
+        assert_se(asprintf(&uid, "%u", (unsigned) getuid() + 1) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -646,7 +656,7 @@ TEST(condition_test_user) {
         condition_free(condition);
         free(username);
 
-        username = (char*)(geteuid() == 0 ? NOBODY_USER_NAME : "root");
+        username = (char *) (geteuid() == 0 ? NOBODY_USER_NAME : "root");
         condition = condition_new(CONDITION_USER, username, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -667,8 +677,8 @@ TEST(condition_test_user) {
 
 TEST(condition_test_group) {
         Condition *condition;
-        char* gid;
-        char* groupname;
+        char *gid;
+        char *groupname;
         gid_t *gids, max_gid;
         int ngroups_max, ngroups, r, i;
 
@@ -722,7 +732,7 @@ TEST(condition_test_group) {
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
 
-        assert_se(0 < asprintf(&gid, "%u", max_gid+1));
+        assert_se(0 < asprintf(&gid, "%u", max_gid + 1));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -731,7 +741,7 @@ TEST(condition_test_group) {
         condition_free(condition);
         free(gid);
 
-        groupname = (char*)(getegid() == 0 ? NOBODY_GROUP_NAME : "root");
+        groupname = (char *) (getegid() == 0 ? NOBODY_GROUP_NAME : "root");
         condition = condition_new(CONDITION_GROUP, groupname, false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
@@ -1023,31 +1033,77 @@ TEST(condition_test_os_release) {
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(
+                        "VERSION_ID",
+                        "=",
+                        version_id,
+                        " ",
+                        os_release_pairs[0],
+                        "=",
+                        quote,
+                        os_release_pairs[1],
+                        quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ));
         condition_free(condition);
 
-        key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(
+                        "VERSION_ID",
+                        "!=",
+                        version_id,
+                        " ",
+                        os_release_pairs[0],
+                        "=",
+                        quote,
+                        os_release_pairs[1],
+                        quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(
+                        "VERSION_ID",
+                        "=",
+                        version_id,
+                        " ",
+                        os_release_pairs[0],
+                        "!=",
+                        quote,
+                        os_release_pairs[1],
+                        quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(
+                        "VERSION_ID",
+                        "!=",
+                        version_id,
+                        " ",
+                        os_release_pairs[0],
+                        "!=",
+                        quote,
+                        os_release_pairs[1],
+                        quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1", " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
+        key_value_pair = strjoina(
+                        "VERSION_ID",
+                        "<",
+                        version_id,
+                        ".1",
+                        " ",
+                        os_release_pairs[0],
+                        "=",
+                        quote,
+                        os_release_pairs[1],
+                        quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ));
@@ -1060,7 +1116,8 @@ TEST(condition_test_psi) {
         int r;
 
         if (!is_pressure_supported())
-                return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
+                return (void) log_notice(
+                                "Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
 
         condition = condition_new(CONDITION_MEMORY_PRESSURE, "", false, false);
         assert_se(condition);
@@ -1164,7 +1221,9 @@ TEST(condition_test_psi) {
 
         r = cg_all_unified();
         if (r < 0)
-                return (void) log_notice("Failed to determine whether the unified cgroups hierarchy is used, skipping %s", __func__);
+                return (void) log_notice(
+                                "Failed to determine whether the unified cgroups hierarchy is used, skipping %s",
+                                __func__);
         if (r == 0)
                 return (void) log_notice("Requires the unified cgroups hierarchy, skipping %s", __func__);
 
@@ -1182,7 +1241,8 @@ TEST(condition_test_psi) {
         assert_se(condition_test(condition, environ) < 0);
         condition_free(condition);
 
-        condition = condition_new(CONDITION_CPU_PRESSURE, "hopefullythisisnotarealone.slice:100% / 10sec", false, false);
+        condition = condition_new(
+                        CONDITION_CPU_PRESSURE, "hopefullythisisnotarealone.slice:100% / 10sec", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);

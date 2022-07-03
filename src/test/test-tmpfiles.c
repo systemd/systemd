@@ -18,17 +18,18 @@
 #include "util.h"
 
 TEST(tmpfiles) {
-        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
+        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL,
+                            *line = NULL;
         _cleanup_close_ int fd = -1, fd2 = -1;
         const char *p = saved_argv[1] ?: "/tmp";
         char *pattern;
 
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
-        fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(p, O_RDWR | O_CLOEXEC);
         assert_se(fd >= 0);
 
-        assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd) > 0);
+        assert_se(asprintf(&cmd, "ls -l /proc/" PID_FMT "/fd/%d", getpid_cached(), fd) > 0);
         (void) system(cmd);
         assert_se(readlink_malloc(cmd + 6, &ans) >= 0);
         log_debug("link1: %s", ans);
@@ -38,7 +39,7 @@ TEST(tmpfiles) {
         assert_se(fd2 >= 0);
         assert_se(unlink(pattern) == 0);
 
-        assert_se(asprintf(&cmd2, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd2) > 0);
+        assert_se(asprintf(&cmd2, "ls -l /proc/" PID_FMT "/fd/%d", getpid_cached(), fd2) > 0);
         (void) system(cmd2);
         assert_se(readlink_malloc(cmd2 + 6, &ans2) >= 0);
         log_debug("link2: %s", ans2);
@@ -48,7 +49,7 @@ TEST(tmpfiles) {
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
         fd = safe_close(fd);
-        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        fd = open_tmpfile_linkable(d, O_RDWR | O_CLOEXEC, &tmp);
         assert_se(fd >= 0);
         assert_se(write(fd, "foobar\n", 7) == 7);
 

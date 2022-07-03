@@ -26,98 +26,88 @@ struct Test {
 
 typedef struct Test Test;
 
-#define BPFFS_PATH(prog_suffix) ("/sys/fs/bpf/test-bpf-foreing-" # prog_suffix)
+#define BPFFS_PATH(prog_suffix) ("/sys/fs/bpf/test-bpf-foreing-" #prog_suffix)
 static const Test single_prog[] = {
         {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_INGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
+                        .option_name = "BPFProgram",
+                        .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                        .attach_type = BPF_CGROUP_INET_INGRESS,
+                        .bpffs_path = BPFFS_PATH("trivial-skb"),
         },
 };
 static const Test path_split_test[] = {
         {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_INGRESS,
-                .bpffs_path = BPFFS_PATH("path:split:test"),
+                        .option_name = "BPFProgram",
+                        .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                        .attach_type = BPF_CGROUP_INET_INGRESS,
+                        .bpffs_path = BPFFS_PATH("path:split:test"),
         },
 };
 
-static const Test same_prog_same_hook[] = {
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
-                .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
-                .bpffs_path = BPFFS_PATH("trivial-sock"),
-        },
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
-                .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
-                .bpffs_path = BPFFS_PATH("trivial-sock"),
-        }
-};
+static const Test same_prog_same_hook[] = { {
+                                                            .option_name = "BPFProgram",
+                                                            .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+                                                            .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
+                                                            .bpffs_path = BPFFS_PATH("trivial-sock"),
+                                            },
+                                            {
+                                                            .option_name = "BPFProgram",
+                                                            .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+                                                            .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
+                                                            .bpffs_path = BPFFS_PATH("trivial-sock"),
+                                            } };
 
-static const Test multi_prog_same_hook[] = {
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
-                .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
-                .bpffs_path = BPFFS_PATH("trivial-sock-0"),
-        },
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
-                .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
-                .bpffs_path = BPFFS_PATH("trivial-sock-1"),
-        }
-};
+static const Test multi_prog_same_hook[] = { {
+                                                             .option_name = "BPFProgram",
+                                                             .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+                                                             .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
+                                                             .bpffs_path = BPFFS_PATH("trivial-sock-0"),
+                                             },
+                                             {
+                                                             .option_name = "BPFProgram",
+                                                             .prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+                                                             .attach_type = BPF_CGROUP_INET_SOCK_CREATE,
+                                                             .bpffs_path = BPFFS_PATH("trivial-sock-1"),
+                                             } };
 
-static const Test same_prog_multi_hook[] = {
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_INGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        },
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_EGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        }
-};
+static const Test same_prog_multi_hook[] = { {
+                                                             .option_name = "BPFProgram",
+                                                             .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                             .attach_type = BPF_CGROUP_INET_INGRESS,
+                                                             .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                             },
+                                             {
+                                                             .option_name = "BPFProgram",
+                                                             .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                             .attach_type = BPF_CGROUP_INET_EGRESS,
+                                                             .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                             } };
 
-static const Test same_prog_multi_option_0[] = {
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_INGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        },
-        {
-                .option_name = "IPIngressFilterPath",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_INGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        }
-};
+static const Test same_prog_multi_option_0[] = { {
+                                                                 .option_name = "BPFProgram",
+                                                                 .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                                 .attach_type = BPF_CGROUP_INET_INGRESS,
+                                                                 .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                                 },
+                                                 {
+                                                                 .option_name = "IPIngressFilterPath",
+                                                                 .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                                 .attach_type = BPF_CGROUP_INET_INGRESS,
+                                                                 .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                                 } };
 
-static const Test same_prog_multi_option_1[] = {
-        {
-                .option_name = "IPEgressFilterPath",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_EGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        },
-        {
-                .option_name = "BPFProgram",
-                .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
-                .attach_type = BPF_CGROUP_INET_EGRESS,
-                .bpffs_path = BPFFS_PATH("trivial-skb"),
-        }
-};
+static const Test same_prog_multi_option_1[] = { {
+                                                                 .option_name = "IPEgressFilterPath",
+                                                                 .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                                 .attach_type = BPF_CGROUP_INET_EGRESS,
+                                                                 .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                                 },
+                                                 {
+                                                                 .option_name = "BPFProgram",
+                                                                 .prog_type = BPF_PROG_TYPE_CGROUP_SKB,
+                                                                 .attach_type = BPF_CGROUP_INET_EGRESS,
+                                                                 .bpffs_path = BPFFS_PATH("trivial-skb"),
+                                                 } };
 #undef BPFFS_PATH
 
 static int bpf_foreign_test_to_string(enum bpf_attach_type attach_type, const char *bpffs_path, char **ret_str) {
@@ -141,12 +131,10 @@ static char **unlink_paths_and_free(char **paths) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(char **, unlink_paths_and_free);
 
-static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size_t test_suite_size, char ***paths_ret) {
+static int pin_programs(
+                Unit *u, CGroupContext *cc, const Test *test_suite, size_t test_suite_size, char ***paths_ret) {
         _cleanup_(unlink_paths_and_freep) char **bpffs_paths = NULL;
-        static const struct bpf_insn trivial[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 0),
-                BPF_EXIT_INSN()
-        };
+        static const struct bpf_insn trivial[] = { BPF_MOV64_IMM(BPF_REG_0, 0), BPF_EXIT_INSN() };
         char log_buf[0xffff];
         int r;
 
@@ -188,7 +176,8 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
         return 0;
 }
 
-static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Test *test_suite, size_t test_suite_size) {
+static int test_bpf_cgroup_programs(
+                Manager *m, const char *unit_name, const Test *test_suite, size_t test_suite_size) {
         _cleanup_(unlink_paths_and_freep) char **bpffs_paths = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
         CGroupContext *cc = NULL;
@@ -205,11 +194,21 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         for (size_t i = 0; i < test_suite_size; i++) {
                 if (streq(test_suite[i].option_name, "BPFProgram")) {
                         _cleanup_free_ char *option = NULL;
-                        r = bpf_foreign_test_to_string(test_suite[i].attach_type, test_suite[i].bpffs_path, &option);
+                        r = bpf_foreign_test_to_string(
+                                        test_suite[i].attach_type, test_suite[i].bpffs_path, &option);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to compose option string: %m");
                         r = config_parse_bpf_foreign_program(
-                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, 0, option, cc, u);
+                                        u->id,
+                                        "filename",
+                                        1,
+                                        "Service",
+                                        1,
+                                        test_suite[i].option_name,
+                                        0,
+                                        option,
+                                        cc,
+                                        u);
 
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse option string '%s': %m", option);
@@ -223,7 +222,16 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
                                 paths = &cc->ip_filters_egress;
 
                         r = config_parse_ip_filter_bpf_progs(
-                                        u->id, "filename", 1, "Service", 1, test_suite[i].option_name, 0, option, paths, u);
+                                        u->id,
+                                        "filename",
+                                        1,
+                                        "Service",
+                                        1,
+                                        test_suite[i].option_name,
+                                        0,
+                                        option,
+                                        paths,
+                                        u);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse option string '%s': %m", option);
                 }
@@ -258,8 +266,10 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;
         if (cld_code != CLD_EXITED)
-                return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                "Child didn't exit normally, code='%s'", sigchld_code_to_string(cld_code));
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EBUSY),
+                                "Child didn't exit normally, code='%s'",
+                                sigchld_code_to_string(cld_code));
 
         if (SERVICE(u)->state != SERVICE_DEAD)
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Service is not dead");
@@ -277,7 +287,8 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (detect_container() > 0)
-                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+                return log_tests_skipped(
+                                "test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
@@ -304,27 +315,35 @@ int main(int argc, char *argv[]) {
         assert_se(manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
-        assert_se(test_bpf_cgroup_programs(m,
-                                "single_prog.service", single_prog, ELEMENTSOF(single_prog)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "multi_prog_same_hook.service",
-                                multi_prog_same_hook, ELEMENTSOF(multi_prog_same_hook)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "same_prog_multi_hook.service",
-                                same_prog_multi_hook, ELEMENTSOF(same_prog_multi_hook)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "same_prog_multi_option_0.service",
-                                same_prog_multi_option_0, ELEMENTSOF(same_prog_multi_option_0)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "same_prog_multi_option_1.service",
-                                same_prog_multi_option_1, ELEMENTSOF(same_prog_multi_option_1)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "same_prog_same_hook.service",
-                                same_prog_same_hook,
-                                ELEMENTSOF(same_prog_same_hook)) >= 0);
-        assert_se(test_bpf_cgroup_programs(m,
-                                "path_split_test.service",
-                                path_split_test,
-                                ELEMENTSOF(path_split_test)) >= 0);
+        assert_se(test_bpf_cgroup_programs(m, "single_prog.service", single_prog, ELEMENTSOF(single_prog)) >=
+                  0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m,
+                                  "multi_prog_same_hook.service",
+                                  multi_prog_same_hook,
+                                  ELEMENTSOF(multi_prog_same_hook)) >= 0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m,
+                                  "same_prog_multi_hook.service",
+                                  same_prog_multi_hook,
+                                  ELEMENTSOF(same_prog_multi_hook)) >= 0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m,
+                                  "same_prog_multi_option_0.service",
+                                  same_prog_multi_option_0,
+                                  ELEMENTSOF(same_prog_multi_option_0)) >= 0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m,
+                                  "same_prog_multi_option_1.service",
+                                  same_prog_multi_option_1,
+                                  ELEMENTSOF(same_prog_multi_option_1)) >= 0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m,
+                                  "same_prog_same_hook.service",
+                                  same_prog_same_hook,
+                                  ELEMENTSOF(same_prog_same_hook)) >= 0);
+        assert_se(test_bpf_cgroup_programs(
+                                  m, "path_split_test.service", path_split_test, ELEMENTSOF(path_split_test)) >=
+                  0);
         return 0;
 }

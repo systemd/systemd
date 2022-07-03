@@ -7,7 +7,7 @@
 #include "loopback-setup.h"
 #include "tests.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         int r;
 
         test_setup_logging(LOG_DEBUG);

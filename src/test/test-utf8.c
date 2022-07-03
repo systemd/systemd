@@ -18,19 +18,19 @@ TEST(utf8_is_printable) {
 }
 
 TEST(utf8_n_is_valid) {
-        assert_se( utf8_is_valid_n("ascii is valid unicode", 21));
-        assert_se( utf8_is_valid_n("ascii is valid unicode", 22));
+        assert_se(utf8_is_valid_n("ascii is valid unicode", 21));
+        assert_se(utf8_is_valid_n("ascii is valid unicode", 22));
         assert_se(!utf8_is_valid_n("ascii is valid unicode", 23));
-        assert_se( utf8_is_valid_n("\342\204\242", 0));
+        assert_se(utf8_is_valid_n("\342\204\242", 0));
         assert_se(!utf8_is_valid_n("\342\204\242", 1));
         assert_se(!utf8_is_valid_n("\342\204\242", 2));
-        assert_se( utf8_is_valid_n("\342\204\242", 3));
+        assert_se(utf8_is_valid_n("\342\204\242", 3));
         assert_se(!utf8_is_valid_n("\342\204\242", 4));
-        assert_se( utf8_is_valid_n("<ZZ>", 0));
-        assert_se( utf8_is_valid_n("<ZZ>", 1));
-        assert_se( utf8_is_valid_n("<ZZ>", 2));
-        assert_se( utf8_is_valid_n("<ZZ>", 3));
-        assert_se( utf8_is_valid_n("<ZZ>", 4));
+        assert_se(utf8_is_valid_n("<ZZ>", 0));
+        assert_se(utf8_is_valid_n("<ZZ>", 1));
+        assert_se(utf8_is_valid_n("<ZZ>", 2));
+        assert_se(utf8_is_valid_n("<ZZ>", 3));
+        assert_se(utf8_is_valid_n("<ZZ>", 4));
         assert_se(!utf8_is_valid_n("<ZZ>", 5));
 }
 
@@ -41,19 +41,19 @@ TEST(utf8_is_valid) {
 }
 
 TEST(ascii_is_valid) {
-        assert_se( ascii_is_valid("alsdjf\t\vbarr\nba z"));
+        assert_se(ascii_is_valid("alsdjf\t\vbarr\nba z"));
         assert_se(!ascii_is_valid("\342\204\242"));
         assert_se(!ascii_is_valid("\341\204"));
 }
 
 TEST(ascii_is_valid_n) {
-        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
-        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
+        assert_se(ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
+        assert_se(ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
         assert_se(!ascii_is_valid_n("alsdjf\t\vbarr\nba z", 18));
         assert_se(!ascii_is_valid_n("\342\204\242", 3));
         assert_se(!ascii_is_valid_n("\342\204\242", 2));
         assert_se(!ascii_is_valid_n("\342\204\242", 1));
-        assert_se( ascii_is_valid_n("\342\204\242", 0));
+        assert_se(ascii_is_valid_n("\342\204\242", 0));
 }
 
 static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *expected) {
@@ -72,7 +72,7 @@ TEST(utf8_to_ascii) {
         test_utf8_to_ascii_one("żęśłą óźń", 0, "***** ***");
         test_utf8_to_ascii_one("\342\204\242", 0, "*");
         test_utf8_to_ascii_one("\342\204", -EINVAL, NULL); /* truncated */
-        test_utf8_to_ascii_one("\342", -EINVAL, NULL); /* truncated */
+        test_utf8_to_ascii_one("\342", -EINVAL, NULL);     /* truncated */
         test_utf8_to_ascii_one("\302\256", 0, "*");
         test_utf8_to_ascii_one("", 0, "");
         test_utf8_to_ascii_one(" ", 0, " ");
@@ -145,9 +145,9 @@ TEST(utf8_escape_non_printable) {
 
 TEST(utf8_escape_non_printable_full) {
         FOREACH_STRING(s,
-                       "goo goo goo",       /* ASCII */
-                       "\001 \019\20\a",    /* control characters */
-                       "\xef\xbf\x30\x13")  /* misplaced continuation bytes followed by a digit and cc */
+                       "goo goo goo",      /* ASCII */
+                       "\001 \019\20\a",   /* control characters */
+                       "\xef\xbf\x30\x13") /* misplaced continuation bytes followed by a digit and cc */
                 for (size_t cw = 0; cw < 22; cw++) {
                         _cleanup_free_ char *p, *q;
                         size_t ew;
@@ -169,7 +169,8 @@ TEST(utf8_escape_non_printable_full) {
 }
 
 TEST(utf16_to_utf8) {
-        const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
+        const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'),   htole16(0xdc00),
+                                   htole16('c'), htole16(0xd801), htole16(0xdc37) };
         static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };
         _cleanup_free_ char16_t *b = NULL;
         _cleanup_free_ char *a = NULL;
@@ -209,12 +210,7 @@ TEST(utf8_console_width) {
 }
 
 TEST(utf8_to_utf16) {
-        FOREACH_STRING(p,
-                       "abc",
-                       "zażółcić gęślą jaźń",
-                       "串",
-                       "",
-                       "…👊🔪💐…") {
+        FOREACH_STRING(p, "abc", "zażółcić gęślą jaźń", "串", "", "…👊🔪💐…") {
 
                 _cleanup_free_ char16_t *a = NULL;
                 _cleanup_free_ char *b = NULL;

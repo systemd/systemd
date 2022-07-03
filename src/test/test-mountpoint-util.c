@@ -69,7 +69,7 @@ TEST(mnt_id) {
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 #if HAS_FEATURE_MEMORY_SANITIZER
                 /* We don't know the length of the string, so we need to unpoison it one char at a time */
-                for (const char *c = path; ;c++) {
+                for (const char *c = path;; c++) {
                         msan_unpoison(c, 1);
                         if (!*c)
                                 break;
@@ -150,10 +150,10 @@ TEST(path_is_mount_point) {
         assert_se(file1);
         file2 = path_join(tmp_dir, "file2");
         assert_se(file2);
-        fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(file1, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
-        fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(file2, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
         link1 = path_join(tmp_dir, "link1");
@@ -190,7 +190,7 @@ TEST(path_is_mount_point) {
         /* file in subdirectory mountpoints */
         dir1file = path_join(dir1, "file");
         assert_se(dir1file);
-        fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(dir1file, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
 
@@ -231,7 +231,7 @@ TEST(path_is_mount_point) {
                 /* dirs */
                 dir2file = path_join(dir2, "file");
                 assert_se(dir2file);
-                fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+                fd = open(dir2file, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
                 assert_se(fd > 0);
                 close(fd);
 
@@ -260,13 +260,13 @@ TEST(path_is_mount_point) {
         } else
                 printf("Skipping bind mount file test: %m\n");
 
-        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
 }
 
 TEST(fd_is_mount_point) {
         _cleanup_close_ int fd = -1;
 
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOCTTY);
         assert_se(fd >= 0);
 
         /* Not allowed, since "/" is a path, not a plain filename */

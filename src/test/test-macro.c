@@ -8,8 +8,8 @@
 
 TEST(saturate_add) {
         assert_se(saturate_add(1, 2, UINT8_MAX) == 3);
-        assert_se(saturate_add(1, UINT8_MAX-2, UINT8_MAX) == UINT8_MAX-1);
-        assert_se(saturate_add(1, UINT8_MAX-1, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(1, UINT8_MAX - 2, UINT8_MAX) == UINT8_MAX - 1);
+        assert_se(saturate_add(1, UINT8_MAX - 1, UINT8_MAX) == UINT8_MAX);
         assert_se(saturate_add(1, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
         assert_se(saturate_add(2, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
         assert_se(saturate_add(60, 60, 50) == 50);
@@ -44,14 +44,14 @@ TEST(align_power2) {
 
         for (i = 1; i < 131071; ++i) {
                 for (p2 = 1; p2 < i; p2 <<= 1)
-                        /* empty */ ;
+                        /* empty */;
 
                 assert_se(ALIGN_POWER2(i) == p2);
         }
 
         for (i = ULONG_MAX - 1024; i < ULONG_MAX; ++i) {
                 for (p2 = 1; p2 && p2 < i; p2 <<= 1)
-                        /* empty */ ;
+                        /* empty */;
 
                 assert_se(ALIGN_POWER2(i) == p2);
         }
@@ -68,9 +68,10 @@ TEST(max) {
         unsigned long x = 12345;
         unsigned long y = 54321;
         const char str[] = "a_string_constant";
-        const unsigned long long arr[] = {9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL};
-        void *p = (void *)str;
-        void *q = (void *)&str[16];
+        const unsigned long long arr[] = { 9999ULL, 10ULL,   0ULL,   3000ULL,
+                                           2000ULL, 1000ULL, 100ULL, 9999999ULL };
+        void *p = (void *) str;
+        void *q = (void *) &str[16];
 
         assert_cc(sizeof(val1.b) == sizeof(int) * 100);
 
@@ -118,10 +119,10 @@ TEST(max) {
         assert_se(CMP((int64_t) 0, INT64_MAX) == -1);
         assert_se(CMP(&str[2], &str[7]) == -1);
         assert_se(CMP(&str[2], &str[2]) == 0);
-        assert_se(CMP(&str[7], (const char *)str) == 1);
+        assert_se(CMP(&str[7], (const char *) str) == 1);
         assert_se(CMP(str[2], str[7]) == 1);
         assert_se(CMP(str[7], *str) == 1);
-        assert_se(CMP((const unsigned long long *)arr, &arr[3]) == -1);
+        assert_se(CMP((const unsigned long long *) arr, &arr[3]) == -1);
         assert_se(CMP(*arr, arr[3]) == 1);
         assert_se(CMP(p, q) == -1);
         assert_se(CMP(q, p) == 1);
@@ -136,7 +137,7 @@ TEST(max) {
 
 #pragma GCC diagnostic push
 #ifdef __clang__
-#  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#        pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
 TEST(container_of) {
@@ -145,16 +146,12 @@ TEST(container_of) {
                 uint64_t v1;
                 uint8_t pad2[2];
                 uint32_t v2;
-        } myval = { };
+        } myval = {};
 
         assert_cc(sizeof(myval) >= 17);
         assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
         assert_se(container_of(&myval.v2, struct mytype, v2) == &myval);
-        assert_se(container_of(&container_of(&myval.v2,
-                                             struct mytype,
-                                             v2)->v1,
-                               struct mytype,
-                               v1) == &myval);
+        assert_se(container_of(&container_of(&myval.v2, struct mytype, v2)->v1, struct mytype, v1) == &myval);
 }
 
 #pragma GCC diagnostic pop
@@ -296,7 +293,7 @@ TEST(align_to) {
         assert_se(ALIGN_TO(2, 1) == 2);
         assert_se(ALIGN_TO(3, 1) == 3);
         assert_se(ALIGN_TO(4, 1) == 4);
-        assert_se(ALIGN_TO(SIZE_MAX-1, 1) == SIZE_MAX-1);
+        assert_se(ALIGN_TO(SIZE_MAX - 1, 1) == SIZE_MAX - 1);
         assert_se(ALIGN_TO(SIZE_MAX, 1) == SIZE_MAX);
 
         assert_se(ALIGN_TO(0, 2) == 0);
@@ -304,9 +301,9 @@ TEST(align_to) {
         assert_se(ALIGN_TO(2, 2) == 2);
         assert_se(ALIGN_TO(3, 2) == 4);
         assert_se(ALIGN_TO(4, 2) == 4);
-        assert_se(ALIGN_TO(SIZE_MAX-3, 2) == SIZE_MAX-3);
-        assert_se(ALIGN_TO(SIZE_MAX-2, 2) == SIZE_MAX-1);
-        assert_se(ALIGN_TO(SIZE_MAX-1, 2) == SIZE_MAX-1);
+        assert_se(ALIGN_TO(SIZE_MAX - 3, 2) == SIZE_MAX - 3);
+        assert_se(ALIGN_TO(SIZE_MAX - 2, 2) == SIZE_MAX - 1);
+        assert_se(ALIGN_TO(SIZE_MAX - 1, 2) == SIZE_MAX - 1);
         assert_se(ALIGN_TO(SIZE_MAX, 2) == SIZE_MAX); /* overflow */
 
         assert_se(ALIGN_TO(0, 4) == 0);
@@ -314,10 +311,10 @@ TEST(align_to) {
         assert_se(ALIGN_TO(2, 4) == 4);
         assert_se(ALIGN_TO(3, 4) == 4);
         assert_se(ALIGN_TO(4, 4) == 4);
-        assert_se(ALIGN_TO(SIZE_MAX-3, 4) == SIZE_MAX-3);
-        assert_se(ALIGN_TO(SIZE_MAX-2, 4) == SIZE_MAX); /* overflow */
-        assert_se(ALIGN_TO(SIZE_MAX-1, 4) == SIZE_MAX); /* overflow */
-        assert_se(ALIGN_TO(SIZE_MAX, 4) == SIZE_MAX);   /* overflow */
+        assert_se(ALIGN_TO(SIZE_MAX - 3, 4) == SIZE_MAX - 3);
+        assert_se(ALIGN_TO(SIZE_MAX - 2, 4) == SIZE_MAX); /* overflow */
+        assert_se(ALIGN_TO(SIZE_MAX - 1, 4) == SIZE_MAX); /* overflow */
+        assert_se(ALIGN_TO(SIZE_MAX, 4) == SIZE_MAX);     /* overflow */
 
         assert_cc(CONST_ALIGN_TO(96, 512) == 512);
         assert_cc(CONST_ALIGN_TO(511, 512) == 512);
@@ -330,12 +327,7 @@ TEST(align_to) {
 }
 
 TEST(flags) {
-        enum {
-                F1 = 1 << 0,
-                F2 = 1 << 1,
-                F3 = 1 << 2,
-                F_ALL = F1 | F2 | F3
-        };
+        enum { F1 = 1 << 0, F2 = 1 << 1, F3 = 1 << 2, F_ALL = F1 | F2 | F3 };
         unsigned n, f;
 
         assert_se(FLAGS_SET(0, 0));
@@ -431,22 +423,22 @@ TEST(DECIMAL_STR_MAX) {
 
         /* NB: Always add +1, because DECIMAL_STR_MAX() includes space for trailing NUL byte, but
          * DECIMAL_STR_WIDTH() does not! */
-        assert_se(DECIMAL_STR_MAX(int8_t) == DECIMAL_STR_WIDTH(s8_longest)+1);
-        assert_se(DECIMAL_STR_MAX(int16_t) == DECIMAL_STR_WIDTH(s16_longest)+1);
-        assert_se(DECIMAL_STR_MAX(int32_t) == DECIMAL_STR_WIDTH(s32_longest)+1);
-        assert_se(DECIMAL_STR_MAX(int64_t) == DECIMAL_STR_WIDTH(s64_longest)+1);
+        assert_se(DECIMAL_STR_MAX(int8_t) == DECIMAL_STR_WIDTH(s8_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(int16_t) == DECIMAL_STR_WIDTH(s16_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(int32_t) == DECIMAL_STR_WIDTH(s32_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(int64_t) == DECIMAL_STR_WIDTH(s64_longest) + 1);
 
-        assert_se(DECIMAL_STR_MAX(uint8_t) == DECIMAL_STR_WIDTH(u8_longest)+1);
-        assert_se(DECIMAL_STR_MAX(uint16_t) == DECIMAL_STR_WIDTH(u16_longest)+1);
-        assert_se(DECIMAL_STR_MAX(uint32_t) == DECIMAL_STR_WIDTH(u32_longest)+1);
-        assert_se(DECIMAL_STR_MAX(uint64_t) == DECIMAL_STR_WIDTH(u64_longest)+1);
+        assert_se(DECIMAL_STR_MAX(uint8_t) == DECIMAL_STR_WIDTH(u8_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(uint16_t) == DECIMAL_STR_WIDTH(u16_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(uint32_t) == DECIMAL_STR_WIDTH(u32_longest) + 1);
+        assert_se(DECIMAL_STR_MAX(uint64_t) == DECIMAL_STR_WIDTH(u64_longest) + 1);
 }
 
 TEST(PTR_SUB1) {
         static const uint64_t x[4] = { 2, 3, 4, 5 };
         const uint64_t *p;
 
-        p = x + ELEMENTSOF(x)-1;
+        p = x + ELEMENTSOF(x) - 1;
         assert_se(*p == 5);
 
         p = PTR_SUB1(p, x);

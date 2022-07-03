@@ -10,19 +10,29 @@
 #include "sysctl-util.h"
 #include "tests.h"
 
-static const char* const cases[] = {
-        "a.b.c", "a/b/c",
-        "a/b/c", "a/b/c",
-        "a/b.c/d", "a/b.c/d",
-        "a.b/c.d", "a/b.c/d",
+static const char * const cases[] = {
+        "a.b.c",
+        "a/b/c",
+        "a/b/c",
+        "a/b/c",
+        "a/b.c/d",
+        "a/b.c/d",
+        "a.b/c.d",
+        "a/b.c/d",
 
-        "net.ipv4.conf.enp3s0/200.forwarding", "net/ipv4/conf/enp3s0.200/forwarding",
-        "net/ipv4/conf/enp3s0.200/forwarding", "net/ipv4/conf/enp3s0.200/forwarding",
+        "net.ipv4.conf.enp3s0/200.forwarding",
+        "net/ipv4/conf/enp3s0.200/forwarding",
+        "net/ipv4/conf/enp3s0.200/forwarding",
+        "net/ipv4/conf/enp3s0.200/forwarding",
 
-        "a...b...c", "a/b/c",
-        "a///b///c", "a/b/c",
-        ".a...b...c", "a/b/c",
-        "/a///b///c", "a/b/c",
+        "a...b...c",
+        "a/b/c",
+        "a///b///c",
+        "a/b/c",
+        ".a...b...c",
+        "a/b/c",
+        "/a///b///c",
+        "a/b/c",
         NULL,
 };
 

@@ -75,12 +75,18 @@ TEST(tmpdir) {
 
         test_tmpdir_one("abcd.service", x, y);
 
-        z = strjoin("/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
-        zz = strjoin("/var/tmp/systemd-private-", SD_ID128_TO_STRING(bid), "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        z = strjoin("/tmp/systemd-private-",
+                    SD_ID128_TO_STRING(bid),
+                    "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        zz = strjoin("/var/tmp/systemd-private-",
+                     SD_ID128_TO_STRING(bid),
+                     "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
 
         assert_se(z && zz);
 
-        test_tmpdir_one("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
+        test_tmpdir_one("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device",
+                        z,
+                        zz);
 }
 
 static void test_shareable_ns(unsigned long nsflag) {
@@ -176,40 +182,44 @@ TEST(protect_kernel_logs) {
                 fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC);
                 assert_se(fd > 0);
 
-                r = setup_namespace(NULL,
-                                    NULL,
-                                    NULL,
-                                    &ns_info,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL, 0,
-                                    NULL, 0,
-                                    NULL, 0,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    NULL,
-                                    0,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL,
-                                    NULL);
+                r = setup_namespace(
+                                NULL,
+                                NULL,
+                                NULL,
+                                &ns_info,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                0,
+                                NULL,
+                                0,
+                                NULL,
+                                0,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                0,
+                                NULL,
+                                0,
+                                NULL,
+                                NULL,
+                                0,
+                                NULL,
+                                NULL,
+                                NULL,
+                                0,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL,
+                                NULL);
                 assert_se(r == 0);
 
                 assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);

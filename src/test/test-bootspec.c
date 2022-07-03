@@ -14,49 +14,43 @@ TEST_RET(bootspec_sort) {
                 const char *contents;
         } entries[] = {
                 {
-                        .fname = "a-10.conf",
-                        .contents =
-                        "title A\n"
-                        "version 10\n"
-                        "machine-id dd235d00696545768f6f693bfd23b15f\n",
+                                .fname = "a-10.conf",
+                                .contents = "title A\n"
+                                            "version 10\n"
+                                            "machine-id dd235d00696545768f6f693bfd23b15f\n",
                 },
                 {
-                        .fname = "a-5.conf",
-                        .contents =
-                        "title A\n"
-                        "version 5\n"
-                        "machine-id dd235d00696545768f6f693bfd23b15f\n",
+                                .fname = "a-5.conf",
+                                .contents = "title A\n"
+                                            "version 5\n"
+                                            "machine-id dd235d00696545768f6f693bfd23b15f\n",
                 },
                 {
-                        .fname = "b.conf",
-                        .contents =
-                        "title B\n"
-                        "version 3\n"
-                        "machine-id b75451ad92f94feeab50b0b442768dbd\n",
+                                .fname = "b.conf",
+                                .contents = "title B\n"
+                                            "version 3\n"
+                                            "machine-id b75451ad92f94feeab50b0b442768dbd\n",
                 },
                 {
-                        .fname = "c.conf",
-                        .contents =
-                        "title C\n"
-                        "sort-key xxxx\n"
-                        "version 5\n"
-                        "machine-id 309de666fd5044268a9a26541ac93176\n",
+                                .fname = "c.conf",
+                                .contents = "title C\n"
+                                            "sort-key xxxx\n"
+                                            "version 5\n"
+                                            "machine-id 309de666fd5044268a9a26541ac93176\n",
                 },
                 {
-                        .fname = "cx.conf",
-                        .contents =
-                        "title C\n"
-                        "sort-key xxxx\n"
-                        "version 10\n"
-                        "machine-id 309de666fd5044268a9a26541ac93176\n",
+                                .fname = "cx.conf",
+                                .contents = "title C\n"
+                                            "sort-key xxxx\n"
+                                            "version 10\n"
+                                            "machine-id 309de666fd5044268a9a26541ac93176\n",
                 },
                 {
-                        .fname = "d.conf",
-                        .contents =
-                        "title D\n"
-                        "sort-key kkkk\n"
-                        "version 100\n"
-                        "machine-id 81c6e3147cf544c19006af023e22b292\n",
+                                .fname = "d.conf",
+                                .contents = "title D\n"
+                                            "sort-key kkkk\n"
+                                            "version 100\n"
+                                            "machine-id 81c6e3147cf544c19006af023e22b292\n",
                 },
         };
 
@@ -71,7 +65,10 @@ TEST_RET(bootspec_sort) {
                 j = path_join(d, "/loader/entries/", entries[i].fname);
                 assert_se(j);
 
-                assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                assert_se(write_string_file(
+                                          j,
+                                          entries[i].contents,
+                                          WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
         assert_se(boot_config_load(&config, d, NULL) >= 0);

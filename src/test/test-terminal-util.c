@@ -16,9 +16,10 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-#define LOREM_IPSUM "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " \
-        "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation " \
-        "ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit " \
+#define LOREM_IPSUM                                                                                          \
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor "                    \
+        "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation "   \
+        "ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit "   \
         "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
         "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
@@ -69,7 +70,7 @@ TEST(getttyname_malloc) {
         _cleanup_free_ char *ttyname = NULL;
         _cleanup_close_ int master = -1;
 
-        assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
+        assert_se((master = posix_openpt(O_RDWR | O_NOCTTY)) >= 0);
         assert_se(getttyname_malloc(master, &ttyname) >= 0);
         log_info("ttyname = %s", ttyname);
 
@@ -78,7 +79,7 @@ TEST(getttyname_malloc) {
 
 typedef struct {
         const char *name;
-        const char* (*func)(void);
+        const char *(*func)(void);
 } Color;
 
 static const Color colors[] = {
@@ -131,8 +132,7 @@ TEST(colors) {
 
 TEST(text) {
         for (size_t i = 0; !streq(colors[i].name, "underline"); i++) {
-                bool blwh = strstr(colors[i].name, "black")
-                        || strstr(colors[i].name, "white");
+                bool blwh = strstr(colors[i].name, "black") || strstr(colors[i].name, "white");
 
                 printf("\n"
                        "Testing color %s%s\n%s%s%s\n",

@@ -24,30 +24,25 @@ static int test_fd[2];
 
 static int basic_request_handler_bind = 0;
 static int basic_request_handler_stop = 0;
-static void* basic_request_handler_userdata = (void*) 0xCABCAB;
+static void *basic_request_handler_userdata = (void *) 0xCABCAB;
 
 static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(userdata == basic_request_handler_userdata);
 
         switch (event) {
-                case SD_IPV4LL_EVENT_STOP:
-                        basic_request_handler_stop = 1;
-                        break;
-                case SD_IPV4LL_EVENT_BIND:
-                        basic_request_handler_bind = 1;
-                        break;
-                default:
-                        assert_se(0);
-                        break;
+        case SD_IPV4LL_EVENT_STOP:
+                basic_request_handler_stop = 1;
+                break;
+        case SD_IPV4LL_EVENT_BIND:
+                basic_request_handler_bind = 1;
+                break;
+        default:
+                assert_se(0);
+                break;
         }
 }
 
-int arp_send_packet(
-                int fd,
-                int ifindex,
-                const struct in_addr *pa,
-                const struct ether_addr *ha,
-                bool announce) {
+int arp_send_packet(int fd, int ifindex, const struct in_addr *pa, const struct ether_addr *ha, bool announce) {
 
         struct ether_arp ea = {};
 
@@ -77,8 +72,7 @@ static void test_public_api_setters(sd_event *e) {
         struct in_addr address = {};
         uint64_t seed = 0;
         sd_ipv4ll *ll;
-        struct ether_addr mac_addr = {
-                .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
+        struct ether_addr mac_addr = { .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' } };
 
         if (verbose)
                 printf("* %s\n", __func__);
@@ -126,8 +120,7 @@ static void test_basic_request(sd_event *e) {
 
         sd_ipv4ll *ll;
         struct ether_arp arp;
-        struct ether_addr mac_addr = {
-                .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}};
+        struct ether_addr mac_addr = { .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' } };
 
         if (verbose)
                 printf("* %s\n", __func__);
@@ -141,8 +134,7 @@ static void test_basic_request(sd_event *e) {
         assert_se(sd_ipv4ll_set_mac(ll, &mac_addr) == 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
-        assert_se(sd_ipv4ll_set_callback(ll, basic_request_handler,
-                                         basic_request_handler_userdata) == 0);
+        assert_se(sd_ipv4ll_set_callback(ll, basic_request_handler, basic_request_handler_userdata) == 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
         assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);

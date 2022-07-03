@@ -62,7 +62,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(m);
 
         assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, "ipip-tunnel") >= 0);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_MTU, 1234)>= 0);
+        assert_se(sd_netlink_message_append_u32(m, IFLA_MTU, 1234) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
 
@@ -86,7 +86,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(n);
 
         assert_se(sd_netlink_message_append_string(n, IFLA_IFNAME, "sit-tunnel") >= 0);
-        assert_se(sd_netlink_message_append_u32(n, IFLA_MTU, 1234)>= 0);
+        assert_se(sd_netlink_message_append_u32(n, IFLA_MTU, 1234) >= 0);
 
         assert_se(sd_netlink_message_open_container(n, IFLA_LINKINFO) >= 0);
 

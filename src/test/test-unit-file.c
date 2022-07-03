@@ -9,17 +9,27 @@
 
 TEST(unit_validate_alias_symlink_and_warn) {
         assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.foobar") == -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.socket") ==
+                  -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.foobar") ==
+                  -EXDEV);
         assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@YYY.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@XXX.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b@.service") == -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.socket") ==
+                  -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(
+                                  LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.service") == -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(
+                                  LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.socket") == -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@YYY.service") ==
+                  -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(
+                                  LOG_INFO, "/path/a@XXX.service", "/other/b@XXX.service") == 0);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@.service") ==
+                  0);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b.service") ==
+                  -EXDEV);
+        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b@.service") ==
+                  -EXDEV);
         assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.slice", "/other/b.slice") == -EINVAL);
         assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.slice", "/other/b.slice") == -EINVAL);
 }
@@ -56,32 +66,24 @@ TEST(unit_file_build_name_map) {
                 log_debug("Cache rebuild skipped based on mtime.");
 
         STRV_FOREACH(id, ids) {
-                 const char *fragment, *name;
-                 _cleanup_set_free_free_ Set *names = NULL;
-                 log_info("*** %s ***", *id);
-                 r = unit_file_find_fragment(unit_ids,
-                                             unit_names,
-                                             *id,
-                                             &fragment,
-                                             &names);
-                 assert_se(r == 0);
-                 log_info("fragment: %s", fragment);
-                 log_info("names:");
-                 SET_FOREACH(name, names)
-                         log_info("    %s", name);
+                const char *fragment, *name;
+                _cleanup_set_free_free_ Set *names = NULL;
+                log_info("*** %s ***", *id);
+                r = unit_file_find_fragment(unit_ids, unit_names, *id, &fragment, &names);
+                assert_se(r == 0);
+                log_info("fragment: %s", fragment);
+                log_info("names:");
+                SET_FOREACH(name, names)
+                        log_info("    %s", name);
         }
 
         /* Make sure everything still works if we don't collect names. */
         STRV_FOREACH(id, ids) {
-                 const char *fragment;
-                 log_info("*** %s ***", *id);
-                 r = unit_file_find_fragment(unit_ids,
-                                             unit_names,
-                                             *id,
-                                             &fragment,
-                                             NULL);
-                 assert_se(r == 0);
-                 log_info("fragment: %s", fragment);
+                const char *fragment;
+                log_info("*** %s ***", *id);
+                r = unit_file_find_fragment(unit_ids, unit_names, *id, &fragment, NULL);
+                assert_se(r == 0);
+                log_info("fragment: %s", fragment);
         }
 }
 

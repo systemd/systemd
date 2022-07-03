@@ -24,8 +24,7 @@
 static size_t arg_bufsize = 1024;
 
 static void print_struct_passwd(const struct passwd *pwd) {
-        log_info("        \"%s\" / "UID_FMT":"GID_FMT,
-                 pwd->pw_name, pwd->pw_uid, pwd->pw_gid);
+        log_info("        \"%s\" / " UID_FMT ":" GID_FMT, pwd->pw_name, pwd->pw_uid, pwd->pw_gid);
         log_info("        passwd=\"%s\"", pwd->pw_passwd);
         log_info("        gecos=\"%s\"", pwd->pw_gecos);
         log_info("        dir=\"%s\"", pwd->pw_dir);
@@ -35,8 +34,7 @@ static void print_struct_passwd(const struct passwd *pwd) {
 static void print_struct_group(const struct group *gr) {
         _cleanup_free_ char *members = NULL;
 
-        log_info("        \"%s\" / "GID_FMT,
-                 gr->gr_name, gr->gr_gid);
+        log_info("        \"%s\" / " GID_FMT, gr->gr_name, gr->gr_gid);
         log_info("        passwd=\"%s\"", gr->gr_passwd);
 
         assert_se(members = strv_join(gr->gr_mem, ", "));
@@ -63,9 +61,12 @@ static void test_getpwnam_r(void *handle, const char *module, const char *name) 
 
         status = f(name, &pwd, buffer, sizeof buffer, &errno1);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
-                 fname, name,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 fname,
+                 name,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_passwd(&pwd);
 }
@@ -89,9 +90,12 @@ static void test_getgrnam_r(void *handle, const char *module, const char *name) 
 
         status = f(name, &gr, buffer, sizeof buffer, &errno1);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
-                 fname, name,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 fname,
+                 name,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_group(&gr);
 }
@@ -114,10 +118,13 @@ static void test_getpwuid_r(void *handle, const char *module, uid_t uid) {
         }
 
         status = f(uid, &pwd, buffer, sizeof buffer, &errno1);
-        log_info("%s("UID_FMT") → status=%s%-20serrno=%d/%s",
-                 fname, uid,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+        log_info("%s(" UID_FMT ") → status=%s%-20serrno=%d/%s",
+                 fname,
+                 uid,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_passwd(&pwd);
 }
@@ -140,10 +147,13 @@ static void test_getgrgid_r(void *handle, const char *module, gid_t gid) {
         }
 
         status = f(gid, &gr, buffer, sizeof buffer, &errno1);
-        log_info("%s("GID_FMT") → status=%s%-20serrno=%d/%s",
-                 fname, gid,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+        log_info("%s(" GID_FMT ") → status=%s%-20serrno=%d/%s",
+                 fname,
+                 gid,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_group(&gr);
 }
@@ -160,13 +170,11 @@ static void test_byuid(void *handle, const char *module, uid_t uid) {
         puts("");
 }
 
-static int test_one_module(const char *dir,
-                           const char *module,
-                           char **names) {
+static int test_one_module(const char *dir, const char *module, char **names) {
 
         log_info("======== %s ========", module);
 
-        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
+        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY | RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
@@ -188,9 +196,7 @@ static int test_one_module(const char *dir,
         return 0;
 }
 
-static int parse_argv(int argc, char **argv,
-                      char ***the_modules,
-                      char ***the_names) {
+static int parse_argv(int argc, char **argv, char ***the_modules, char ***the_names) {
 
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         const char *p;
@@ -219,11 +225,7 @@ static int parse_argv(int argc, char **argv,
         if (argc > 2)
                 names = strv_copy(strv_skip(argv, 2));
         else
-                names = strv_new("root",
-                                 NOBODY_USER_NAME,
-                                 "foo_no_such_user",
-                                 "0",
-                                 "65534");
+                names = strv_new("root", NOBODY_USER_NAME, "foo_no_such_user", "0", "65534");
         assert_se(names);
 
         *the_modules = TAKE_PTR(modules);

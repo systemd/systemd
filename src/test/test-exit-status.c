@@ -10,9 +10,7 @@ TEST(exit_status_to_string) {
 
                 s = exit_status_to_string(i, EXIT_STATUS_FULL);
                 class = exit_status_class(i);
-                log_info("%d: %s%s%s%s",
-                         i, s ?: "-",
-                         class ? " (" : "", strempty(class), class ? ")" : "");
+                log_info("%d: %s%s%s%s", i, s ?: "-", class ? " (" : "", strempty(class), class ? ")" : "");
 
                 if (s)
                         assert_se(exit_status_from_string(s) == i);

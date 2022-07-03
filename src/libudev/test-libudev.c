@@ -73,8 +73,8 @@ static void print_device(struct udev_device *device) {
         count = 0;
         udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device)) {
                 log_info("property:  '%s=%s'",
-                       udev_list_entry_get_name(list_entry),
-                       udev_list_entry_get_value(list_entry));
+                         udev_list_entry_get_name(list_entry),
+                         udev_list_entry_get_value(list_entry));
                 count++;
         }
         if (count > 0)
@@ -155,8 +155,8 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
-                                                      udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(
+                                udev_enumerate_get_udev(enumerate), udev_list_entry_get_name(list_entry));
                 if (device) {
                         log_info("device: '%s' (%s)",
                                  udev_device_get_syspath(device),
@@ -279,7 +279,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         udev_enumerate = udev_enumerate_new(udev);
         if (!udev_enumerate)
                 return -1;
-        udev_enumerate_add_match_subsystem(udev_enumerate,"block");
+        udev_enumerate_add_match_subsystem(udev_enumerate, "block");
         r = udev_enumerate_add_match_is_initialized(udev_enumerate);
         if (r < 0) {
                 udev_enumerate_unref(udev_enumerate);
@@ -338,8 +338,8 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         if (!hwdb)
                 log_warning_errno(errno, "Failed to open hwdb: %m");
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
-                log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
+        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0)) log_info(
+                        "'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
         hwdb = udev_hwdb_unref(hwdb);
         assert_se(hwdb == NULL);
@@ -404,15 +404,13 @@ static void test_list(void) {
 }
 
 static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {
-        static const struct option options[] = {
-                { "syspath",   required_argument, NULL, 'p' },
-                { "subsystem", required_argument, NULL, 's' },
-                { "debug",     no_argument,       NULL, 'd' },
-                { "help",      no_argument,       NULL, 'h' },
-                { "version",   no_argument,       NULL, 'V' },
-                { "monitor",   no_argument,       NULL, 'm' },
-                {}
-        };
+        static const struct option options[] = { { "syspath", required_argument, NULL, 'p' },
+                                                 { "subsystem", required_argument, NULL, 's' },
+                                                 { "debug", no_argument, NULL, 'd' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "monitor", no_argument, NULL, 'm' },
+                                                 {} };
         int c;
 
         while ((c = getopt_long(argc, argv, "p:s:dhVm", options, NULL)) >= 0)
