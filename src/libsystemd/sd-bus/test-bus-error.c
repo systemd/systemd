@@ -27,7 +27,8 @@ TEST(error) {
         assert_se(sd_bus_error_has_names_sentinel(&error, SD_BUS_ERROR_NOT_SUPPORTED, NULL));
         assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_NOT_SUPPORTED));
         assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_NOT_SUPPORTED, SD_BUS_ERROR_FILE_NOT_FOUND));
-        assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND, SD_BUS_ERROR_NOT_SUPPORTED, NULL));
+        assert_se(sd_bus_error_has_names(
+                        &error, SD_BUS_ERROR_FILE_NOT_FOUND, SD_BUS_ERROR_NOT_SUPPORTED, NULL));
         assert_se(!sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(sd_bus_error_get_errno(&error) == EOPNOTSUPP);
         assert_se(sd_bus_error_is_set(&error));
@@ -167,26 +168,20 @@ BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors2[] = {
         SD_BUS_ERROR_MAP_END
 };
 
-static const sd_bus_error_map test_errors3[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-88", 888),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-99", 999),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors3[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-88", 888),
+                                                 SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-99", 999),
+                                                 SD_BUS_ERROR_MAP_END };
 
-static const sd_bus_error_map test_errors4[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-77", 777),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-78", 778),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors4[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-77", 777),
+                                                 SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-78", 778),
+                                                 SD_BUS_ERROR_MAP_END };
 
 static const sd_bus_error_map test_errors_bad1[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", 0),
-        SD_BUS_ERROR_MAP_END
+        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", 0), SD_BUS_ERROR_MAP_END
 };
 
 static const sd_bus_error_map test_errors_bad2[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", -1),
-        SD_BUS_ERROR_MAP_END
+        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", -1), SD_BUS_ERROR_MAP_END
 };
 
 TEST(errno_mapping_custom) {

@@ -17,7 +17,7 @@ TEST(translate_name) {
 }
 
 static void test_xdg_format_exec_start_one(const char *exec, const char *expected) {
-        _cleanup_free_ char* out = NULL;
+        _cleanup_free_ char *out = NULL;
 
         xdg_autostart_format_exec_start(exec, &out);
         log_info("In: '%s', out: '%s', expected: '%s'", exec, out, expected);
@@ -36,7 +36,7 @@ TEST(xdg_format_exec_start) {
         test_xdg_format_exec_start_one("/bin/sleep \";\\\"\"", "/bin/sleep \";\\\"\"");
 }
 
-static const char* const xdg_desktop_file[] = {
+static const char * const xdg_desktop_file[] = {
         ("[Desktop Entry]\n"
          "Exec\t =\t /bin/sleep 100\n" /* Whitespace Before/After = must be ignored */
          "OnlyShowIn = A;B;\n"

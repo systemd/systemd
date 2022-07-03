@@ -154,15 +154,15 @@ TEST(parse_permyriad_unbounded) {
 TEST(scale) {
         /* Check some fixed values */
         assert_se(UINT32_SCALE_FROM_PERCENT(0) == 0);
-        assert_se(UINT32_SCALE_FROM_PERCENT(50) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERCENT(50) == UINT32_MAX / 2 + 1);
         assert_se(UINT32_SCALE_FROM_PERCENT(100) == UINT32_MAX);
 
         assert_se(UINT32_SCALE_FROM_PERMILLE(0) == 0);
-        assert_se(UINT32_SCALE_FROM_PERMILLE(500) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERMILLE(500) == UINT32_MAX / 2 + 1);
         assert_se(UINT32_SCALE_FROM_PERMILLE(1000) == UINT32_MAX);
 
         assert_se(UINT32_SCALE_FROM_PERMYRIAD(0) == 0);
-        assert_se(UINT32_SCALE_FROM_PERMYRIAD(5000) == UINT32_MAX/2+1);
+        assert_se(UINT32_SCALE_FROM_PERMYRIAD(5000) == UINT32_MAX / 2 + 1);
         assert_se(UINT32_SCALE_FROM_PERMYRIAD(10000) == UINT32_MAX);
 
         /* Make sure there's no numeric noise on the 0%…100% scale when converting from percent and back. */

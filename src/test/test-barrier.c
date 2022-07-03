@@ -28,7 +28,7 @@
 #define BASE_TIME (20 * USEC_PER_MSEC)
 
 static void set_alarm(usec_t usecs) {
-        struct itimerval v = { };
+        struct itimerval v = {};
 
         timeval_store(&v.it_value, usecs);
         assert_se(setitimer(ITIMER_REAL, &v, NULL) >= 0);
@@ -40,57 +40,57 @@ static void sleep_for(usec_t usecs) {
         usleep(usecs);
 }
 
-#define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
-        TEST(_FUNCTION) {                                               \
-                Barrier b = BARRIER_NULL;                               \
-                pid_t pid1, pid2;                                       \
-                                                                        \
-                assert_se(barrier_create(&b) >= 0);                     \
-                assert_se(b.me > 0);                                    \
-                assert_se(b.them > 0);                                  \
-                assert_se(b.pipe[0] > 0);                               \
-                assert_se(b.pipe[1] > 0);                               \
-                                                                        \
-                pid1 = fork();                                          \
-                assert_se(pid1 >= 0);                                   \
-                if (pid1 == 0) {                                        \
-                        barrier_set_role(&b, BARRIER_CHILD);            \
-                        { _CHILD_CODE; }                                \
-                        exit(42);                                       \
-                }                                                       \
-                                                                        \
-                pid2 = fork();                                          \
-                assert_se(pid2 >= 0);                                   \
-                if (pid2 == 0) {                                        \
-                        barrier_set_role(&b, BARRIER_PARENT);           \
-                        { _PARENT_CODE; }                               \
-                        exit(42);                                       \
-                }                                                       \
-                                                                        \
-                barrier_destroy(&b);                                    \
-                set_alarm(999999);                                      \
-                { _WAIT_CHILD; }                                        \
-                { _WAIT_PARENT; }                                       \
-                set_alarm(0);                                           \
+#define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT) \
+        TEST(_FUNCTION) {                                                             \
+                Barrier b = BARRIER_NULL;                                             \
+                pid_t pid1, pid2;                                                     \
+                                                                                      \
+                assert_se(barrier_create(&b) >= 0);                                   \
+                assert_se(b.me > 0);                                                  \
+                assert_se(b.them > 0);                                                \
+                assert_se(b.pipe[0] > 0);                                             \
+                assert_se(b.pipe[1] > 0);                                             \
+                                                                                      \
+                pid1 = fork();                                                        \
+                assert_se(pid1 >= 0);                                                 \
+                if (pid1 == 0) {                                                      \
+                        barrier_set_role(&b, BARRIER_CHILD);                          \
+                        { _CHILD_CODE; }                                              \
+                        exit(42);                                                     \
+                }                                                                     \
+                                                                                      \
+                pid2 = fork();                                                        \
+                assert_se(pid2 >= 0);                                                 \
+                if (pid2 == 0) {                                                      \
+                        barrier_set_role(&b, BARRIER_PARENT);                         \
+                        { _PARENT_CODE; }                                             \
+                        exit(42);                                                     \
+                }                                                                     \
+                                                                                      \
+                barrier_destroy(&b);                                                  \
+                set_alarm(999999);                                                    \
+                { _WAIT_CHILD; }                                                      \
+                { _WAIT_PARENT; }                                                     \
+                set_alarm(0);                                                         \
         }
 
-#define TEST_BARRIER_WAIT_SUCCESS(_pid) \
-                ({                                                      \
-                        int pidr, status;                               \
-                        pidr = waitpid(_pid, &status, 0);               \
-                        assert_se(pidr == _pid);                        \
-                        assert_se(WIFEXITED(status));                   \
-                        assert_se(WEXITSTATUS(status) == 42);           \
-                })
+#define TEST_BARRIER_WAIT_SUCCESS(_pid)               \
+        ({                                            \
+                int pidr, status;                     \
+                pidr = waitpid(_pid, &status, 0);     \
+                assert_se(pidr == _pid);              \
+                assert_se(WIFEXITED(status));         \
+                assert_se(WEXITSTATUS(status) == 42); \
+        })
 
-#define TEST_BARRIER_WAIT_ALARM(_pid) \
-                ({                                                      \
-                        int pidr, status;                               \
-                        pidr = waitpid(_pid, &status, 0);               \
-                        assert_se(pidr == _pid);                        \
-                        assert_se(WIFSIGNALED(status));                 \
-                        assert_se(WTERMSIG(status) == SIGALRM);         \
-                })
+#define TEST_BARRIER_WAIT_ALARM(_pid)                   \
+        ({                                              \
+                int pidr, status;                       \
+                pidr = waitpid(_pid, &status, 0);       \
+                assert_se(pidr == _pid);                \
+                assert_se(WIFSIGNALED(status));         \
+                assert_se(WTERMSIG(status) == SIGALRM); \
+        })
 
 /*
  * Test basic sync points
@@ -102,19 +102,19 @@ static void sleep_for(usec_t usecs) {
  * eventfd, thus we can safely wait on the barrier.
  */
 TEST_BARRIER(barrier_sync,
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                sleep_for(BASE_TIME * 2);
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     sleep_for(BASE_TIME * 2);
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test wait_next()
@@ -124,20 +124,20 @@ TEST_BARRIER(barrier_sync,
  * barrier and sync synchronize the exit.
  */
 TEST_BARRIER(barrier_wait_next,
-        ({
-                sleep_for(BASE_TIME);
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 4);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     sleep_for(BASE_TIME);
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 4);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test wait_next() multiple times
@@ -150,21 +150,21 @@ TEST_BARRIER(barrier_wait_next,
  * out.
  */
 TEST_BARRIER(barrier_wait_next_twice,
-        ({
-                sleep_for(BASE_TIME);
-                set_alarm(BASE_TIME);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_wait_next(&b));
-                assert_se(0);
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                sleep_for(BASE_TIME * 4);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     sleep_for(BASE_TIME);
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(0);
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     sleep_for(BASE_TIME * 4);
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test wait_next() with local barriers
@@ -173,23 +173,23 @@ TEST_BARRIER(barrier_wait_next_twice,
  * like the other test.
  */
 TEST_BARRIER(barrier_wait_next_twice_local,
-        ({
-                sleep_for(BASE_TIME);
-                set_alarm(BASE_TIME);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_wait_next(&b));
-                assert_se(0);
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                sleep_for(BASE_TIME * 4);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     sleep_for(BASE_TIME);
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(0);
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     sleep_for(BASE_TIME * 4);
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test wait_next() with sync_next()
@@ -198,19 +198,19 @@ TEST_BARRIER(barrier_wait_next_twice_local,
  * has no barriers placed, therefore, the remote is always in sync.
  */
 TEST_BARRIER(barrier_wait_next_twice_sync,
-        ({
-                sleep_for(BASE_TIME);
-                set_alarm(BASE_TIME);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_sync_next(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     sleep_for(BASE_TIME);
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_sync_next(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test wait_next() with sync_next() and local barriers
@@ -219,21 +219,21 @@ TEST_BARRIER(barrier_wait_next_twice_sync,
  * is in sync with the remote.
  */
 TEST_BARRIER(barrier_wait_next_twice_local_sync,
-        ({
-                sleep_for(BASE_TIME);
-                set_alarm(BASE_TIME);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync_next(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     sleep_for(BASE_TIME);
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync_next(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test sync_next() and sync()
@@ -241,25 +241,25 @@ TEST_BARRIER(barrier_wait_next_twice_local_sync,
  * local state is behind the remote state.
  */
 TEST_BARRIER(barrier_sync_next,
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_sync_next(&b));
-                assert_se(barrier_sync(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync_next(&b));
-                assert_se(barrier_sync_next(&b));
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                sleep_for(BASE_TIME);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(barrier_sync(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     sleep_for(BASE_TIME);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test sync_next() and sync() with local barriers
@@ -267,17 +267,15 @@ TEST_BARRIER(barrier_sync_next,
  * remote didn't place any.
  */
 TEST_BARRIER(barrier_sync_next_local,
-        ({
-                set_alarm(BASE_TIME);
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync_next(&b));
-                assert_se(0);
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid1),
-        ({
-                sleep_for(BASE_TIME * 2);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(0);
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid1),
+             ({ sleep_for(BASE_TIME * 2); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test sync_next() and sync() with local barriers and abortion
@@ -285,31 +283,27 @@ TEST_BARRIER(barrier_sync_next_local,
  * parent. Therefore, the sync_next() succeeds just fine due to the abortion.
  */
 TEST_BARRIER(barrier_sync_next_local_abort,
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(!barrier_sync_next(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                assert_se(barrier_abort(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(!barrier_sync_next(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({ assert_se(barrier_abort(&b)); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test matched wait_abortion()
  * This runs wait_abortion() with remote abortion.
  */
 TEST_BARRIER(barrier_wait_abortion,
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_wait_abortion(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                assert_se(barrier_abort(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_wait_abortion(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({ assert_se(barrier_abort(&b)); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test unmatched wait_abortion()
@@ -317,49 +311,43 @@ TEST_BARRIER(barrier_wait_abortion,
  * timeout.
  */
 TEST_BARRIER(barrier_wait_abortion_unmatched,
-        ({
-                set_alarm(BASE_TIME);
-                assert_se(barrier_wait_abortion(&b));
-                assert_se(0);
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid1),
-        ({
-                sleep_for(BASE_TIME * 2);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_wait_abortion(&b));
+                     assert_se(0);
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid1),
+             ({ sleep_for(BASE_TIME * 2); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test matched wait_abortion() with local abortion
  * This runs wait_abortion() with local and remote abortion.
  */
 TEST_BARRIER(barrier_wait_abortion_local,
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_abort(&b));
-                assert_se(!barrier_wait_abortion(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                assert_se(barrier_abort(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_abort(&b));
+                     assert_se(!barrier_wait_abortion(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({ assert_se(barrier_abort(&b)); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test unmatched wait_abortion() with local abortion
  * This runs wait_abortion() with only local abortion. This must time out.
  */
 TEST_BARRIER(barrier_wait_abortion_local_unmatched,
-        ({
-                set_alarm(BASE_TIME);
-                assert_se(barrier_abort(&b));
-                assert_se(!barrier_wait_abortion(&b));
-                assert_se(0);
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid1),
-        ({
-                sleep_for(BASE_TIME * 2);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_abort(&b));
+                     assert_se(!barrier_wait_abortion(&b));
+                     assert_se(0);
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid1),
+             ({ sleep_for(BASE_TIME * 2); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test child exit
@@ -367,15 +355,14 @@ TEST_BARRIER(barrier_wait_abortion_local_unmatched,
  * cause an implicit abortion and wake the parent.
  */
 TEST_BARRIER(barrier_exit,
-        ({
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME * 10);
-                assert_se(barrier_place(&b));
-                assert_se(!barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({}),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME * 10);
+                     assert_se(barrier_place(&b));
+                     assert_se(!barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 /*
  * Test child exit with sleep
@@ -384,16 +371,14 @@ TEST_BARRIER(barrier_exit,
  * causes the test to time out.
  */
 TEST_BARRIER(barrier_no_exit,
-        ({
-                sleep_for(BASE_TIME * 2);
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                set_alarm(BASE_TIME);
-                assert_se(barrier_place(&b));
-                assert_se(!barrier_sync(&b));
-        }),
-        TEST_BARRIER_WAIT_ALARM(pid2));
+             ({ sleep_for(BASE_TIME * 2); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({
+                     set_alarm(BASE_TIME);
+                     assert_se(barrier_place(&b));
+                     assert_se(!barrier_sync(&b));
+             }),
+             TEST_BARRIER_WAIT_ALARM(pid2));
 
 /*
  * Test pending exit against sync
@@ -406,21 +391,19 @@ TEST_BARRIER(barrier_no_exit,
  * we will fail due to HUP on the pipe.
  */
 TEST_BARRIER(barrier_pending_exit,
-        ({
-                set_alarm(BASE_TIME * 4);
-                sleep_for(BASE_TIME * 2);
-                assert_se(barrier_wait_next(&b));
-                assert_se(barrier_sync_next(&b));
-                assert_se(barrier_place(&b));
-                assert_se(barrier_sync_next(&b));
-                assert_se(barrier_place(&b));
-                assert_se(!barrier_sync_next(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid1),
-        ({
-                assert_se(barrier_place(&b));
-        }),
-        TEST_BARRIER_WAIT_SUCCESS(pid2));
+             ({
+                     set_alarm(BASE_TIME * 4);
+                     sleep_for(BASE_TIME * 2);
+                     assert_se(barrier_wait_next(&b));
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(barrier_sync_next(&b));
+                     assert_se(barrier_place(&b));
+                     assert_se(!barrier_sync_next(&b));
+             }),
+             TEST_BARRIER_WAIT_SUCCESS(pid1),
+             ({ assert_se(barrier_place(&b)); }),
+             TEST_BARRIER_WAIT_SUCCESS(pid2));
 
 
 static int intro(void) {
@@ -443,6 +426,6 @@ static int intro(void) {
                 return log_tests_skipped("This test requires a baremetal machine");
 
         return EXIT_SUCCESS;
- }
+}
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

@@ -20,8 +20,10 @@
 
 TEST(null_or_empty_path) {
         assert_se(null_or_empty_path("/dev/null") == 1);
-        assert_se(null_or_empty_path("/dev/tty") == 1);  /* We assume that any character device is "empty", bleh. */
-        assert_se(null_or_empty_path("../../../../../../../../../../../../../../../../../../../../dev/null") == 1);
+        assert_se(null_or_empty_path("/dev/tty") ==
+                  1); /* We assume that any character device is "empty", bleh. */
+        assert_se(null_or_empty_path("../../../../../../../../../../../../../../../../../../../../dev/null") ==
+                  1);
         assert_se(null_or_empty_path("/proc/self/exe") == 0);
         assert_se(null_or_empty_path("/nosuchfileordir") == -ENOENT);
 }
@@ -31,8 +33,12 @@ TEST(null_or_empty_path_with_root) {
         assert_se(null_or_empty_path_with_root("/dev/null", "/") == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/.././../") == 1);
         assert_se(null_or_empty_path_with_root("/dev/null", "/.././..") == 1);
-        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", NULL) == 1);
-        assert_se(null_or_empty_path_with_root("../../../../../../../../../../../../../../../../../../../../dev/null", "/") == 1);
+        assert_se(null_or_empty_path_with_root(
+                                  "../../../../../../../../../../../../../../../../../../../../dev/null",
+                                  NULL) == 1);
+        assert_se(null_or_empty_path_with_root(
+                                  "../../../../../../../../../../../../../../../../../../../../dev/null",
+                                  "/") == 1);
         assert_se(null_or_empty_path_with_root("/proc/self/exe", NULL) == 0);
         assert_se(null_or_empty_path_with_root("/proc/self/exe", "/") == 0);
         assert_se(null_or_empty_path_with_root("/nosuchfileordir", NULL) == -ENOENT);
@@ -96,8 +102,11 @@ TEST(path_is_temporary_fs) {
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
                 r = path_is_temporary_fs(s);
 
-                log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                log_info_errno(r,
+                               "path_is_temporary_fs(\"%s\"): %d, %s",
+                               s,
+                               r,
+                               r < 0 ? errno_to_name(r) : yes_no(r));
         }
 
         /* run might not be a mount point in build chroots */
@@ -113,8 +122,11 @@ TEST(path_is_read_only_fs) {
         FOREACH_STRING(s, "/", "/run", "/sys", "/sys/", "/proc", "/i-dont-exist", "/var", "/var/lib") {
                 r = path_is_read_only_fs(s);
 
-                log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                log_info_errno(r,
+                               "path_is_read_only_fs(\"%s\"): %d, %s",
+                               s,
+                               r,
+                               r < 0 ? errno_to_name(r) : yes_no(r));
         }
 
         if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
@@ -131,7 +143,7 @@ TEST(fd_is_ns) {
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
 
-        fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
+        fd = open("/proc/self/ns/mnt", O_CLOEXEC | O_RDONLY);
         if (fd < 0) {
                 assert_se(errno == ENOENT);
                 log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
@@ -141,11 +153,11 @@ TEST(fd_is_ns) {
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
         fd = safe_close(fd);
 
-        assert_se((fd = open("/proc/self/ns/ipc", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se((fd = open("/proc/self/ns/ipc", O_CLOEXEC | O_RDONLY)) >= 0);
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWIPC), 1, -EUCLEAN));
         fd = safe_close(fd);
 
-        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC | O_RDONLY)) >= 0);
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 1, -EUCLEAN));
 }
 
@@ -154,7 +166,8 @@ TEST(dir_is_empty) {
         _cleanup_free_ char *j = NULL, *jj = NULL, *jjj = NULL;
 
         assert_se(dir_is_empty_at(AT_FDCWD, "/proc", /* ignore_hidden_or_backup= */ true) == 0);
-        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi", /* ignore_hidden_or_backup= */ true) == -ENOENT);
+        assert_se(dir_is_empty_at(AT_FDCWD, "/icertainlydontexistdoi", /* ignore_hidden_or_backup= */ true) ==
+                  -ENOENT);
 
         assert_se(mkdtemp_malloc("/tmp/emptyXXXXXX", &empty_dir) >= 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);

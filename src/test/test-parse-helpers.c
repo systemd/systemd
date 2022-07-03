@@ -8,12 +8,12 @@
 #include "parse-helpers.h"
 #include "tests.h"
 
-static void test_valid_item(
-                const char *str,
-                int expected_af,
-                int expected_ip_protocol,
-                uint16_t expected_nr_ports,
-                uint16_t expected_port_min) {
+static void
+                test_valid_item(const char *str,
+                                int expected_af,
+                                int expected_ip_protocol,
+                                uint16_t expected_nr_ports,
+                                uint16_t expected_port_min) {
         uint16_t nr_ports, port_min;
         int af, ip_protocol;
 

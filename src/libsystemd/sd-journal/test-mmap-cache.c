@@ -40,20 +40,20 @@ int main(int argc, char *argv[]) {
         r = mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 1 == (uint8_t *) q);
 
         r = mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 2 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 2 == (uint8_t *) q);
 
-        r = mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p);
+        r = mmap_cache_fd_get(fx, 0, false, 16ULL * 1024ULL * 1024ULL, 2, NULL, &p);
         assert_se(r >= 0);
 
-        r = mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q);
+        r = mmap_cache_fd_get(fx, 1, false, 16ULL * 1024ULL * 1024ULL + 1, 2, NULL, &q);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 1 == (uint8_t *) q);
 
         mmap_cache_fd_free(fx);
         mmap_cache_unref(m);

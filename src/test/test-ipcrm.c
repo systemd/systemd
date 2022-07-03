@@ -9,7 +9,7 @@
 static int run(int argc, char *argv[]) {
         uid_t uid;
         int r;
-        const char* name = argv[1] ?: NOBODY_USER_NAME;
+        const char *name = argv[1] ?: NOBODY_USER_NAME;
 
         test_setup_logging(LOG_INFO);
 

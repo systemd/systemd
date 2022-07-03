@@ -29,7 +29,8 @@ static void test_mount_points_list_one(const char *fname) {
                           strempty(m->remount_options),
                           m->remount_flags,
                           yes_no(m->try_remount_ro),
-                          major(m->devnum), minor(m->devnum));
+                          major(m->devnum),
+                          minor(m->devnum));
 }
 
 TEST(mount_points_list) {
@@ -63,7 +64,8 @@ static void test_swap_list_one(const char *fname) {
                           strempty(m->remount_options),
                           m->remount_flags,
                           yes_no(m->try_remount_ro),
-                          major(m->devnum), minor(m->devnum));
+                          major(m->devnum),
+                          minor(m->devnum));
 }
 
 TEST(swap_list) {

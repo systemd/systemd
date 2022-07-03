@@ -118,7 +118,8 @@ TEST(load_userns) {
 
         assert_se(fopen_temporary(NULL, &f, &fn) >= 0);
         fputs("0 0 20\n"
-              "100 0 20\n", f);
+              "100 0 20\n",
+              f);
         assert_se(fflush_and_check(f) >= 0);
 
         p = mfree(p);

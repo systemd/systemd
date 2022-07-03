@@ -23,7 +23,7 @@
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 #if ENABLE_DNS_OVER_TLS
-#include "resolved-dnstls.h"
+#        include "resolved-dnstls.h"
 #endif
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
@@ -35,32 +35,29 @@
 static union sockaddr_union server_address;
 
 /* Bytes of the questions & answers used in the test, including TCP DNS 2-byte length prefix */
-static const uint8_t QUESTION_A[] =  {
-        0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 'e',
-        'x' , 'a' , 'm' , 'p' , 'l' , 'e' , 0x03, 'c' , 'o' , 'm' , 0x00, 0x00, 0x01, 0x00, 0x01
-};
-static const uint8_t QUESTION_AAAA[] =  {
-        0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 'e',
-        'x' , 'a' , 'm' , 'p' , 'l' , 'e' , 0x03, 'c' , 'o' , 'm' , 0x00, 0x00, 0x1C, 0x00, 0x01
-};
-static const uint8_t ANSWER_A[] =  {
+static const uint8_t QUESTION_A[] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+                                      0x00, 0x00, 0x00, 0x07, 'e',  'x',  'a',  'm',  'p',  'l',  'e',
+                                      0x03, 'c',  'o',  'm',  0x00, 0x00, 0x01, 0x00, 0x01 };
+static const uint8_t QUESTION_AAAA[] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+                                         0x00, 0x00, 0x00, 0x07, 'e',  'x',  'a',  'm',  'p',  'l',  'e',
+                                         0x03, 'c',  'o',  'm',  0x00, 0x00, 0x1C, 0x00, 0x01 };
+static const uint8_t ANSWER_A[] = {
         0x00, 0x2D, 0x00, 0x00, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x07, 'e',
-        'x' , 'a' , 'm' , 'p' , 'l' , 'e' , 0x03, 'c' , 'o' , 'm' , 0x00, 0x00, 0x01, 0x00, 0x01, 0xC0,
+        'x',  'a',  'm',  'p',  'l',  'e',  0x03, 'c',  'o',  'm',  0x00, 0x00, 0x01, 0x00, 0x01, 0xC0,
         0x0C, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x52, 0x8D, 0x00, 0x04, 0x5D, 0xB8, 0xD8, 0x22,
 };
-static const uint8_t ANSWER_AAAA[] =  {
-        0x00, 0x39, 0x00, 0x00, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x07, 'e',
-        'x' , 'a' , 'm' , 'p' , 'l' , 'e' , 0x03, 'c' , 'o' , 'm' , 0x00, 0x00, 0x1C, 0x00, 0x01, 0xC0,
-        0x0C, 0x00, 0x1C, 0x00, 0x01, 0x00, 0x00, 0x54, 0x4B, 0x00, 0x10, 0x26, 0x06, 0x28, 0x00, 0x02,
-        0x20, 0x00, 0x01, 0x02, 0x48, 0x18, 0x93, 0x25, 0xC8, 0x19, 0x46,
+static const uint8_t ANSWER_AAAA[] = {
+        0x00, 0x39, 0x00, 0x00, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x07,
+        'e',  'x',  'a',  'm',  'p',  'l',  'e',  0x03, 'c',  'o',  'm',  0x00, 0x00, 0x1C, 0x00,
+        0x01, 0xC0, 0x0C, 0x00, 0x1C, 0x00, 0x01, 0x00, 0x00, 0x54, 0x4B, 0x00, 0x10, 0x26, 0x06,
+        0x28, 0x00, 0x02, 0x20, 0x00, 0x01, 0x02, 0x48, 0x18, 0x93, 0x25, 0xC8, 0x19, 0x46,
 };
 
 /**
  * A mock TCP DNS server that asserts certain questions are received
  * and replies with the same answer every time.
  */
-static void receive_and_check_question(int fd, const uint8_t *expected_question,
-                                       size_t question_size) {
+static void receive_and_check_question(int fd, const uint8_t *expected_question, size_t question_size) {
         uint8_t *actual_question;
         size_t n_read = 0;
 
@@ -68,7 +65,7 @@ static void receive_and_check_question(int fd, const uint8_t *expected_question,
         while (n_read < question_size) {
                 ssize_t r = read(fd, actual_question + n_read, question_size - n_read);
                 assert_se(r >= 0);
-                n_read += (size_t)r;
+                n_read += (size_t) r;
         }
         assert_se(n_read == question_size);
 
@@ -76,21 +73,20 @@ static void receive_and_check_question(int fd, const uint8_t *expected_question,
 }
 
 static void send_answer(int fd, const uint8_t *answer, size_t answer_size) {
-        assert_se(write(fd, answer, answer_size) == (ssize_t)answer_size);
+        assert_se(write(fd, answer, answer_size) == (ssize_t) answer_size);
 }
 
 /* Sends two answers together in a single write operation,
  * so they hopefully end up in a single TCP packet / TLS record */
-static void send_answers_together(int fd,
-                                  const uint8_t *answer1, size_t answer1_size,
-                                  const uint8_t *answer2, size_t answer2_size) {
+static void send_answers_together(
+                int fd, const uint8_t *answer1, size_t answer1_size, const uint8_t *answer2, size_t answer2_size) {
         uint8_t *answer;
         size_t answer_size = answer1_size + answer2_size;
 
         answer = newa(uint8_t, answer_size);
         memcpy(answer, answer1, answer1_size);
         memcpy(answer + answer1_size, answer2, answer2_size);
-        assert_se(write(fd, answer, answer_size) == (ssize_t)answer_size);
+        assert_se(write(fd, answer, answer_size) == (ssize_t) answer_size);
 }
 
 static void server_handle(int fd) {
@@ -102,15 +98,14 @@ static void server_handle(int fd) {
 
         receive_and_check_question(fd, QUESTION_A, sizeof(QUESTION_A));
         receive_and_check_question(fd, QUESTION_AAAA, sizeof(QUESTION_AAAA));
-        send_answers_together(fd, ANSWER_A, sizeof(ANSWER_A),
-                                  ANSWER_AAAA, sizeof(ANSWER_AAAA));
+        send_answers_together(fd, ANSWER_A, sizeof(ANSWER_A), ANSWER_AAAA, sizeof(ANSWER_AAAA));
 }
 
 static void *tcp_dns_server(void *p) {
         _cleanup_close_ int bindfd = -1, acceptfd = -1;
 
         assert_se((bindfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
-        assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
+        assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) >= 0);
         assert_se(bind(bindfd, &server_address.sa, SOCKADDR_LEN(server_address)) >= 0);
         assert_se(listen(bindfd, 1) >= 0);
         assert_se((acceptfd = accept(bindfd, NULL, NULL)) >= 0);
@@ -132,9 +127,9 @@ static void *tls_dns_server(void *p) {
         assert_se(get_testdata_dir("test-resolve/selfsigned.cert", &cert_path) >= 0);
         assert_se(get_testdata_dir("test-resolve/selfsigned.key", &key_path) >= 0);
 
-        assert_se(asprintf(&bind_str, "%s:%d",
-                           IN_ADDR_TO_STRING(server_address.in.sin_family,
-                                             sockaddr_in_addr(&server_address.sa)),
+        assert_se(asprintf(&bind_str,
+                           "%s:%d",
+                           IN_ADDR_TO_STRING(server_address.in.sin_family, sockaddr_in_addr(&server_address.sa)),
                            be16toh(server_address.in.sin_port)) >= 0);
 
         /* We will hook one of the socketpair ends to OpenSSL's TLS server
@@ -147,8 +142,12 @@ static void *tls_dns_server(void *p) {
                 fd_tls = fd[1];
         }
 
-        r = safe_fork_full("(test-resolved-stream-tls-openssl)", (int[]) { fd_server, fd_tls }, 2,
-                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_REOPEN_LOG, &openssl_pid);
+        r = safe_fork_full(
+                        "(test-resolved-stream-tls-openssl)",
+                        (int[]){ fd_server, fd_tls },
+                        2,
+                        FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_LOG | FORK_REOPEN_LOG,
+                        &openssl_pid);
         assert_se(r >= 0);
         if (r == 0) {
                 /* Child */
@@ -157,13 +156,23 @@ static void *tls_dns_server(void *p) {
                 close(TAKE_FD(fd_server));
                 close(TAKE_FD(fd_tls));
 
-                execlp("openssl", "openssl", "s_server", "-accept", bind_str,
-                       "-key", key_path, "-cert", cert_path,
-                       "-quiet", "-naccept", "1", NULL);
+                execlp("openssl",
+                       "openssl",
+                       "s_server",
+                       "-accept",
+                       bind_str,
+                       "-key",
+                       key_path,
+                       "-cert",
+                       cert_path,
+                       "-quiet",
+                       "-naccept",
+                       "1",
+                       NULL);
                 log_error("exec failed, is something wrong with the 'openssl' command?");
                 _exit(EXIT_FAILURE);
         } else {
-                pthread_mutex_t *server_lock = (pthread_mutex_t *)p;
+                pthread_mutex_t *server_lock = (pthread_mutex_t *) p;
 
                 server_handle(fd_server);
 
@@ -211,7 +220,7 @@ static int on_stream_complete_do_nothing(DnsStream *s, int error) {
 
 static void test_dns_stream(bool tls) {
         Manager manager = {};
-         _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
+        _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int clientfd = -1;
         int r;
@@ -260,8 +269,14 @@ static void test_dns_stream(bool tls) {
 
         /* Initialize DNS stream (disabling the default self-destruction
            behaviour when no complete callback is set) */
-        assert_se(dns_stream_new(&manager, &stream, DNS_STREAM_LOOKUP, DNS_PROTOCOL_DNS,
-                                 TAKE_FD(clientfd), NULL, on_stream_packet, on_stream_complete_do_nothing,
+        assert_se(dns_stream_new(&manager,
+                                 &stream,
+                                 DNS_STREAM_LOOKUP,
+                                 DNS_PROTOCOL_DNS,
+                                 TAKE_FD(clientfd),
+                                 NULL,
+                                 on_stream_packet,
+                                 on_stream_complete_do_nothing,
                                  DNS_STREAM_DEFAULT_TIMEOUT_USEC) >= 0);
 #if ENABLE_DNS_OVER_TLS
         if (tls) {
@@ -282,8 +297,7 @@ static void test_dns_stream(bool tls) {
         while (n_received_packets != 1)
                 assert_se(sd_event_run(event, EVENT_TIMEOUT_USEC) >= 1);
         assert_se(DNS_PACKET_DATA(received_packets[0]));
-        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_A + 2, sizeof(ANSWER_A) - 2) == 0);
+        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]), ANSWER_A + 2, sizeof(ANSWER_A) - 2) == 0);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         n_received_packets = 0;
 
@@ -293,8 +307,7 @@ static void test_dns_stream(bool tls) {
         while (n_received_packets != 1)
                 assert_se(sd_event_run(event, EVENT_TIMEOUT_USEC) >= 1);
         assert_se(DNS_PACKET_DATA(received_packets[0]));
-        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2) == 0);
+        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]), ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2) == 0);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         n_received_packets = 0;
 
@@ -309,10 +322,8 @@ static void test_dns_stream(bool tls) {
                 assert_se(sd_event_run(event, EVENT_TIMEOUT_USEC) >= 1);
         assert_se(DNS_PACKET_DATA(received_packets[0]));
         assert_se(DNS_PACKET_DATA(received_packets[1]));
-        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_A + 2, sizeof(ANSWER_A) - 2) == 0);
-        assert_se(memcmp(DNS_PACKET_DATA(received_packets[1]),
-                         ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2) == 0);
+        assert_se(memcmp(DNS_PACKET_DATA(received_packets[0]), ANSWER_A + 2, sizeof(ANSWER_A) - 2) == 0);
+        assert_se(memcmp(DNS_PACKET_DATA(received_packets[1]), ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2) == 0);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         dns_packet_unref(TAKE_PTR(received_packets[1]));
         n_received_packets = 0;
@@ -337,12 +348,14 @@ static void try_isolate_network(void) {
         /* First test if CLONE_NEWUSER/CLONE_NEWNET can actually work for us, i.e. we can open the namespaces
          * and then still access the build dir we are run from. We do that in a child process since it's
          * nasty if we have to go back from the namespace once we entered it and realized it cannot work. */
-        r = safe_fork("(usernstest)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(usernstest)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         if (r == 0) { /* child */
                 _cleanup_free_ char *rt = NULL, *d = NULL;
 
                 if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
-                        log_warning_errno(errno, "test-resolved-stream: Can't create user and network ns, running on host: %m");
+                        log_warning_errno(
+                                        errno,
+                                        "test-resolved-stream: Can't create user and network ns, running on host: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -350,7 +363,9 @@ static void try_isolate_network(void) {
                 assert_se(path_extract_directory(rt, &d) >= 0);
 
                 if (access(d, F_OK) < 0) {
-                        log_warning_errno(errno, "test-resolved-stream: Can't access /proc/self/exe from user/network ns, running on host: %m");
+                        log_warning_errno(
+                                        errno,
+                                        "test-resolved-stream: Can't access /proc/self/exe from user/network ns, running on host: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -374,11 +389,9 @@ static void try_isolate_network(void) {
 }
 
 int main(int argc, char **argv) {
-        server_address = (union sockaddr_union) {
-                .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(12345),
-                .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
-        };
+        server_address = (union sockaddr_union){ .in.sin_family = AF_INET,
+                                                 .in.sin_port = htobe16(12345),
+                                                 .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK) };
 
         test_setup_logging(LOG_DEBUG);
 
@@ -387,7 +400,8 @@ int main(int argc, char **argv) {
         test_dns_stream(false);
 #if ENABLE_DNS_OVER_TLS
         if (system("openssl version >/dev/null 2>&1") != 0)
-                return log_tests_skipped("Skipping TLS test since the 'openssl' command does not seem to be available");
+                return log_tests_skipped(
+                                "Skipping TLS test since the 'openssl' command does not seem to be available");
         test_dns_stream(true);
 #endif
 

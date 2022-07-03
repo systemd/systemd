@@ -61,11 +61,56 @@ TEST(in_addr_prefix_from_string) {
         test_in_addr_prefix_from_string_one("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/8", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string_one("1.2.3.4", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, -ENOANO, 0, 0, 8);
-        test_in_addr_prefix_from_string_one("1.2.3.4/0", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0, 0, 0, 0, 0);
-        test_in_addr_prefix_from_string_one("1.2.3.4/1", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1, 0, 1, 0, 1);
-        test_in_addr_prefix_from_string_one("1.2.3.4/2", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2, 0, 2, 0, 2);
-        test_in_addr_prefix_from_string_one("1.2.3.4/32", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, 0, 32, 0, 32);
+        test_in_addr_prefix_from_string_one(
+                        "1.2.3.4",
+                        AF_INET,
+                        0,
+                        &(union in_addr_union){ .in = (struct in_addr){ .s_addr = htobe32(0x01020304) } },
+                        32,
+                        -ENOANO,
+                        0,
+                        0,
+                        8);
+        test_in_addr_prefix_from_string_one(
+                        "1.2.3.4/0",
+                        AF_INET,
+                        0,
+                        &(union in_addr_union){ .in = (struct in_addr){ .s_addr = htobe32(0x01020304) } },
+                        0,
+                        0,
+                        0,
+                        0,
+                        0);
+        test_in_addr_prefix_from_string_one(
+                        "1.2.3.4/1",
+                        AF_INET,
+                        0,
+                        &(union in_addr_union){ .in = (struct in_addr){ .s_addr = htobe32(0x01020304) } },
+                        1,
+                        0,
+                        1,
+                        0,
+                        1);
+        test_in_addr_prefix_from_string_one(
+                        "1.2.3.4/2",
+                        AF_INET,
+                        0,
+                        &(union in_addr_union){ .in = (struct in_addr){ .s_addr = htobe32(0x01020304) } },
+                        2,
+                        0,
+                        2,
+                        0,
+                        2);
+        test_in_addr_prefix_from_string_one(
+                        "1.2.3.4/32",
+                        AF_INET,
+                        0,
+                        &(union in_addr_union){ .in = (struct in_addr){ .s_addr = htobe32(0x01020304) } },
+                        32,
+                        0,
+                        32,
+                        0,
+                        32);
         test_in_addr_prefix_from_string_one("1.2.3.4/33", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
         test_in_addr_prefix_from_string_one("1.2.3.4/-1", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
         test_in_addr_prefix_from_string_one("::1", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
@@ -73,14 +118,62 @@ TEST(in_addr_prefix_from_string) {
         test_in_addr_prefix_from_string_one("", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/8", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string_one("::1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, -ENOANO, 0, 0, 0);
-        test_in_addr_prefix_from_string_one("::1/0", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0, 0, 0, 0, 0);
-        test_in_addr_prefix_from_string_one("::1/1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1, 0, 1, 0, 1);
-        test_in_addr_prefix_from_string_one("::1/2", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2, 0, 2, 0, 2);
-        test_in_addr_prefix_from_string_one("::1/32", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 32, 0, 32, 0, 32);
-        test_in_addr_prefix_from_string_one("::1/33", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 33, 0, 33, 0, 33);
-        test_in_addr_prefix_from_string_one("::1/64", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 64, 0, 64, 0, 64);
-        test_in_addr_prefix_from_string_one("::1/128", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, 0, 128, 0, 128);
+        test_in_addr_prefix_from_string_one(
+                        "::1",
+                        AF_INET6,
+                        0,
+                        &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT },
+                        128,
+                        -ENOANO,
+                        0,
+                        0,
+                        0);
+        test_in_addr_prefix_from_string_one(
+                        "::1/0", AF_INET6, 0, &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT }, 0, 0, 0, 0, 0);
+        test_in_addr_prefix_from_string_one(
+                        "::1/1", AF_INET6, 0, &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT }, 1, 0, 1, 0, 1);
+        test_in_addr_prefix_from_string_one(
+                        "::1/2", AF_INET6, 0, &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT }, 2, 0, 2, 0, 2);
+        test_in_addr_prefix_from_string_one(
+                        "::1/32",
+                        AF_INET6,
+                        0,
+                        &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT },
+                        32,
+                        0,
+                        32,
+                        0,
+                        32);
+        test_in_addr_prefix_from_string_one(
+                        "::1/33",
+                        AF_INET6,
+                        0,
+                        &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT },
+                        33,
+                        0,
+                        33,
+                        0,
+                        33);
+        test_in_addr_prefix_from_string_one(
+                        "::1/64",
+                        AF_INET6,
+                        0,
+                        &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT },
+                        64,
+                        0,
+                        64,
+                        0,
+                        64);
+        test_in_addr_prefix_from_string_one(
+                        "::1/128",
+                        AF_INET6,
+                        0,
+                        &(union in_addr_union){ .in6 = IN6ADDR_LOOPBACK_INIT },
+                        128,
+                        0,
+                        128,
+                        0,
+                        128);
         test_in_addr_prefix_from_string_one("::1/129", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
         test_in_addr_prefix_from_string_one("::1/-1", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
 }
@@ -189,7 +282,8 @@ TEST(in_addr_is_null) {
         assert_se(in_addr_is_null(-1, &i) == -EAFNOSUPPORT);
 }
 
-static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
+static void test_in_addr_prefix_intersect_one(
+                unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
         union in_addr_union ua, ub;
 
         assert_se(in_addr_from_string(f, a, &ua) >= 0);
@@ -211,8 +305,20 @@ TEST(in_addr_prefix_intersect) {
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.127", 25, 1);
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.255", 25, 0);
 
-        test_in_addr_prefix_intersect_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe", 128, 0);
-        test_in_addr_prefix_intersect_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1);
+        test_in_addr_prefix_intersect_one(
+                        AF_INET6,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                        128,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe",
+                        128,
+                        0);
+        test_in_addr_prefix_intersect_one(
+                        AF_INET6,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                        0,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                        128,
+                        1);
         test_in_addr_prefix_intersect_one(AF_INET6, "::", 0, "beef:beef:beef:beef:beef:beef:beef:beef", 128, 1);
 
         test_in_addr_prefix_intersect_one(AF_INET6, "1::2", 64, "1::2", 64, 1);
@@ -262,10 +368,11 @@ TEST(in_addr_prefix_next) {
         test_in_addr_prefix_next_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ff00", 120, NULL);
 }
 
-static void test_in_addr_prefix_nth_one(unsigned f, const char *before, unsigned pl, uint64_t nth, const char *after) {
+static void test_in_addr_prefix_nth_one(
+                unsigned f, const char *before, unsigned pl, uint64_t nth, const char *after) {
         union in_addr_union ubefore, uafter, t;
 
-        log_debug("/* %s(%s, prefixlen=%u, nth=%"PRIu64") */", __func__, before, pl, nth);
+        log_debug("/* %s(%s, prefixlen=%u, nth=%" PRIu64 ") */", __func__, before, pl, nth);
 
         assert_se(in_addr_from_string(f, before, &ubefore) >= 0);
 
@@ -295,7 +402,7 @@ TEST(in_addr_prefix_nth) {
         test_in_addr_prefix_nth_one(AF_INET6, "4400::", 64, 2, "4400:0:0:2::");
         test_in_addr_prefix_nth_one(AF_INET6, "4400::", 64, 0xbad, "4400:0:0:0bad::");
         test_in_addr_prefix_nth_one(AF_INET6, "4400:0:0:ffff::", 64, 1, "4400:0:1::");
-        test_in_addr_prefix_nth_one(AF_INET6, "4400::", 56, ((uint64_t)1<<48) -1, "44ff:ffff:ffff:ff00::");
+        test_in_addr_prefix_nth_one(AF_INET6, "4400::", 56, ((uint64_t) 1 << 48) - 1, "44ff:ffff:ffff:ff00::");
         test_in_addr_prefix_nth_one(AF_INET6, "0000::", 8, 255, "ff00::");
         test_in_addr_prefix_nth_one(AF_INET6, "0000::", 8, 256, NULL);
         test_in_addr_prefix_nth_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1, NULL);
@@ -337,10 +444,10 @@ TEST(in_addr_prefix_range) {
 
         test_in_addr_prefix_range_one(AF_INET6, "dead:beef::", 64, "dead:beef::", "dead:beef:0:1::");
         test_in_addr_prefix_range_one(AF_INET6, "dead:0:0:beef::", 64, "dead:0:0:beef::", "dead:0:0:bef0::");
-        test_in_addr_prefix_range_one(AF_INET6, "2001::",  48, "2001::", "2001:0:1::");
-        test_in_addr_prefix_range_one(AF_INET6, "2001::",  56, "2001::", "2001:0:0:0100::");
-        test_in_addr_prefix_range_one(AF_INET6, "2001::",  65, "2001::", "2001::8000:0:0:0");
-        test_in_addr_prefix_range_one(AF_INET6, "2001::",  66, "2001::", "2001::4000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 48, "2001::", "2001:0:1::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 56, "2001::", "2001:0:0:0100::");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 65, "2001::", "2001::8000:0:0:0");
+        test_in_addr_prefix_range_one(AF_INET6, "2001::", 66, "2001::", "2001::4000:0:0:0");
         test_in_addr_prefix_range_one(AF_INET6, "2001::", 127, "2001::", "2001::2");
 }
 

@@ -17,7 +17,8 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
 
         assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
         assert_se(event = udev_event_new(dev, 0, NULL, LOG_DEBUG));
-        assert_se(udev_event_spawn(event, 5 * USEC_PER_SEC, SIGKILL, false, cmd, result_buf, buf_size, NULL) == 0);
+        assert_se(udev_event_spawn(event, 5 * USEC_PER_SEC, SIGKILL, false, cmd, result_buf, buf_size, NULL) ==
+                  0);
 
         assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
 }
@@ -32,8 +33,7 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
         assert_se(find_executable("cat", &cmd) >= 0);
         assert_se(strextend_with_separator(&cmd, " ", "/sys/class/net/lo/uevent"));
 
-        test_event_spawn_core(with_pidfd, cmd, result_buf,
-                              buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
+        test_event_spawn_core(with_pidfd, cmd, result_buf, buf_size >= BUF_SIZE ? BUF_SIZE : buf_size);
 
         assert_se(lines = strv_split_newlines(result_buf));
         strv_print(lines);

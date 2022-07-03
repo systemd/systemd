@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
 
                 if (s)
                         log_info("%-*s %s%s%s%s%s%s%s%s%s",
-                                 (int) _DNS_TYPE_STRING_MAX - 1, s,
+                                 (int) _DNS_TYPE_STRING_MAX - 1,
+                                 s,
                                  dns_type_is_pseudo(i) ? "pseudo " : "",
                                  dns_type_is_valid_query(i) ? "valid_query " : "",
                                  dns_type_is_valid_rr(i) ? "is_valid_rr " : "",
@@ -45,7 +46,8 @@ int main(int argc, char **argv) {
 
                 if (s)
                         log_info("%-*s %s%s",
-                                 (int) _DNS_CLASS_STRING_MAX - 1, s,
+                                 (int) _DNS_CLASS_STRING_MAX - 1,
+                                 s,
                                  dns_class_is_pseudo(i) ? "is_pseudo " : "",
                                  dns_class_is_valid_rr(i) ? "is_valid_rr " : "");
         }

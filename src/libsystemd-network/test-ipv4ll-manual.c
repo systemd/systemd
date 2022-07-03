@@ -101,7 +101,8 @@ int main(int argc, char *argv[]) {
                 return test_ll(argv[1], argv[2]);
         else {
                 log_error("This program takes one or two arguments.\n"
-                          "\t %s <ifname> [<seed>]", program_invocation_short_name);
+                          "\t %s <ifname> [<seed>]",
+                          program_invocation_short_name);
                 return EXIT_FAILURE;
         }
 }

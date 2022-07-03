@@ -36,7 +36,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-char* setup_fake_runtime_dir(void) {
+char *setup_fake_runtime_dir(void) {
         char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
 
         assert_se(mkdtemp(t));
@@ -81,7 +81,8 @@ int get_testdata_dir(const char *suffix, char **ret) {
         if (!dir)
                 dir = SYSTEMD_TEST_DATA;
         if (access(dir, F_OK) < 0)
-                return log_error_errno(errno, "ERROR: $SYSTEMD_TEST_DATA directory [%s] not accessible: %m", dir);
+                return log_error_errno(
+                                errno, "ERROR: $SYSTEMD_TEST_DATA directory [%s] not accessible: %m", dir);
 
         p = path_join(dir, suffix);
         if (!p)
@@ -91,7 +92,7 @@ int get_testdata_dir(const char *suffix, char **ret) {
         return 0;
 }
 
-const char* get_catalog_dir(void) {
+const char *get_catalog_dir(void) {
         const char *env;
 
         load_testdata_env();
@@ -126,14 +127,12 @@ void test_setup_logging(int level) {
 }
 
 int log_tests_skipped(const char *message) {
-        log_notice("%s: %s, skipping tests.",
-                   program_invocation_short_name, message);
+        log_notice("%s: %s, skipping tests.", program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
 }
 
 int log_tests_skipped_errno(int r, const char *message) {
-        log_notice_errno(r, "%s: %s, skipping tests: %m",
-                         program_invocation_short_name, message);
+        log_notice_errno(r, "%s: %s, skipping tests: %m", program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
 }
 
@@ -158,8 +157,8 @@ bool have_namespaces(void) {
         siginfo_t si = {};
         pid_t pid;
 
-        /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
-         * do so in a child process in order not to affect our own process. */
+        /* Checks whether namespaces are available. In some cases they aren't. We do this by calling
+         * unshare(), and we do so in a child process in order not to affect our own process. */
 
         pid = fork();
         assert_se(pid >= 0);
@@ -190,7 +189,7 @@ bool can_memlock(void) {
          * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
          * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
 
-        void *p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+        void *p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
         if (p == MAP_FAILED)
                 return false;
 
@@ -262,7 +261,8 @@ static int allocate_scope(void) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                                r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)

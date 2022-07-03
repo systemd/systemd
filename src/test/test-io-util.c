@@ -30,7 +30,8 @@ TEST(sparse_write) {
         const char test_a[] = "test";
         const char test_b[] = "\0\0\0\0test\0\0\0\0";
         const char test_c[] = "\0\0test\0\0\0\0";
-        const char test_d[] = "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
+        const char test_d[] =
+                        "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
         const char test_e[] = "test\0\0\0\0test";
         _cleanup_close_ int fd = -1;
         char fn[] = "/tmp/sparseXXXXXX";

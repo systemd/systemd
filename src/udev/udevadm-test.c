@@ -42,13 +42,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "action",        required_argument, NULL, 'a' },
-                { "resolve-names", required_argument, NULL, 'N' },
-                { "version",       no_argument,       NULL, 'V' },
-                { "help",          no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "action", required_argument, NULL, 'a' },
+                                                 { "resolve-names", required_argument, NULL, 'N' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         int r, c;
 
@@ -64,8 +62,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--resolve-names= must be early, late or never");
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "--resolve-names= must be early, late or never");
                         break;
                 case 'V':
                         return print_version();

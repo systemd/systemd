@@ -46,14 +46,14 @@ TEST(read_etc_hostname) {
         hostname = mfree(hostname);
 
         /* no value set */
-        hostname = (char*) 0x1234;
+        hostname = (char *) 0x1234;
         assert_se(write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+        assert_se(hostname == (char *) 0x1234); /* does not touch argument on error */
 
         /* nonexisting file */
         assert_se(read_etc_hostname("/non/existing", &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+        assert_se(hostname == (char *) 0x1234); /* does not touch argument on error */
 
         unlink(path);
 }

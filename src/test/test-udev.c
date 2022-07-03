@@ -61,11 +61,11 @@ static int fake_filesystems(void) {
                 const char *error;
                 bool ignore_mount_error;
         } fakefss[] = {
-                { "test/tmpfs/sys", "/sys",                    "Failed to mount test /sys",                        false },
-                { "test/tmpfs/dev", "/dev",                    "Failed to mount test /dev",                        false },
-                { "test/run",       "/run",                    "Failed to mount test /run",                        false },
-                { "test/run",       "/etc/udev/rules.d",       "Failed to mount empty /etc/udev/rules.d",          true },
-                { "test/run",       UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
+                { "test/tmpfs/sys", "/sys", "Failed to mount test /sys", false },
+                { "test/tmpfs/dev", "/dev", "Failed to mount test /dev", false },
+                { "test/run", "/run", "Failed to mount test /run", false },
+                { "test/run", "/etc/udev/rules.d", "Failed to mount empty /etc/udev/rules.d", true },
+                { "test/run", UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
         int r;
 
@@ -74,8 +74,13 @@ static int fake_filesystems(void) {
                 return log_error_errno(r, "Failed to detach mount namespace: %m");
 
         for (size_t i = 0; i < ELEMENTSOF(fakefss); i++) {
-                r = mount_nofollow_verbose(fakefss[i].ignore_mount_error ? LOG_NOTICE : LOG_ERR,
-                                           fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(
+                                fakefss[i].ignore_mount_error ? LOG_NOTICE : LOG_ERR,
+                                fakefss[i].src,
+                                fakefss[i].target,
+                                NULL,
+                                MS_BIND,
+                                NULL);
                 if (r < 0 && !fakefss[i].ignore_mount_error)
                         return r;
         }
@@ -93,14 +98,16 @@ static int run(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         if (!IN_SET(argc, 2, 3))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program needs one or two arguments, %d given", argc - 1);
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "This program needs one or two arguments, %d given",
+                                argc - 1);
 
         r = fake_filesystems();
         if (r < 0)
                 return r;
 
-        /* Let's make sure the test runs with selinux assumed disabled. */
+                /* Let's make sure the test runs with selinux assumed disabled. */
 #if HAVE_SELINUX
         fini_selinuxmnt();
 #endif
@@ -108,8 +115,7 @@ static int run(int argc, char *argv[]) {
 
         if (argc == 2) {
                 if (!streq(argv[1], "check"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unknown argument: %s", argv[1]);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument: %s", argv[1]);
 
                 return 0;
         }

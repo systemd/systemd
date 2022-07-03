@@ -25,7 +25,8 @@ TEST(strip_tab_ansi) {
         assert_se(streq(p, "Hello world!"));
         free(p);
 
-        assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B[" "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
+        assert_se(p = strdup("\x1B[\x1B[\t\x1B[" ANSI_HIGHLIGHT "\x1B["
+                             "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
         assert_se(streq(p, "\x1B[\x1B[        \x1B[\x1B[Hello world!"));
         free(p);
@@ -59,8 +60,8 @@ TEST(strip_tab_ansi) {
         assert_se(streq(p, "something i am a fabulous link something-else"));
         p = mfree(p);
 
-        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch the
-         * incomplete sequence) */
+        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch
+         * the incomplete sequence) */
         z = strstr(q, "fstab");
         if (z) {
                 *z = 0;

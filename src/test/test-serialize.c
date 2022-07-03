@@ -10,7 +10,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static char long_string[LONG_LINE_MAX+1];
+static char long_string[LONG_LINE_MAX + 1];
 
 TEST(serialize_item) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
@@ -71,7 +71,7 @@ TEST(serialize_usec) {
 
         assert_se(serialize_usec(f, "usec1", USEC_INFINITY) == 0);
         assert_se(serialize_usec(f, "usec2", 0) == 1);
-        assert_se(serialize_usec(f, "usec3", USEC_INFINITY-1) == 1);
+        assert_se(serialize_usec(f, "usec3", USEC_INFINITY - 1) == 1);
 
         rewind(f);
 
@@ -86,21 +86,24 @@ TEST(serialize_usec) {
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
         assert_se(startswith(line2, "usec3="));
         assert_se(deserialize_usec(line2 + 6, &x) == 0);
-        assert_se(x == USEC_INFINITY-1);
+        assert_se(x == USEC_INFINITY - 1);
 }
 
 TEST(serialize_strv) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 
-        char **strv = STRV_MAKE("a", "b", "foo foo",
-                                "nasty1 \"",
-                                "\"nasty2 ",
-                                "nasty3 '",
-                                "\"nasty4 \"",
-                                "nasty5\n",
-                                "\nnasty5\nfoo=bar",
-                                "\nnasty5\nfoo=bar");
+        char **strv = STRV_MAKE(
+                        "a",
+                        "b",
+                        "foo foo",
+                        "nasty1 \"",
+                        "\"nasty2 ",
+                        "nasty3 '",
+                        "\"nasty4 \"",
+                        "nasty5\n",
+                        "\nnasty5\nfoo=bar",
+                        "\nnasty5\nfoo=bar");
 
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
@@ -156,11 +159,7 @@ TEST(serialize_environment) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(env = strv_new("A=1",
-                                 "B=2",
-                                 "C=ąęółń",
-                                 "D=D=a\\x0Ab",
-                                 "FOO%%=a\177b\nc\td e"));
+        assert_se(env = strv_new("A=1", "B=2", "C=ąęółń", "D=D=a\\x0Ab", "FOO%%=a\177b\nc\td e"));
 
         assert_se(serialize_strv(f, "env", env) == 1);
         assert_se(fflush_and_check(f) == 0);
@@ -181,7 +180,7 @@ TEST(serialize_environment) {
 
                 assert_se(startswith(l, "env="));
 
-                r = deserialize_environment(l+4, &env2);
+                r = deserialize_environment(l + 4, &env2);
                 assert_se(r >= 0);
         }
         assert_se(feof(f));
@@ -190,7 +189,7 @@ TEST(serialize_environment) {
 }
 
 static int intro(void) {
-        memset(long_string, 'x', sizeof(long_string)-1);
+        memset(long_string, 'x', sizeof(long_string) - 1);
         char_array_0(long_string);
         return EXIT_SUCCESS;
 }

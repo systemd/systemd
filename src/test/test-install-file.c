@@ -18,7 +18,7 @@ TEST(install_file) {
         assert_se(b = path_join(p, "bar"));
 
         RUN_WITH_UMASK(0077)
-                assert_se(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE) >= 0);
+        assert_se(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(lstat(a, &stat1) >= 0);
         assert_se(S_ISREG(stat1.st_mode));
@@ -28,14 +28,15 @@ TEST(install_file) {
 
         assert_se(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE) >= 0);
         assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, INSTALL_FSYNC_FULL) == -EEXIST);
-        assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, INSTALL_FSYNC_FULL|INSTALL_REPLACE) >= 0);
+        assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, INSTALL_FSYNC_FULL | INSTALL_REPLACE) >= 0);
 
         assert_se(stat(b, &stat2) >= 0);
         assert_se(stat1.st_dev == stat2.st_dev);
         assert_se(stat1.st_ino == stat2.st_ino);
         assert_se((stat2.st_mode & 0222) != 0); /* writable */
 
-        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL|INSTALL_REPLACE|INSTALL_READ_ONLY) >= 0);
+        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL | INSTALL_REPLACE | INSTALL_READ_ONLY) >=
+                  0);
 
         assert_se(stat(a, &stat2) >= 0);
         assert_se(stat1.st_dev == stat2.st_dev);
@@ -47,18 +48,18 @@ TEST(install_file) {
         assert_se(mkdir(c, 0755) >= 0);
         free(c);
         assert_se(c = path_join(b, "reg"));
-        assert_se(mknod(c, S_IFREG|0755, 0) >= 0);
+        assert_se(mknod(c, S_IFREG | 0755, 0) >= 0);
         free(c);
         assert_se(c = path_join(b, "fifo"));
-        assert_se(mknod(c, S_IFIFO|0755, 0) >= 0);
+        assert_se(mknod(c, S_IFIFO | 0755, 0) >= 0);
 
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL) == -EEXIST);
-        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL|INSTALL_REPLACE) == 0);
+        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL | INSTALL_REPLACE) == 0);
 
         assert_se(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL) == -EEXIST);
-        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL|INSTALL_REPLACE) == 0);
+        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL | INSTALL_REPLACE) == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

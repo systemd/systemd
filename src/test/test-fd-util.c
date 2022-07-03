@@ -63,7 +63,7 @@ TEST(same_fd) {
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = open("/dev/null", O_RDONLY | O_CLOEXEC)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
@@ -122,7 +122,7 @@ TEST(rearrange_stdio) {
         pid_t pid;
         int r;
 
-        r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
+        r = safe_fork("rearrange", FORK_WAIT | FORK_LOG, &pid);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -158,7 +158,7 @@ TEST(rearrange_stdio) {
                         assert_se(pair[1] == 1);
                         assert_se(fd_move_above_stdio(0) == 3);
                 }
-                assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
+                assert_se(open("/dev/full", O_WRONLY | O_CLOEXEC) == 0);
                 assert_se(acquire_data_fd("foobar", 6, 0) == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
@@ -188,10 +188,7 @@ TEST(read_nr_open) {
         log_info("nr-open: %i", read_nr_open());
 }
 
-static size_t validate_fds(
-                bool opened,
-                const int *fds,
-                size_t n_fds) {
+static size_t validate_fds(bool opened, const int *fds, size_t n_fds) {
 
         size_t c = 0;
 
@@ -234,7 +231,7 @@ static void test_close_all_fds_inner(void) {
                  * let's lower the limit a small bit, so that we don't run for too long. Yes, this undoes the
                  * rlimit_nofile_bump() call above partially. */
 
-                (void) setrlimit_closest(RLIMIT_NOFILE, &(struct rlimit) { 7000, 7000 });
+                (void) setrlimit_closest(RLIMIT_NOFILE, &(struct rlimit){ 7000, 7000 });
                 max_fd = 7000;
         }
 
@@ -243,7 +240,7 @@ static void test_close_all_fds_inner(void) {
         assert_se((n_fds & 1U) == 0U); /* make sure even number of fds */
 
         /* Allocate the determined number of fds, always two at a time */
-        assert_se(fds = new(int, n_fds));
+        assert_se(fds = new (int, n_fds));
         for (size_t i = 0; i < n_fds; i += 2)
                 assert_se(pipe2(fds + i, O_CLOEXEC) >= 0);
 
@@ -254,7 +251,7 @@ static void test_close_all_fds_inner(void) {
         n_keep = (random_u64() % (n_fds / 2));
 
         /* Now randomly select a number of fds from the array above to keep */
-        assert_se(keep = new(int, n_keep));
+        assert_se(keep = new (int, n_keep));
         for (size_t k = 0; k < n_keep; k++) {
                 for (;;) {
                         size_t p;
@@ -300,11 +297,7 @@ static int seccomp_prohibit_close_range(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to acquire seccomp context, ignoring: %m");
 
-        r = seccomp_rule_add_exact(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(close_range),
-                        0);
+        r = seccomp_rule_add_exact(seccomp, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(close_range), 0);
         if (r < 0)
                 return log_warning_errno(r, "Failed to add close_range() rule, ignoring: %m");
 
@@ -314,7 +307,9 @@ static int seccomp_prohibit_close_range(void) {
 
         return 0;
 #else
-        return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Seccomp support or close_range() syscall definition not available.");
+        return log_warning_errno(
+                        SYNTHETIC_ERRNO(EOPNOTSUPP),
+                        "Seccomp support or close_range() syscall definition not available.");
 #endif
 }
 
@@ -322,10 +317,10 @@ TEST(close_all_fds) {
         int r;
 
         /* Runs the test four times. Once as is. Once with close_range() syscall blocked via seccomp, once
-         * with /proc overmounted, and once with the combination of both. This should trigger all fallbacks in
-         * the close_range_all() function. */
+         * with /proc overmounted, and once with the combination of both. This should trigger all fallbacks
+         * in the close_range_all() function. */
 
-        r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         if (r == 0) {
                 test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
@@ -337,7 +332,10 @@ TEST(close_all_fds) {
                 return;
         }
 
-        r = safe_fork("(caf-noproc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        r = safe_fork("(caf-noproc)",
+                      FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_LOG | FORK_WAIT | FORK_NEW_MOUNTNS |
+                                      FORK_MOUNTNS_SLAVE,
+                      NULL);
         if (r == 0) {
                 r = mount_nofollow_verbose(LOG_WARNING, "tmpfs", "/proc", "tmpfs", 0, NULL);
                 if (r < 0)
@@ -353,7 +351,7 @@ TEST(close_all_fds) {
                 return;
         }
 
-        r = safe_fork("(caf-seccomp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(caf-seccomp)", FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         if (r == 0) {
                 r = seccomp_prohibit_close_range();
                 if (r < 0)
@@ -365,7 +363,10 @@ TEST(close_all_fds) {
         }
         assert_se(r >= 0);
 
-        r = safe_fork("(caf-scnp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        r = safe_fork("(caf-scnp)",
+                      FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_LOG | FORK_WAIT | FORK_NEW_MOUNTNS |
+                                      FORK_MOUNTNS_SLAVE,
+                      NULL);
         if (r == 0) {
                 r = seccomp_prohibit_close_range();
                 if (r < 0)
@@ -398,7 +399,7 @@ TEST(fd_reopen) {
         int fl;
 
         /* Test this with a directory */
-        fd1 = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC);
+        fd1 = open("/proc", O_DIRECTORY | O_PATH | O_CLOEXEC);
         assert_se(fd1 >= 0);
 
         assert_se(fstat(fd1, &st1) >= 0);
@@ -409,7 +410,7 @@ TEST(fd_reopen) {
         assert_se(FLAGS_SET(fl, O_DIRECTORY));
         assert_se(FLAGS_SET(fl, O_PATH));
 
-        fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
+        fd2 = fd_reopen(fd1, O_RDONLY | O_DIRECTORY | O_CLOEXEC); /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         assert_se(fstat(fd2, &st2) >= 0);
@@ -424,7 +425,7 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        fd1 = fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        fd1 = fd_reopen(fd2, O_DIRECTORY | O_PATH | O_CLOEXEC); /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         assert_se(fstat(fd1, &st1) >= 0);
@@ -440,7 +441,7 @@ TEST(fd_reopen) {
         safe_close(fd1);
 
         /* And now, test this with a file. */
-        fd1 = open("/proc/version", O_PATH|O_CLOEXEC);
+        fd1 = open("/proc/version", O_PATH | O_CLOEXEC);
         assert_se(fd1 >= 0);
 
         assert_se(fstat(fd1, &st1) >= 0);
@@ -451,8 +452,8 @@ TEST(fd_reopen) {
         assert_se(!FLAGS_SET(fl, O_DIRECTORY));
         assert_se(FLAGS_SET(fl, O_PATH));
 
-        assert_se(fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC) == -ENOTDIR);
-        fd2 = fd_reopen(fd1, O_RDONLY|O_CLOEXEC);  /* drop the O_PATH */
+        assert_se(fd_reopen(fd1, O_RDONLY | O_DIRECTORY | O_CLOEXEC) == -ENOTDIR);
+        fd2 = fd_reopen(fd1, O_RDONLY | O_CLOEXEC); /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
         assert_se(fstat(fd2, &st2) >= 0);
@@ -467,8 +468,8 @@ TEST(fd_reopen) {
 
         safe_close(fd1);
 
-        assert_se(fd_reopen(fd2, O_DIRECTORY|O_PATH|O_CLOEXEC) == -ENOTDIR);
-        fd1 = fd_reopen(fd2, O_PATH|O_CLOEXEC);  /* reacquire the O_PATH */
+        assert_se(fd_reopen(fd2, O_DIRECTORY | O_PATH | O_CLOEXEC) == -ENOTDIR);
+        fd1 = fd_reopen(fd2, O_PATH | O_CLOEXEC); /* reacquire the O_PATH */
         assert_se(fd1 >= 0);
 
         assert_se(fstat(fd1, &st1) >= 0);
@@ -483,7 +484,7 @@ TEST(fd_reopen) {
 
         /* Also check the right error is generated if the fd is already closed */
         safe_close(fd1);
-        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
+        assert_se(fd_reopen(fd1, O_RDONLY | O_CLOEXEC) == -EBADF);
         fd1 = -1;
 }
 

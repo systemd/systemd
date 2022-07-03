@@ -16,21 +16,19 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OPEN,
         };
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "root",                required_argument, NULL, ARG_ROOT                },
-                { "open",                no_argument,       NULL, ARG_OPEN                },
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "root", required_argument, NULL, ARG_ROOT },
+                                                 { "open", no_argument, NULL, ARG_OPEN },
 
-                { "prefix-root",         no_argument,       NULL, CHASE_PREFIX_ROOT       },
-                { "nonexistent",         no_argument,       NULL, CHASE_NONEXISTENT       },
-                { "no_autofs",           no_argument,       NULL, CHASE_NO_AUTOFS         },
-                { "safe",                no_argument,       NULL, CHASE_SAFE              },
-                { "trail-slash",         no_argument,       NULL, CHASE_TRAIL_SLASH       },
-                { "step",                no_argument,       NULL, CHASE_STEP              },
-                { "nofollow",            no_argument,       NULL, CHASE_NOFOLLOW          },
-                { "warn",                no_argument,       NULL, CHASE_WARN              },
-                {}
-        };
+                                                 { "prefix-root", no_argument, NULL, CHASE_PREFIX_ROOT },
+                                                 { "nonexistent", no_argument, NULL, CHASE_NONEXISTENT },
+                                                 { "no_autofs", no_argument, NULL, CHASE_NO_AUTOFS },
+                                                 { "safe", no_argument, NULL, CHASE_SAFE },
+                                                 { "trail-slash", no_argument, NULL, CHASE_TRAIL_SLASH },
+                                                 { "step", no_argument, NULL, CHASE_STEP },
+                                                 { "nofollow", no_argument, NULL, CHASE_NOFOLLOW },
+                                                 { "warn", no_argument, NULL, CHASE_WARN },
+                                                 {} };
 
         int c;
 
@@ -43,8 +41,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         printf("Syntax:\n"
                                "  %s [OPTION...] path...\n"
-                               "Options:\n"
-                               , argv[0]);
+                               "Options:\n",
+                               argv[0]);
                         for (size_t i = 0; i < ELEMENTSOF(options) - 1; i++)
                                 printf("  --%s\n", options[i].name);
                         return 0;

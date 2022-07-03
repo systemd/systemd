@@ -46,9 +46,12 @@ static void test_sd_device_one(sd_device *d) {
 
                 r = sd_device_new_from_ifindex(&dev, ifindex);
                 if (r == -ENODEV)
-                        log_device_warning_errno(d, r,
-                                                 "Failed to create sd-device object from ifindex %i. "
-                                                 "Maybe running on a non-host network namespace.", ifindex);
+                        log_device_warning_errno(
+                                        d,
+                                        r,
+                                        "Failed to create sd-device object from ifindex %i. "
+                                        "Maybe running on a non-host network namespace.",
+                                        ifindex);
                 else {
                         assert_se(r >= 0);
                         assert_se(sd_device_get_syspath(dev, &val) >= 0);
@@ -86,9 +89,12 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(device_get_device_id(d, &id) >= 0);
                 r = sd_device_new_from_device_id(&dev, id);
                 if (r == -ENODEV && ifindex > 0)
-                        log_device_warning_errno(d, r,
-                                                 "Failed to create sd-device object from device ID \"%s\". "
-                                                 "Maybe running on a non-host network namespace.", id);
+                        log_device_warning_errno(
+                                        d,
+                                        r,
+                                        "Failed to create sd-device object from device ID \"%s\". "
+                                        "Maybe running on a non-host network namespace.",
+                                        id);
                 else {
                         assert_se(r >= 0);
                         assert_se(sd_device_get_syspath(dev, &val) >= 0);
@@ -127,7 +133,8 @@ static void test_sd_device_one(sd_device *d) {
                         dev = sd_device_unref(dev);
 
                         _cleanup_close_ int fd = -1;
-                        fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
+                        fd = sd_device_open(
+                                        d, O_CLOEXEC | O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
                 } else
                         assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
@@ -145,7 +152,11 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(streq(syspath, val));
                 dev = sd_device_unref(dev);
 
-                assert_se(asprintf(&p, "/dev/%s/%u:%u", is_block ? "block" : "char", major(devnum), minor(devnum)) >= 0);
+                assert_se(asprintf(&p,
+                                   "/dev/%s/%u:%u",
+                                   is_block ? "block" : "char",
+                                   major(devnum),
+                                   minor(devnum)) >= 0);
                 assert_se(sd_device_new_from_devname(&dev, p) >= 0);
                 assert_se(sd_device_get_syspath(dev, &val) >= 0);
                 assert_se(streq(syspath, val));
@@ -207,10 +218,7 @@ TEST(sd_device_enumerator_subsystems) {
 }
 
 static void test_sd_device_enumerator_filter_subsystem_one(
-                const char *subsystem,
-                Hashmap *h,
-                unsigned *ret_n_new_dev,
-                unsigned *ret_n_removed_dev) {
+                const char *subsystem, Hashmap *h, unsigned *ret_n_new_dev, unsigned *ret_n_removed_dev) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         unsigned n_new_dev = 0, n_removed_dev = 0;
@@ -291,7 +299,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
                 log_debug("Added subsystem:%s syspath:%s", subsystem, syspath);
         }
 
-        while ((h = hashmap_steal_first_key_and_value(subsystems, (void**) &s))) {
+        while ((h = hashmap_steal_first_key_and_value(subsystems, (void **) &s))) {
                 unsigned n, m;
 
                 test_sd_device_enumerator_filter_subsystem_one(s, TAKE_PTR(h), &n, &m);
@@ -312,12 +320,12 @@ TEST(sd_device_enumerator_filter_subsystem) {
 
 TEST(sd_device_new_from_nulstr) {
         const char *devlinks =
-                "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
-                "/dev/disk/by-path/pci-0000:00:0f.0-scsi-0:0:0:0-part3\0"
-                "/dev/disk/by-label/Arch\\x20Linux\0"
-                "/dev/disk/by-uuid/a07b87e5-4af5-4a59-bde9-yyyyyyyyyyyy\0"
-                "/dev/disk/by-partlabel/Arch\\x20Linux\0"
-                "\0";
+                        "/dev/disk/by-partuuid/1290d63a-42cc-4c71-b87c-xxxxxxxxxxxx\0"
+                        "/dev/disk/by-path/pci-0000:00:0f.0-scsi-0:0:0:0-part3\0"
+                        "/dev/disk/by-label/Arch\\x20Linux\0"
+                        "/dev/disk/by-uuid/a07b87e5-4af5-4a59-bde9-yyyyyyyyyyyy\0"
+                        "/dev/disk/by-partlabel/Arch\\x20Linux\0"
+                        "\0";
 
         _cleanup_(sd_device_unrefp) sd_device *device = NULL, *from_nulstr = NULL;
         _cleanup_free_ uint8_t *nulstr_copy = NULL;

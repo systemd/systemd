@@ -18,7 +18,8 @@ int main(int argc, char *argv[]) {
                 Unit *u = UNIT(&s);
 
                 printf("\nWith collapsing for service state %s\n"
-                       "=========================================\n", service_state_to_string(s.state));
+                       "=========================================\n",
+                       service_state_to_string(s.state));
                 for (JobType a = 0; a < _JOB_TYPE_MAX_MERGING; a++) {
                         for (JobType b = 0; b < _JOB_TYPE_MAX_MERGING; b++) {
 
@@ -27,28 +28,36 @@ int main(int argc, char *argv[]) {
 
                                 if (!job_type_is_mergeable(a, b)) {
                                         assert_se(!merged_ab);
-                                        printf("Not mergeable: %s + %s\n", job_type_to_string(a), job_type_to_string(b));
+                                        printf("Not mergeable: %s + %s\n",
+                                               job_type_to_string(a),
+                                               job_type_to_string(b));
                                         continue;
                                 }
 
                                 assert_se(merged_ab);
-                                printf("%s + %s = %s\n", job_type_to_string(a), job_type_to_string(b), job_type_to_string(ab));
+                                printf("%s + %s = %s\n",
+                                       job_type_to_string(a),
+                                       job_type_to_string(b),
+                                       job_type_to_string(ab));
 
                                 for (JobType c = 0; c < _JOB_TYPE_MAX_MERGING; c++) {
 
                                         /* Verify transitivity of mergeability of job types */
                                         assert_se(!job_type_is_mergeable(a, b) ||
-                                               !job_type_is_mergeable(b, c) ||
-                                               job_type_is_mergeable(a, c));
+                                                  !job_type_is_mergeable(b, c) || job_type_is_mergeable(a, c));
 
                                         /* Verify that merged entries can be merged with the same entries
                                          * they can be merged with separately */
-                                        assert_se(!job_type_is_mergeable(a, c) || job_type_is_mergeable(ab, c));
-                                        assert_se(!job_type_is_mergeable(b, c) || job_type_is_mergeable(ab, c));
+                                        assert_se(!job_type_is_mergeable(a, c) ||
+                                                  job_type_is_mergeable(ab, c));
+                                        assert_se(!job_type_is_mergeable(b, c) ||
+                                                  job_type_is_mergeable(ab, c));
 
                                         /* Verify that if a merged with b is not mergeable with c, then
                                          * either a or b is not mergeable with c either. */
-                                        assert_se(job_type_is_mergeable(ab, c) || !job_type_is_mergeable(a, c) || !job_type_is_mergeable(b, c));
+                                        assert_se(job_type_is_mergeable(ab, c) ||
+                                                  !job_type_is_mergeable(a, c) ||
+                                                  !job_type_is_mergeable(b, c));
 
                                         JobType bc = b;
                                         if (job_type_merge_and_collapse(&bc, c, u) >= 0) {
@@ -67,7 +76,11 @@ int main(int argc, char *argv[]) {
                                                 assert_se(ab_c == bc_a);
                                                 assert_se(ab_c == a_bc);
 
-                                                printf("%s + %s + %s = %s\n", job_type_to_string(a), job_type_to_string(b), job_type_to_string(c), job_type_to_string(ab_c));
+                                                printf("%s + %s + %s = %s\n",
+                                                       job_type_to_string(a),
+                                                       job_type_to_string(b),
+                                                       job_type_to_string(c),
+                                                       job_type_to_string(ab_c));
                                         }
                                 }
                         }

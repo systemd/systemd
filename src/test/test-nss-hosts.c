@@ -28,7 +28,7 @@
 
 static size_t arg_bufsize = 1024;
 
-static const char* af_to_string(int family, char *buf, size_t buf_len) {
+static const char *af_to_string(int family, char *buf, size_t buf_len) {
         const char *name;
 
         if (family == AF_UNSPEC)
@@ -81,9 +81,7 @@ static void print_struct_hostent(struct hostent *host, const char *canon) {
                 memcpy(&u, *s, host->h_length);
                 r = in_addr_to_string(host->h_addrtype, &u, &a);
                 assert_se(r == 0);
-                log_info("        %s %s",
-                         af_to_string(host->h_addrtype, family_name, sizeof family_name),
-                         a);
+                log_info("        %s %s", af_to_string(host->h_addrtype, family_name, sizeof family_name), a);
         }
         if (canon)
                 log_info("        canonical: \"%s\"", canon);
@@ -95,11 +93,11 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         char buffer[arg_bufsize];
         struct gaih_addrtuple *pat = NULL;
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
-        int32_t ttl = INT32_MAX; /* nss-dns wants to return the lowest ttl,
-                                    and will access this variable through *ttlp,
-                                    so we need to set it to something.
-                                    I'm not sure if this is a bug in nss-dns
-                                    or not. */
+        int32_t ttl = INT32_MAX;        /* nss-dns wants to return the lowest ttl,
+                                           and will access this variable through *ttlp,
+                                           so we need to set it to something.
+                                           I'm not sure if this is a bug in nss-dns
+                                           or not. */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
         int n;
@@ -114,21 +112,29 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
 
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
-                log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%tx errno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
-                         fname, name,
-                         nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                         pat ? (char*) pat - buffer : 0,
-                         errno1, errno_to_name(errno1) ?: "---",
-                         errno2, hstrerror(errno2),
+                log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%tx errno=%d/%s h_errno=%d/%s ttl=%" PRIi32,
+                         fname,
+                         name,
+                         nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                         "\n",
+                         pat ? (char *) pat - buffer : 0,
+                         errno1,
+                         errno_to_name(errno1) ?: "---",
+                         errno2,
+                         hstrerror(errno2),
                          ttl);
                 n = print_gaih_addrtuples(pat);
         } else {
                 log_info("%s(\"%s\") → status=%s%-20spat=0x%p errno=%d/%s h_errno=%d/%s",
-                         fname, name,
-                         nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
+                         fname,
+                         name,
+                         nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                         "\n",
                          pat,
-                         errno1, errno_to_name(errno1) ?: "---",
-                         errno2, hstrerror(errno2));
+                         errno1,
+                         errno_to_name(errno1) ?: "---",
+                         errno2,
+                         hstrerror(errno2));
                 n = 0;
         }
 
@@ -140,7 +146,8 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                         assert_se(status == NSS_STATUS_SUCCESS);
                         assert_se(n == socket_ipv6_is_enabled() + 1);
 
-                } else if (streq(module, "resolve") && getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
+                } else if (streq(module, "resolve") &&
+                           getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                         assert_se(status == NSS_STATUS_SUCCESS);
                         if (socket_ipv6_is_enabled())
                                 assert_se(n == 2);
@@ -155,11 +162,11 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         _nss_gethostbyname3_r_t f;
         char buffer[arg_bufsize];
         int errno1 = 999, errno2 = 999; /* nss-dns doesn't set those */
-        int32_t ttl = INT32_MAX; /* nss-dns wants to return the lowest ttl,
-                                    and will access this variable through *ttlp,
-                                    so we need to set it to something.
-                                    I'm not sure if this is a bug in nss-dns
-                                    or not. */
+        int32_t ttl = INT32_MAX;        /* nss-dns wants to return the lowest ttl,
+                                           and will access this variable through *ttlp,
+                                           so we need to set it to something.
+                                           I'm not sure if this is a bug in nss-dns
+                                           or not. */
         enum nss_status status;
         char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
         struct hostent host;
@@ -175,11 +182,16 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         }
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl, &canon);
-        log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
-                 fname, name, af_to_string(af, family_name, sizeof family_name),
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
-                 errno2, hstrerror(errno2),
+        log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%" PRIi32,
+                 fname,
+                 name,
+                 af_to_string(af, family_name, sizeof family_name),
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---",
+                 errno2,
+                 hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, canon);
@@ -205,10 +217,15 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
-                 fname, name, af_to_string(af, family_name, sizeof family_name),
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
-                 errno2, hstrerror(errno2));
+                 fname,
+                 name,
+                 af_to_string(af, family_name, sizeof family_name),
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---",
+                 errno2,
+                 hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
 }
@@ -232,18 +249,19 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
 
         status = f(name, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
-                 fname, name,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
-                 errno2, hstrerror(errno2));
+                 fname,
+                 name,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---",
+                 errno2,
+                 hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
 }
 
-static void test_gethostbyaddr2_r(void *handle,
-                                  const char *module,
-                                  const void* addr, socklen_t len,
-                                  int af) {
+static void test_gethostbyaddr2_r(void *handle, const char *module, const void *addr, socklen_t len, int af) {
 
         const char *fname;
         _nss_gethostbyaddr2_r_t f;
@@ -258,8 +276,7 @@ static void test_gethostbyaddr2_r(void *handle,
         fname = strjoina("_nss_", module, "_gethostbyaddr2_r");
         f = dlsym(handle, fname);
 
-        log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
-                       "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
+        log_full_errno(f ? LOG_DEBUG : LOG_INFO, errno, "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
         if (!f) {
                 log_info("%s not defined", fname);
                 return;
@@ -268,20 +285,21 @@ static void test_gethostbyaddr2_r(void *handle,
         assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
 
         status = f(addr, len, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl);
-        log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
-                 fname, addr_pretty,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
-                 errno2, hstrerror(errno2),
+        log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%" PRIi32,
+                 fname,
+                 addr_pretty,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---",
+                 errno2,
+                 hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
 }
 
-static void test_gethostbyaddr_r(void *handle,
-                                 const char *module,
-                                 const void* addr, socklen_t len,
-                                 int af) {
+static void test_gethostbyaddr_r(void *handle, const char *module, const void *addr, socklen_t len, int af) {
 
         const char *fname;
         _nss_gethostbyaddr_r_t f;
@@ -295,8 +313,7 @@ static void test_gethostbyaddr_r(void *handle,
         fname = strjoina("_nss_", module, "_gethostbyaddr_r");
         f = dlsym(handle, fname);
 
-        log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
-                       "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
+        log_full_errno(f ? LOG_DEBUG : LOG_INFO, errno, "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
         if (!f) {
                 log_info("%s not defined", fname);
                 return;
@@ -306,10 +323,14 @@ static void test_gethostbyaddr_r(void *handle,
 
         status = f(addr, len, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
-                 fname, addr_pretty,
-                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
-                 errno2, hstrerror(errno2));
+                 fname,
+                 addr_pretty,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                 "\n",
+                 errno1,
+                 errno_to_name(errno1) ?: "---",
+                 errno2,
+                 hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
 }
@@ -340,10 +361,7 @@ static void test_byname(void *handle, const char *module, const char *name) {
         puts("");
 }
 
-static void test_byaddr(void *handle,
-                        const char *module,
-                        const void* addr, socklen_t len,
-                        int af) {
+static void test_byaddr(void *handle, const char *module, const void *addr, socklen_t len, int af) {
         test_gethostbyaddr2_r(handle, module, addr, len, af);
         puts("");
 
@@ -361,24 +379,22 @@ static int make_addresses(struct local_address **addresses) {
 
         assert_se(GREEDY_REALLOC(addrs, n + 3));
 
-        addrs[n++] = (struct local_address) { .family = AF_INET,
-                                              .address.in = { htobe32(0x7F000001) } };
-        addrs[n++] = (struct local_address) { .family = AF_INET,
-                                              .address.in = { htobe32(0x7F000002) } };
-        addrs[n++] = (struct local_address) { .family = AF_INET6,
-                                              .address.in6 = in6addr_loopback };
+        addrs[n++] = (struct local_address){ .family = AF_INET, .address.in = { htobe32(0x7F000001) } };
+        addrs[n++] = (struct local_address){ .family = AF_INET, .address.in = { htobe32(0x7F000002) } };
+        addrs[n++] = (struct local_address){ .family = AF_INET6, .address.in6 = in6addr_loopback };
         return 0;
 }
 
-static int test_one_module(const char *dir,
-                           const char *module,
-                           char **names,
-                           struct local_address *addresses,
-                           int n_addresses) {
+static int
+                test_one_module(const char *dir,
+                                const char *module,
+                                char **names,
+                                struct local_address *addresses,
+                                int n_addresses) {
 
         log_info("======== %s ========", module);
 
-        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
+        _cleanup_(dlclosep) void *handle = nss_open_handle(dir, module, RTLD_LAZY | RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
@@ -386,7 +402,8 @@ static int test_one_module(const char *dir,
                 test_byname(handle, module, *name);
 
         for (int i = 0; i < n_addresses; i++)
-                test_byaddr(handle, module,
+                test_byaddr(handle,
+                            module,
                             &addresses[i].address,
                             FAMILY_ADDRESS_SIZE(addresses[i].family),
                             addresses[i].family);
@@ -395,10 +412,13 @@ static int test_one_module(const char *dir,
         return 0;
 }
 
-static int parse_argv(int argc, char **argv,
-                      char ***the_modules,
-                      char ***the_names,
-                      struct local_address **the_addresses, int *n_addresses) {
+static int
+                parse_argv(int argc,
+                           char **argv,
+                           char ***the_modules,
+                           char ***the_names,
+                           struct local_address **the_addresses,
+                           int *n_addresses) {
 
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
@@ -442,8 +462,7 @@ static int parse_argv(int argc, char **argv,
                         } else {
                                 assert_se(GREEDY_REALLOC0(addrs, n + 1));
 
-                                addrs[n++] = (struct local_address) { .family = family,
-                                                                      .address = address };
+                                addrs[n++] = (struct local_address){ .family = family, .address = address };
                         }
                 }
         } else {

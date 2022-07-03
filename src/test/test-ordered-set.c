@@ -15,9 +15,9 @@ TEST(set_steal_first) {
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(ordered_set_put(m, (void*) "1") == 1);
-        assert_se(ordered_set_put(m, (void*) "22") == 1);
-        assert_se(ordered_set_put(m, (void*) "333") == 1);
+        assert_se(ordered_set_put(m, (void *) "1") == 1);
+        assert_se(ordered_set_put(m, (void *) "22") == 1);
+        assert_se(ordered_set_put(m, (void *) "333") == 1);
 
         ordered_set_print(stdout, "SET=", m);
 
@@ -38,7 +38,8 @@ static void item_seen(Item *item) {
         item->seen++;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
 TEST(set_free_with_hash_ops) {
         OrderedSet *m;
@@ -50,8 +51,8 @@ TEST(set_free_with_hash_ops) {
                 assert_se(ordered_set_put(m, items + i) == 1);
 
         for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(ordered_set_put(m, items + i) == 0);  /* We get 0 here, because we use trivial hash
-                                                                 * ops. Also see below... */
+                assert_se(ordered_set_put(m, items + i) == 0); /* We get 0 here, because we use trivial hash
+                                                                * ops. Also see below... */
 
         m = ordered_set_free(m);
         assert_se(items[0].seen == 1);
@@ -67,14 +68,14 @@ TEST(set_put) {
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(ordered_set_put(m, (void*) "1") == 1);
-        assert_se(ordered_set_put(m, (void*) "22") == 1);
-        assert_se(ordered_set_put(m, (void*) "333") == 1);
-        assert_se(ordered_set_put(m, (void*) "333") == 0);
-        assert_se(ordered_set_remove(m, (void*) "333"));
-        assert_se(ordered_set_put(m, (void*) "333") == 1);
-        assert_se(ordered_set_put(m, (void*) "333") == 0);
-        assert_se(ordered_set_put(m, (void*) "22") == 0);
+        assert_se(ordered_set_put(m, (void *) "1") == 1);
+        assert_se(ordered_set_put(m, (void *) "22") == 1);
+        assert_se(ordered_set_put(m, (void *) "333") == 1);
+        assert_se(ordered_set_put(m, (void *) "333") == 0);
+        assert_se(ordered_set_remove(m, (void *) "333"));
+        assert_se(ordered_set_put(m, (void *) "333") == 1);
+        assert_se(ordered_set_put(m, (void *) "333") == 0);
+        assert_se(ordered_set_put(m, (void *) "22") == 0);
 
         assert_se(str = strdup("333"));
         assert_se(ordered_set_put(m, str) == -EEXIST); /* ... and we get -EEXIST here, because we use

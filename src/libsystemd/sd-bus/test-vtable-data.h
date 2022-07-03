@@ -13,15 +13,36 @@ static int handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         return 1;
 }
 
-static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int
+                value_handler(sd_bus *bus,
+                              const char *path,
+                              const char *interface,
+                              const char *property,
+                              sd_bus_message *reply,
+                              void *userdata,
+                              sd_bus_error *error) {
         return 1;
 }
 
-static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int
+                get_handler(sd_bus *bus,
+                            const char *path,
+                            const char *interface,
+                            const char *property,
+                            sd_bus_message *reply,
+                            void *userdata,
+                            sd_bus_error *error) {
         return 1;
 }
 
-static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
+static int
+                set_handler(sd_bus *bus,
+                            const char *path,
+                            const char *interface,
+                            const char *property,
+                            sd_bus_message *value,
+                            void *userdata,
+                            sd_bus_error *error) {
         return 1;
 }
 
@@ -29,14 +50,22 @@ static const sd_bus_vtable test_vtable_1[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("Hello", "ssas", "a(uu)", NULL, 0),
         SD_BUS_METHOD("DeprecatedHello", "", "", NULL, SD_BUS_VTABLE_DEPRECATED),
-        SD_BUS_METHOD("DeprecatedHelloNoReply", "", "", NULL, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_METHOD_NO_REPLY),
+        SD_BUS_METHOD("DeprecatedHelloNoReply",
+                      "",
+                      "",
+                      NULL,
+                      SD_BUS_VTABLE_DEPRECATED | SD_BUS_VTABLE_METHOD_NO_REPLY),
         SD_BUS_SIGNAL("Wowza", "sss", 0),
         SD_BUS_SIGNAL("DeprecatedWowza", "ut", SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_WRITABLE_PROPERTY("AProperty", "s", get_handler, set_handler, 0, 0),
         SD_BUS_PROPERTY("AReadOnlyDeprecatedProperty", "(ut)", get_handler, 0, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_PROPERTY("ChangingProperty", "t", get_handler, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Invalidating", "t", get_handler, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        SD_BUS_PROPERTY("Constant", "t", get_handler, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EXPLICIT),
+        SD_BUS_PROPERTY("Constant",
+                        "t",
+                        get_handler,
+                        0,
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_PROPERTY_EXPLICIT),
         SD_BUS_VTABLE_END
 };
 
@@ -46,21 +75,47 @@ static const sd_bus_vtable test_vtable_2[] = {
         SD_BUS_METHOD("Exit", "", "", handler, 0),
         SD_BUS_METHOD_WITH_OFFSET("AlterSomething2", "s", "s", handler, 200, 0),
         SD_BUS_METHOD_WITH_OFFSET("Exit2", "", "", handler, 200, 0),
-        SD_BUS_METHOD_WITH_NAMES_OFFSET("AlterSomething3", "so", SD_BUS_PARAM(string) SD_BUS_PARAM(path),
-                        "s", SD_BUS_PARAM(returnstring), handler, 200, 0),
-        SD_BUS_METHOD_WITH_NAMES("Exit3", "bx", SD_BUS_PARAM(with_confirmation) SD_BUS_PARAM(after_msec),
-                        "bb", SD_BUS_PARAM(accepted) SD_BUS_PARAM(scheduled), handler, 0),
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(
+                        "AlterSomething3",
+                        "so",
+                        SD_BUS_PARAM(string) SD_BUS_PARAM(path),
+                        "s",
+                        SD_BUS_PARAM(returnstring),
+                        handler,
+                        200,
+                        0),
+        SD_BUS_METHOD_WITH_NAMES(
+                        "Exit3",
+                        "bx",
+                        SD_BUS_PARAM(with_confirmation) SD_BUS_PARAM(after_msec),
+                        "bb",
+                        SD_BUS_PARAM(accepted) SD_BUS_PARAM(scheduled),
+                        handler,
+                        0),
         SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
-        SD_BUS_PROPERTY("AnExplicitProperty", "s", NULL, offsetof(struct context, something),
-                        SD_BUS_VTABLE_PROPERTY_EXPLICIT|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("AnExplicitProperty",
+                        "s",
+                        NULL,
+                        offsetof(struct context, something),
+                        SD_BUS_VTABLE_PROPERTY_EXPLICIT | SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
-        SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL,
-                                 offsetof(struct context, automatic_string_property), 0),
-        SD_BUS_WRITABLE_PROPERTY("AutomaticIntegerProperty", "u", NULL, NULL,
-                                 offsetof(struct context, automatic_integer_property), 0),
+        SD_BUS_WRITABLE_PROPERTY(
+                        "AutomaticStringProperty",
+                        "s",
+                        NULL,
+                        NULL,
+                        offsetof(struct context, automatic_string_property),
+                        0),
+        SD_BUS_WRITABLE_PROPERTY(
+                        "AutomaticIntegerProperty",
+                        "u",
+                        NULL,
+                        NULL,
+                        offsetof(struct context, automatic_integer_property),
+                        0),
         SD_BUS_METHOD("NoOperation", NULL, NULL, NULL, 0),
         SD_BUS_SIGNAL("DummySignal", "b", 0),
         SD_BUS_SIGNAL("DummySignal2", "so", 0),
@@ -68,14 +123,12 @@ static const sd_bus_vtable test_vtable_2[] = {
         SD_BUS_VTABLE_END
 };
 
-static const sd_bus_vtable test_vtable_deprecated[] = {
-        SD_BUS_VTABLE_START(SD_BUS_VTABLE_DEPRECATED),
-        SD_BUS_VTABLE_END
-};
+static const sd_bus_vtable test_vtable_deprecated[] = { SD_BUS_VTABLE_START(SD_BUS_VTABLE_DEPRECATED),
+                                                        SD_BUS_VTABLE_END };
 
 struct sd_bus_vtable_221 {
-        uint8_t type:8;
-        uint64_t flags:56;
+        uint8_t type : 8;
+        uint64_t flags : 56;
         union {
                 struct {
                         size_t element_size;

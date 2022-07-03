@@ -43,7 +43,6 @@ static void test_v6(FirewallContext *ctx) {
 
         assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1) >= 0);
         assert_se(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL) >= 0);
-
 }
 
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {
@@ -75,7 +74,8 @@ static bool test_v4(FirewallContext *ctx) {
         if (r < 0) {
                 bool ignore = IN_SET(r, -EPERM, -EOPNOTSUPP, -ENOPROTOOPT);
 
-                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR,
+                               r,
                                "Failed to add IPv4 masquerade%s: %m",
                                ignore ? ", skipping following tests" : "");
 
@@ -87,10 +87,21 @@ static bool test_v4(FirewallContext *ctx) {
         assert_se(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.1.2.3", &u), 32) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, parse_addr("1.2.3.4", &v)) >= 0);
-        assert_se(fw_add_local_dnat(&ctx, false, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, NULL) >= 0);
+        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >=
+                  0);
+        assert_se(fw_add_local_dnat(&ctx, true, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.4", &u), 815, NULL) >=
+                  0);
+        assert_se(fw_add_local_dnat(
+                                  &ctx,
+                                  true,
+                                  AF_INET,
+                                  IPPROTO_TCP,
+                                  4711,
+                                  parse_addr("1.2.3.5", &u),
+                                  815,
+                                  parse_addr("1.2.3.4", &v)) >= 0);
+        assert_se(fw_add_local_dnat(&ctx, false, AF_INET, IPPROTO_TCP, 4711, parse_addr("1.2.3.5", &u), 815, NULL) >=
+                  0);
 
         return true;
 }

@@ -15,7 +15,12 @@ TEST(log_device_full) {
                 r = log_device_full_errno(NULL, level, 0, "test level=%d errno=0: %m", level);
                 assert_se(r == 0);
 
-                r = log_device_full_errno(NULL, level, SYNTHETIC_ERRNO(ENODATA), "test level=%d errno=S(ENODATA): %m", level);
+                r = log_device_full_errno(
+                                NULL,
+                                level,
+                                SYNTHETIC_ERRNO(ENODATA),
+                                "test level=%d errno=S(ENODATA): %m",
+                                level);
                 assert_se(r == -ENODATA);
         }
 }

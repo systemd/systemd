@@ -41,7 +41,21 @@ TEST(strv_env_get) {
 }
 
 TEST(strv_env_pairs_get) {
-        char **l = STRV_MAKE("ONE_OR_TWO", "1", "THREE", "3", "ONE_OR_TWO", "2", "FOUR", "4", "FIVE", "5", "SIX", "FIVE", "SEVEN", "7");
+        char **l = STRV_MAKE(
+                        "ONE_OR_TWO",
+                        "1",
+                        "THREE",
+                        "3",
+                        "ONE_OR_TWO",
+                        "2",
+                        "FOUR",
+                        "4",
+                        "FIVE",
+                        "5",
+                        "SIX",
+                        "FIVE",
+                        "SEVEN",
+                        "7");
 
         assert_se(streq(strv_env_pairs_get(l, "ONE_OR_TWO"), "2"));
         assert_se(streq(strv_env_pairs_get(l, "THREE"), "3"));
@@ -104,8 +118,8 @@ TEST(strv_env_replace_strdup) {
 TEST(strv_env_replace_strdup_passthrough) {
         _cleanup_strv_free_ char **a = NULL;
 
-        assert_se(putenv((char*) "a=a") == 0);
-        assert_se(putenv((char*) "b=") == 0);
+        assert_se(putenv((char *) "a=a") == 0);
+        assert_se(putenv((char *) "b=") == 0);
         assert_se(unsetenv("c") == 0);
 
         assert_se(strv_env_replace_strdup_passthrough(&a, "a") == 1);
@@ -135,14 +149,8 @@ TEST(strv_env_assign) {
 }
 
 TEST(env_strv_get_n) {
-        const char *_env[] = {
-                "FOO=NO NO NO",
-                "FOO=BAR BAR",
-                "BAR=waldo",
-                "PATH=unset",
-                NULL
-        };
-        char **env = (char**) _env;
+        const char *_env[] = { "FOO=NO NO NO", "FOO=BAR BAR", "BAR=waldo", "PATH=unset", NULL };
+        char **env = (char **) _env;
 
         assert_se(streq(strv_env_get_n(env, "FOO__", 3, 0), "BAR BAR"));
         assert_se(streq(strv_env_get_n(env, "FOO__", 3, REPLACE_ENV_USE_ENVIRONMENT), "BAR BAR"));
@@ -158,69 +166,59 @@ TEST(env_strv_get_n) {
 
         assert_se(!strv_env_get_n(env, "PATH__", 4, 0));
         assert_se(!strv_env_get_n(env, "PATH", 4, 0));
-        assert_se(streq_ptr(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                            getenv("PATH")));
-        assert_se(streq_ptr(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT),
-                            getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH__", 4, REPLACE_ENV_USE_ENVIRONMENT), getenv("PATH")));
+        assert_se(streq_ptr(strv_env_get_n(env, "PATH", 4, REPLACE_ENV_USE_ENVIRONMENT), getenv("PATH")));
 }
 
 static void test_replace_env1(bool braceless) {
         log_info("/* %s(braceless=%s) */", __func__, yes_no(braceless));
 
-        const char *env[] = {
-                "FOO=BAR BAR",
-                "BAR=waldo",
-                NULL
-        };
+        const char *env[] = { "FOO=BAR BAR", "BAR=waldo", NULL };
         _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL;
-        unsigned flags = REPLACE_ENV_ALLOW_BRACELESS*braceless;
+        unsigned flags = REPLACE_ENV_ALLOW_BRACELESS * braceless;
 
-        t = replace_env("FOO=$FOO=${FOO}", (char**) env, flags);
+        t = replace_env("FOO=$FOO=${FOO}", (char **) env, flags);
         assert_se(streq(t, braceless ? "FOO=BAR BAR=BAR BAR" : "FOO=$FOO=BAR BAR"));
 
-        s = replace_env("BAR=$BAR=${BAR}", (char**) env, flags);
+        s = replace_env("BAR=$BAR=${BAR}", (char **) env, flags);
         assert_se(streq(s, braceless ? "BAR=waldo=waldo" : "BAR=$BAR=waldo"));
 
-        q = replace_env("BARBAR=$BARBAR=${BARBAR}", (char**) env, flags);
+        q = replace_env("BARBAR=$BARBAR=${BARBAR}", (char **) env, flags);
         assert_se(streq(q, braceless ? "BARBAR==" : "BARBAR=$BARBAR="));
 
-        r = replace_env("BAR=$BAR$BAR${BAR}${BAR}", (char**) env, flags);
+        r = replace_env("BAR=$BAR$BAR${BAR}${BAR}", (char **) env, flags);
         assert_se(streq(r, braceless ? "BAR=waldowaldowaldowaldo" : "BAR=$BAR$BARwaldowaldo"));
 
-        p = replace_env("${BAR}$BAR$BAR", (char**) env, flags);
+        p = replace_env("${BAR}$BAR$BAR", (char **) env, flags);
         assert_se(streq(p, braceless ? "waldowaldowaldo" : "waldo$BAR$BAR"));
 }
 
 static void test_replace_env2(bool extended) {
         log_info("/* %s(extended=%s) */", __func__, yes_no(extended));
 
-        const char *env[] = {
-                "FOO=foo",
-                "BAR=bar",
-                NULL
-        };
+        const char *env[] = { "FOO=foo", "BAR=bar", NULL };
         _cleanup_free_ char *t = NULL, *s = NULL, *q = NULL, *r = NULL, *p = NULL, *x = NULL, *y = NULL;
-        unsigned flags = REPLACE_ENV_ALLOW_EXTENDED*extended;
+        unsigned flags = REPLACE_ENV_ALLOW_EXTENDED * extended;
 
-        t = replace_env("FOO=${FOO:-${BAR}}", (char**) env, flags);
+        t = replace_env("FOO=${FOO:-${BAR}}", (char **) env, flags);
         assert_se(streq(t, extended ? "FOO=foo" : "FOO=${FOO:-bar}"));
 
-        s = replace_env("BAR=${XXX:-${BAR}}", (char**) env, flags);
+        s = replace_env("BAR=${XXX:-${BAR}}", (char **) env, flags);
         assert_se(streq(s, extended ? "BAR=bar" : "BAR=${XXX:-bar}"));
 
-        q = replace_env("XXX=${XXX:+${BAR}}", (char**) env, flags);
+        q = replace_env("XXX=${XXX:+${BAR}}", (char **) env, flags);
         assert_se(streq(q, extended ? "XXX=" : "XXX=${XXX:+bar}"));
 
-        r = replace_env("FOO=${FOO:+${BAR}}", (char**) env, flags);
+        r = replace_env("FOO=${FOO:+${BAR}}", (char **) env, flags);
         assert_se(streq(r, extended ? "FOO=bar" : "FOO=${FOO:+bar}"));
 
-        p = replace_env("FOO=${FOO:-${BAR}post}", (char**) env, flags);
+        p = replace_env("FOO=${FOO:-${BAR}post}", (char **) env, flags);
         assert_se(streq(p, extended ? "FOO=foo" : "FOO=${FOO:-barpost}"));
 
-        x = replace_env("XXX=${XXX:+${BAR}post}", (char**) env, flags);
+        x = replace_env("XXX=${XXX:+${BAR}post}", (char **) env, flags);
         assert_se(streq(x, extended ? "XXX=" : "XXX=${XXX:+barpost}"));
 
-        y = replace_env("FOO=${FOO}between${BAR:-baz}", (char**) env, flags);
+        y = replace_env("FOO=${FOO}between${BAR:-baz}", (char **) env, flags);
         assert_se(streq(y, extended ? "FOO=foobetweenbar" : "FOO=foobetween${BAR:-baz}"));
 }
 
@@ -232,34 +230,28 @@ TEST(replace_env) {
 }
 
 TEST(replace_env_argv) {
-        const char *env[] = {
-                "FOO=BAR BAR",
-                "BAR=waldo",
-                NULL
-        };
-        const char *line[] = {
-                "FOO$FOO",
-                "FOO$FOOFOO",
-                "FOO${FOO}$FOO",
-                "FOO${FOO}",
-                "${FOO}",
-                "$FOO",
-                "$FOO$FOO",
-                "${FOO}${BAR}",
-                "${FOO",
-                "FOO$$${FOO}",
-                "$$FOO${FOO}",
-                "${FOO:-${BAR}}",
-                "${QUUX:-${FOO}}",
-                "${FOO:+${BAR}}",
-                "${QUUX:+${BAR}}",
-                "${FOO:+|${BAR}|}}",
-                "${FOO:+|${BAR}{|}",
-                NULL
-        };
+        const char *env[] = { "FOO=BAR BAR", "BAR=waldo", NULL };
+        const char *line[] = { "FOO$FOO",
+                               "FOO$FOOFOO",
+                               "FOO${FOO}$FOO",
+                               "FOO${FOO}",
+                               "${FOO}",
+                               "$FOO",
+                               "$FOO$FOO",
+                               "${FOO}${BAR}",
+                               "${FOO",
+                               "FOO$$${FOO}",
+                               "$$FOO${FOO}",
+                               "${FOO:-${BAR}}",
+                               "${QUUX:-${FOO}}",
+                               "${FOO:+${BAR}}",
+                               "${QUUX:+${BAR}}",
+                               "${FOO:+|${BAR}|}}",
+                               "${FOO:+|${BAR}{|}",
+                               NULL };
         _cleanup_strv_free_ char **r = NULL;
 
-        r = replace_env_argv((char**) line, (char**) env);
+        r = replace_env_argv((char **) line, (char **) env);
         assert_se(r);
         assert_se(streq(r[0], "FOO$FOO"));
         assert_se(streq(r[1], "FOO$FOOFOO"));
@@ -282,25 +274,26 @@ TEST(replace_env_argv) {
 }
 
 TEST(env_clean) {
-        _cleanup_strv_free_ char **e = strv_new("FOOBAR=WALDO",
-                                                "FOOBAR=WALDO",
-                                                "FOOBAR",
-                                                "F",
-                                                "X=",
-                                                "F=F",
-                                                "=",
-                                                "=F",
-                                                "",
-                                                "0000=000",
-                                                "äöüß=abcd",
-                                                "abcd=äöüß",
-                                                "xyz\n=xyz",
-                                                "xyz=xyz\n",
-                                                "another=one",
-                                                "another=final one",
-                                                "CRLF=\r\n",
-                                                "LESS_TERMCAP_mb=\x1b[01;31m",
-                                                "BASH_FUNC_foo%%=() {  echo foo\n}");
+        _cleanup_strv_free_ char **e = strv_new(
+                        "FOOBAR=WALDO",
+                        "FOOBAR=WALDO",
+                        "FOOBAR",
+                        "F",
+                        "X=",
+                        "F=F",
+                        "=",
+                        "=F",
+                        "",
+                        "0000=000",
+                        "äöüß=abcd",
+                        "abcd=äöüß",
+                        "xyz\n=xyz",
+                        "xyz=xyz\n",
+                        "another=one",
+                        "another=final one",
+                        "CRLF=\r\n",
+                        "LESS_TERMCAP_mb=\x1b[01;31m",
+                        "BASH_FUNC_foo%%=() {  echo foo\n}");
         assert_se(e);
         assert_se(!strv_env_is_valid(e));
         assert_se(strv_env_clean(e) == e);
@@ -409,7 +402,7 @@ TEST(setenv_systemd_exec_pid) {
 TEST(getenv_steal_erase) {
         int r;
 
-        r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         if (r == 0) {
                 _cleanup_strv_free_ char **l = NULL;
 

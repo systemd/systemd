@@ -10,15 +10,15 @@
 #include "tests.h"
 
 TEST(alloca) {
-        static const uint8_t zero[997] = { };
+        static const uint8_t zero[997] = {};
         char *t;
 
         t = alloca_align(17, 512);
-        assert_se(!((uintptr_t)t & 0xff));
+        assert_se(!((uintptr_t) t & 0xff));
         memzero(t, 17);
 
         t = alloca0_align(997, 1024);
-        assert_se(!((uintptr_t)t & 0x1ff));
+        assert_se(!((uintptr_t) t & 0x1ff));
         assert_se(!memcmp(t, zero, 997));
 }
 
@@ -66,7 +66,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
-        assert_se(((uint8_t*) dup)[sizeof(int) * 3] == 0);
+        assert_se(((uint8_t *) dup)[sizeof(int) * 3] == 0);
         free(dup);
 
         dup = memdup_multiply(org, sizeof(int), 3);
@@ -98,8 +98,8 @@ TEST(bool_assign) {
         d = 0xF & 0xFF;
         e = b & d;
         f = 0x0;
-        g = cp;    /* cast from pointer */
-        h = NULL;  /* cast from pointer */
+        g = cp;   /* cast from pointer */
+        h = NULL; /* cast from pointer */
 
         assert_se(b);
         assert_se(c);
@@ -114,15 +114,15 @@ static int cleanup_counter = 0;
 
 static void cleanup1(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        assert_se(++cleanup_counter == *(int *) a);
 }
 static void cleanup2(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        assert_se(++cleanup_counter == *(int *) a);
 }
 static void cleanup3(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        assert_se(++cleanup_counter == *(int *) a);
 }
 
 TEST(cleanup_order) {
@@ -141,9 +141,9 @@ TEST(auto_erase_memory) {
         /* print address of p2, else e.g. clang-11 will optimize it out */
         log_debug("p1: %p p2: %p", &p1, &p2);
 
-        assert_se(p1 = new(uint8_t, 4703)); /* use prime size, to ensure that there will be free space at the
-                                             * end of the allocation, since malloc() enforces alignment */
-        assert_se(p2 = new(uint8_t, 4703));
+        assert_se(p1 = new (uint8_t, 4703)); /* use prime size, to ensure that there will be free space at the
+                                              * end of the allocation, since malloc() enforces alignment */
+        assert_se(p2 = new (uint8_t, 4703));
 
         assert_se(crypto_random_bytes(p1, 4703) == 0);
 
@@ -153,16 +153,16 @@ TEST(auto_erase_memory) {
                 assert_se(p1[i] == p2[i]);
 }
 
-#define TEST_SIZES(f, n)                                                \
-        do {                                                            \
+#define TEST_SIZES(f, n)                                                        \
+        do {                                                                    \
                 log_debug("requested=%zu vs. malloc_size=%zu vs. gcc_size=%zu", \
-                          n * sizeof(*f),                               \
-                          malloc_usable_size(f),                        \
-                          __builtin_object_size(f, 0));                 \
-                assert_se(MALLOC_ELEMENTSOF(f) >= n);                   \
-                assert_se(MALLOC_SIZEOF_SAFE(f) >= sizeof(*f) * n);     \
-                assert_se(malloc_usable_size(f) >= sizeof(*f) * n);     \
-                assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n); \
+                          n * sizeof(*f),                                       \
+                          malloc_usable_size(f),                                \
+                          __builtin_object_size(f, 0));                         \
+                assert_se(MALLOC_ELEMENTSOF(f) >= n);                           \
+                assert_se(MALLOC_SIZEOF_SAFE(f) >= sizeof(*f) * n);             \
+                assert_se(malloc_usable_size(f) >= sizeof(*f) * n);             \
+                assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n);       \
         } while (false)
 
 TEST(malloc_size_safe) {
@@ -170,14 +170,15 @@ TEST(malloc_size_safe) {
         size_t n = 4711;
 
         /* Let's check the macros and built-ins work on NULL and return the expected values */
-        assert_se(MALLOC_ELEMENTSOF((float*) NULL) == 0);
-        assert_se(MALLOC_SIZEOF_SAFE((float*) NULL) == 0);
+        assert_se(MALLOC_ELEMENTSOF((float *) NULL) == 0);
+        assert_se(MALLOC_SIZEOF_SAFE((float *) NULL) == 0);
         assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
-        assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
+        assert_se(__builtin_object_size(NULL, 0) ==
+                  SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
 
         /* Then, let's try these macros once with constant size values, so that __builtin_object_size()
          * definitely can work (as long as -O2 is used when compiling) */
-        assert_se(f = new(uint32_t, n));
+        assert_se(f = new (uint32_t, n));
         TEST_SIZES(f, n);
 
         /* Finally, let's use some dynamically sized allocations, to make sure this doesn't deteriorate */
@@ -185,8 +186,8 @@ TEST(malloc_size_safe) {
                 _cleanup_free_ uint64_t *g = NULL;
                 size_t m;
 
-                m = random_u64_range(16*1024);
-                assert_se(g = new(uint64_t, m));
+                m = random_u64_range(16 * 1024);
+                assert_se(g = new (uint64_t, m));
                 TEST_SIZES(g, m);
         }
 }

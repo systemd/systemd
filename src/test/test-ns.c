@@ -15,34 +15,16 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        const char * const readonly[] = {
-                /* "/", */
-                /* "/usr", */
-                "/boot",
-                "/lib",
-                "/usr/lib",
-                "-/lib64",
-                "-/usr/lib64",
-                NULL
+        const char * const readonly[] = { /* "/", */
+                                          /* "/usr", */
+                                          "/boot", "/lib", "/usr/lib", "-/lib64", "-/usr/lib64", NULL
         };
 
-        const char * const exec[] = {
-                "/lib",
-                "/usr",
-                "-/lib64",
-                "-/usr/lib64",
-                NULL
-        };
+        const char * const exec[] = { "/lib", "/usr", "-/lib64", "-/usr/lib64", NULL };
 
-        const char * const no_exec[] = {
-                "/var",
-                NULL
-        };
+        const char * const no_exec[] = { "/var", NULL };
 
-        const char *inaccessible[] = {
-                "/home/lennart/projects",
-                NULL
-        };
+        const char *inaccessible[] = { "/home/lennart/projects", NULL };
 
         static const NamespaceInfo ns_info = {
                 .private_dev = true,
@@ -56,8 +38,7 @@ int main(int argc, char *argv[]) {
         char *root_directory;
         char *projects_directory;
         int r;
-        char tmp_dir[] = "/tmp/systemd-private-XXXXXX",
-             var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX";
+        char tmp_dir[] = "/tmp/systemd-private-XXXXXX", var_tmp_dir[] = "/var/tmp/systemd-private-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
 
@@ -76,41 +57,46 @@ int main(int argc, char *argv[]) {
         else
                 log_info("Not chrooted");
 
-        r = setup_namespace(root_directory,
-                            NULL,
-                            NULL,
-                            &ns_info,
-                            (char **) writable,
-                            (char **) readonly,
-                            (char **) inaccessible,
-                            NULL,
-                            (char **) exec,
-                            (char **) no_exec,
-                            NULL,
-                            &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
-                            &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
-                            NULL,
-                            0,
-                            tmp_dir,
-                            var_tmp_dir,
-                            NULL,
-                            NULL,
-                            0,
-                            NULL,
-                            0,
-                            NULL,
-                            NULL,
-                            0,
-                            NULL,
-                            NULL,
-                            NULL,
-                            0,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL);
+        r = setup_namespace(
+                        root_directory,
+                        NULL,
+                        NULL,
+                        &ns_info,
+                        (char **) writable,
+                        (char **) readonly,
+                        (char **) inaccessible,
+                        NULL,
+                        (char **) exec,
+                        (char **) no_exec,
+                        NULL,
+                        &(BindMount){ .source = (char *) "/usr/bin",
+                                      .destination = (char *) "/etc/systemd",
+                                      .read_only = true },
+                        1,
+                        &(TemporaryFileSystem){ .path = (char *) "/var", .options = (char *) "ro" },
+                        1,
+                        NULL,
+                        0,
+                        tmp_dir,
+                        var_tmp_dir,
+                        NULL,
+                        NULL,
+                        0,
+                        NULL,
+                        0,
+                        NULL,
+                        NULL,
+                        0,
+                        NULL,
+                        NULL,
+                        NULL,
+                        0,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up namespace: %m");
 

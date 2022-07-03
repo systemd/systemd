@@ -21,7 +21,7 @@ static void test_libmount_unescaping_one(
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_fclose_ FILE *f = NULL;
 
-        f = fmemopen((char*) string, strlen(string), "re");
+        f = fmemopen((char *) string, strlen(string), "re");
         assert_se(f);
 
         assert_se(libmount_parse(title, f, &table, &iter) >= 0);
@@ -72,16 +72,14 @@ TEST(libmount_unescaping) {
                         "729 38 0:59 / /tmp/„zupa\\040zębowa” rw,relatime shared:395 - tmpfs die\\040Brühe rw,seclabel",
                         false,
                         "die Brühe",
-                        "/tmp/„zupa zębowa”"
-        );
+                        "/tmp/„zupa zębowa”");
 
         test_libmount_unescaping_one(
                         "escaped newline",
                         "729 38 0:59 / /tmp/x\\012y rw,relatime shared:395 - tmpfs newline rw,seclabel",
                         false,
                         "newline",
-                        "/tmp/x\ny"
-        );
+                        "/tmp/x\ny");
 
         /* The result of "mount -t tmpfs '' /tmp/emptysource".
          * This will fail with libmount <= v2.33.
@@ -92,8 +90,7 @@ TEST(libmount_unescaping) {
                         "760 38 0:60 / /tmp/emptysource rw,relatime shared:410 - tmpfs  rw,seclabel",
                         true,
                         "",
-                        "/tmp/emptysource"
-        );
+                        "/tmp/emptysource");
 
         /* The kernel leaves \r as is.
          * Also see https://github.com/karelzak/util-linux/issues/780.
@@ -103,8 +100,7 @@ TEST(libmount_unescaping) {
                         "790 38 0:61 / /tmp/foo\rbar rw,relatime shared:425 - tmpfs tmpfs rw,seclabel",
                         true,
                         "tmpfs",
-                        "/tmp/foo\rbar"
-        );
+                        "/tmp/foo\rbar");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -7,7 +7,7 @@
 static int foo = 0;
 static int bar = 0;
 static int baz = 0;
-static char* memory = NULL;
+static char *memory = NULL;
 
 static void test_destroy(int *b) {
         (*b)++;

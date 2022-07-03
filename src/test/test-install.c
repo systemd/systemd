@@ -19,12 +19,12 @@ static void dump_changes(UnitFileChange *c, unsigned n) {
         }
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         Hashmap *h;
         UnitFileList *p;
         int r;
-        const char *const files[] = { "avahi-daemon.service", NULL };
-        const char *const files2[] = { "/home/lennart/test.service", NULL };
+        const char * const files[] = { "avahi-daemon.service", NULL };
+        const char * const files2[] = { "/home/lennart/test.service", NULL };
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileState state = 0;
@@ -40,24 +40,21 @@ int main(int argc, char* argv[]) {
 
                 r = unit_file_get_state(LOOKUP_SCOPE_SYSTEM, NULL, basename(p->path), &s);
 
-                assert_se((r < 0 && p->state == UNIT_FILE_BAD) ||
-                          (p->state == s));
+                assert_se((r < 0 && p->state == UNIT_FILE_BAD) || (p->state == s));
 
-                fprintf(stderr, "%s (%s)\n",
-                        p->path,
-                        unit_file_state_to_string(p->state));
+                fprintf(stderr, "%s (%s)\n", p->path, unit_file_state_to_string(p->state));
         }
 
         unit_file_list_free(h);
 
         log_info("/*** enable **/");
 
-        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         log_info("/*** enable2 **/");
 
-        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -71,7 +68,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -85,10 +82,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** mask2 ***/");
-        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -102,10 +99,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** unmask2 ***/");
-        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -119,7 +116,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -133,10 +130,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** disable2 ***/");
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -150,7 +147,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -164,7 +161,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_enable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -178,7 +175,8 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(
+                        LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -191,7 +189,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -205,7 +203,8 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(
+                        LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -218,7 +217,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -232,7 +231,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_reenable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_reenable(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -246,7 +245,8 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
+        r = unit_file_disable(
+                        LOOKUP_SCOPE_SYSTEM, 0, NULL, STRV_MAKE(basename(files2[0])), &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -258,7 +258,8 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_preset(LOOKUP_SCOPE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
+        r = unit_file_preset(
+                        LOOKUP_SCOPE_SYSTEM, 0, NULL, (char **) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);

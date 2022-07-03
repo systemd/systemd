@@ -20,13 +20,10 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-static char** catalog_dirs = NULL;
-static const char *no_catalog_dirs[] = {
-        "/bin/hopefully/with/no/catalog",
-        NULL
-};
+static char **catalog_dirs = NULL;
+static const char *no_catalog_dirs[] = { "/bin/hopefully/with/no/catalog", NULL };
 
-static OrderedHashmap* test_import(const char* contents, ssize_t size, int code) {
+static OrderedHashmap *test_import(const char *contents, ssize_t size, int code) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd;
         OrderedHashmap *h;
@@ -55,10 +52,10 @@ static void test_catalog_import_invalid(void) {
 static void test_catalog_import_badid(void) {
         _unused_ _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         const char *input =
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededede\n" \
-"Subject: message\n" \
-"\n" \
-"payload\n";
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededede\n"
+                        "Subject: message\n"
+                        "\n"
+                        "payload\n";
         h = test_import(input, -1, -EINVAL);
 }
 
@@ -67,14 +64,14 @@ static void test_catalog_import_one(void) {
         char *payload;
 
         const char *input =
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
-"Subject: message\n" \
-"\n" \
-"payload\n";
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n"
+                        "Subject: message\n"
+                        "\n"
+                        "payload\n";
         const char *expect =
-"Subject: message\n" \
-"\n" \
-"payload\n";
+                        "Subject: message\n"
+                        "\n"
+                        "payload\n";
 
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
@@ -91,25 +88,25 @@ static void test_catalog_import_merge(void) {
         char *payload;
 
         const char *input =
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
-"Subject: message\n" \
-"Defined-By: me\n" \
-"\n" \
-"payload\n" \
-"\n" \
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
-"Subject: override subject\n" \
-"X-Header: hello\n" \
-"\n" \
-"override payload\n";
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n"
+                        "Subject: message\n"
+                        "Defined-By: me\n"
+                        "\n"
+                        "payload\n"
+                        "\n"
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n"
+                        "Subject: override subject\n"
+                        "X-Header: hello\n"
+                        "\n"
+                        "override payload\n";
 
         const char *combined =
-"Subject: override subject\n" \
-"X-Header: hello\n" \
-"Subject: message\n" \
-"Defined-By: me\n" \
-"\n" \
-"override payload\n";
+                        "Subject: override subject\n"
+                        "X-Header: hello\n"
+                        "Subject: message\n"
+                        "Defined-By: me\n"
+                        "\n"
+                        "override payload\n";
 
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
@@ -123,24 +120,24 @@ static void test_catalog_import_merge_no_body(void) {
         char *payload;
 
         const char *input =
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
-"Subject: message\n" \
-"Defined-By: me\n" \
-"\n" \
-"payload\n" \
-"\n" \
-"-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
-"Subject: override subject\n" \
-"X-Header: hello\n" \
-"\n";
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n"
+                        "Subject: message\n"
+                        "Defined-By: me\n"
+                        "\n"
+                        "payload\n"
+                        "\n"
+                        "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n"
+                        "Subject: override subject\n"
+                        "X-Header: hello\n"
+                        "\n";
 
         const char *combined =
-"Subject: override subject\n" \
-"X-Header: hello\n" \
-"Subject: message\n" \
-"Defined-By: me\n" \
-"\n" \
-"payload\n";
+                        "Subject: override subject\n"
+                        "X-Header: hello\n"
+                        "Subject: message\n"
+                        "Defined-By: me\n"
+                        "\n"
+                        "payload\n";
 
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);

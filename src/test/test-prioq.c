@@ -9,7 +9,7 @@
 #include "sort-util.h"
 #include "tests.h"
 
-#define SET_SIZE 1024*4
+#define SET_SIZE 1024 * 4
 
 static int unsigned_compare(const unsigned *a, const unsigned *b) {
         return CMP(*a, *b);

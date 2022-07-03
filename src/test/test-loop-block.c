@@ -31,7 +31,7 @@ static usec_t arg_timeout = 0;
 #if HAVE_BLKID
 static usec_t end = 0;
 
-static void* thread_func(void *ptr) {
+static void *thread_func(void *ptr) {
         int fd = PTR_TO_FD(ptr);
         int r;
 
@@ -59,7 +59,15 @@ static void* thread_func(void *ptr) {
                 /* Let's make sure udev doesn't call BLKRRPART in the background, while we try to mount the device. */
                 assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
 
-                r = dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, DISSECT_IMAGE_READ_ONLY, &dissected);
+                r = dissect_image(
+                                loop->fd,
+                                NULL,
+                                NULL,
+                                loop->diskseq,
+                                loop->uevent_seqnum_not_before,
+                                loop->timestamp_not_before,
+                                DISSECT_IMAGE_READ_ONLY,
+                                &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
@@ -85,7 +93,8 @@ static void* thread_func(void *ptr) {
                 assert_se(dissected->partitions[PARTITION_HOME].found);
                 assert_se(dissected->partitions[PARTITION_HOME].node);
 
-                r = dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
+                r = dissected_image_mount(
+                                dissected, mounted, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
                 assert_se(r >= 0);
 
@@ -134,17 +143,25 @@ static int run(int argc, char *argv[]) {
         if (argc >= 2) {
                 r = safe_atou(argv[1], &arg_n_threads);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse first argument (number of threads): %s", argv[1]);
+                        return log_error_errno(
+                                        r, "Failed to parse first argument (number of threads): %s", argv[1]);
                 if (arg_n_threads <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Number of threads must be at least 1, refusing.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Number of threads must be at least 1, refusing.");
         }
 
         if (argc >= 3) {
                 r = safe_atou(argv[2], &arg_n_iterations);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse second argument (number of iterations): %s", argv[2]);
+                        return log_error_errno(
+                                        r,
+                                        "Failed to parse second argument (number of iterations): %s",
+                                        argv[2]);
                 if (arg_n_iterations <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Number of iterations must be at least 1, refusing.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Number of iterations must be at least 1, refusing.");
         }
 
         if (argc >= 4) {
@@ -189,9 +206,9 @@ static int run(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         assert_se(tempfn_random_child("/var/tmp", "sfdisk", &p) >= 0);
-        fd = open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666);
+        fd = open(p, O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0666);
         assert_se(fd >= 0);
-        assert_se(ftruncate(fd, 256*1024*1024) >= 0);
+        assert_se(ftruncate(fd, 256 * 1024 * 1024) >= 0);
 
         assert_se(cmd = strjoin("sfdisk ", p));
         assert_se(sfdisk = popen(cmd, "we"));
@@ -201,7 +218,8 @@ static int run(int argc, char *argv[]) {
               "size=32M, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\n"
               "size=32M, type=BC13C2FF-59E6-4262-A352-B275FD6F7172\n"
               "size=32M, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F\n"
-              "size=32M, type=", sfdisk);
+              "size=32M, type=",
+              sfdisk);
 
 #ifdef GPT_ROOT_NATIVE
         fprintf(sfdisk, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(GPT_ROOT_NATIVE));
@@ -210,7 +228,8 @@ static int run(int argc, char *argv[]) {
 #endif
 
         fputs("\n"
-              "size=32M, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915\n", sfdisk);
+              "size=32M, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915\n",
+              sfdisk);
 
         assert_se(pclose(sfdisk) == 0);
         sfdisk = NULL;
@@ -228,7 +247,14 @@ static int run(int argc, char *argv[]) {
          * or even issue BLKRRPART or similar while we are working on this. */
         assert_se(loop_device_flock(loop, LOCK_EX) >= 0);
 
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop->fd,
+                                NULL,
+                                NULL,
+                                loop->diskseq,
+                                loop->uevent_seqnum_not_before,
+                                loop->timestamp_not_before,
+                                0,
+                                &dissected) >= 0);
 
         assert_se(dissected->partitions[PARTITION_ESP].found);
         assert_se(dissected->partitions[PARTITION_ESP].node);
@@ -243,7 +269,8 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", id, true) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", id, true) >= 0);
+        assert_se(make_filesystem(dissected->partitions[PARTITION_XBOOTLDR].node, "vfat", "xbootldr", id, true) >=
+                  0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
         assert_se(make_filesystem(dissected->partitions[PARTITION_ROOT].node, "ext4", "root", id, true) >= 0);
@@ -252,7 +279,14 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
-        assert_se(dissect_image(loop->fd, NULL, NULL, loop->diskseq, loop->uevent_seqnum_not_before, loop->timestamp_not_before, 0, &dissected) >= 0);
+        assert_se(dissect_image(loop->fd,
+                                NULL,
+                                NULL,
+                                loop->diskseq,
+                                loop->uevent_seqnum_not_before,
+                                loop->timestamp_not_before,
+                                0,
+                                &dissected) >= 0);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 

@@ -16,16 +16,16 @@
 
 DISABLE_WARNING_TYPE_LIMITS;
 
-#define info_no_sign(t)                                                 \
-        printf("%s → %zu bits, %zu byte alignment\n", STRINGIFY(t),     \
-               sizeof(t)*CHAR_BIT,                                      \
-               __alignof__(t))
+#define info_no_sign(t) \
+        printf("%s → %zu bits, %zu byte alignment\n", STRINGIFY(t), sizeof(t) * CHAR_BIT, __alignof__(t))
 
-#define info(t)                                                         \
-        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \
-               sizeof(t)*CHAR_BIT,                                      \
-               strstr(STRINGIFY(t), "signed") ? "" :                    \
-               (t)-1 < (t)0 ? ", signed" : ", unsigned",                \
+#define info(t)                                               \
+        printf("%s → %zu bits%s, %zu byte alignment\n",       \
+               STRINGIFY(t),                                  \
+               sizeof(t) * CHAR_BIT,                          \
+               strstr(STRINGIFY(t), "signed") ? "" :          \
+                               (t) -1 < (t) 0 ? ", signed" :  \
+                                                ", unsigned", \
                __alignof__(t))
 
 enum Enum {
@@ -45,8 +45,8 @@ int main(void) {
         int (*function_pointer)(void);
 
         info_no_sign(function_pointer);
-        info_no_sign(void*);
-        info(char*);
+        info_no_sign(void *);
+        info(char *);
 
         info(char);
         info(signed char);

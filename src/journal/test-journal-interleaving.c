@@ -20,16 +20,16 @@
 
 static bool arg_keep = false;
 
-_noreturn_ static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
-        log_internal(LOG_CRIT, error, file, line, func,
-                     "'%s' failed at %s:%u (%s): %m", text, file, line, func);
+_noreturn_ static void
+                log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
+        log_internal(LOG_CRIT, error, file, line, func, "'%s' failed at %s:%u (%s): %m", text, file, line, func);
         abort();
 }
 
-#define assert_ret(expr)                                                \
-        do {                                                            \
-                int _r_ = (expr);                                       \
-                if (_unlikely_(_r_ < 0))                                \
+#define assert_ret(expr)                                                                            \
+        do {                                                                                        \
+                int _r_ = (expr);                                                                   \
+                if (_unlikely_(_r_ < 0))                                                            \
                         log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
@@ -40,7 +40,8 @@ static ManagedJournalFile *test_open(const char *name) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
+        assert_ret(managed_journal_file_open(
+                        -1, name, O_RDWR | O_CREAT, JOURNAL_COMPRESS, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
         return f;
 }
 
@@ -96,7 +97,6 @@ static void test_check_numbers_down(sd_journal *j, int count) {
                 else
                         assert_se(r == 1);
         }
-
 }
 
 static void test_check_numbers_up(sd_journal *j, int count) {
@@ -109,7 +109,6 @@ static void test_check_numbers_up(sd_journal *j, int count) {
                 else
                         assert_se(r == 1);
         }
-
 }
 
 static void setup_sequential(void) {
@@ -195,7 +194,7 @@ static void test_skip_one(void (*setup)(void)) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");
@@ -218,14 +217,24 @@ TEST(sequence_numbers) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, NULL, &one) == 0);
+        assert_se(managed_journal_file_open(
+                                  -1,
+                                  "one.journal",
+                                  O_RDWR | O_CREAT,
+                                  JOURNAL_COMPRESS,
+                                  0644,
+                                  UINT64_MAX,
+                                  NULL,
+                                  m,
+                                  NULL,
+                                  NULL,
+                                  &one) == 0);
 
         append_number(one, 1, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 1);
         append_number(one, 2, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 2);
 
         assert_se(one->file->header->state == STATE_ONLINE);
@@ -235,8 +244,18 @@ TEST(sequence_numbers) {
 
         memcpy(&seqnum_id, &one->file->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, one, &two) == 0);
+        assert_se(managed_journal_file_open(
+                                  -1,
+                                  "two.journal",
+                                  O_RDWR | O_CREAT,
+                                  JOURNAL_COMPRESS,
+                                  0644,
+                                  UINT64_MAX,
+                                  NULL,
+                                  m,
+                                  NULL,
+                                  one,
+                                  &two) == 0);
 
         assert_se(two->file->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
@@ -245,20 +264,20 @@ TEST(sequence_numbers) {
         assert_se(sd_id128_equal(one->file->header->seqnum_id, one->file->header->seqnum_id));
 
         append_number(two, 3, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 3);
         append_number(two, 4, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 4);
 
         test_close(two);
 
         append_number(one, 5, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 5);
 
         append_number(one, 6, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 6);
 
         test_close(one);
@@ -266,13 +285,14 @@ TEST(sequence_numbers) {
         /* restart server */
         seqnum = 0;
 
-        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
-                                            UINT64_MAX, NULL, m, NULL, NULL, &two) == 0);
+        assert_se(managed_journal_file_open(
+                                  -1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0, UINT64_MAX, NULL, m, NULL, NULL, &two) ==
+                  0);
 
         assert_se(sd_id128_equal(two->file->header->seqnum_id, seqnum_id));
 
         append_number(two, 7, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 5);
 
         /* So..., here we have the same seqnum in two files with the
@@ -287,7 +307,7 @@ TEST(sequence_numbers) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 }
 

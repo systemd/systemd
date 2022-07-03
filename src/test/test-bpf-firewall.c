@@ -17,10 +17,8 @@
 #include "virt.h"
 
 int main(int argc, char *argv[]) {
-        const struct bpf_insn exit_insn[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 0), /* drop */
-                BPF_EXIT_INSN()
-        };
+        const struct bpf_insn exit_insn[] = { BPF_MOV64_IMM(BPF_REG_0, 0), /* drop */
+                                              BPF_EXIT_INSN() };
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
@@ -37,7 +35,8 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         if (detect_container() > 0)
-                return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+                return log_tests_skipped(
+                                "test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
@@ -85,7 +84,9 @@ int main(int argc, char *argv[]) {
 
                 r = bpf(BPF_OBJ_PIN, &attr, sizeof(attr));
                 if (r < 0) {
-                        log_warning_errno(errno, "BPF object pinning failed, will not run custom filter test: %m");
+                        log_warning_errno(
+                                        errno,
+                                        "BPF object pinning failed, will not run custom filter test: %m");
                         test_custom_filter = false;
                 }
         }
@@ -104,12 +105,72 @@ int main(int argc, char *argv[]) {
 
         cc->ip_accounting = true;
 
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_in_addr_prefixes(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressAllow",
+                                  0,
+                                  "10.0.1.0/24",
+                                  &cc->ip_address_allow,
+                                  NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressAllow",
+                                  0,
+                                  "127.0.0.2",
+                                  &cc->ip_address_allow,
+                                  NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressDeny",
+                                  0,
+                                  "127.0.0.3",
+                                  &cc->ip_address_deny,
+                                  NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressDeny",
+                                  0,
+                                  "10.0.3.2/24",
+                                  &cc->ip_address_deny,
+                                  NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressDeny",
+                                  0,
+                                  "127.0.0.1/25",
+                                  &cc->ip_address_deny,
+                                  NULL) == 0);
+        assert_se(config_parse_in_addr_prefixes(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "IPAddressDeny",
+                                  0,
+                                  "127.0.0.4",
+                                  &cc->ip_address_deny,
+                                  NULL) == 0);
 
         assert_se(set_size(cc->ip_address_allow) == 2);
         assert_se(set_size(cc->ip_address_deny) == 4);
@@ -121,25 +182,51 @@ int main(int argc, char *argv[]) {
         assert_se(set_size(cc->ip_address_allow) == 2);
         assert_se(set_size(cc->ip_address_deny) == 2);
 
-        assert_se(set_contains(cc->ip_address_allow, &(struct in_addr_prefix) {
-                                .family = AF_INET,
-                                .address.in.s_addr = htobe32((UINT32_C(10) << 24) | (UINT32_C(1) << 8)),
-                                .prefixlen = 24 }));
-        assert_se(set_contains(cc->ip_address_allow, &(struct in_addr_prefix) {
-                                .family = AF_INET,
-                                .address.in.s_addr = htobe32(0x7f000002),
-                                .prefixlen = 32 }));
-        assert_se(set_contains(cc->ip_address_deny, &(struct in_addr_prefix) {
-                                .family = AF_INET,
-                                .address.in.s_addr = htobe32(0x7f000000),
-                                .prefixlen = 25 }));
-        assert_se(set_contains(cc->ip_address_deny, &(struct in_addr_prefix) {
-                                .family = AF_INET,
-                                .address.in.s_addr = htobe32((UINT32_C(10) << 24) | (UINT32_C(3) << 8)),
-                                .prefixlen = 24 }));
+        assert_se(set_contains(
+                        cc->ip_address_allow,
+                        &(struct in_addr_prefix){ .family = AF_INET,
+                                                  .address.in.s_addr = htobe32(
+                                                                  (UINT32_C(10) << 24) | (UINT32_C(1) << 8)),
+                                                  .prefixlen = 24 }));
+        assert_se(
+                        set_contains(cc->ip_address_allow,
+                                     &(struct in_addr_prefix){ .family = AF_INET,
+                                                               .address.in.s_addr = htobe32(0x7f000002),
+                                                               .prefixlen = 32 }));
+        assert_se(
+                        set_contains(cc->ip_address_deny,
+                                     &(struct in_addr_prefix){ .family = AF_INET,
+                                                               .address.in.s_addr = htobe32(0x7f000000),
+                                                               .prefixlen = 25 }));
+        assert_se(set_contains(
+                        cc->ip_address_deny,
+                        &(struct in_addr_prefix){ .family = AF_INET,
+                                                  .address.in.s_addr = htobe32(
+                                                                  (UINT32_C(10) << 24) | (UINT32_C(3) << 8)),
+                                                  .prefixlen = 24 }));
 
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.2 -W 5", SERVICE(u)->exec_command, u) == 0);
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.3 -W 5", SERVICE(u)->exec_command, u) == 0);
+        assert_se(config_parse_exec(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "ExecStart",
+                                  SERVICE_EXEC_START,
+                                  "/bin/ping -c 1 127.0.0.2 -W 5",
+                                  SERVICE(u)->exec_command,
+                                  u) == 0);
+        assert_se(config_parse_exec(
+                                  u->id,
+                                  "filename",
+                                  1,
+                                  "Service",
+                                  1,
+                                  "ExecStart",
+                                  SERVICE_EXEC_START,
+                                  "/bin/ping -c 1 127.0.0.3 -W 5",
+                                  SERVICE(u)->exec_command,
+                                  u) == 0);
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]);
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next);
@@ -152,7 +239,8 @@ int main(int argc, char *argv[]) {
 
         r = bpf_firewall_compile(u);
         if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
-                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
+                return log_tests_skipped(
+                                "Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
         assert_se(u->ip_bpf_ingress);
@@ -185,7 +273,8 @@ int main(int argc, char *argv[]) {
                   SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.status == EXIT_SUCCESS);
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.code != CLD_EXITED ||
-                  SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status != EXIT_SUCCESS);
+                  SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status !=
+                                  EXIT_SUCCESS);
 
         if (test_custom_filter) {
                 assert_se(u = unit_new(m, sizeof(Service)));
@@ -195,8 +284,28 @@ int main(int argc, char *argv[]) {
 
                 cc->ip_accounting = true;
 
-                assert_se(config_parse_ip_filter_bpf_progs(u->id, "filename", 1, "Service", 1, "IPIngressFilterPath", 0, test_prog, &cc->ip_filters_ingress, u) == 0);
-                assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "-/bin/ping -c 1 127.0.0.1 -W 5", SERVICE(u)->exec_command, u) == 0);
+                assert_se(config_parse_ip_filter_bpf_progs(
+                                          u->id,
+                                          "filename",
+                                          1,
+                                          "Service",
+                                          1,
+                                          "IPIngressFilterPath",
+                                          0,
+                                          test_prog,
+                                          &cc->ip_filters_ingress,
+                                          u) == 0);
+                assert_se(config_parse_exec(
+                                          u->id,
+                                          "filename",
+                                          1,
+                                          "Service",
+                                          1,
+                                          "ExecStart",
+                                          SERVICE_EXEC_START,
+                                          "-/bin/ping -c 1 127.0.0.1 -W 5",
+                                          SERVICE(u)->exec_command,
+                                          u) == 0);
 
                 SERVICE(u)->type = SERVICE_ONESHOT;
                 u->load_state = UNIT_LOADED;

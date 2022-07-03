@@ -14,35 +14,44 @@
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
 
-        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
+        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >=
+                  0);
         assert_se(streq_ptr(expected, path));
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
         int log_level = 0;
 
-        assert_se(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >= 0);
+        assert_se(config_parse_log_level(
+                                  "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >=
+                  0);
         assert_se(expected == log_level);
 }
 
 static void test_config_parse_log_facility_one(const char *rvalue, int expected) {
         int log_facility = 0;
 
-        assert_se(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >= 0);
+        assert_se(config_parse_log_facility(
+                                  "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >=
+                  0);
         assert_se(expected == log_facility);
 }
 
 static void test_config_parse_iec_size_one(const char *rvalue, size_t expected) {
         size_t iec_size = 0;
 
-        assert_se(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >= 0);
+        assert_se(config_parse_iec_size(
+                                  "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >=
+                  0);
         assert_se(expected == iec_size);
 }
 
 static void test_config_parse_si_uint64_one(const char *rvalue, uint64_t expected) {
         uint64_t si_uint64 = 0;
 
-        assert_se(config_parse_si_uint64("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL) >= 0);
+        assert_se(config_parse_si_uint64(
+                                  "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_uint64, NULL) >=
+                  0);
         assert_se(expected == si_uint64);
 }
 
@@ -56,14 +65,16 @@ static void test_config_parse_int_one(const char *rvalue, int expected) {
 static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected) {
         unsigned v = 0;
 
-        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
+        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >=
+                  0);
         assert_se(expected == v);
 }
 
 static void test_config_parse_strv_one(const char *rvalue, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
+        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >=
+                  0);
         assert_se(strv_equal(expected, strv));
 }
 
@@ -205,70 +216,73 @@ TEST(config_parse_nsec) {
 
 TEST(config_parse_iec_uint64) {
         uint64_t offset = 0;
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(
+                                  NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
         assert_se(offset == 4 * 1024 * 1024);
 
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(
+                                  NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) ==
+                  0);
 }
 
 #define x10(x) x x x x x x x x x x
 #define x100(x) x10(x10(x))
 #define x1000(x) x10(x100(x))
 
-static const char* const config_file[] = {
+static const char * const config_file[] = {
         "[Section]\n"
         "setting1=1\n",
 
         "[Section]\n"
-        "setting1=1",        /* no terminating newline */
+        "setting1=1", /* no terminating newline */
 
         "\n\n\n\n[Section]\n\n\n"
-        "setting1=1",        /* some whitespace, no terminating newline */
+        "setting1=1", /* some whitespace, no terminating newline */
 
         "[Section]\n"
         "[Section]\n"
         "setting1=1\n"
         "setting1=    2 \t\n"
-        "setting1=    1\n",  /* repeated settings */
+        "setting1=    1\n", /* repeated settings */
 
         "[Section]\n"
         "[Section]\n"
         "setting1=1\n"
         "setting1=2\\\n"
-        "   \n"              /* empty line breaks continuation */
-        "setting1=1\n",      /* repeated settings */
+        "   \n"         /* empty line breaks continuation */
+        "setting1=1\n", /* repeated settings */
 
         "[Section]\n"
-        "setting1=1\\\n"     /* normal continuation */
+        "setting1=1\\\n" /* normal continuation */
         "2\\\n"
         "3\n",
 
         "[Section]\n"
-        "#hogehoge\\\n"      /* continuation is ignored in comment */
-        "setting1=1\\\n"     /* normal continuation */
+        "#hogehoge\\\n"  /* continuation is ignored in comment */
+        "setting1=1\\\n" /* normal continuation */
         "2\\\n"
         "3\n",
 
         "[Section]\n"
-        "setting1=1\\\n"     /* normal continuation */
-        "#hogehoge\\\n"      /* commented out line in continuation is ignored */
+        "setting1=1\\\n" /* normal continuation */
+        "#hogehoge\\\n"  /* commented out line in continuation is ignored */
         "2\\\n"
         "3\n",
 
         "[Section]\n"
-        "   #hogehoge\\\n"   /* whitespaces before comments */
-        "   setting1=1\\\n"  /* whitespaces before key */
+        "   #hogehoge\\\n"  /* whitespaces before comments */
+        "   setting1=1\\\n" /* whitespaces before key */
         "2\\\n"
         "3\n",
 
         "[Section]\n"
-        "   setting1=1\\\n"  /* whitespaces before key */
-        "   #hogehoge\\\n"   /* commented out line prefixed with whitespaces in continuation */
+        "   setting1=1\\\n" /* whitespaces before key */
+        "   #hogehoge\\\n"  /* commented out line prefixed with whitespaces in continuation */
         "2\\\n"
         "3\n",
 
         "[Section]\n"
-        "setting1=1\\\n"     /* continuation with extra trailing backslash at the end */
+        "setting1=1\\\n" /* continuation with extra trailing backslash at the end */
         "2\\\n"
         "3\\\n",
 
@@ -279,26 +293,25 @@ static const char* const config_file[] = {
                               * it translates into "…1 BS BS SP BS BS 2" */
 
         "\n[Section]\n\n"
-        "setting1="          /* a line above LINE_MAX length */
-        x1000("ABCD")
-        "\n",
+        "setting1=" /* a line above LINE_MAX length */
+        x1000("ABCD") "\n",
 
         "[Section]\n"
-        "setting1="          /* a line above LINE_MAX length, with continuation */
+        "setting1=" /* a line above LINE_MAX length, with continuation */
         x1000("ABCD") "\\\n"
-        "foobar",
+                      "foobar",
 
         "[Section]\n"
         "setting1="          /* a line above LINE_MAX length, with continuation */
         x1000("ABCD") "\\\n" /* and an extra trailing backslash */
-        "foobar\\\n",
+                      "foobar\\\n",
 
         "[Section]\n"
-        "setting1="          /* a line above the allowed limit: 9 + 1050000 + 1 */
+        "setting1=" /* a line above the allowed limit: 9 + 1050000 + 1 */
         x1000(x1000("x") x10("abcde")) "\n",
 
         "[Section]\n"
-        "setting1="          /* many continuation lines, together above the limit */
+        "setting1=" /* many continuation lines, together above the limit */
         x1000(x1000("x") x10("abcde") "\\\n") "xxx",
 
         "[Section]\n"
@@ -317,10 +330,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
         _cleanup_free_ char *setting1 = NULL;
         int r;
 
-        const ConfigTableItem items[] = {
-                { "Section", "setting1",  config_parse_string,   0, &setting1},
-                {}
-        };
+        const ConfigTableItem items[] = { { "Section", "setting1", config_parse_string, 0, &setting1 }, {} };
 
         log_info("== %s[%i] ==", __func__, i);
 
@@ -340,13 +350,17 @@ static void test_config_parse_one(unsigned i, const char *s) {
                          struct stat *ret_stat);
         */
 
-        r = config_parse(NULL, name, f,
-                         "Section\0"
-                         "-NoWarnSection\0",
-                         config_item_table_lookup, items,
-                         CONFIG_PARSE_WARN,
-                         NULL,
-                         NULL);
+        r = config_parse(
+                        NULL,
+                        name,
+                        f,
+                        "Section\0"
+                        "-NoWarnSection\0",
+                        config_item_table_lookup,
+                        items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
 
         switch (i) {
         case 0 ... 4:

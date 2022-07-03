@@ -14,7 +14,7 @@
 static void test_uid_to_name_one(uid_t uid, const char *name) {
         _cleanup_free_ char *t = NULL;
 
-        log_info("/* %s("UID_FMT", \"%s\") */", __func__, uid, name);
+        log_info("/* %s(" UID_FMT ", \"%s\") */", __func__, uid, name);
 
         assert_se(t = uid_to_name(uid));
         if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
@@ -34,7 +34,7 @@ TEST(uid_to_name) {
 static void test_gid_to_name_one(gid_t gid, const char *name) {
         _cleanup_free_ char *t = NULL;
 
-        log_info("/* %s("GID_FMT", \"%s\") */", __func__, gid, name);
+        log_info("/* %s(" GID_FMT ", \"%s\") */", __func__, gid, name);
 
         assert_se(t = gid_to_name(gid));
         if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME)) {
@@ -153,8 +153,8 @@ TEST(valid_user_group_name_relaxed) {
         assert_se(!valid_user_group_name("-1", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("foo\nbar", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name(".", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("..", VALID_USER_RELAX));
 
@@ -225,39 +225,42 @@ TEST(valid_user_group_name) {
 }
 
 TEST(valid_user_group_name_or_numeric_relaxed) {
-        assert_se(!valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("-1", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("foo\nbar", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("-1", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("foo\nbar", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name(
+                        "0123456789012345678901234567890123456789",
+                        VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("kkk-", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("kk-k", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("-kkk", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("rööt", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kkk-", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kk-k", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("-kkk", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("rööt", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
-        assert_se(valid_user_group_name("Dāvis", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name(
+                        "piff.paff@ad.domain.example", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
+        assert_se(valid_user_group_name("Dāvis", VALID_USER_ALLOW_NUMERIC | VALID_USER_RELAX));
 }
 
 TEST(valid_user_group_name_or_numeric) {
@@ -321,19 +324,31 @@ TEST(valid_home) {
         assert_se(valid_home("/home/foo"));
 }
 
-static void test_get_user_creds_one(const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
+static void test_get_user_creds_one(
+                const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
         const char *rhome = NULL;
         const char *rshell = NULL;
         uid_t ruid = UID_INVALID;
         gid_t rgid = GID_INVALID;
         int r;
 
-        log_info("/* %s(\"%s\", \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\") */",
-                 __func__, id, name, uid, gid, home, shell);
+        log_info("/* %s(\"%s\", \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\") */",
+                 __func__,
+                 id,
+                 name,
+                 uid,
+                 gid,
+                 home,
+                 shell);
 
         r = get_user_creds(&id, &ruid, &rgid, &rhome, &rshell, 0);
-        log_info_errno(r, "got \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\": %m",
-                       id, ruid, rgid, strnull(rhome), strnull(rshell));
+        log_info_errno(r,
+                       "got \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\": %m",
+                       id,
+                       ruid,
+                       rgid,
+                       strnull(rhome),
+                       strnull(rshell));
         if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
@@ -357,10 +372,10 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
         gid_t rgid = GID_INVALID;
         int r;
 
-        log_info("/* %s(\"%s\", \"%s\", "GID_FMT") */", __func__, id, name, gid);
+        log_info("/* %s(\"%s\", \"%s\", " GID_FMT ") */", __func__, id, name, gid);
 
         r = get_group_creds(&id, &rgid, 0);
-        log_info_errno(r, "got \"%s\", "GID_FMT": %m", id, rgid);
+        log_info_errno(r, "got \"%s\", " GID_FMT ": %m", id, rgid);
         if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
@@ -393,17 +408,18 @@ TEST(in_gid) {
         assert_se(in_gid(getgid()) >= 0);
         assert_se(in_gid(getegid()) >= 0);
         assert_se(in_gid(GID_INVALID) < 0);
-        assert_se(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
+        assert_se(in_gid(TTY_GID) ==
+                  0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
 }
 
 TEST(gid_lists_ops) {
-        static const gid_t l1[] = { 5, 10, 15, 20, 25};
-        static const gid_t l2[] = { 1, 2, 3, 15, 20, 25};
-        static const gid_t l3[] = { 5, 10, 15, 20, 25, 26, 27};
-        static const gid_t l4[] = { 25, 26, 20, 15, 5, 27, 10};
+        static const gid_t l1[] = { 5, 10, 15, 20, 25 };
+        static const gid_t l2[] = { 1, 2, 3, 15, 20, 25 };
+        static const gid_t l3[] = { 5, 10, 15, 20, 25, 26, 27 };
+        static const gid_t l4[] = { 25, 26, 20, 15, 5, 27, 10 };
 
-        static const gid_t result1[] = {1, 2, 3, 5, 10, 15, 20, 25, 26, 27};
-        static const gid_t result2[] = {5, 10, 15, 20, 25, 26, 27};
+        static const gid_t result1[] = { 1, 2, 3, 5, 10, 15, 20, 25, 26, 27 };
+        static const gid_t result2[] = { 5, 10, 15, 20, 25, 26, 27 };
 
         _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ gid_t *res1 = NULL;

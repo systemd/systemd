@@ -84,10 +84,13 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
-        assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
-        assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);
+        assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >=
+                  0);
+        assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >=
+                  0);
         assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='signal',interface='bar.x',", 3) >= 0);
-        assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='method_call',interface='bar.x',", 4) >= 0);
+        assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='method_call',interface='bar.x',", 4) >=
+                  0);
         assert_se(match_add(slots, &root, "", 5) >= 0);
         assert_se(match_add(slots, &root, "interface='quux.x'", 6) >= 0);
         assert_se(match_add(slots, &root, "interface='bar.x'", 7) >= 0);
@@ -106,12 +109,14 @@ int main(int argc, char *argv[]) {
         bus_match_dump(stdout, &root, 0);
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo") >= 0);
-        assert_se(sd_bus_message_append(m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >= 0);
+        assert_se(sd_bus_message_append(
+                                  m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >=
+                  0);
         assert_se(sd_bus_message_seal(m, 1, 0) >= 0);
 
         zero(mask);
         assert_se(bus_match_run(NULL, &root, m) == 0);
-        assert_se(mask_contains((unsigned[]) { 9, 8, 7, 5, 10, 12, 13, 14, 15, 16, 17 }, 11));
+        assert_se(mask_contains((unsigned[]){ 9, 8, 7, 5, 10, 12, 13, 14, 15, 16, 17 }, 11));
 
         assert_se(bus_match_remove(&root, &slots[8].match_callback) >= 0);
         assert_se(bus_match_remove(&root, &slots[13].match_callback) >= 0);
@@ -120,7 +125,7 @@ int main(int argc, char *argv[]) {
 
         zero(mask);
         assert_se(bus_match_run(NULL, &root, m) == 0);
-        assert_se(mask_contains((unsigned[]) { 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
+        assert_se(mask_contains((unsigned[]){ 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
 
         for (enum bus_match_node_type i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {
                 char buf[32];

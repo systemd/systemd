@@ -11,24 +11,23 @@
 
 /* In case of repeating keys, later entries win. */
 
-#define env_file_1                              \
-        "a=a\n"                                 \
-        "a=b\n"                                 \
-        "a=b\n"                                 \
-        "a=a\n"                                 \
-        "b=b\\\n"                               \
-        "c\n"                                   \
-        "d= d\\\n"                              \
-        "e  \\\n"                               \
-        "f  \n"                                 \
-        "g=g\\ \n"                              \
-        "h= ąęół\\ śćńźżµ \n"                   \
+#define env_file_1                      \
+        "a=a\n"                         \
+        "a=b\n"                         \
+        "a=b\n"                         \
+        "a=a\n"                         \
+        "b=b\\\n"                       \
+        "c\n"                           \
+        "d= d\\\n"                      \
+        "e  \\\n"                       \
+        "f  \n"                         \
+        "g=g\\ \n"                      \
+        "h= ąęół\\ śćńźżµ \n" \
         "i=i\\"
 
-#define env_file_2                              \
-        "a=a\\\n"
+#define env_file_2 "a=a\\\n"
 
-#define env_file_3 \
+#define env_file_3                                                  \
         "#SPAMD_ARGS=\"-d --socketpath=/var/lib/bulwark/spamd \\\n" \
         "#--nouser-config                                     \\\n" \
         "normal=line                                          \\\n" \
@@ -46,16 +45,16 @@
         "MODULE_0=coretemp\n"                   \
         "MODULE_1=f71882fg"
 
-#define env_file_5                              \
-        "a=\n"                                  \
+#define env_file_5 \
+        "a=\n"     \
         "b="
 
-#define env_file_6                              \
-        "a=\\ \\n \\t \\x \\y \\' \n"           \
-        "b= \\$'                  \n"           \
-        "c= ' \\n\\t\\$\\`\\\\\n"               \
-        "'   \n"                                \
-        "d= \" \\n\\t\\$\\`\\\\\n"              \
+#define env_file_6                    \
+        "a=\\ \\n \\t \\x \\y \\' \n" \
+        "b= \\$'                  \n" \
+        "c= ' \\n\\t\\$\\`\\\\\n"     \
+        "'   \n"                      \
+        "d= \" \\n\\t\\$\\`\\\\\n"    \
         "\"   \n"
 
 

@@ -22,7 +22,8 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
 
         log_info("\"%s\" → %s %d → \"%s\" (expect %d / \"%s\")",
                  in,
-                 r >= 0 ? "✓" : "✗", r,
+                 r >= 0 ? "✓" : "✗",
+                 r,
                  empty_to_dash(out),
                  ret,
                  ret >= 0 ? expected ?: in : "-");
@@ -45,8 +46,8 @@ TEST(socket_address_parse) {
 
         const int default_family = socket_ipv6_is_supported() ? AF_INET6 : AF_INET;
 
-        test_socket_address_parse_one("65535", 0, default_family,
-                                      default_family == AF_INET6 ? "[::]:65535": "0.0.0.0:65535");
+        test_socket_address_parse_one(
+                        "65535", 0, default_family, default_family == AF_INET6 ? "[::]:65535" : "0.0.0.0:65535");
 
         /* The checks below will pass even if ipv6 is disabled in
          * kernel. The underlying glibc's inet_pton() is just a string
@@ -64,10 +65,13 @@ TEST(socket_address_parse) {
         test_socket_address_parse_one("[::1]%lo%lo:1234", -EINVAL, 0, NULL);
         test_socket_address_parse_one("[::1]% lo:1234", -EINVAL, 0, NULL);
 
-        test_socket_address_parse_one("8888", 0, default_family,
-                                      default_family == AF_INET6 ? "[::]:8888": "0.0.0.0:8888");
-        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6,
-                                      "[2001:db8:0:85a3::ac1f:8001]:8888");
+        test_socket_address_parse_one(
+                        "8888", 0, default_family, default_family == AF_INET6 ? "[::]:8888" : "0.0.0.0:8888");
+        test_socket_address_parse_one(
+                        "[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888",
+                        0,
+                        AF_INET6,
+                        "[2001:db8:0:85a3::ac1f:8001]:8888");
         test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
         test_socket_address_parse_one("[::1]:1234%lo", 0, AF_INET6, NULL);
         test_socket_address_parse_one("[::1]:0%lo", -EINVAL, 0, NULL);
@@ -209,20 +213,20 @@ TEST(socket_address_is) {
         SocketAddress a;
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se( socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
+        assert_se(socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
         assert_se(!socket_address_is(&a, "route", 0));
         assert_se(!socket_address_is(&a, "route", SOCK_STREAM));
         assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));
         assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
         a.type = SOCK_STREAM;
-        assert_se( socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        assert_se(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
 }
 
 TEST(socket_address_is_netlink) {
         SocketAddress a;
 
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
-        assert_se( socket_address_is_netlink(&a, "route 10"));
+        assert_se(socket_address_is_netlink(&a, "route 10"));
         assert_se(!socket_address_is_netlink(&a, "192.168.1.1:8888"));
         assert_se(!socket_address_is_netlink(&a, "route 1"));
 }
@@ -246,7 +250,11 @@ static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex
 TEST(in_addr_ifindex_to_string) {
         test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
         test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
-        test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_ifindex_to_string_one(
+                        AF_INET6,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                        10,
+                        "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
         test_in_addr_ifindex_to_string_one(AF_INET6, "::1", 11, "::1");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 12, "fe80::%12");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 0, "fe80::");
@@ -273,7 +281,8 @@ TEST(in_addr_ifindex_from_string_auto) {
         assert_se(family == AF_INET6);
         assert_se(ifindex == LOOPBACK_IFINDEX);
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
+        assert_se(in_addr_ifindex_from_string_auto(
+                                  "fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
 }
 
 static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const char *expected) {
@@ -292,8 +301,13 @@ TEST(in_addr_ifindex_name_from_string_auto) {
         test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19#another.test.com", "another.test.com");
 }
 
-static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str, int family, uint16_t port, int ifindex,
-                                                                const char *server_name, const char *str_repr) {
+static void test_in_addr_port_ifindex_name_from_string_auto_one(
+                const char *str,
+                int family,
+                uint16_t port,
+                int ifindex,
+                const char *server_name,
+                const char *str_repr) {
         union in_addr_union a;
         uint16_t p;
         int f, i;
@@ -351,22 +365,31 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
 
 TEST(in_addr_port_ifindex_name_from_string_auto) {
         test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1", AF_INET, 0, 0, NULL, NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1#test.com", AF_INET, 0, 0, "test.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "192.168.0.1#test.com", AF_INET, 0, 0, "test.com", NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53", AF_INET, 53, 0, NULL, NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53#example.com", AF_INET, 53, 0, "example.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "192.168.0.1:53#example.com", AF_INET, 53, 0, "example.com", NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18", AF_INET6, 0, 0, NULL, NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18#hoge.com", AF_INET6, 0, 0, "hoge.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "fe80::18#hoge.com", AF_INET6, 0, 0, "hoge.com", NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19", AF_INET6, 0, 19, NULL, NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%lo", AF_INET6, 0, 1, NULL, "fe80::18%1");
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53", AF_INET6, 53, 0, NULL, NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19", AF_INET6, 53, 19, NULL, NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo", AF_INET6, 53, 1, NULL, "[fe80::18]:53%1");
-        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19#hoge.com", AF_INET6, 0, 19, "hoge.com", NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53#hoge.com", AF_INET6, 53, 0, "hoge.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "[fe80::18]:53%lo", AF_INET6, 53, 1, NULL, "[fe80::18]:53%1");
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "fe80::18%19#hoge.com", AF_INET6, 0, 19, "hoge.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "[fe80::18]:53#hoge.com", AF_INET6, 53, 0, "hoge.com", NULL);
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19", AF_INET6, 53, 19, NULL, NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19#hoge.com", AF_INET6, 53, 19, "hoge.com", NULL);
-        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo", AF_INET6, 53, 1, NULL, "[fe80::18]:53%1");
-        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "[fe80::18]:53%19#hoge.com", AF_INET6, 53, 19, "hoge.com", NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "[fe80::18]:53%lo", AF_INET6, 53, 1, NULL, "[fe80::18]:53%1");
+        test_in_addr_port_ifindex_name_from_string_auto_one(
+                        "[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

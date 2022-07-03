@@ -12,7 +12,9 @@ TEST(systemd_installation_has_version) {
                 r = systemd_installation_has_version(saved_argv[1], version);
                 assert_se(r >= 0);
                 log_info("%s has systemd >= %s: %s",
-                         saved_argv[1] ?: "Current installation", version, yes_no(r));
+                         saved_argv[1] ?: "Current installation",
+                         version,
+                         yes_no(r));
         }
 }
 

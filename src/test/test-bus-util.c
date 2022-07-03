@@ -11,7 +11,7 @@ static int callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
 static void destroy_callback(void *userdata) {
         int *n_called = userdata;
 
-        (*n_called) ++;
+        (*n_called)++;
 }
 
 TEST(destroy_callback) {
@@ -27,7 +27,8 @@ TEST(destroy_callback) {
                 return;
         }
 
-        r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
+        r = sd_bus_request_name_async(
+                        bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
         assert_se(r == 1);
 
         assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);

@@ -12,7 +12,8 @@
 #include "unit.h"
 #include "virt.h"
 
-static int test_restrict_filesystems(Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
+static int test_restrict_filesystems(
+                Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
         _cleanup_free_ char *exec_start = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
         ExecContext *ec = NULL;
@@ -24,15 +25,32 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
 
         STRV_FOREACH(allow_filesystem, allowed_filesystems) {
                 r = config_parse_restrict_filesystems(
-                                u->id, "filename", 1, "Service", 1, "RestrictFileSystems", 0,
-                                *allow_filesystem, ec, u);
+                                u->id,
+                                "filename",
+                                1,
+                                "Service",
+                                1,
+                                "RestrictFileSystems",
+                                0,
+                                *allow_filesystem,
+                                ec,
+                                u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse RestrictFileSystems: %m");
         }
 
         assert_se(exec_start = strjoin("cat ", file_path));
-        r = config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart",
-                        SERVICE_EXEC_START, exec_start, SERVICE(u)->exec_command, u);
+        r = config_parse_exec(
+                        u->id,
+                        "filename",
+                        1,
+                        "Service",
+                        1,
+                        "ExecStart",
+                        SERVICE_EXEC_START,
+                        exec_start,
+                        SERVICE(u)->exec_command,
+                        u);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse ExecStart");
 
@@ -51,7 +69,10 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;
         if (cld_code != CLD_EXITED)
-                return log_error_errno(-SYNTHETIC_ERRNO(EBUSY), "ExecStart didn't exited, code='%s'", sigchld_code_to_string(cld_code));
+                return log_error_errno(
+                                -SYNTHETIC_ERRNO(EBUSY),
+                                "ExecStart didn't exited, code='%s'",
+                                sigchld_code_to_string(cld_code));
 
         if (SERVICE(u)->state != SERVICE_DEAD)
                 return log_error_errno(-SYNTHETIC_ERRNO(EBUSY), "Service is not dead");
@@ -91,12 +112,36 @@ int main(int argc, char *argv[]) {
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block */
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block")) >= 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "~tracefs")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block")) >= 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")) < 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/tracing/printk_formats",
+                                  STRV_MAKE("@common-block")) < 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/tracing/printk_formats",
+                                  STRV_MAKE("tracefs", "@common-block")) >= 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/tracing/printk_formats",
+                                  STRV_MAKE("tracefs", "@common-block", "~tracefs")) < 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/debug/sleep_time",
+                                  STRV_MAKE("@common-block")) < 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/debug/sleep_time",
+                                  STRV_MAKE("debugfs", "@common-block")) >= 0);
+        assert_se(test_restrict_filesystems(
+                                  m,
+                                  "restrict_filesystems_test.service",
+                                  "/sys/kernel/debug/sleep_time",
+                                  STRV_MAKE("~debugfs")) < 0);
 
         return 0;
 }

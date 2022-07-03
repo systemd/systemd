@@ -34,33 +34,33 @@ TEST(is_wanted_print) {
 }
 
 TEST(is_wanted) {
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "systemd.unified_cgroup_hierarchy", 1) >= 0);
         test_is_wanted_print_one(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
-        test_is_wanted_print_one(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
         test_is_wanted_print_one(false);
 
         assert_se(setenv("SYSTEMD_PROC_CMDLINE",
                          "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
+                         "systemd.legacy_systemd_cgroup_controller",
+                         1) >= 0);
+        test_is_wanted_print_one(false);
+
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "systemd.unified_cgroup_hierarchy=0 "
+                         "systemd.legacy_systemd_cgroup_controller=0",
+                         1) >= 0);
         test_is_wanted_print_one(false);
 
         /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
          * explicitly specified. */
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "cgroup_no_v1=all", 1) >= 0);
         test_is_wanted_print_one(false);
 
         assert_se(setenv("SYSTEMD_PROC_CMDLINE",
                          "cgroup_no_v1=all "
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
+                         "systemd.unified_cgroup_hierarchy=0",
+                         1) >= 0);
         test_is_wanted_print_one(false);
 }
 

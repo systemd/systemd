@@ -39,29 +39,26 @@ TEST(specifier_escape_strv) {
         test_specifier_escape_strv_one(STRV_MAKE(""), STRV_MAKE(""));
         test_specifier_escape_strv_one(STRV_MAKE("foo"), STRV_MAKE("foo"));
         test_specifier_escape_strv_one(STRV_MAKE("%"), STRV_MAKE("%%"));
-        test_specifier_escape_strv_one(STRV_MAKE("foo", "%", "foo%", "%foo", "foo%foo", "quux", "%%%"),
-                                       STRV_MAKE("foo", "%%", "foo%%", "%%foo", "foo%%foo", "quux", "%%%%%%"));
+        test_specifier_escape_strv_one(
+                        STRV_MAKE("foo", "%", "foo%", "%foo", "foo%foo", "quux", "%%%"),
+                        STRV_MAKE("foo", "%%", "foo%%", "%%foo", "foo%%foo", "quux", "%%%%%%"));
 }
 
 /* Any specifier functions which don't need an argument. */
-static const Specifier specifier_table[] = {
-        COMMON_SYSTEM_SPECIFIERS,
+static const Specifier specifier_table[] = { COMMON_SYSTEM_SPECIFIERS,
 
-        COMMON_CREDS_SPECIFIERS(LOOKUP_SCOPE_USER),
-        { 'h', specifier_user_home,       NULL },
+                                             COMMON_CREDS_SPECIFIERS(LOOKUP_SCOPE_USER),
+                                             { 'h', specifier_user_home, NULL },
 
-        COMMON_TMP_SPECIFIERS,
-        {}
-};
+                                             COMMON_TMP_SPECIFIERS,
+                                             {} };
 
 TEST(specifier_printf) {
-        static const Specifier table[] = {
-                { 'X', specifier_string,         (char*) "AAAA" },
-                { 'Y', specifier_string,         (char*) "BBBB" },
-                { 'e', specifier_string,         NULL           },
-                COMMON_SYSTEM_SPECIFIERS,
-                {}
-        };
+        static const Specifier table[] = { { 'X', specifier_string, (char *) "AAAA" },
+                                           { 'Y', specifier_string, (char *) "BBBB" },
+                                           { 'e', specifier_string, NULL },
+                                           COMMON_SYSTEM_SPECIFIERS,
+                                           {} };
 
         _cleanup_free_ char *w = NULL;
         int r;
@@ -74,26 +71,36 @@ TEST(specifier_printf) {
         assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
 
         free(w);
-        r = specifier_printf("machine=%m, boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf(
+                        "machine=%m, boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e",
+                        SIZE_MAX,
+                        table,
+                        NULL,
+                        NULL,
+                        &w);
         assert_se(r >= 0);
         assert_se(w);
         puts(w);
 
         w = mfree(w);
-        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W, empty=%e%e%e", SIZE_MAX, table, NULL, NULL, &w);
+        specifier_printf(
+                        "os=%o, os-version=%w, build=%B, variant=%W, empty=%e%e%e",
+                        SIZE_MAX,
+                        table,
+                        NULL,
+                        NULL,
+                        &w);
         if (w)
                 puts(w);
 }
 
 TEST(specifier_real_path) {
-        static const Specifier table[] = {
-                { 'p', specifier_string,         "/dev/initctl" },
-                { 'y', specifier_real_path,      "/dev/initctl" },
-                { 'Y', specifier_real_directory, "/dev/initctl" },
-                { 'w', specifier_real_path,      "/dev/tty" },
-                { 'W', specifier_real_directory, "/dev/tty" },
-                {}
-        };
+        static const Specifier table[] = { { 'p', specifier_string, "/dev/initctl" },
+                                           { 'y', specifier_real_path, "/dev/initctl" },
+                                           { 'Y', specifier_real_directory, "/dev/initctl" },
+                                           { 'w', specifier_real_path, "/dev/tty" },
+                                           { 'W', specifier_real_directory, "/dev/tty" },
+                                           {} };
 
         _cleanup_free_ char *w = NULL;
         int r;
@@ -109,12 +116,10 @@ TEST(specifier_real_path) {
 }
 
 TEST(specifier_real_path_missing_file) {
-        static const Specifier table[] = {
-                { 'p', specifier_string,         "/dev/-no-such-file--" },
-                { 'y', specifier_real_path,      "/dev/-no-such-file--" },
-                { 'Y', specifier_real_directory, "/dev/-no-such-file--" },
-                {}
-        };
+        static const Specifier table[] = { { 'p', specifier_string, "/dev/-no-such-file--" },
+                                           { 'y', specifier_real_path, "/dev/-no-such-file--" },
+                                           { 'Y', specifier_real_directory, "/dev/-no-such-file--" },
+                                           {} };
 
         _cleanup_free_ char *w = NULL;
         int r;
@@ -147,7 +152,8 @@ TEST(specifiers_missing_data_ok) {
         assert_se(streq(resolved, "-----"));
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
-        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
+        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) ==
+                  -EUNATCH);
         assert_se(streq(resolved, "-----"));
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);

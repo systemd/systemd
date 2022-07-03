@@ -61,23 +61,25 @@ TEST(udev_rule_parse_value) {
         test_udev_rule_parse_value_one("e\"operand with newline\\n\"", "operand with newline\n", 0);
         /* input: e"single\rcharacter\t\aescape\bsequence" */
         test_udev_rule_parse_value_one(
-                "e\"single\\rcharacter\\t\\aescape\\bsequence\"", "single\rcharacter\t\aescape\bsequence", 0);
+                        "e\"single\\rcharacter\\t\\aescape\\bsequence\"",
+                        "single\rcharacter\t\aescape\bsequence",
+                        0);
         /* input: e"reject\invalid escape sequence" */
         test_udev_rule_parse_value_one("e\"reject\\invalid escape sequence", NULL, -EINVAL);
         /* input: e"\ */
         test_udev_rule_parse_value_one("e\"\\", NULL, -EINVAL);
         /* input: "s\u1d1c\u1d04\u029c \u1d1c\u0274\u026a\u1d04\u1d0f\u1d05\u1d07 \U0001d568\U0001d560\U0001d568" */
         test_udev_rule_parse_value_one(
-                "e\"s\\u1d1c\\u1d04\\u029c \\u1d1c\\u0274\\u026a\\u1d04\\u1d0f\\u1d05\\u1d07 \\U0001d568\\U0001d560\\U0001d568\"",
-                "s\xe1\xb4\x9c\xe1\xb4\x84\xca\x9c \xe1\xb4\x9c\xc9\xb4\xc9\xaa\xe1\xb4\x84\xe1\xb4\x8f\xe1\xb4\x85\xe1\xb4\x87 \xf0\x9d\x95\xa8\xf0\x9d\x95\xa0\xf0\x9d\x95\xa8",
-                0);
+                        "e\"s\\u1d1c\\u1d04\\u029c \\u1d1c\\u0274\\u026a\\u1d04\\u1d0f\\u1d05\\u1d07 \\U0001d568\\U0001d560\\U0001d568\"",
+                        "s\xe1\xb4\x9c\xe1\xb4\x84\xca\x9c \xe1\xb4\x9c\xc9\xb4\xc9\xaa\xe1\xb4\x84\xe1\xb4\x8f\xe1\xb4\x85\xe1\xb4\x87 \xf0\x9d\x95\xa8\xf0\x9d\x95\xa0\xf0\x9d\x95\xa8",
+                        0);
 }
 
 static void test_udev_replace_whitespace_one_len(const char *str, size_t len, const char *expected) {
         _cleanup_free_ char *result = NULL;
         int r;
 
-        result = new(char, len + 1);
+        result = new (char, len + 1);
         assert_se(result);
         r = udev_replace_whitespace(str, result, len);
         assert_se((size_t) r == strlen(expected));
@@ -125,7 +127,8 @@ TEST(udev_replace_whitespace) {
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 0, "");
 }
 
-static void test_udev_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
+static void test_udev_resolve_subsys_kernel_one(
+                const char *str, bool read_value, int retval, const char *expected) {
         char result[PATH_MAX] = "";
         int r;
 
@@ -163,9 +166,11 @@ TEST(devpath_conflict) {
         assert_se(!devpath_conflict("/devices/virtual/net/veth99", "/devices/virtual/net/veth999"));
 
         assert_se(devpath_conflict("/devices/pci0000:00/0000:00:1c.4", "/devices/pci0000:00/0000:00:1c.4"));
-        assert_se(devpath_conflict("/devices/pci0000:00/0000:00:1c.4", "/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0"));
-        assert_se(devpath_conflict("/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0/nvme0n1",
-                                   "/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0/nvme0n1/nvme0n1p1"));
+        assert_se(devpath_conflict(
+                        "/devices/pci0000:00/0000:00:1c.4", "/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0"));
+        assert_se(devpath_conflict(
+                        "/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0/nvme0n1",
+                        "/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0/nvme0n1/nvme0n1p1"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

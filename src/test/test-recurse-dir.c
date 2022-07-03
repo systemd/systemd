@@ -9,11 +9,7 @@
 
 static char **list_nftw = NULL;
 
-static int nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int typeflag,
-                struct FTW *ftwbuf) {
+static int nftw_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
 
         if (ftwbuf->level == 0) /* skip top-level */
                 return FTW_CONTINUE;
@@ -98,16 +94,20 @@ static int recurse_dir_callback(
                 log_debug("skipping depth %s", path);
                 break;
 
-        case RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE...RECURSE_DIR_SKIP_OPEN_DIR_ERROR_MAX:
+        case RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE ... RECURSE_DIR_SKIP_OPEN_DIR_ERROR_MAX:
                 log_debug_errno(event - RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE, "failed to open dir %s: %m", path);
                 break;
 
-        case RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE...RECURSE_DIR_SKIP_OPEN_INODE_ERROR_MAX:
-                log_debug_errno(event - RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE, "failed to open inode %s: %m", path);
+        case RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE ... RECURSE_DIR_SKIP_OPEN_INODE_ERROR_MAX:
+                log_debug_errno(event - RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE,
+                                "failed to open inode %s: %m",
+                                path);
                 break;
 
-        case RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE...RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX:
-                log_debug_errno(event - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE, "failed to stat inode %s: %m", path);
+        case RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE ... RECURSE_DIR_SKIP_STAT_INODE_ERROR_MAX:
+                log_debug_errno(event - RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE,
+                                "failed to stat inode %s: %m",
+                                path);
                 break;
 
         default:
@@ -133,7 +133,14 @@ int main(int argc, char *argv[]) {
 
         /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the results are identical */
         t1 = now(CLOCK_MONOTONIC);
-        r = recurse_dir_at(AT_FDCWD, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir);
+        r = recurse_dir_at(
+                        AT_FDCWD,
+                        p,
+                        0,
+                        UINT_MAX,
+                        RECURSE_DIR_SORT | RECURSE_DIR_ENSURE_TYPE | RECURSE_DIR_SAME_MOUNT,
+                        recurse_dir_callback,
+                        &list_recurse_dir);
         t2 = now(CLOCK_MONOTONIC);
         if (r == -ENOENT) {
                 log_warning_errno(r, "Couldn't open directory %s, ignoring: %m", p);
@@ -142,7 +149,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         t3 = now(CLOCK_MONOTONIC);
-        assert_se(nftw(p, nftw_cb, 64, FTW_PHYS|FTW_MOUNT) >= 0);
+        assert_se(nftw(p, nftw_cb, 64, FTW_PHYS | FTW_MOUNT) >= 0);
         t4 = now(CLOCK_MONOTONIC);
 
         log_info("recurse_dir(): %s – nftw(): %s", FORMAT_TIMESPAN(t2 - t1, 1), FORMAT_TIMESPAN(t4 - t3, 1));
@@ -152,7 +159,7 @@ int main(int argc, char *argv[]) {
 
         for (size_t i = 0;; i++) {
                 const char *a = list_nftw ? list_nftw[i] : NULL,
-                        *b = list_recurse_dir ? list_recurse_dir[i] : NULL;
+                           *b = list_recurse_dir ? list_recurse_dir[i] : NULL;
 
                 if (!streq_ptr(a, b)) {
                         log_error("entry %zu different: %s vs %s", i, strna(a), strna(b));

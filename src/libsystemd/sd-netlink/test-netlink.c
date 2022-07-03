@@ -224,7 +224,9 @@ static void test_async(int ifindex) {
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler, test_async_destroy, ifname, 0, "hogehoge") >= 0);
+        assert_se(sd_netlink_call_async(
+                                  rtnl, &slot, m, link_handler, test_async_destroy, ifname, 0, "hogehoge") >=
+                  0);
 
         assert_se(sd_netlink_slot_get_netlink(slot) == rtnl);
         assert_se(sd_netlink_slot_get_userdata(slot) == ifname);
@@ -330,9 +332,9 @@ static void test_async_destroy_callback(int ifindex) {
 
         log_debug("/* %s */", __func__);
 
-        assert_se(t = new(struct test_async_object, 1));
+        assert_se(t = new (struct test_async_object, 1));
         assert_se(ifname = strdup("lo"));
-        *t = (struct test_async_object) {
+        *t = (struct test_async_object){
                 .n_ref = 1,
                 .ifname = ifname,
         };
@@ -341,7 +343,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is called after processing message */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >=
+                  0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -355,7 +358,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is called when asynchronous call is cancelled, that is, slot is freed. */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0, NULL) >=
+                  0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -368,7 +372,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is also called by sd_netlink_unref() */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >=
+                  0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -500,7 +505,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
                 assert_se(ifindex > 0);
                 assert_se(IN_SET(family, AF_INET, AF_INET6));
 
-                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4 : 6, ifindex);
         }
 }
 
@@ -606,18 +611,24 @@ static int genl_ctrl_match_callback(sd_netlink *genl, sd_netlink_message *m, voi
         case CTRL_CMD_DELFAMILY:
                 assert_se(sd_netlink_message_read_string(m, CTRL_ATTR_FAMILY_NAME, &name) >= 0);
                 assert_se(sd_netlink_message_read_u16(m, CTRL_ATTR_FAMILY_ID, &id) >= 0);
-                log_debug("%s: %s (id=%"PRIu16") family is %s.",
-                          __func__, name, id, cmd == CTRL_CMD_NEWFAMILY ? "added" : "removed");
+                log_debug("%s: %s (id=%" PRIu16 ") family is %s.",
+                          __func__,
+                          name,
+                          id,
+                          cmd == CTRL_CMD_NEWFAMILY ? "added" : "removed");
                 break;
         case CTRL_CMD_NEWMCAST_GRP:
         case CTRL_CMD_DELMCAST_GRP:
                 assert_se(sd_netlink_message_read_string(m, CTRL_ATTR_FAMILY_NAME, &name) >= 0);
                 assert_se(sd_netlink_message_read_u16(m, CTRL_ATTR_FAMILY_ID, &id) >= 0);
-                log_debug("%s: multicast group for %s (id=%"PRIu16") family is %s.",
-                          __func__, name, id, cmd == CTRL_CMD_NEWMCAST_GRP ? "added" : "removed");
+                log_debug("%s: multicast group for %s (id=%" PRIu16 ") family is %s.",
+                          __func__,
+                          name,
+                          id,
+                          cmd == CTRL_CMD_NEWMCAST_GRP ? "added" : "removed");
                 break;
         default:
-                log_debug("%s: received nlctrl message with unknown command '%"PRIu8"'.", __func__, cmd);
+                log_debug("%s: received nlctrl message with unknown command '%" PRIu8 "'.", __func__, cmd);
         }
 
         return 0;
@@ -643,7 +654,16 @@ static void test_genl(void) {
         assert_se(sd_genl_message_get_command(genl, m, &cmd) >= 0);
         assert_se(cmd == CTRL_CMD_GETFAMILY);
 
-        assert_se(sd_genl_add_match(genl, NULL, CTRL_GENL_NAME, "notify", 0, genl_ctrl_match_callback, NULL, NULL, "genl-ctrl-notify") >= 0);
+        assert_se(sd_genl_add_match(
+                                  genl,
+                                  NULL,
+                                  CTRL_GENL_NAME,
+                                  "notify",
+                                  0,
+                                  genl_ctrl_match_callback,
+                                  NULL,
+                                  NULL,
+                                  "genl-ctrl-notify") >= 0);
 
         m = sd_netlink_message_unref(m);
         assert_se(sd_genl_message_new(genl, "should-not-exist", CTRL_CMD_GETFAMILY, &m) < 0);

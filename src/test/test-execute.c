@@ -22,7 +22,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
-#include "seccomp-util.h"
+#        include "seccomp-util.h"
 #endif
 #include "service.h"
 #include "signal-util.h"
@@ -78,8 +78,14 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
         }
 }
 
-static void check_main_result(const char *file, unsigned line, const char *func,
-                              Manager *m, Unit *unit, int status_expected, int code_expected) {
+static void check_main_result(
+                const char *file,
+                unsigned line,
+                const char *func,
+                Manager *m,
+                Unit *unit,
+                int status_expected,
+                int code_expected) {
         Service *service = NULL;
 
         assert_se(m);
@@ -92,21 +98,36 @@ static void check_main_result(const char *file, unsigned line, const char *func,
 
         if (cld_dumped_to_killed(service->main_exec_status.code) != cld_dumped_to_killed(code_expected)) {
                 log_error("%s:%u:%s %s: can_unshare=%s: exit code %d, expected %d",
-                          file, line, func, unit->id, yes_no(can_unshare),
-                          service->main_exec_status.code, code_expected);
+                          file,
+                          line,
+                          func,
+                          unit->id,
+                          yes_no(can_unshare),
+                          service->main_exec_status.code,
+                          code_expected);
                 abort();
         }
 
         if (service->main_exec_status.status != status_expected) {
                 log_error("%s:%u:%s: %s: can_unshare=%s: exit status %d, expected %d",
-                          file, line, func, unit->id, yes_no(can_unshare),
-                          service->main_exec_status.status, status_expected);
+                          file,
+                          line,
+                          func,
+                          unit->id,
+                          yes_no(can_unshare),
+                          service->main_exec_status.status,
+                          status_expected);
                 abort();
         }
 }
 
-static void check_service_result(const char *file, unsigned line, const char *func,
-                                 Manager *m, Unit *unit, ServiceResult result_expected) {
+static void check_service_result(
+                const char *file,
+                unsigned line,
+                const char *func,
+                Manager *m,
+                Unit *unit,
+                ServiceResult result_expected) {
         Service *service = NULL;
 
         assert_se(m);
@@ -118,7 +139,11 @@ static void check_service_result(const char *file, unsigned line, const char *fu
 
         if (service->result != result_expected) {
                 log_error("%s:%u:%s: %s: can_unshare=%s: service end result %s, expected %s",
-                          file, line, func, unit->id, yes_no(can_unshare),
+                          file,
+                          line,
+                          func,
+                          unit->id,
+                          yes_no(can_unshare),
                           service_result_to_string(service->result),
                           service_result_to_string(result_expected));
                 abort();
@@ -137,29 +162,19 @@ static bool check_nobody_user_and_group(void) {
                 goto invalid;
 
         p = getpwnam(NOBODY_USER_NAME);
-        if (!p ||
-            !streq(p->pw_name, NOBODY_USER_NAME) ||
-            p->pw_uid != UID_NOBODY ||
-            p->pw_gid != GID_NOBODY)
+        if (!p || !streq(p->pw_name, NOBODY_USER_NAME) || p->pw_uid != UID_NOBODY || p->pw_gid != GID_NOBODY)
                 goto invalid;
 
         p = getpwuid(UID_NOBODY);
-        if (!p ||
-            !streq(p->pw_name, NOBODY_USER_NAME) ||
-            p->pw_uid != UID_NOBODY ||
-            p->pw_gid != GID_NOBODY)
+        if (!p || !streq(p->pw_name, NOBODY_USER_NAME) || p->pw_uid != UID_NOBODY || p->pw_gid != GID_NOBODY)
                 goto invalid;
 
         g = getgrnam(NOBODY_GROUP_NAME);
-        if (!g ||
-            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
-            g->gr_gid != GID_NOBODY)
+        if (!g || !streq(g->gr_name, NOBODY_GROUP_NAME) || g->gr_gid != GID_NOBODY)
                 goto invalid;
 
         g = getgrgid(GID_NOBODY);
-        if (!g ||
-            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
-            g->gr_gid != GID_NOBODY)
+        if (!g || !streq(g->gr_name, NOBODY_GROUP_NAME) || g->gr_gid != GID_NOBODY)
                 goto invalid;
 
         cache = 1;
@@ -177,13 +192,11 @@ static bool check_user_has_group_with_same_name(const char *name) {
         assert_se(name);
 
         p = getpwnam(name);
-        if (!p ||
-            !streq(p->pw_name, name))
+        if (!p || !streq(p->pw_name, name))
                 return false;
 
         g = getgrgid(p->pw_gid);
-        if (!g ||
-            !streq(g->gr_name, name))
+        if (!g || !streq(g->gr_name, name))
                 return false;
 
         return true;
@@ -203,8 +216,14 @@ static bool is_inaccessible_available(void) {
         return true;
 }
 
-static void _test(const char *file, unsigned line, const char *func,
-                  Manager *m, const char *unit_name, int status_expected, int code_expected) {
+static void
+                _test(const char *file,
+                      unsigned line,
+                      const char *func,
+                      Manager *m,
+                      const char *unit_name,
+                      int status_expected,
+                      int code_expected) {
         Unit *unit;
 
         assert_se(unit_name);
@@ -216,8 +235,13 @@ static void _test(const char *file, unsigned line, const char *func,
 #define test(m, unit_name, status_expected, code_expected) \
         _test(PROJECT_FILE, __LINE__, __func__, m, unit_name, status_expected, code_expected)
 
-static void _test_service(const char *file, unsigned line, const char *func,
-                          Manager *m, const char *unit_name, ServiceResult result_expected) {
+static void
+                _test_service(const char *file,
+                              unsigned line,
+                              const char *func,
+                              Manager *m,
+                              const char *unit_name,
+                              ServiceResult result_expected) {
         Unit *unit;
 
         assert_se(unit_name);
@@ -235,8 +259,8 @@ static void test_exec_bindpaths(Manager *m) {
 
         test(m, "exec-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
@@ -253,8 +277,7 @@ static void test_exec_cpuaffinity(Manager *m) {
         test(m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
         test(m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
 
-        if (!CPU_ISSET_S(1, c.allocated, c.set) ||
-            !CPU_ISSET_S(2, c.allocated, c.set)) {
+        if (!CPU_ISSET_S(1, c.allocated, c.set) || !CPU_ISSET_S(2, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
                 return;
         }
@@ -268,17 +291,18 @@ static void test_exec_workingdirectory(Manager *m) {
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
-        (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_execsearchpath(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_execsearchpath", 0755) >= 0);
 
-        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, 0, 0, COPY_REPLACE) >= 0);
+        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0, 0777, 0, 0, COPY_REPLACE) >=
+                  0);
 
         test(m, "exec-execsearchpath.service", 0, CLD_EXITED);
 
-        assert_se(rm_rf("/tmp/test-exec_execsearchpath", REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        assert_se(rm_rf("/tmp/test-exec_execsearchpath", REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 
         test(m, "exec-execsearchpath.service", EXIT_EXEC, CLD_EXITED);
 }
@@ -294,33 +318,36 @@ static void test_exec_execsearchpath_environment(Manager *m) {
 
 static void test_exec_execsearchpath_environment_files(Manager *m) {
         static const char path_not_set[] =
-                "VAR1='word1 word2'\n"
-                "VAR2=word3 \n"
-                "# comment1\n"
-                "\n"
-                "; comment2\n"
-                " ; # comment3\n"
-                "line without an equal\n"
-                "VAR3='$word 5 6'\n"
-                "VAR4='new\nline'\n"
-                "VAR5=password\\with\\backslashes";
+                        "VAR1='word1 word2'\n"
+                        "VAR2=word3 \n"
+                        "# comment1\n"
+                        "\n"
+                        "; comment2\n"
+                        " ; # comment3\n"
+                        "line without an equal\n"
+                        "VAR3='$word 5 6'\n"
+                        "VAR4='new\nline'\n"
+                        "VAR5=password\\with\\backslashes";
 
         static const char path_set[] =
-                "VAR1='word1 word2'\n"
-                "VAR2=word3 \n"
-                "# comment1\n"
-                "\n"
-                "; comment2\n"
-                " ; # comment3\n"
-                "line without an equal\n"
-                "VAR3='$word 5 6'\n"
-                "VAR4='new\nline'\n"
-                "VAR5=password\\with\\backslashes\n"
-                "PATH=/usr";
+                        "VAR1='word1 word2'\n"
+                        "VAR2=word3 \n"
+                        "# comment1\n"
+                        "\n"
+                        "; comment2\n"
+                        " ; # comment3\n"
+                        "line without an equal\n"
+                        "VAR3='$word 5 6'\n"
+                        "VAR4='new\nline'\n"
+                        "VAR5=password\\with\\backslashes\n"
+                        "PATH=/usr";
 
         int r;
 
-        r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile.conf", path_not_set, WRITE_STRING_FILE_CREATE);
+        r = write_string_file(
+                        "/tmp/test-exec_execsearchpath_environmentfile.conf",
+                        path_not_set,
+                        WRITE_STRING_FILE_CREATE);
 
         assert_se(r == 0);
 
@@ -329,7 +356,10 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
         (void) unlink("/tmp/test-exec_environmentfile.conf");
 
 
-        r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
+        r = write_string_file(
+                        "/tmp/test-exec_execsearchpath_environmentfile-set.conf",
+                        path_set,
+                        WRITE_STRING_FILE_CREATE);
 
         assert_se(r == 0);
 
@@ -366,11 +396,11 @@ static void test_exec_personality(Manager *m) {
         test(m, "exec-personality-s390.service", 0, CLD_EXITED);
 
 #elif defined(__powerpc64__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
+#        if __BYTE_ORDER == __BIG_ENDIAN
         test(m, "exec-personality-ppc64.service", 0, CLD_EXITED);
-#  else
+#        else
         test(m, "exec-personality-ppc64le.service", 0, CLD_EXITED);
-#  endif
+#        endif
 
 #elif defined(__aarch64__)
         test(m, "exec-personality-aarch64.service", 0, CLD_EXITED);
@@ -459,7 +489,10 @@ static void test_exec_protectkernelmodules(Manager *m) {
 
         test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
-        test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m,
+             "exec-protectkernelmodules-yes-mount-propagation.service",
+             can_unshare ? 0 : EXIT_FAILURE,
+             CLD_EXITED);
 }
 
 static void test_exec_readonlypaths(Manager *m) {
@@ -560,7 +593,7 @@ static int find_libraries(const char *exec, char ***ret) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
-        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_close_pair_ int outpipe[2] = { -1, -1 }, errpipe[2] = { -1, -1 };
         _cleanup_strv_free_ char **libraries = NULL;
         _cleanup_free_ char *result = NULL;
         pid_t pid;
@@ -571,10 +604,10 @@ static int find_libraries(const char *exec, char ***ret) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
-        assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
-        assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);
+        assert_se(pipe2(outpipe, O_NONBLOCK | O_CLOEXEC) == 0);
+        assert_se(pipe2(errpipe, O_NONBLOCK | O_CLOEXEC) == 0);
 
-        r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         assert_se(r >= 0);
         if (r == 0) {
                 if (rearrange_stdio(-1, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
@@ -591,8 +624,9 @@ static int find_libraries(const char *exec, char ***ret) {
 
         assert_se(sd_event_new(&e) >= 0);
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, NULL, CLOCK_MONOTONIC, 10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid) >=
+                  0);
         assert_se(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result) >= 0);
         assert_se(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT) >= 0);
         assert_se(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL) >= 0);
@@ -676,13 +710,14 @@ static void test_exec_mount_apivfs(Manager *m) {
         STRV_FOREACH(p, libraries)
                 assert_se(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
 
-        assert_se(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data) >= 0);
+        assert_se(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data) >=
+                  0);
 
         assert_se(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755) >= 0);
 
         test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_noexecpaths(Manager *m) {
@@ -781,12 +816,15 @@ static void test_exec_systemcallfilter_system(Manager *m) {
         test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                           __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -798,12 +836,15 @@ static void test_exec_user(Manager *m) {
         test(m, "exec-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                           __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -814,12 +855,15 @@ static void test_exec_group(Manager *m) {
         test(m, "exec-group.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                           __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                           NOBODY_GROUP_NAME,
+                           __func__);
                 return;
         }
 
@@ -835,7 +879,7 @@ static void test_exec_supplementarygroups(Manager *m) {
         test(m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
 }
 
-static char* private_directory_bad(Manager *m) {
+static char *private_directory_bad(Manager *m) {
         /* This mirrors setup_exec_directory(). */
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
@@ -844,8 +888,7 @@ static char* private_directory_bad(Manager *m) {
 
                 assert_se(p = path_join(m->prefix[dt], "private"));
 
-                if (stat(p, &st) >= 0 &&
-                    (st.st_mode & (S_IRWXG|S_IRWXO)))
+                if (stat(p, &st) >= 0 && (st.st_mode & (S_IRWXG | S_IRWXO)))
                         return TAKE_PTR(p);
         }
 
@@ -869,27 +912,30 @@ static void test_exec_dynamicuser(Manager *m) {
                 test(m, "exec-dynamicuser-fixeduser-adm.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         if (check_user_has_group_with_same_name("games"))
                 test(m, "exec-dynamicuser-fixeduser-games.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m,
+             "exec-dynamicuser-fixeduser-one-supplementarygroup.service",
+             can_unshare ? 0 : EXIT_NAMESPACE,
+             CLD_EXITED);
         test(m, "exec-dynamicuser-supplementarygroups.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/var/lib/quux", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/waldo", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/quux", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/waldo", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/quux", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/waldo", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/quux", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/waldo", REMOVE_ROOT | REMOVE_PHYSICAL);
 
         test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir-migrate-step2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
 
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
 
         test(m, "exec-dynamicuser-runtimedirectory1.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-dynamicuser-runtimedirectory2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
@@ -905,16 +951,16 @@ static void test_exec_environment(Manager *m) {
 
 static void test_exec_environmentfile(Manager *m) {
         static const char e[] =
-                "VAR1='word1 word2'\n"
-                "VAR2=word3 \n"
-                "# comment1\n"
-                "\n"
-                "; comment2\n"
-                " ; # comment3\n"
-                "line without an equal\n"
-                "VAR3='$word 5 6'\n"
-                "VAR4='new\nline'\n"
-                "VAR5=password\\with\\backslashes";
+                        "VAR1='word1 word2'\n"
+                        "VAR2=word3 \n"
+                        "# comment1\n"
+                        "\n"
+                        "; comment2\n"
+                        " ; # comment3\n"
+                        "line without an equal\n"
+                        "VAR3='$word 5 6'\n"
+                        "VAR4='new\nline'\n"
+                        "VAR5=password\\with\\backslashes";
         int r;
 
         r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
@@ -964,12 +1010,15 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                           __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                           NOBODY_GROUP_NAME,
+                           __func__);
                 return;
         }
 
@@ -985,8 +1034,7 @@ static void test_exec_capabilityboundingset(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_CHOWN) <= 0 ||
-            have_effective_cap(CAP_FOWNER) <= 0 ||
+        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_FOWNER) <= 0 ||
             have_effective_cap(CAP_KILL) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
@@ -1015,8 +1063,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_CHOWN) <= 0 ||
-            have_effective_cap(CAP_NET_RAW) <= 0) {
+        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_NET_RAW) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }
@@ -1025,12 +1072,15 @@ static void test_exec_ambientcapabilities(Manager *m) {
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                           __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -1121,7 +1171,8 @@ typedef struct test_entry {
         const char *name;
 } test_entry;
 
-#define entry(x) {x, #x}
+#define entry(x) \
+        { x, #x }
 
 static int run_tests(LookupScope scope, const test_entry tests[], char **patterns) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -1265,7 +1316,8 @@ int main(int argc, char *argv[]) {
         r = seccomp_syscall_resolve_name("unshare");
         assert_se(r != __NR_SCMP_ERROR);
         assert_se(hashmap_put(s, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
-        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
+        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >=
+                  0);
         assert_se(unshare(CLONE_NEWNS) < 0);
         assert_se(errno == EOPNOTSUPP);
 

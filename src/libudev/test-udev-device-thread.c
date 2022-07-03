@@ -7,14 +7,14 @@
 
 #include "libudev.h"
 
-#define handle_error_errno(error, msg)                          \
-        ({                                                      \
-                errno = abs(error);                             \
-                perror(msg);                                    \
-                EXIT_FAILURE;                                   \
+#define handle_error_errno(error, msg) \
+        ({                             \
+                errno = abs(error);    \
+                perror(msg);           \
+                EXIT_FAILURE;          \
         })
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         struct udev_device **d = p;
 
         *d = udev_device_unref(*d);
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
         entry = udev_device_get_properties_list_entry(loopback);
         udev_list_entry_foreach(e, entry)
-                printf("%s=%s\n", udev_list_entry_get_name(e), udev_list_entry_get_value(e));
+                        printf("%s=%s\n", udev_list_entry_get_name(e), udev_list_entry_get_value(e));
 
         r = pthread_create(&t, NULL, thread, &loopback);
         if (r != 0)
