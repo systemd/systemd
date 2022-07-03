@@ -1204,7 +1204,6 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
 }
 
 int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
-        usec_t jitter;
         int r;
 
         assert(scope);
@@ -1233,15 +1232,12 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (scope->conflict_event_source)
                 return 0;
 
-        random_bytes(&jitter, sizeof(jitter));
-        jitter %= LLMNR_JITTER_INTERVAL_USEC;
-
         r = sd_event_add_time_relative(
                         scope->manager->event,
                         &scope->conflict_event_source,
                         CLOCK_BOOTTIME,
-                        jitter,
-                        LLMNR_JITTER_INTERVAL_USEC,
+                        random_u64_range(LLMNR_JITTER_INTERVAL_USEC),
+                        0,
                         on_conflict_dispatch, scope);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
@@ -1511,7 +1507,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                                 &scope->announce_event_source,
                                 CLOCK_BOOTTIME,
                                 MDNS_ANNOUNCE_DELAY,
-                                MDNS_JITTER_RANGE_USEC,
+                                0,
                                 on_announcement_timeout, scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to schedule second announcement: %m");
