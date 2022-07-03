@@ -207,10 +207,10 @@ static bool mdns_should_reply_using_unicast(DnsPacket *p) {
         }
 
         /* All the questions in the query had a QU bit set, RFC 6762, section 5.4 */
-        DNS_QUESTION_FOREACH_ITEM(item, p->question) {
+        DNS_QUESTION_FOREACH_ITEM(item, p->question)
                 if (!FLAGS_SET(item->flags, DNS_QUESTION_WANTS_UNICAST_REPLY))
                         return false;
-        }
+
         return true;
 }
 
