@@ -353,7 +353,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                                 log_error_errno(r, "Failed to update battery discharge rate, ignoring: %m");
                 }
 
-        } while (!battery_is_low());
+        } while (!battery_is_low() && !battery_is_alarming());
 
         log_debug("Attempting to hibernate");
         r = execute(sleep_config, SLEEP_HIBERNATE, NULL);

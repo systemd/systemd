@@ -188,6 +188,34 @@ int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
         return 0;
 }
 
+int battery_is_alarming(void) {
+        _cleanup_free_ char *battery_energy_now_string = NULL, *battery_alarm_string = NULL;
+        int battery_energy_now, battery_alarm, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/energy_now", &battery_energy_now_string);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/energy_now: %m");
+
+        r = safe_atoi(battery_energy_now_string, &battery_energy_now);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse battery present energy: %m");
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/alarm", &battery_alarm_string);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/alarm: %m");
+
+        r = safe_atoi(battery_alarm_string, &battery_alarm);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse battery alarm value: %m");
+
+        if (battery_energy_now < battery_alarm) {
+               log_debug("Battery current energy is less than battery alarm threshold");
+               return 0;
+        }
+
+        return 1;
+}
+
 int can_sleep_state(char **types) {
         _cleanup_free_ char *text = NULL;
         int r;
