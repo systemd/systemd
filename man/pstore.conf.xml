@@ -34,7 +34,7 @@
     <para>This file configures the behavior of
     <citerefentry><refentrytitle>systemd-pstore</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     a tool for archiving the contents of the persistent storage filesystem,
-    <ulink url="https://www.kernel.org/doc/Documentation/ABI/testing/pstore">pstore</ulink>.
+    <ulink url="https://docs.kernel.org/admin-guide/abi-testing.html#abi-sys-fs-pstore">pstore</ulink>.
     </para>
   </refsect1>
 

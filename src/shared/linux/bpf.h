@@ -473,7 +473,7 @@ union bpf_iter_link_info {
  *		Verify and load BPF Type Format (BTF) metadata into the kernel,
  *		returning a new file descriptor associated with the metadata.
  *		BTF is described in more detail at
- *		https://www.kernel.org/doc/html/latest/bpf/btf.html.
+ *		https://docs.kernel.org/bpf/btf.html.
  *
  *		The *btf* parameter must point to valid memory providing
  *		*btf_size* bytes of BTF binary metadata.

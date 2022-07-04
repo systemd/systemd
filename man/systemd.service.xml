@@ -1103,7 +1103,7 @@
         <term><varname>USBFunctionDescriptors=</varname></term>
         <listitem><para>Configure the location of a file containing
         <ulink
-        url="https://www.kernel.org/doc/html/latest/usb/functionfs.html">USB
+        url="https://docs.kernel.org/usb/functionfs.html">USB
         FunctionFS</ulink> descriptors, for implementation of USB
         gadget functions. This is used only in conjunction with a
         socket unit with <varname>ListenUSBFunction=</varname>
@@ -1138,7 +1138,7 @@
         manager. If set to <constant>kill</constant> and one of the service's processes is killed by the OOM
         killer the kernel is instructed to kill all remaining processes of the service too, by setting the
         <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see <ulink
-        url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">kernel documentation</ulink>.
+        url="https://docs.kernel.org/admin-guide/cgroup-v2.html">kernel documentation</ulink>.
         </para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in

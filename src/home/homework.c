@@ -274,7 +274,7 @@ int user_record_authenticate(
 static void drop_caches_now(void) {
         int r;
 
-        /* Drop file system caches now. See https://www.kernel.org/doc/html/latest/admin-guide/sysctl/vm.html
+        /* Drop file system caches now. See https://docs.kernel.org/admin-guide/sysctl/vm.html
          * for details. We write "2" into /proc/sys/vm/drop_caches to ensure dentries/inodes are flushed, but
          * not more. */
 

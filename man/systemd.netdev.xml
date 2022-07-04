@@ -90,7 +90,7 @@
         </row></thead>
         <tbody>
           <row><entry><varname>bond</varname></entry>
-          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/html/latest/networking/bonding.html">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
+          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://docs.kernel.org/networking/bonding.html">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
           <entry>A bridge device is a software switch, and each of its slave devices and the bridge itself are ports of the switch.</entry></row>
@@ -165,7 +165,7 @@
           <entry>Media Access Control Security (MACsec) is an 802.1AE IEEE industry-standard security technology that provides secure communication for all traffic on Ethernet links. MACsec provides point-to-point security on Ethernet links between directly connected nodes and is capable of identifying and preventing most security threats.</entry></row>
 
           <row><entry><varname>vrf</varname></entry>
-          <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/html/latest/networking/vrf.html">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
+          <entry>A Virtual Routing and Forwarding (<ulink url="https://docs.kernel.org/networking/vrf.html">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
           <row><entry><varname>vcan</varname></entry>
           <entry>The virtual CAN driver (vcan). Similar to the network loopback devices, vcan offers a virtual local CAN interface.</entry></row>
@@ -2021,7 +2021,7 @@
     </variablelist>
 
     <para>For more detail information see
-    <ulink url="https://www.kernel.org/doc/html/latest/networking/bonding.html">
+    <ulink url="https://docs.kernel.org/networking/bonding.html">
     Linux Ethernet Bonding Driver HOWTO</ulink></para>
   </refsect1>
 

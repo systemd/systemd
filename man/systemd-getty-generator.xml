@@ -40,7 +40,7 @@
     place, regardless of which environment the system is started in. For example, it is sufficient to
     redirect the kernel console with a kernel command line argument such as <varname>console=</varname> to
     get both kernel messages and a getty prompt on a serial TTY. See <ulink
-    url="https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html">The kernel's command-line
+    url="https://docs.kernel.org/admin-guide/kernel-parameters.html">The kernel's command-line
     parameters</ulink> for more information on the <varname>console=</varname> kernel parameter.</para>
 
     <para><filename>systemd-getty-generator</filename> implements

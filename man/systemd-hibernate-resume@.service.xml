@@ -35,7 +35,7 @@
 
     <para><filename>systemd-hibernate-resume</filename> only supports
     the in-kernel hibernation implementation, see
-    <ulink url="https://www.kernel.org/doc/html/latest/power/swsusp.html">Swap suspend</ulink>.
+    <ulink url="https://docs.kernel.org/power/swsusp.html">Swap suspend</ulink>.
     Internally, it works by writing the major:minor of specified
     device node to <filename>/sys/power/resume</filename>.</para>
 

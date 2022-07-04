@@ -293,7 +293,7 @@
         <filename>/proc/</filename>. If <literal>ptraceable</literal> all processes that cannot be
         <function>ptrace()</function>'ed by a process are hidden to it. If <literal>default</literal> no
         restrictions on <filename>/proc/</filename> access or visibility are made. For further details see
-        <ulink url="https://www.kernel.org/doc/html/latest/filesystems/proc.html#mount-options">The /proc
+        <ulink url="https://docs.kernel.org/filesystems/proc.html#mount-options">The /proc
         Filesystem</ulink>. It is generally recommended to run most system services with this option set to
         <literal>invisible</literal>. This option is implemented via file system namespacing, and thus cannot
         be used with services that shall be able to install mount points in the host file system
@@ -318,7 +318,7 @@
         introspection are made invisible in the <filename>/proc/</filename> file system configured for the
         unit's processes. This controls the <literal>subset=</literal> mount option of the
         <literal>procfs</literal> instance for the unit. For further details see <ulink
-        url="https://www.kernel.org/doc/html/latest/filesystems/proc.html#mount-options">The /proc
+        url="https://docs.kernel.org/filesystems/proc.html#mount-options">The /proc
         Filesystem</ulink>. Note that Linux exposes various kernel APIs via <filename>/proc/</filename>,
         which are made unavailable with this setting. Since these APIs are used frequently this option is
         useful only in a few, specific cases, and is not suitable for most non-trivial programs.</para>
@@ -725,7 +725,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         by them, <command>systemctl show</command> shows the original value of this setting. In case the
         service will be run in a new mount namespace anyway and SELinux is disabled, all file systems
         are mounted with <constant>MS_NOSUID</constant> flag. Also see
-        <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New
+        <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New
         Privileges Flag</ulink>.</para></listitem>
       </varlistentry>
 
@@ -1042,7 +1042,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Sets the adjustment value for the Linux kernel's Out-Of-Memory (OOM) killer score for
         executed processes. Takes an integer between -1000 (to disable OOM killing of processes of this unit)
         and 1000 (to make killing of processes of this unit under memory pressure very likely). See <ulink
-        url="https://www.kernel.org/doc/html/latest/filesystems/proc.html">The /proc Filesystem</ulink> for
+        url="https://docs.kernel.org/filesystems/proc.html">The /proc Filesystem</ulink> for
         details. If not specified defaults to the OOM score adjustment level of the service manager itself,
         which is normally at 0.</para>
 

@@ -87,7 +87,7 @@
       <title><filename>/etc/initrd-release</filename></title>
 
       <para>In the <ulink
-      url="https://www.kernel.org/doc/html/latest/admin-guide/initrd.html">initrd</ulink>,
+      url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink>,
       <filename>/etc/initrd-release</filename> plays the same role as <filename>os-release</filename> in the
       main system. Additionally, the presence of that file means that the system is in the initrd phase.
       <filename>/etc/os-release</filename> should be symlinked to <filename>/etc/initrd-release</filename>
@@ -404,7 +404,7 @@
           <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
           a–z, ".", "_" and "-") identifying the operating system extensions support level, to indicate which
           extension images are supported. See <filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename>,
-          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/initrd.html">initrd</ulink> and
+          <ulink url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink> and
           <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           for more information.</para>
 
