@@ -1801,6 +1801,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
 
+        m->mountinfo_uptodate = true;
         return 0;
 }
 
@@ -1870,6 +1871,8 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
         Job *j;
 
         assert(m);
+
+        m->mountinfo_uptodate = false;
 
         /* Let's enqueue all start jobs that were previously skipped because of active ratelimit. */
         HASHMAP_FOREACH(j, m->jobs) {
@@ -1989,8 +1992,14 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         assert(m);
 
         r = drain_libmount(m);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+
+        if (r == 0 &&
+            m->mountinfo_uptodate &&
+            sd_event_source_get_enabled(m->mount_event_source, NULL) > 0 &&
+            !sd_event_source_is_ratelimited(m->mount_event_source))
+                return 0;
 
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
