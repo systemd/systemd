@@ -1,0 +1,21 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN untrusted.test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+@                     NS ns1.unsigned.test.
+
+*.wild                TXT "this is an untrusted wildcard"
+
+@                     MX 10 mail.untrusted.test.
+
+                      A 10.0.0.121
+mail                  A 10.0.0.121
