@@ -1551,6 +1551,33 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         return 0;
 }
 
+static int dns_transaction_setup_timeout(
+                DnsTransaction *t,
+                usec_t timeout_usec /* relative */,
+                usec_t next_usec /* CLOCK_BOOTTIME */) {
+
+        int r;
+
+        assert(t);
+
+        dns_transaction_stop_timeout(t);
+
+        r = sd_event_add_time_relative(
+                t->scope->manager->event,
+                &t->timeout_event_source,
+                CLOCK_BOOTTIME,
+                timeout_usec, 0,
+                on_transaction_timeout, t);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
+
+        t->next_attempt_after = next_usec;
+        t->state = DNS_TRANSACTION_PENDING;
+        return 0;
+}
+
 static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
@@ -1568,11 +1595,12 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 return DNS_TIMEOUT_USEC;
 
         case DNS_PROTOCOL_MDNS:
-                assert(t->n_attempts > 0);
                 if (t->probing)
                         return MDNS_PROBING_INTERVAL_USEC;
-                else
-                        return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+
+                /* See RFC 6762 Section 5.1 suggests that timeout should be a few seconds. */
+                assert(t->n_attempts > 0);
+                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
 
         case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
@@ -1622,7 +1650,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->n_attempts >= dns_transaction_attempts_max(t->scope->protocol, t->probing)) {
+        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
                 DnsTransactionState result;
 
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
@@ -1795,62 +1823,59 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
 
         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
 
-        LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+        for (bool restart = true; restart; ) {
+                restart = false;
+                LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+                        size_t saved_packet_size;
 
-                /* Skip ourselves */
-                if (other == t)
-                        continue;
+                        /* Skip ourselves */
+                        if (other == t)
+                                continue;
 
-                if (other->state != DNS_TRANSACTION_PENDING)
-                        continue;
+                        if (other->state != DNS_TRANSACTION_PENDING)
+                                continue;
 
-                if (other->next_attempt_after > ts)
-                        continue;
+                        if (other->next_attempt_after > ts)
+                                continue;
 
-                if (qdcount >= UINT16_MAX)
-                        break;
+                        if (qdcount >= UINT16_MAX)
+                                break;
 
-                r = dns_packet_append_key(p, dns_transaction_key(other), 0, NULL);
-
-                /*
-                 * If we can't stuff more questions into the packet, just give up.
-                 * One of the 'other' transactions will fire later and take care of the rest.
-                 */
-                if (r == -EMSGSIZE)
-                        break;
-
-                if (r < 0)
-                        return r;
-
-                r = dns_transaction_prepare(other, ts);
-                if (r <= 0)
-                        continue;
-
-                ts += transaction_get_resend_timeout(other);
-
-                r = sd_event_add_time(
-                                other->scope->manager->event,
-                                &other->timeout_event_source,
-                                CLOCK_BOOTTIME,
-                                ts, 0,
-                                on_transaction_timeout, other);
-                if (r < 0)
-                        return r;
-
-                (void) sd_event_source_set_description(other->timeout_event_source, "dns-transaction-timeout");
-
-                other->state = DNS_TRANSACTION_PENDING;
-                other->next_attempt_after = ts;
-
-                qdcount++;
-
-                if (dns_key_is_shared(dns_transaction_key(other)))
-                        add_known_answers = true;
-
-                if (dns_transaction_key(other)->type == DNS_TYPE_ANY) {
-                        r = set_ensure_put(&keys, &dns_resource_key_hash_ops, dns_transaction_key(other));
+                        r = dns_packet_append_key(p, dns_transaction_key(other), 0, &saved_packet_size);
+                        /* If we can't stuff more questions into the packet, just give up.
+                         * One of the 'other' transactions will fire later and take care of the rest. */
+                        if (r == -EMSGSIZE)
+                                break;
                         if (r < 0)
                                 return r;
+
+                        r = dns_transaction_prepare(other, ts);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                dns_packet_truncate(p, saved_packet_size);
+
+                                /* In this case, not only this transaction, but multiple transactions may be
+                                 * freed. Hence, we need to restart the loop. */
+                                restart = true;
+                                continue;
+                        }
+
+                        usec_t timeout = transaction_get_resend_timeout(other);
+                        r = dns_transaction_setup_timeout(other, timeout, usec_add(ts, timeout));
+                        if (r < 0)
+                                return r;
+
+                        qdcount++;
+
+                        if (dns_key_is_shared(dns_transaction_key(other)))
+                                add_known_answers = true;
+
+                        if (dns_transaction_key(other)->type == DNS_TYPE_ANY) {
+                                r = set_ensure_put(&keys, &dns_resource_key_hash_ops, dns_transaction_key(other));
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -1950,44 +1975,35 @@ int dns_transaction_go(DnsTransaction *t) {
 
         if (!t->initial_jitter_scheduled &&
             IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
-                usec_t jitter, accuracy;
+                usec_t jitter;
 
-                /* RFC 4795 Section 2.7 suggests all queries should be delayed by a random time from 0 to
-                 * JITTER_INTERVAL. */
+                /* RFC 4795 Section 2.7 suggests all LLMNR queries should be delayed by a random time from 0 to
+                 * JITTER_INTERVAL.
+                 * RFC 6762 Section 8.1 suggests initial probe queries should be delayed by a random time from
+                 * 0 to 250ms. */
 
                 t->initial_jitter_scheduled = true;
+                t->n_attempts = 0;
 
                 switch (t->scope->protocol) {
 
                 case DNS_PROTOCOL_LLMNR:
                         jitter = random_u64_range(LLMNR_JITTER_INTERVAL_USEC);
-                        accuracy = LLMNR_JITTER_INTERVAL_USEC;
                         break;
 
                 case DNS_PROTOCOL_MDNS:
-                        jitter = usec_add(random_u64_range(MDNS_JITTER_RANGE_USEC), MDNS_JITTER_MIN_USEC);
-                        accuracy = MDNS_JITTER_RANGE_USEC;
+                        if (t->probing)
+                                jitter = random_u64_range(MDNS_PROBING_INTERVAL_USEC);
+                        else
+                                jitter = 0;
                         break;
                 default:
                         assert_not_reached();
                 }
 
-                assert(!t->timeout_event_source);
-
-                r = sd_event_add_time_relative(
-                                t->scope->manager->event,
-                                &t->timeout_event_source,
-                                CLOCK_BOOTTIME,
-                                jitter, accuracy,
-                                on_transaction_timeout, t);
+                r = dns_transaction_setup_timeout(t, jitter, ts);
                 if (r < 0)
                         return r;
-
-                (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
-
-                t->n_attempts = 0;
-                t->next_attempt_after = ts;
-                t->state = DNS_TRANSACTION_PENDING;
 
                 log_debug("Delaying %s transaction %" PRIu16 " for " USEC_FMT "us.",
                           dns_protocol_to_string(t->scope->protocol),
@@ -2062,21 +2078,10 @@ int dns_transaction_go(DnsTransaction *t) {
                 return dns_transaction_go(t);
         }
 
-        ts += transaction_get_resend_timeout(t);
-
-        r = sd_event_add_time(
-                        t->scope->manager->event,
-                        &t->timeout_event_source,
-                        CLOCK_BOOTTIME,
-                        ts, 0,
-                        on_transaction_timeout, t);
+        usec_t timeout = transaction_get_resend_timeout(t);
+        r = dns_transaction_setup_timeout(t, timeout, usec_add(ts, timeout));
         if (r < 0)
                 return r;
-
-        (void) sd_event_source_set_description(t->timeout_event_source, "dns-transaction-timeout");
-
-        t->state = DNS_TRANSACTION_PENDING;
-        t->next_attempt_after = ts;
 
         return 1;
 }
