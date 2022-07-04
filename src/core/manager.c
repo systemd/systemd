@@ -1757,6 +1757,10 @@ static void manager_ready(Manager *m) {
                         UID_INVALID, GID_INVALID, 0444);
 
         m->honor_device_enumeration = true;
+
+        /* Re-read /proc/self/mountinfo when the first SIGCHLD event for mount unit is received. As, the
+         * mount states set by mount_enumerate() may be overwritten by the outdated deserialized states. */
+        m->mountinfo_uptodate = false;
 }
 
 Manager* manager_reloading_start(Manager *m) {
