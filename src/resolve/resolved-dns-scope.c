@@ -1011,7 +1011,9 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 return;
         }
 
-        assert(dns_question_size(p->question) == 1);
+        if (dns_question_size(p->question) != 1)
+                return (void) log_debug("Received LLMNR query without question or multiple questions, ignoring.");
+
         key = dns_question_first_key(p->question);
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
