@@ -263,7 +263,7 @@
         on executables with setuid or setgid bits and will thus not
         function properly with this option enabled. Individual units
         cannot disable this option.
-        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        Also see <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
         </para></listitem>
       </varlistentry>
 

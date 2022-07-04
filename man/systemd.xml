@@ -210,7 +210,7 @@
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
+    url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
     for more information about control groups, or short "cgroups").
     systemd uses this to effectively keep track of processes. Control
     group information is maintained in the kernel, and is accessible
@@ -915,7 +915,7 @@
 
         <listitem><para>When specified without an argument or with a true argument,
         enables the usage of
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
         (a.k.a. cgroups-v2). When specified with a false argument, fall back to
         hybrid or full legacy cgroup hierarchy.</para>
 
@@ -933,7 +933,7 @@
         (see previous option). When specified without an argument or with a true
         argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
         tree used for systemd, and
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/">legacy
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">legacy
         cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
         forces a full "legacy" mode. When specified with a false argument, enables
         the use of "hybrid" hierarchy.</para>
