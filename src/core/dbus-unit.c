@@ -1284,7 +1284,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 pid_t pid;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
-                 * From https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#threads,
+                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
                  * the subtree and is not readable in the subtree proper. */
                 r = cg_read_pid(f, &pid);
