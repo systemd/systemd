@@ -177,8 +177,6 @@ static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p
         if (r < 0)
                 return r;
 
-        assert(r > 0);
-
         if (proposed_rrs_cmp(remote, r, our, size) > 0)
                 return 1;
 
