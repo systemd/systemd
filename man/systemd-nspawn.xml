@@ -1492,7 +1492,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         temporary directory on a read-only <filename>/var/</filename> directory.</para>
 
         <para>For details about overlay file systems, see <ulink
-        url="https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
+        url="https://docs.kernel.org/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
         Note that the semantics of overlay file systems are substantially different from normal file systems,
         in particular regarding reported device and inode information. Device and inode information may
         change for a file while it is being written to, and processes might see out-of-date versions of files
