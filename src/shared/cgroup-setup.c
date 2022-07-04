@@ -153,6 +153,26 @@ bool cg_is_hybrid_wanted(void) {
         return (wanted = r > 0 ? !b : is_default);
 }
 
+int cg_idle_parse(const char* s, int64_t *ret) {
+        int r;
+
+        if (isempty(s)) {
+                *ret = CGROUP_CPU_IDLE_INVALID;
+                return 0;
+        }
+
+        /* cpu.idle only support 0 or 1 now, and if this value accept more value in the future, we will add
+         * parse logic here. */
+        r = parse_boolean(s);
+
+        if (r < 0)
+                return r;
+
+        *ret = r;
+        return 0;
+
+}
+
 int cg_weight_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;

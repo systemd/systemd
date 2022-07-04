@@ -452,6 +452,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
         SD_BUS_PROPERTY("CPUShares", "t", NULL, offsetof(CGroupContext, cpu_shares), 0),
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
+        SD_BUS_PROPERTY("CPUIdle", "x", NULL, offsetof(CGroupContext, cpu_idle), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
@@ -903,6 +904,36 @@ BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memo
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 REENABLE_WARNING;
 
+static int bus_cgroup_set_cpu_idle(
+                Unit *u,
+                const char *name,
+                int64_t *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+        int64_t v;
+        int r;
+
+        assert(p);
+
+        r = sd_bus_message_read(message, "x", &v);
+        if (r < 0)
+                return r;
+
+        if (CGROUP_CPU_IDLE_IS_OK(v)) {
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name);
+        }
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = v;
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+                unit_write_settingf(u, flags, name,
+                "%s=%" PRId64, name, v);
+        }
+
+        return 1;
+}
+
 static int bus_cgroup_set_tasks_max(
                 Unit *u,
                 const char *name,
@@ -1001,6 +1032,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "CPUShares"))
                 return bus_cgroup_set_cpu_shares(u, name, &c->cpu_shares, message, flags, error);
+
+        if (streq(name, "CPUIdle"))
+                return bus_cgroup_set_cpu_idle(u, name, &c->cpu_idle, message, flags, error);
 
         if (streq(name, "StartupCPUShares"))
                 return bus_cgroup_set_cpu_shares(u, name, &c->startup_cpu_shares, message, flags, error);

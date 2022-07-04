@@ -199,6 +199,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUIdle=</varname></term>
+
+        <listitem>
+          <para>Assign the idle scheduling strategy to the processes executed, both the unified and legacy control group
+          is effiecient. Takes a boolean argument, default to no. If true, processes have idle schedule policy, which means mininum sched weight
+          and could be preemt by other non-idle processes in the same level of task group, Note that when setting this param
+          to yes, configure with CPUWeight is illegal.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CPUQuota=</varname></term>
 
         <listitem>
