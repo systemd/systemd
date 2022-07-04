@@ -737,7 +737,7 @@ CHANGES WITH 250:
           unit skip/fail activation if the system's (or a slice's) memory/cpu/io
           pressure is above the configured threshold, using the kernel PSI
           feature. For more details see systemd.unit(5) and
-          https://www.kernel.org/doc/html/latest/accounting/psi.html
+          https://docs.kernel.org/accounting/psi.html
 
         * The combination of ProcSubset=pid and ProtectKernelTunables=yes and/or
           ProtectKernelLogs=yes can now be used.
@@ -5332,7 +5332,7 @@ CHANGES WITH 240:
           a client with a Wi-Fi and Ethernet both connected to the internet).
 
           Consult the kernel documentation for details on this sysctl:
-          https://www.kernel.org/doc/html/latest/networking/ip-sysctl.html
+          https://docs.kernel.org/networking/ip-sysctl.html
 
         * The v239 change to turn on "net.ipv4.tcp_ecn" by default has been
           reverted.
