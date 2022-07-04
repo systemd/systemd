@@ -254,7 +254,8 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
-        assert_return((dns_question_size(p->question) > 0), -EINVAL);
+        if (dns_question_size(p->question) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Received mDNS query without question, ignoring.");
 
         unicast_reply = mdns_should_reply_using_unicast(p);
         if (unicast_reply && !sender_on_local_subnet(s, p)) {
