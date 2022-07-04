@@ -1823,51 +1823,59 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
 
         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
 
-        LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+        for (bool restart = true; restart; ) {
+                restart = false;
+                LIST_FOREACH(transactions_by_scope, other, t->scope->transactions) {
+                        size_t saved_packet_size;
 
-                /* Skip ourselves */
-                if (other == t)
-                        continue;
+                        /* Skip ourselves */
+                        if (other == t)
+                                continue;
 
-                if (other->state != DNS_TRANSACTION_PENDING)
-                        continue;
+                        if (other->state != DNS_TRANSACTION_PENDING)
+                                continue;
 
-                if (other->next_attempt_after > ts)
-                        continue;
+                        if (other->next_attempt_after > ts)
+                                continue;
 
-                if (qdcount >= UINT16_MAX)
-                        break;
+                        if (qdcount >= UINT16_MAX)
+                                break;
 
-                r = dns_packet_append_key(p, dns_transaction_key(other), 0, NULL);
-
-                /*
-                 * If we can't stuff more questions into the packet, just give up.
-                 * One of the 'other' transactions will fire later and take care of the rest.
-                 */
-                if (r == -EMSGSIZE)
-                        break;
-
-                if (r < 0)
-                        return r;
-
-                r = dns_transaction_prepare(other, ts);
-                if (r <= 0)
-                        continue;
-
-                usec_t timeout = transaction_get_resend_timeout(other);
-                r = dns_transaction_setup_timeout(other, timeout, usec_add(ts, timeout));
-                if (r < 0)
-                        return r;
-
-                qdcount++;
-
-                if (dns_key_is_shared(dns_transaction_key(other)))
-                        add_known_answers = true;
-
-                if (dns_transaction_key(other)->type == DNS_TYPE_ANY) {
-                        r = set_ensure_put(&keys, &dns_resource_key_hash_ops, dns_transaction_key(other));
+                        r = dns_packet_append_key(p, dns_transaction_key(other), 0, &saved_packet_size);
+                        /* If we can't stuff more questions into the packet, just give up.
+                         * One of the 'other' transactions will fire later and take care of the rest. */
+                        if (r == -EMSGSIZE)
+                                break;
                         if (r < 0)
                                 return r;
+
+                        r = dns_transaction_prepare(other, ts);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                dns_packet_truncate(p, saved_packet_size);
+
+                                /* In this case, not only this transaction, but multiple transactions may be
+                                 * freed. Hence, we need to restart the loop. */
+                                restart = true;
+                                continue;
+                        }
+
+                        usec_t timeout = transaction_get_resend_timeout(other);
+                        r = dns_transaction_setup_timeout(other, timeout, usec_add(ts, timeout));
+                        if (r < 0)
+                                return r;
+
+                        qdcount++;
+
+                        if (dns_key_is_shared(dns_transaction_key(other)))
+                                add_known_answers = true;
+
+                        if (dns_transaction_key(other)->type == DNS_TYPE_ANY) {
+                                r = set_ensure_put(&keys, &dns_resource_key_hash_ops, dns_transaction_key(other));
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
