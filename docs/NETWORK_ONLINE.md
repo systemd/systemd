@@ -5,7 +5,7 @@ layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Network configuration synchronization points
+# Network Configuration Synchronization Points
 
 systemd provides three target units related to network configuration:
 
