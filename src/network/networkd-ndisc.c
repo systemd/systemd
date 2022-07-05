@@ -527,7 +527,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not request prefix route: %m");;
+                return log_link_error_errno(link, r, "Could not request prefix route: %m");
 
         return 0;
 }
