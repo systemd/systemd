@@ -1545,7 +1545,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         switch (json_variant_type(v)) {
 
         case JSON_VARIANT_REAL: {
-                locale_t loc;
+                locale_t loc, old_loc;
 
                 loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t) 0);
                 if (loc == (locale_t) 0)
@@ -1554,7 +1554,9 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
                 if (flags & JSON_FORMAT_COLOR)
                         fputs(ansi_highlight_blue(), f);
 
+                old_loc = uselocale(loc);
                 fprintf(f, "%.*e", DECIMAL_DIG, json_variant_real(v));
+                uselocale(old_loc);
 
                 if (flags & JSON_FORMAT_COLOR)
                         fputs(ANSI_NORMAL, f);
