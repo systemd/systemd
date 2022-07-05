@@ -1586,11 +1586,9 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                                                "Machine image '%s' does not exist.",
                                                argv[i]);
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "StartUnit",
                                 &error,
                                 &reply,
@@ -1629,13 +1627,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method);
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1688,15 +1680,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 goto finish;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload",
-                        &error,
-                        NULL,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
         if (r < 0) {
                 log_error("Failed to reload daemon: %s", bus_error_message(&error, r));
                 goto finish;
