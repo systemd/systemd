@@ -26,8 +26,8 @@ bool id128_is_valid(const char *s) {
                         char c = s[i];
 
                         if (!(c >= '0' && c <= '9') &&
-                            !(c >= 'a' && c <= 'z') &&
-                            !(c >= 'A' && c <= 'Z'))
+                            !(c >= 'a' && c <= 'f') &&
+                            !(c >= 'A' && c <= 'F'))
                                 return false;
                 }
 
@@ -43,8 +43,8 @@ bool id128_is_valid(const char *s) {
                                         return false;
                         } else {
                                 if (!(c >= '0' && c <= '9') &&
-                                    !(c >= 'a' && c <= 'z') &&
-                                    !(c >= 'A' && c <= 'Z'))
+                                    !(c >= 'a' && c <= 'f') &&
+                                    !(c >= 'A' && c <= 'F'))
                                         return false;
                         }
                 }
