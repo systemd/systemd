@@ -1470,13 +1470,13 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
                 return false;
 
         /* Don't allow digits as first character */
-        if (p[0] >= '0' && p[0] <= '9')
+        if (ascii_isdigit(p[0]))
                 return false;
 
         /* Only allow A-Z0-9 and '_' */
         for (const char *a = p; a < p + l; a++)
                 if ((*a < 'A' || *a > 'Z') &&
-                    (*a < '0' || *a > '9') &&
+                    !ascii_isdigit(*a) &&
                     *a != '_')
                         return false;
 

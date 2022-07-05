@@ -210,7 +210,7 @@ int parse_size(const char *t, uint64_t base, uint64_t *size) {
                         e++;
 
                         /* strtoull() itself would accept space/+/- */
-                        if (*e >= '0' && *e <= '9') {
+                        if (ascii_isdigit(*e)) {
                                 unsigned long long l2;
                                 char *e2;
 
@@ -599,7 +599,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 
         /* accept any number of digits, strtoull is limited to 19 */
         for (size_t i = 0; i < digits; i++,s++) {
-                if (*s < '0' || *s > '9') {
+                if (!ascii_isdigit(*s)) {
                         if (i == 0)
                                 return -EINVAL;
 

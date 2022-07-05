@@ -1163,7 +1163,7 @@ static int manager_next_random_name(const char *old, char **ret_new) {
         assert(p);
 
         while (p > old) {
-                if (!strchr(DIGITS, p[-1]))
+                if (!ascii_isdigit(p[-1]))
                         break;
 
                 p--;
