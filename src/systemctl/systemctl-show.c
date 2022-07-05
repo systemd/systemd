@@ -64,7 +64,7 @@ typedef struct ExecStatusInfo {
 
         ExecCommandFlags flags;
 
-        LIST_FIELDS(struct ExecStatusInfo, exec);
+        LIST_FIELDS(struct ExecStatusInfo, exec_status_info_list);
 } ExecStatusInfo;
 
 static void exec_status_info_free(ExecStatusInfo *i) {
@@ -263,7 +263,7 @@ typedef struct UnitStatusInfo {
         uint64_t default_memory_min;
         uint64_t default_memory_low;
 
-        LIST_HEAD(ExecStatusInfo, exec);
+        LIST_HEAD(ExecStatusInfo, exec_status_info_list);
 } UnitStatusInfo;
 
 static void unit_status_info_free(UnitStatusInfo *info) {
@@ -281,8 +281,8 @@ static void unit_status_info_free(UnitStatusInfo *info) {
                 unit_condition_free(c);
         }
 
-        while ((p = info->exec)) {
-                LIST_REMOVE(exec, info->exec, p);
+        while ((p = info->exec_status_info_list)) {
+                LIST_REMOVE(exec_status_info_list, info->exec_status_info_list, p);
                 exec_status_info_free(p);
         }
 }
@@ -566,7 +566,7 @@ static void print_status_info(
                 printf("\n");
         }
 
-        LIST_FOREACH(exec, p, i->exec) {
+        LIST_FOREACH(exec_status_info_list, p, i->exec_status_info_list) {
                 _cleanup_free_ char *argv = NULL;
                 bool good;
 
@@ -944,7 +944,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         if (!info)
                 return -ENOMEM;
 
-        LIST_FIND_TAIL(exec, i->exec, last);
+        LIST_FIND_TAIL(exec_status_info_list, i->exec_status_info_list, last);
 
         while ((r = exec_status_info_deserialize(m, info, is_ex_prop)) > 0) {
 
@@ -952,7 +952,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
                 if (!info->name)
                         return -ENOMEM;
 
-                LIST_INSERT_AFTER(exec, i->exec, last, info);
+                LIST_INSERT_AFTER(exec_status_info_list, i->exec_status_info_list, last, info);
                 last = info;
 
                 info = new0(ExecStatusInfo, 1);

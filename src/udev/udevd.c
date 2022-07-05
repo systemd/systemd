@@ -942,8 +942,7 @@ static int event_queue_start(Manager *manager) {
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events) ||
-            manager->exit || manager->stop_exec_queue)
+        if (!manager->events || manager->exit || manager->stop_exec_queue)
                 return 0;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
@@ -1121,7 +1120,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
         };
 
-        if (LIST_IS_EMPTY(manager->events)) {
+        if (!manager->events) {
                 r = touch("/run/udev/queue");
                 if (r < 0)
                         log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
@@ -1566,7 +1565,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         assert(manager);
 
-        if (!LIST_IS_EMPTY(manager->events)) {
+        if (manager->events) {
                 /* Try to process pending events if idle workers exist. Why is this necessary?
                  * When a worker finished an event and became idle, even if there was a pending event,
                  * the corresponding device might have been locked and the processing of the event
