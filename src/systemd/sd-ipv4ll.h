@@ -16,7 +16,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <net/ethernet.h>
@@ -31,7 +31,7 @@ _SD_BEGIN_DECLARATIONS;
 enum {
         SD_IPV4LL_EVENT_STOP            = 0,
         SD_IPV4LL_EVENT_BIND            = 1,
-        SD_IPV4LL_EVENT_CONFLICT        = 2,
+        SD_IPV4LL_EVENT_CONFLICT        = 2
 };
 
 typedef struct sd_ipv4ll sd_ipv4ll;

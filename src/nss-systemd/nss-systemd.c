@@ -46,7 +46,7 @@ static const struct passwd nobody_passwd = {
         .pw_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
         .pw_uid = UID_NOBODY,
         .pw_gid = GID_NOBODY,
-        .pw_gecos = (char*) "User Nobody",
+        .pw_gecos = (char*) "Kernel Overflow User",
         .pw_dir = (char*) "/",
         .pw_shell = (char*) NOLOGIN,
 };

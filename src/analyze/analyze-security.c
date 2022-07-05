@@ -105,7 +105,7 @@ typedef struct SecurityInfo {
         Set *system_call_architectures;
 
         bool system_call_filter_allow_list;
-        Hashmap *system_call_filter;
+        Set *system_call_filter;
 
         mode_t _umask;
 } SecurityInfo;
@@ -172,8 +172,7 @@ static SecurityInfo *security_info_free(SecurityInfo *i) {
 
         strv_free(i->supplementary_groups);
         set_free(i->system_call_architectures);
-
-        hashmap_free(i->system_call_filter);
+        set_free(i->system_call_filter);
 
         return mfree(i);
 }
@@ -567,12 +566,10 @@ static int assess_system_call_architectures(
         return 0;
 }
 
-static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
+static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
         const char *syscall;
 
         NULSTR_FOREACH(syscall, f->value) {
-                int id;
-
                 if (syscall[0] == '@') {
                         const SyscallFilterSet *g;
 
@@ -584,11 +581,10 @@ static bool syscall_names_in_filter(Hashmap *s, bool allow_list, const SyscallFi
                 }
 
                 /* Let's see if the system call actually exists on this platform, before complaining */
-                id = seccomp_syscall_resolve_name(syscall);
-                if (id < 0)
+                if (seccomp_syscall_resolve_name(syscall) < 0)
                         continue;
 
-                if (hashmap_contains(s, syscall) != allow_list) {
+                if (set_contains(s, syscall) == allow_list) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         if (ret_offending_syscall)
                                 *ret_offending_syscall = syscall;
@@ -619,7 +615,7 @@ static int assess_system_call_filter(
         uint64_t b;
         int r;
 
-        if (!info->system_call_filter_allow_list && hashmap_isempty(info->system_call_filter)) {
+        if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
                 r = free_and_strdup(&d, "Service does not filter system calls");
                 b = 10;
         } else {
@@ -2139,9 +2135,8 @@ static int property_read_system_call_filter(
                 if (r == 0)
                         break;
 
-                /* The actual ExecContext stores the system call id as the map value, which we don't
-                 * need. So we assign NULL to all values here. */
-                r = hashmap_put_strdup(&info->system_call_filter, name, NULL);
+                /* ignore errno or action after colon */
+                r = set_put_strndup(&info->system_call_filter, name, strchrnul(name, ':') - name);
                 if (r < 0)
                         return r;
         }
@@ -2589,14 +2584,24 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                         if (set_put_strdup(&info->system_call_architectures, name) < 0)
                                 return log_oom();
                 }
-#endif
 
                 info->system_call_filter_allow_list = c->syscall_allow_list;
-                if (c->syscall_filter) {
-                        info->system_call_filter = hashmap_copy(c->syscall_filter);
-                        if (!info->system_call_filter)
+
+                void *id, *num;
+                HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
+                        _cleanup_free_ char *name = NULL;
+
+                        if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
+                                continue;
+
+                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                        if (!name)
+                                continue;
+
+                        if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
                                 return log_oom();
                 }
+#endif
         }
 
         if (g) {

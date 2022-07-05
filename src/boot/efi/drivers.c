@@ -6,19 +6,14 @@
 #include "drivers.h"
 #include "util.h"
 
-static void efi_unload_image(EFI_HANDLE *h) {
-        if (*h)
-                (void) BS->UnloadImage(*h);
-}
-
 static EFI_STATUS load_one_driver(
                 EFI_HANDLE parent_image,
                 EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *fname) {
+                const char16_t *fname) {
 
-        _cleanup_(efi_unload_image) EFI_HANDLE image = NULL;
+        _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
-        _cleanup_freepool_ CHAR16 *spath = NULL;
+        _cleanup_free_ char16_t *spath = NULL;
         EFI_STATUS err;
 
         assert(parent_image);
@@ -26,16 +21,16 @@ static EFI_STATUS load_one_driver(
         assert(fname);
 
         spath = xpool_print(L"\\EFI\\systemd\\drivers\\%s", fname);
-        path = FileDevicePath(loaded_image->DeviceHandle, spath);
-        if (!path)
-                return log_oom();
+        err = make_file_device_path(loaded_image->DeviceHandle, spath, &path);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Error making file device path: %r", err);
 
-        err = BS->LoadImage(FALSE, parent_image, path, NULL, 0, &image);
-        if (EFI_ERROR(err))
+        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to load image %s: %r", fname, err);
 
         err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **)&loaded_image);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to find protocol in driver image %s: %r", fname, err);
 
         if (loaded_image->ImageCodeType != EfiBootServicesCode &&
@@ -43,7 +38,7 @@ static EFI_STATUS load_one_driver(
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Image %s is not a driver, refusing.", fname);
 
         err = BS->StartImage(image, NULL, NULL);
-        if (EFI_ERROR(err)) {
+        if (err != EFI_SUCCESS) {
                 /* EFI_ABORTED signals an initializing driver. It uses this error code on success
                  * so that it is unloaded after. */
                 if (err != EFI_ABORTED)
@@ -63,14 +58,14 @@ static EFI_STATUS reconnect(void) {
           /* Reconnects all handles, so that any loaded drivers can take effect. */
 
           err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
-          if (EFI_ERROR(err))
+          if (err != EFI_SUCCESS)
                   return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
 
           for (UINTN i = 0; i < n_handles; i++) {
-                  err = BS->ConnectController(handles[i], NULL, NULL, TRUE);
+                  err = BS->ConnectController(handles[i], NULL, NULL, true);
                   if (err == EFI_NOT_FOUND) /* No drivers for this handle */
                           continue;
-                  if (EFI_ERROR(err))
+                  if (err != EFI_SUCCESS)
                           log_error_status_stall(err, L"Failed to reconnect handle %" PRIuN L", ignoring: %r", i, err);
           }
 
@@ -93,12 +88,12 @@ EFI_STATUS load_drivers(
                         &drivers_dir);
         if (err == EFI_NOT_FOUND)
                 return EFI_SUCCESS;
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to open \\EFI\\systemd\\drivers: %r", err);
 
         for (;;) {
                 err = readdir_harder(drivers_dir, &dirent, &dirent_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
                 if (!dirent) /* End of directory */
                         break;
@@ -111,7 +106,7 @@ EFI_STATUS load_drivers(
                         continue;
 
                 err = load_one_driver(parent_image, loaded_image, dirent->FileName);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         continue;
 
                 n_succeeded++;

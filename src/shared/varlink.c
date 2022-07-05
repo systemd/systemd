@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "list.h"
@@ -236,8 +237,9 @@ static void varlink_set_state(Varlink *v, VarlinkState state) {
                 varlink_log(v, "Setting state %s",
                             varlink_state_to_string(state));
         else
-                varlink_log(v, "Changing state %s → %s",
+                varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
+                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
         v->state = state;
@@ -271,16 +273,10 @@ static int varlink_new(Varlink **ret) {
 int varlink_connect_address(Varlink **ret, const char *address) {
         _cleanup_(varlink_unrefp) Varlink *v = NULL;
         union sockaddr_union sockaddr;
-        socklen_t sockaddr_len;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(address, -EINVAL);
-
-        r = sockaddr_un_set_path(&sockaddr.un, address);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
-        sockaddr_len = r;
 
         r = varlink_new(&v);
         if (r < 0)
@@ -292,9 +288,21 @@ int varlink_connect_address(Varlink **ret, const char *address) {
 
         v->fd = fd_move_above_stdio(v->fd);
 
-        if (connect(v->fd, &sockaddr.sa, sockaddr_len) < 0) {
-                if (!IN_SET(errno, EAGAIN, EINPROGRESS))
-                        return log_debug_errno(errno, "Failed to connect to %s: %m", address);
+        r = sockaddr_un_set_path(&sockaddr.un, address);
+        if (r < 0) {
+                if (r != -ENAMETOOLONG)
+                        return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
+
+                /* This is a file system path, and too long to fit into sockaddr_un. Let's connect via O_PATH
+                 * to this socket. */
+
+                r = connect_unix_path(v->fd, AT_FDCWD, address);
+        } else
+                r = RET_NERRNO(connect(v->fd, &sockaddr.sa, r));
+
+        if (r < 0) {
+                if (!IN_SET(r, -EAGAIN, -EINPROGRESS))
+                        return log_debug_errno(r, "Failed to connect to %s: %m", address);
 
                 v->connecting = true; /* We are asynchronously connecting, i.e. the connect() is being
                                        * processed in the background. As long as that's the case the socket

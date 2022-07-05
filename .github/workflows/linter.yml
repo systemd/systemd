@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: github/super-linter/slim@ae4e373c56efad95924d9cc6b89624fdb2333007
+        uses: github/super-linter/slim@a320804d310fdeb8d1a46c6c6c1e615d443b10c9
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
@@ -37,8 +37,9 @@ jobs:
           #   - man/.* - all snippets in man pages (false positives due to
           #              missing shebangs)
           #   - .*\.(in|SKELETON) - all template/skeleton files
+          #                         except kernel-install
           #   - tools/coverity\.sh - external file (with some modifications)
-          FILTER_REGEX_EXCLUDE: .*/(man/.*|.*\.(in|SKELETON)|tools/coverity\.sh)$
+          FILTER_REGEX_EXCLUDE: .*/(man/.*|([^k]|k(k|ek)*([^ek]|e[^kr]))*(k(k|ek)*e?)?\.(in|SKELETON)|tools/coverity\.sh)$
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_BASH: true
           VALIDATE_GITHUB_ACTIONS: true

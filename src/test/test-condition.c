@@ -836,6 +836,27 @@ TEST(condition_test_memory) {
         test_condition_test_memory_one("!= 18446744073709547520", true);
         test_condition_test_memory_one("<= 18446744073709547520", true);
 
+        test_condition_test_memory_one("> 100T", false);
+        test_condition_test_memory_one("= 100T", false);
+        test_condition_test_memory_one(">= 100T", false);
+        test_condition_test_memory_one("< 100T", true);
+        test_condition_test_memory_one("!= 100T", true);
+        test_condition_test_memory_one("<= 100T", true);
+
+        test_condition_test_memory_one("> 100 T", false);
+        test_condition_test_memory_one("= 100 T", false);
+        test_condition_test_memory_one(">= 100 T", false);
+        test_condition_test_memory_one("< 100 T", true);
+        test_condition_test_memory_one("!= 100 T", true);
+        test_condition_test_memory_one("<= 100 T", true);
+
+        test_condition_test_memory_one("> 100 T 1 G", false);
+        test_condition_test_memory_one("= 100 T 1 G", false);
+        test_condition_test_memory_one(">= 100 T 1 G", false);
+        test_condition_test_memory_one("< 100 T 1 G", true);
+        test_condition_test_memory_one("!= 100 T 1 G", true);
+        test_condition_test_memory_one("<= 100 T 1 G", true);
+
         assert_se(asprintf(&t, "= %" PRIu64, memory) >= 0);
         test_condition_test_memory_one(t, true);
         t = mfree(t);

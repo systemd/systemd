@@ -14,6 +14,7 @@
 #include "sd-daemon.h"
 #include "sd-device.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -29,11 +30,11 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "fsck-util.h"
+#include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
-#include "id128-util.h"
 #include "io-util.h"
 #include "keyring-util.h"
 #include "memory-util.h"
@@ -179,7 +180,7 @@ static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id1
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return negative_errno();
 
         return probe_file_system_by_fd(fd, ret_fstype, ret_uuid);
 }
@@ -703,7 +704,7 @@ static int luks_validate(
                 if (!pp)
                         return errno > 0 ? -errno : -EIO;
 
-                if (id128_equal_string(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
+                if (sd_id128_string_equal(blkid_partition_get_type_string(pp), GPT_USER_HOME) <= 0)
                         continue;
 
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
@@ -949,7 +950,7 @@ static int format_luks_token_text(
                 if (!iv)
                         return log_oom();
 
-                r = genuine_random_bytes(iv, iv_size, RANDOM_BLOCK);
+                r = crypto_random_bytes(iv, iv_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate IV: %m");
         }
@@ -1229,7 +1230,7 @@ int home_setup_luks(
                 PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
-        sd_id128_t found_partition_uuid = SD_ID128_NULL, found_luks_uuid = SD_ID128_NULL, found_fs_uuid = SD_ID128_NULL;
+        sd_id128_t found_partition_uuid, found_fs_uuid, found_luks_uuid = SD_ID128_NULL;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         size_t volume_key_size = 0;
@@ -1603,7 +1604,7 @@ int home_activate_luks(
 }
 
 int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
-        bool we_detached;
+        bool we_detached = false;
         int r;
 
         assert(h);
@@ -1619,10 +1620,8 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 r = acquire_open_luks_device(h, setup, /* graceful= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
-                if (r == 0) {
+                if (r == 0)
                         log_debug("LUKS device %s has already been detached.", setup->dm_name);
-                        we_detached = false;
-                }
         }
 
         if (setup->crypt_device) {
@@ -1631,10 +1630,9 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 cryptsetup_enable_logging(setup->crypt_device);
 
                 r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) {
+                if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
                         log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
-                        we_detached = false;
-                } else if (r < 0)
+                else if (r < 0)
                         return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
                 else {
                         log_info("LUKS device detaching completed.");
@@ -1738,7 +1736,7 @@ static int luks_format(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(volume_key, volume_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
@@ -3307,12 +3305,15 @@ int home_resize_luks(
         if (resize_type == CAN_RESIZE_OFFLINE && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
                 return log_error_errno(SYNTHETIC_ERRNO(ETXTBSY), "File systems of this type can only be resized offline, but is currently online.");
 
-        log_info("Ready to resize image size %s → %s, partition size %s → %s, file system size %s → %s.",
+        log_info("Ready to resize image size %s %s %s, partition size %s %s %s, file system size %s %s %s.",
                  FORMAT_BYTES(old_image_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_image_size),
                  FORMAT_BYTES(setup->partition_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_partition_size),
                  FORMAT_BYTES(old_fs_size),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  FORMAT_BYTES(new_fs_size));
 
         r = prepare_resize_partition(

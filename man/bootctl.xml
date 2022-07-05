@@ -341,6 +341,11 @@
         token when adding a second installation.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--all-architectures</option></term>
+        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help"/>

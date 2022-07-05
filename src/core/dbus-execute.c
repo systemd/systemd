@@ -374,6 +374,10 @@ static int property_get_syscall_filter(
                 char *s;
                 int num = PTR_TO_INT(val);
 
+                if (c->syscall_allow_list && num >= 0)
+                        /* syscall with num >= 0 in allow-list is denied. */
+                        continue;
+
                 name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                 if (!name)
                         continue;
@@ -2433,7 +2437,7 @@ int bus_exec_context_set_transient_property(
                                                                          -1,
                                                                          c->syscall_filter,
                                                                          SECCOMP_PARSE_PERMISSIVE |
-                                                                         SECCOMP_PARSE_ALLOW_LIST | invert_flag,
+                                                                         SECCOMP_PARSE_ALLOW_LIST,
                                                                          u->id,
                                                                          NULL, 0);
                                         if (r < 0)

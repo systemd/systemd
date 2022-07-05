@@ -95,8 +95,6 @@ libsystemd_sources = files(
         'sd-bus/bus-dump.h',
         'sd-bus/bus-error.c',
         'sd-bus/bus-error.h',
-        'sd-bus/bus-gvariant.c',
-        'sd-bus/bus-gvariant.h',
         'sd-bus/bus-internal.c',
         'sd-bus/bus-internal.h',
         'sd-bus/bus-introspect.c',
@@ -157,10 +155,8 @@ libsystemd_sources = files(
         'sd-path/sd-path.c',
         'sd-resolve/resolve-private.h',
         'sd-resolve/sd-resolve.c',
-        'sd-utf8/sd-utf8.c',
 ) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
-disable_mempool_c = files('disable-mempool.c')
 
 libsystemd_c_args = ['-fvisibility=default']
 
@@ -181,7 +177,7 @@ libsystemd_sym_path = meson.current_source_dir() / 'libsystemd.sym'
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
-custom_target(
+libsystemd_pc = custom_target(
         'libsystemd.pc',
         input : 'libsystemd.pc.in',
         output : 'libsystemd.pc',
@@ -222,7 +218,8 @@ tests += [
           libglib,
           libgobject,
           libgio,
-          libdbus]],
+          libdbus,
+          libm]],
 
         [files('sd-bus/test-bus-signature.c'),
          [],
@@ -260,12 +257,6 @@ tests += [
 
         [files('sd-bus/test-bus-vtable.c',
                'sd-bus/test-vtable-data.h')],
-
-        [files('sd-bus/test-bus-gvariant.c'),
-         [],
-         [libglib,
-          libgobject,
-          libgio]],
 
         [files('sd-bus/test-bus-creds.c')],
 

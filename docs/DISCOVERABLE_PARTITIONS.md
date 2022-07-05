@@ -34,15 +34,14 @@ Note that the OS side of this specification is currently implemented in
 [systemd](https://systemd.io/) 211 and newer in the
 [systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
 generator tool. Note that automatic discovery of the root only works if the
-boot loader communicates this information to the OS, by implementing the [Boot
-Loader
-Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
+boot loader communicates this information to the OS, by implementing the
+[Boot Loader Interface](BOOT_LOADER_INTERFACE.md).
 
 ## Defined Partition Type UUIDs
 
 | Name | Partition Type UUID | Allowed File Systems | Explanation |
 |------|---------------------|----------------------|-------------|
-| _Root Partition (Alpha)_ | `6523f8ae-3eb1-4e2a-a05a-18b695ae656f` | Any native, optionally in LUKS | On systems with matching architecture, the first partition with this type UUID on the disk containing the active EFI ESP is automatically mounted to the root directory <tt>/</tt>. If the partition is encrypted with LUKS or has dm-verity integrity data (see below), the device mapper file will be named `/dev/mapper/root`. |
+| _Root Partition (Alpha)_ | `6523f8ae-3eb1-4e2a-a05a-18b695ae656f` | Any native, optionally in LUKS | On systems with matching architecture, the first partition with this type UUID on the disk containing the active EFI ESP is automatically mounted to the root directory `/`. If the partition is encrypted with LUKS or has dm-verity integrity data (see below), the device mapper file will be named `/dev/mapper/root`. |
 | _Root Partition (ARC)_ | `d27f46ed-2919-4cb8-bd25-9531f3c16534` | ditto | ditto |
 | _Root Partition (32-bit ARM)_ | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | ditto | ditto |
 | _Root Partition (64-bit ARM/AArch64)_ | `b921b045-1df0-41c3-af44-4c6f280d3fae` | ditto | ditto |
@@ -50,6 +49,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Partition (LoongArch 64-bit)_ | `77055800-792c-4f94-b39a-98c91b762bb6` | ditto | ditto |
 | _Root Partition (32-bit MIPS LittleEndian (mipsel))_ | `37c58c8a-d913-4156-a25f-48b1b64e07f0` | ditto | ditto |
 | _Root Partition (64-bit MIPS LittleEndian (mips64el))_ | `700bda43-7a34-4507-b179-eeb93d7a7ca3` | ditto | ditto |
+| _Root Partition (HPPA/PARISC)_ | `1aacdb3b-5444-4138-bd9e-e5c2239b2346` | ditto | ditto |
 | _Root Partition (32-bit PowerPC)_ | `1de3f1ef-fa98-47b5-8dcd-4a860a654d78` | ditto | ditto |
 | _Root Partition (64-bit PowerPC BigEndian)_ | `912ade1d-a839-4913-8964-a10eee08fbd2` | ditto | ditto |
 | _Root Partition (64-bit PowerPC LittleEndian)_ | `c31c45e6-3f39-412e-80fb-4809c4980599` | ditto | ditto |
@@ -68,6 +68,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Partition (LoongArch 64-bit)_ | `e611c702-575c-4cbe-9a46-434fa0bf7e3f` | ditto | ditto |
 | _`/usr/` Partition (32-bit MIPS LittleEndian (mipsel))_ | `0f4868e9-9952-4706-979f-3ed3a473e947` | ditto | ditto |
 | _`/usr/` Partition (64-bit MIPS LittleEndian (mips64el))_ | `c97c1f32-ba06-40b4-9f22-236061b08aa8` | ditto | ditto |
+| _`/usr/` Partition (HPPA/PARISC)_ | `dc4a4480-6917-4262-a4ec-db9384949f25` | ditto | ditto |
 | _`/usr/` Partition (32-bit PowerPC)_ | `7d14fec5-cc71-415d-9d6c-06bf0b3c3eaf` | ditto | ditto |
 | _`/usr/` Partition (64-bit PowerPC BigEndian)_ | `2c9739e2-f068-46b3-9fd0-01c5a9afbcca` | ditto | ditto |
 | _`/usr/` Partition (64-bit PowerPC LittleEndian)_ | `15bb03af-77e7-4d4a-b12b-c0d084f7491c` | ditto | ditto |
@@ -86,6 +87,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Verity Partition (LoongArch 64-bit)_ | `f3393b22-e9af-4613-a948-9d3bfbd0c535` | ditto | ditto |
 | _Root Verity Partition (32-bit MIPS LittleEndian (mipsel))_ | `d7d150d2-2a04-4a33-8f12-16651205ff7b` | ditto | ditto |
 | _Root Verity Partition (64-bit MIPS LittleEndian (mips64el))_ | `16b417f8-3e06-4f57-8dd2-9b5232f41aa6` | ditto | ditto |
+| _Root Verity Partition (HPPA/PARISC)_ | `d212a430-fbc5-49f9-a983-a7feef2b8d0e` | ditto | ditto |
 | _Root Verity Partition (64-bit PowerPC LittleEndian)_ | `906bd944-4589-4aae-a4e4-dd983917446a` | ditto | ditto |
 | _Root Verity Partition (64-bit PowerPC BigEndian)_ | `9225a9a3-3c19-4d89-b4f6-eeff88f17631` | ditto | ditto |
 | _Root Verity Partition (32-bit PowerPC)_ | `98cfe649-1588-46dc-b2f0-add147424925` | ditto | ditto |
@@ -104,6 +106,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Verity Partition (LoongArch 64-bit)_ | `f46b2c26-59ae-48f0-9106-c50ed47f673d` | ditto | ditto |
 | _`/usr/` Verity Partition (32-bit MIPS LittleEndian (mipsel))_ | `46b98d8d-b55c-4e8f-aab3-37fca7f80752` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit MIPS LittleEndian (mips64el))_ | `3c3d61fe-b5f3-414d-bb71-8739a694a4ef` | ditto | ditto |
+| _`/usr/` Verity Partition (HPPA/PARISC)_ | `5843d618-ec37-48d7-9f12-cea8e08768b2` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit PowerPC LittleEndian)_ | `ee2b9983-21e8-4153-86d9-b6901a54d1ce` | ditto | ditto |
 | _`/usr/` Verity Partition (64-bit PowerPC BigEndian)_ | `bdb528a5-a259-475f-a87d-da53fa736a07` | ditto | ditto |
 | _`/usr/` Verity Partition (32-bit PowerPC)_ | `df765d00-270e-49e5-bc75-f47bb2118b09` | ditto | ditto |
@@ -122,6 +125,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _Root Verity Signature Partition (LoongArch 64-bit)_ | `5afb67eb-ecc8-4f85-ae8e-ac1e7c50e7d0` | ditto | ditto |
 | _Root Verity Signature Partition (32-bit MIPS LittleEndian (mipsel))_ | `c919cc1f-4456-4eff-918c-f75e94525ca5` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit MIPS LittleEndian (mips64el))_ | `904e58ef-5c65-4a31-9c57-6af5fc7c5de7` | ditto | ditto |
+| _Root Verity Signature Partition (HPPA/PARISC)_ | `15de6170-65d3-431c-916e-b0dcd8393f25` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit PowerPC LittleEndian)_ | `d4a236e7-e873-4c07-bf1d-bf6cf7f1c3c6` | ditto | ditto |
 | _Root Verity Signature Partition (64-bit PowerPC BigEndian)_ | `f5e2c20c-45b2-4ffa-bce9-2a60737e1aaf` | ditto | ditto |
 | _Root Verity Signature Partition (32-bit PowerPC)_ | `1b31b5aa-add9-463a-b2ed-bd467fc857e7` | ditto | ditto |
@@ -138,6 +142,7 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Verity Signature Partition (64-bit ARM/AArch64)_ | `c23ce4ff-44bd-4b00-b2d4-b41b3419e02a` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (Itanium/IA-64)_ | `8de58bc2-2a43-460d-b14e-a76e4a17b47f` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (LoongArch 64-bit)_ | `b024f315-d330-444c-8461-44bbde524e99` | ditto | ditto |
+| _`/usr/` Verity Signature Partition (HPPA/PARISC)_ | `450dd7d1-3224-45ec-9cf2-a43a346d71ee` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (32-bit MIPS LittleEndian (mipsel))_ | `3e23ca0b-a4bc-4b4e-8087-5ab6a26aa8a9` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit MIPS LittleEndian (mips64el))_ | `f2c2c7ee-adcc-4351-b5c6-ee9816b66e16` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (64-bit PowerPC LittleEndian)_ | `c8bfbd1e-268e-4521-8bba-bf314c399557` | ditto | ditto |
@@ -151,14 +156,14 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | _`/usr/` Verity Signature Partition (amd64/x86_64)_ | `e7bb33fb-06cf-4e81-8273-e543b413e2e2` | ditto | ditto |
 | _`/usr/` Verity Signature Partition (x86)_ | `974a71c0-de41-43c3-be5d-5c5ccd1ad2c0` | ditto | ditto |
 | _EFI System Partition_ | `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` | VFAT | The ESP used for the current boot is automatically mounted to `/efi/` (or `/boot/` as fallback), unless a different partition is mounted there (possibly via `/etc/fstab`, or because the Extended Boot Loader Partition — see below — exists) or the directory is non-empty on the root disk.  This partition type is defined by the [UEFI Specification](http://www.uefi.org/specifications). |
-| _Extended Boot Loader Partition_ | `bc13c2ff-59e6-4262-a352-b275fd6f7172` | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to <tt>/boot/</tt>, unless a different partition is mounted there (possibly via <tt>/etc/fstab</tt>) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION). |
+| _Extended Boot Loader Partition_ | `bc13c2ff-59e6-4262-a352-b275fd6f7172` | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to `/boot/`, unless a different partition is mounted there (possibly via `/etc/fstab`) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md). |
 | _Swap_ | `0657fd6d-a4ab-43c4-84e5-0933c84b4f4f` | Swap, optionally in LUKS | All swap partitions on the disk containing the root partition are automatically enabled. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/swap`. This partition type predates the Discoverable Partitions Specification. |
 | _Home Partition_ | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
 | _Server Data Partition_ | `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
 | _Variable Data Partition_ | `4d21b016-b534-45c2-a9fb-5c16e091fd2d` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/` — under the condition that its partition UUID matches the first 128 bits of `HMAC-SHA256(machine-id, 0x4d21b016b53445c2a9fb5c16e091fd2d)` (i.e. the SHA256 HMAC hash of the binary type UUID keyed by the machine ID as read from [`/etc/machine-id`](https://www.freedesktop.org/software/systemd/man/machine-id.html). This special requirement is made because `/var/` (unlike the other partition types listed here) is inherently private to a specific installation and cannot possibly be shared between multiple OS installations on the same disk, and thus should be bound to a specific instance of the OS, identified by its machine ID. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/var`. |
-| _Temporary Data Partition_ | `7ec6f557-3bc5-4aca-b293-16ef5df639d1` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/tmp/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/tmp`. Note that the intended mount point is indeed `/var/tmp/`, not `/tmp/`. The latter is typically maintained in memory via <tt>tmpfs</tt> and does not require a partition on disk. In some cases it might be desirable to make `/tmp/` persistent too, in which case it is recommended to make it a symlink or bind mount to `/var/tmp/`, thus not requiring its own partition type UUID. |
+| _Temporary Data Partition_ | `7ec6f557-3bc5-4aca-b293-16ef5df639d1` | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/tmp/`. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/tmp`. Note that the intended mount point is indeed `/var/tmp/`, not `/tmp/`. The latter is typically maintained in memory via `tmpfs` and does not require a partition on disk. In some cases it might be desirable to make `/tmp/` persistent too, in which case it is recommended to make it a symlink or bind mount to `/var/tmp/`, thus not requiring its own partition type UUID. |
 | _Per-user Home Partition_ | `773f91ef-66d4-49b5-bd83-d683bf40ad16` | Any native, optionally in LUKS | A home partition of a user, managed by [`systemd-homed`](https://www.freedesktop.org/software/systemd/man/systemd-homed.html). |
-| _Generic Linux Data Partition_ | `0fc63daf-8483-4772-8e79-3d69d8477de4` | Any native, optionally in LUKS | No automatic mounting takes place for other Linux data partitions. This partition type should be used for all partitions that carry Linux file systems. The installer needs to mount them explicitly via entries in <tt>/etc/fstab</tt>. Optionally, these partitions may be encrypted with LUKS. This partition type predates the Discoverable Partitions Specification. |
+| _Generic Linux Data Partition_ | `0fc63daf-8483-4772-8e79-3d69d8477de4` | Any native, optionally in LUKS | No automatic mounting takes place for other Linux data partitions. This partition type should be used for all partitions that carry Linux file systems. The installer needs to mount them explicitly via entries in `/etc/fstab`. Optionally, these partitions may be encrypted with LUKS. This partition type predates the Discoverable Partitions Specification. |
 
 Other GPT type IDs might be used on Linux, for example to mark software RAID or
 LVM partitions. The definitions of those GPT types is outside of the scope of
@@ -333,15 +338,15 @@ directory is found to be populated already in the root partition, the automatic
 discovery _must not_ mount any discovered file system over it. Optionally, in
 case of the root, `/usr/` and their Verity partitions instead of strictly
 mounting the first suitable partition an OS might choose to mount the partition
-whose label compares the highest according to `strverscmp()` or a similar
-logic, in order to implement a simple partition-based A/B versioning
-scheme. The precise rules are left for the implementation to decide, but when
-in doubt earlier partitions (by their index) should always win over later
-partitions if the label comparison is inconclusive.
+whose label compares the highest according to `strverscmp()` or similar logic,
+in order to implement a simple partition-based A/B versioning scheme. The
+precise rules are left for the implementation to decide, but when in doubt
+earlier partitions (by their index) should always win over later partitions if
+the label comparison is inconclusive.
 
 A *container* *manager* should automatically discover and mount the root,
 `/usr/`, `/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container
-disk image.  It may choose to mount any discovered ESP and/or XBOOOTLDR
+disk image.  It may choose to mount any discovered ESP and/or XBOOTLDR
 partition to `/efi/` or `/boot/`. It should ignore any swap should they be
 included in a container disk image.
 
@@ -410,9 +415,9 @@ The `gdisk` tool (from version 1.0.5 onward) and its variants (`sgdisk`,
 
 ## Links
 
-[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION)<br>
-[Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE)<br>
-[Safely Building Images](https://systemd.io/BUILDING_IMAGES)<br>
+[Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md)<br>
+[Boot Loader Interface](BOOT_LOADER_INTERFACE.md)<br>
+[Safely Building Images](BUILDING_IMAGES.md)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
 [`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

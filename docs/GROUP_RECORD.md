@@ -7,8 +7,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # JSON Group Records
 
-Long story short: JSON Group Records are to `struct group` what [JSON User
-Records](https://systemd.io/USER_RECORD) are to `struct passwd`.
+Long story short: JSON Group Records are to `struct group` what
+[JSON User Records](USER_RECORD.md) are to `struct passwd`.
 
 Conceptually, much of what applies to JSON user records also applies to JSON
 group records. They also consist of seven sections, with similar properties and

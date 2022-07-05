@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include "_sd-common.h"
@@ -27,6 +27,7 @@ sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb);
 sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb);
 
 int sd_hwdb_new(sd_hwdb **ret);
+int sd_hwdb_new_from_path(const char *path, sd_hwdb **ret);
 
 int sd_hwdb_get(sd_hwdb *hwdb, const char *modalias, const char *key, const char **value);
 

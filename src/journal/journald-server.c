@@ -713,7 +713,7 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
         cache_space_invalidate(&storage->space);
 }
 
-int server_vacuum(Server *s, bool verbose) {
+void server_vacuum(Server *s, bool verbose) {
         assert(s);
 
         log_debug("Vacuuming...");
@@ -724,8 +724,6 @@ int server_vacuum(Server *s, bool verbose) {
                 do_vacuum(s, &s->system_storage, verbose);
         if (s->runtime_journal)
                 do_vacuum(s, &s->runtime_storage, verbose);
-
-        return 0;
 }
 
 static void server_cache_machine_id(Server *s) {

@@ -77,7 +77,7 @@
 
     <para>These image formats are the same ones that
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    supports via it's <option>--directory=</option>/<option>--image=</option> switches and those that the
+    supports via its <option>--directory=</option>/<option>--image=</option> switches and those that the
     service manager supports via <option>RootDirectory=</option>/<option>RootImage=</option>. Similar to
     them they may optionally carry Verity authentication information.</para>
 

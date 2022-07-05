@@ -6,6 +6,7 @@
 #include "def.h"
 #include "env-file.h"
 #include "escape.h"
+#include "glyph-util.h"
 #include "log.h"
 #include "path-lookup.h"
 #include "strv.h"
@@ -55,7 +56,7 @@ static int load_and_print(void) {
          * that in case of failure, a partial update is better than none. */
 
         STRV_FOREACH(i, files) {
-                log_debug("Reading %s…", *i);
+                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)

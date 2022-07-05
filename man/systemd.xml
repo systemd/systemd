@@ -210,7 +210,7 @@
     <para>Processes systemd spawns are placed in individual Linux
     control groups named after the unit which they belong to in the
     private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>
+    url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>
     for more information about control groups, or short "cgroups").
     systemd uses this to effectively keep track of processes. Control
     group information is maintained in the kernel, and is accessible
@@ -323,7 +323,7 @@
 
         <listitem><para>Similar rules apply for the user unit
         directories. However, here the
-        <ulink url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        <ulink url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> is followed to find
         units. Applications should place their unit files in the
         directory returned by <command>pkg-config systemd
@@ -687,7 +687,7 @@
 
         <listitem><para>The systemd user manager uses these variables
         in accordance to the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> to find its
         configuration.</para></listitem>
       </varlistentry>
@@ -915,7 +915,7 @@
 
         <listitem><para>When specified without an argument or with a true argument,
         enables the usage of
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
         (a.k.a. cgroups-v2). When specified with a false argument, fall back to
         hybrid or full legacy cgroup hierarchy.</para>
 
@@ -933,7 +933,7 @@
         (see previous option). When specified without an argument or with a true
         argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
         tree used for systemd, and
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/">legacy
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">legacy
         cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
         forces a full "legacy" mode. When specified with a false argument, enables
         the use of "hybrid" hierarchy.</para>
@@ -1292,7 +1292,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://systemd.io/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

@@ -182,7 +182,6 @@ int link_update_ipv6ll_addrgen_mode(Link *link, sd_netlink_message *message) {
 #define STABLE_SECRET_APP_ID_2 SD_ID128_MAKE(52,c4,40,a0,9f,2f,48,58,a9,3a,f6,29,25,ba,7a,7d)
 
 int link_set_ipv6ll_stable_secret(Link *link) {
-        _cleanup_free_ char *str = NULL;
         struct in6_addr a;
         int r;
 
@@ -216,11 +215,8 @@ int link_set_ipv6ll_stable_secret(Link *link) {
                 memcpy(a.s6_addr + sizeof(v), &v, sizeof(v));
         }
 
-        r = in6_addr_to_string(&a, &str);
-        if (r < 0)
-                return r;
-
-        return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret", str);
+        return sysctl_write_ip_property(AF_INET6, link->ifname, "stable_secret",
+                                        IN6_ADDR_TO_STRING(&a));
 }
 
 int link_set_ipv6ll_addrgen_mode(Link *link, IPv6LinkLocalAddressGenMode mode) {

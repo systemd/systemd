@@ -203,7 +203,6 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         sd_ndisc *nd = userdata;
         ssize_t buflen;
         int r;
-        _cleanup_free_ char *addr = NULL;
 
         assert(s);
         assert(nd);
@@ -229,8 +228,8 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &rt->address, &addr);
-                        log_ndisc(nd, "Received RA from non-link-local address %s. Ignoring", addr);
+                        log_ndisc(nd, "Received RA from non-link-local address %s. Ignoring.",
+                                  IN6_ADDR_TO_STRING(&rt->address));
                         break;
 
                 case -EMULTIHOP:

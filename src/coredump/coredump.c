@@ -512,8 +512,8 @@ static int save_external_coredump(
 
         if (truncated)
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
-                           "SIZE_LIMIT=%zu", max_size,
+                           LOG_MESSAGE("Core file was truncated to %"PRIu64" bytes.", max_size),
+                           "SIZE_LIMIT=%"PRIu64, max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
         r = fix_permissions(fd, tmp, fn, context, uid);
@@ -1055,11 +1055,6 @@ finish:
 }
 
 static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/coredump",
-        };
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -1070,8 +1065,9 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump socket: %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_error_errno(errno, "Failed to connect to coredump service: %m");
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/coredump");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to coredump service: %m");
 
         for (size_t i = 0; i < iovw->count; i++) {
                 struct msghdr mh = {

@@ -24,13 +24,13 @@ container managers.
 
 Before you read on, please make sure you read the low-level kernel
 documentation about the
-[unified cgroup hierarchy](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html).
+[unified cgroup hierarchy](https://docs.kernel.org/admin-guide/cgroup-v2.html).
 This document then adds in the higher-level view from systemd.
 
 This document augments the existing documentation we already have:
 
-* [The New Control Group Interfaces](https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/)
-* [Writing VM and Container Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers/)
+* [The New Control Group Interfaces](https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface)
+* [Writing VM and Container Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers)
 
 These wiki documents are not as up to date as they should be, currently, but
 the basic concepts still fully apply. You should read them too, if you do something

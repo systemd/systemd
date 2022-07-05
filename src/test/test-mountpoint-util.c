@@ -20,7 +20,7 @@
 static void test_mount_propagation_flags_one(const char *name, int ret, unsigned long expected) {
         unsigned long flags;
 
-        log_info("/* %s(%s) */", __func__, name);
+        log_info("/* %s(%s) */", __func__, strnull(name));
 
         assert_se(mount_propagation_flags_from_string(name, &flags) == ret);
 
@@ -53,8 +53,6 @@ TEST(mnt_id) {
         char *p;
         void *k;
         int r;
-
-        log_info("/* %s */", __func__);
 
         assert_se(f = fopen("/proc/self/mountinfo", "re"));
         assert_se(h = hashmap_new(&trivial_hash_ops));

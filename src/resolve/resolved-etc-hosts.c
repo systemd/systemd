@@ -127,7 +127,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         continue;
                 }
 
-                r = strv_extend(&item->names, name);
+                r = strv_extend_with_size(&item->names, &item->n_names, name);
                 if (r < 0)
                         return log_oom();
 
@@ -391,7 +391,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 }
 
                 if (found_ptr) {
-                        r = dns_answer_reserve(answer, strv_length(item->names));
+                        r = dns_answer_reserve(answer, item->n_names);
                         if (r < 0)
                                 return r;
 

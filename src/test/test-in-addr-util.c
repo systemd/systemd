@@ -86,28 +86,27 @@ TEST(in_addr_prefix_from_string) {
 }
 
 static void test_in_addr_prefix_to_string_valid(int family, const char *p) {
-        _cleanup_free_ char *str = NULL;
         union in_addr_union u;
         unsigned char l;
 
         log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u, &l) >= 0);
-        assert_se(in_addr_prefix_to_string(family, &u, l, &str) >= 0);
-        assert_se(streq(str, p));
+        assert_se(streq(p, IN_ADDR_PREFIX_TO_STRING(family, &u, l)));
 }
 
 static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p) {
-        _cleanup_free_ char *str1 = NULL, *str2 = NULL;
         union in_addr_union u1, u2;
         unsigned char len1, len2;
 
         log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u1, &len1) >= 0);
-        assert_se(in_addr_prefix_to_string(family, &u1, len1, &str1) >= 0);
+        const char *str1 = IN_ADDR_PREFIX_TO_STRING(family, &u1, len1);
+        assert_se(str1);
         assert_se(in_addr_prefix_from_string(str1, family, &u2, &len2) >= 0);
-        assert_se(in_addr_prefix_to_string(family, &u2, len2, &str2) >= 0);
+        const char *str2 = IN_ADDR_PREFIX_TO_STRING(family, &u2, len2);
+        assert_se(str2);
 
         assert_se(streq(str1, str2));
         assert_se(len1 == len2);
@@ -347,12 +346,14 @@ TEST(in_addr_prefix_range) {
 
 static void test_in_addr_to_string_one(int f, const char *addr) {
         union in_addr_union ua;
-        _cleanup_free_ char *r = NULL;
+        _cleanup_free_ char *r;
 
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
         assert_se(in_addr_to_string(f, &ua, &r) >= 0);
-        printf("test_in_addr_to_string_one: %s == %s\n", addr, r);
+        printf("%s: %s == %s\n", __func__, addr, r);
         assert_se(streq(addr, r));
+
+        assert_se(streq(r, IN_ADDR_TO_STRING(f, &ua)));
 }
 
 TEST(in_addr_to_string) {

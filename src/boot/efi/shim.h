@@ -11,6 +11,6 @@
 
 #include <efi.h>
 
-BOOLEAN shim_loaded(void);
+bool shim_loaded(void);
 
 EFI_STATUS security_policy_install(void);

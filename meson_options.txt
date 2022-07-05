@@ -214,7 +214,7 @@ option('extra-net-naming-schemes', type : 'string',
 option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
-       choices : ['description', 'name', 'combined'],
+       choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
@@ -300,8 +300,10 @@ option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
-option('default-locale', type : 'string', value : '',
+option('default-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used when /etc/locale.conf does not exist')
+option('nspawn-locale', type : 'string', value : 'C.UTF-8',
+       description : 'default locale used by systemd-nspawn when executing commands in a container')
 option('localegen-path', type : 'string', value : '',
        description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
 option('service-watchdog', type : 'string', value : '3min',
@@ -494,6 +496,8 @@ option('kernel-install', type: 'boolean', value: 'true',
 option('analyze', type: 'boolean', value: 'true',
        description : 'install systemd-analyze')
 
+option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
+    description: 'compiler used to build BPF programs, note: gcc is experimental')
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
 

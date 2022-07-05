@@ -14,8 +14,8 @@ pairs, encoded as JSON. Specifically:
 
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
-   directly in the home directory images (see [Home
-   Directories](https://systemd.io/HOME_DIRECTORY) for details).
+   directly in the home directory images
+   (see [Home Directories](HOME_DIRECTORY.md) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
@@ -71,14 +71,13 @@ the following extensions are envisioned:
 
 4. Default parameters for backup applications and similar
 
-Similar to JSON User Records there are also [JSON Group
-Records](https://systemd.io/GROUP_RECORD) that encapsulate UNIX groups.
+Similar to JSON User Records there are also
+[JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via
-Varlink](https://systemd.io/USER_GROUP_API). User/group records may also be
-dropped in number of drop-in directories as files. See
+[User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
+also be dropped in number of drop-in directories as files. See
 [`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
 for details.
 
@@ -215,7 +214,7 @@ object. The following fields are currently defined:
 UNIX user name. This field is the only mandatory field, all others are
 optional. Corresponds with the `pw_name` field of of `struct passwd` and the
 `sp_namp` field of `struct spwd` (i.e. the shadow user record stored in
-`/etc/shadow`). See [User/Group Name Syntax](https://systemd.io/USER_NAMES) for
+`/etc/shadow`). See [User/Group Name Syntax](USER_NAMES.md) for
 the (relaxed) rules the various systemd components enforce on user/group names.
 
 `realm` → The "realm" a user is defined in. This concept allows distinguishing
@@ -298,7 +297,7 @@ for all login sessions of the user.
 
 `environment` → An array of strings, each containing an environment variable
 and its value to set for the user's login session, in a format compatible with
-[`putenv()`](http://man7.org/linux/man-pages/man3/putenv.3.html). Any
+[`putenv()`](https://man7.org/linux/man-pages/man3/putenv.3.html). Any
 environment variable listed here is automatically set by
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 for all login sessions of the user.
@@ -321,7 +320,7 @@ variable, for example: `de_DE.UTF8`.
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 will automatically initialize the login process' nice level to this value with,
 which is then inherited by all the user's processes, see
-[`setpriority()`](http://man7.org/linux/man-pages/man2/setpriority.2.html) for
+[`setpriority()`](https://man7.org/linux/man-pages/man2/setpriority.2.html) for
 more information.
 
 `resourceLimits` → An object, where each key refers to a Linux resource limit
@@ -330,7 +329,7 @@ two keys `cur` and `max` for the soft and hard resource limit. When logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
 will automatically initialize the login process' resource limits to these
 values, which is then inherited by all the user's processes, see
-[`setrlimit()`](http://man7.org/linux/man-pages/man2/setrlimit.2.html) for more
+[`setrlimit()`](https://man7.org/linux/man-pages/man2/setrlimit.2.html) for more
 information.
 
 `locked` → A boolean value. If true, the user account is locked, the user may
@@ -626,7 +625,7 @@ user to choose.
 
 `hashedPassword` → An array of strings, each containing a hashed UNIX password
 string, in the format
-[`crypt(3)`](http://man7.org/linux/man-pages/man3/crypt.3.html) generates. This
+[`crypt(3)`](https://man7.org/linux/man-pages/man3/crypt.3.html) generates. This
 corresponds with `sp_pwdp` field of `struct spwd` (and in a way the `pw_passwd`
 field of `struct passwd`).
 

@@ -214,11 +214,31 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 /* Maximum attempts to send LLMNR requests, see RFC 4795 Section 2.7 */
 #define LLMNR_TRANSACTION_ATTEMPTS_MAX 3
 
-/* Maximum attempts to send MDNS requests, see RFC 6762 Section 8.1 */
-#define MDNS_TRANSACTION_ATTEMPTS_MAX 3
+/* Maximum attempts to send MDNS requests is one except for probe requests, see RFC 6762 Section 8.1
+ * RFC 6762 differentiates between normal (single-shot/continuous) and probe requests.
+ * It therefore makes sense to attempt each normal query only once with no retries.
+ * Otherwise we'd be sending out three attempts for even a normal query. */
+#define MDNS_TRANSACTION_ATTEMPTS_MAX 1
 
-#define TRANSACTION_ATTEMPTS_MAX(p) (((p) == DNS_PROTOCOL_LLMNR) ? \
-                                         LLMNR_TRANSACTION_ATTEMPTS_MAX : \
-                                         (((p) == DNS_PROTOCOL_MDNS) ? \
-                                             MDNS_TRANSACTION_ATTEMPTS_MAX : \
-                                             DNS_TRANSACTION_ATTEMPTS_MAX))
+#define MDNS_PROBE_TRANSACTION_ATTEMPTS_MAX 3
+
+static inline unsigned dns_transaction_attempts_max(DnsProtocol p, bool probing) {
+
+        switch (p) {
+
+        case DNS_PROTOCOL_LLMNR:
+                return LLMNR_TRANSACTION_ATTEMPTS_MAX;
+
+        case DNS_PROTOCOL_MDNS:
+                if (probing)
+                        return MDNS_PROBE_TRANSACTION_ATTEMPTS_MAX;
+                else
+                        return MDNS_TRANSACTION_ATTEMPTS_MAX;
+
+        case DNS_PROTOCOL_DNS:
+                return DNS_TRANSACTION_ATTEMPTS_MAX;
+
+        default:
+                return 0;
+        }
+}

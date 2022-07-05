@@ -12,6 +12,7 @@ _systemd_headers = [
         'sd-journal.h',
         'sd-login.h',
         'sd-messages.h',
+        'sd-netlink.h',
         'sd-path.h',
 ]
 
@@ -32,11 +33,9 @@ _not_installed_headers = [
         'sd-lldp-tx.h',
         'sd-lldp.h',
         'sd-ndisc.h',
-        'sd-netlink.h',
         'sd-network.h',
         'sd-radv.h',
         'sd-resolve.h',
-        'sd-utf8.h',
 ]
 
 install_headers(
@@ -86,6 +85,9 @@ foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
                              '-Wall',
                              '-Wextra',
                              '-Werror',
+                             '-pedantic',
+                             '-Wno-long-long',
+                             '-Wno-variadic-macros',
                              '-include', meson.current_source_dir() / header,
                              '-o/dev/null',
                              '/dev/null'])

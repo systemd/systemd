@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Locking Block Device Access
 
 *TL;DR: Use BSD file locks
-[(`flock(2)`)](http://man7.org/linux/man-pages/man2/flock.2.html) on block
+[(`flock(2)`)](https://man7.org/linux/man-pages/man2/flock.2.html) on block
 device nodes to synchronize access for partitioning and file system formatting
 tools.*
 
@@ -22,7 +22,7 @@ Applications manipulating a block device can temporarily stop `systemd-udevd`
 from processing rules on it — and thus bar it from probing the device — by
 taking a BSD file lock on the block device node. Specifically, whenever
 `systemd-udevd` starts processing a block device it takes a `LOCK_SH|LOCK_NB`
-lock using [`flock(2)`](http://man7.org/linux/man-pages/man2/flock.2.html) on
+lock using [`flock(2)`](https://man7.org/linux/man-pages/man2/flock.2.html) on
 the main block device (i.e. never on any partition block device, but on the
 device the partition belongs to). If this lock cannot be taken (i.e. `flock()`
 returns `EAGAIN`), it refrains from processing the device. If it manages to take

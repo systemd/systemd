@@ -2,36 +2,50 @@
 #pragma once
 
 #ifndef SD_BOOT
-#include <assert.h>
+#  include <assert.h>
 #endif
 
 #include <limits.h>
-#include "types-fundamental.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define _align_(x) __attribute__((__aligned__(x)))
-#define _const_ __attribute__((__const__))
-#define _pure_ __attribute__((__pure__))
-#define _section_(x) __attribute__((__section__(x)))
-#define _packed_ __attribute__((__packed__))
-#define _retain_ __attribute__((__retain__))
-#define _used_ __attribute__((__used__))
-#define _unused_ __attribute__((__unused__))
+#define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
+#define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _const_ __attribute__((__const__))
+#define _deprecated_ __attribute__((__deprecated__))
+#define _destructor_ __attribute__((__destructor__))
+#define _hidden_ __attribute__((__visibility__("hidden")))
 #define _likely_(x) (__builtin_expect(!!(x), 1))
-#define _unlikely_(x) (__builtin_expect(!!(x), 0))
-#if __GNUC__ >= 7
-#define _fallthrough_ __attribute__((__fallthrough__))
-#else
-#define _fallthrough_
-#endif
-/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
- * compiler versions */
-#ifndef _noreturn_
-#if __STDC_VERSION__ >= 201112L
+#define _malloc_ __attribute__((__malloc__))
 #define _noreturn_ _Noreturn
+#define _packed_ __attribute__((__packed__))
+#define _printf_(a, b) __attribute__((__format__(printf, a, b)))
+#define _public_ __attribute__((__visibility__("default")))
+#define _pure_ __attribute__((__pure__))
+#define _retain_ __attribute__((__retain__))
+#define _returns_nonnull_ __attribute__((__returns_nonnull__))
+#define _section_(x) __attribute__((__section__(x)))
+#define _sentinel_ __attribute__((__sentinel__))
+#define _unlikely_(x) (__builtin_expect(!!(x), 0))
+#define _unused_ __attribute__((__unused__))
+#define _used_ __attribute__((__used__))
+#define _warn_unused_result_ __attribute__((__warn_unused_result__))
+#define _weak_ __attribute__((__weak__))
+#define _weakref_(x) __attribute__((__weakref__(#x)))
+
+#ifdef __clang__
+#  define _alloc_(...)
 #else
-#define _noreturn_ __attribute__((__noreturn__))
+#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
+
+#if __GNUC__ >= 7 || __clang__
+#  define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#  define _fallthrough_
 #endif
 
 #define XSTRINGIFY(x) #x
@@ -53,7 +67,7 @@
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
 #ifdef SD_BOOT
-        void efi_assert(const char *expr, const char *file, unsigned line, const char *function) _noreturn_;
+        _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
                 #define assert(expr)
@@ -62,10 +76,8 @@
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __PRETTY_FUNCTION__)
         #endif
+        #define static_assert _Static_assert
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); })
-
-        #define memcpy(a, b, c) CopyMem((a), (b), (c))
-        #define free(a) FreePool(a)
 #endif
 
 /* This passes the argument through after (if asserts are enabled) checking that it is not null. */
@@ -83,15 +95,8 @@
                 _expr_;                         \
         })
 
-#if defined(static_assert)
-#define assert_cc(expr)                                                 \
-        static_assert(expr, #expr)
-#else
-#define assert_cc(expr)                                                 \
-        struct CONCATENATE(_assert_struct_, __COUNTER__) {              \
-                char x[(expr) ? 0 : -1];                                \
-        }
-#endif
+#define assert_cc(expr) static_assert(expr, #expr)
+
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
@@ -101,10 +106,10 @@
  * on this macro will run concurrently to all other code conditionalized
  * the same way, there's no ordering or completion enforced. */
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
-#define __ONCE(o)                                                       \
-        ({                                                              \
-                static sd_bool (o) = sd_false;                          \
-                __sync_bool_compare_and_swap(&(o), sd_false, sd_true);  \
+#define __ONCE(o)                                                \
+        ({                                                       \
+                static bool (o) = false;                         \
+                __sync_bool_compare_and_swap(&(o), false, true); \
         })
 
 #undef MAX
@@ -254,7 +259,7 @@
 
 #define IN_SET(x, ...)                                                  \
         ({                                                              \
-                sd_bool _found = sd_false;                              \
+                bool _found = false;                                    \
                 /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
@@ -263,7 +268,7 @@
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
-                        _found = sd_true;                               \
+                        _found = true;                                  \
                        break;                                           \
                 default:                                                \
                         break;                                          \
@@ -295,9 +300,6 @@
         })
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
-        /* sd-boot uses UINTN for size_t, let's make sure SIZE_MAX is correct. */
-        assert_cc(SIZE_MAX == ~(size_t)0);
-
         /* Check that alignment is exponent of 2 */
 #if SIZE_MAX == UINT_MAX
         assert(__builtin_popcount(ali) == 1);
@@ -314,6 +316,14 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
         return ((l + ali - 1) & ~(ali - 1));
 }
+
+#define ALIGN4(l) ALIGN_TO(l, 4)
+#define ALIGN8(l) ALIGN_TO(l, 8)
+#ifndef SD_BOOT
+/* libefi also provides ALIGN, and we do not use them in sd-boot explicitly. */
+#define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
+#define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
+#endif
 
 /* Same as ALIGN_TO but callable in constant contexts. */
 #define CONST_ALIGN_TO(l, ali)                                         \

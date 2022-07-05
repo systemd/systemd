@@ -149,12 +149,6 @@ static int create_log_socket(int type) {
 }
 
 static int log_open_syslog(void) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/dev/log",
-        };
-
         int r;
 
         if (syslog_fd >= 0)
@@ -166,22 +160,21 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
+        r = connect_unix_path(syslog_fd, AT_FDCWD, "/dev/log");
+        if (r < 0) {
                 safe_close(syslog_fd);
 
-                /* Some legacy syslog systems still use stream
-                 * sockets. They really shouldn't. But what can we
-                 * do... */
+                /* Some legacy syslog systems still use stream sockets. They really shouldn't. But what can
+                 * we do... */
                 syslog_fd = create_log_socket(SOCK_STREAM);
                 if (syslog_fd < 0) {
                         r = syslog_fd;
                         goto fail;
                 }
 
-                if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                        r = -errno;
+                r = connect_unix_path(syslog_fd, AT_FDCWD, "/dev/log");
+                if (r < 0)
                         goto fail;
-                }
 
                 syslog_is_stream = true;
         } else
@@ -199,12 +192,6 @@ static void log_close_journal(void) {
 }
 
 static int log_open_journal(void) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/socket",
-        };
-
         int r;
 
         if (journal_fd >= 0)
@@ -216,10 +203,9 @@ static int log_open_journal(void) {
                 goto fail;
         }
 
-        if (connect(journal_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                r = -errno;
+        r = connect_unix_path(journal_fd, AT_FDCWD, "/run/systemd/journal/socket");
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 

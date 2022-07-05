@@ -138,7 +138,12 @@ int message_new_full(
                 sd_netlink_message **ret);
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
-uint32_t message_get_serial(sd_netlink_message *m);
+
+static inline uint32_t message_get_serial(sd_netlink_message *m) {
+        assert(m);
+        return ASSERT_PTR(m->hdr)->nlmsg_seq;
+}
+
 void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
@@ -146,12 +151,10 @@ bool netlink_pid_changed(sd_netlink *nl);
 int netlink_rqueue_make_room(sd_netlink *nl);
 int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
-int socket_open(int family);
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
-int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
 int netlink_add_match_internal(
@@ -169,3 +172,30 @@ int netlink_add_match_internal(
 /* Make sure callbacks don't destroy the netlink connection */
 #define NETLINK_DONT_DESTROY(nl) \
         _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
+
+/* nfnl */
+/* TODO: to be exported later */
+int sd_nfnl_socket_open(sd_netlink **ret);
+int sd_nfnl_message_batch_begin(sd_netlink *nfnl, sd_netlink_message **ret);
+int sd_nfnl_message_batch_end(sd_netlink *nfnl, sd_netlink_message **ret);
+int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
+                                  int family, const char *table);
+int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
+                                  int family, const char *table);
+int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
+                                      int family, const char *table, const char *chain,
+                                      const char *type, uint8_t hook, int prio);
+int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
+                                 int family, const char *table, const char *chain);
+int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
+                                int family, const char *table, const char *set_name,
+                                uint32_t setid, uint32_t klen);
+int sd_nfnl_nft_message_new_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
+                                           int family, const char *table, const char *set_name);
+int sd_nfnl_nft_message_del_setelems_begin(sd_netlink *nfnl, sd_netlink_message **ret,
+                                           int family, const char *table, const char *set_name);
+int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m,
+                                    uint32_t num,
+                                    const void *key, uint32_t klen,
+                                    const void *data, uint32_t dlen);
+int sd_nfnl_nft_message_add_setelem_end(sd_netlink_message *m);

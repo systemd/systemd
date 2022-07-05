@@ -40,10 +40,12 @@ systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
 portablectl list | grep -q -F "minimal_1"
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
 portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl list | grep -q -F "No images."
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 # portablectl also works with directory paths rather than images
 
@@ -63,10 +65,12 @@ systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
 portablectl list | grep -q -F "minimal_1"
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
 portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
 portablectl list | grep -q -F "No images."
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
 
@@ -148,9 +152,27 @@ portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | 
 
 portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
+# Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
+# Provides coverage for https://github.com/systemd/systemd/issues/23481
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
+portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
+# attach and detach again to check if all drop-in configs are removed even if the main unit files are removed
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/rootdir minimal-app0
+portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
+
 umount /tmp/rootdir
 umount /tmp/app0
 umount /tmp/app1
+
+# Lack of ID field in os-release should be rejected, but it caused a crash in the past instead
+mkdir -p /tmp/emptyroot/usr/lib
+mkdir -p /tmp/emptyext/usr/lib/extension-release.d
+touch /tmp/emptyroot/usr/lib/os-release
+touch /tmp/emptyext/usr/lib/extension-release.d/extension-release.emptyext
+
+# Remote peer disconnected -> portabled crashed
+res="$(! portablectl attach --extension /tmp/emptyext /tmp/emptyroot 2> >(grep "Remote peer disconnected"))"
+test -z "${res}"
 
 echo OK >/testok
 

@@ -56,9 +56,12 @@ available functionality:
     in regular intervals. The reports are available
     [online](https://scan.coverity.com/projects/systemd).
 
-11. [oss-fuzz](https://oss-fuzz.com/) is continuously fuzzing the
+11. [OSS-Fuzz](https://github.com/google/oss-fuzz) is continuously fuzzing the
     codebase. Reports are available
-    [online](https://oss-fuzz.com/v2/testcases?project=systemd).
+    [online](https://oss-fuzz.com/testcases?project=systemd&open=yes).
+    It also builds
+    [coverage reports](https://oss-fuzz.com/coverage-report/job/libfuzzer_asan_systemd/latest)
+    daily.
 
 12. Our tree includes `.editorconfig`, `.dir-locals.el` and `.vimrc` files, to
     ensure that editors follow the right indentiation styles automatically.
@@ -72,7 +75,7 @@ available functionality:
 
 15. Each PR is automatically tested with [Address Sanitizer](https://clang.llvm.org/docs/AddressSanitizer.html)
     and [Undefined Behavior Sanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html).
-    See [Testing systemd using sanitizers](https://systemd.io/TESTING_WITH_SANITIZERS)
+    See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md)
     for more information.
 
 16. Fossies provides [source code misspelling reports](https://fossies.org/features.html#codespell).

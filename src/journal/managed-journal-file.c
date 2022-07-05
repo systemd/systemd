@@ -93,10 +93,9 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
         }
 
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug("Hole punching not supported by backing file system, skipping.");
-                        return -EOPNOTSUPP; /* Make recognizable */
-                }
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), /* Make recognizable */
+                                               "Hole punching not supported by backing file system, skipping.");
 
                 return log_debug_errno(errno, "Failed to punch hole in entry array of %s: %m", f->path);
         }
@@ -376,12 +375,9 @@ ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f) {
         }
 #endif
 
-        if (f->file->post_change_timer) {
-                if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
-                        journal_file_post_change(f->file);
-
-                sd_event_source_disable_unref(f->file->post_change_timer);
-        }
+        if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
+                journal_file_post_change(f->file);
+        sd_event_source_disable_unref(f->file->post_change_timer);
 
         managed_journal_file_set_offline(f, true);
 

@@ -39,7 +39,8 @@ _public_ int cryptsetup_token_open_pin(
 
         /* This must not fail at this moment (internal error) */
         r = crypt_token_json_get(cd, token, &json);
-        assert(token == r);
+        /* Use assert_se() here to avoid emitting warning with -DNDEBUG */
+        assert_se(token == r);
         assert(json);
 
         if (pin && memchr(pin, 0, pin_size - 1))

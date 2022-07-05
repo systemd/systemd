@@ -512,7 +512,7 @@
             is part of the boot of most systems, while
             <filename>network-online.target</filename> is not, except
             when at least one unit requires it. Also see <ulink
-            url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+            url="https://systemd.io/NETWORK_ONLINE">Running
             Services After the Network is up</ulink> for more
             information.</para>
 
@@ -991,7 +991,7 @@
               will be stopped before the network — to whatever level it might be set up by then — is shut
               down. It is hence useful when writing service files that require network access on shutdown,
               which should order themselves after this target, but not pull it in. Also see <ulink
-              url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running Services After
+              url="https://systemd.io/NETWORK_ONLINE">Running Services After
               the Network is up</ulink> for more information.</para></listitem>
             </itemizedlist>
 

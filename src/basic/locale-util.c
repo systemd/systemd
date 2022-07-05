@@ -160,7 +160,7 @@ static int add_locales_from_archive(Set *locales) {
         return r;
 }
 
-static int add_locales_from_libdir (Set *locales) {
+static int add_locales_from_libdir(Set *locales) {
         _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
@@ -187,7 +187,7 @@ static int add_locales_from_libdir (Set *locales) {
 }
 
 int get_locales(char ***ret) {
-        _cleanup_set_free_ Set *locales = NULL;
+        _cleanup_set_free_free_ Set *locales = NULL;
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -203,9 +203,21 @@ int get_locales(char ***ret) {
         if (r < 0)
                 return r;
 
+        char *locale;
+        SET_FOREACH(locale, locales) {
+                r = locale_is_installed(locale);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        free(set_remove(locales, locale));
+        }
+
         l = set_get_strv(locales);
         if (!l)
                 return -ENOMEM;
+
+        /* Now, all elements are owned by strv 'l'. Hence, do not call set_free_free(). */
+        locales = set_free(locales);
 
         r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
         if (r == -ENXIO || r == 0) {
@@ -327,20 +339,31 @@ void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
                 l[i] = mfree(l[i]);
 }
 
+void locale_variables_simplify(char *l[_VARIABLE_LC_MAX]) {
+        assert(l);
+
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
+                if (p == VARIABLE_LANG)
+                        continue;
+                if (isempty(l[p]) || streq_ptr(l[VARIABLE_LANG], l[p]))
+                        l[p] = mfree(l[p]);
+        }
+}
+
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
-        [VARIABLE_LANG] = "LANG",
-        [VARIABLE_LANGUAGE] = "LANGUAGE",
-        [VARIABLE_LC_CTYPE] = "LC_CTYPE",
-        [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
-        [VARIABLE_LC_TIME] = "LC_TIME",
-        [VARIABLE_LC_COLLATE] = "LC_COLLATE",
-        [VARIABLE_LC_MONETARY] = "LC_MONETARY",
-        [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
-        [VARIABLE_LC_PAPER] = "LC_PAPER",
-        [VARIABLE_LC_NAME] = "LC_NAME",
-        [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
-        [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
-        [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
+        [VARIABLE_LANG]              = "LANG",
+        [VARIABLE_LANGUAGE]          = "LANGUAGE",
+        [VARIABLE_LC_CTYPE]          = "LC_CTYPE",
+        [VARIABLE_LC_NUMERIC]        = "LC_NUMERIC",
+        [VARIABLE_LC_TIME]           = "LC_TIME",
+        [VARIABLE_LC_COLLATE]        = "LC_COLLATE",
+        [VARIABLE_LC_MONETARY]       = "LC_MONETARY",
+        [VARIABLE_LC_MESSAGES]       = "LC_MESSAGES",
+        [VARIABLE_LC_PAPER]          = "LC_PAPER",
+        [VARIABLE_LC_NAME]           = "LC_NAME",
+        [VARIABLE_LC_ADDRESS]        = "LC_ADDRESS",
+        [VARIABLE_LC_TELEPHONE]      = "LC_TELEPHONE",
+        [VARIABLE_LC_MEASUREMENT]    = "LC_MEASUREMENT",
         [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
 };
 

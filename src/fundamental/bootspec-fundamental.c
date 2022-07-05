@@ -2,7 +2,7 @@
 
 #include "bootspec-fundamental.h"
 
-sd_bool bootspec_pick_name_version_sort_key(
+bool bootspec_pick_name_version_sort_key(
                 const sd_char *os_pretty_name,
                 const sd_char *os_image_id,
                 const sd_char *os_name,
@@ -46,8 +46,8 @@ sd_bool bootspec_pick_name_version_sort_key(
         good_version = os_image_version ?: (os_version ?: (os_version_id ? : os_build_id));
         good_sort_key = os_image_id ?: os_id;
 
-        if (!good_name || !good_version)
-                return sd_false;
+        if (!good_name)
+                return false;
 
         if (ret_name)
                 *ret_name = good_name;
@@ -58,5 +58,5 @@ sd_bool bootspec_pick_name_version_sort_key(
         if (ret_sort_key)
                 *ret_sort_key = good_sort_key;
 
-        return sd_true;
+        return true;
 }

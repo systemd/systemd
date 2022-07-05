@@ -1344,13 +1344,10 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
 
         if (client->fd < 0) {
                 r = dhcp6_network_bind_udp_socket(client->ifindex, &client->local_address);
-                if (r < 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        (void) in6_addr_to_string(&client->local_address, &p);
+                if (r < 0)
                         return log_dhcp6_client_errno(client, r,
-                                                      "Failed to bind to UDP socket at address %s: %m", strna(p));
-                }
+                                                      "Failed to bind to UDP socket at address %s: %m",
+                                                      IN6_ADDR_TO_STRING(&client->local_address));
 
                 client->fd = r;
         }

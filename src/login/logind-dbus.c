@@ -1888,9 +1888,11 @@ static int method_do_shutdown_or_sleep(
                 if (r < 0)
                         return r;
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Invalid flags parameter");
                 if (a->handle != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Reboot via kexec is only applicable with reboot operations");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Reboot via kexec is only applicable with reboot operations");
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
                  * payload. Let's convert this argument to the new-style flags parameter for our internal
@@ -1919,7 +1921,8 @@ static int method_do_shutdown_or_sleep(
                                                 "Not enough swap space for hibernation");
                 if (r == 0)
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                 "Sleep verb \"%s\" not supported", sleep_operation_to_string(a->sleep_operation));
+                                                 "Sleep verb \"%s\" not supported",
+                                                 sleep_operation_to_string(a->sleep_operation));
                 if (r < 0)
                         return r;
         }
@@ -2342,11 +2345,8 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        reset_scheduled_shutdown(m);
-
         if (m->enable_wall_messages) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                _cleanup_free_ char *username = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
 
@@ -2356,10 +2356,19 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                         (void) sd_bus_creds_get_tty(creds, &tty);
                 }
 
-                username = uid_to_name(uid);
-                utmp_wall("The system shutdown has been cancelled",
+                _cleanup_free_ char *username = uid_to_name(uid);
+
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE("System shutdown has been cancelled"),
+                           "ACTION=%s", handle_action_to_string(a->handle),
+                           "MESSAGE_ID=" SD_MESSAGE_LOGIND_SHUTDOWN_CANCELED_STR,
+                           username ? "OPERATOR=%s" : NULL, username);
+
+                utmp_wall("System shutdown has been cancelled",
                           username, tty, logind_wall_tty_filter, m);
         }
+
+        reset_scheduled_shutdown(m);
 
         return sd_bus_reply_method_return(message, "b", true);
 }

@@ -327,13 +327,9 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buffer = NULL;
-
-                        (void) in6_addr_to_string(&gateway, &buffer);
+                if (DEBUG_LOGGING)
                         log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       strna(buffer));
-                }
+                                       IN6_ADDR_TO_STRING(&gateway));
                 return 0;
         }
 
@@ -424,10 +420,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         /* ndisc_generate_addresses() below requires the prefix length <= 64. */
         if (prefixlen > 64) {
-                _cleanup_free_ char *buf = NULL;
-
-                (void) in6_addr_prefix_to_string(&prefix, prefixlen, &buf);
-                log_link_debug(link, "Prefix is longer than 64, ignoring autonomous prefix %s.", strna(buf));
+                log_link_debug(link, "Prefix is longer than 64, ignoring autonomous prefix %s.",
+                               IN6_ADDR_PREFIX_TO_STRING(&prefix, prefixlen));
                 return 0;
         }
 
@@ -557,15 +551,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get prefix length: %m");
 
         if (in6_prefix_is_filtered(&a, prefixlen, link->network->ndisc_allow_listed_prefix, link->network->ndisc_deny_listed_prefix)) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *b = NULL;
-
-                        (void) in6_addr_prefix_to_string(&a, prefixlen, &b);
-                        if (!set_isempty(link->network->ndisc_allow_listed_prefix))
-                                log_link_debug(link, "Prefix '%s' is not in allow list, ignoring", strna(b));
-                        else
-                                log_link_debug(link, "Prefix '%s' is in deny list, ignoring", strna(b));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Prefix '%s' is %s, ignoring",
+                                       !set_isempty(link->network->ndisc_allow_listed_prefix) ? "not in allow list"
+                                                                                              : "in deny list",
+                                       IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
 
@@ -621,16 +611,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
-        if (in6_prefix_is_filtered(&dst, prefixlen, link->network->ndisc_allow_listed_route_prefix, link->network->ndisc_deny_listed_route_prefix)) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
+        if (in6_prefix_is_filtered(&dst, prefixlen,
+                                   link->network->ndisc_allow_listed_route_prefix,
+                                   link->network->ndisc_deny_listed_route_prefix)) {
 
-                        (void) in6_addr_prefix_to_string(&dst, prefixlen, &buf);
-                        if (!set_isempty(link->network->ndisc_allow_listed_route_prefix))
-                                log_link_debug(link, "Route prefix '%s' is not in allow list, ignoring", strna(buf));
-                        else
-                                log_link_debug(link, "Route prefix '%s' is in deny list, ignoring", strna(buf));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Route prefix %s is %s, ignoring",
+                                       !set_isempty(link->network->ndisc_allow_listed_route_prefix) ? "not in allow list"
+                                                                                                    : "in deny list",
+                                       IN6_ADDR_PREFIX_TO_STRING(&dst, prefixlen));
                 return 0;
         }
 
@@ -639,12 +628,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in6_addr_to_string(&gateway, &buf);
-                        log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route", strna(buf));
-                }
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Advertised route gateway %s is local to the link, ignoring route",
+                                       IN6_ADDR_TO_STRING(&gateway));
                 return 0;
         }
 
@@ -986,13 +972,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
 
         if (in6_prefix_is_filtered(&router, 128, link->network->ndisc_allow_listed_router, link->network->ndisc_deny_listed_router)) {
                 if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *buf = NULL;
-
-                        (void) in6_addr_to_string(&router, &buf);
                         if (!set_isempty(link->network->ndisc_allow_listed_router))
-                                log_link_debug(link, "Router '%s' is not in allow list, ignoring", strna(buf));
+                                log_link_debug(link, "Router %s is not in allow list, ignoring.", IN6_ADDR_TO_STRING(&router));
                         else
-                                log_link_debug(link, "Router '%s' is in deny list, ignoring", strna(buf));
+                                log_link_debug(link, "Router %s is in deny list, ignoring.", IN6_ADDR_TO_STRING(&router));
                 }
                 return 0;
         }

@@ -85,9 +85,22 @@ def expectedFailureIfModuleIsNotAvailable(module_name):
 
     return f
 
-def expectedFailureIfERSPANModuleIsNotAvailable():
+def expectedFailureIfERSPANv0IsNotSupported():
+    # erspan version 0 is supported since f989d546a2d5a9f001f6f8be49d98c10ab9b1897 (v5.8)
     def f(func):
-        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 1 erspan 123', stderr=subprocess.DEVNULL)
+        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 0', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            call('ip link del erspan99')
+            return func
+
+        return unittest.expectedFailure(func)
+
+    return f
+
+def expectedFailureIfERSPANv2IsNotSupported():
+    # erspan version 2 is supported since f551c91de262ba36b20c3ac19538afb4f4507441 (v4.16)
+    def f(func):
+        rc = call('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 2', stderr=subprocess.DEVNULL)
         if rc == 0:
             call('ip link del erspan99')
             return func
@@ -202,7 +215,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
             return unittest.expectedFailure(func)
 
         try:
-            with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+            with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
                 f.write('99 1')
         except OSError:
             return unittest.expectedFailure(func)
@@ -210,7 +223,7 @@ def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
         call('udevadm settle')
         call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
         try:
-            with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+            with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w', encoding='utf-8') as f:
                 f.write('3')
         except OSError:
             call('rmmod netdevsim', stderr=subprocess.DEVNULL)
@@ -282,9 +295,6 @@ def expectedFailureIfFQPIEIsNotAvailable():
     return f
 
 def setUpModule():
-    # pylint: disable=global-statement
-    global running_units
-
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_conf_dropin_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
@@ -308,14 +318,19 @@ def setUpModule():
         '[Service]',
         'Restart=no',
         'ExecStart=',
+        'ExecReload=',
     ]
     if use_valgrind:
         drop_in += [
             'ExecStart=!!valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all ' + networkd_bin,
+            f'ExecReload=valgrind {networkctl_bin} reload',
             'PrivateTmp=yes'
         ]
     else:
-        drop_in += ['ExecStart=!!' + networkd_bin]
+        drop_in += [
+                'ExecStart=!!' + networkd_bin,
+                f'ExecReload={networkctl_bin} reload',
+        ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
@@ -335,7 +350,7 @@ def setUpModule():
         ]
 
     os.makedirs('/run/systemd/system/systemd-networkd.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-networkd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     drop_in = [
@@ -366,7 +381,7 @@ def setUpModule():
         ]
 
     os.makedirs('/run/systemd/system/systemd-resolved.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     drop_in = [
@@ -376,7 +391,7 @@ def setUpModule():
     ]
 
     os.makedirs('/run/systemd/system/systemd-udevd.service.d', exist_ok=True)
-    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w') as f:
+    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w', encoding='utf-8') as f:
         f.write('\n'.join(drop_in))
 
     check_output('systemctl daemon-reload')
@@ -387,9 +402,6 @@ def setUpModule():
     check_output('systemctl restart systemd-udevd')
 
 def tearDownModule():
-    # pylint: disable=global-statement
-    global running_units
-
     shutil.rmtree(networkd_ci_path)
     os.remove(os.path.join(udev_rules_dir, '00-debug-net.rules'))
 
@@ -406,7 +418,7 @@ def tearDownModule():
         check_output(f'systemctl start {u}')
 
 def read_link_attr(*args):
-    with open(os.path.join('/sys/class/net/', *args)) as f:
+    with open(os.path.join('/sys/class/net/', *args), encoding='utf-8') as f:
         return f.readline().strip()
 
 def read_bridge_port_attr(bridge, link, attribute):
@@ -414,7 +426,7 @@ def read_bridge_port_attr(bridge, link, attribute):
     path_port = 'lower_' + link + '/brport'
     path = os.path.join(path_bridge, path_port)
 
-    with open(os.path.join(path, attribute)) as f:
+    with open(os.path.join(path, attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def link_exists(link):
@@ -459,11 +471,11 @@ def remove_l2tp_tunnels(tunnel_ids):
     time.sleep(1)
 
 def read_ipv6_sysctl_attr(link, attribute):
-    with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute)) as f:
+    with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def read_ipv4_sysctl_attr(link, attribute):
-    with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute)) as f:
+    with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
 def copy_unit_to_networkd_unit_path(*units, dropins=True):
@@ -516,7 +528,7 @@ def start_dnsmasq(additional_options='', interface='veth-peer', ipv4_range='192.
 
 def stop_by_pid_file(pid_file):
     if os.path.exists(pid_file):
-        with open(pid_file, 'r') as f:
+        with open(pid_file, 'r', encoding='utf-8') as f:
             pid = f.read().rstrip(' \t\r\n\0')
             os.kill(int(pid), signal.SIGTERM)
             for _ in range(25):
@@ -536,19 +548,19 @@ def stop_dnsmasq():
 
 def dump_dnsmasq_log_file():
     if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file) as in_file:
+        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
             print(in_file.read())
 
 def search_words_in_dnsmasq_log(words, show_all=False):
     if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file) as in_file:
+        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
             contents = in_file.read()
             if show_all:
                 print(contents)
             for line in contents.splitlines():
                 if words in line:
                     in_file.close()
-                    print("%s, %s" % (words, line))
+                    print(f"{words}, {line}")
                     return True
     return False
 
@@ -686,8 +698,10 @@ class Utilities():
             check_output(*args, env=env)
         except subprocess.CalledProcessError:
             for link in links_with_operstate:
-                output = check_output(*networkctl_cmd, '-n', '0', 'status', link.split(':')[0], env=env)
-                print(output)
+                name = link.split(':')[0]
+                if link_exists(name):
+                    output = check_output(*networkctl_cmd, '-n', '0', 'status', name, env=env)
+                    print(output)
             raise
         if not bool_any and setup_state:
             for link in links_with_operstate:
@@ -993,8 +1007,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bridge.netdev',
         '25-bridge-configure-without-carrier.network',
         '25-bridge.network',
-        '25-erspan-tunnel-local-any.netdev',
-        '25-erspan-tunnel.netdev',
+        '25-erspan0-tunnel-local-any.netdev',
+        '25-erspan0-tunnel.netdev',
+        '25-erspan1-tunnel-local-any.netdev',
+        '25-erspan1-tunnel.netdev',
+        '25-erspan2-tunnel-local-any.netdev',
+        '25-erspan2-tunnel.netdev',
         '25-fou-gretap.netdev',
         '25-fou-gre.netdev',
         '25-fou-ipip.netdev',
@@ -1265,7 +1283,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('21-macvtap.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-macvtap.network')
-                with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '21-macvtap.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[MACVTAP]\nMode=' + mode)
                 start_networkd()
 
@@ -1283,7 +1301,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('21-macvlan.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-macvlan.network')
-                with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '21-macvlan.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[MACVLAN]\nMode=' + mode)
                 start_networkd()
 
@@ -1327,7 +1345,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('25-ipvlan.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-ipvlan.network')
-                with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '25-ipvlan.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[IPVLAN]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
@@ -1345,7 +1363,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     self.tearDown()
                 copy_unit_to_networkd_unit_path('25-ipvtap.netdev', '26-netdev-link-local-addressing-yes.network',
                                                 '11-dummy.netdev', '25-ipvtap.network')
-                with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a') as f:
+                with open(os.path.join(network_unit_file_path, '25-ipvtap.netdev'), mode='a', encoding='utf-8') as f:
                     f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
@@ -1795,29 +1813,93 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '6rd-prefix 2602::/24')
 
-    @expectedFailureIfERSPANModuleIsNotAvailable()
-    def test_erspan_tunnel(self):
+    @expectedFailureIfERSPANv0IsNotSupported()
+    def test_erspan_tunnel_v0(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
-                                        '25-erspan-tunnel.netdev', '25-tunnel.network',
-                                        '25-erspan-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+                                        '25-erspan0-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan0-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
         self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
 
         output = check_output('ip -d link show erspan99')
         print(output)
-        self.assertRegex(output, 'erspan remote 172.16.1.100 local 172.16.1.200')
-        self.assertRegex(output, 'ikey 0.0.0.101')
-        self.assertRegex(output, 'okey 0.0.0.101')
-        self.assertRegex(output, 'iseq')
-        self.assertRegex(output, 'oseq')
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 0', output)
+        self.assertNotIn('erspan_index 123', output)
+        self.assertNotIn('erspan_dir ingress', output)
+        self.assertNotIn('erspan_hwid 1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('iseq', output)
         output = check_output('ip -d link show erspan98')
         print(output)
-        self.assertRegex(output, 'erspan remote 172.16.1.100 local any')
-        self.assertRegex(output, '102')
-        self.assertRegex(output, 'ikey 0.0.0.102')
-        self.assertRegex(output, 'okey 0.0.0.102')
-        self.assertRegex(output, 'iseq')
-        self.assertRegex(output, 'oseq')
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 0', output)
+        self.assertNotIn('erspan_index 124', output)
+        self.assertNotIn('erspan_dir egress', output)
+        self.assertNotIn('erspan_hwid 2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+
+    def test_erspan_tunnel_v1(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
+                                        '25-erspan1-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan1-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        start_networkd()
+        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+
+        output = check_output('ip -d link show erspan99')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 1', output)
+        self.assertIn('erspan_index 123', output)
+        self.assertNotIn('erspan_dir ingress', output)
+        self.assertNotIn('erspan_hwid 1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('okey 0.0.0.101', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+        output = check_output('ip -d link show erspan98')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 1', output)
+        self.assertIn('erspan_index 124', output)
+        self.assertNotIn('erspan_dir egress', output)
+        self.assertNotIn('erspan_hwid 2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('okey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+
+    @expectedFailureIfERSPANv2IsNotSupported()
+    def test_erspan_tunnel_v2(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-erspan.network',
+                                        '25-erspan2-tunnel.netdev', '25-tunnel.network',
+                                        '25-erspan2-tunnel-local-any.netdev', '25-tunnel-local-any.network')
+        start_networkd()
+        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+
+        output = check_output('ip -d link show erspan99')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local 172.16.1.200', output)
+        self.assertIn('erspan_ver 2', output)
+        self.assertNotIn('erspan_index 123', output)
+        self.assertIn('erspan_dir ingress', output)
+        self.assertIn('erspan_hwid 0x1f', output)
+        self.assertIn('ikey 0.0.0.101', output)
+        self.assertIn('okey 0.0.0.101', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
+        output = check_output('ip -d link show erspan98')
+        print(output)
+        self.assertIn('erspan remote 172.16.1.100 local any', output)
+        self.assertIn('erspan_ver 2', output)
+        self.assertNotIn('erspan_index 124', output)
+        self.assertIn('erspan_dir egress', output)
+        self.assertIn('erspan_hwid 0x2f', output)
+        self.assertIn('ikey 0.0.0.102', output)
+        self.assertIn('okey 0.0.0.102', output)
+        self.assertIn('iseq', output)
+        self.assertIn('oseq', output)
 
     def test_tunnel_independent(self):
         copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev', '26-netdev-link-local-addressing-yes.network')
@@ -3589,7 +3671,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'IPV4_ADDRESS_STATE=routable')
             self.assertRegex(data, r'IPV6_ADDRESS_STATE=routable')
@@ -3618,7 +3700,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
@@ -3633,7 +3715,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
@@ -3648,7 +3730,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = f.read()
             self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
@@ -4080,12 +4162,12 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     def test_sriov(self):
         call('modprobe netdevsim', stderr=subprocess.DEVNULL)
 
-        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
             f.write('99 1')
 
         call('udevadm settle')
         call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
-        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w', encoding='utf-8') as f:
             f.write('3')
 
         copy_unit_to_networkd_unit_path('25-sriov.network')
@@ -4107,7 +4189,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-sriov.link', '25-sriov-udev.network')
         call('udevadm control --reload')
 
-        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+        with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
             f.write('99 1')
 
         start_networkd()
@@ -4123,7 +4205,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.assertNotIn('vf 3', output)
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
         call('udevadm control --reload')
@@ -4139,7 +4221,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         )
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         call('udevadm control --reload')
@@ -4155,7 +4237,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         )
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
         call('udevadm control --reload')
@@ -4171,7 +4253,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         self.assertNotIn('vf 3', output)
         self.assertNotIn('vf 4', output)
 
-        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
         call('udevadm control --reload')
@@ -4638,17 +4720,13 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip route show table main dev veth99')
         output = check_output('ip route show table main dev veth99')
         print(output)
-        # See issue #8726
-        main_table_is_empty = output == ''
-        if not main_table_is_empty:
-            self.assertNotRegex(output, 'proto dhcp')
+        self.assertNotRegex(output, 'proto dhcp')
 
         print('## ip route show table 211 dev veth99')
         output = check_output('ip route show table 211 dev veth99')
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
-        if main_table_is_empty:
-            self.assertRegex(output, '192.168.5.0/24 proto dhcp')
+        self.assertRegex(output, '192.168.5.0/24 proto dhcp')
         self.assertRegex(output, '192.168.5.1 proto dhcp scope link')
 
         print('## dnsmasq log')
@@ -4828,7 +4906,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a', encoding='utf-8') as f:
             f.write('[Network]\nDHCP=no\n')
 
         start_networkd()
@@ -4892,7 +4970,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         remove_unit_from_networkd_path(['25-dhcp-client.network'])
 
-        with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w') as f:
+        with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w', encoding='utf-8') as f:
             f.write(static_network)
 
         # When networkd started, the links are already configured, so let's wait for 5 seconds
@@ -4967,7 +5045,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.[0-9]*')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
-        with open(os.path.join(network_unit_file_path, '25-dhcp-client-gateway-ipv4.network'), mode='a') as f:
+        with open(os.path.join(network_unit_file_path, '25-dhcp-client-gateway-ipv4.network'), mode='a', encoding='utf-8') as f:
             f.write('[DHCPv4]\nUseGateway=no\n')
 
         rc = call(*networkctl_cmd, 'reload', env=env)
@@ -5625,8 +5703,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+01::/64 proto kernel metric [0-9]* expires')
 
-        print('### ip -d link show dev {}'.format(tunnel_name))
-        output = check_output('ip -d link show dev {}'.format(tunnel_name))
+        print(f'### ip -d link show dev {tunnel_name}')
+        output = check_output(f'ip -d link show dev {tunnel_name}')
         print(output)
         self.assertIn('link/sit 10.100.100.', output)
         self.assertIn('local 10.100.100.', output)
@@ -5634,14 +5712,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertIn('6rd-prefix 2001:db8::/32', output)
         self.assertIn('6rd-relay_prefix 10.0.0.0/8', output)
 
-        print('### ip -6 address show dev {}'.format(tunnel_name))
-        output = check_output('ip -6 address show dev {}'.format(tunnel_name))
+        print(f'### ip -6 address show dev {tunnel_name}')
+        output = check_output(f'ip -6 address show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[23]:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global dynamic')
         self.assertRegex(output, 'inet6 ::10.100.100.[0-9]+/96 scope global')
 
-        print('### ip -6 route show dev {}'.format(tunnel_name))
-        output = check_output('ip -6 route show dev {}'.format(tunnel_name))
+        print(f'### ip -6 route show dev {tunnel_name}')
+        output = check_output(f'ip -6 route show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, '2001:db8:6464:[0-9a-f]+0[23]::/64 proto kernel metric [0-9]* expires')
         self.assertRegex(output, '::/96 proto kernel metric [0-9]*')
@@ -5650,7 +5728,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show default')
         print(output)
         self.assertIn('default', output)
-        self.assertIn('via ::10.0.0.1 dev {}'.format(tunnel_name), output)
+        self.assertIn(f'via ::10.0.0.1 dev {tunnel_name}', output)
 
     def test_dhcp4_6rd(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp4-6rd-server.network', '25-dhcp4-6rd-upstream.network',
@@ -5684,7 +5762,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                 tunnel_name = name
                 break
 
-        self.wait_online(['{}:routable'.format(tunnel_name)])
+        self.wait_online([f'{tunnel_name}:routable'])
 
         self.verify_dhcp4_6rd(tunnel_name)
 

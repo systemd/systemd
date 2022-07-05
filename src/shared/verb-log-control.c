@@ -30,27 +30,22 @@ int verb_log_control_common(sd_bus *bus, const char *destination, const char *ve
                 r = bus_set_property(bus, &bloc,
                                      level ? "LogLevel" : "LogTarget",
                                      &error, "s", value);
-                if (r >= 0)
-                        return 0;
-
-                log_error_errno(r, "Failed to set log %s of %s to %s: %s",
-                                level ? "level" : "target",
-                                bloc.destination, value, bus_error_message(&error, r));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log %s of %s to %s: %s",
+                                               level ? "level" : "target",
+                                               bloc.destination, value, bus_error_message(&error, r));
         } else {
                 _cleanup_free_ char *t = NULL;
 
                 r = bus_get_property_string(bus, &bloc,
                                             level ? "LogLevel" : "LogTarget",
                                             &error, &t);
-                if (r >= 0) {
-                        puts(t);
-                        return 0;
-                }
-
-                log_error_errno(r, "Failed to get log %s of %s: %s",
-                                level ? "level" : "target",
-                                bloc.destination, bus_error_message(&error, r));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log %s of %s: %s",
+                                               level ? "level" : "target",
+                                               bloc.destination, bus_error_message(&error, r));
+                puts(t);
         }
 
-        return r;
+        return 0;
 }

@@ -1698,7 +1698,7 @@
           limited to <literal>10sec</literal>, <literal>1min</literal> and <literal>5min</literal>. The
           <literal>full</literal> PSI will be checked first, and if not found <literal>some</literal> will be
           checked. For more details, see the documentation on <ulink
-          url="https://www.kernel.org/doc/html/latest/accounting/psi.html">PSI (Pressure Stall Information)
+          url="https://docs.kernel.org/accounting/psi.html">PSI (Pressure Stall Information)
           </ulink>.</para>
 
           <para>Optionally, the threshold value can be prefixed with the slice unit under which the pressure will be checked,
@@ -1734,6 +1734,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertCPUFeature=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>

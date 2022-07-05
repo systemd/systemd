@@ -18,5 +18,5 @@ int verb_time(int argc, char *argv[], void *userdata) {
                 return r;
 
         puts(buf);
-        return 0;
+        return EXIT_SUCCESS;
 }
