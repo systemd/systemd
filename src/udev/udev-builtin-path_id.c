@@ -695,9 +695,8 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
 
                 /* compose valid udev tag name */
                 for (const char *p = path; *p; p++) {
-                        if ((*p >= '0' && *p <= '9') ||
-                            (*p >= 'A' && *p <= 'Z') ||
-                            (*p >= 'a' && *p <= 'z') ||
+                        if (ascii_isdigit(*p) ||
+                            ascii_isalpha(*p) ||
                             *p == '-') {
                                 tag[i++] = *p;
                                 continue;

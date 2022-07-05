@@ -833,7 +833,7 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
                 if (!ifname_valid_char(*t))
                         return false;
 
-                numeric = numeric && (*t >= '0' && *t <= '9');
+                numeric = numeric && ascii_isdigit(*t);
         }
 
         /* It's fully numeric but didn't parse as valid ifindex above? if so, it must be too large or zero or
