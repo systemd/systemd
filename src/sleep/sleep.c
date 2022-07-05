@@ -286,6 +286,15 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 last_capacity = r;
                 before_timestamp = now(CLOCK_BOOTTIME);
 
+                r = get_battery_discharge_rate();
+                if (r > 0) {
+                        previous_discharge_rate = r;
+                        suspend_interval = ((last_capacity / previous_discharge_rate) * 60 - 30) * USEC_PER_MINUTE;
+                        /*the previous discharge rate is stored in per hour basis so multiplied with 60 to convert to minutes.*/
+                        /*Substracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical*/
+                }
+                else if (r != -ENOENT)
+                        log_error_errno(r, "Error fetching battery discharge rate, ignoring: %m");
 
                 log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
 
@@ -318,9 +327,12 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                                         time_elapsed);
 
                         estimated_discharge_rate = ((last_capacity - current_capacity) * 60 * 60) / time_elapsed;
-
+                        /*The capacity difference is multiplied with 3600 to convert it to per hour*/
                         log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
 
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to update battery discharge rate: ignoring %m");
                         return 0;
                 }
 
@@ -336,6 +348,10 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 estimated_discharge_rate = (last_capacity - current_capacity) / (suspend_interval * USEC_PER_HOUR);
 
                 log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
+
+                r = put_battery_discharge_rate(estimated_discharge_rate);
+                if (r < 0)
+                        log_error_errno(r, "Failed to update battery discharge rate, ignoring: %m");
 
         } while (!battery_is_low());
 
