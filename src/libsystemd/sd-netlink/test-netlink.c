@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-#include <netinet/ether.h>
+/* We make sure netinet/in.h is not include sorted automatically by clang-format because it will happily
+ * redefine in_addr even if it has already been defined by the linux headers. */
 #include <netinet/in.h>
+
 #include <linux/fou.h>
 #include <linux/genetlink.h>
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <net/if.h>
+#include <netinet/ether.h>
 
 #include "sd-netlink.h"
 
