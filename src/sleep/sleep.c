@@ -224,7 +224,7 @@ static int execute(
 
                 r = write_mode(modes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");;
+                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
         }
 
         /* Pass an action string to the call-outs. This is mostly our operation string, except if the

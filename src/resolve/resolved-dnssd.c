@@ -200,7 +200,7 @@ int dnssd_load(Manager *manager) {
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = dnssd_service_load(manager, *f);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to load '%s': %m", *f);;
+                        log_warning_errno(r, "Failed to load '%s': %m", *f);
         }
 
         return 0;
