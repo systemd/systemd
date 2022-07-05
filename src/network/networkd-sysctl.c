@@ -256,7 +256,7 @@ int link_set_sysctl(Link *link) {
 
         r = link_set_ipv6_forward(link);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");;
+                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
         r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
