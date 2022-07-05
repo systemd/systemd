@@ -79,6 +79,39 @@ Janitorial Clean-ups:
 
 Features:
 
+* make persistent restarts easier by adding a new setting OpenPersistentFile=
+  or so, which allows openeing one or more files that is "persistent" across
+  service restarts, hot reboot, cold reboots (depending on configuration): the
+  files are created empty on first invocation, and on subsequent invocations
+  the files are reboot. The files would be backed by tmpfs, pmem or /var
+  depending on desired level of persistency.
+
+* sd-event: add ability to "chain" event sources. Specifically, add a call
+  sd_event_source_chain(x, y), which will automatically enable event source y
+  in oneshit mode once x is triggered. Use case: in src/core/mount.c implement
+  the /proc/self/mountinfo rescan on SIGCHLD with this: whenever a SIGCHLD is
+  seen, trigger the rescan defer event source automatically, and allow it to be
+  dispatched *before* the SIGCHLD is handled (based on priorities). Benefit:
+  dispatch order is strictly controlled by priorities again. (next step: chain
+  event sources to the ratelimit being over)
+
+* if we fork of a service with StandardOutput=journal, and it forks off a
+  subprocess that quickly dies, we might not be able to identify the cgroup it
+  comes from, but we can still derive that from the stdin socket its output
+  came from. We apparently don't do that right now.
+
+* make systemd-fstab-generator look for a system credential encoding root= or
+  usr=
+
+* add ability to set hostname with suffix derived from machine id at boot
+
+* ask dracut to generate usr= on the kernel cmdline so that we don't need to
+  read /etc/fstab from the root fs from the initrd and do daemon-reload
+
+* document that process resource limits are bullshit
+
+* add PR_SET_DUMPABLE service setting
+
 * homed/userdb: maybe define a "companion" dir for home directories where apps
   can safely put privileged stuff in. Would not be writable by the user, but
   still conceptually belong to the user. Would be included in user's quota if
