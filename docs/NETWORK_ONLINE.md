@@ -1,6 +1,6 @@
 ---
 title: Running Services After the Network Is Up
-category: Concepts
+category: Networking
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
