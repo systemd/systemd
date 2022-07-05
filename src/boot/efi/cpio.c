@@ -325,7 +325,6 @@ EFI_STATUS pack_cpio(
         _cleanup_freepool_ void *buffer = NULL;
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
-        EFI_FILE_IO_INTERFACE *volume;
 
         assert(loaded_image);
         assert(target_dir_prefix);
@@ -339,21 +338,14 @@ EFI_STATUS pack_cpio(
                 return EFI_SUCCESS;
         }
 
-        err = BS->HandleProtocol(loaded_image->DeviceHandle,
-                                 &FileSystemProtocol, (void*)&volume);
-        /* Error will be unsupported if the bootloader doesn't implement the
-         * file system protocol on its file handles.
-         */
+        err = open_volume(loaded_image->DeviceHandle, &root);
         if (err == EFI_UNSUPPORTED) {
+                /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
+                 * its file handles. */
                 *ret_buffer = NULL;
                 *ret_buffer_size = 0;
                 return EFI_SUCCESS;
         }
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(
-                                err, L"Unable to load file system protocol: %r", err);
-
-        err = volume->OpenVolume(volume, &root);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
