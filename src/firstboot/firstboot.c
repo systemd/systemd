@@ -871,11 +871,9 @@ static int process_root_args(void) {
         etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
 
-        /* We only mess with passwd and shadow if both do not exist or --force is specified. These files are
-         * tightly coupled and hence we make sure we have permission from the user to create/modify both
-         * files. */
-        if ((laccess(etc_passwd, F_OK) >= 0 || laccess(etc_shadow, F_OK) >= 0) && !arg_force)
+        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force)
                 return 0;
+
         /* Don't create/modify passwd and shadow if not asked */
         if (!(arg_root_password || arg_prompt_root_password || arg_copy_root_password || arg_delete_root_password ||
               arg_root_shell || arg_prompt_root_shell || arg_copy_root_shell))
