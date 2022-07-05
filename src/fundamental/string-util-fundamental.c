@@ -77,18 +77,8 @@ sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
         return (sd_char*) s + sl - pl;
 }
 
-static bool is_digit(sd_char a) {
-        /* Locale-independent version of isdigit(). */
-        return a >= '0' && a <= '9';
-}
-
-static bool is_alpha(sd_char a) {
-        /* Locale-independent version of isalpha(). */
-        return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
-}
-
 static bool is_valid_version_char(sd_char a) {
-        return is_digit(a) || is_alpha(a) || IN_SET(a, '~', '-', '^', '.');
+        return ascii_isdigit(a) || ascii_isalpha(a) || IN_SET(a, '~', '-', '^', '.');
 }
 
 int strverscmp_improved(const sd_char *a, const sd_char *b) {
@@ -186,12 +176,12 @@ int strverscmp_improved(const sd_char *a, const sd_char *b) {
                         b++;
                 }
 
-                if (is_digit(*a) || is_digit(*b)) {
+                if (ascii_isdigit(*a) || ascii_isdigit(*b)) {
                         /* Find the leading numeric segments. One may be an empty string. So,
                          * numeric segments are always newer than alpha segments. */
-                        for (aa = a; is_digit(*aa); aa++)
+                        for (aa = a; ascii_isdigit(*aa); aa++)
                                 ;
-                        for (bb = b; is_digit(*bb); bb++)
+                        for (bb = b; ascii_isdigit(*bb); bb++)
                                 ;
 
                         /* Check if one of the strings was empty, but the other not. */
@@ -217,9 +207,9 @@ int strverscmp_improved(const sd_char *a, const sd_char *b) {
                                 return r;
                 } else {
                         /* Find the leading non-numeric segments. */
-                        for (aa = a; is_alpha(*aa); aa++)
+                        for (aa = a; ascii_isalpha(*aa); aa++)
                                 ;
-                        for (bb = b; is_alpha(*bb); bb++)
+                        for (bb = b; ascii_isalpha(*bb); bb++)
                                 ;
 
                         /* Note that the segments are usually not NUL-terminated. */

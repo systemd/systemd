@@ -167,7 +167,7 @@ static int match_is_valid(const void *data, size_t size) {
                 if (*p >= 'A' && *p <= 'Z')
                         continue;
 
-                if (*p >= '0' && *p <= '9')
+                if (ascii_isdigit(*p))
                         continue;
 
                 return false;
@@ -2246,7 +2246,7 @@ static bool field_is_valid(const char *field) {
                 if (*p >= 'A' && *p <= 'Z')
                         continue;
 
-                if (*p >= '0' && *p <= '9')
+                if (ascii_isdigit(*p))
                         continue;
 
                 return false;

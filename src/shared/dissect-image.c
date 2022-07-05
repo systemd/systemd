@@ -251,7 +251,7 @@ static int make_partition_devname(
         if (isempty(whole_devname)) /* Make sure there *is* a last char */
                 return -EINVAL;
 
-        need_p = strchr(DIGITS, whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
+        need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
 
         return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
 }

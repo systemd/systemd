@@ -195,8 +195,7 @@ static bool display_is_local(const char *display) {
 
         return
                 display[0] == ':' &&
-                display[1] >= '0' &&
-                display[1] <= '9';
+                ascii_isdigit(display[1]);
 }
 
 static int socket_from_display(const char *display) {

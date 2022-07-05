@@ -171,7 +171,7 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(val > sysname);
                 assert_se(val < sysname + strlen(sysname));
                 assert_se(in_charset(val, DIGITS));
-                assert_se(!isdigit(val[-1]));
+                assert_se(!ascii_isdigit(val[-1]));
         } else
                 assert_se(r == -ENOENT);
 

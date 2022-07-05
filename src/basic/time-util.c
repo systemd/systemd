@@ -1411,9 +1411,8 @@ int verify_timezone(const char *name, int log_level) {
                 return -EINVAL;
 
         for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
+                if (!ascii_isdigit(*p) &&
+                    !ascii_isalpha(*p) &&
                     !IN_SET(*p, '-', '_', '+', '/'))
                         return -EINVAL;
 

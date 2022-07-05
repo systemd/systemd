@@ -279,14 +279,13 @@ static int syslog_skip_timestamp(const char **buf) {
 
                         _fallthrough_;
                 case NUMBER:
-                        if (*p < '0' || *p > '9')
+                        if (!ascii_isdigit(*p))
                                 return 0;
 
                         break;
 
                 case LETTER:
-                        if (!(*p >= 'A' && *p <= 'Z') &&
-                            !(*p >= 'a' && *p <= 'z'))
+                        if (!ascii_isalpha(*p))
                                 return 0;
 
                         break;

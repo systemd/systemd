@@ -624,7 +624,7 @@ int vtnr_from_tty(const char *tty) {
         if (!startswith(tty, "tty") )
                 return -EINVAL;
 
-        if (tty[3] < '0' || tty[3] > '9')
+        if (!ascii_isdigit(tty[3]))
                 return -EINVAL;
 
         r = safe_atoi(tty+3, &i);

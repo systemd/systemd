@@ -104,3 +104,13 @@ static inline void *memory_startswith(const void *p, size_t sz, const sd_char *t
 
 #define STRV_FOREACH(s, l)                      \
         _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
+
+static inline bool ascii_isdigit(sd_char a) {
+        /* A pure ASCII, locale independent version of isdigit() */
+        return a >= '0' && a <= '9';
+}
+
+static inline bool ascii_isalpha(sd_char a) {
+        /* A pure ASCII, locale independent version of isalpha() */
+        return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
+}

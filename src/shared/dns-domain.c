@@ -236,9 +236,8 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
                         sz -= 2;
 
                 } else if (IN_SET(*p, '_', '-') ||
-                           (*p >= '0' && *p <= '9') ||
-                           (*p >= 'a' && *p <= 'z') ||
-                           (*p >= 'A' && *p <= 'Z')) {
+                           ascii_isdigit(*p) ||
+                           ascii_isalpha(*p)) {
 
                         /* Proper character */
 
@@ -907,15 +906,13 @@ static bool srv_type_label_is_valid(const char *label, size_t n) {
                 return false;
 
         /* Second char must be a letter */
-        if (!(label[1] >= 'A' && label[1] <= 'Z') &&
-            !(label[1] >= 'a' && label[1] <= 'z'))
+        if (!ascii_isalpha(label[1]))
                 return false;
 
         /* Third and further chars must be alphanumeric or a hyphen */
         for (k = 2; k < n; k++) {
-                if (!(label[k] >= 'A' && label[k] <= 'Z') &&
-                    !(label[k] >= 'a' && label[k] <= 'z') &&
-                    !(label[k] >= '0' && label[k] <= '9') &&
+                if (!ascii_isalpha(label[k]) &&
+                    !ascii_isdigit(label[k]) &&
                     label[k] != '-')
                         return false;
         }
