@@ -646,9 +646,8 @@ void seat_add_to_gc_queue(Seat *s) {
 
 static bool seat_name_valid_char(char c) {
         return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
+                ascii_isalpha(c) ||
+                ascii_isdigit(c) ||
                 IN_SET(c, '-', '_');
 }
 
