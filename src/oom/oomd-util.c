@@ -335,7 +335,7 @@ int oomd_cgroup_context_acquire(const char *path, const char *monitored_ancestor
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
-        uid_t uid;
+        uid_t cg_uid, ancestor_cg_uid;
         int r;
 
         assert(path);
@@ -357,10 +357,10 @@ int oomd_cgroup_context_acquire(const char *path, const char *monitored_ancestor
         if (r < 0)
                 return log_debug_errno(r, "Error parsing memory pressure from %s: %m", p);
 
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &uid);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get owner/group from %s: %m", path);
-        else if (uid == 0) {
+        if ((r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &cg_uid)) < 0 ||
+            (r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, monitored_ancestor_path, &ancestor_cg_uid)) < 0)
+                log_debug_errno(r, "Failed to get owner/group from %s and %s: %m", path, monitored_ancestor_path);
+        else if (cg_uid == ancestor_cg_uid) {
                 /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
                  * as an optional feature of systemd-oomd (and the system might not even support them). */
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_avoid");
