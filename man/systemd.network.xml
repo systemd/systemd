@@ -2984,6 +2984,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv4LLStartAddress=</varname></term>
+          <listitem>
+            <para>Specifies the first IPv4 link-local address to try. Takes an IPv4 link-local address, for example
+            <literal>169.254.1.2</literal>. This setting may be useful if the device should always have the same
+            address as long as there is no address conflict. When unset, a random address will be automatically selected.
+            Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MulticastFlood=</varname></term>
           <listitem>
             <para>Takes a boolean. Controls whether the bridge should flood
