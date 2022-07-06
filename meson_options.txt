@@ -352,6 +352,8 @@ option('smack', type : 'boolean',
        description : 'SMACK support')
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
+option('smack-default-process-label', type : 'string',
+       description : 'default SMACK label for executed processes')
 option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'polkit support')
 option('ima', type : 'boolean',

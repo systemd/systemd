@@ -170,6 +170,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
+static char *arg_default_smack_process_label;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -658,6 +659,11 @@ static int parse_config_file(void) {
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
+#if ENABLE_SMACK
+                { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_default_smack_process_label  },
+#else
+                { "Manager", "DefaultSmackProcessLabel",     config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
+#endif
                 {}
         };
 
@@ -730,6 +736,8 @@ static void set_manager_defaults(Manager *m) {
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
+
+        (void) manager_set_default_smack_process_label(m, arg_default_smack_process_label);
 
         (void) manager_set_default_rlimits(m, arg_default_rlimit);
 
@@ -2421,6 +2429,7 @@ static void reset_arguments(void) {
         arg_clock_usec = 0;
 
         arg_default_oom_score_adjust_set = false;
+        arg_default_smack_process_label = mfree(arg_default_smack_process_label);
 }
 
 static void determine_default_oom_score_adjust(void) {

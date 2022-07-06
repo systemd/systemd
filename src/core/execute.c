@@ -3240,6 +3240,7 @@ static int setup_credentials(
 
 #if ENABLE_SMACK
 static int setup_smack(
+                const Manager *manager,
                 const ExecContext *context,
                 int executable_fd) {
         int r;
@@ -3251,20 +3252,17 @@ static int setup_smack(
                 r = mac_smack_apply_pid(0, context->smack_process_label);
                 if (r < 0)
                         return r;
-        }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-        else {
+        } else if (manager->default_smack_process_label) {
                 _cleanup_free_ char *exec_label = NULL;
 
                 r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
                 if (r < 0 && !IN_SET(r, -ENODATA, -EOPNOTSUPP))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                r = mac_smack_apply_pid(0, exec_label ? : manager->default_smack_process_label);
                 if (r < 0)
                         return r;
         }
-#endif
 
         return 0;
 }
@@ -4853,7 +4851,7 @@ static int exec_child(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(context, executable_fd);
+                        r = setup_smack(unit->manager, context, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");

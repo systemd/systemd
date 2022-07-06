@@ -47,3 +47,4 @@
 #DefaultLimitNICE=
 #DefaultLimitRTPRIO=
 #DefaultLimitRTTIME=
+#DefaultSmackProcessLabel=
