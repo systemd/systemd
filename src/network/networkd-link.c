@@ -611,7 +611,7 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 log_link_debug(link, "Acquiring DHCPv4 lease.");
 
         } else if (link->ipv4ll) {
-                r = sd_ipv4ll_start(link->ipv4ll);
+                r = sd_ipv4ll_start(link->ipv4ll, &link->network->ipv4ll_start_address);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
 

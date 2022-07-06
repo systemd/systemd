@@ -1071,7 +1071,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
-                                r = sd_ipv4ll_start(link->ipv4ll);
+                                r = sd_ipv4ll_start(link->ipv4ll, &link->network->ipv4ll_start_address);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         }
@@ -1154,7 +1154,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
 
-                                r = sd_ipv4ll_start(link->ipv4ll);
+                                r = sd_ipv4ll_start(link->ipv4ll, &link->network->ipv4ll_start_address);
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         }
