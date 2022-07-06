@@ -3745,7 +3745,7 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-public_programs += custom_target(
+exe = custom_target(
         'kernel-install',
         input : kernel_install_in,
         output : 'kernel-install',
@@ -3753,6 +3753,13 @@ public_programs += custom_target(
         install : want_kernel_install,
         install_mode : 'rwxr-xr-x',
         install_dir : bindir)
+public_programs += exe
+
+if want_tests != 'false'
+        test('test-kernel-install',
+             test_kernel_install_sh,
+             args : [exe.full_path(), loaderentry_install])
+endif
 
 ############################################################
 

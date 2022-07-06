@@ -20,6 +20,8 @@
 
 skip_remaining=77
 
+set -e
+
 usage()
 {
     echo "Usage:"
@@ -83,7 +85,7 @@ if [ "${0##*/}" = "installkernel" ]; then
     # kernel's install.sh invokes us as
     #   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
     # We ignore the last two arguments.
-    set -- "$1"
+    set -- "${1:?}" "${2:?}"
 else
     COMMAND="$1"
     [ $# -ge 1 ] && shift
@@ -101,23 +103,27 @@ else
     shift
 fi
 
-# These two settings are settable in install.conf
+# These two settings are only settable via install.conf
 layout=
 initrd_generator=
+# These two settings can be inherited from the environment
+_MACHINE_ID_SAVED="$MACHINE_ID"
+_BOOT_ROOT_SAVED="$BOOT_ROOT"
 
-if [ -r "/etc/kernel/install.conf" ]; then
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    install_conf="$KERNEL_INSTALL_CONF_ROOT/install.conf"
+elif [ -f "/etc/kernel/install.conf" ]; then
     install_conf="/etc/kernel/install.conf"
-elif [ -r "/usr/lib/kernel/install.conf" ]; then
+elif [ -f "/usr/lib/kernel/install.conf" ]; then
     install_conf="/usr/lib/kernel/install.conf"
 else
     install_conf=
 fi
 
-if [ -n "$install_conf" ]; then
+if [ -f "$install_conf" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Reading $install_conf…"
     # shellcheck source=/dev/null
     . "$install_conf"
-    # FIXME: This may override configuration in environment variables, e.g. $BOOT_ROOT.
 fi
 
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$layout" ] && \
@@ -125,21 +131,37 @@ fi
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && [ -n "$initrd_generator" ] && \
     echo "$install_conf configures initrd_generator=$initrd_generator"
 
-[ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-    echo "machine-id $MACHINE_ID set via environment or install.conf"
-[ -n "$BOOT_ROOT" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-    echo "BOOT_ROOT=$BOOT_ROOT set via environment or install.conf"
+if [ -n "$_MACHINE_ID_SAVED" ]; then
+     MACHINE_ID="$_MACHINE_ID_SAVED"
+     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+         echo "MACHINE_ID=$MACHINE_ID set via environment"
+else
+    [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "MACHINE_ID=$MACHINE_ID set via install.conf"
+fi
+
+if [ -n "$_BOOT_ROOT_SAVED" ]; then
+     BOOT_ROOT="$_BOOT_ROOT_SAVED"
+     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+         echo "BOOT_ROOT=$BOOT_ROOT set via environment"
+else
+    [ -n "$BOOT_ROOT" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "BOOT_ROOT=$BOOT_ROOT set via install.conf"
+fi
 
 # If /etc/machine-id is initialized we'll use it, otherwise we'll use a freshly
 # generated one. If the user configured an explicit machine ID to use in
 # /etc/machine-info to use for our purpose, we'll use that instead (for
 # compatibility).
 # shellcheck source=/dev/null
-if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-info ] && . /etc/machine-info && MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"; then
+if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ]; then
+    . /etc/machine-info
+    MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
     [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "machine-id $MACHINE_ID acquired from /etc/machine-info"
 fi
-if [ -z "$MACHINE_ID" ] && [ -r /etc/machine-id ] && read -r MACHINE_ID </etc/machine-id; then
+if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ]; then
+    read -r MACHINE_ID </etc/machine-id
     [ -n "$MACHINE_ID" ] && [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
         echo "machine-id $MACHINE_ID acquired from /etc/machine-id"
 fi
@@ -153,9 +175,12 @@ fi
 # $BOOT where we want to place the kernel/initrd and related resources, as well
 # for naming the .conf boot loader spec entry. Typically this is just the
 # machine ID, but it can be anything else, too, if we are told so.
-if [ -z "$ENTRY_TOKEN" ] && [ -r /etc/kernel/entry-token ] && read -r ENTRY_TOKEN </etc/kernel/entry-token; then
+ENTRY_TOKEN_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/entry-token"
+
+if [ -z "$ENTRY_TOKEN" ] && [ -f "$ENTRY_TOKEN_FILE" ]; then
+    read -r ENTRY_TOKEN <"$ENTRY_TOKEN_FILE"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-        echo "entry-token \"$ENTRY_TOKEN\" acquired from /etc/kernel/entry-token"
+        echo "entry-token \"$ENTRY_TOKEN\" acquired from $ENTRY_TOKEN_FILE"
 fi
 if [ -z "$ENTRY_TOKEN" ]; then
     # If not configured explicitly, then use a few candidates: the machine ID,
@@ -163,7 +188,7 @@ if [ -z "$ENTRY_TOKEN" ]; then
     # string "Default"
     ENTRY_TOKEN_SEARCH="$MACHINE_ID"
     # shellcheck source=/dev/null
-    [ -r /etc/os-release ] && . /etc/os-release
+    [ -f /etc/os-release ] && . /etc/os-release
     [ -n "$IMAGE_ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $IMAGE_ID"
     [ -n "$ID" ] && ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH $ID"
     ENTRY_TOKEN_SEARCH="$ENTRY_TOKEN_SEARCH Default"
@@ -289,15 +314,17 @@ MAKE_ENTRY_DIR_ABS=$?
 
 ret=0
 
-PLUGINS="$(
-    dropindirs_sort ".install" \
-        "/etc/kernel/install.d" \
-        "/usr/lib/kernel/install.d"
-)"
+if [ -z "$KERNEL_INSTALL_PLUGINS" ]; then
+    KERNEL_INSTALL_PLUGINS="$(
+        dropindirs_sort ".install" \
+            "/etc/kernel/install.d" \
+            "/usr/lib/kernel/install.d"
+    )"
+fi
 IFS="
 "
 
-[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && printf '%s\n' "Plugin files:" "$PLUGINS"
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && printf '%s\n' "Plugin files:" "$KERNEL_INSTALL_PLUGINS"
 
 case "$COMMAND" in
     add)
@@ -323,7 +350,7 @@ case "$COMMAND" in
             fi
         fi
 
-        for f in $PLUGINS; do
+        for f in $KERNEL_INSTALL_PLUGINS; do
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS" "$@"
             "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$@"
 
@@ -334,7 +361,7 @@ case "$COMMAND" in
         ;;
 
     remove)
-        for f in $PLUGINS; do
+        for f in $KERNEL_INSTALL_PLUGINS; do
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
             "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
             err=$?
