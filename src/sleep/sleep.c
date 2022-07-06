@@ -288,11 +288,19 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                 else
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
-                last_capacity = r;
-                before_timestamp = now(CLOCK_BOOTTIME);
-
-
-                log_debug("Set timerfd wake alarm to estimate battery discharge rate for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
+                r = get_battery_discharge_rate();
+                if ((last_capacity * 2) <= r)
+                        return 0;
+                        /* System should hibernate in case discharge rate is higher than double of battery current capacity
+                         * why double : Because while calculating suspend interval, we have taken a buffer of 30 minute and
+                         * discharge_rate is calculated on per 60 minute basis which is double. Also suspend_interval > 0 */
+                else if (r > 0) {
+                        previous_discharge_rate = r;
+                        suspend_interval = ((last_capacity / previous_discharge_rate) * 60 - 30) * USEC_PER_MINUTE;
+                        /* The previous discharge rate is stored in per hour basis so multiplied with 60 to convert to minutes.
+                         * Substracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
+                } else if (r != -ENOENT)
+                        log_error_errno(r, "Error fetching battery discharge rate, ignoring: %m");
 
                 log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
@@ -328,6 +336,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         /* The capacity difference is multiplied with 3600 to convert it to per hour */
                         log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
 
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to update battery discharge rate: ignoring %m");
                         return 0;
                 }
 
@@ -342,6 +353,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                         log_debug("Battery discharge rate is %d%% per hour", estimated_discharge_rate);
 
+                        r = put_battery_discharge_rate(estimated_discharge_rate);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to update battery discharge rate, ignoring: %m");
                 }
         }
 
