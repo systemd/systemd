@@ -457,6 +457,8 @@ struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+
+        char *default_smack_process_label;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -508,6 +510,8 @@ int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);
 int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
+
+int manager_set_default_smack_process_label(Manager *m, const char *label);
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
