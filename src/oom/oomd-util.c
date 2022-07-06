@@ -530,6 +530,15 @@ int oomd_insert_cgroup_context(
                 curr_ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);
 
         r = hashmap_put(new_h, curr_ctx->path, curr_ctx);
+        if (r == -EEXIST) {
+                old_ctx = hashmap_get(new_h, curr_ctx->path);
+
+                /* Update the cgroup context if the new ancestor path is higher
+                 * in the hierarchy than the old ancestor path. */
+                if (old_ctx && !isempty(path_startswith(old_ctx->monitored_ancestor_path,
+                                                        curr_ctx->monitored_ancestor_path)))
+                        r = hashmap_update(new_h, curr_ctx->path, curr_ctx);
+        }
         if (r < 0)
                 return r;
 
