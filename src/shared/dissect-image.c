@@ -3220,6 +3220,8 @@ int verity_dissect_and_mount(
         if (required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
 
+                assert(!isempty(required_host_os_release_id));
+
                 r = load_extension_release_pairs(dest, dissected_image->image_name, &extension_release);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
