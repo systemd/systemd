@@ -42,7 +42,7 @@
 #  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
 #endif
 
-#if __GNUC__ >= 7 || __clang__
+#if __GNUC__ >= 7 || (defined(__clang__) && __clang_major__ >= 10)
 #  define _fallthrough_ __attribute__((__fallthrough__))
 #else
 #  define _fallthrough_
