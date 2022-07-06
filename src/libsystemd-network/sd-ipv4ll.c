@@ -263,7 +263,7 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
 
 #define MAC_HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
 
-static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
+static int ipv4ll_start_internal(sd_ipv4ll *ll, const struct in_addr *start_address, bool reset_generation) {
         int r;
         bool picked_address = false;
 
@@ -274,8 +274,14 @@ static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
         if (!ll->seed_set)
                 ll->seed.value = htole64(siphash24(ll->mac.ether_addr_octet, ETH_ALEN, MAC_HASH_KEY.bytes));
 
-        if (reset_generation)
+        if (reset_generation) {
                 ll->seed.generation = 0;
+                if (start_address && start_address->s_addr != 0) {
+                        r = sd_ipv4ll_set_address(ll, start_address);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         if (ll->address == 0) {
                 r = ipv4ll_pick_address(ll);
@@ -299,19 +305,19 @@ static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
         return 1;
 }
 
-int sd_ipv4ll_start(sd_ipv4ll *ll) {
+int sd_ipv4ll_start(sd_ipv4ll *ll, const struct in_addr *start_address) {
         assert_return(ll, -EINVAL);
 
         if (sd_ipv4ll_is_running(ll))
                 return 0;
 
-        return ipv4ll_start_internal(ll, true);
+        return ipv4ll_start_internal(ll, start_address, true);
 }
 
 int sd_ipv4ll_restart(sd_ipv4ll *ll) {
         ll->address = 0;
 
-        return ipv4ll_start_internal(ll, false);
+        return ipv4ll_start_internal(ll, NULL, false);
 }
 
 static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
