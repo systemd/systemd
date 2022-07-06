@@ -351,6 +351,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SUPPORT_END=</varname></term>
+
+          <listitem><para>The date at which support for this version of the OS ends. (What exactly "lack of
+          support" means varies between vendors, but generally users should assume that updates, including
+          security fixes, will not be provided.) The value is a date in the format
+          <literal>YYYY-MM-DD</literal>, and specifies the last day on which support <emphasis>is</emphasis>
+          provided.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>LOGO=</varname></term>
 
           <listitem><para>A string, specifying the name of an icon as defined by <ulink
