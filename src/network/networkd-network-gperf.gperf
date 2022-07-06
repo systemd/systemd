@@ -104,6 +104,7 @@ Network.Xfrm,                                config_parse_stacked_netdev,       
 Network.DHCP,                                config_parse_dhcp,                                        0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,                 config_parse_link_local_address_family,                   0,                             offsetof(Network, link_local)
+Network.IPv4LLStartAddress,                  config_parse_link_local_start_address,                    0,                             0
 Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_address_gen_mode,            0,                             offsetof(Network, ipv6ll_address_gen_mode)
 Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)

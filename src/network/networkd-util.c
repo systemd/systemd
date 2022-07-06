@@ -5,6 +5,7 @@
 #include "escape.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
+#include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -115,6 +116,47 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_addr
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
+
+int config_parse_link_local_start_address(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        union in_addr_union a;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->ipv4ll_start_address = (struct in_addr) {};
+                return 0;
+        }
+
+        r = in_addr_from_string(AF_INET, rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!in4_addr_is_link_local(&a.in)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Not a IPv4 link local address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->ipv4ll_start_address = a.in;
+        return 0;
+}
 
 int config_parse_address_family_with_kernel(
                 const char* unit,

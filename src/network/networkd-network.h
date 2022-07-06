@@ -206,6 +206,7 @@ struct Network {
 
         /* link-local addressing support */
         AddressFamily link_local;
+        struct in_addr ipv4ll_start_address;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         struct in6_addr ipv6ll_stable_secret;
         bool ipv4ll_route;
