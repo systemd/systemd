@@ -239,29 +239,31 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be 
 Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
 </programlisting>
 
-            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. Along with
-            its color, its shape varies according to its state: <literal>inactive</literal> or
-            <literal>maintenance</literal> is a white circle ("○"), <literal>active</literal> is a green dot ("●"),
-            <literal>deactivating</literal> is a white dot, <literal>failed</literal> or <literal>error</literal> is
-            a red cross ("×"), and <literal>reloading</literal> is a green clockwise circle arrow ("↻").
-            </para>
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a
+            glance. Along with its color, its shape varies according to its state:
+            <literal>inactive</literal> or <literal>maintenance</literal> is a white circle ("○"),
+            <literal>active</literal> is a green dot ("●"), <literal>deactivating</literal> is a white dot,
+            <literal>failed</literal> or <literal>error</literal> is a red cross ("×"), and
+            <literal>reloading</literal> is a green clockwise circle arrow ("↻").</para>
 
-            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
-            memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal> if no unit file was found for this unit,
-            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
-            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
-            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
-            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
-            for the <command>is-enabled</command> command.
+            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been
+            loaded into memory. Other possible values for "Loaded:" include: <literal>error</literal> if
+            there was a problem loading it, <literal>not-found</literal> if no unit file was found for this
+            unit, <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the
+            unit file, this line will also show the enablement state.  Enabled units are included in the
+            dependency network between units, and thus are started at boot or via some other form of
+            activation.  See the full table of possible enablement states — including the definition of
+            <literal>masked</literal> — in the documentation for the <command>is-enabled</command> command.
             </para>
 
             <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
-            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the unit type.
-            The unit could also be in process of changing states, reporting a state of <literal>activating</literal> or
-            <literal>deactivating</literal>. A special <literal>failed</literal> state is entered when the service
-            failed in some way, such as a crash, exiting with an error code or timing out. If the failed state is
-            entered the cause will be logged for later reference.</para>
+            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the
+            unit type.  The unit could also be in process of changing states, reporting a state of
+            <literal>activating</literal> or <literal>deactivating</literal>. A special
+            <literal>failed</literal> state is entered when the service failed in some way, such as a crash,
+            exiting with an error code or timing out. If the failed state is entered the cause will be logged
+            for later reference.</para>
             </example>
 
           </listitem>
