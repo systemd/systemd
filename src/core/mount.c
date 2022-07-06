@@ -761,8 +761,32 @@ static int mount_coldplug(Unit *u) {
 
         if (m->deserialized_state != m->state)
                 new_state = m->deserialized_state;
-        else if (m->from_proc_self_mountinfo)
-                new_state = MOUNT_MOUNTED;
+
+        /* Adjust state. See comments in mount_process_proc_self_mountinfo(). */
+        if (m->from_proc_self_mountinfo) {
+                switch (new_state) {
+                case MOUNT_DEAD:
+                case MOUNT_FAILED:
+                        new_state = MOUNT_MOUNTED;
+                        break;
+                case MOUNT_MOUNTING:
+                        new_state = MOUNT_MOUNTING_DONE;
+                        break;
+                default:
+                        break;
+                }
+        } else {
+                switch (new_state) {
+                case MOUNT_MOUNTING_DONE:
+                        new_state = MOUNT_MOUNTING;
+                        break;
+                case MOUNT_UNMOUNTING:
+                        new_state = MOUNT_DEAD;
+                        break;
+                default:
+                        break;
+                }
+        }
 
         if (new_state == m->state)
                 return 0;
