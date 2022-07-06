@@ -1167,6 +1167,11 @@ if have
         conf.set_quoted('SMACK_RUN_LABEL', get_option('smack-run-label'))
 endif
 
+have = get_option('smack') and get_option('smack-default-process-label') != ''
+if have
+        conf.set_quoted('SMACK_DEFAULT_PROCESS_LABEL', get_option('smack-default-process-label'))
+endif
+
 want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
