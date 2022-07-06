@@ -318,7 +318,7 @@ static void print_status_info(
                 bool *ellipsized) {
 
         const char *active_on, *active_off, *on, *off, *ss, *fs;
-        const char *enable_on, *enable_off, *enable_vendor_on, *enable_vendor_off;
+        const char *enable_on, *enable_off, *preset_on, *preset_off;
         _cleanup_free_ char *formatted_path = NULL;
         usec_t timestamp;
         const char *path;
@@ -331,7 +331,7 @@ static void print_status_info(
 
         format_active_state(i->active_state, &active_on, &active_off);
         format_enable_state(i->unit_file_state, &enable_on, &enable_off);
-        format_enable_state(i->unit_file_preset, &enable_vendor_on, &enable_vendor_off);
+        format_enable_state(i->unit_file_preset, &preset_on, &preset_off);
 
         const SpecialGlyph glyph = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
 
@@ -366,8 +366,8 @@ static void print_status_info(
                        on, strna(i->load_state), off,
                        path,
                        enable_on, i->unit_file_state, enable_off,
-                       show_preset ? "; vendor preset: " : "",
-                       enable_vendor_on, show_preset ? i->unit_file_preset : "", enable_vendor_off);
+                       show_preset ? "; preset: " : "",
+                       preset_on, show_preset ? i->unit_file_preset : "", preset_off);
 
         } else if (path)
                 printf("     Loaded: %s%s%s (%s)\n",
