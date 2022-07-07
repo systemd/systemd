@@ -442,7 +442,7 @@ static int user_update_slice(User *u) {
         return 0;
 }
 
-int user_start(User *u) {
+int user_start(User *u, bool want_user_instance) {
         assert(u);
 
         if (u->started && !u->stopping)
@@ -465,7 +465,8 @@ int user_start(User *u) {
         (void) user_update_slice(u);
 
         /* Start user@UID.service */
-        user_start_service(u);
+        if (want_user_instance)
+                user_start_service(u);
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
