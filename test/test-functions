@@ -1273,33 +1273,38 @@ create_empty_image() {
         exit 1
     fi
 
-    local size=500
+    # Partition sizes are in MiBs
+    local root_size=500
+    local data_size=50
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
-            size=$((size+=200))
+            root_size=$((root_size+=200))
         fi
         if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
-            size=$((size+=200))
+            root_size=$((root_size+=200))
         fi
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
-            size=$((size+=250))
+            root_size=$((root_size+=250))
         fi
     fi
     if ! get_bool "$STRIP_BINARIES"; then
-        size=$((4 * size))
+        root_size=$((4 * root_size))
+        data_size=$((2 * data_size))
     fi
 
-    echo "Setting up ${IMAGE_PUBLIC:?} (${size} MB)"
+    echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
     rm -f "${IMAGE_PRIVATE:?}" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${size}M" "$IMAGE_PUBLIC"
+    truncate -s "${root_size}M" "$IMAGE_PUBLIC"
 
     LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
+    # Create two partitions - a root one and a data one (utilized by some tests)
     sfdisk "$LOOPDEV" <<EOF
-,$((size - 50))M,L,*
-,
+label: gpt
+type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=root size=$((root_size - data_size))M bootable
+type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=data
 EOF
 
     udevadm settle
