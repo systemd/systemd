@@ -14,7 +14,6 @@ command -v swtpm >/dev/null 2>&1 || exit 0
 command -v tpm2_pcrextend >/dev/null 2>&1 || exit 0
 
 test_append_files() {
-    (
         local workspace="${1:?}"
 
         instmods tpm tpm_tis tpm_ibmvtpm
@@ -26,20 +25,24 @@ test_append_files() {
         if get_bool "$LOOKS_LIKE_DEBIAN"; then
             inst_library "/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/libgcc_s.so.1"
         fi
-    )
 }
 
-machine="$(uname -m)"
-tpmdevice="tpm-tis"
-if [ "$machine" = "ppc64le" ]; then
+TEST_70_TPM_DEVICE="tpm-tis"
+if [[ "$(uname -m)" == "ppc64le" ]]; then
     # tpm-spapr support was introduced in qemu 5.0.0. Skip test for old qemu versions.
     qemu_min_version "5.0.0" || exit 0
-    tpmdevice="tpm-spapr"
+    TEST_70_TPM_DEVICE="tpm-spapr"
 fi
 
-tpmstate=$(mktemp -d)
-swtpm socket --tpm2 --tpmstate dir="$tpmstate" --ctrl type=unixio,path="$tpmstate/sock" &
-trap 'kill %%; rm -rf $tpmstate' SIGINT EXIT
-QEMU_OPTIONS="-chardev socket,id=chrtpm,path=$tpmstate/sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device $tpmdevice,tpmdev=tpm0"
+TEST_70_at_exit() {
+    [[ -n "${TEST_70_SWTPM_PID:-}" ]] && kill "$TEST_70_SWTPM_PID" &>/dev/null
+    [[ -n "${TEST_70_TPM_STATE:-}" ]] && rm -rf "$TEST_70_TPM_STATE"
+}
+
+TEST_70_TPM_STATE="$(mktemp -d)"
+swtpm socket --tpm2 --tpmstate dir="$TEST_70_TPM_STATE" --ctrl type=unixio,path="$TEST_70_TPM_STATE/sock" &
+TEST_70_SWTPM_PID=$!
+add_at_exit_handler TEST_70_at_exit
+QEMU_OPTIONS+=" -chardev socket,id=chrtpm,path=$TEST_70_TPM_STATE/sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device $TEST_70_TPM_DEVICE,tpmdev=tpm0"
 
 do_test "$@"
