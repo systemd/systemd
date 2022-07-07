@@ -305,7 +305,7 @@ static EFI_STATUS pack_cpio_trailer(
 }
 
 EFI_STATUS pack_cpio(
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
                 const char16_t *match_suffix,
                 const char *target_dir_prefix,
