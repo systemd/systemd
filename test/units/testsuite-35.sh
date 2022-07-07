@@ -383,7 +383,7 @@ teardown_idle_action_lock() {(
 
 test_lock_idle_action() {
     if ! command -v expect >/dev/null ; then
-        echo >&2 "expect not installed, skiping test ${FUNCNAME[0]}"
+        echo >&2 "expect not installed, skipping test ${FUNCNAME[0]}"
         return 0
     fi
 
@@ -397,7 +397,7 @@ test_lock_idle_action() {
 
     # IdleActionSec is set 1s but the accuracy of associated timer is 30s so we
     # need to sleep in worst case for 31s to make sure timer elapsed. We sleep
-    # here for 35s to accomodate for any possible scheudling delays.
+    # here for 35s to accommodate for any possible scheduling delays.
     cat > /tmp/test.exp <<EOF
 spawn systemd-run -G -t -p PAMName=login -p User=testuser bash
 send "sleep 35\r"
