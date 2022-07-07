@@ -35,6 +35,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "id128-util.h"
 
 int parse_sleep_config(SleepConfig **ret_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
@@ -98,6 +99,179 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 return log_oom();
 
         *ret_sleep_config = TAKE_PTR(sc);
+
+        return 0;
+}
+
+int battery_is_low(void) {
+        int r;
+
+        r = read_battery_capacity_percentage();
+        if (r < 0)
+               return r;
+
+        if (r > 0 && r <= 5)
+               return 1;
+               /* If battery current capacity percentage is equal to or less than 5%.
+                * We have not used battery capacity_level since value is set to full
+                * or Normal in case acpi is not working properly. */
+
+        return 0;
+        /* Not low if greater than 5%. The error will be handled
+         * in read_battery_capacity_percentage which returns value from 0-100 only. */
+}
+
+int read_battery_capacity_percentage(void) {
+        _cleanup_free_ char *bat_cap = NULL;
+        int battery_capacity, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
+        if (r == -ENOENT)
+               return log_debug_errno(r, "/sys/class/power_supply/BAT0/capacity is unavailable. No battery case: %m");
+               /* Handling case when no battery is present. Exception here file is manually deleted / corrupted */
+        else if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+
+        r = safe_atoi(bat_cap, &battery_capacity);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse battery capacity: %m");
+
+        if (battery_capacity < 0 || battery_capacity > 100)
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+
+        log_debug("Current battery charge percentage: %d%%", battery_capacity);
+
+        return battery_capacity;
+}
+
+static int get_battery_identifiers(char **ret_identifiers) {
+        _cleanup_free_ char *bat_manufacturer = NULL, *bat_model_name = NULL, *bat_serial_number = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(ret_identifiers);
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/manufacturer", &bat_manufacturer);
+        if (r == -ENOENT)
+               return log_debug_errno(r, "/sys/class/power_supply/BAT0/manufacturer is unavailable: %m");
+        else if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/manufacturer: %m");
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/model_name", &bat_model_name);
+        if (r == -ENOENT)
+               return log_debug_errno(r, "/sys/class/power_supply/BAT0/model_name is unavailable: %m");
+        else if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/model_name: %m");
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/serial_number", &bat_serial_number);
+        if (r == -ENOENT)
+               return log_debug_errno(r, "/sys/class/power_supply/BAT0/serial_number is unavailable: %m");
+        else if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/serial_number: %m");
+
+        p = strjoina(bat_manufacturer, ":", bat_model_name, ":", bat_serial_number);
+        if (!p)
+                return log_oom_debug();
+
+        *ret_identifiers = TAKE_PTR(p);
+
+        return 0;
+}
+
+static int get_system_battery_identifier_hash(char **ret_hash) {
+        _cleanup_free_ char *p = NULL, *battery_id = NULL;
+        sd_id128_t machine_id, product_id;
+        int r;
+
+        assert(ret_hash);
+
+        r = get_battery_identifiers(&battery_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get battery identifier: %m");
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get machine ID: %m");
+
+        r = id128_get_product(&product_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get product ID: %m");
+
+        p = strjoina(battery_id, ":", SD_ID128_TO_STRING(machine_id), ":", SD_ID128_TO_STRING(product_id));
+        if (!p)
+                return log_oom_debug();
+        /* add hash function when everything is working */
+        *ret_hash = TAKE_PTR(p);
+
+        return 0;
+}
+
+static int battery_discharge_rate_in_range(int battery_discharge_rate) {
+        if (battery_discharge_rate > 0 && battery_discharge_rate < 200)
+               return 1;
+               /* battery discharge rate is in sane range */
+
+        return 0;
+}
+
+int get_battery_discharge_rate(void) {
+        _cleanup_free_ const char *filepath = "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour";
+        _cleanup_free_ char *hash_id_discharge_rate = NULL;
+        const char *p = hash_id_discharge_rate;
+        char *current_hash_id = NULL;
+        char *stored_hash_id = NULL, *stored_discharge_rate = NULL;
+        int discharge_rate, r;
+
+        r = read_one_line_file(filepath, &hash_id_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read discharge rate from %s: %m", filepath);
+
+        r = get_system_battery_identifier_hash(&current_hash_id);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+
+        /* extract the string in file, split it, validate the hash and then return discharge rate */
+
+        /* if (!first_word(hash_id_discharge_rate, current_hash_id))
+         *       return log_debug_errno(r, "Current system and battery identifier do not match the stored identifier: %m"); */
+
+        r = extract_many_words(&p, " ", 0, &stored_hash_id, &stored_discharge_rate, NULL);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from %s location: %m", filepath);
+
+        if (!strcmp_ptr(current_hash_id, stored_hash_id))
+               return log_debug_errno(r, "Current system and battery identifier do not match the stored identifier: %m");
+
+        r = safe_atoi(stored_discharge_rate, &discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", filepath);
+
+        if (!battery_discharge_rate_in_range(discharge_rate))
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+
+        return discharge_rate;
+}
+
+int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
+        _cleanup_free_ const char *filepath = "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour";
+        _cleanup_free_ char *system_hash_id = NULL;
+        char *p;
+        int r;
+
+        if (!battery_discharge_rate_in_range(estimated_battery_discharge_rate))
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+
+        r = get_system_battery_identifier_hash(&system_hash_id);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+
+        p = strjoin(system_hash_id, " ", estimated_battery_discharge_rate);
+        if (!p)
+                return log_oom_debug();
+
+        r = write_string_filef(filepath, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755, "%s", p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s: %m", filepath);
 
         return 0;
 }
