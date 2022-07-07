@@ -43,12 +43,16 @@
 #endif
 
 static inline bool is_path(const char *p) {
-        assert(p);
+        if (!p) /* A NULL pointer is definitely not a path */
+                return false;
+
         return strchr(p, '/');
 }
 
 static inline bool path_is_absolute(const char *p) {
-        assert(p);
+        if (!p) /* A NULL pointer is definitely not an absolute path */
+                return false;
+
         return p[0] == '/';
 }
 
