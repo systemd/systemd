@@ -53,6 +53,8 @@ EOF
     }
 }
 
+: >/failed
+
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
@@ -142,6 +144,5 @@ test_issue_20329
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok
+rm /failed
