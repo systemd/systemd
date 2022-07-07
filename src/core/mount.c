@@ -84,8 +84,16 @@ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
-static bool mount_is_network(const MountParameters *p) {
-        assert(p);
+static int mount_is_network(Mount *m) {
+        MountParameters *p;
+
+        p = get_mount_parameters(m);
+        if (!p)
+                return -1;
+
+        if (m->from_proc_self_mountinfo &&
+            UNIT(m)->manager->last_libmount_event_type != MNT_MONITOR_TYPE_USERSPACE)
+                return -1;
 
         if (fstab_test_option(p->options, "_netdev\0"))
                 return true;
@@ -314,7 +322,7 @@ static int mount_add_mount_dependencies(Mount *m) {
         pm = get_mount_parameters_fragment(m);
         if (pm && pm->what &&
             path_is_absolute(pm->what) &&
-            (mount_is_bind(pm) || mount_is_loop(pm) || !mount_is_network(pm))) {
+            (mount_is_bind(pm) || mount_is_loop(pm) || !mount_is_network(m))) {
 
                 r = unit_require_mounts_for(UNIT(m), pm->what, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
@@ -491,16 +499,21 @@ static int mount_add_default_ordering_dependencies(
                 after = NULL;
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
-        } else if (mount_is_network(p)) {
-                after = SPECIAL_REMOTE_FS_PRE_TARGET;
-                before = SPECIAL_REMOTE_FS_TARGET;
-
         } else {
-                after = SPECIAL_LOCAL_FS_PRE_TARGET;
-                before = SPECIAL_LOCAL_FS_TARGET;
+                r = mount_is_network(m);
+                if (r > 0) {
+                        after = SPECIAL_REMOTE_FS_PRE_TARGET;
+                        before = SPECIAL_REMOTE_FS_TARGET;
+                } else if (r == 0) {
+                        after = SPECIAL_LOCAL_FS_PRE_TARGET;
+                        before = SPECIAL_LOCAL_FS_TARGET;
+                } else {
+                        after = NULL;
+                        before = NULL;
+                }
         }
 
-        if (!mount_is_nofail(m)) {
+        if (before && !mount_is_nofail(m)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
                 if (r < 0)
                         return r;
@@ -543,7 +556,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (mount_is_network(p)) {
+        if (mount_is_network(m) > 0) {
                 /* We order ourselves after network.target. This is primarily useful at shutdown:
                  * services that take down the network should order themselves before
                  * network.target, so that they are shut down only after this mount unit is
