@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -158,7 +159,7 @@ static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
                 r = -errno;
 
                 /* If the FS doesn't support labels, then exit without warning */
-                if (r == -EOPNOTSUPP)
+                if (ERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
