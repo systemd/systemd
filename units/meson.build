@@ -312,6 +312,11 @@ meson.add_install_script('meson-add-wants.sh', add_wants)
 install_data('user-.slice.d/10-defaults.conf',
              install_dir : systemunitdir + '/user-.slice.d')
 
+install_data('user@.service.d/10-login-barrier.conf',
+             install_dir : systemunitdir + '/user@.service.d')
+install_data('user@0.service.d/10-login-barrier.conf',
+             install_dir : systemunitdir + '/user@0.service.d')
+
 ############################################################
 
 if install_sysconfdir
