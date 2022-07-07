@@ -238,6 +238,34 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. All
+        paths will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including config search
+        paths. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--install-from-host</option></term>
+        <listitem><para>Install binaries from the host filesystem when <option>--root</option> or
+        <option>--image</option> are used. By default binaries will be picked from the specified
+        directory or image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
