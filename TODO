@@ -83,7 +83,7 @@ Features:
   chase_symlinks() instead
 
 * make persistent restarts easier by adding a new setting OpenPersistentFile=
-  or so, which allows openeing one or more files that is "persistent" across
+  or so, which allows opening one or more files that is "persistent" across
   service restarts, hot reboot, cold reboots (depending on configuration): the
   files are created empty on first invocation, and on subsequent invocations
   the files are reboot. The files would be backed by tmpfs, pmem or /var
