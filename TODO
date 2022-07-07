@@ -79,6 +79,17 @@ Janitorial Clean-ups:
 
 Features:
 
+* make tmpfiles read lines from creds, so that we can provision SSH host keys
+  via creds. Similar: sysusers, sysctl, homed
+
+* mount /var/ from initrd, so that we can apply sysext and stuff before the
+  initrd transition. Specifically:
+  1. There should be a var= kernel cmdline option, matching root= and usr=
+  2. systemd-gpt-auto-generator should auto-mount /var if it finds it on disk
+  3. mount.x-initrd mount option in fstab should be implied for /var
+
+* implement varlink introspection
+
 * we should probably drop all use of prefix_roota() and friends, and use
   chase_symlinks() instead
 
