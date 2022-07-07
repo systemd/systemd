@@ -91,14 +91,14 @@ static int mount_is_network(Mount *m) {
         if (!p)
                 return -1;
 
+        if (p->fstype && fstype_is_network(p->fstype))
+                return true;
+
         if (m->from_proc_self_mountinfo &&
             UNIT(m)->manager->last_libmount_event_type != MNT_MONITOR_TYPE_USERSPACE)
                 return -1;
 
         if (fstab_test_option(p->options, "_netdev\0"))
-                return true;
-
-        if (p->fstype && fstype_is_network(p->fstype))
                 return true;
 
         return false;
