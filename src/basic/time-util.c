@@ -591,7 +591,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                         t = b;
                 }
 
-                n = MIN((size_t) k, l);
+                n = MIN((size_t) k, l-1);
 
                 l -= n;
                 p += n;
