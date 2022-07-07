@@ -1961,6 +1961,7 @@ fail:
 static int drain_libmount(Manager *m) {
         bool rescan = false;
         int r;
+        int type;
 
         assert(m);
 
@@ -1971,12 +1972,14 @@ static int drain_libmount(Manager *m) {
          *
          * error: r < 0; valid: r == 0, false positive: r == 1 */
         do {
-                r = mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
+                r = mnt_monitor_next_change(m->mount_monitor, NULL, &type);
                 if (r < 0)
                         return log_error_errno(r, "Failed to drain libmount events: %m");
                 if (r == 0)
                         rescan = true;
         } while (r == 0);
+
+        m->last_libmount_event_type = type;
 
         return rescan;
 }
