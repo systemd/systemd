@@ -85,7 +85,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
 }
 
 static EFI_STATUS try_gpt(
-                EFI_BLOCK_IO *block_io,
+                EFI_BLOCK_IO_PROTOCOL *block_io,
                 EFI_LBA lba,
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
@@ -195,7 +195,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         EFI_DEVICE_PATH *p = disk_path = path_chop(partition_path, part_node);
 
         EFI_HANDLE disk_handle;
-        EFI_BLOCK_IO *block_io;
+        EFI_BLOCK_IO_PROTOCOL *block_io;
         err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
         if (err != EFI_SUCCESS)
                 return err;
