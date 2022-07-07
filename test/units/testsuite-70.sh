@@ -9,7 +9,7 @@ export SYSTEMD_LOG_LEVEL=debug
 img="/var/tmp/test.img"
 dd if=/dev/zero of=$img bs=1024k count=20 status=none
 echo -n passphrase >/tmp/passphrase
-cryptsetup luksFormat -q --use-urandom $img /tmp/passphrase
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img /tmp/passphrase
 
 # Enroll unlock with default PCR policy
 env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
