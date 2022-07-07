@@ -101,7 +101,7 @@ static EFI_STATUS combine_initrd(
         return EFI_SUCCESS;
 }
 
-static void export_variables(EFI_LOADED_IMAGE *loaded_image) {
+static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         char16_t uuid[37];
 
         assert(loaded_image);
@@ -173,7 +173,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
-        EFI_LOADED_IMAGE *loaded_image;
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         UINTN addrs[_SECTION_MAX] = {};
         UINTN szs[_SECTION_MAX] = {};
         char *cmdline = NULL;

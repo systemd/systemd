@@ -16,7 +16,7 @@
 #include "pe.h"
 #include "util.h"
 
-static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
+static EFI_LOADED_IMAGE_PROTOCOL *loaded_image_free(EFI_LOADED_IMAGE_PROTOCOL *img) {
         if (!img)
                 return NULL;
         mfree(img->LoadOptions);
@@ -28,7 +28,7 @@ static EFI_STATUS loaded_image_register(
                 const void *linux_buffer, UINTN linux_length,
                 EFI_HANDLE *ret_image) {
 
-        EFI_LOADED_IMAGE *loaded_image = NULL;
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image = NULL;
         EFI_STATUS err;
 
         assert(cmdline || cmdline_len > 0);
@@ -36,8 +36,8 @@ static EFI_STATUS loaded_image_register(
         assert(ret_image);
 
         /* create and install new LoadedImage Protocol */
-        loaded_image = xnew(EFI_LOADED_IMAGE, 1);
-        *loaded_image = (EFI_LOADED_IMAGE) {
+        loaded_image = xnew(EFI_LOADED_IMAGE_PROTOCOL, 1);
+        *loaded_image = (EFI_LOADED_IMAGE_PROTOCOL) {
                 .ImageBase = (void *) linux_buffer,
                 .ImageSize = linux_length
         };

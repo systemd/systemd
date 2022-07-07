@@ -8,7 +8,7 @@
 
 static EFI_STATUS load_one_driver(
                 EFI_HANDLE parent_image,
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *fname) {
 
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
@@ -74,7 +74,7 @@ static EFI_STATUS reconnect(void) {
 
 EFI_STATUS load_drivers(
                 EFI_HANDLE parent_image,
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 EFI_FILE *root_dir) {
 
         _cleanup_(file_closep) EFI_FILE *drivers_dir = NULL;
