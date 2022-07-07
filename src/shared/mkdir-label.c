@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include "errno-util.h"
 #include "mkdir-label.h"
 #include "selinux-util.h"
 #include "smack-util.h"
@@ -16,7 +17,7 @@ int mkdirat_label(int dirfd, const char *path, mode_t mode) {
         if (r < 0)
                 return r;
 
-        r = mkdirat_errno_wrapper(dirfd, path, mode);
+        r = RET_NERRNO(mkdirat(dirfd, path, mode));
         mac_selinux_create_file_clear();
         if (r < 0)
                 return r;
