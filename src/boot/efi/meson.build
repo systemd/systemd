@@ -199,6 +199,11 @@ efi_cflags = [
         ]
 )
 
+# On some distros, systemd-stub may trigger some bug somewhere that will cause
+# kernel execution to fail. The cause seems to be purely based on code size and
+# always compiling with at least -O1 will work around that.
+efi_cflags += '-O1'
+
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
         'x86_64': ['-mno-red-zone', '-mno-sse', '-mno-mmx'],
