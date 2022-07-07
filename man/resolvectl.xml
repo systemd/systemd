@@ -38,7 +38,7 @@
     records and services with the
     <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     resolver service. By default, the specified list of parameters will be resolved as hostnames, retrieving their IPv4
-    and IPv6 addresses. If the parameters specified are formatted as IPv4 or IPv6 operation the reverse operation is
+    and IPv6 addresses. If the parameters specified are formatted as IPv4 or IPv6 addresses the reverse operation is
     done, and a hostname is retrieved for the specified addresses.</para>
 
     <para>The program's output contains information about the protocol used for the look-up and on which network
