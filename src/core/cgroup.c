@@ -1029,20 +1029,18 @@ static uint64_t cgroup_context_io_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_io_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_io_weight;
-        else if (c->io_weight != CGROUP_WEIGHT_INVALID)
+        if (c->io_weight != CGROUP_WEIGHT_INVALID)
                 return c->io_weight;
-        else
-                return CGROUP_WEIGHT_DEFAULT;
+        return CGROUP_WEIGHT_DEFAULT;
 }
 
 static uint64_t cgroup_context_blkio_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
                 return c->startup_blockio_weight;
-        else if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
+        if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID)
                 return c->blockio_weight;
-        else
-                return CGROUP_BLKIO_WEIGHT_DEFAULT;
+        return CGROUP_BLKIO_WEIGHT_DEFAULT;
 }
 
 static uint64_t cgroup_weight_blkio_to_io(uint64_t blkio_weight) {
