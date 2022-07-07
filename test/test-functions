@@ -60,6 +60,33 @@ get_bool() {
     fi
 }
 
+# Since in Bash we can have only one handler per signal, let's overcome this
+# limitation by having one global handler for the EXIT signal which executes
+# all registered handlers
+_AT_EXIT_HANDLERS=()
+_at_exit() {
+    set +e
+
+    # Run the EXIT handlers in reverse order
+    for ((i = ${#_AT_EXIT_HANDLERS[@]} - 1; i >= 0; i--)); do
+        ddebug "Running EXIT handler '${_AT_EXIT_HANDLERS[$i]}'"
+        "${_AT_EXIT_HANDLERS[$i]}"
+    done
+}
+
+trap _at_exit EXIT
+
+add_at_exit_handler() {
+    local handler="${1?}"
+
+    if [[ "$(type -t "$handler")" != "function" ]]; then
+        dfatal "'$handler' is not a function"
+        exit 1
+    fi
+
+    _AT_EXIT_HANDLERS+=("$handler")
+}
+
 # Decide if we can (and want to) run qemu with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
 # check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
@@ -1238,7 +1265,7 @@ cleanup_loopdev() {
     fi
 }
 
-trap cleanup_loopdev EXIT INT QUIT PIPE
+add_at_exit_handler cleanup_loopdev
 
 create_empty_image() {
     if [ -z "${IMAGE_NAME:=}" ]; then
