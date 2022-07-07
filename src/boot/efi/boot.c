@@ -1806,7 +1806,7 @@ static void config_title_generate(Config *config) {
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
-        const char *sections[] = {
+        static const char * const sections[] = {
                 ".sdmagic",
                 NULL
         };
@@ -1935,7 +1935,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         /* Look for BitLocker magic string on all block drives. */
         bool found = false;
         for (UINTN i = 0; i < n_handles; i++) {
-                EFI_BLOCK_IO *block_io;
+                EFI_BLOCK_IO_PROTOCOL *block_io;
                 err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
@@ -2082,7 +2082,7 @@ static void config_entry_add_unified(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, (const char **) sections, offs, szs);
+                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
                 if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
                         continue;
 
@@ -2328,7 +2328,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
-        EFI_LOADED_IMAGE *loaded_image;
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
@@ -2430,7 +2430,7 @@ static void save_selected_entry(const Config *config, const ConfigEntry *entry) 
 }
 
 static void export_variables(
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *loaded_image_path,
                 uint64_t init_usec) {
 
@@ -2472,7 +2472,7 @@ static void export_variables(
 
 static void config_load_all_entries(
                 Config *config,
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *loaded_image_path,
                 EFI_FILE *root_dir) {
 
@@ -2527,7 +2527,7 @@ static void config_load_all_entries(
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        EFI_LOADED_IMAGE *loaded_image;
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         char16_t *loaded_image_path;
