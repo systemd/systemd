@@ -169,7 +169,12 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup, cgroup) == 0);
         c1 = hashmap_get(h1, cgroup);
         assert_se(c1);
+        assert_se(!empty_or_root(c1->monitored_ancestor_path));
         assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup, cgroup) == -EEXIST);
+        assert_se(oomd_insert_cgroup_context(NULL, h1, cgroup, "") == 0);
+        c1 = hashmap_get(h1, cgroup);
+        assert_se(c1);
+        assert_se(empty_or_root(c1->monitored_ancestor_path));
 
          /* make sure certain values from h1 get updated in h2 */
         c1->pgscan = UINT64_MAX;
@@ -188,12 +193,19 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(c2->mem_pressure_limit_hit_start == 42);
         assert_se(c2->last_had_mem_reclaim == 888); /* assumes the live pgscan is less than UINT64_MAX */
 
-        /* Assert that avoid/omit are not set if the cgroup is not owned by root */
         if (test_xattrs) {
-                ctx = oomd_cgroup_context_free(ctx);
+                /* Assert that avoid/omit are not set if the cgroup UID does
+                 * not match ancestor cgroup, and that avoid/omit are set when
+                 * the UIDs match*/
                 assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
-                assert_se(oomd_cgroup_context_acquire(cgroup, cgroup, &ctx) == 0);
+
+                ctx = oomd_cgroup_context_free(ctx);
+                assert_se(oomd_cgroup_context_acquire(cgroup, "", &ctx) == 0);
                 assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_NONE);
+
+                ctx = oomd_cgroup_context_free(ctx);
+                assert_se(oomd_cgroup_context_acquire(cgroup, cgroup, &ctx) == 0);
+                assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
         }
 }
 
