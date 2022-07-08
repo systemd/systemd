@@ -1515,10 +1515,8 @@ static int truncate_file(Item *i, const char *path) {
                 log_debug("Writing to \"%s\".", path);
 
                 r = loop_write(fd, i->argument, strlen(i->argument), false);
-                if (r < 0) {
-                        r = erofs ? -EROFS : r;
-                        return log_error_errno(r, "Failed to write file %s: %m", path);
-                }
+                if (r < 0)
+                        return log_error_errno(erofs ? -EROFS : r, "Failed to write file %s: %m", path);
         }
 
         return fd_set_perms(i, fd, path, st);
