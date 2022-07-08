@@ -224,6 +224,30 @@ grep -qF "myservice.untrusted.test:1111" "$RUN_OUT"
 grep -qF "10.0.0.123" "$RUN_OUT"
 grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
+# Check OPENPGPKEY support
+run delv -t OPENPGPKEY 5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test
+grep -qF "; fully validated" "$RUN_OUT"
+run resolvectl openpgp mr.smith@signed.test
+grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+# SSHFP
+run resolvectl query -t SSHFP signed.test
+grep -qiF "c388e772baf2345b1a7664eed67040a3371b0187f2b80166b36d17095319a31d" "$RUN_OUT"
+grep -qiF "40ca19bbf46ff170ecb1d07fe5841aa6f9bb2413" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+# TLSA
+run resolvectl tlsa signed.test
+grep -qiF "038503abd9e5d91ab7361b4c84039041d792bdcc" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+run resolvectl tlsa signed.test:443
+grep -qiF "038503abd9e5d91ab7361b4c84039041d792bdcc" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+run resolvectl tlsa tcp signed.test
+grep -qiF "038503abd9e5d91ab7361b4c84039041d792bdcc" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+run resolvectl tlsa udp signed.test:1111
+grep -qiF "fbbac80ce53384bde8c31012cb1db70c8e70fd89bc1e8f5a4ae8fca50dc5b92b8d1a9e0750316cf99e8735a38c2bb75ed1ce3c1aaf9d2f26d3f3e77acbca9628" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
 
 # DNSSEC validation with multiple records of the same type for the same name
 # Issue: https://github.com/systemd/systemd/issues/22002

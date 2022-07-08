@@ -57,3 +57,47 @@ _mysvc._tcp           SRV   10 5 1234 myservice
 _invalidsvc._udp      SRV   5 5 1111 invalidservice
 
 _untrustedsvc._udp    SRV   5 5 1111 myservice.untrusted.test.
+
+; OPENPGPKEY RR for mr.smith@signed.test
+; The hash was generated using `echo -ne mr.smith | sha256sum | head -c56`
+; and exported via `gpg --export mr.smith | base64`
+5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey OPENPGPKEY (
+    mDMEYshhzhYJKwYBBAHaRw8BAQdAuU2RxKaycSdaR5YZ/q+/yoHeil/1WNRDVbpjPSd6QBa0GW1y
+    LnNtaXRoQHNpZ25lZC50ZXN0LnpvbmWImQQTFggAQRYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJi
+    yGHOAhsDBQkDwmcABQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEHd9yvMKUDBWo6MA/2oC
+    zdnzMlK9gM5bNCFfPyagJfFfv7fW1l7WXTve6FJtAP0faW24ahE1okjmrsTUwqZHvDThysW5zTSt
+    j49S3JQDA7g4BGLIYc4SCisGAQQBl1UBBQEBB0CuNcTAt5AUE3seFN/Gm2euC+8dgtztyzoO/78K
+    ictFLAMBCAeIeAQYFggAIBYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJiyGHOAhsMAAoJEHd9yvMK
+    UDBWtxkA/jlbUgHpSoTKFNNTeXYbTz9jnoupe9eT4O3tU55ofwO7AQCa5ntSIuzDJ1E2iy7oOLOZ
+    m2ocNqpC7SULHhSKYfUWDg==
+)
+
+; SSHFP records for all supported combinations of
+; - RSA (1), DSA (2), ECDSA (3), Ed25519 (4)
+; - SHA1 (1), SHA256 (2)
+@                     SSHFP 1 1 7f1a501dd53da32e4550012fce17fdf7aaa9f876
+                      SSHFP 1 2 541b57198627f19f01fcf04e6c3a257c619a7c7fedd6070fedce04a1850127e7
+                      SSHFP 2 1 43b9124462db10acc251267116f842f6a29ed112
+                      SSHFP 2 2 c388e772baf2345b1a7664eed67040a3371b0187f2b80166b36d17095319a31d
+                      SSHFP 3 1 539221862c3abfdeaa34e29999366d2e07d6db0d
+                      SSHFP 3 2 0a8f1fc1e81982922bca02058eaa2023d708ce067964c1919f34731103bcd4be
+                      SSHFP 4 1 40ca19bbf46ff170ecb1d07fe5841aa6f9bb2413
+                      SSHFP 4 2 4205d802b1226d64e59047acf41ce7aac9e2085ae1102eed56614448b62ba639
+
+; TLSA
+; Port:               443
+; Transport protocol: TCP
+; Usage:              DANE-EE: Domain Issued Certificate (3)
+; Selector:           SPKI: Use subject public key (1)
+; Matching-type:      SHA-256: SHA-256 hash (1)
+_443._tcp             TLSA 3 1 1 038503ABD9E5D91AB7361B4C84039041D792BDCC
+; Port:               1111
+; Transport protocol: UDP
+; Usage:              DANE-TA: Trust Anchor Assertion (2)
+; Selector:           Cert: Use full certificate (0)
+; Matching-type:      SHA-512: SHA-512 hash (2)
+_1111._udp            TLSA 2 0 2 (
+                                 fbbac80ce53384bde8c31012cb1db70c8e70fd89bc1e8f5a4ae8fca50dc5
+                                 b92b8d1a9e0750316cf99e8735a38c2bb75ed1ce3c1aaf9d2f26d3f3e77a
+                                 cbca9628
+)
