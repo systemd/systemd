@@ -11,18 +11,27 @@ $ORIGIN signed.test.
 )
 
 ; NS info
-                      NS ns1.unsigned.test.
+                      NS    ns1.unsigned.test.
 
-*.wild                TXT "this is a wildcard"
+*.wild                TXT   "this is a wildcard"
 
-@                     MX 10 mail.signed.test.
+@                     MX    10 mail.signed.test.
 
-                      A 10.0.0.10
-mail                  A 10.0.0.11
+                      A     10.0.0.10
+mail                  A     10.0.0.11
+mail                  AAAA  fd00:dead:beef:cafe::11
 
 ; https://github.com/systemd/systemd/issues/22002
-dupe                  A 10.0.0.12
-dupe                  A 10.0.0.13
+dupe                  A     10.0.0.12
+dupe                  A     10.0.0.13
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::12
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::13
+dupe-mixed            A     10.0.0.15
+dupe-mixed            A     10.0.0.16
+dupe-mixed            A     10.0.0.17
+dupe-mixed            AAAA  fd00:dead:beef:cafe::15
+dupe-mixed            AAAA  fd00:dead:beef:cafe::16
+dupe-mixed            AAAA  fd00:dead:beef:cafe::17
 
 ; CNAME_REDIRECTS_MAX is 16, so let's test something close to that
 cname-chain           CNAME follow1.signed.test.
