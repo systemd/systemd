@@ -1251,8 +1251,9 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed) {
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         assert(p);
+        assert(p->rindex <= p->size);
 
-        if (p->rindex + sz > p->size)
+        if (sz > p->size - p->rindex)
                 return -EMSGSIZE;
 
         if (ret)
@@ -1592,17 +1593,19 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         int r;
 
-        while (p->rindex < rewinder.saved_rindex + size) {
+        while (p->rindex - rewinder.saved_rindex < size) {
                 r = dns_packet_read_type_window(p, types, NULL);
                 if (r < 0)
                         return r;
 
+                assert(p->rindex >= rewinder.saved_rindex);
+
                 /* don't read past end of current RR */
-                if (p->rindex > rewinder.saved_rindex + size)
+                if (p->rindex - rewinder.saved_rindex > size)
                         return -EBADMSG;
         }
 
-        if (p->rindex != rewinder.saved_rindex + size)
+        if (p->rindex - rewinder.saved_rindex != size)
                 return -EBADMSG;
 
         if (start)
@@ -1713,7 +1716,7 @@ int dns_packet_read_rr(
         if (r < 0)
                 return r;
 
-        if (p->rindex + rdlength > p->size)
+        if (rdlength > p->size - p->rindex)
                 return -EBADMSG;
 
         offset = p->rindex;
@@ -1757,7 +1760,7 @@ int dns_packet_read_rr(
                 } else {
                         DnsTxtItem *last = NULL;
 
-                        while (p->rindex < offset + rdlength) {
+                        while (p->rindex - offset < rdlength) {
                                 DnsTxtItem *i;
                                 const void *data;
                                 size_t sz;
@@ -1989,7 +1992,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                if (rdlength + offset < p->rindex)
+                if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
@@ -2015,6 +2018,9 @@ int dns_packet_read_rr(
                 r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength < p->rindex - offset)
+                        return -EBADMSG;
 
                 r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
 
@@ -2061,6 +2067,9 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
+                if (rdlength < p->rindex - offset)
+                        return -EBADMSG;
+
                 r = dns_packet_read_type_windows(p, &rr->nsec3.types, offset + rdlength - p->rindex, NULL);
 
                 /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
@@ -2104,7 +2113,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                if (rdlength + offset < p->rindex)
+                if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
                 r = dns_packet_read_memdup(p,
@@ -2123,7 +2132,7 @@ int dns_packet_read_rr(
         }
         if (r < 0)
                 return r;
-        if (p->rindex != offset + rdlength)
+        if (p->rindex - offset != rdlength)
                 return -EBADMSG;
 
         if (ret)
