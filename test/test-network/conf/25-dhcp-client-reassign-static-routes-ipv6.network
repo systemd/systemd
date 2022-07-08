@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Match]
-Name=veth99
-
-[Network]
-IPv6AcceptRA=yes
-
-[Route]
-Destination=2600:0:0:1::/64

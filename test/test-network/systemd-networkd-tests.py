@@ -4490,7 +4490,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-dhcp-client-ipv6-only.network',
         '25-dhcp-client-keep-configuration-dhcp-on-stop.network',
         '25-dhcp-client-keep-configuration-dhcp.network',
-        '25-dhcp-client-reassign-static-routes-ipv6.network',
         '25-dhcp-client-use-dns-ipv4-and-ra.network',
         '25-dhcp-client-use-dns-ipv4.network',
         '25-dhcp-client-use-dns-no.network',
@@ -4756,37 +4755,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('VendorClassIdentifier=SusantVendorTest', output)
         self.assertNotIn('test-hostname', output)
         self.assertNotIn('26:mtu', output)
-
-    def test_dhcp_client_reassign_static_routes_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
-                                        '25-dhcp-client-reassign-static-routes-ipv6.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq(lease_time='2m')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip address show dev veth99 scope global')
-        print(output)
-        self.assertRegex(output, r'inet6 2600::[0-9a-f]*/128 scope global (noprefixroute dynamic|dynamic noprefixroute)')
-
-        output = check_output('ip -6 route show dev veth99')
-        print(output)
-        self.assertRegex(output, r'2600::/64 proto ra metric 1024')
-        self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
-
-        stop_dnsmasq()
-        start_dnsmasq(ipv6_range='2600::30,2600::40', lease_time='2m')
-
-        # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
-        print('Wait for the DHCP lease to be expired')
-        time.sleep(120)
-
-        self.wait_online(['veth99:routable'])
-
-        output = check_output('ip -6 route show dev veth99')
-        print(output)
-        self.assertRegex(output, r'2600::/64 proto ra metric 1024')
-        self.assertRegex(output, r'2600:0:0:1::/64 proto static metric 1024 pref medium')
 
     def test_dhcp_keep_configuration_dhcp(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-keep-configuration-dhcp.network')
