@@ -48,8 +48,8 @@ uint64_t device_get_tags_generation(sd_device *device);
 uint64_t device_get_devlinks_generation(sd_device *device);
 
 int device_properties_prepare(sd_device *device);
-int device_get_properties_nulstr(sd_device *device, const char **nulstr, size_t *len);
-int device_get_properties_strv(sd_device *device, char ***strv);
+int device_get_properties_nulstr(sd_device *device, const char **ret_nulstr, size_t *ret_len);
+int device_get_properties_strv(sd_device *device, char ***ret);
 
 int device_rename(sd_device *device, const char *name);
 int device_shallow_clone(sd_device *device, sd_device **ret);
