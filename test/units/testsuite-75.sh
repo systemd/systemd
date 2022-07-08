@@ -380,6 +380,12 @@ grep -qF "myservice.untrusted.test:1111" "$RUN_OUT"
 grep -qF "10.0.0.123" "$RUN_OUT"
 grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
+# Check OPENPGPKEY support
+run delv -t OPENPGPKEY 5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test
+grep -qF "; fully validated" "$RUN_OUT"
+run resolvectl openpgp mr.smith@signed.test
+grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
 
 # DNSSEC validation with multiple records of the same type for the same name
 # Issue: https://github.com/systemd/systemd/issues/22002
