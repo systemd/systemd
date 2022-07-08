@@ -4499,7 +4499,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-dhcp-client.network',
         '25-dhcp-server-decline.network',
         '25-dhcp-server-veth-peer.network',
-        '25-dhcp-v4-server-veth-peer.network',
         '25-static.network']
 
     def setUp(self):
@@ -4757,7 +4756,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('26:mtu', output)
 
     def test_dhcp_keep_configuration_dhcp(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-keep-configuration-dhcp.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev',
+                                        '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-keep-configuration-dhcp.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4811,7 +4812,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.*')
 
     def test_dhcp_keep_configuration_dhcp_on_stop(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-v4-server-veth-peer.network', '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
+        copy_unit_to_networkd_unit_path('25-veth.netdev',
+                                        '25-dhcp-server-veth-peer.network',
+                                        '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
