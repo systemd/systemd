@@ -25,9 +25,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
+#include "id128-util.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
+#include "sha256.h"
 #include "sleep-config.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -139,6 +142,123 @@ int read_battery_capacity_percentage(void) {
                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
 
         return battery_capacity;
+}
+
+static void get_system_battery_identifier_hash(uint8_t ret[static SHA256_DIGEST_SIZE]) {
+        _cleanup_free_ char *bat_manufacturer = NULL, *bat_model_name = NULL, *bat_serial_number = NULL, *p = NULL;
+        sd_id128_t machine_id, product_id;
+        struct sha256_ctx hash;
+        int r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/manufacturer", &bat_manufacturer);
+        if (r == -ENOENT)
+               log_debug_errno(r, "/sys/class/power_supply/BAT0/manufacturer is unavailable: %m");
+        else if (r < 0)
+               log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/manufacturer: %m");
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/model_name", &bat_model_name);
+        if (r == -ENOENT)
+               log_debug_errno(r, "/sys/class/power_supply/BAT0/model_name is unavailable: %m");
+        else if (r < 0)
+               log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/model_name: %m");
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/serial_number", &bat_serial_number);
+        if (r == -ENOENT)
+               log_debug_errno(r, "/sys/class/power_supply/BAT0/serial_number is unavailable: %m");
+        else if (r < 0)
+               log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/serial_number: %m");
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+               log_debug_errno(r, "Failed to get machine ID: %m");
+
+        r = id128_get_product(&product_id);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get product ID: %m");
+
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(bat_manufacturer, sizeof(bat_manufacturer), &hash);
+        sha256_finish_ctx(&hash, ret);
+}
+
+static int battery_discharge_rate_in_range(int battery_discharge_rate) {
+        if (battery_discharge_rate <= 0 || battery_discharge_rate >= 200)
+               return 0;
+               /* battery discharge rate is not in a valid range */
+        log_debug("Battery discharge rate is in valid range");
+        return 1;
+}
+
+int get_battery_discharge_rate(void) {
+        _cleanup_free_ char *hash_id_discharge_rate = NULL;
+        const char *p, *filepath;
+        uint8_t *current_hash_id = NULL;
+        char *stored_hash_id = NULL, *stored_discharge_rate = NULL, *h = NULL;
+        int discharge_rate, r;
+
+        filepath = "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour";
+
+        r = read_one_line_file(filepath, &hash_id_discharge_rate);
+        log_debug("Stored hash_id and discharge_rate is %s", hash_id_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read discharge rate from %s: %m", filepath);
+
+        get_system_battery_identifier_hash(current_hash_id);
+        log_debug("system_battery_identifier hash is %s", current_hash_id);
+        if (!current_hash_id)
+               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+
+        /* extract the string in file, split it, validate the hash and then return discharge rate */
+
+        p = hash_id_discharge_rate;
+        r = extract_many_words(&p, " ", 0, &stored_hash_id, &stored_discharge_rate, NULL);
+        log_debug("stored hash_id is %s and stored discharge_rate is %s", stored_hash_id, stored_discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from %s location: %m", filepath);
+
+        h = hexmem(current_hash_id, sizeof(current_hash_id));
+        if (!first_word(hash_id_discharge_rate, h))
+               return log_debug_errno(r, "Current system and battery identifier do not match the stored identifier: %m");
+        /* if (!strcmp_ptr(current_hash_id, stored_hash_id))
+               return log_debug_errno(r, "Current system and battery identifier do not match the stored identifier: %m"); */
+        log_debug("hash id match");
+
+        r = safe_atoi(stored_discharge_rate, &discharge_rate);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse discharge rate read from %s location: %m", filepath);
+
+        if (!battery_discharge_rate_in_range(discharge_rate))
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+
+        return discharge_rate;
+}
+
+int put_battery_discharge_rate(int estimated_battery_discharge_rate) {
+        uint8_t *system_hash_id = NULL;
+        const char *filepath;
+        char *p = NULL, *h = NULL;
+        int r = 0;
+
+        if (!battery_discharge_rate_in_range(estimated_battery_discharge_rate))
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour: %m");
+
+        get_system_battery_identifier_hash(system_hash_id);
+        if (!system_hash_id)
+               return log_debug_errno(r, "Failed to generate system battery identifier hash: %m");
+        log_debug("system_hash_id is %s", system_hash_id);
+
+        h = hexmem(system_hash_id, sizeof(system_hash_id));
+        p = strjoin(h, " ", estimated_battery_discharge_rate);
+        if (!p)
+                return log_oom_debug();
+        filepath = "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour";
+        log_debug("Final String to be written in %s is %s", filepath, p);
+
+        r = write_string_filef(filepath, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755, "%s", p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s: %m", filepath);
+
+        return r;
 }
 
 int can_sleep_state(char **types) {
