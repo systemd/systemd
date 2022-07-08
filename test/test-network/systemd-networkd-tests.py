@@ -4484,7 +4484,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-dhcp-client-decline.network',
         '25-dhcp-client-gateway-ipv6.network',
         '25-dhcp-client-gateway-onlink-implicit.network',
-        '25-dhcp-client-ipv4-ipv6.network',
         '25-dhcp-client-ipv4-only.network',
         '25-dhcp-client-ipv4-use-routes-use-gateway.network',
         '25-dhcp-client-ipv6-only.network',
@@ -4725,22 +4724,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-    def test_dhcp_client_ipv4_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-ipv6.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        # link become 'routable' when at least one protocol provide an valid address.
-        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
-        self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
-
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
-        print(output)
-        self.assertRegex(output, '2600::')
-        self.assertRegex(output, '192.168.5')
-
     def test_dhcp_client_settings_anonymize(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-anonymize.network')
         start_networkd()
@@ -4841,13 +4824,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
         output = check_output('ip address show dev veth99 scope global')
-        print(output)
-        self.assertRegex(output, '192.168.5')
-        self.assertRegex(output, '2600::')
-
-        ipv4_address = re.search(r'192.168.5.[0-9]*/24', output)
-        ipv6_address = re.search(r'2600::[0-9a-f:]*/128', output)
-        static_network = '\n'.join(['[Match]', 'Name=veth99', '[Network]', 'IPv6AcceptRA=no', 'Address=' + ipv4_address.group(), 'Address=' + ipv6_address.group()])
+        ipv4_address = re.search(r'192.168.5.[0-9]*/24', output).group()
+        ipv6_address = re.search(r'2600::[0-9a-f:]*/128', output).group()
+        static_network = '\n'.join(['[Match]', 'Name=veth99', '[Network]', 'IPv6AcceptRA=no', 'Address=' + ipv4_address, 'Address=' + ipv6_address])
         print(static_network)
 
         remove_unit_from_networkd_path(['25-dhcp-client.network'])
@@ -4855,20 +4834,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_file_path, '25-static.network'), mode='w', encoding='utf-8') as f:
             f.write(static_network)
 
-        # When networkd started, the links are already configured, so let's wait for 5 seconds
-        # the links to be re-configured.
-        restart_networkd(5)
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        restart_networkd()
+        self.wait_online(['veth99:routable'])
 
         output = check_output('ip -4 address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, '192.168.5')
-        self.assertRegex(output, 'valid_lft forever preferred_lft forever')
+        self.assertRegex(output, f'inet {ipv4_address} brd 192.168.5.255 scope global veth99\n *'
+                         'valid_lft forever preferred_lft forever')
 
         output = check_output('ip -6 address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, '2600::')
-        self.assertRegex(output, 'valid_lft forever preferred_lft forever')
+        self.assertRegex(output, f'inet6 {ipv6_address} scope global *\n *'
+                         'valid_lft forever preferred_lft forever')
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_dhcp_client_vrf(self):
