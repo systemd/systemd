@@ -1403,7 +1403,7 @@ static int create_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                 mac_selinux_create_file_clear();
         }
 
@@ -1411,8 +1411,8 @@ static int create_file(Item *i, const char *path) {
                 /* Even on a read-only filesystem, open(2) returns EEXIST if the
                  * file already exists. It returns EROFS only if it needs to
                  * create the file. */
-                if (errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create file %s: %m", path);
+                if (fd != -EEXIST)
+                        return log_error_errno(fd, "Failed to create file %s: %m", path);
 
                 /* Re-open the file. At that point it must exist since open(2)
                  * failed with EEXIST. We still need to check if the perms/mode
@@ -1477,13 +1477,13 @@ static int truncate_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                 mac_selinux_create_file_clear();
         }
 
         if (fd < 0) {
-                if (errno != EROFS)
-                        return log_error_errno(errno, "Failed to open/create file %s: %m", path);
+                if (fd != -EROFS)
+                        return log_error_errno(fd, "Failed to open/create file %s: %m", path);
 
                 /* On a read-only filesystem, we don't want to fail if the
                  * target is already empty and the perms are set. So we still
@@ -1778,21 +1778,22 @@ static int create_device(Item *i, mode_t file_type) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, file_type);
-                r = mknodat(dfd, bn, i->mode | file_type, i->major_minor);
+                r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
                 mac_selinux_create_file_clear();
         }
 
         if (r < 0) {
                 struct stat st;
 
-                if (errno == EPERM) {
-                        log_debug("We lack permissions, possibly because of cgroup configuration; "
-                                  "skipping creation of device node %s.", i->path);
+                if (r == -EPERM) {
+                        log_debug_errno(r,
+                                        "We lack permissions, possibly because of cgroup configuration; "
+                                        "skipping creation of device node %s.", i->path);
                         return 0;
                 }
 
-                if (errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
+                if (r != -EEXIST)
+                        return log_error_errno(r, "Failed to create device node %s: %m", i->path);
 
                 if (fstatat(dfd, bn, &st, 0) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", i->path);
@@ -1851,13 +1852,13 @@ static int create_fifo(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFIFO);
-                r = mkfifoat(pfd, bn, i->mode);
+                r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
                 mac_selinux_create_file_clear();
         }
 
         if (r < 0) {
-                if (errno != EEXIST)
-                        return log_error_errno(errno, "Failed to create fifo %s: %m", path);
+                if (r != -EEXIST)
+                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
 
                 if (fstatat(pfd, bn, &st, AT_SYMLINK_NOFOLLOW) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", path);
@@ -2276,14 +2277,14 @@ static int create_item(Item *i) {
                         return r;
 
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlink(i->argument, i->path);
+                r = RET_NERRNO(symlink(i->argument, i->path));
                 mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
 
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                        if (r != -EEXIST)
+                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                         r = readlink_malloc(i->path, &x);
                         if (r < 0 || !streq(i->argument, x)) {
