@@ -4766,11 +4766,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
-
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
-        print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
+                         'valid_lft forever preferred_lft forever')
 
         # Stopping dnsmasq as networkd won't be allowed to renew the DHCP lease.
         stop_dnsmasq()
@@ -4779,22 +4776,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('Wait for the DHCP lease to be expired')
         time.sleep(120)
 
-        print('The lease address should be kept after lease expired')
+        # The lease address should be kept after the lease expired
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
+                         'valid_lft forever preferred_lft forever')
 
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
-        print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        stop_networkd()
 
-        check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd.service')
-
-        print('The lease address should be kept after networkd stopped')
+        # The lease address should be kept after networkd stopped
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
+                         'valid_lft forever preferred_lft forever')
 
         with open(os.path.join(network_unit_file_path, '25-dhcp-client-keep-configuration-dhcp.network'), mode='a', encoding='utf-8') as f:
             f.write('[Network]\nDHCP=no\n')
@@ -4802,14 +4796,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        print('Still the lease address should be kept after networkd restarted')
+        # Still the lease address should be kept after networkd restarted
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
-
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
-        print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global veth99\n *'
+                         'valid_lft forever preferred_lft forever')
 
     def test_dhcp_keep_configuration_dhcp_on_stop(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev',
@@ -4822,22 +4813,21 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
         stop_dnsmasq()
-        check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd.service')
+        stop_networkd()
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertRegex(output, r'192.168.5.*')
+        self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
-        restart_networkd(3)
+        start_networkd(3)
         self.wait_online(['veth-peer:routable'])
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
-        self.assertNotRegex(output, r'192.168.5.*')
+        self.assertNotIn('192.168.5.', output)
 
     def test_dhcp_client_reuse_address_as_static(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
