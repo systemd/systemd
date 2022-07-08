@@ -559,34 +559,34 @@ static int device_update_properties_bufs(sd_device *device) {
         return 0;
 }
 
-int device_get_properties_nulstr(sd_device *device, const char **nulstr, size_t *len) {
+int device_get_properties_nulstr(sd_device *device, const char **ret_nulstr, size_t *ret_len) {
         int r;
 
         assert(device);
-        assert(nulstr);
-        assert(len);
 
         r = device_update_properties_bufs(device);
         if (r < 0)
                 return r;
 
-        *nulstr = device->properties_nulstr;
-        *len = device->properties_nulstr_len;
+        if (ret_nulstr)
+                *ret_nulstr = device->properties_nulstr;
+        if (ret_len)
+                *ret_len = device->properties_nulstr_len;
 
         return 0;
 }
 
-int device_get_properties_strv(sd_device *device, char ***strv) {
+int device_get_properties_strv(sd_device *device, char ***ret) {
         int r;
 
         assert(device);
-        assert(strv);
 
         r = device_update_properties_bufs(device);
         if (r < 0)
                 return r;
 
-        *strv = device->properties_strv;
+        if (ret)
+                *ret = device->properties_strv;
 
         return 0;
 }
