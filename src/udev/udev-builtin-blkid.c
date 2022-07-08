@@ -58,6 +58,10 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
                 blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
 
+        } else if (startswith(name, "FS")) {
+                strscpyl(s, sizeof(s), "ID_FS_", name, NULL);
+                udev_builtin_add_property(dev, test, s, value);
+
         } else if (streq(name, "PTTYPE")) {
                 udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
 
@@ -293,6 +297,9 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
+#if HAVE_BLKID_SUBLKS_FSINFO
+                BLKID_SUBLKS_FSINFO |
+#endif
                 BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
         if (noraid)

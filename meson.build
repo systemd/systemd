@@ -1214,6 +1214,8 @@ if want_blkid != 'false' and not skip_deps
 
         conf.set10('HAVE_BLKID_PROBE_SET_HINT',
                    have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+        conf.set10('HAVE_BLKID_SUBLKS_FSINFO',
+                   have and cc.has_header_symbol('blkid.h', 'BLKID_SUBLKS_FSINFO', dependencies : libblkid))
 else
         have = false
         libblkid = []
