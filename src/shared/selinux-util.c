@@ -233,46 +233,19 @@ static int mac_selinux_reload(int seqno) {
 }
 #endif
 
-int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
-
-        assert(path);
-        assert(inside_path);
-
 #if HAVE_SELINUX
-        _cleanup_close_ int fd = -1;
+static int selinux_fix_fd(
+                int fd,
+                const char *label_path,
+                LabelFixFlags flags) {
 
-        /* if mac_selinux_init() wasn't called before we are a NOOP */
-        if (!label_hnd)
-                return 0;
-
-        /* Open the file as O_PATH, to pin it while we determine and adjust the label */
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0) {
-                if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
-
-        return mac_selinux_fix_container_fd(fd, path, inside_path, flags);
-#endif
-
-        return 0;
-}
-
-int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_path, LabelFixFlags flags) {
-
-        assert(fd >= 0);
-        assert(inside_path);
-
-#if HAVE_SELINUX
         _cleanup_freecon_ char* fcon = NULL;
         struct stat st;
         int r;
 
-        /* if mac_selinux_init() wasn't called before we are a NOOP */
-        if (!label_hnd)
-                return 0;
+        assert(fd >= 0);
+        assert(label_path);
+        assert(path_is_absolute(label_path));
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -282,42 +255,85 @@ int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_pa
         if (!label_hnd)
                 return 0;
 
-        if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
+        if (selabel_lookup_raw(label_hnd, &fcon, label_path, st.st_mode) < 0) {
                 /* If there's no label to set, then exit without warning */
                 if (errno == ENOENT)
                         return 0;
 
-                r = -errno;
-                goto fail;
+                return log_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
         }
 
         if (setfilecon_raw(FORMAT_PROC_FD_PATH(fd), fcon) < 0) {
                 _cleanup_freecon_ char *oldcon = NULL;
 
+                r = -errno;
+
                 /* If the FS doesn't support labels, then exit without warning */
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                if (ERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
-                if (errno == EROFS && (flags & LABEL_IGNORE_EROFS))
+                if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
                         return 0;
-
-                r = -errno;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
                 if (getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq(fcon, oldcon))
                         return 0;
 
-                goto fail;
+                return log_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
         }
 
         return 0;
-
-fail:
-        return log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", strna(path), strna(inside_path));
+}
 #endif
 
+int mac_selinux_fix_full(
+                int atfd,
+                const char *inode_path,
+                const char *label_path,
+                LabelFixFlags flags) {
+
+        assert(atfd >= 0 || atfd == AT_FDCWD);
+        assert(atfd >= 0 || inode_path);
+
+#if HAVE_SELINUX
+        _cleanup_close_ int opened_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int inode_fd, r;
+
+        /* if mac_selinux_init() wasn't called before we are a NOOP */
+        if (!label_hnd)
+                return 0;
+
+        if (inode_path) {
+                opened_fd = openat(atfd, inode_path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                if (opened_fd < 0) {
+                        if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                                return 0;
+
+                        return -errno;
+                }
+
+                inode_fd = opened_fd;
+        } else
+                inode_fd = atfd;
+
+        if (!label_path) {
+                if (path_is_absolute(inode_path))
+                        label_path = inode_path;
+                else {
+                        r = fd_get_path(inode_fd, &p);
+                        if (r < 0)
+                                return r;
+
+                        label_path = p;
+                }
+        }
+
+        return selinux_fix_fd(inode_fd, label_path, flags);
+#else
         return 0;
+#endif
 }
 
 int mac_selinux_apply(const char *path, const char *label) {

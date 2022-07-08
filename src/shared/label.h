@@ -10,9 +10,10 @@ typedef enum LabelFixFlags {
         LABEL_IGNORE_EROFS  = 1 << 1,
 } LabelFixFlags;
 
-int label_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
+int label_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
+
 static inline int label_fix(const char *path, LabelFixFlags flags) {
-        return label_fix_container(path, path, flags);
+        return label_fix_full(AT_FDCWD, path, path, flags);
 }
 
 int symlink_label(const char *old_path, const char *new_path);

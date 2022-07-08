@@ -677,7 +677,7 @@ static int udev_node_apply_permissions_impl(
 
                 /* set the defaults */
                 if (!selinux)
-                        (void) mac_selinux_fix_fd(node_fd, devnode, LABEL_IGNORE_ENOENT);
+                        (void) mac_selinux_fix_full(node_fd, NULL, devnode, LABEL_IGNORE_ENOENT);
                 if (!smack)
                         (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
         }

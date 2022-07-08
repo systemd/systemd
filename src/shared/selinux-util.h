@@ -24,15 +24,7 @@ int mac_selinux_init(void);
 void mac_selinux_maybe_reload(void);
 void mac_selinux_finish(void);
 
-int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
-static inline int mac_selinux_fix(const char *path, LabelFixFlags flags) {
-        return mac_selinux_fix_container(path, path, flags);
-}
-
-int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_path, LabelFixFlags flags);
-static inline int mac_selinux_fix_fd(int fd, const char *path, LabelFixFlags flags) {
-        return mac_selinux_fix_container_fd(fd, path, path, flags);
-}
+int mac_selinux_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 
 int mac_selinux_apply(const char *path, const char *label);
 int mac_selinux_apply_fd(int fd, const char *path, const char *label);

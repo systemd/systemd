@@ -928,7 +928,7 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 goto fail;
 
-        r = label_fix_container(dev, "/dev", 0);
+        r = label_fix_full(AT_FDCWD, dev, "/dev", 0);
         if (r < 0) {
                 log_debug_errno(r, "Failed to fix label of '%s' as /dev: %m", dev);
                 goto fail;
@@ -1158,7 +1158,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        r = label_fix_container(entry_path, inner_path, 0);
+        r = label_fix_full(AT_FDCWD, entry_path, inner_path, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
@@ -2758,7 +2758,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
 
-                r = label_fix_container(y, prefix, 0);
+                r = label_fix_full(AT_FDCWD, y, prefix, 0);
                 if (r < 0)
                         return r;
 
