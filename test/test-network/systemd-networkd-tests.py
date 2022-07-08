@@ -4610,8 +4610,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       lease_time='2m')
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
-        print('Wait for the dynamic address to be renewed')
-        time.sleep(125)
+        print('Wait for the DHCP lease to be expired')
+        time.sleep(120)
 
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4784,8 +4784,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_dnsmasq(ipv6_range='2600::30,2600::40', lease_time='2m')
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
-        print('Wait for the dynamic address to be renewed')
-        time.sleep(125)
+        print('Wait for the DHCP lease to be expired')
+        time.sleep(120)
 
         self.wait_online(['veth99:routable'])
 
@@ -4813,8 +4813,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         stop_dnsmasq()
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
-        print('Wait for the dynamic address to be expired')
-        time.sleep(125)
+        print('Wait for the DHCP lease to be expired')
+        time.sleep(120)
 
         print('The lease address should be kept after lease expired')
         output = check_output('ip address show dev veth99 scope global')
@@ -5010,8 +5010,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev veth99 scope link')
         self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
-        print('Wait for the dynamic address to be expired')
-        time.sleep(130)
+        print('Wait for the DHCP lease to be expired')
+        time.sleep(120)
 
         output = check_output('ip address show dev veth99')
         print(output)
@@ -5607,15 +5607,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.verify_dhcp4_6rd(tunnel_name)
 
-        # Test for renewing/rebinding lease
-        print('wait for 120 sec')
-        time.sleep(30)
-        print('wait for  90 sec')
-        time.sleep(30)
-        print('wait for  60 sec')
-        time.sleep(30)
-        print('wait for  30 sec')
-        time.sleep(30)
+        print('Wait for the DHCP lease to be expired')
+        time.sleep(120)
 
         dump_dnsmasq_log_file()
 
