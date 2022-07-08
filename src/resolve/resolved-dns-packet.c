@@ -1389,7 +1389,7 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
         if (memchr(d, 0, c))
                 return -EBADMSG;
 
-        t = strndup(d, c);
+        t = memdup_suffix0(d, c);
         if (!t)
                 return -ENOMEM;
 
