@@ -421,6 +421,15 @@ def read_link_attr(*args):
     with open(os.path.join('/sys/class/net/', *args), encoding='utf-8') as f:
         return f.readline().strip()
 
+def get_ifindex_by_name(link):
+    return read_link_attr(f'{link}/ifindex')
+
+def read_link_state_file(link):
+    ifindex = get_ifindex_by_name(link)
+    path = os.path.join('/run/systemd/netif/links/', ifindex)
+    with open(path, encoding='utf-8') as f:
+        return f.read()
+
 def read_bridge_port_attr(bridge, link, attribute):
     path_bridge = os.path.join('/sys/devices/virtual/net', bridge)
     path_port = 'lower_' + link + '/brport'
@@ -3658,37 +3667,30 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
-        output = check_output(*networkctl_cmd, '--no-legend', 'list', 'dummy98', env=env)
-        print(output)
-        ifindex = output.split()[0]
-
-        path = os.path.join('/run/systemd/netif/links/', ifindex)
-        self.assertTrue(os.path.exists(path))
-
         # make link state file updated
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            self.assertRegex(data, r'IPV4_ADDRESS_STATE=routable')
-            self.assertRegex(data, r'IPV6_ADDRESS_STATE=routable')
-            self.assertRegex(data, r'ADMIN_STATE=configured')
-            self.assertRegex(data, r'OPER_STATE=routable')
-            self.assertRegex(data, r'REQUIRED_FOR_ONLINE=yes')
-            self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
-            self.assertRegex(data, r'REQUIRED_FAMILY_FOR_ONLINE=both')
-            self.assertRegex(data, r'ACTIVATION_POLICY=up')
-            self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/25-state-file-tests.network')
-            self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
-            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
-            self.assertRegex(data, r'DOMAINS=hogehoge')
-            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
-            self.assertRegex(data, r'LLMNR=no')
-            self.assertRegex(data, r'MDNS=yes')
-            self.assertRegex(data, r'DNSSEC=no')
+        output = read_link_state_file('dummy98')
+        print(output)
+        self.assertIn('IPV4_ADDRESS_STATE=routable', output)
+        self.assertIn('IPV6_ADDRESS_STATE=routable', output)
+        self.assertIn('ADMIN_STATE=configured', output)
+        self.assertIn('OPER_STATE=routable', output)
+        self.assertIn('REQUIRED_FOR_ONLINE=yes', output)
+        self.assertIn('REQUIRED_OPER_STATE_FOR_ONLINE=routable', output)
+        self.assertIn('REQUIRED_FAMILY_FOR_ONLINE=both', output)
+        self.assertIn('ACTIVATION_POLICY=up', output)
+        self.assertIn('NETWORK_FILE=/run/systemd/network/25-state-file-tests.network', output)
+        self.assertIn('DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com [1111:2222::3333]:1234#ccc.com', output)
+        self.assertIn('NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org', output)
+        self.assertIn('DOMAINS=hogehoge', output)
+        self.assertIn('ROUTE_DOMAINS=foofoo', output)
+        self.assertIn('LLMNR=no', output)
+        self.assertIn('MDNS=yes', output)
+        self.assertIn('DNSSEC=no', output)
 
         check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12#ccc.com', '10.10.10.13', '1111:2222::3333', env=env)
         check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)
@@ -3700,45 +3702,45 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
-            self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
-            self.assertRegex(data, r'DOMAINS=hogehogehoge')
-            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
-            self.assertRegex(data, r'LLMNR=yes')
-            self.assertRegex(data, r'MDNS=no')
-            self.assertRegex(data, r'DNSSEC=yes')
+        output = read_link_state_file('dummy98')
+        print(output)
+        self.assertIn('DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333', output)
+        self.assertIn('NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org', output)
+        self.assertIn('DOMAINS=hogehogehoge', output)
+        self.assertIn('ROUTE_DOMAINS=foofoofoo', output)
+        self.assertIn('LLMNR=yes', output)
+        self.assertIn('MDNS=no', output)
+        self.assertIn('DNSSEC=yes', output)
 
         check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
-            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
-            self.assertRegex(data, r'DOMAINS=hogehogehoge')
-            self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
-            self.assertRegex(data, r'LLMNR=yes')
-            self.assertRegex(data, r'MDNS=no')
-            self.assertRegex(data, r'DNSSEC=yes')
+        output = read_link_state_file('dummy98')
+        print(output)
+        self.assertIn('DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333', output)
+        self.assertIn('NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org', output)
+        self.assertIn('DOMAINS=hogehogehoge', output)
+        self.assertIn('ROUTE_DOMAINS=foofoofoo', output)
+        self.assertIn('LLMNR=yes', output)
+        self.assertIn('MDNS=no', output)
+        self.assertIn('DNSSEC=yes', output)
 
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
-            self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
-            self.assertRegex(data, r'DOMAINS=hogehoge')
-            self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
-            self.assertRegex(data, r'LLMNR=no')
-            self.assertRegex(data, r'MDNS=yes')
-            self.assertRegex(data, r'DNSSEC=no')
+        output = read_link_state_file('dummy98')
+        print(output)
+        self.assertIn('DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com [1111:2222::3333]:1234#ccc.com', output)
+        self.assertIn('NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org', output)
+        self.assertIn('DOMAINS=hogehoge', output)
+        self.assertIn('ROUTE_DOMAINS=foofoo', output)
+        self.assertIn('LLMNR=no', output)
+        self.assertIn('MDNS=yes', output)
+        self.assertIn('DNSSEC=no', output)
 
 class NetworkdBondTests(unittest.TestCase, Utilities):
     links = [
@@ -4587,16 +4589,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.7 proto dhcp scope link src 192.168.5.11[0-9] metric 24')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
         # checking DNS server and Domains
-        output = check_output(*networkctl_cmd, '--no-legend', 'list', 'veth99', env=env)
-        ifindex = output.split()[0]
-        path = os.path.join('/run/systemd/netif/links/', ifindex)
-        self.assertTrue(os.path.exists(path))
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            print(data)
-            self.assertIn('DNS=192.168.5.6 192.168.5.7', data)
-            self.assertIn('DOMAINS=example.com', data)
+        self.assertIn('DNS=192.168.5.6 192.168.5.7', output)
+        self.assertIn('DOMAINS=example.com', output)
 
         print('## dnsmasq log')
         self.assertTrue(search_words_in_dnsmasq_log('vendor class: FooBarVendorTest', True))
@@ -4648,16 +4646,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.8 proto dhcp scope link src 192.168.5.12[0-9] metric 24')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
         # checking DNS server and Domains
-        output = check_output(*networkctl_cmd, '--no-legend', 'list', 'veth99', env=env)
-        ifindex = output.split()[0]
-        path = os.path.join('/run/systemd/netif/links/', ifindex)
-        self.assertTrue(os.path.exists(path))
-        with open(path, encoding='utf-8') as f:
-            data = f.read()
-            print(data)
-            self.assertIn('DNS=192.168.5.1 192.168.5.7 192.168.5.8', data)
-            self.assertIn('DOMAINS=foo.example.com', data)
+        self.assertIn('DNS=192.168.5.1 192.168.5.7 192.168.5.8', output)
+        self.assertIn('DOMAINS=foo.example.com', output)
 
         print('## dnsmasq log')
         self.assertTrue(search_words_in_dnsmasq_log('vendor class: FooBarVendorTest', True))
