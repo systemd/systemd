@@ -4922,42 +4922,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'onlink')
 
-    def test_dhcp_client_with_ipv4ll_with_dhcp_server(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
-                                        '25-dhcp-client-with-ipv4ll.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq(lease_time='2m')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip address show dev veth99')
-        print(output)
-
-        output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
-        output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, r'inet6 .* scope link')
-        output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
-        output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
-
-        print('Wait for the DHCP lease to be expired')
-        time.sleep(120)
-
-        output = check_output('ip address show dev veth99')
-        print(output)
-
-        output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
-        output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, r'inet6 .* scope link')
-        output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
-        output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
-
-    def test_dhcp_client_with_ipv4ll_without_dhcp_server(self):
+    def test_dhcp_client_with_ipv4ll(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
                                         '25-dhcp-client-with-ipv4ll.network')
         start_networkd()
@@ -4965,21 +4930,32 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # systemd-networkd to get the dhcpv4 transient failure event
         self.wait_online(['veth99:degraded', 'veth-peer:routable'], timeout='60s')
 
-        output = check_output('ip address show dev veth99')
+        output = check_output('ip -4 address show dev veth99')
         print(output)
-
-        output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
-        output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, r'inet6 .* scope link')
-        output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
-        output = check_output('ip -4 address show dev veth99 scope link')
+        self.assertNotIn('192.168.5.', output)
         self.assertRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
         start_dnsmasq(lease_time='2m')
+        print('Wait for a DHCP lease to be acquired and the IPv4LL address to be dropped')
         self.wait_address('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4')
-        self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.255\.255\.255 scope link', scope='link', ipv='-4')
+        self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link', scope='link', ipv='-4')
+        self.wait_online(['veth99:routable'])
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
+        self.assertNotIn('169.254.', output)
+        self.assertNotIn('scope link', output)
+
+        stop_dnsmasq()
+        print('Wait for the DHCP lease to be expired and an IPv4LL address to be acquired')
+        self.wait_address_dropped('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4', timeout_sec=120)
+        self.wait_address('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link', scope='link', ipv='-4')
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertNotIn('192.168.5.', output)
+        self.assertRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
 
     def test_dhcp_client_use_dns_yes(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-use-dns-yes.network')
