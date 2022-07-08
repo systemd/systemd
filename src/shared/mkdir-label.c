@@ -22,7 +22,7 @@ int mkdirat_label(int dirfd, const char *path, mode_t mode) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix_at(dirfd, path, 0);
+        return mac_smack_fix_full(dirfd, path, NULL, 0);
 }
 
 int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {

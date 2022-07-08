@@ -923,7 +923,7 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
         }
 
 shortcut:
-        return label_fix(path, 0);
+        return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
 static int path_open_parent_safe(const char *path) {
