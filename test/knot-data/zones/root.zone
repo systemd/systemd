@@ -8,7 +8,9 @@ $TTL 300
     1D         ; minimum TTL
 )
 
-.                   NS ns1.unsigned.test
-ns1.unsigned.test   A  10.0.0.1
+.                   NS   ns1.unsigned.test
+; NS glue records
+ns1.unsigned.test   A    10.0.0.1
+ns1.unsigned.test   AAAA fd00:dead:beef:cafe::1
 
-test                NS ns1.unsigned.test
+test                NS   ns1.unsigned.test
