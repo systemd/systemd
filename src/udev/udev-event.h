@@ -76,7 +76,7 @@ int udev_event_execute_rules(
                 Hashmap *properties_list,
                 UdevRules *rules);
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal);
-int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd);
+void udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd);
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
         return DIV_ROUND_UP(timeout_usec, 3);
