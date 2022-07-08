@@ -1439,12 +1439,11 @@ int bus_cgroup_set_property(
 
         } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
                 const char *path;
-                bool read = true;
                 unsigned n = 0;
                 uint64_t u64;
+                bool read;
 
-                if (streq(name, "BlockIOWriteBandwidth"))
-                        read = false;
+                read = streq(name, "BlockIOReadBandwidth");
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
                 if (r < 0)
