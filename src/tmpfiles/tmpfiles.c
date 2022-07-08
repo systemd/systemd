@@ -930,20 +930,20 @@ static int path_open_parent_safe(const char *path) {
         _cleanup_free_ char *dn = NULL;
         int r, fd;
 
-        if (path_equal(path, "/") || !path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to open parent of '%s': invalid path.",
-                                       path);
+        if (!path_is_normalized(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': path not normalized.", path);
 
-        dn = dirname_malloc(path);
-        if (!dn)
-                return log_oom();
+        r = path_extract_directory(path, &dn);
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine parent directory of '%s': %m", path);
 
         r = chase_symlinks(dn, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
-        if (r < 0 && r != -ENOLINK)
-                return log_error_errno(r, "Failed to validate path %s: %m", path);
+        if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
+                return r;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open path '%s': %m", dn);
 
-        return r < 0 ? r : fd;
+        return fd;
 }
 
 static int path_open_safe(const char *path) {
@@ -956,15 +956,15 @@ static int path_open_safe(const char *path) {
         assert(path);
 
         if (!path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to open invalid path '%s'.",
-                                       path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open invalid path '%s'.", path);
 
         r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL, &fd);
-        if (r < 0 && r != -ENOLINK)
-                return log_error_errno(r, "Failed to validate path %s: %m", path);
+        if (r == -ENOLINK)
+                return r; /* Unsafe symlink: already covered by CHASE_WARN */
+        if (r < 0)
+                return log_error_errno(r, "Failed to open path %s: %m", path);
 
-        return r < 0 ? r : fd;
+        return fd;
 }
 
 static int path_set_perms(Item *i, const char *path) {
@@ -1331,7 +1331,7 @@ static int path_set_attribute(Item *item, const char *path) {
 
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
-        char *bn;
+        _cleanup_free_ char *bn = NULL;
         int r;
 
         assert(i);
@@ -1339,13 +1339,17 @@ static int write_one_file(Item *i, const char *path) {
         assert(i->argument);
         assert(i->type == WRITE_FILE);
 
-        /* Validate the path and keep the fd on the directory for opening the
-         * file so we're sure that it can't be changed behind our back. */
+        r = path_extract_filename(path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for writing, is a directory.", path);
+
+        /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
+         * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
                 return dir_fd;
-
-        bn = basename(path);
 
         /* Follows symlinks */
         fd = openat(dir_fd, bn,
@@ -1375,9 +1379,9 @@ static int write_one_file(Item *i, const char *path) {
 
 static int create_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
+        _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         int r = 0;
-        char *bn;
 
         assert(i);
         assert(path);
@@ -1385,13 +1389,17 @@ static int create_file(Item *i, const char *path) {
 
         /* 'f' operates on regular files exclusively. */
 
-        /* Validate the path and keep the fd on the directory for opening the
-         * file so we're sure that it can't be changed behind our back. */
+        r = path_extract_filename(path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for writing, is a directory.", path);
+
+        /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
+         * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
                 return dir_fd;
-
-        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
@@ -1442,27 +1450,30 @@ static int create_file(Item *i, const char *path) {
 
 static int truncate_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
+        _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         bool erofs = false;
         int r = 0;
-        char *bn;
 
         assert(i);
         assert(path);
         assert(i->type == TRUNCATE_FILE || (i->type == CREATE_FILE && i->append_or_force));
 
-        /* We want to operate on regular file exclusively especially since
-         * O_TRUNC is unspecified if the file is neither a regular file nor a
-         * fifo nor a terminal device. Therefore we first open the file and make
-         * sure it's a regular one before truncating it. */
+        /* We want to operate on regular file exclusively especially since O_TRUNC is unspecified if the file
+         * is neither a regular file nor a fifo nor a terminal device. Therefore we first open the file and
+         * make sure it's a regular one before truncating it. */
 
-        /* Validate the path and keep the fd on the directory for opening the
-         * file so we're sure that it can't be changed behind our back. */
+        r = path_extract_filename(path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for truncation, is a directory.", path);
+
+        /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
+         * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
                 return dir_fd;
-
-        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
@@ -1524,16 +1535,17 @@ static int truncate_file(Item *i, const char *path) {
 
 static int copy_files(Item *i) {
         _cleanup_close_ int dfd = -1, fd = -1;
-        char *bn;
+        _cleanup_free_ char *bn = NULL;
         int r;
 
         log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
 
-        bn = basename(i->path);
+        r = path_extract_filename(i->path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
 
-        /* Validate the path and use the returned directory fd for copying the
-         * target so we're sure that the path can't be changed behind our
-         * back. */
+        /* Validate the path and use the returned directory fd for copying the target so we're sure that the
+         * path can't be changed behind our back. */
         dfd = path_open_parent_safe(i->path);
         if (dfd < 0)
                 return dfd;
@@ -1591,6 +1603,7 @@ static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol, CreationMode *creation) {
+        _cleanup_free_ char *bn = NULL;
         _cleanup_close_ int pfd = -1;
         CreationMode c;
         int r;
@@ -1599,6 +1612,10 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
 
         if (!creation)
                 creation = &c;
+
+        r = path_extract_filename(path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
         pfd = path_open_parent_safe(path);
         if (pfd < 0)
@@ -1625,14 +1642,14 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         subvol = false;
                 else {
                         RUN_WITH_UMASK((~mode) & 0777)
-                                r = btrfs_subvol_make_fd(pfd, basename(path));
+                                r = btrfs_subvol_make_fd(pfd, bn);
                 }
         } else
                 r = 0;
 
         if (!subvol || r == -ENOTTY)
                 RUN_WITH_UMASK(0000)
-                        r = mkdirat_label(pfd, basename(path), mode);
+                        r = mkdirat_label(pfd, bn, mode);
 
         if (r < 0) {
                 int k;
@@ -1655,9 +1672,9 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
 
         log_debug("%s directory \"%s\".", creation_mode_verb_to_string(*creation), path);
 
-        r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        r = openat(pfd, bn, O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (r < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", basename(path));
+                return log_error_errno(errno, "Failed to open directory '%s': %m", bn);
 
         return r;
 }
@@ -1740,18 +1757,21 @@ static int empty_directory(Item *i, const char *path) {
 
 static int create_device(Item *i, mode_t file_type) {
         _cleanup_close_ int dfd = -1, fd = -1;
+        _cleanup_free_ char *bn = NULL;
         CreationMode creation;
-        char *bn;
         int r;
 
         assert(i);
         assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
 
-        bn = basename(i->path);
+        r = path_extract_filename(i->path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating device node, is a directory.", i->path);
 
-        /* Validate the path and use the returned directory fd for copying the
-         * target so we're sure that the path can't be changed behind our
-         * back. */
+        /* Validate the path and use the returned directory fd for copying the target so we're sure that the
+         * path can't be changed behind our back. */
         dfd = path_open_parent_safe(i->path);
         if (dfd < 0)
                 return dfd;
@@ -1814,16 +1834,20 @@ static int create_device(Item *i, mode_t file_type) {
 
 static int create_fifo(Item *i, const char *path) {
         _cleanup_close_ int pfd = -1, fd = -1;
+        _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
-        char *bn;
         int r;
+
+        r = path_extract_filename(i->path, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", path);
 
         pfd = path_open_parent_safe(path);
         if (pfd < 0)
                 return pfd;
-
-        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFIFO);
