@@ -19,6 +19,7 @@ typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * co
 
 struct OomdCGroupContext {
         char *path;
+        char *monitored_ancestor_path;
 
         ResourcePressure memory_pressure;
 
@@ -119,14 +120,14 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
 int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected);
 int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
 
-int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
+int oomd_cgroup_context_acquire(const char *path, const char *monitored_ancestor_path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
 
 /* Get the OomdCGroupContext of `path` and insert it into `new_h`. The key for the inserted context will be `path`.
  *
  * `old_h` is used to get data used to calculate prior interval information. `old_h` can be NULL in which case there
  * was no prior data to reference. */
-int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path);
+int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path, const char *monitored_ancestor_path);
 
 /* Update each OomdCGroupContext in `curr_h` with prior interval information from `old_h`. */
 void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_h);
