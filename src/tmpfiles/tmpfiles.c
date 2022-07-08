@@ -596,7 +596,7 @@ static int dir_cleanup(
                         continue;
                 if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                        r = log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                            "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
