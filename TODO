@@ -79,6 +79,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* similar to the existing fw_cfg support, also support reading system
+  credentials from DMI vendor fields, as supported by qemu
+
+* sd-boot: instead of uncondtionally deriving the ESP to search boot loader
+  spec entries in from the paths of sd-boot binary, let's optionally allow it
+  to be configured on sd-boot cmdline + efi var. Usecase: embedd sd-boot in the
+  UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
+  use it to load stuff from the ESP).
+
 * make tmpfiles read lines from creds, so that we can provision SSH host keys
   via creds. Similar: sysusers, sysctl, homed
 
