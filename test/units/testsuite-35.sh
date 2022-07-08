@@ -214,7 +214,7 @@ test_shutdown() {
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 }
 
-teardown_session() (
+cleanup_session() (
     set +ex
 
     systemctl stop getty@tty2.service
@@ -224,6 +224,12 @@ teardown_session() (
     pkill -u "$(id -u logind-test-user)"
     sleep 1
     pkill -KILL -u "$(id -u logind-test-user)"
+)
+
+teardown_session() (
+    set +ex
+
+    cleanup_session
 
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
@@ -271,6 +277,28 @@ check_session() (
     fi
 )
 
+create_session() {
+    # login with the test user to start a session
+    mkdir -p /run/systemd/system/getty@tty2.service.d
+    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
+[Service]
+Type=simple
+ExecStart=
+ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+EOF
+    systemctl daemon-reload
+
+    systemctl restart getty@tty2.service
+
+    # check session
+    for ((i = 0; i < 30; i++)); do
+        (( i != 0 )) && sleep 1
+        check_session && break
+    done
+    check_session
+    assert_eq "$(loginctl --no-legend | awk '$3=="logind-test-user" { print $5 }')" "tty2"
+}
+
 test_session() {
     local dev
 
@@ -286,23 +314,7 @@ test_session() {
 
     trap teardown_session RETURN
 
-    # login with the test user to start a session
-    mkdir -p /run/systemd/system/getty@tty2.service.d
-    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
-[Service]
-Type=simple
-ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
-EOF
-    systemctl daemon-reload
-    systemctl restart getty@tty2.service
-
-    # check session
-    for ((i = 0; i < 30; i++)); do
-        (( i != 0 )) && sleep 1
-        check_session && break
-    done
-    check_session
+    create_session
 
     # scsi_debug should not be loaded yet
     if [[ -d /sys/bus/pseudo/drivers/scsi_debug ]]; then
@@ -356,13 +368,7 @@ EOF
 teardown_lock_idle_action() (
     set +eux
 
-    systemctl stop getty@tty2.service
-    rm -rf /run/systemd/system/getty@tty2.service.d
-    systemctl daemon-reload
-
-    pkill -u "$(id -u logind-test-user)"
-    sleep 1
-    pkill -KILL -u "$(id -u logind-test-user)"
+    cleanup_session
 
     rm -f /run/systemd/logind.conf.d/idle-action-lock.conf
     systemctl restart systemd-logind.service
@@ -376,7 +382,16 @@ test_lock_idle_action() {
         return
     fi
 
+    if loginctl --no-legend | grep -q logind-test-user; then
+        echo >&2 "Session of the \'logind-test-user\' is already present."
+        exit 1
+    fi
+
     trap teardown_lock_idle_action RETURN
+
+    create_session
+
+    ts="$(date '+%H:%M:%S')"
 
     mkdir -p /run/systemd/logind.conf.d
     cat >/run/systemd/logind.conf.d/idle-action-lock.conf <<EOF
@@ -385,32 +400,6 @@ IdleAction=lock
 IdleActionSec=1s
 EOF
     systemctl restart systemd-logind.service
-
-    if loginctl --no-legend | grep -q logind-test-user; then
-        echo >&2 "Session of the \'logind-test-user\' is already present."
-        exit 1
-    fi
-
-    # login with the test user to start a session
-    mkdir -p /run/systemd/system/getty@tty2.service.d
-    cat >/run/systemd/system/getty@tty2.service.d/override.conf <<EOF
-[Service]
-Type=simple
-ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
-EOF
-    systemctl daemon-reload
-
-    ts="$(date '+%H:%M:%S')"
-    systemctl restart getty@tty2.service
-
-    # check session
-    for ((i = 0; i < 30; i++)); do
-        (( i != 0 )) && sleep 1
-        check_session && break
-    done
-    check_session
-    assert_eq "$(loginctl --no-legend | awk '$3=="logind-test-user" { print $5 }')" "tty2"
 
     # Wait for 35s, in that interval all sessions should have become idle
     # and "Lock" signal should have been sent out. Then we wrote to tty to make
