@@ -645,6 +645,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         assert(s->user);
 
         if (!s->scope) {
+                _cleanup_strv_free_ char **after = NULL;
                 _cleanup_free_ char *scope = NULL;
                 const char *description;
 
@@ -656,6 +657,14 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
 
                 description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
 
+                after = strv_new("systemd-logind.service",
+                                 s->user->runtime_dir_service,
+                                 s->user->service,
+                                 s->user->user_record->uid > 0 ? "systemd-user-sessions.service" : STRV_IGNORE,
+                                 s->class != SESSION_BACKGROUND ? s->user->service : STRV_IGNORE);
+                if (!after)
+                        return log_oom();
+
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
@@ -665,11 +674,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                                 STRV_MAKE(s->user->runtime_dir_service,
                                           s->class != SESSION_BACKGROUND ? s->user->service : NULL),
-                                /* And order us after some more */
-                                STRV_MAKE("systemd-logind.service",
-                                          "systemd-user-sessions.service",
-                                          s->user->runtime_dir_service,
-                                          s->class != SESSION_BACKGROUND ? s->user->service : NULL),
+                                after,
                                 user_record_home_directory(s->user->user_record),
                                 properties,
                                 error,
