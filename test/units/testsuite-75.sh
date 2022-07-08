@@ -367,6 +367,19 @@ grep -qF "status: NXDOMAIN" "$RUN_OUT"
 run resolvectl query -t TXT this.should.be.authenticated.wild.signed.test
 grep -qF 'this.should.be.authenticated.wild.signed.test IN TXT "this is a wildcard"' "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
+# Check SRV support
+run resolvectl service _mysvc._tcp signed.test
+grep -qF "myservice.signed.test:1234" "$RUN_OUT"
+grep -qF "10.0.0.20" "$RUN_OUT"
+grep -qF "fd00:dead:beef:cafe::17" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
+(! run resolvectl service _invalidsvc._udp signed.test)
+grep -qE "invalidservice\.signed\.test' not found" "$RUN_OUT"
+run resolvectl service _untrustedsvc._udp signed.test
+grep -qF "myservice.untrusted.test:1111" "$RUN_OUT"
+grep -qF "10.0.0.123" "$RUN_OUT"
+grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
+grep -qF "authenticated: yes" "$RUN_OUT"
 
 # DNSSEC validation with multiple records of the same type for the same name
 # Issue: https://github.com/systemd/systemd/issues/22002
@@ -479,6 +492,10 @@ grep -qF "untrusted.test:" "$RUN_OUT"
 grep -qF "10.0.0.121" "$RUN_OUT"
 grep -qF "fd00:dead:beef:cafe::121" "$RUN_OUT"
 grep -qF "authenticated: no" "$RUN_OUT"
+run resolvectl service _mysvc._tcp untrusted.test
+grep -qF "myservice.untrusted.test:1234" "$RUN_OUT"
+grep -qF "10.0.0.123" "$RUN_OUT"
+grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 
 # Issue: https://github.com/systemd/systemd/issues/19472
 # 1) Query for a non-existing RR should return NOERROR + NSEC (?), not NXDOMAIN
