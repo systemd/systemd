@@ -57,3 +57,17 @@ _mysvc._tcp           SRV   10 5 1234 myservice
 _invalidsvc._udp      SRV   5 5 1111 invalidservice
 
 _untrustedsvc._udp    SRV   5 5 1111 myservice.untrusted.test.
+
+; OPENPGPKEY RR for mr.smith@signed.test
+; The hash was generated using `echo -ne mr.smith | sha256sum | head -c56`
+; and exported via `gpg --export mr.smith | base64`
+5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey OPENPGPKEY (
+    mDMEYshhzhYJKwYBBAHaRw8BAQdAuU2RxKaycSdaR5YZ/q+/yoHeil/1WNRDVbpjPSd6QBa0GW1y
+    LnNtaXRoQHNpZ25lZC50ZXN0LnpvbmWImQQTFggAQRYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJi
+    yGHOAhsDBQkDwmcABQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEHd9yvMKUDBWo6MA/2oC
+    zdnzMlK9gM5bNCFfPyagJfFfv7fW1l7WXTve6FJtAP0faW24ahE1okjmrsTUwqZHvDThysW5zTSt
+    j49S3JQDA7g4BGLIYc4SCisGAQQBl1UBBQEBB0CuNcTAt5AUE3seFN/Gm2euC+8dgtztyzoO/78K
+    ictFLAMBCAeIeAQYFggAIBYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJiyGHOAhsMAAoJEHd9yvMK
+    UDBWtxkA/jlbUgHpSoTKFNNTeXYbTz9jnoupe9eT4O3tU55ofwO7AQCa5ntSIuzDJ1E2iy7oOLOZ
+    m2ocNqpC7SULHhSKYfUWDg==
+)
