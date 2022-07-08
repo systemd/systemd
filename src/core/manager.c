@@ -1548,6 +1548,8 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
+        free(m->default_smack_process_label);
+
         rlimit_free_all(m->rlimit);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
@@ -3877,6 +3879,31 @@ int manager_get_effective_environment(Manager *m, char ***ret) {
 
         *ret = l;
         return 0;
+}
+
+int manager_set_default_smack_process_label(Manager *m, const char *label) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(m);
+
+        if (streq_ptr(m->default_smack_process_label, label))
+                return 0;
+
+#ifdef SMACK_DEFAULT_PROCESS_LABEL
+        if (!label)
+                p = strdup(SMACK_DEFAULT_PROCESS_LABEL);
+        else
+#endif
+        if (!label || streq(label, "/")) {
+                m->default_smack_process_label = mfree(m->default_smack_process_label);
+                return 0;
+        } else
+                p = strdup(label);
+
+
+        if (!p)
+                return -ENOMEM;
+        return free_and_replace(m->default_smack_process_label, p);
 }
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
