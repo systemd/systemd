@@ -11,11 +11,16 @@ $ORIGIN onlinesign.test.
 )
 
 ; NS info
-                     NS ns1.unsigned.test.
+                     NS   ns1.unsigned.test.
 
-                     TXT "hello from onlinesign"
+                     TXT  "hello from onlinesign"
 
-*.wild               TXT "this is an onlinesign wildcard"
+*.wild               TXT  "this is an onlinesign wildcard"
 
 ; No A/AAAA record for the $ORIGIN
-sub                  A 10.0.0.133
+sub                  A    10.0.0.133
+
+dual                 A    10.0.0.134
+dual                 AAAA fd00:dead:beef:cafe::134
+
+ipv6                 AAAA fd00:dead:beef:cafe::135
