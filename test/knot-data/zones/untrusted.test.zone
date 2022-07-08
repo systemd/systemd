@@ -11,11 +11,16 @@ $ORIGIN untrusted.test.
 )
 
 ; NS info
-@                     NS ns1.unsigned.test.
+@                     NS   ns1.unsigned.test.
 
-*.wild                TXT "this is an untrusted wildcard"
+*.wild                TXT  "this is an untrusted wildcard"
 
-@                     MX 10 mail.untrusted.test.
+@                     MX   10 mail.untrusted.test.
 
-                      A 10.0.0.121
-mail                  A 10.0.0.121
+                      A    10.0.0.121
+                      AAAA fd00:dead:beef:cafe::121
+mail                  A    10.0.0.122
+
+myservice             A    10.0.0.123
+                      AAAA fd00:dead:beef:cafe::123
+_mysvc._tcp           SRV  10 5 1234 myservice
