@@ -555,23 +555,10 @@ def stop_by_pid_file(pid_file):
 def stop_dnsmasq():
     stop_by_pid_file(dnsmasq_pid_file)
 
-def dump_dnsmasq_log_file():
+def read_dnsmasq_log_file():
     if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
-            print(in_file.read())
-
-def search_words_in_dnsmasq_log(words, show_all=False):
-    if os.path.exists(dnsmasq_log_file):
-        with open (dnsmasq_log_file, encoding='utf-8') as in_file:
-            contents = in_file.read()
-            if show_all:
-                print(contents)
-            for line in contents.splitlines():
-                if words in line:
-                    in_file.close()
-                    print(f"{words}, {line}")
-                    return True
-    return False
+        with open(dnsmasq_log_file, encoding='utf-8') as f:
+            return f.read()
 
 def remove_dnsmasq_lease_file():
     if os.path.exists(dnsmasq_lease_file):
@@ -4597,10 +4584,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DOMAINS=example.com', output)
 
         print('## dnsmasq log')
-        self.assertTrue(search_words_in_dnsmasq_log('vendor class: FooBarVendorTest', True))
-        self.assertTrue(search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
-        self.assertTrue(search_words_in_dnsmasq_log('client provides name: test-hostname'))
-        self.assertTrue(search_words_in_dnsmasq_log('26:mtu'))
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('vendor class: FooBarVendorTest', output)
+        self.assertIn('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc', output)
+        self.assertIn('client provides name: test-hostname', output)
+        self.assertIn('26:mtu', output)
 
         # change address range, DNS servers, and Domains
         stop_dnsmasq()
@@ -4654,10 +4643,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DOMAINS=foo.example.com', output)
 
         print('## dnsmasq log')
-        self.assertTrue(search_words_in_dnsmasq_log('vendor class: FooBarVendorTest', True))
-        self.assertTrue(search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 192.168.5.11'))
-        self.assertTrue(search_words_in_dnsmasq_log('client provides name: test-hostname'))
-        self.assertTrue(search_words_in_dnsmasq_log('26:mtu'))
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('vendor class: FooBarVendorTest', output)
+        self.assertIn('DHCPDISCOVER(veth-peer) 192.168.5.11', output)
+        self.assertIn('client provides name: test-hostname', output)
+        self.assertIn('26:mtu', output)
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         for (routes, gateway, dns_and_ntp_routes, classless) in itertools.product([True, False], repeat=4):
@@ -4759,9 +4750,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_dnsmasq()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        self.assertFalse(search_words_in_dnsmasq_log('VendorClassIdentifier=SusantVendorTest', True))
-        self.assertFalse(search_words_in_dnsmasq_log('test-hostname'))
-        self.assertFalse(search_words_in_dnsmasq_log('26:mtu'))
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertNotIn('VendorClassIdentifier=SusantVendorTest', output)
+        self.assertNotIn('test-hostname', output)
+        self.assertNotIn('26:mtu', output)
 
     def test_dhcp_client_reassign_static_routes_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
@@ -5024,8 +5018,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
         self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link')
-
-        search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
     def test_dhcp_client_with_ipv4ll_without_dhcp_server(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
@@ -5609,8 +5601,6 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         print('Wait for the DHCP lease to be expired')
         time.sleep(120)
-
-        dump_dnsmasq_log_file()
 
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
