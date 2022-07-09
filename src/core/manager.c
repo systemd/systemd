@@ -61,6 +61,7 @@
 #include "manager-serialize.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -4475,7 +4476,7 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        const char* stage[12] = {};
+        const char* stage[13] = {};
         size_t n = 0;
 
         if (m->taint_usr)
@@ -4493,6 +4494,9 @@ char* manager_taint_string(const Manager *m) {
 
         if (clock_is_localtime(NULL) > 0)
                 stage[n++] = "local-hwclock";
+
+        if (os_release_support_ended(NULL, true) > 0)
+                stage[n++] = "support-ended";
 
         _cleanup_free_ char *destination = NULL;
         if (readlink_malloc("/var/run", &destination) < 0 ||
