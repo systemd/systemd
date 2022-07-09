@@ -180,14 +180,8 @@ static int reply_query_state(DnsQuery *q) {
                         sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
-                        char p[DECIMAL_STR_MAX(q->answer_rcode)];
 
-                        rc = dns_rcode_to_string(q->answer_rcode);
-                        if (!rc) {
-                                xsprintf(p, "%i", q->answer_rcode);
-                                rc = p;
-                        }
-
+                        rc = FORMAT_DNS_RCODE(q->answer_rcode);
                         n = strjoina(_BUS_ERROR_DNS, rc);
                         sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", dns_query_string(q), rc);
                 }

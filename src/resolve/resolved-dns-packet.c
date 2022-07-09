@@ -9,6 +9,7 @@
 #include "memory-util.h"
 #include "resolved-dns-packet.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -2648,6 +2649,14 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
+
+const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
+        const char *p = dns_rcode_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
+}
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_DNS]   = "dns",
