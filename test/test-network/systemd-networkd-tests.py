@@ -4590,7 +4590,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         print('Wait for the DHCP lease to be expired')
-        time.sleep(120)
+        self.wait_address_dropped('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4', timeout_sec=120)
+        self.wait_address('veth99', r'inet 192.168.5.12[0-9]*/24', ipv='-4')
 
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
