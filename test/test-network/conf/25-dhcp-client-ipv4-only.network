@@ -22,6 +22,10 @@ ClientIdentifier=mac
 VendorClassIdentifier=FooBarVendorTest
 Label=test-label
 ListenPort=5555
+SendDecline=yes
+# DenyList= will be ignored
+AllowList=192.168.5.0/24 192.168.6.0/24
+DenyList=192.168.5.0/24
 
 [Route]
 Destination=192.168.5.0/24

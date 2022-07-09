@@ -4479,9 +4479,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-veth.netdev',
         '25-vrf.netdev',
         '25-vrf.network',
-        '25-dhcp-client-allow-list.network',
         '25-dhcp-client-anonymize.network',
-        '25-dhcp-client-decline.network',
         '25-dhcp-client-gateway-ipv6.network',
         '25-dhcp-client-gateway-onlink-implicit.network',
         '25-dhcp-client-ipv4-only.network',
@@ -4492,7 +4490,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-dhcp-client-vrf.network',
         '25-dhcp-client-with-ipv4ll.network',
         '25-dhcp-client.network',
-        '25-dhcp-server-decline.network',
         '25-dhcp-server-veth-peer.network',
         '25-static.network']
 
@@ -5000,26 +4997,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, True, False)
         check(self, False, True)
         check(self, False, False)
-
-    def test_dhcp_client_decline(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-decline.network', '25-dhcp-client-decline.network')
-
-        start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        print(output)
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
-
-    def test_dhcp_client_allow_list(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-decline.network', '25-dhcp-client-allow-list.network')
-
-        start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        print(output)
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
 class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
     links = [
