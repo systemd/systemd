@@ -283,6 +283,8 @@ enum {
 
 const char* dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
+const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
+#define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_protocol_to_string(DnsProtocol p) _const_;
 DnsProtocol dns_protocol_from_string(const char *s) _pure_;

@@ -1099,7 +1099,7 @@ int dns_cache_lookup(
 
         if (found_rcode >= 0) {
                 log_debug("RCODE %s cache hit for %s",
-                          dns_rcode_to_string(found_rcode),
+                          FORMAT_DNS_RCODE(found_rcode),
                           dns_resource_key_to_string(key, key_str, sizeof(key_str)));
 
                 if (ret_rcode)
