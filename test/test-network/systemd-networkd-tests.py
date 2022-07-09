@@ -4480,7 +4480,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-vrf.netdev',
         '25-vrf.network',
         '25-dhcp-client-anonymize.network',
-        '25-dhcp-client-gateway-ipv6.network',
         '25-dhcp-client-gateway-onlink-implicit.network',
         '25-dhcp-client-ipv4-only.network',
         '25-dhcp-client-ipv4-use-routes-use-gateway.network',
@@ -4521,6 +4520,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'inet6 2600::[0-9a-f:]*/128 scope global dynamic noprefixroute')
         self.assertNotIn('192.168.5', output)
+
+        # checking semi-static route
+        output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
+        print(output)
+        self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
 
         # Confirm that ipv6 token is not set in the kernel
         output = check_output('ip token show dev veth99')
@@ -4884,18 +4888,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show table main dev veth99')
         print(output)
         self.assertEqual(output, '')
-
-    def test_dhcp_client_gateway_ipv6(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
-                                        '25-dhcp-client-gateway-ipv6.network')
-        start_networkd()
-        self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
-
-        output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
-        print(output)
-        self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', '25-dhcp-server-veth-peer.network',
