@@ -2358,8 +2358,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-address-ipv4acd-veth99.network.d/conflict-address.conf')
         run(*networkctl_cmd, 'reload', env=env)
         time.sleep(1)
-        rc = call(*wait_online_cmd, '--timeout=10s', '--interface=veth99:routable', env=env)
-        self.assertTrue(rc == 1)
+        self.wait_operstate('veth99', operstate='routable', setup_state='configuring', setup_timeout=10)
 
         output = check_output('ip -4 address show dev veth99')
         print(output)
