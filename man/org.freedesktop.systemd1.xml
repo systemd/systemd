@@ -1545,6 +1545,15 @@ node /org/freedesktop/systemd1 {
         </varlistentry>
 
         <varlistentry>
+          <term><literal>support-ended</literal></term>
+
+          <listitem><para>The system is running past the end of support declared by the vendor. See the
+          description of <varname>SUPPORT_END=</varname> in
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><literal>old-kernel</literal></term>
 
           <listitem><para>The system is running a kernel version that is older than the minimum supported by

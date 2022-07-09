@@ -317,3 +317,38 @@ int load_extension_release_pairs(const char *root, const char *extension, char *
 
         return load_env_file_pairs(f, p, ret);
 }
+
+int os_release_support_ended(const char *support_end, bool quiet) {
+        _cleanup_free_ char *_support_end_alloc = NULL;
+        int r;
+
+        if (!support_end) {
+                /* If the caller has the variably handy, they can pass it in. If not, we'll read it
+                 * ourselves. */
+
+                r = parse_os_release(NULL,
+                                     "SUPPORT_END", &_support_end_alloc);
+                if (r < 0)
+                        return log_full_errno((r == -ENOENT || quiet) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to read os-release file, ignoring: %m");
+                if (!_support_end_alloc)
+                        return false;  /* no end date defined */
+
+                support_end = _support_end_alloc;
+        }
+
+        struct tm tm = {};
+
+        const char *k = strptime(support_end, "%Y-%m-%d", &tm);
+        if (!k || *k)
+                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
+                                      "Failed to parse SUPPORT_END= in os-release file, ignoring: %m");
+
+        time_t eol = mktime(&tm);
+        if (eol == (time_t) -1)
+                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
+                                      "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
+
+        usec_t ts = now(CLOCK_REALTIME);
+        return DIV_ROUND_UP(ts, USEC_PER_SEC) > (usec_t) eol;
+}
