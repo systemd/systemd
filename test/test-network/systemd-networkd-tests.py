@@ -52,6 +52,7 @@ timedatectl_bin=shutil.which('timedatectl', path=which_paths)
 use_valgrind=False
 enable_debug=True
 env = {}
+wait_online_env = {}
 asan_options=None
 lsan_options=None
 ubsan_options=None
@@ -691,7 +692,7 @@ class Utilities():
         if ipv6:
             args += ['--ipv6']
         try:
-            check_output(*args, env=env)
+            check_output(*args, env=wait_online_env)
         except subprocess.CalledProcessError:
             for link in links_with_operstate:
                 name = link.split(':')[0]
@@ -5712,14 +5713,16 @@ if __name__ == '__main__':
         timedatectl_cmd = [timedatectl_bin]
         wait_online_cmd = [wait_online_bin]
 
-    if enable_debug:
-        env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
     if asan_options:
         env.update({ 'ASAN_OPTIONS' : asan_options })
     if lsan_options:
         env.update({ 'LSAN_OPTIONS' : lsan_options })
     if ubsan_options:
         env.update({ 'UBSAN_OPTIONS' : ubsan_options })
+
+    wait_online_env = env.copy()
+    if enable_debug:
+        wait_online_env.update({ 'SYSTEMD_LOG_LEVEL' : 'debug' })
 
     sys.argv[1:] = unknown_args
     unittest.main(verbosity=3)
