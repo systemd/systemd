@@ -1494,21 +1494,87 @@ node /org/freedesktop/systemd1 {
       it is not part of the public API.</para>
 
       <para><varname>Features</varname> encodes the features that have been enabled and disabled for this
-      build. Enabled options are prefixed with +, disabled options with -.</para>
+      build. Enabled options are prefixed with <literal>+</literal>, disabled options with
+      <literal>-</literal>.</para>
 
-      <para><varname>Tainted</varname> encodes a couple of taint flags as a colon-separated list. When
-      systemd detects it is running on a system with certain problems, it will set an appropriate taint
-      flag. Taints may be used to lower the chance of bogus bug reports. The following taints are currently
-      known: <literal>split-usr</literal>, <literal>mtab-not-symlink</literal>,
-      <literal>cgroups-missing</literal>, <literal>local-hwclock</literal>. <literal>split-usr</literal> is
-      set if <filename>/usr/</filename> is not pre-mounted when systemd is first invoked. See
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
-      Booting Without /usr is Broken</ulink>
-      for details why this is bad. <literal>mtab-not-symlink</literal> indicates that
-      <filename>/etc/mtab</filename> is not a symlink to <filename>/proc/self/mounts</filename> as
-      required. <literal>cgroups-missing</literal> indicates that control groups have not been enabled in the
-      kernel. <literal>local-hwclock</literal> indicates that the local RTC is configured to be in local time
-      rather than UTC.</para>
+      <para><varname>Tainted</varname> encodes taint flags as a colon-separated list. When systemd detects it
+      is running on a system with a certain problem, it will set an appropriate taint flag. Taints may be
+      used to lower the chance of bogus bug reports. The following taints are currently known:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><literal>split-usr</literal></term>
+
+          <listitem><para><filename>/usr/</filename> was not available when systemd was first invoked. It
+          must either be part of the root file system, or it must be mounted before
+          <command>systemd</command> is invoked. See
+          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
+          Booting Without /usr is Broken</ulink> for details why this is bad.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>unmerged-usr</literal></term>
+
+          <listitem><para><filename>/bin</filename>, <filename>/sbin</filename> and
+          <filename>/lib*</filename> are not symlinks to their counterparts under <filename>/usr/</filename>.
+          For more information on this issue consult
+          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
+            The Case for the /usr Merge
+          </ulink>.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>cgroups-missing</literal></term>
+
+          <listitem><para>Support for cgroups is unavailable.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>cgroupsv1</literal></term>
+
+          <listitem><para>The system is using the old cgroup hierarchy.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>local-hwclock</literal></term>
+
+          <listitem><para>The local hardware clock (RTC) is configured to be in local time rather than
+          UTC.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>old-kernel</literal></term>
+
+          <listitem><para>The system is running a kernel version that is older than the minimum supported by
+          this version of systemd.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>var-run-bad</literal></term>
+
+          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
+          symlink to <filename>/run/</filename>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>overflowuid-not-65534</literal></term>
+          <term><literal>overflowgid-not-65534</literal></term>
+
+          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>short-uid-range</literal></term>
+          <term><literal>short-gid-range</literal></term>
+
+          <listitem><para>The UID or GID range assigned to the running systemd instance covers less than
+          0…65534.</para></listitem>
+        </varlistentry>
+
+        <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->
+      </variablelist>
 
       <para><varname>FirmwareTimestamp</varname>, <varname>FirmwareTimestampMonotonic</varname>,
       <varname>LoaderTimestamp</varname>, <varname>LoaderTimestampMonotonic</varname>,
