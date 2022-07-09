@@ -359,7 +359,7 @@ WARNINGS and TAINT FLAGS:
         will break if /usr is on a separate late-mounted partition, many of its
         dependencies very likely will break sooner or later in one form or
         another. For example, udev rules tend to refer to binaries in /usr,
-        binaries that link to libraries in /usr or binaries that refer to data
+        binaries that link to libraries in /usr, or binaries that refer to data
         files in /usr. Since these breakages are not always directly visible,
         systemd will warn about this. Such setups are not really supported by
         the basic set of Linux OS components. Taint flag 'split-usr' will be
@@ -392,6 +392,8 @@ WARNINGS and TAINT FLAGS:
         time with:
 
           busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager Tainted
+
+        See org.freedesktop.systemd1(5) for more information.
 
 VALGRIND:
         To run systemd under valgrind, compile with meson option

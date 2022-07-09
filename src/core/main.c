@@ -1312,29 +1312,35 @@ static int enforce_syscall_archs(Set *archs) {
         return 0;
 }
 
-static int status_welcome(void) {
-        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+static int os_release_status(void) {
+        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL, *support_end = NULL;
         int r;
-
-        if (!show_status_on(arg_show_status))
-                return 0;
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &pretty_name,
-                             "ANSI_COLOR", &ansi_color);
+                             "ANSI_COLOR", &ansi_color,
+                             "SUPPORT_END", &support_end);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to read os-release file, ignoring: %m");
+                return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to read os-release file, ignoring: %m");
 
-        if (log_get_show_color())
-                return status_printf(NULL, 0,
-                                     "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                                     isempty(ansi_color) ? "1" : ansi_color,
-                                     isempty(pretty_name) ? "Linux" : pretty_name);
-        else
-                return status_printf(NULL, 0,
-                                     "\nWelcome to %s!\n",
-                                     isempty(pretty_name) ? "Linux" : pretty_name);
+        if (show_status_on(arg_show_status)) {
+                if (log_get_show_color())
+                        status_printf(NULL, 0,
+                                      "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
+                                      isempty(ansi_color) ? "1" : ansi_color,
+                                      isempty(pretty_name) ? "Linux" : pretty_name);
+                else
+                        status_printf(NULL, 0,
+                                      "\nWelcome to %s!\n",
+                                      isempty(pretty_name) ? "Linux" : pretty_name);
+        }
+
+        if (support_end && os_release_support_ended(support_end, false) > 0)
+                status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
+                              "OS is past its end-of-support date (%s)", support_end);
+
+        return 0;
 }
 
 static int write_container_id(void) {
@@ -2100,7 +2106,7 @@ static int initialize_runtime(
                                 return r;
                         }
 
-                        status_welcome();
+                        (void) os_release_status();
                         (void) hostname_setup(true);
                         /* Force transient machine-id on first boot. */
                         machine_id_setup(NULL, first_boot, arg_machine_id, NULL);
