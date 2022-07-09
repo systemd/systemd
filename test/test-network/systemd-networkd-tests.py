@@ -654,9 +654,10 @@ class Utilities():
             if not link_exists(link):
                 continue
             output = check_output(*networkctl_cmd, '-n', '0', 'status', link, env=env)
-            print(output)
             if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
                 return True
+
+        print(output)
         if fail_assert:
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
