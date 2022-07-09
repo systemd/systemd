@@ -31,3 +31,5 @@ int _parse_os_release(const char *root, ...) _sentinel_;
 int load_extension_release_pairs(const char *root, const char *extension, char ***ret);
 int load_os_release_pairs(const char *root, char ***ret);
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
+
+int os_release_support_ended(const char *support_end, bool quiet);
