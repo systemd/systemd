@@ -81,8 +81,8 @@ int sigbus_pop(void **ret) {
 
                         /* OK if we clobber addr here, since we either immediately return
                          * or it will be immediately reinitialized on next loop */
-                        if (__atomic_compare_exchange_n(&sigbus_queue[u], &addr, NULL),
-                            false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST) {
+                        if (__atomic_compare_exchange_n(&sigbus_queue[u], &addr, NULL,
+                            false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
                                 __atomic_fetch_sub(&n_sigbus_queue, 1, __ATOMIC_SEQ_CST);
                                 /* If we successfully entered this if condition, addr won't
                                  * have been modified since its assignment, so safe to use it */
