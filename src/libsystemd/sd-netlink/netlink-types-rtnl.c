@@ -663,7 +663,7 @@ DEFINE_TYPE_SYSTEM(rtnl_bridge_cfm_mep_delete);
 
 static const NLType rtnl_bridge_cfm_mep_config_types[] = {
         [IFLA_BRIDGE_CFM_MEP_CONFIG_INSTANCE]    = { .type = NETLINK_TYPE_U32 },
-        [IFLA_BRIDGE_CFM_MEP_CONFIG_UNICAST_MAC] = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BRIDGE_CFM_MEP_CONFIG_UNICAST_MAC] = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_BRIDGE_CFM_MEP_CONFIG_MDLEVEL]     = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_MEP_CONFIG_MEPID]       = { .type = NETLINK_TYPE_U32 },
 };
@@ -695,7 +695,7 @@ DEFINE_TYPE_SYSTEM(rtnl_bridge_cfm_cc_rdi);
 
 static const NLType rtnl_bridge_cfm_cc_ccm_tx_types[] = {
         [IFLA_BRIDGE_CFM_CC_CCM_TX_INSTANCE]       = { .type = NETLINK_TYPE_U32 },
-        [IFLA_BRIDGE_CFM_CC_CCM_TX_DMAC]           = { .type = NETLINK_TYPE_ETHER_ADDR },
+        [IFLA_BRIDGE_CFM_CC_CCM_TX_DMAC]           = { .type = NETLINK_TYPE_ETHER_ADDR, .size = ETH_ALEN },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_SEQ_NO_UPDATE]  = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_PERIOD]         = { .type = NETLINK_TYPE_U32 },
         [IFLA_BRIDGE_CFM_CC_CCM_TX_IF_TLV]         = { .type = NETLINK_TYPE_U32 },
@@ -906,9 +906,9 @@ static const NLType rtnl_address_types[] = {
         [IFA_LOCAL]             = { .type = NETLINK_TYPE_IN_ADDR },
         [IFA_LABEL]             = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
         [IFA_BROADCAST]         = { .type = NETLINK_TYPE_IN_ADDR },
-        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_ANYCAST]           = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
         [IFA_CACHEINFO]         = { .type = NETLINK_TYPE_CACHE_INFO, .size = sizeof(struct ifa_cacheinfo) },
-        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR },
+        [IFA_MULTICAST]         = { .type = NETLINK_TYPE_IN_ADDR, .size = sizeof(struct in6_addr) },
         [IFA_FLAGS]             = { .type = NETLINK_TYPE_U32 },
         [IFA_RT_PRIORITY]       = { .type = NETLINK_TYPE_U32 },
         [IFA_TARGET_NETNSID]    = { .type = NETLINK_TYPE_S32 },
