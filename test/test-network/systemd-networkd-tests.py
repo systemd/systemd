@@ -4936,7 +4936,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         stop_dnsmasq()
         print('Wait for the DHCP lease to be expired and an IPv4LL address to be acquired')
-        self.wait_address_dropped('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4', timeout_sec=120)
+        self.wait_address_dropped('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4', timeout_sec=130)
         self.wait_address('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link', scope='link', ipv='-4')
 
         output = check_output('ip -4 address show dev veth99')
