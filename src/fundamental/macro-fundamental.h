@@ -106,10 +106,10 @@
  * on this macro will run concurrently to all other code conditionalized
  * the same way, there's no ordering or completion enforced. */
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
-#define __ONCE(o)                                                \
-        ({                                                       \
-                static bool (o) = false;                         \
-                __sync_bool_compare_and_swap(&(o), false, true); \
+#define __ONCE(o)                                                  \
+        ({                                                         \
+                static bool (o) = false;                           \
+                __atomic_exchange_n(&(o), true, __ATOMIC_SEQ_CST); \
         })
 
 #undef MAX
