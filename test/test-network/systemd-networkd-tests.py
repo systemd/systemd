@@ -97,9 +97,9 @@ def check_output(*command, text=True, **kwargs):
     return subprocess.run(command, check=True, universal_newlines=text, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs).stdout.rstrip()
 
 def call(*command, text=True, **kwargs):
-    # This returns returncode. stdout and stderr are shown in console
+    # This returns returncode. stdout and stderr are merged and shown in console
     command = command[0].split() + list(command[1:])
-    return subprocess.run(command, check=False, universal_newlines=text, **kwargs).returncode
+    return subprocess.run(command, check=False, universal_newlines=text, stderr=subprocess.STDOUT, **kwargs).returncode
 
 def call_quiet(*command, text=True, **kwargs):
     command = command[0].split() + list(command[1:])
