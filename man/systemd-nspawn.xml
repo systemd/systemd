@@ -1357,7 +1357,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         source path is taken relative to the image's root directory. This permits setting up bind mounts within the
         container image. The source path may be specified as empty string, in which case a temporary directory below
         the host's <filename>/var/tmp/</filename> directory is used. It is automatically removed when the container is
-        shut down. The <option>--bind-ro=</option> option creates read-only bind mounts. Backslash escapes are interpreted,
+        shut down. If the source path is not absolute, it is resolved relative to the current working directory.
+        The <option>--bind-ro=</option> option creates read-only bind mounts. Backslash escapes are interpreted,
         so <literal>\:</literal> may be used to embed colons in either path. This option may be specified
         multiple times for creating multiple independent bind mount points.</para>
 
@@ -1481,7 +1482,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         used. The directory is removed automatically when the container is shut down. This behaviour is
         useful in order to make read-only container directories writable while the container is running. For
         example, use <literal>--overlay=+/var::/var</literal> in order to automatically overlay a writable
-        temporary directory on a read-only <filename>/var/</filename> directory.</para>
+        temporary directory on a read-only <filename>/var/</filename> directory. If a source path is not
+        absolute, it is resolved relative to the current working directory.</para>
 
         <para>For details about overlay file systems, see <ulink
         url="https://docs.kernel.org/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
