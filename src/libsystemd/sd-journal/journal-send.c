@@ -58,7 +58,9 @@ retry:
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
+        int zero = 0;
+        if (!__atomic_compare_exchange_n(&fd_plus_one, &zero, fd+1,
+            false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
                 safe_close(fd);
                 goto retry;
         }
