@@ -83,13 +83,38 @@ static int custom_mount_compare(const CustomMount *a, const CustomMount *b) {
         return CMP(a->type, b->type);
 }
 
-static bool source_path_is_valid(const char *p) {
+static int source_path_parse(const char *p, char **ret) {
         assert(p);
+        assert(ret);
 
-        if (*p == '+')
-                p++;
+        if (isempty(p))
+                return -EINVAL;
 
-        return path_is_absolute(p);
+        if (*p == '+') {
+                if (!path_is_absolute(p + 1))
+                        return -EINVAL;
+
+                char *s = strdup(p);
+                if (!s)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(s);
+                return 0;
+        }
+
+        return path_make_absolute_cwd(p, ret);
+}
+
+static int source_path_parse_nullable(const char *p, char **ret) {
+        assert(p);
+        assert(ret);
+
+        if (isempty(p)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return source_path_parse(p, ret);
 }
 
 static char *resolve_source_path(const char *dest, const char *source) {
@@ -212,7 +237,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
 }
 
 int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
-        _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
+        _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL, *p = NULL;
         CustomMount *m;
         int r;
 
@@ -235,10 +260,9 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
                         return -ENOMEM;
         }
 
-        if (isempty(source))
-                source = mfree(source);
-        else if (!source_path_is_valid(source))
-                return -EINVAL;
+        r = source_path_parse_nullable(source, &p);
+        if (r < 0)
+                return r;
 
         if (!path_is_absolute(destination))
                 return -EINVAL;
@@ -247,7 +271,7 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
         if (!m)
                 return -ENOMEM;
 
-        m->source = TAKE_PTR(source);
+        m->source = TAKE_PTR(p);
         m->destination = TAKE_PTR(destination);
         m->read_only = read_only;
         m->options = TAKE_PTR(opts);
@@ -295,7 +319,7 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
         _cleanup_free_ char *upper = NULL, *destination = NULL;
         _cleanup_strv_free_ char **lower = NULL;
         CustomMount *m;
-        int k;
+        int r, k;
 
         k = strv_split_full(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (k < 0)
@@ -303,12 +327,22 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
         if (k < 2)
                 return -EADDRNOTAVAIL;
         if (k == 2) {
+                _cleanup_free_ char *p = NULL;
+
                 /* If two parameters are specified, the first one is the lower, the second one the upper directory. And
                  * we'll also define the destination mount point the same as the upper. */
 
-                if (!source_path_is_valid(lower[0]) ||
-                    !source_path_is_valid(lower[1]))
-                        return -EINVAL;
+                r = source_path_parse(lower[0], &p);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(lower[0], p);
+
+                r = source_path_parse(lower[1], &p);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(lower[1], p);
 
                 upper = TAKE_PTR(lower[1]);
 
@@ -316,22 +350,29 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!destination)
                         return -ENOMEM;
         } else {
+                _cleanup_free_ char *p = NULL;
+
                 /* If more than two parameters are specified, the last one is the destination, the second to last one
                  * the "upper", and all before that the "lower" directories. */
 
                 destination = lower[k - 1];
                 upper = TAKE_PTR(lower[k - 2]);
 
-                STRV_FOREACH(i, lower)
-                        if (!source_path_is_valid(*i))
-                                return -EINVAL;
+                STRV_FOREACH(i, lower) {
+                        r = source_path_parse(*i, &p);
+                        if (r < 0)
+                                return r;
+
+                        free_and_replace(*i, p);
+                }
 
                 /* If the upper directory is unspecified, then let's create it automatically as a throw-away directory
                  * in /var/tmp */
-                if (isempty(upper))
-                        upper = mfree(upper);
-                else if (!source_path_is_valid(upper))
-                        return -EINVAL;
+                r = source_path_parse_nullable(upper, &p);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(upper, p);
 
                 if (!path_is_absolute(destination))
                         return -EINVAL;
