@@ -238,6 +238,7 @@ struct Manager {
         LookupScope unit_file_scope;
         LookupPaths lookup_paths;
         Hashmap *unit_id_map;
+        Hashmap *unit_obstructed_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;
@@ -484,6 +485,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
+
+const char *manager_lookup_unit_label_path(Manager *m, const char *name);
 
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
