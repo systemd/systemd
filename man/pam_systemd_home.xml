@@ -93,8 +93,13 @@
   <refsect1>
     <title>Module Types Provided</title>
 
-    <para>The module provides all four management operations: <option>auth</option>, <option>account</option>,
-    <option>session</option>, <option>password</option>.</para>
+    <para>The module implements all four PAM operations: <option>auth</option> (reason: when per-user
+    disk encryption is used, the disk encryption key is derived from the authentication credential supplied
+    at login time), <option>account</option> (reason: <filename>systemd-homed.service</filename> account
+    validity may be configured in more detail than in the traditional Linux user database, and thus needs to
+    be verified separately), <option>session</option> (user sessions must be tracked, in order to implement
+    automatic release when the last session of a managed user is gone), <option>password</option> (user
+    passwords may be changed through PAM).</para>
   </refsect1>
 
   <refsect1>
