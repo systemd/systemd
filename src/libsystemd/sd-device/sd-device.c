@@ -1589,6 +1589,9 @@ _public_ int sd_device_get_is_initialized(sd_device *device) {
         assert_return(device, -EINVAL);
 
         r = device_read_db(device);
+        if (r == -ENOENT)
+                /* The device may be already removed or renamed. */
+                return false;
         if (r < 0)
                 return r;
 
