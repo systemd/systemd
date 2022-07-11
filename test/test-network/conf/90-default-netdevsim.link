@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: CC0-1.0
+[Match]
+Driver=netdevsim
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path
+MACAddressPolicy=persistent
