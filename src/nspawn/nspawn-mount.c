@@ -213,14 +213,13 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
 
 int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
-        const char *p = s;
         CustomMount *m;
         int r;
 
         assert(l);
         assert(n);
 
-        r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+        r = extract_many_words(&s, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -230,8 +229,8 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
                 if (!destination)
                         return -ENOMEM;
         }
-        if (r == 2 && !isempty(p)) {
-                opts = strdup(p);
+        if (r == 2 && !isempty(s)) {
+                opts = strdup(s);
                 if (!opts)
                         return -ENOMEM;
         }
