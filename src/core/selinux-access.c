@@ -239,7 +239,10 @@ int mac_selinux_access_check_internal(
                         if (!enforce)
                                 return 0;
 
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
+                        return sd_bus_error_setf(error,
+                                                 IN_SET(r, -ENOENT, -ENODATA) ? SD_BUS_ERROR_FILE_NOT_FOUND : SD_BUS_ERROR_ACCESS_DENIED,
+                                                 "Failed to get file context on %s.",
+                                                 path);
                 }
 
                 tclass = "service";
