@@ -1603,11 +1603,10 @@ _public_ int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret) {
 
         assert_return(device, -EINVAL);
 
-        r = device_read_db(device);
+        r = sd_device_get_is_initialized(device);
         if (r < 0)
                 return r;
-
-        if (!device->is_initialized)
+        if (r == 0)
                 return -EBUSY;
 
         if (device->usec_initialized == 0)
@@ -1619,29 +1618,24 @@ _public_ int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret) {
         return 0;
 }
 
-_public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec) {
-        usec_t now_ts;
+_public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret) {
+        usec_t now_ts, ts;
         int r;
 
         assert_return(device, -EINVAL);
 
-        r = device_read_db(device);
+        r = sd_device_get_usec_initialized(device, &ts);
         if (r < 0)
                 return r;
 
-        if (!device->is_initialized)
-                return -EBUSY;
-
-        if (device->usec_initialized == 0)
-                return -ENODATA;
-
         now_ts = now(CLOCK_MONOTONIC);
 
-        if (now_ts < device->usec_initialized)
+        if (now_ts < ts)
                 return -EIO;
 
-        if (usec)
-                *usec = now_ts - device->usec_initialized;
+        if (ret)
+                *ret = usec_sub_unsigned(now_ts, ts);
+
         return 0;
 }
 
