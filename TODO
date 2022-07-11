@@ -79,6 +79,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* show SUPPORT_END= data in "hostnamectl" output (and thus also expose a prop
+  for this on dbus)
+
+* Add SUPPORT_END_URL= field to os-release with more *actionable* information
+  what to do if support ended
+
+* pam_systemd: on interactive logins, maybe show SUPPORT_END information at
+  login time, á la motd
+
 * similar to the existing fw_cfg support, also support reading system
   credentials from DMI vendor fields, as supported by qemu
 
