@@ -1055,7 +1055,7 @@ int path_extract_filename(const char *path, char **ret) {
                 return -ENOMEM;
 
         *ret = TAKE_PTR(a);
-        return strlen(c) > (size_t)r ? O_DIRECTORY : 0;
+        return strlen(c) > (size_t) r ? O_DIRECTORY : 0;
 }
 
 int path_extract_directory(const char *path, char **ret) {
@@ -1109,7 +1109,7 @@ bool filename_is_valid(const char *p) {
         if (isempty(p))
                 return false;
 
-        if (dot_or_dot_dot(p))
+        if (dot_or_dot_dot(p)) /* Yes, in this context we consider "." and ".." invalid */
                 return false;
 
         e = strchrnul(p, '/');
