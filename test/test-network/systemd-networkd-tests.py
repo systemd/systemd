@@ -431,7 +431,7 @@ def flush_routing_policy_rules():
                 have = True
                 print(f'### Removing IPv{ipv} routing policy rules that did not exist when the test started.')
             print(f'# {line}')
-            words = line.split()
+            words = line.replace('lookup [l3mdev-table]', 'l3mdev').split()
             priority = words[0].rstrip(':')
             call(f'ip -{ipv} rule del priority {priority} ' + ' '.join(words[1:]))
 
