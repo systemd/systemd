@@ -161,10 +161,10 @@ int path_extract_directory(const char *path, char **ret);
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
 static inline bool path_is_valid(const char *p) {
-        return path_is_valid_full(p, true);
+        return path_is_valid_full(p, /* accept_dot_dot= */ true);
 }
 static inline bool path_is_safe(const char *p) {
-        return path_is_valid_full(p, false);
+        return path_is_valid_full(p, /* accept_dot_dot= */ false);
 }
 bool path_is_normalized(const char *p) _pure_;
 
