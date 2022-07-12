@@ -260,7 +260,7 @@ EFI_STATUS graphics_splash(const uint8_t *content, UINTN len, const EFI_GRAPHICS
         struct bmp_dib *dib;
         struct bmp_map *map;
         const uint8_t *pixmap;
-        _cleanup_freepool_ void *blt = NULL;
+        _cleanup_free_ void *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS err;
