@@ -871,7 +871,7 @@ static int64_t cgroup_context_cpu_idle(CGroupContext *c, ManagerState state) {
 }
 
 static void cgroup_apply_unified_cpu_idle(Unit *u, int64_t idle) {
-        char buf[DECIMAL_STR_MAX(int64_t) + 2];
+        char buf[DECIMAL_STR_MAX(int64_t) + 1];
 
         xsprintf(buf, "%" PRIu64 "\n", idle);
         (void) set_attribute_and_warn(u, "cpu", "cpu.idle", buf);
@@ -1402,9 +1402,8 @@ static void cgroup_context_apply(
          * we couldn't even write to them if we wanted to). */
         if ((apply_mask & CGROUP_MASK_CPU) && !is_local_root) {
 
-                if (cgroup_context_has_cpu_idle(c)) {
+                if (cgroup_context_has_cpu_idle(c))
                         cgroup_apply_unified_cpu_idle(u, cgroup_context_cpu_idle(c, state));
-                }
 
                 if (cg_all_unified() > 0) {
                         uint64_t weight;

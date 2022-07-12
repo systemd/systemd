@@ -116,10 +116,10 @@ const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 
 /* Special values for the cpu.idle attribute */
-#define CGROUP_CPU_IDLE_INVALID INT64_MAX
+#define CGROUP_CPU_IDLE_INVALID INT64_MIN
 #define CGROUP_CPU_IDLE_DEFAULT INT64_C(0)
-#define CGROUP_CPU_IDLE_MIN INT32_MIN
-#define CGROUP_CPU_IDLE_MAX INT32_MAX
+#define CGROUP_CPU_IDLE_MIN 0
+#define CGROUP_CPU_IDLE_MAX 1
 
 /* Special values for the cpu.shares attribute */
 #define CGROUP_CPU_SHARES_INVALID UINT64_MAX

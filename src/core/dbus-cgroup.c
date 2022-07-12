@@ -920,15 +920,13 @@ static int bus_cgroup_set_cpu_idle(
         if (r < 0)
                 return r;
 
-        if (CGROUP_CPU_IDLE_IS_OK(v)) {
+        if (CGROUP_CPU_IDLE_IS_OK(v))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name);
-        }
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 *p = v;
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
-                unit_write_settingf(u, flags, name,
-                "%s=%" PRId64, name, v);
+                unit_write_settingf(u, flags, name, "%s=%" PRId64, name, v);
         }
 
         return 1;
