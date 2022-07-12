@@ -241,7 +241,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(const char *stra, char16_t *c) {
+static int utf8_to_16(const char *stra, char16_t *c) {
         char16_t unichar;
         UINTN len;
 
@@ -309,7 +309,7 @@ char16_t *xstra_to_str(const char *stra) {
         strlen = 0;
         i = 0;
         while (i < len) {
-                INTN utf8len;
+                int utf8len;
 
                 utf8len = utf8_to_16(stra + i, str + strlen);
                 if (utf8len <= 0) {
@@ -340,7 +340,7 @@ char16_t *xstra_to_path(const char *stra) {
         strlen = 1;
         i = 0;
         while (i < len) {
-                INTN utf8len;
+                int utf8len;
 
                 utf8len = utf8_to_16(stra + i, str + strlen);
                 if (utf8len <= 0) {
