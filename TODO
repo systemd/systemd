@@ -79,6 +79,18 @@ Janitorial Clean-ups:
 
 Features:
 
+* define a JSON format for units, separating out unit definitions from unit
+  runtime state. Then, expose it:
+
+  1. Add Describe() method to Unit D-Bus object that returns a JSON object
+     about the unit.
+  2. Expose this natively via Varlink, in similar style
+  3. Use it when invoking binaries (i.e. make PID 1 fork off systemd-executor
+     binary which reads the JSON definition and runs it), to address the cow
+     trap issue and the fact that NSS is actually forbidden in
+     forked-but-not-exec'ed children
+  4. Add varlink API to run transient units based on provided JSON definitions
+
 * show SUPPORT_END= data in "hostnamectl" output (and thus also expose a prop
   for this on dbus)
 
