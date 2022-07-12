@@ -177,7 +177,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
                 return NULL;
 
         if (BAD_OFFSET(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
-            (UINTN)(bcd + key->key_values_offset) % sizeof(uint32_t) != 0)
+            (UINTN) (bcd + key->key_values_offset) % __alignof__(uint32_t) != 0)
                 return NULL;
 
         const uint32_t *key_value_list = (const uint32_t *) (bcd + key->key_values_offset);
@@ -263,7 +263,7 @@ TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         char order_guid[sizeof("{00000000-0000-0000-0000-000000000000}\0")];
         if (displayorder_value->data_type != REG_MULTI_SZ ||
             displayorder_value->data_size != sizeof(char16_t[sizeof(order_guid)]) ||
-            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(char16_t) != 0)
+            (UINTN) (bcd + displayorder_value->data_offset) % __alignof__(char16_t) != 0)
                 /* BCD is multi-boot. */
                 return NULL;
 
@@ -305,7 +305,7 @@ TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         if (description_value->data_type != REG_SZ ||
             description_value->data_size < sizeof(char16_t) ||
             description_value->data_size % sizeof(char16_t) != 0 ||
-            (UINTN)(bcd + description_value->data_offset) % sizeof(char16_t))
+            (UINTN) (bcd + description_value->data_offset) % __alignof__(char16_t))
                 return NULL;
 
         /* The data should already be NUL-terminated. */
