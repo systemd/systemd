@@ -447,12 +447,24 @@ def flush_fou_ports():
         call(f'ip fou del port {port}')
 
 def flush_l2tp_tunnels():
+    tids = []
     output = check_output('ip l2tp show tunnel')
     for line in output.splitlines():
         words = line.split()
         if words[0] == 'Tunnel':
             tid = words[1].rstrip(',')
             call(f'ip l2tp del tunnel tunnel_id {tid}')
+            tids.append(tid)
+
+    # Removing L2TP tunnel is asynchronous and slightly takes a time.
+    for tid in tids:
+        for _ in range(50):
+            r = run(f'ip l2tp show tunnel tunnel_id {tid}')
+            if r.returncode != 0 or len(r.stdout.rstrip()) == 0:
+                break
+            time.sleep(.2)
+        else:
+            print(f'Cannot remove L2TP tunnel {tid}, ignoring.')
 
 def read_link_attr(*args):
     with open(os.path.join('/sys/class/net', *args), encoding='utf-8') as f:
@@ -572,6 +584,7 @@ def tear_down_common():
     call_quiet('ip netns del ns99')
 
     # 4. remove links
+    flush_l2tp_tunnels()
     flush_links()
 
     # 5. stop networkd
@@ -583,7 +596,6 @@ def tear_down_common():
 
     # 7. flush settings
     flush_fou_ports()
-    flush_l2tp_tunnels()
     flush_nexthops()
     flush_routing_policy_rules()
     flush_routes()
