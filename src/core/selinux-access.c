@@ -240,7 +240,7 @@ int mac_selinux_access_check_internal(
                         if (!enforce)
                                 return 0;
 
-                        return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
                 }
 
                 acon = fcon;
@@ -259,10 +259,10 @@ int mac_selinux_access_check_internal(
 
         r = selinux_check_access(scon, acon, tclass, permission, &audit_info);
         if (r < 0) {
-                r = errno_or_else(EPERM);
+                errno = -(r = errno_or_else(EPERM));
 
                 if (enforce)
-                        sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
+                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
 
         log_full_errno_zerook(LOG_DEBUG, r,
