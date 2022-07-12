@@ -2816,6 +2816,10 @@ int main(int argc, char *argv[]) {
                 /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
 
+                /* Clear ambient capabilities, so services do not inherit
+                them implicitly. */
+                capability_ambient_set_apply(0, false);
+
                 if (mac_selinux_init() < 0) {
                         error_message = "Failed to initialize SELinux support";
                         goto finish;
