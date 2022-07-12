@@ -58,6 +58,7 @@
 #include "seccomp-util.h"
 #endif
 #include "securebits-util.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-netlink.h"
 #include "specifier.h"
@@ -6096,6 +6097,7 @@ int unit_load_fragment(Unit *u) {
         assert(u->id);
 
         if (u->transient) {
+                u->access_selinux_context = mfree(u->access_selinux_context);
                 u->load_state = UNIT_LOADED;
                 return 0;
         }
@@ -6141,7 +6143,24 @@ int unit_load_fragment(Unit *u) {
 
                         u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
+                        u->access_selinux_context = mfree(u->access_selinux_context);
                 } else {
+#if HAVE_SELINUX
+                        if (mac_selinux_use()) {
+                                _cleanup_freecon_ char *selcon = NULL;
+
+                                /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
+                                r = fgetfilecon_raw(fileno(f), &selcon);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", fragment);
+
+                                r = free_and_strdup(&u->access_selinux_context, selcon);
+                                if (r < 0)
+                                        return r;
+                        } else
+#endif
+                                u->access_selinux_context = mfree(u->access_selinux_context);
+
                         u->load_state = UNIT_LOADED;
                         u->fragment_mtime = timespec_load(&st.st_mtim);
 

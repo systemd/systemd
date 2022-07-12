@@ -151,6 +151,11 @@ typedef struct Unit {
         char *description;
         char **documentation;
 
+        /* The SELinux context used for checking access to this unit read off the unit file at load time (do
+         * not confuse with the selinux_context field in ExecContext which is the SELinux context we'll set
+         * for processes) */
+        char *access_selinux_context;
+
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
@@ -943,8 +948,6 @@ int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata);
 int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
-
-const char *unit_label_path(const Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 

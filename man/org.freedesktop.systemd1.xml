@@ -1650,6 +1650,11 @@ node /org/freedesktop/systemd1 {
       that the root path is encoded as the empty string here (not as <literal>/</literal>!), so that it can be
       appended to <filename>/sys/fs/cgroup/systemd</filename> easily. This value will be set to the empty
       string for the host instance and some other string for container instances.</para>
+
+      <para><varname>AccessSELinuxContext</varname> contains the SELinux context that is used to control
+      access to the unit. It's read from the unit file when it is loaded and cached until the service manager
+      is reloaded. This property contains an empty string if SELinux is not used or if no label could be read
+      (for example because the unit is not backed by a file on disk).</para>
     </refsect2>
 
     <refsect2>
@@ -1782,6 +1787,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as Documentation = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Description = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s AccessSELinuxContext = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LoadState = '...';
       readonly s ActiveState = '...';
@@ -2089,6 +2096,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="Documentation"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Description"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AccessSELinuxContext"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LoadState"/>
 
