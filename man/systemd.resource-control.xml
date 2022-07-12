@@ -199,6 +199,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUIdle=</varname></term>
+
+        <listitem>
+          <para>Takes a boolean argument, defaults to false.
+          When true, mark the cgroup for "idle scheduling", which means that it will get CPU resources only
+          when there are no processes not marked in this way to execute in this cgroup or its siblings.
+          Note that setting CPUWeight is illegal if CPUIdle is true.
+          This setting corresponds to the cpu.idle cgroup attribute.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CPUQuota=</varname></term>
 
         <listitem>

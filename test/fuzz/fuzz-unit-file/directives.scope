@@ -13,6 +13,7 @@ CPUQuota=
 CPUQuotaPeriodSec=
 CPUShares=
 CPUWeight=
+CPUIdle=
 DefaultMemoryLow=
 DefaultMemoryMin=
 Delegate=

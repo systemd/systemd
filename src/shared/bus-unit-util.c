@@ -130,6 +130,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
+DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, cg_idle_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
@@ -470,6 +471,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "IOWeight",
                               "StartupIOWeight"))
                 return bus_append_cg_weight_parse(m, field, eq);
+
+        if (streq(field, "CPUIdle"))
+                return bus_append_cg_idle_parse(m, field, eq);
 
         if (STR_IN_SET(field, "CPUShares",
                               "StartupCPUShares"))
