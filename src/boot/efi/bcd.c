@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdalign.h>
 #ifdef SD_BOOT
 #  include <efi.h>
 #  include "macro-fundamental.h"
@@ -10,7 +11,6 @@
 #  include "efi-string.h"
 #  include "string-util-fundamental.h"
 
-#  define UINTN size_t
 #  define TEST_STATIC static
 #endif
 
@@ -177,7 +177,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
                 return NULL;
 
         if (BAD_OFFSET(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
-            (UINTN)(bcd + key->key_values_offset) % sizeof(uint32_t) != 0)
+            (uintptr_t) (bcd + key->key_values_offset) % alignof(uint32_t) != 0)
                 return NULL;
 
         const uint32_t *key_value_list = (const uint32_t *) (bcd + key->key_values_offset);
@@ -227,7 +227,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
+TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len) {
         assert(bcd);
 
         if (HIVE_CELL_OFFSET >= bcd_len)
@@ -263,13 +263,13 @@ TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         char order_guid[sizeof("{00000000-0000-0000-0000-000000000000}\0")];
         if (displayorder_value->data_type != REG_MULTI_SZ ||
             displayorder_value->data_size != sizeof(char16_t[sizeof(order_guid)]) ||
-            (UINTN)(bcd + displayorder_value->data_offset) % sizeof(char16_t) != 0)
+            (uintptr_t) (bcd + displayorder_value->data_offset) % alignof(char16_t) != 0)
                 /* BCD is multi-boot. */
                 return NULL;
 
         /* Keys are stored as ASCII in registry hives if the data fits (and GUIDS always should). */
         char16_t *order_guid_utf16 = (char16_t *) (bcd + displayorder_value->data_offset);
-        for (UINTN i = 0; i < sizeof(order_guid) - 2; i++) {
+        for (size_t i = 0; i < sizeof(order_guid) - 2; i++) {
                 char16_t c = order_guid_utf16[i];
                 switch (c) {
                 case '-':
@@ -305,7 +305,7 @@ TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, UINTN bcd_len) {
         if (description_value->data_type != REG_SZ ||
             description_value->data_size < sizeof(char16_t) ||
             description_value->data_size % sizeof(char16_t) != 0 ||
-            (UINTN)(bcd + description_value->data_offset) % sizeof(char16_t))
+            (uintptr_t) (bcd + description_value->data_offset) % alignof(char16_t))
                 return NULL;
 
         /* The data should already be NUL-terminated. */
