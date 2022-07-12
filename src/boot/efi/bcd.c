@@ -1,18 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdalign.h>
-#ifdef SD_BOOT
-#  include <efi.h>
-#  include "macro-fundamental.h"
-#  include "util.h"
-#  define TEST_STATIC
-#else
-/* Provide our own "EFI API" if we are running as a unit test. */
-#  include "efi-string.h"
-#  include "string-util-fundamental.h"
 
-#  define TEST_STATIC static
-#endif
+#include "bcd.h"
+#include "efi-string.h"
 
 enum {
         SIG_BASE_BLOCK  = 1718052210, /* regf */
@@ -227,7 +218,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-TEST_STATIC char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len) {
+char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len) {
         assert(bcd);
 
         if (HIVE_CELL_OFFSET >= bcd_len)
