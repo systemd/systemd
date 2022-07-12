@@ -90,7 +90,7 @@ static EFI_STATUS try_gpt(
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
-        _cleanup_freepool_ EFI_PARTITION_ENTRY *entries = NULL;
+        _cleanup_free_ EFI_PARTITION_ENTRY *entries = NULL;
         union GptHeaderBuffer gpt;
         EFI_STATUS err;
         uint32_t crc32;
@@ -191,7 +191,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                 return EFI_NOT_FOUND;
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
-        _cleanup_freepool_ EFI_DEVICE_PATH *disk_path = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
         EFI_DEVICE_PATH *p = disk_path = path_chop(partition_path, part_node);
 
         EFI_HANDLE disk_handle;
@@ -254,7 +254,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 }
 
 EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
-        _cleanup_freepool_ EFI_DEVICE_PATH *partition_path = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *partition_path = NULL;
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
         EFI_STATUS err;
