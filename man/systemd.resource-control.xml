@@ -202,10 +202,11 @@
         <term><varname>CPUIdle=</varname></term>
 
         <listitem>
-          <para>Assign the idle scheduling strategy to the processes executed, both the unified and legacy control group
-          is effiecient. Takes a boolean argument, default to no. If true, processes have idle schedule policy, which means mininum sched weight
-          and could be preemt by other non-idle processes in the same level of task group, Note that when setting this param
-          to yes, configure with CPUWeight is illegal.
+          <para>Takes a boolean argument, defaults to false.
+          When true, mark the cgroup for "idle scheduling", which means that it will get CPU resources only
+          when there are no processes not marked in this way to execute in this cgroup or its siblings.
+          Note that setting CPUWeight is illegal if CPUIdle is true.
+          This setting corresponds to the cpu.idle cgroup attribute.
           </para>
         </listitem>
       </varlistentry>
