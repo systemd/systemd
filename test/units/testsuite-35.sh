@@ -462,6 +462,26 @@ EOF
     assert_eq "$(systemctl --property SubState --value show user@"$(id -u logind-test-user)".service)" "dead"
 }
 
+test_session_properties() {
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap cleanup_session RETURN
+    create_session
+
+    local s=$(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListSessions |\
+        awk '{ if ($5 == "\"logind-test-user\"") print $7 }' | tr -d \")
+    if [[ -z "$s" ]]; then
+        echo "failed to determine user session" >&2
+        busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager ListSessions >&2
+        exit 1
+    fi
+
+    /usr/lib/systemd/tests/manual/test-session-properties "$s"
+}
+
 : >/failed
 
 setup_test_user
@@ -473,6 +493,7 @@ test_shutdown
 test_session
 test_lock_idle_action
 test_no_user_instance_for_cron
+test_session_properties
 
 touch /testok
 rm /failed
