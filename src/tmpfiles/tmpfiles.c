@@ -999,10 +999,8 @@ static int parse_xattrs_from_arg(Item *i) {
         int r;
 
         assert(i);
-        assert(i->argument);
 
-        p = i->argument;
-
+        assert_se(p = i->argument);
         for (;;) {
                 _cleanup_free_ char *name = NULL, *value = NULL, *xattr = NULL;
 
