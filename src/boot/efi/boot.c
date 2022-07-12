@@ -429,7 +429,7 @@ static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
 }
 
 static bool unicode_supported(void) {
-        static INTN cache = -1;
+        static int cache = -1;
 
         if (cache < 0)
                 /* Basic unicode box drawing support is mandated by the spec, but it does
