@@ -36,6 +36,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "label.h"
 #include "log.h"
@@ -127,6 +128,8 @@ typedef struct Item {
 
         char *path;
         char *argument;
+        void *binary_argument;        /* set if binary data, in which case it takes precedence over 'argument' */
+        size_t binary_argument_size;
         char **xattrs;
 #if HAVE_ACL
         acl_t acl_access;
@@ -459,6 +462,17 @@ static bool unix_socket_alive(const char *fn) {
                 return true;     /* We don't know, so assume yes */
 
         return set_contains(unix_sockets, fn);
+}
+
+/* Accessors for the argument in binary format */
+static const void* item_binary_argument(const Item *i) {
+        assert(i);
+        return i->binary_argument ?: i->argument;
+}
+
+static size_t item_binary_argument_size(const Item *i) {
+        assert(i);
+        return i->binary_argument ? i->binary_argument_size : strlen_ptr(i->argument);
 }
 
 static DIR* xopendirat_nomod(int dirfd, const char *path) {
@@ -1329,6 +1343,27 @@ static int path_set_attribute(Item *item, const char *path) {
         return fd_set_attribute(item, fd, path, NULL);
 }
 
+static int write_argument_data(Item *i, int fd, const char *path) {
+        int r;
+
+        assert(i);
+        assert(fd >= 0);
+        assert(path);
+
+        if (item_binary_argument_size(i) == 0)
+                return 0;
+
+        assert(item_binary_argument(i));
+
+        log_debug("Writing to \"%s\".", path);
+
+        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i), /* do_poll= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+
+        return 0;
+}
+
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         _cleanup_free_ char *bn = NULL;
@@ -1336,7 +1371,6 @@ static int write_one_file(Item *i, const char *path) {
 
         assert(i);
         assert(path);
-        assert(i->argument);
         assert(i->type == WRITE_FILE);
 
         r = path_extract_filename(path, &bn);
@@ -1368,11 +1402,10 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         /* 'w' is allowed to write into any kind of files. */
-        log_debug("Writing to \"%s\".", path);
 
-        r = loop_write(fd, i->argument, strlen(i->argument), false);
+        r = write_argument_data(i, fd, path);
         if (r < 0)
-                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+                return r;
 
         return fd_set_perms(i, fd, path, NULL);
 }
@@ -1432,17 +1465,10 @@ static int create_file(Item *i, const char *path) {
                                                path);
 
                 st = &stbuf;
-        } else {
-
-                log_debug("\"%s\" has been created.", path);
-
-                if (i->argument) {
-                        log_debug("Writing to \"%s\".", path);
-
-                        r = loop_write(fd, i->argument, strlen(i->argument), false);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
-                }
+        } else if (item_binary_argument(i)) {
+                r = write_argument_data(i, fd, path);
+                if (r < 0)
+                        return r;
         }
 
         return fd_set_perms(i, fd, path, st);
@@ -1522,12 +1548,10 @@ static int truncate_file(Item *i, const char *path) {
 
         log_debug("\"%s\" has been created.", path);
 
-        if (i->argument) {
-                log_debug("Writing to \"%s\".", path);
-
-                r = loop_write(fd, i->argument, strlen(i->argument), false);
+        if (item_binary_argument(i)) {
+                r = write_argument_data(i, fd, path);
                 if (r < 0)
-                        return log_error_errno(erofs ? -EROFS : r, "Failed to write file %s: %m", path);
+                        return r;
         }
 
         return fd_set_perms(i, fd, path, st);
@@ -2643,6 +2667,7 @@ static void item_free_contents(Item *i) {
         assert(i);
         free(i->path);
         free(i->argument);
+        free(i->binary_argument);
         strv_free(i->xattrs);
 
 #if HAVE_ACL
@@ -2684,7 +2709,8 @@ static bool item_compatible(const Item *a, const Item *b) {
 
         if (takes_ownership(a->type) && takes_ownership(b->type))
                 /* check if the items are the same */
-                return  streq_ptr(a->argument, b->argument) &&
+                return memcmp_nn(item_binary_argument(a), item_binary_argument_size(a),
+                                 item_binary_argument(b), item_binary_argument_size(b)) == 0 &&
 
                         a->uid_set == b->uid_set &&
                         a->uid == b->uid &&
@@ -2953,7 +2979,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3024,6 +3050,8 @@ static int parse_line(
                         allow_failure = true;
                 else if (action[pos] == '=' && !try_replace)
                         try_replace = true;
+                else if (action[pos] == '~' && !unbase64)
+                        unbase64 = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -3079,6 +3107,11 @@ static int parse_line(
                 break;
 
         case CREATE_SYMLINK:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for symlink targets.");
+                }
+
                 if (!i.argument) {
                         i.argument = path_join("/usr/share/factory", i.path);
                         if (!i.argument)
@@ -3094,11 +3127,15 @@ static int parse_line(
                 break;
 
         case COPY_FILES:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for copy sources.");
+                }
+
                 if (!i.argument) {
                         i.argument = path_join("/usr/share/factory", i.path);
                         if (!i.argument)
                                 return log_oom();
-
                 } else if (!path_is_absolute(i.argument)) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
@@ -3119,6 +3156,11 @@ static int parse_line(
 
         case CREATE_CHAR_DEVICE:
         case CREATE_BLOCK_DEVICE:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for device node creation.");
+                }
+
                 if (!i.argument) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Device file requires argument.");
@@ -3134,6 +3176,10 @@ static int parse_line(
 
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for extended attributes.");
+                }
                 if (!i.argument) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3146,6 +3192,10 @@ static int parse_line(
 
         case SET_ACL:
         case RECURSIVE_SET_ACL:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for ACLs.");
+                }
                 if (!i.argument) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3158,6 +3208,10 @@ static int parse_line(
 
         case SET_ATTRIBUTE:
         case RECURSIVE_SET_ATTRIBUTE:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for file attributes.");
+                }
                 if (!i.argument) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
@@ -3187,13 +3241,21 @@ static int parse_line(
         if (!should_include_path(i.path))
                 return 0;
 
-        r = specifier_expansion_from_arg(specifier_table, &i);
-        if (r == -ENXIO)
-                return log_unresolvable_specifier(fname, line);
-        if (r < 0) {
-                if (IN_SET(r, -EINVAL, -EBADSLT))
-                        *invalid_config = true;
-                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
+        if (unbase64) {
+                if (i.argument) {
+                        r = unbase64mem(i.argument, SIZE_MAX, &i.binary_argument, &i.binary_argument_size);
+                        if (r < 0)
+                                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
+                }
+        } else {
+                r = specifier_expansion_from_arg(specifier_table, &i);
+                if (r == -ENXIO)
+                        return log_unresolvable_specifier(fname, line);
+                if (r < 0) {
+                        if (IN_SET(r, -EINVAL, -EBADSLT))
+                                *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
+                }
         }
 
         if (!empty_or_root(arg_root)) {
