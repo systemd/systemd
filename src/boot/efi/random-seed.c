@@ -18,7 +18,7 @@
 #define HASH_VALUE_SIZE 32
 
 static EFI_STATUS acquire_rng(UINTN size, void **ret) {
-        _cleanup_freepool_ void *data = NULL;
+        _cleanup_free_ void *data = NULL;
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
@@ -90,7 +90,7 @@ static EFI_STATUS hash_many(
                 UINTN n,
                 void **ret) {
 
-        _cleanup_freepool_ void *output = NULL;
+        _cleanup_free_ void *output = NULL;
 
         assert(old_seed);
         assert(system_token_size == 0 || system_token);
@@ -122,7 +122,7 @@ static EFI_STATUS mangle_random_seed(
                 void **ret_new_seed,
                 void **ret_for_kernel) {
 
-        _cleanup_freepool_ void *new_seed = NULL, *for_kernel = NULL;
+        _cleanup_free_ void *new_seed = NULL, *for_kernel = NULL;
         EFI_STATUS err;
         UINTN n;
 
@@ -230,10 +230,10 @@ static void validate_sha256(void) {
 }
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
-        _cleanup_freepool_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
+        _cleanup_free_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         UINTN size, rsize, wsize, system_token_size = 0;
-        _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
         uint64_t uefi_monotonic_counter = 0;
         EFI_STATUS err;
 

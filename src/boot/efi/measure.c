@@ -17,7 +17,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 UINTN buffer_size,
                 const char16_t *description) {
 
-        _cleanup_freepool_ TCG_PCR_EVENT *tcg_event = NULL;
+        _cleanup_free_ TCG_PCR_EVENT *tcg_event = NULL;
         EFI_PHYSICAL_ADDRESS event_log_last;
         uint32_t event_number = 1;
         UINTN desc_len;
@@ -51,7 +51,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 uint64_t buffer_size,
                 const char16_t *description) {
 
-        _cleanup_freepool_ EFI_TCG2_EVENT *tcg_event = NULL;
+        _cleanup_free_ EFI_TCG2_EVENT *tcg_event = NULL;
         UINTN desc_len;
 
         assert(tcg);

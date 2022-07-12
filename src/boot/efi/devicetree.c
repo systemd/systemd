@@ -73,7 +73,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
         UINTN len;
         EFI_STATUS err;
 

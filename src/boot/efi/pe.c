@@ -282,7 +282,7 @@ EFI_STATUS pe_file_locate_sections(
                 const char * const sections[],
                 UINTN *offsets,
                 UINTN *sizes) {
-        _cleanup_freepool_ PeSectionHeader *section_table = NULL;
+        _cleanup_free_ PeSectionHeader *section_table = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         DosFileHeader dos;
         PeFileHeader pe;

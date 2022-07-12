@@ -41,7 +41,6 @@ static inline void freep(void *p) {
         free(*(void **) p);
 }
 
-#define _cleanup_freepool_ _cleanup_free_
 #define _cleanup_free_ _cleanup_(freep)
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_

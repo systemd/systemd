@@ -12,7 +12,7 @@ static EFI_STATUS load_one_driver(
                 const char16_t *fname) {
 
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
-        _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         _cleanup_free_ char16_t *spath = NULL;
         EFI_STATUS err;
 
@@ -51,7 +51,7 @@ static EFI_STATUS load_one_driver(
 }
 
 static EFI_STATUS reconnect(void) {
-          _cleanup_freepool_ EFI_HANDLE *handles = NULL;
+          _cleanup_free_ EFI_HANDLE *handles = NULL;
           UINTN n_handles = 0;
           EFI_STATUS err;
 
@@ -78,7 +78,7 @@ EFI_STATUS load_drivers(
                 EFI_FILE *root_dir) {
 
         _cleanup_(file_closep) EFI_FILE *drivers_dir = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
+        _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         UINTN dirent_size = 0, n_succeeded = 0;
         EFI_STATUS err;
 

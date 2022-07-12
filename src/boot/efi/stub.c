@@ -169,8 +169,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
         UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0;
-        _cleanup_freepool_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
-        _cleanup_freepool_ void *sysext_initrd = NULL;
+        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL;
+        _cleanup_free_ void *sysext_initrd = NULL;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
