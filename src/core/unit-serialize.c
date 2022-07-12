@@ -732,6 +732,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         STRV_FOREACH(j, u->documentation)
                 fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
 
+        if (u->access_selinux_context)
+                fprintf(f, "%s\tAccess SELinux Context: %s\n", prefix, u->access_selinux_context);
+
         following = unit_following(u);
         if (following)
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
