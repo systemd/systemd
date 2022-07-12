@@ -180,7 +180,11 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_valuef(name, expected_value, flags, "%"PRIi64, i);
+                if (streq(name, "CPUIdle") && i == CGROUP_CPU_IDLE_INVALID)
+                        bus_print_property_value(name, expected_value, flags, "[not set]");
+                else
+                        bus_print_property_valuef(name, expected_value, flags, "%"PRIi64, i);
+
                 return 1;
         }
 
