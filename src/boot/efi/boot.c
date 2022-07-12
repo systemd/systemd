@@ -1328,7 +1328,7 @@ static void config_entry_parse_tries(
 static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         _cleanup_free_ char16_t* old_path = NULL, *new_path = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
+        _cleanup_free_ EFI_FILE_INFO *file_info = NULL;
         UINTN file_info_size;
         EFI_STATUS err;
 
@@ -1575,7 +1575,7 @@ static void config_load_entries(
                 const char16_t *loaded_image_path) {
 
         _cleanup_(file_closep) EFI_FILE *entries_dir = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
+        _cleanup_free_ EFI_FILE_INFO *f = NULL;
         UINTN f_size = 0;
         EFI_STATUS err;
 
@@ -1886,7 +1886,7 @@ static ConfigEntry *config_entry_add_loader_auto(
 static void config_entry_add_osx(Config *config) {
         EFI_STATUS err;
         UINTN n_handles = 0;
-        _cleanup_freepool_ EFI_HANDLE *handles = NULL;
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
 
         assert(config);
 
@@ -1917,7 +1917,7 @@ static void config_entry_add_osx(Config *config) {
 }
 
 static EFI_STATUS boot_windows_bitlocker(void) {
-        _cleanup_freepool_ EFI_HANDLE *handles = NULL;
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
         UINTN n_handles;
         EFI_STATUS err;
 
@@ -1955,7 +1955,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         if (!found)
                 return EFI_NOT_FOUND;
 
-        _cleanup_freepool_ uint16_t *boot_order = NULL;
+        _cleanup_free_ uint16_t *boot_order = NULL;
         UINTN boot_order_size;
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
@@ -2031,7 +2031,7 @@ static void config_entry_add_unified(
                 EFI_FILE *root_dir) {
 
         _cleanup_(file_closep) EFI_FILE *linux_dir = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *f = NULL;
+        _cleanup_free_ EFI_FILE_INFO *f = NULL;
         UINTN f_size = 0;
         EFI_STATUS err;
 
@@ -2238,7 +2238,7 @@ static EFI_STATUS initrd_prepare(
 
         EFI_STATUS err;
         UINTN size = 0;
-        _cleanup_freepool_ uint8_t *initrd = NULL;
+        _cleanup_free_ uint8_t *initrd = NULL;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_free_ char16_t *o = options;
@@ -2252,7 +2252,7 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+                _cleanup_free_ EFI_FILE_INFO *info = NULL;
                 err = get_file_info_harder(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -2288,7 +2288,7 @@ static EFI_STATUS image_start(
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
-        _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         EFI_STATUS err;
 
         assert(entry);
@@ -2307,7 +2307,7 @@ static EFI_STATUS image_start(
                 return log_error_status_stall(err, L"Error making file device path: %r", err);
 
         UINTN initrd_size = 0;
-        _cleanup_freepool_ void *initrd = NULL;
+        _cleanup_free_ void *initrd = NULL;
         _cleanup_free_ char16_t *options_initrd = NULL;
         err = initrd_prepare(image_root, entry, &options_initrd, &initrd, &initrd_size);
         if (err != EFI_SUCCESS)
