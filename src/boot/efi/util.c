@@ -241,7 +241,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         efivar_set(vendor, name, str, 0);
 }
 
-static INTN utf8_to_16(const char *stra, char16_t *c) {
+static int utf8_to_16(const char *stra, char16_t *c) {
         char16_t unichar;
         UINTN len;
 
@@ -309,7 +309,7 @@ char16_t *xstra_to_str(const char *stra) {
         strlen = 0;
         i = 0;
         while (i < len) {
-                INTN utf8len;
+                int utf8len;
 
                 utf8len = utf8_to_16(stra + i, str + strlen);
                 if (utf8len <= 0) {
@@ -340,7 +340,7 @@ char16_t *xstra_to_path(const char *stra) {
         strlen = 1;
         i = 0;
         while (i < len) {
-                INTN utf8len;
+                int utf8len;
 
                 utf8len = utf8_to_16(stra + i, str + strlen);
                 if (utf8len <= 0) {
@@ -378,7 +378,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size,
                 return err;
 
         if (size == 0) {
-                _cleanup_freepool_ EFI_FILE_INFO *info = NULL;
+                _cleanup_free_ EFI_FILE_INFO *info = NULL;
 
                 err = get_file_info_harder(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
@@ -483,7 +483,7 @@ EFI_STATUS get_file_info_harder(
                 UINTN *ret_size) {
 
         UINTN size = offsetof(EFI_FILE_INFO, FileName) + 256;
-        _cleanup_freepool_ EFI_FILE_INFO *fi = NULL;
+        _cleanup_free_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
 
         assert(handle);
@@ -585,7 +585,7 @@ EFI_STATUS open_directory(
                 EFI_FILE **ret) {
 
         _cleanup_(file_closep) EFI_FILE *dir = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *file_info = NULL;
+        _cleanup_free_ EFI_FILE_INFO *file_info = NULL;
         EFI_STATUS err;
 
         assert(root);
