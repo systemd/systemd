@@ -15,7 +15,9 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "errno-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -24,14 +26,17 @@
 #include "macro.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "tomoyo-util.h"
 #include "udev-util.h"
 #include "uid-alloc-range.h"
@@ -458,6 +463,60 @@ TEST(condition_test_kernel_version) {
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
+}
+
+TEST(condition_test_credential) {
+        _cleanup_(rm_rf_physical_and_freep) char *n1 = NULL, *n2 = NULL;
+        _cleanup_free_ char *d1 = NULL, *d2 = NULL, *j = NULL;
+        Condition *condition;
+
+        assert_se(free_and_strdup(&d1, getenv("CREDENTIALS_DIRECTORY")) >= 0);
+        assert_se(free_and_strdup(&d2, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")) >= 0);
+
+        assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
+        assert_se(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY") >= 0);
+
+        condition = condition_new(CONDITION_CREDENTIAL, "definitelymissing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* invalid */
+        condition = condition_new(CONDITION_CREDENTIAL, "..", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        assert_se(mkdtemp_malloc(NULL, &n1) >= 0);
+        assert_se(mkdtemp_malloc(NULL, &n2) >= 0);
+
+        assert_se(setenv("CREDENTIALS_DIRECTORY", n1, /* overwrite= */ true) >= 0);
+        assert_se(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", n2, /* overwrite= */ true) >= 0);
+
+        condition = condition_new(CONDITION_CREDENTIAL, "stillmissing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        assert_se(j = path_join(n1, "existing"));
+        assert_se(touch(j) >= 0);
+        assert_se(j);
+        condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+        free(j);
+
+        assert_se(j = path_join(n2, "existing-encrypted"));
+        assert_se(touch(j) >= 0);
+        assert_se(j);
+        condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        assert_se(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true) >= 0);
+        assert_se(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true) >= 0);
 }
 
 #if defined(__i386__) || defined(__x86_64__)
