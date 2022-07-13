@@ -20,3 +20,4 @@ Type=oneshot
 ExecStart=systemd-tmpfiles --clean
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle
+LoadCredential=tmpfiles.extra
