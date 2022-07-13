@@ -430,50 +430,6 @@ EOF
     fi
 }
 
-teardown_cron() (
-    set +ex
-
-    pkill -u "$(id -u logind-test-user)"
-    sleep 1
-    pkill -KILL -u "$(id -u logind-test-user)"
-    pkill crond
-    crontab -r -u logind-test-user
-
-    return 0
-)
-
-test_no_user_instance_for_cron() {
-    if ! command -v crond || ! command -v crontab ; then
-        echo "Skipping test for background cron sessions because cron is missing."
-        return
-    fi
-
-    trap teardown_cron RETURN
-
-    # Setup cron
-    crond -s -n &
-    # Install crontab for the test user that runs sleep every minute. But let's sleep for
-    # 65 seconds to make sure there is overlap between two consecutive runs, i.e. we have
-    # always a cron session running.
-    crontab -u logind-test-user - <<EOF
-RANDOM_DELAY=0
-* * * * * /bin/sleep 65
-EOF
-
-    # Let's wait (at most one interval plus 10s to accommodate for slow machines) for at least one session
-    # of the test user
-    timeout 70 bash -c "while ! loginctl --no-legend list-sessions | grep -q logind-test-user; do sleep 1; done"
-
-    # Check that all sessions of test user have class=background and no user instance was started
-    # for the test user.
-    while read -r s _; do
-        assert_eq "$(loginctl --property Class --value show-session "$s")" "background"
-    done < <(loginctl --no-legend list-sessions | grep logind-test-user)
-
-    assert_eq "$(systemctl --property ActiveState --value show user@"$(id -u logind-test-user)".service)" "inactive"
-    assert_eq "$(systemctl --property SubState --value show user@"$(id -u logind-test-user)".service)" "dead"
-}
-
 test_session_properties() {
     local s
 
@@ -499,7 +455,6 @@ test_suspend_on_lid
 test_shutdown
 test_session
 test_lock_idle_action
-test_no_user_instance_for_cron
 test_session_properties
 
 touch /testok
