@@ -293,6 +293,9 @@ struct ExecContext {
 
         char *log_namespace;
 
+        char *log_filter_regex;
+        bool log_filter_allow_list:1;
+
         ProtectProc protect_proc;  /* hidepid= */
         ProcSubset proc_subset;    /* subset= */
 
