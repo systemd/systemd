@@ -1331,6 +1331,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionCredential=</varname></term>
+
+          <listitem><para><varname>ConditionCredential=</varname> may be used to check whether a credential
+          by the specified name was passed into the service manager. See <ulink
+          url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details about
+          credentials. If used in services for the system service manager this may be used to conditionalize
+          services based on system credentials passed in. If used in services for the per-user service
+          manager this may be used to conditionalize services based on credentials passed into the
+          <filename>unit@.service</filename> service instance belonging to the user. The argument must be a
+          valid credential name.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionEnvironment=</varname></term>
 
           <listitem><para><varname>ConditionEnvironment=</varname> may be used to check whether a specific
