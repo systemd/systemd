@@ -13,6 +13,8 @@ cleanup_test_user() (
     sleep 1
     pkill -KILL -u "$(id -u logind-test-user)"
     userdel -r logind-test-user
+
+    return 0
 )
 
 setup_test_user() {
@@ -83,6 +85,8 @@ teardown_suspend() (
 
     rm -f /run/udev/rules.d/70-logindtest-lid.rules
     udevadm control --reload
+
+    return 0
 )
 
 test_suspend_on_lid() {
@@ -224,6 +228,8 @@ cleanup_session() (
     pkill -u "$(id -u logind-test-user)"
     sleep 1
     pkill -KILL -u "$(id -u logind-test-user)"
+
+    return 0
 )
 
 teardown_session() (
@@ -234,6 +240,8 @@ teardown_session() (
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
     rmmod scsi_debug
+
+    return 0
 )
 
 check_session() (
@@ -372,6 +380,8 @@ teardown_lock_idle_action() (
 
     rm -f /run/systemd/logind.conf.d/idle-action-lock.conf
     systemctl restart systemd-logind.service
+
+    return 0
 )
 
 test_lock_idle_action() {
@@ -428,6 +438,8 @@ teardown_cron() (
     pkill -KILL -u "$(id -u logind-test-user)"
     pkill crond
     crontab -r -u logind-test-user
+
+    return 0
 )
 
 test_no_user_instance_for_cron() {
