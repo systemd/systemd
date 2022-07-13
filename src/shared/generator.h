@@ -80,13 +80,13 @@ int generator_hook_up_growfs(
 
 int generator_enable_remount_fs_service(const char *dir);
 
-void log_setup_generator(void);
+void log_setup_generator(bool normal_invocation);
 
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
         _DEFINE_MAIN_FUNCTION(                                          \
                 ({                                                      \
-                        log_setup_generator();                          \
+                        log_setup_generator(argc == 4);                 \
                         if (!IN_SET(argc, 2, 4))                        \
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), \
                                                        "This program takes one or three arguments."); \
