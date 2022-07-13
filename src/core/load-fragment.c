@@ -53,6 +53,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pcre2-util.h"
 #include "process-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -6303,6 +6304,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode,              "MODE" },
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
+                { config_parse_log_filter_regex,      "REGEX" },
         };
 
         const char *prev = NULL;
@@ -6572,4 +6574,44 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_log_filter_regex(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_(pattern_freep) pcre2_code *cs = NULL;
+        ExecContext *c = data;
+        bool allow_list = true;
+        int r;
+
+        assert(c);
+        assert(rvalue);
+
+        if (rvalue[0] == '~') {
+                allow_list = false;
+                ++rvalue;
+        }
+
+        if (isempty(rvalue)) {
+                c->log_filter_regex = mfree(c->log_filter_regex);
+                c->log_filter_allow_list = true;
+                return 0;
+        }
+
+        r = pattern_compile_and_log(rvalue, 0, &cs);
+        if (r < 0)
+                return 0;
+
+        free_and_strdup(&c->log_filter_regex, rvalue);
+        c->log_filter_allow_list = allow_list;
+
+        return 0;
 }
