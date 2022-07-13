@@ -2978,7 +2978,7 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3051,6 +3051,8 @@ static int parse_line(
                         try_replace = true;
                 else if (action[pos] == '~' && !unbase64)
                         unbase64 = true;
+                else if (action[pos] == '^' && !from_cred)
+                        from_cred = true;
                 else {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
@@ -3240,13 +3242,8 @@ static int parse_line(
         if (!should_include_path(i.path))
                 return 0;
 
-        if (unbase64) {
-                if (i.argument) {
-                        r = unbase64mem(i.argument, SIZE_MAX, &i.binary_argument, &i.binary_argument_size);
-                        if (r < 0)
-                                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
-                }
-        } else {
+        if (!unbase64) {
+                /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
                 if (r == -ENXIO)
                         return log_unresolvable_specifier(fname, line);
@@ -3255,6 +3252,35 @@ static int parse_line(
                                 *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
                 }
+        }
+
+        if (from_cred) {
+                if (!i.argument)
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Reading from credential requested, but no credential name specified.");
+                if (!credential_name_valid(i.argument))
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Credential name not valid: %s", i.argument);
+
+                r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
+                if (IN_SET(r, -ENXIO, -ENOENT)) {
+                        /* Silently skip over lines that have no credentials passed */
+                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Credential '%s' not specified, skipping line.", i.argument);
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read credential '%s': %m", i.argument);
+        }
+
+        /* If base64 decoding is requested, do so now */
+        if (unbase64 && item_binary_argument(&i)) {
+                _cleanup_free_ void *data = NULL;
+                size_t data_size = 0;
+
+                r = unbase64mem(item_binary_argument(&i), item_binary_argument_size(&i), &data, &data_size);
+                if (r < 0)
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
+
+                free_and_replace(i.binary_argument, data);
+                i.binary_argument_size = data_size;
         }
 
         if (!empty_or_root(arg_root)) {
