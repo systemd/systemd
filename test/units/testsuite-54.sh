@@ -40,6 +40,9 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
 
     # Verify that writing a sysctl via the kernel cmdline worked
     [ "$(cat /proc/sys/kernel/domainname)" = "sysctltest" ]
+
+    # Verify that creating a user via sysusers via the kernel cmdline worked
+    grep -q ^credtestuser: /etc/passwd
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
