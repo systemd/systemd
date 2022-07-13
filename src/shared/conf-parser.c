@@ -445,7 +445,7 @@ int config_parse(
         return 1;
 }
 
-static int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st) {
+int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st) {
         _cleanup_free_ struct stat *st_copy = NULL;
         _cleanup_free_ char *path_copy = NULL;
         int r;
