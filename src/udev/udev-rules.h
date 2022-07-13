@@ -22,7 +22,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
 UdevRules *udev_rules_free(UdevRules *rules);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRules*, udev_rules_free);
 
-bool udev_rules_check_timestamp(UdevRules *rules);
+bool udev_rules_should_reload(UdevRules *rules);
 int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event,
                               usec_t timeout_usec,
                               int timeout_signal,

@@ -122,6 +122,7 @@ int config_get_stats_by_path(
                 bool check_dropins,
                 Hashmap **ret);
 
+int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st);
 bool stats_by_path_equal(Hashmap *a, Hashmap *b);
 
 typedef struct ConfigSection {
