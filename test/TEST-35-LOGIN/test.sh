@@ -8,7 +8,7 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    image_install -o evemu-device evemu-event crond crontab
+    image_install -o evemu-device evemu-event
 }
 
 do_test "$@"
