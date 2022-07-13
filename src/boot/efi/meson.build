@@ -259,6 +259,13 @@ efi_ldflags = [
         '-z', 'nocombreloc',
         efi_crt0,
 ]
+
+possible_link_flags = [
+        '-Wl,--no-warn-execstack',
+        '-Wl,--no-warn-rwx-segments',
+]
+efi_ldflags += cc.get_supported_link_arguments(possible_link_flags)
+
 if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
         efi_ldflags += ['-shared']
         # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
