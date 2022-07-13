@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+int journal_fd(void);
+
 #if VALGRIND
 void close_journal_fd(void);
 #else
