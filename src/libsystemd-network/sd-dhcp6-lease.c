@@ -467,7 +467,9 @@ static int dhcp6_lease_parse_message(
 
                 r = dhcp6_option_parse(message->options, len, &offset, &optcode, &optlen, &optval);
                 if (r < 0)
-                        return r;
+                        return log_dhcp6_client_errno(client, r,
+                                                      "Failed to parse option header at offset %zu of total length %zu: %m",
+                                                      offset, len);
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
@@ -477,7 +479,7 @@ static int dhcp6_lease_parse_message(
 
                         r = dhcp6_lease_set_clientid(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                return log_dhcp6_client_errno(client, r, "Failed to set client ID: %m");
 
                         break;
 
@@ -488,17 +490,17 @@ static int dhcp6_lease_parse_message(
 
                         r = dhcp6_lease_set_serverid(lease, optval, optlen);
                         if (r < 0)
-                                return r;
+                                return log_dhcp6_client_errno(client, r, "Failed to set server ID: %m");
 
                         break;
 
                 case SD_DHCP6_OPTION_PREFERENCE:
                         if (optlen != 1)
-                                return -EINVAL;
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "Received invalid length for preference.");
 
                         r = dhcp6_lease_set_preference(lease, optval[0]);
                         if (r < 0)
-                                return r;
+                                return log_dhcp6_client_errno(client, r, "Failed to set preference: %m");
 
                         break;
 
@@ -507,7 +509,7 @@ static int dhcp6_lease_parse_message(
 
                         r = dhcp6_option_parse_status(optval, optlen, &msg);
                         if (r < 0)
-                                return r;
+                                return log_dhcp6_client_errno(client, r, "Failed to parse status code: %m");
 
                         if (r > 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -527,9 +529,11 @@ static int dhcp6_lease_parse_message(
 
                         r = dhcp6_option_parse_ia(client, client->ia_na.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
-                                return r;
-                        if (r < 0)
+                                return log_oom_debug();
+                        if (r < 0) {
+                                log_dhcp6_client_errno(client, r, "Failed to parse IA_NA option, ignoring: %m");
                                 continue;
+                        }
 
                         if (lease->ia_na) {
                                 log_dhcp6_client(client, "Received duplicate matching IA_NA option, ignoring.");
@@ -550,9 +554,11 @@ static int dhcp6_lease_parse_message(
 
                         r = dhcp6_option_parse_ia(client, client->ia_pd.header.id, optcode, optlen, optval, &ia);
                         if (r == -ENOMEM)
-                                return r;
-                        if (r < 0)
+                                return log_oom_debug();
+                        if (r < 0) {
+                                log_dhcp6_client_errno(client, r, "Failed to parse IA_PD option, ignoring: %m");
                                 continue;
+                        }
 
                         if (lease->ia_pd) {
                                 log_dhcp6_client(client, "Received duplicate matching IA_PD option, ignoring.");
@@ -564,9 +570,12 @@ static int dhcp6_lease_parse_message(
                         break;
                 }
                 case SD_DHCP6_OPTION_RAPID_COMMIT:
+                        if (optlen != 0)
+                                log_dhcp6_client(client, "Received rapid commit option with an invalid length (%zu), ignoring.", optlen);
+
                         r = dhcp6_lease_set_rapid_commit(lease);
                         if (r < 0)
-                                return r;
+                                return log_dhcp6_client_errno(client, r, "Failed to set rapid commit flag: %m");
 
                         break;
 
@@ -607,7 +616,8 @@ static int dhcp6_lease_parse_message(
 
                 case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
                         if (optlen != 4)
-                                return -EINVAL;
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                              "Received information refresh time option with an invalid length (%zu).", optlen);
 
                         irt = unaligned_read_be32((be32_t *) optval) * USEC_PER_SEC;
                         break;
