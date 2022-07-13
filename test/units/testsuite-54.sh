@@ -29,6 +29,10 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     # Verify that passing creds through kernel cmdline works
     [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
 
+    # And that it also works via SMBIOS
+    [ "$(systemd-creds --system cat smbioscredential)" = "magicdata" ]
+    [ "$(systemd-creds --system cat binarysmbioscredential)" = "magicbinarydata" ]
+
     # If we aren't run in nspawn, we are run in qemu
     systemd-detect-virt -q -v
     expected_credential=myqemucredential

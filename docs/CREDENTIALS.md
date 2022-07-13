@@ -50,10 +50,11 @@ purpose. Specifically, the following features are provided:
 6. Service credentials are placed in non-swappable memory. (If permissions
    allow it, via `ramfs`.)
 
-7. Credentials may be acquired from a hosting VM hypervisor (qemu `fw_cfg`), a
-   hosting container manager, the kernel command line, or from the UEFI
-   environment and the EFI System Partition (via `systemd-stub`). Such system
-   credentials may then be propagated into individual services as needed.
+7. Credentials may be acquired from a hosting VM hypervisor (SMBIOS OEM strings
+   or qemu `fw_cfg`), a hosting container manager, the kernel command line, or
+   from the UEFI environment and the EFI System Partition (via
+   `systemd-stub`). Such system credentials may then be propagated into
+   individual services as needed.
 
 8. Credentials are an effective way to pass parameters into services that run
    with `RootImage=` or `RootDirectory=` and thus cannot read these resources
@@ -254,10 +255,18 @@ services where they are ultimately consumed.
    the [Container Interface](CONTAINER_INTERFACE.md)
    documentation.
 
-2. Quite similar, qemu VMs can be invoked with `-fw_cfg
+2. Quite similar, VMs can be passed credentials via SMBIOS OEM strings (example
+   qemu command line switch `-smbios
+   type=11,value=io.systemd.credential:foo=bar` or `-smbios
+   type=11,value=io.systemd.credential.binary:foo=YmFyCg==`, the latter taking
+   a Base64 encoded argument to permit binary credentials being passed
+   in). Alternatively, qemu VMs can be invoked with `-fw_cfg
    name=opt/io.systemd.credentials/foo,string=bar` to pass credentials from
-   host through the hypervisor into the VM. (This specific switch would set
-   credential `foo` to `bar`.)
+   host through the hypervisor into the VM via qemu's `fw_cfg` mechanism. (All
+   three of these specific switches would set credential `foo` to `bar`.)
+   Passing credentials via the SMBIOS mechanism is typically preferable over
+   `fw_cfg` since it is faster and less specific to the chosen VMM
+   implementation.
 
 3. Credentials can also be passed into a system via the kernel command line,
    via the `systemd.set-credential=` kernel command line option. Note though
@@ -297,7 +306,7 @@ qemu-system-x86_64 \
         -drive if=none,id=hd,file=test.raw,format=raw \
         -device virtio-scsi-pci,id=scsi \
         -device scsi-hd,drive=hd,bootindex=1 \
-        -fw_cfg name=opt/io.systemd.credentials/mycred,string=supersecret
+        -smbios type=11,value=io.systemd.credential:mycred=supersecret
 ```
 
 Either of these lines will boot a disk image `test.raw`, once as container via
@@ -363,8 +372,8 @@ qemu-system-x86_64 \
         -drive if=none,id=hd,file=test.raw,format=raw \
         -device virtio-scsi-pci,id=scsi \
         -device scsi-hd,drive=hd,bootindex=1 \
-        -fw_cfg name=opt/io.systemd.credentials/passwd.hashed-password.root,string=$(mkpasswd mysecret) \
-        -fw_cfg name=opt/io.systemd.credentials/firstboot.locale,string=C.UTF-8
+        -smbios type=11,value=io.systemd.credential:passwd.hashed-password.root=$(mkpasswd mysecret) \
+        -smbios type=11,value=io.systemd.credential:firstboot.locale=C.UTF-8
 ```
 
 ## Relevant Paths
