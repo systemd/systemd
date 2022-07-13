@@ -78,10 +78,20 @@
         <term>suspend-then-hibernate</term>
 
         <listitem><para>A low power state where the system is initially suspended
-        (the state is stored in RAM). If the current battery capacity is higher than
-        5%, the system goes back to suspend.
+	(the state is stored in RAM) and then hibernated based on battery percentage
+        capacity. If the current battery capacity is higher than 5%, the system goes
+        back to suspend for interval calculated using battery disharge rate per hour.
+        Battery discharge rate per hour is stored in
+        <filename>/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour</filename>
+        This file is created after initial suspend-resume cycle. The value is calculated using
+        the battery capacity percentage difference over a timespan. In case of manual wakeup
+        before RTC alarm, the timespan is the duration for which system was suspended.
+        If the file does not exist or has invalid value, initial suspend duration is set to
+        <command>HibernateDelaySec=</command>. After wakeup via an RTC alarm, the battery
+        discharge percentage rate per hour is again estimated.
         If the current battery capacity is equal to or less than 5%, the system will
-        be hibernated (the state is then stored on disk).
+        be hibernated (the state is then stored on disk) else the system goes back to suspend
+        for the amount of time it would take to fully discharge the battery minus 30 minutes,
         </para></listitem>
       </varlistentry>
 
@@ -178,7 +188,7 @@
         before the RTC alarm wakes the system, before the battery discharge rate
         can be estimated and used instead to calculate the suspension interval.
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Defaults
-        to 1h.</para></listitem>
+        to 2h.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
