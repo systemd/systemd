@@ -965,7 +965,8 @@
         <term><varname>systemd.import_credentials=</varname></term>
 
         <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
-        command line, qemu_fw_cfg subsystem or the kernel command line.</para></listitem>
+        command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
+        stub.</para></listitem>
       </varlistentry>
 
       <varlistentry>
