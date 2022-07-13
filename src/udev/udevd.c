@@ -2018,7 +2018,7 @@ static int main_loop(Manager *manager) {
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
-                log_error_errno(r, "Failed to apply permissions on static device nodes: %m");
+                log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
         notify_ready();
 
