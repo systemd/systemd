@@ -11,3 +11,4 @@ int ipv4ll_configure(Link *link);
 int ipv4ll_update_mac(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll_address);
