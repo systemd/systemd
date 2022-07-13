@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "efi-loader.h"
@@ -10,62 +9,47 @@
 #include "mkdir.h"
 #include "special.h"
 #include "string-util.h"
-#include "util.h"
 #include "virt.h"
 
-/* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath" EFI
- * variable is set, i.e. the system boots up with boot counting in effect, which means we should mark the boot as
- * "good" if we manage to boot up far enough. */
+/* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath"
+ * EFI variable is set, i.e. the system boots up with boot counting in effect, which means we should mark the
+ * boot as "good" if we manage to boot up far enough. */
 
-static const char *arg_dest = "/tmp";
-
-int main(int argc, char *argv[]) {
-        const char *p;
-
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4) {
-                log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1)
-                arg_dest = argv[2];
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
 
         if (in_initrd() > 0) {
                 log_debug("Skipping generator, running in the initrd.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         if (detect_container() > 0) {
                 log_debug("Skipping generator, running in a container.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         if (!is_efi_boot()) {
                 log_debug("Skipping generator, not an EFI boot.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderBootCountPath)), F_OK) < 0) {
 
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Skipping generator, not booted with boot counting in effect.");
-                        return EXIT_SUCCESS;
+                        return 0;
                 }
 
-                log_error_errno(errno, "Failed to check if LoaderBootCountPath EFI variable exists: %m");
-                return EXIT_FAILURE;
+                return log_error_errno(errno, "Failed to check if LoaderBootCountPath EFI variable exists: %m");
         }
 
-        /* We pull this in from basic.target so that it ends up in all "regular" boot ups, but not in rescue.target or
-         * even emergency.target. */
-        p = strjoina(arg_dest, "/" SPECIAL_BASIC_TARGET ".wants/systemd-bless-boot.service");
+        /* We pull this in from basic.target so that it ends up in all "regular" boot ups, but not in
+         * rescue.target or even emergency.target. */
+        const char *p = strjoina(dest_early, "/" SPECIAL_BASIC_TARGET ".wants/systemd-bless-boot.service");
         (void) mkdir_parents(p, 0755);
-        if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-bless-boot.service", p) < 0) {
-                log_error_errno(errno, "Failed to create symlink '%s': %m", p);
-                return EXIT_FAILURE;
-        }
+        if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-bless-boot.service", p) < 0)
+                return log_error_errno(errno, "Failed to create symlink '%s': %m", p);
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
