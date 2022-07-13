@@ -667,7 +667,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 after = strv_new("systemd-logind.service",
                                  s->user->runtime_dir_service,
                                  !uid_is_system(s->user->user_record->uid) ? "systemd-user-sessions.service" : STRV_IGNORE,
-                                 s->class != SESSION_BACKGROUND ? s->user->service : STRV_IGNORE);
+                                 s->user->service);
                 if (!after)
                         return log_oom();
 
@@ -679,7 +679,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                                 STRV_MAKE(s->user->runtime_dir_service,
-                                          s->class != SESSION_BACKGROUND ? s->user->service : NULL),
+                                          s->user->service),
                                 after,
                                 user_record_home_directory(s->user->user_record),
                                 properties,
@@ -711,7 +711,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->started)
                 return 0;
 
-        r = user_start(s->user, /* want_user_instance= */ s->class != SESSION_BACKGROUND);
+        r = user_start(s->user);
         if (r < 0)
                 return r;
 
