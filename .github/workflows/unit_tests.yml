@@ -32,8 +32,14 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
       - name: Install build dependencies
-        run: sudo -E .github/workflows/unit_tests.sh SETUP
+        run: |
+          # Drop XDG_* stuff from /etc/environment, so we don't get the user
+          # XDG_* variables when running under sudo
+          sudo sed -i '/^XDG_/d' /etc/environment
+          # Pass only specific env variables through sudo, to avoid having
+          # the already existing XDG_* stuff on the "other side"
+          sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh SETUP
       - name: Build & test (${{ matrix.run_phase }}-${{ matrix.cryptolib }})
-        run: sudo -E .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
+        run: sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
         env:
           CRYPTOLIB: ${{ matrix.cryptolib }}
