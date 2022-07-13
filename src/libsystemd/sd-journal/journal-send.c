@@ -45,7 +45,7 @@
  * never assuming we are the only user */
 static int fd_plus_one = 0;
 
-static int journal_fd(void) {
+int journal_fd(void) {
         int fd;
 
 retry:
@@ -318,7 +318,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (errno == ENOENT)
                 return 0;
 
-        if (!IN_SET(errno, EMSGSIZE, ENOBUFS))
+        if (!IN_SET(errno, EMSGSIZE, ENOBUFS, EAGAIN))
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a memfd or
