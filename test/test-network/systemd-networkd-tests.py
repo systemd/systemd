@@ -276,6 +276,9 @@ def expectedFailureIfFQPIEIsNotAvailable():
 
     return f
 
+def udev_reload():
+    check_output('udevadm control --reload')
+
 def copy_network_unit(*units, copy_dropins=True):
     """
     Copy networkd unit files into the testbed.
@@ -287,17 +290,26 @@ def copy_network_unit(*units, copy_dropins=True):
 
     When a drop-in file is specified, its unit file is also copied in automatically.
     """
+    has_link = False
     mkdir_p(network_unit_dir)
     for unit in units:
         if copy_dropins and os.path.exists(os.path.join(networkd_ci_temp_dir, unit + '.d')):
             cp_r(os.path.join(networkd_ci_temp_dir, unit + '.d'), os.path.join(network_unit_dir, unit + '.d'))
+
         if unit.endswith('.conf'):
             dropin = unit
             unit = os.path.dirname(dropin).rstrip('.d')
             dropindir = os.path.join(network_unit_dir, unit + '.d')
             mkdir_p(dropindir)
             cp(os.path.join(networkd_ci_temp_dir, dropin), dropindir)
+
         cp(os.path.join(networkd_ci_temp_dir, unit), network_unit_dir)
+
+        if unit.endswith('.link'):
+            has_link = True
+
+    if has_link:
+        udev_reload()
 
 def remove_network_unit(*units):
     """
@@ -305,11 +317,23 @@ def remove_network_unit(*units):
 
     Drop-ins will be removed automatically.
     """
+    has_link = False
     for unit in units:
         rm_f(os.path.join(network_unit_dir, unit))
-        rm_rf(os.path.join(network_unit_dir, unit + '.d'))
+
+        if unit.endswith('.conf'):
+            unit = os.path.dirname(dropin).rstrip('.d')
+        else:
+            rm_rf(os.path.join(network_unit_dir, unit + '.d'))
+
+        if unit.endswith('.link'):
+            has_link = True
+
+    if has_link:
+        udev_reload()
 
 def clear_network_units():
+    # Note, unlike remove_network_unit(), this does not reload udevd.
     rm_rf(network_unit_dir)
 
 def copy_networkd_conf_dropin(*dropins):
@@ -604,6 +628,7 @@ def tear_down_common():
 
     # 6. remove configs
     clear_network_units()
+    udev_reload()
     clear_networkd_conf_dropins()
 
     # 7. flush settings
@@ -898,7 +923,6 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_altname(self):
         copy_network_unit('26-netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
-        check_output('udevadm control --reload')
         start_networkd()
         self.wait_online(['dummy98:degraded'])
 
@@ -3896,7 +3920,6 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov_udev(self):
         copy_network_unit('25-sriov.link', '25-sriov-udev.network')
-        call('udevadm control --reload')
 
         call('modprobe netdevsim')
 
@@ -3919,7 +3942,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
-        call('udevadm control --reload')
+        udev_reload()
         call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
@@ -3935,7 +3958,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        call('udevadm control --reload')
+        udev_reload()
         call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
@@ -3951,7 +3974,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
-        call('udevadm control --reload')
+        udev_reload()
         call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
@@ -3967,7 +3990,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        call('udevadm control --reload')
+        udev_reload()
         call('udevadm trigger --action add --settle /sys/devices/netdevsim99/net/eni99np1')
 
         output = check_output('ip link show dev eni99np1')
@@ -5203,8 +5226,6 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
 
     def test_mtu_link(self):
         copy_network_unit('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network', copy_dropins=False)
-        # must reload udev because it only picks up new files after 3 second delay
-        call('udevadm control --reload')
         # note - MTU set by .link happens ONLY at udev processing of device 'add' uevent!
         self.check_mtu('1600', reset=False)
 
@@ -5231,8 +5252,6 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
     def test_mtu_link_ipv6_mtu(self):
         ''' set ipv6 mtu and set device mtu via link file '''
         copy_network_unit('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network.d/ipv6-mtu-1550.conf')
-        # must reload udev because it only picks up new files after 3 second delay
-        call('udevadm control --reload')
         self.check_mtu('1600', '1550', reset=False)
 
 
