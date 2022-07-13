@@ -993,6 +993,48 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
 }
 
+#if HAVE_PCRE2
+TEST(config_parse_regex) {
+        size_t i;
+        int r;
+
+        static const struct regex_test {
+                const char *include_regex;
+                const char *exclude_regex;
+                const char *include_expected;
+                const char *exclude_expected;
+        } regex_tests[] = {
+                { "", "", NULL, NULL },
+                { ".*", "", ".*", NULL },
+                { ".*", ".*", ".*", ".*" },
+                { "", ".*", NULL, ".*" },
+                { "", "", NULL, NULL },
+                { "[", "", NULL, NULL },
+                { "", "[", NULL, NULL },
+        };
+
+        for (i = 0; i < ELEMENTSOF(regex_tests); ++i) {
+                _cleanup_free_ char *include_regex = NULL;
+                _cleanup_free_ char *exclude_regex = NULL;
+
+                r = config_parse_regex(NULL, "fake", 1, "section", 1,
+                                       "LogIncludeRegex", 1,
+                                       regex_tests[i].include_regex,
+                                       &include_regex, NULL);
+                assert_se(r >= 0);
+
+                r = config_parse_regex(NULL, "fake", 1, "section", 1,
+                                       "LogExcludeRegex", 1,
+                                       regex_tests[i].exclude_regex,
+                                       &exclude_regex, NULL);
+                assert_se(r >= 0);
+
+                assert_se(streq_ptr(include_regex, regex_tests[i].include_expected));
+                assert_se(streq_ptr(exclude_regex, regex_tests[i].exclude_expected));
+        }
+}
+#endif
+
 static int intro(void) {
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
