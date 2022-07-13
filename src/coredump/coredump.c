@@ -29,6 +29,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "journal-importer.h"
+#include "journal-send.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -777,7 +778,7 @@ static int submit_coredump(
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
         bool truncated = false;
         JsonVariant *module_json;
-        int r;
+        int r, jfd;
 
         assert(context);
         assert(iovw);
@@ -842,12 +843,10 @@ log:
 
         core_message = strjoina(core_message, stacktrace ? "\n\n" : NULL, stacktrace);
 
-        if (context->is_journald) {
-                /* We cannot log to the journal, so just print the message.
-                 * The target was set previously to something safe. */
+        if (context->is_journald)
+                /* We might not be able to log to the journal, so let's always print the message to another
+                 * log target. The target was set previously to something safe. */
                 log_dispatch(LOG_ERR, 0, core_message);
-                return 0;
-        }
 
         (void) iovw_put_string_field(iovw, "MESSAGE=", core_message);
 
@@ -903,9 +902,31 @@ log:
                                  coredump_size, arg_journal_size_max);
         }
 
+        /* If journald is coredumping, we have to be careful that we don't deadlock when trying to write the
+         * coredump to the journal, so we put the journal socket in nonblocking mode before trying to write
+         * the coredump to the socket. */
+
+        if (context->is_journald) {
+                jfd = journal_fd();
+                if (jfd < 0)
+                        return log_error_errno(r, "Failed to open journal socket: %m");
+
+                r = fd_nonblock(jfd, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make journal socket non-blocking: %m");
+        }
+
         r = sd_journal_sendv(iovw->iovec, iovw->count);
-        if (r < 0)
+        if (r == -EAGAIN && context->is_journald)
+                log_warning_errno(r, "Failed to log journal coredump, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Failed to log coredump: %m");
+
+        if (context->is_journald) {
+                r = fd_nonblock(jfd, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make journal socket non-blocking: %m");
+        }
 
         return 0;
 }
