@@ -212,13 +212,14 @@ void address_set_broadcast(Address *a, Link *link) {
         a->broadcast.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
 }
 
-static struct ifa_cacheinfo *address_set_cinfo(const Address *a, struct ifa_cacheinfo *cinfo) {
+static struct ifa_cacheinfo *address_set_cinfo(Manager *m, const Address *a, struct ifa_cacheinfo *cinfo) {
         usec_t now_usec;
 
+        assert(m);
         assert(a);
         assert(cinfo);
 
-        now_usec = now(CLOCK_BOOTTIME);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
         *cinfo = (struct ifa_cacheinfo) {
                 .ifa_valid = MIN(usec_sub_unsigned(a->lifetime_valid_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
@@ -228,13 +229,14 @@ static struct ifa_cacheinfo *address_set_cinfo(const Address *a, struct ifa_cach
         return cinfo;
 }
 
-static void address_set_lifetime(Address *a, const struct ifa_cacheinfo *cinfo) {
+static void address_set_lifetime(Manager *m, Address *a, const struct ifa_cacheinfo *cinfo) {
         usec_t now_usec;
 
+        assert(m);
         assert(a);
         assert(cinfo);
 
-        now_usec = now(CLOCK_BOOTTIME);
+        assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
         if (cinfo->ifa_valid == UINT32_MAX)
                 a->lifetime_valid_usec = USEC_INFINITY;
@@ -1078,7 +1080,7 @@ static int address_configure(const Address *address, Link *link, Request *req) {
         }
 
         r = sd_netlink_message_append_cache_info(m, IFA_CACHEINFO,
-                                                 address_set_cinfo(address, &(struct ifa_cacheinfo) {}));
+                                                 address_set_cinfo(link->manager, address, &(struct ifa_cacheinfo) {}));
         if (r < 0)
                 return r;
 
@@ -1455,18 +1457,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         /* update flags and etc. */
                         address->flags = tmp->flags;
                         address->scope = tmp->scope;
-                        address_set_lifetime(address, &cinfo);
+                        address_set_lifetime(m, address, &cinfo);
                         address_enter_configured(address);
                         log_address_debug(address, "Received updated", link);
                 } else {
-                        address_set_lifetime(tmp, &cinfo);
+                        address_set_lifetime(m, tmp, &cinfo);
                         address_enter_configured(tmp);
                         log_address_debug(tmp, "Received new", link);
 
                         r = address_add(link, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));                
+                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
                                 return 0;
                         }
 
