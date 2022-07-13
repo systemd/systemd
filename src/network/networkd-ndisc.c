@@ -38,12 +38,6 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
-        if (link->hw_addr.length != ETH_ALEN && !streq_ptr(link->kind, "wwan"))
-                /* Currently, only interfaces whose MAC address length is ETH_ALEN are supported.
-                 * Note, wwan interfaces may be assigned MAC address slightly later.
-                 * Hence, let's wait for a while.*/
-                return false;
-
         if (!link->network)
                 return false;
 
@@ -1104,10 +1098,6 @@ static int ndisc_process_request(Request *req, Link *link, void *userdata) {
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return 0;
-
-        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
-                /* No MAC address is assigned to the hardware, or non-supported MAC address length. */
                 return 0;
 
         r = ndisc_configure(link);
