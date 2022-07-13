@@ -949,7 +949,7 @@ static int event_queue_start(Manager *manager) {
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
             usec > usec_add(manager->last_usec, 3 * USEC_PER_SEC)) {
-                if (udev_rules_check_timestamp(manager->rules) ||
+                if (udev_rules_should_reload(manager->rules) ||
                     udev_builtin_validate())
                         manager_reload(manager);
 
