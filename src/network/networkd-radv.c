@@ -458,9 +458,11 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
+        if (link->hw_addr.length == ETH_ALEN) {
+                r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_radv_set_ifindex(link->radv, link->ifindex);
         if (r < 0)
@@ -516,6 +518,9 @@ int radv_update_mac(Link *link) {
         assert(link);
 
         if (!link->radv)
+                return 0;
+
+        if (link->hw_addr.length != ETH_ALEN)
                 return 0;
 
         restart = sd_radv_is_running(link->radv);

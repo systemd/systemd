@@ -1054,9 +1054,11 @@ static int ndisc_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
+        if (link->hw_addr.length == ETH_ALEN) {
+                r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_ndisc_set_ifindex(link->ndisc, link->ifindex);
         if (r < 0)
