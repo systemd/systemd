@@ -1320,13 +1320,13 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         return 0;
 }
 
-bool udev_rules_check_timestamp(UdevRules *rules) {
+bool udev_rules_should_reload(UdevRules *rules) {
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
         if (!rules)
-                return false;
+                return true;
 
         r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
         if (r < 0)
@@ -1338,9 +1338,8 @@ bool udev_rules_check_timestamp(UdevRules *rules) {
                 if (stat(*f, &st) < 0)
                         continue;
 
-                r = hashmap_put_stats_by_path(&stats_by_path, *f, &st);
-                if (r < 0)
-                        return r;
+                if (hashmap_put_stats_by_path(&stats_by_path, *f, &st) < 0)
+                        return true;
         }
 
         return !stats_by_path_equal(rules->stats_by_path, stats_by_path);
