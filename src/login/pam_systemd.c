@@ -790,10 +790,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                              * does the PAM session registration early for new connections, and registers a pty only
                              * much later (this is because it doesn't know yet if it needs one at all, as whether to
                              * register a pty or not is negotiated much later in the protocol). */
-        } else if (streq(tty, "systemd")) {
-                if (isempty(class))
-                        class = "user";
-                tty = NULL;
+
         } else
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 tty = skip_dev_prefix(tty);
