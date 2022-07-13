@@ -71,6 +71,7 @@ protected_links = {
 saved_routes = None
 saved_ipv4_rules = None
 saved_ipv6_rules = None
+saved_timezone = None
 
 def rm_f(path):
     if os.path.exists(path):
@@ -466,6 +467,17 @@ def flush_l2tp_tunnels():
         else:
             print(f'Cannot remove L2TP tunnel {tid}, ignoring.')
 
+def save_timezone():
+    global saved_timezone
+    r = run('timedatectl show --value --property Timezone')
+    if r.returncode == 0:
+        saved_timezone = r.stdout.rstrip()
+        print(f'### Saved timezone: {saved_timezone}')
+
+def restore_timezone():
+    if saved_timezone:
+        call(f'timedatectl set-timezone {saved_timezone}')
+
 def read_link_attr(*args):
     with open(os.path.join('/sys/class/net', *args), encoding='utf-8') as f:
         return f.readline().strip()
@@ -615,6 +627,7 @@ def setUpModule():
     save_existing_links()
     save_routes()
     save_routing_policy_rules()
+    save_timezone()
 
     drop_in = [
         '[Unit]',
@@ -710,6 +723,8 @@ def tearDownModule():
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+
+    restore_timezone()
 
     rm_rf('/run/systemd/system/systemd-networkd.service.d')
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
