@@ -854,11 +854,12 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         const struct in_addr *br_addresses;
         struct in_addr ipv4address;
         uint32_t lifetime_sec;
-        usec_t lifetime_usec;
+        usec_t lifetime_usec, now_usec;
         int r;
 
         assert(link);
         assert(uplink);
+        assert(uplink->manager);
         assert(uplink->dhcp_lease);
 
         r = sd_dhcp_lease_get_address(uplink->dhcp_lease, &ipv4address);
@@ -869,7 +870,8 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
-        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
+        assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now_usec);
 
         r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
@@ -926,11 +928,12 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         union in_addr_union server_address;
         const struct in_addr *br_addresses;
         uint32_t lifetime_sec;
-        usec_t lifetime_usec;
+        usec_t lifetime_usec, now_usec;
         Link *link;
         int r;
 
         assert(uplink);
+        assert(uplink->manager);
         assert(uplink->dhcp_lease);
 
         r = sd_dhcp_lease_get_address(uplink->dhcp_lease, &ipv4address);
@@ -941,7 +944,8 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
-        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now(CLOCK_BOOTTIME));
+        assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+        lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now_usec);
 
         r = sd_dhcp_lease_get_server_identifier(uplink->dhcp_lease, &server_address.in);
         if (r < 0)

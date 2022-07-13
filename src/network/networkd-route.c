@@ -1180,8 +1180,11 @@ static int route_configure(const Route *route, Link *link, Request *req) {
                 return r;
 
         if (route->lifetime_usec != USEC_INFINITY) {
+                usec_t now_usec;
+
+                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
                 r = sd_netlink_message_append_u32(m, RTA_EXPIRES,
-                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now(CLOCK_BOOTTIME)), USEC_PER_SEC), UINT32_MAX));
+                        MIN(DIV_ROUND_UP(usec_sub_unsigned(route->lifetime_usec, now_usec), USEC_PER_SEC), UINT32_MAX));
                 if (r < 0)
                         return r;
         }
