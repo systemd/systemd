@@ -1153,7 +1153,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         return 1;
 }
 
-static int route_configure(const Route *route, Link *link, Request *req) {
+static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -1179,17 +1179,10 @@ static int route_configure(const Route *route, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        if (route->lifetime_usec != USEC_INFINITY) {
-                usec_t now_usec;
-                uint32_t sec;
-
-                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-                sec = usec_to_sec(route->lifetime_usec, now_usec);
-                if (sec != UINT32_MAX) {
-                        r = sd_netlink_message_append_u32(m, RTA_EXPIRES, sec);
-                        if (r < 0)
-                                return r;
-                }
+        if (lifetime_sec != UINT32_MAX) {
+                r = sd_netlink_message_append_u32(m, RTA_EXPIRES, lifetime_sec);
+                if (r < 0)
+                        return r;
         }
 
         if (route->ttl_propagate >= 0) {
@@ -1324,6 +1317,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
 
         assert(req);
         assert(link);
+        assert(link->manager);
         assert(route);
 
         r = route_is_ready_to_configure(route, link);
@@ -1362,7 +1356,25 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                 }
         }
 
-        r = route_configure(route, link, req);
+        usec_t now_usec;
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+        uint32_t sec = usec_to_sec(route->lifetime_usec, now_usec);
+        if (sec == 0) {
+                log_link_debug(link, "Refuse to configure %s route with zero lifetime.",
+                               network_config_source_to_string(route->source));
+
+                if (converted)
+                        for (size_t i = 0; i < converted->n; i++) {
+                                Route *existing;
+
+                                assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
+                                route_cancel_requesting(existing);
+                        }
+                else
+                        route_cancel_requesting(route);
+        }
+
+        r = route_configure(route, sec, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure route: %m");
 
