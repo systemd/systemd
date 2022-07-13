@@ -207,7 +207,8 @@ REQUIREMENTS:
         python >= 3.5
         meson >= 0.53.2
         ninja
-        gcc, awk, sed, grep, and similar tools
+        gcc >= 4.7
+        awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
         gnu-efi >= 3.0.5 (optional, required for systemd-boot)
