@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "def.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -177,10 +178,10 @@ struct UdevRuleFile {
 };
 
 struct UdevRules {
-        usec_t dirs_ts_usec;
         ResolveNameTiming resolve_name_timing;
         Hashmap *known_users;
         Hashmap *known_groups;
+        Hashmap *stats_by_path;
         UdevRuleFile *current_file;
         LIST_HEAD(UdevRuleFile, rule_files);
 };
@@ -315,6 +316,7 @@ UdevRules *udev_rules_free(UdevRules *rules) {
 
         hashmap_free_free_key(rules->known_users);
         hashmap_free_free_key(rules->known_groups);
+        hashmap_free(rules->stats_by_path);
         return mfree(rules);
 }
 
@@ -1176,6 +1178,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         UdevRuleFile *rule_file;
         bool ignore_line = false;
         unsigned line_nr = 0;
+        struct stat st;
         int r;
 
         f = fopen(filename, "re");
@@ -1183,15 +1186,22 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 if (errno == ENOENT)
                         return 0;
 
-                return -errno;
+                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
         }
 
-        (void) fd_warn_permissions(filename, fileno(f));
+        if (fstat(fileno(f), &st) < 0)
+                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
 
-        if (null_or_empty_fd(fileno(f))) {
+        if (null_or_empty(&st)) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
+
+        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
+
+        (void) fd_warn_permissions(filename, fileno(f));
 
         log_debug("Reading rules file: %s", filename);
 
@@ -1296,8 +1306,6 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         if (!rules)
                 return -ENOMEM;
 
-        (void) udev_rules_check_timestamp(rules);
-
         r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
@@ -1313,10 +1321,29 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
 }
 
 bool udev_rules_check_timestamp(UdevRules *rules) {
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
         if (!rules)
                 return false;
 
-        return paths_check_timestamp(RULES_DIRS, &rules->dirs_ts_usec, true);
+        r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enumerate rules files: %m");
+
+        STRV_FOREACH(f, files) {
+                struct stat st;
+
+                if (stat(*f, &st) < 0)
+                        continue;
+
+                r = hashmap_put_stats_by_path(&stats_by_path, *f, &st);
+                if (r < 0)
+                        return r;
+        }
+
+        return !stats_by_path_equal(rules->stats_by_path, stats_by_path);
 }
 
 static bool token_match_string(UdevRuleToken *token, const char *str) {
