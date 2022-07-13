@@ -14,7 +14,8 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
-ConditionNeedsUpdate=/etc
+ConditionNeedsUpdate=|/etc
+ConditionCredential=|sysusers.extra
 
 [Service]
 Type=oneshot
@@ -28,3 +29,6 @@ TimeoutSec=90s
 LoadCredential=passwd.hashed-password.root
 LoadCredential=passwd.plaintext-password.root
 LoadCredential=passwd.shell.root
+
+# Also, allow configuring extra sysusers lines via a credential
+LoadCredential=sysusers.extra

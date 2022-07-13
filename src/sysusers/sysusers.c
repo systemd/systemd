@@ -1981,7 +1981,7 @@ static int parse_arguments(char **args) {
                         /* Use (argument):n, where n==1 for the first positional arg */
                         r = parse_line("(argument)", pos, *arg);
                 else
-                        r = read_config_file(*arg, false);
+                        r = read_config_file(*arg, /* ignore_enoent= */ false);
                 if (r < 0)
                         return r;
 
@@ -2011,9 +2011,28 @@ static int read_config_files(char **args) {
                         log_debug("Reading config file \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                         /* Just warn, ignore result otherwise */
-                        (void) read_config_file(*f, true);
+                        (void) read_config_file(*f, /* ignore_enoent= */ true);
                 }
 
+        return 0;
+}
+
+static int read_credential_lines(void) {
+        _cleanup_free_ char *j = NULL;
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
+
+        j = path_join(d, "sysusers.extra");
+        if (!j)
+                return log_oom();
+
+        (void) read_config_file(j, /* ignore_enoent= */ true);
         return 0;
 }
 
@@ -2068,12 +2087,10 @@ static int run(int argc, char *argv[]) {
         assert(!arg_image);
 #endif
 
-        /* If command line arguments are specified along with --replace, read all
-         * configuration files and insert the positional arguments at the specified
-         * place. Otherwise, if command line arguments are specified, execute just
-         * them, and finally, without --replace= or any positional arguments, just
-         * read configuration and execute it.
-         */
+        /* If command line arguments are specified along with --replace, read all configuration files and
+         * insert the positional arguments at the specified place. Otherwise, if command line arguments are
+         * specified, execute just them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it. */
         if (arg_replace || optind >= argc)
                 r = read_config_files(argv + optind);
         else
@@ -2081,11 +2098,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
-         * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though
-         * nss-systemd synthesizes these users/groups, they should still appear in /etc/passwd and /etc/group, as the
-         * synthesizing logic is merely supposed to be fallback for cases where we run with a completely unpopulated
-         * /etc. */
+        r = read_credential_lines();
+        if (r < 0)
+                return r;
+
+        /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our
+         * detection whether the names or UID/GID area already used otherwise doesn't get confused. After
+         * all, even though nss-systemd synthesizes these users/groups, they should still appear in
+         * /etc/passwd and /etc/group, as the synthesizing logic is merely supposed to be fallback for cases
+         * where we run with a completely unpopulated /etc. */
         if (setenv("SYSTEMD_NSS_BYPASS_SYNTHETIC", "1", 1) < 0)
                 return log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
 

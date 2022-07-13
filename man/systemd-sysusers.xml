@@ -169,18 +169,27 @@
 
         <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><literal>sysusers.extra</literal></term>
+
+        <listitem><para>The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>sysusers.d/</filename>
+        drop-in. If this credential is passed it is processed after all of the drop-in files read from the
+        file system.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that by default the <filename>systemd-sysusers.service</filename> unit file is set up to
     inherit the <literal>passwd.hashed-password.root</literal>,
-    <literal>passwd.plaintext-password.root</literal> and <literal>passwd.shell.root</literal> credentials
-    from the service manager. Thus, when invoking a container with an unpopulated <filename>/etc/</filename>
-    for the first time it is possible to configure the root user's password to be <literal>systemd</literal>
-    like this:</para>
+    <literal>passwd.plaintext-password.root</literal>, <literal>passwd.shell.root</literal> and
+    <literal>sysusers.extra</literal> credentials from the service manager. Thus, when invoking a container
+    with an unpopulated <filename>/etc/</filename> for the first time it is possible to configure the root
+    user's password to be <literal>systemd</literal> like this:</para>
 
     <para><programlisting># systemd-nspawn --image=… --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' …</programlisting></para>
 
-    <para>Note again that the data specified in these credentials is consulted only when creating an account
+    <para>Note again that the data specified in this credential is consulted only when creating an account
     for the first time, it may not be used for changing the password or shell of an account that already
     exists.</para>
 
