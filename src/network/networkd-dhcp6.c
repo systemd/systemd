@@ -266,8 +266,8 @@ static int dhcp6_address_acquired(Link *link) {
                         break;
 
                 r = dhcp6_request_address(link, &server_address, &ip6_addr,
-                                          usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec),
-                                          usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec));
+                                          sec_to_usec(lifetime_preferred_sec, timestamp_usec),
+                                          sec_to_usec(lifetime_valid_sec, timestamp_usec));
                 if (r < 0)
                         return r;
         }
