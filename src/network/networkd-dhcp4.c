@@ -822,7 +822,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
 
                 assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-                lifetime_usec = usec_add(lifetime_sec * USEC_PER_SEC, now_usec);
+                lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
         } else
                 lifetime_usec = USEC_INFINITY;
 
