@@ -1585,9 +1585,10 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) event_reset_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
-                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                        on_kill_workers_event, manager, 0, "kill-workers-event", false);
+                (void) event_reset_time_relative(manager->event, &manager->kill_workers_event,
+                                                 CLOCK_MONOTONIC, 3 * USEC_PER_SEC, USEC_PER_SEC,
+                                                 on_kill_workers_event, manager,
+                                                 0, "kill-workers-event", false);
                 return 1;
         }
 
