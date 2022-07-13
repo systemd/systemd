@@ -222,8 +222,8 @@ static struct ifa_cacheinfo *address_set_cinfo(Manager *m, const Address *a, str
         assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
         *cinfo = (struct ifa_cacheinfo) {
-                .ifa_valid = MIN(usec_sub_unsigned(a->lifetime_valid_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
-                .ifa_prefered = MIN(usec_sub_unsigned(a->lifetime_preferred_usec, now_usec) / USEC_PER_SEC, UINT32_MAX),
+                .ifa_valid = usec_to_sec(a->lifetime_valid_usec, now_usec),
+                .ifa_prefered = usec_to_sec(a->lifetime_preferred_usec, now_usec),
         };
 
         return cinfo;
@@ -238,15 +238,8 @@ static void address_set_lifetime(Manager *m, Address *a, const struct ifa_cachei
 
         assert_se(sd_event_now(m->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
-        if (cinfo->ifa_valid == UINT32_MAX)
-                a->lifetime_valid_usec = USEC_INFINITY;
-        else
-                a->lifetime_valid_usec = usec_add(cinfo->ifa_valid * USEC_PER_SEC, now_usec);
-
-        if (cinfo->ifa_prefered == UINT32_MAX)
-                a->lifetime_preferred_usec = USEC_INFINITY;
-        else
-                a->lifetime_preferred_usec = usec_add(cinfo->ifa_prefered * USEC_PER_SEC, now_usec);
+        a->lifetime_valid_usec = sec_to_usec(cinfo->ifa_valid, now_usec);
+        a->lifetime_preferred_usec = sec_to_usec(cinfo->ifa_prefered, now_usec);
 }
 
 static uint32_t address_prefix(const Address *a) {

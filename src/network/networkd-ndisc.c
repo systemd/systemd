@@ -314,7 +314,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA timestamp: %m");
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_get_address(rt, &gateway);
         if (r < 0)
@@ -436,8 +436,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred_sec > lifetime_valid_sec)
                 return 0;
 
-        lifetime_valid_usec = usec_add(lifetime_valid_sec * USEC_PER_SEC, timestamp_usec);
-        lifetime_preferred_usec = usec_add(lifetime_preferred_sec * USEC_PER_SEC, timestamp_usec);
+        lifetime_valid_usec = sec_to_usec(lifetime_valid_sec, timestamp_usec);
+        lifetime_preferred_usec = sec_to_usec(lifetime_preferred_sec, timestamp_usec);
 
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
         if (r < 0)
@@ -513,7 +513,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->flags = RTM_F_PREFIX;
         route->dst_prefixlen = prefixlen;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_prefix_get_address(rt, &route->dst.in6);
         if (r < 0)
@@ -646,7 +646,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->gw_family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
-        route->lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
         if (r < 0)
@@ -700,7 +700,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (lifetime_sec == 0)
                 return 0;
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
         if (n < 0)
@@ -794,7 +794,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (lifetime_sec == 0)
                 return 0;
 
-        lifetime_usec = usec_add(timestamp_usec, lifetime_sec * USEC_PER_SEC);
+        lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = sd_ndisc_router_dnssl_get_domains(rt, &l);
         if (r < 0)

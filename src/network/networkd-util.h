@@ -37,6 +37,18 @@ typedef enum NetworkConfigState {
         NETWORK_CONFIG_STATE_REMOVING    = 1 << 5, /* e.g. address_remove() is called, but no response is received yet */
 } NetworkConfigState;
 
+static inline usec_t sec16_to_usec(uint16_t sec, usec_t timestamp_usec) {
+        return sec == UINT16_MAX ? USEC_INFINITY : usec_add(timestamp_usec, sec * USEC_PER_SEC);
+}
+
+static inline usec_t sec_to_usec(uint32_t sec, usec_t timestamp_usec) {
+        return sec == UINT32_MAX ? USEC_INFINITY : usec_add(timestamp_usec, sec * USEC_PER_SEC);
+}
+
+static inline uint32_t usec_to_sec(usec_t usec, usec_t now_usec) {
+        return MIN(DIV_ROUND_UP(usec_sub_unsigned(usec, now_usec), USEC_PER_SEC), UINT32_MAX);
+}
+
 CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
