@@ -2192,7 +2192,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
-        if (link->ndisc) {
+        if (link->ndisc && link->hw_addr.length == ETH_ALEN) {
                 r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.ether);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Could not update MAC for NDisc: %m");
