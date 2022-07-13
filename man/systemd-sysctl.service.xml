@@ -86,10 +86,10 @@
         <term><literal>sysctl.extra</literal></term>
 
         <listitem><para>The contents of this credential may contain additional lines to operate on. The
-        credential contents should follow the same format as any other <filename>sysctl.d/</filename>
-        drop-in. If this credential is passed it is processed after all of the drop-in files read from the
-        file system. The settings configured in the credential hence take precedence over those in the file
-        system.</para></listitem>
+        credential contents should follow the same format as any other <filename>sysctl.d/</filename> drop-in
+        configuration file. If this credential is passed it is processed after all of the drop-in files read
+        from the file system. The settings configured in the credential hence take precedence over those in
+        the file system.</para></listitem>
       </varlistentry>
     </variablelist>
 
