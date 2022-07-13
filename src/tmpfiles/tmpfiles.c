@@ -1629,15 +1629,12 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         r = btrfs_is_subvol(empty_to_root(arg_root)) > 0;
                 }
                 if (!r)
-                        /* Don't create a subvolume unless the root directory is
-                         * one, too. We do this under the assumption that if the
-                         * root directory is just a plain directory (i.e. very
-                         * light-weight), we shouldn't try to split it up into
-                         * subvolumes (i.e. more heavy-weight). Thus, chroot()
-                         * environments and suchlike will get a full brtfs
-                         * subvolume set up below their tree only if they
-                         * specifically set up a btrfs subvolume for the root
-                         * dir too. */
+                        /* Don't create a subvolume unless the root directory is one, too. We do this under
+                         * the assumption that if the root directory is just a plain directory (i.e. very
+                         * light-weight), we shouldn't try to split it up into subvolumes (i.e. more
+                         * heavy-weight). Thus, chroot() environments and suchlike will get a full brtfs
+                         * subvolume set up below their tree only if they specifically set up a btrfs
+                         * subvolume for the root dir too. */
 
                         subvol = false;
                 else {
@@ -1657,7 +1654,7 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                 if (!IN_SET(r, -EEXIST, -EROFS))
                         return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
 
-                k = is_dir_fd(pfd);
+                k = is_dir_full(pfd, bn, /* follow= */ false);
                 if (k == -ENOENT && r == -EROFS)
                         return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
                 if (k < 0)
