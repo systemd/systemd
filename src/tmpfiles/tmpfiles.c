@@ -25,6 +25,7 @@
 #include "chattr-util.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "creds-util.h"
 #include "def.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -3594,7 +3595,12 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
+static int read_config_file(
+                char **config_dirs,
+                const char *fn,
+                bool ignore_enoent,
+                bool *invalid_config) {
+
         _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
         _cleanup_free_ char *pp = NULL;
@@ -3733,6 +3739,25 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
                          * read_config_file() has some debug output, so no need to print anything. */
                         (void) read_config_file(config_dirs, *f, true, invalid_config);
 
+        return 0;
+}
+
+static int read_credential_lines(bool *invalid_config) {
+        _cleanup_free_ char *j = NULL;
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
+
+        j = path_join(d, "tmpfiles.extra");
+        if (!j)
+                return log_oom();
+
+        (void) read_config_file(/* config_dirs= */ NULL, j, /* ignore_enoent= */ true, invalid_config);
         return 0;
 }
 
@@ -3889,6 +3914,10 @@ static int run(int argc, char *argv[]) {
                 r = read_config_files(config_dirs, argv + optind, &invalid_config);
         else
                 r = parse_arguments(config_dirs, argv + optind, &invalid_config);
+        if (r < 0)
+                return r;
+
+        r = read_credential_lines(&invalid_config);
         if (r < 0)
                 return r;
 
