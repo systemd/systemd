@@ -204,23 +204,32 @@ static int journal_file_set_online(JournalFile *f) {
                         wait = false;
                         break;
 
-                case OFFLINE_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_SYNCING: {
+                                OfflineState tmp_state = OFFLINE_SYNCING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled syncing prior to offlining, no need to wait. */
                         wait = false;
                         break;
 
-                case OFFLINE_AGAIN_FROM_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_AGAIN_FROM_SYNCING: {
+                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled restart from syncing, no need to wait. */
                         wait = false;
                         break;
 
-                case OFFLINE_AGAIN_FROM_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_CANCEL))
-                                continue;
+                case OFFLINE_AGAIN_FROM_OFFLINING: {
+                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
+                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
                         _fallthrough_;
                 default: {
@@ -1810,7 +1819,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         if (o->object.type != OBJECT_ENTRY)
                 return -EINVAL;
 
-        __sync_synchronize();
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
         /* Link up the entry itself */
         r = link_entry_into_array(f,
@@ -1910,7 +1919,7 @@ void journal_file_post_change(JournalFile *f) {
          * trigger IN_MODIFY by truncating the journal file to its
          * current size which triggers IN_MODIFY. */
 
-        __sync_synchronize();
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
                 log_debug_errno(errno, "Failed to truncate file to its own size: %m");

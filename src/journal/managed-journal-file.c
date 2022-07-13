@@ -166,19 +166,28 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
         for (;;) {
                 switch (f->file->offline_state) {
-                case OFFLINE_CANCEL:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_CANCEL, OFFLINE_DONE))
+                case OFFLINE_CANCEL: {
+                        OfflineState tmp_state = OFFLINE_CANCEL;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_DONE,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         return;
 
-                case OFFLINE_AGAIN_FROM_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_SYNCING))
+                case OFFLINE_AGAIN_FROM_SYNCING: {
+                        OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_SYNCING,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         break;
 
-                case OFFLINE_AGAIN_FROM_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_AGAIN_FROM_OFFLINING, OFFLINE_SYNCING))
+                case OFFLINE_AGAIN_FROM_OFFLINING: {
+                        OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_SYNCING,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         break;
 
                 case OFFLINE_SYNCING:
@@ -189,8 +198,12 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                         (void) fsync(f->file->fd);
 
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
-                                continue;
+                        {
+                                OfflineState tmp_state = OFFLINE_SYNCING;
+                                if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_OFFLINING,
+                                                                 false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                        continue;
+                        }
 
                         f->file->header->state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
                         (void) fsync(f->file->fd);
@@ -221,9 +234,12 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                         break;
 
-                case OFFLINE_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_OFFLINING, OFFLINE_DONE))
+                case OFFLINE_OFFLINING: {
+                        OfflineState tmp_state = OFFLINE_OFFLINING;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_DONE,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         _fallthrough_;
                 case OFFLINE_DONE:
                         return;
@@ -253,19 +269,28 @@ static bool managed_journal_file_set_offline_try_restart(ManagedJournalFile *f) 
                 case OFFLINE_AGAIN_FROM_OFFLINING:
                         return true;
 
-                case OFFLINE_CANCEL:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_CANCEL, OFFLINE_AGAIN_FROM_SYNCING))
+                case OFFLINE_CANCEL: {
+                        OfflineState tmp_state = OFFLINE_CANCEL;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         return true;
 
-                case OFFLINE_SYNCING:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_SYNCING, OFFLINE_AGAIN_FROM_SYNCING))
+                case OFFLINE_SYNCING: {
+                        OfflineState tmp_state = OFFLINE_SYNCING;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         return true;
 
-                case OFFLINE_OFFLINING:
-                        if (!__sync_bool_compare_and_swap(&f->file->offline_state, OFFLINE_OFFLINING, OFFLINE_AGAIN_FROM_OFFLINING))
+                case OFFLINE_OFFLINING: {
+                        OfflineState tmp_state = OFFLINE_OFFLINING;
+                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_OFFLINING,
+                                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
+                        }
                         return true;
 
                 default:
@@ -352,7 +377,7 @@ int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait) {
 bool managed_journal_file_is_offlining(ManagedJournalFile *f) {
         assert(f);
 
-        __sync_synchronize();
+        __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
         if (IN_SET(f->file->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
                 return false;
