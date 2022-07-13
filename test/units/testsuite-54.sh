@@ -58,6 +58,12 @@ if [ "$expected_credential" != "" ] ; then
 
     # Combine it with a fallback (which should have no effect, given the cred should be passed down)
     [ "$(systemd-run -p LoadCredential="$expected_credential" -p SetCredential="$expected_credential":zzz --pipe --wait systemd-creds cat "$expected_credential")" = "$expected_value" ]
+
+    # This should succeed
+    systemd-run -p AssertCredential="$expected_credential" -p Type=oneshot true
+
+    # And this should fail
+    systemd-run -p AssertCredential="undefinedcredential" -p Type=oneshot true && { echo 'unexpected success'; exit 1; }
 fi
 
 # Verify that the creds are immutable
