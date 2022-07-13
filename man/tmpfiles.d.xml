@@ -160,9 +160,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <refsect2>
       <title>Type</title>
 
-      <para>The type consists of a single letter and optionally a plus sign (<literal>+</literal>),
-      exclamation mark (<literal>!</literal>), minus sign (<literal>-</literal>), equals sign
-      (<literal>=</literal>) and/or tilde character (<literal>~</literal>).</para>
+      <para>The type consists of a single letter and optionally one or emore modifier characters: a plus sign
+      (<literal>+</literal>), exclamation mark (<literal>!</literal>), minus sign (<literal>-</literal>),
+      equals sign (<literal>=</literal>), tilde character (<literal>~</literal>) and/or caret
+      (<literal>^</literal>).</para>
 
       <para>The following line types are understood:</para>
 
@@ -493,9 +494,19 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <para>If the tilde character (<literal>~</literal>) is used, the argument (i.e. 6th) column is <ulink
       url="https://www.rfc-editor.org/rfc/rfc4648.html">Base64 decoded</ulink> before use. This modifier is
       only supported on line types that can write file contents, i.e. <varname>f</varname>,
-      <varname>f+</varname>, <varname>w</varname>. This is useful for writing arbitrary binary data
-      (including newlines and NUL bytes) to files. Note that if this switch is used, the argument is not
-      subject to specifier expansion, neither before nor after Base64 decoding.</para>
+      <varname>f+</varname>, <varname>w</varname>, <varname>+</varname>. This is useful for writing arbitrary
+      binary data (including newlines and NUL bytes) to files. Note that if this switch is used, the argument
+      is not subject to specifier expansion, neither before nor after Base64 decoding.</para>
+
+      <para>If the caret character (<literal>^</literal>) is used, the argument (i.e. 6th) column takes a
+      service credential name to read the argument data from. See <ulink
+      url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details about the
+      credentials concept. This modifier is only supported on line types that can write file contents,
+      i.e. <varname>f</varname>, <varname>f+</varname>, <varname>w</varname>, <varname>w+</varname>. This is
+      useful for writing arbitrary files with contents sourced from elsewhere, including from VM or container
+      managers further up. If the specified credential is not set for the <command>systemd-tmpfiles</command>
+      service, the line is silently skipped. If <literal>^</literal> and <literal>~</literal> are combined
+      Base64 decoding is applied to the credential contents.</para>
 
       <para>Note that for all line types that result in creation of any kind of file node
       (i.e. <varname>f</varname>/<varname>F</varname>,
