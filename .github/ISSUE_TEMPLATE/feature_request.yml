@@ -15,6 +15,7 @@ body:
       multiple: true
       options:
         - 'bootctl'
+        - 'coredumpctl'
         - 'homectl'
         - 'hostnamectl'
         - 'hardware database files'
@@ -37,6 +38,7 @@ body:
         - 'systemd-binfmt'
         - 'systemd-boot'
         - 'systemd-cgtop'
+        - 'systemd-coredump'
         - 'systemd-cryptsetup'
         - 'systemd-delta'
         - 'systemd-env-generator'
