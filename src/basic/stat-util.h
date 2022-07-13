@@ -13,8 +13,13 @@
 #include "missing_stat.h"
 
 int is_symlink(const char *path);
-int is_dir(const char *path, bool follow);
-int is_dir_fd(int fd);
+int is_dir_full(int atfd, const char *fname, bool follow);
+static inline int is_dir(const char *path, bool follow) {
+        return is_dir_full(AT_FDCWD, path, follow);
+}
+static inline int is_dir_fd(int fd) {
+        return is_dir_full(fd, NULL, false);
+}
 int is_device_node(const char *path);
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup);

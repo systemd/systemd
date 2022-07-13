@@ -35,26 +35,18 @@ int is_symlink(const char *path) {
         return !!S_ISLNK(info.st_mode);
 }
 
-int is_dir(const char* path, bool follow) {
+int is_dir_full(int atfd, const char* path, bool follow) {
         struct stat st;
         int r;
 
-        assert(path);
+        assert(atfd >= 0 || atfd == AT_FDCWD);
+        assert(atfd >= 0 || path);
 
-        if (follow)
-                r = stat(path, &st);
+        if (path)
+                r = fstatat(atfd, path, &st, follow ? 0 : AT_SYMLINK_NOFOLLOW);
         else
-                r = lstat(path, &st);
+                r = fstat(atfd, &st);
         if (r < 0)
-                return -errno;
-
-        return !!S_ISDIR(st.st_mode);
-}
-
-int is_dir_fd(int fd) {
-        struct stat st;
-
-        if (fstat(fd, &st) < 0)
                 return -errno;
 
         return !!S_ISDIR(st.st_mode);
