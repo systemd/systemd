@@ -5,6 +5,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
 #include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,6 +22,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -39,6 +42,7 @@ typedef enum MountPointFlags {
         MOUNT_RW_ONLY   = 1 << 5,
 } MountPointFlags;
 
+static bool arg_sysroot_check = false;
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;
 static bool arg_fstab_enabled = true;
@@ -117,6 +121,11 @@ static int add_swap(
         if (detect_container() > 0) {
                 log_info("Running in a container, ignoring fstab swap entry for %s.", what);
                 return 0;
+        }
+
+        if (arg_sysroot_check) {
+                log_info("%s should be enabled in the initrd, will request daemon-reload.", what);
+                return true;
         }
 
         r = unit_name_from_path(what, ".swap", &name);
@@ -378,6 +387,11 @@ static int add_mount(
             mount_point_ignore(where))
                 return 0;
 
+        if (arg_sysroot_check) {
+                log_info("%s should be mounted in the initrd, will request daemon-reload.", where);
+                return true;
+        }
+
         r = fstab_filter_options(opts, "x-systemd.wanted-by\0", NULL, NULL, &wanted_by, NULL);
         if (r < 0)
                 return r;
@@ -570,6 +584,42 @@ static int add_mount(
         return 0;
 }
 
+static int do_daemon_reload(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        log_debug("Calling org.freedesktop.systemd1.Manager.Reload()...");
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+
+        log_info("Requesting initrd-fs.target/start/replace...");
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnit",
+                               &error,
+                               NULL,
+                               "ss", "initrd-fs.target", "replace");
+        if (r < 0)
+                return log_error_errno(r, "Failed to restart initrd-fs.target: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static const char* sysroot_fstab_path(void) {
         return getenv("SYSTEMD_SYSROOT_FSTAB") ?: "/sysroot/etc/fstab";
 }
@@ -582,8 +632,10 @@ static int parse_fstab(bool initrd) {
 
         if (initrd)
                 fstab = sysroot_fstab_path();
-        else
+        else {
                 fstab = fstab_path();
+                assert(!arg_sysroot_check);
+        }
 
         log_debug("Parsing %s...", fstab);
 
@@ -700,6 +752,8 @@ static int parse_fstab(bool initrd) {
                                       target_unit);
                 }
 
+                if (arg_sysroot_check && k > 0)
+                        return true;  /* We found a mount or swap that would be started… */
                 if (r >= 0 && k < 0)
                         r = k;
         }
@@ -1126,11 +1180,13 @@ static int determine_usr(void) {
         return determine_device(&arg_usr_what, arg_usr_hash, "usr");
 }
 
-static int run(const char *dest, const char *dest_early, const char *dest_late) {
+/* If arg_sysroot_check is false, run as generator in the usual fashion.
+ * If it is true, check /sysroot/etc/fstab for any units that we'd want to mount
+ * in the initrd, and call daemon-reload. We will get reinvoked as a generator,
+ * with /sysroot/etc/fstab available, and then we can write additional units based
+ * on that file. */
+static int run_generator(void) {
         int r, r2 = 0, r3 = 0;
-
-        assert_se(arg_dest = dest);
-        assert_se(arg_dest_late = dest_late);
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -1138,6 +1194,15 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         (void) determine_root();
         (void) determine_usr();
+
+        if (arg_sysroot_check) {
+                r = parse_fstab(true);
+                if (r == 0)
+                        log_debug("Nothing interesting found, not doing daemon-reload.");
+                if (r > 0)
+                        r = do_daemon_reload();
+                return r;
+        }
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
@@ -1164,4 +1229,31 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         return r < 0 ? r : r2 < 0 ? r2 : r3;
 }
 
-DEFINE_MAIN_GENERATOR_FUNCTION(run);
+static int run(int argc, char **argv) {
+        if (invoked_as(argv, "systemd-fstab-generator")) {
+                log_setup_generator();
+
+                if (!IN_SET(strv_length(argv), 2, 4))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program takes one or three arguments.");
+
+                arg_dest = ASSERT_PTR(argv[1]);
+                arg_dest_late = ASSERT_PTR(argv[argc > 3 ? 3 : 1]);
+
+        } else {
+                log_setup();
+
+                if (strv_length(argv) > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program takes no arguments.");
+                if (!in_initrd())
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program is only useful in the initrd.");
+
+                arg_sysroot_check = true;
+        }
+
+        return run_generator();
+}
+
+DEFINE_MAIN_FUNCTION(run);
