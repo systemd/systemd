@@ -80,8 +80,10 @@ Janitorial Clean-ups:
 Features:
 
 * bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
-  all files from the set of files matching the entry token that are not
-  referenced by any.
+  all files from the set of files from the ESP/XBOOTLDR matching the entry
+  token that are not referenced by any. Then, change kernel-install to use only
+  this to remove auxiliary files, and never remove them explicitly. Benefit:
+  resources such as initrds/kernels/dtb can be shared between entries.
 
 * networkd/udevd: add a way to define additional .link, .network, .netdev files
   via the credentials logic.
