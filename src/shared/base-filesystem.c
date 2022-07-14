@@ -31,7 +31,7 @@ typedef struct BaseFilesystem {
 static const BaseFilesystem table[] = {
         { "bin",      0, "usr/bin\0",                  NULL },
         { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0755, NULL,                         NULL, true },
+        { "root",  0750, NULL,                         NULL, true },
         { "sbin",     0, "usr/sbin\0",                 NULL },
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
