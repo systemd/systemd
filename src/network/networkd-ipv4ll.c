@@ -295,9 +295,10 @@ int config_parse_ipv4ll_address(
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (!in4_addr_is_link_local(&a.in)) {
+        if (!in4_addr_is_link_local_dynamic(&a.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Not a IPv4 link local address, ignoring assignment: %s", rvalue);
+                           "Specified address cannot be used as an IPv4 link local address, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
