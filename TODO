@@ -79,6 +79,19 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-creds: extend encryption logic to support asymmetric
+  encryption/authentication. Idea: add new verb "systemd-creds public-key"
+  which generates a priv/pub key pair on the TPM2 and stores the priv key
+  locally in /var. It then outputs a certificate for the pub part to stdout.
+  This can then be copied/taken elsewhere, and can be used for encrypting creds
+  that only the host on its specific hw can decrypt. Then, support a drop-in
+  dir with certificates that can be used to authenticate credentials. Flow of
+  operations is then this: build image with owner certificate, then after
+  boot up issue "systemd-creds public-key" to acquire pubkey of the machine.
+  Then, when passing data to the machine, sign with privkey belonging to one of
+  the dropped in certs and encrypted with machine pubkey, and pass to machine.
+  Machine is then able to authenticate you, and confidentiality is guaranteed.
+
 * bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
   all files from the set of files from the ESP/XBOOTLDR matching the entry
   token that are not referenced by any. Then, change kernel-install to use only
