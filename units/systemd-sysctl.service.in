@@ -21,3 +21,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-sysctl
 TimeoutSec=90s
+LoadCredential=sysctl.extra

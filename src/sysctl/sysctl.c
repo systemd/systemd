@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "conf-files.h"
+#include "creds-util.h"
 #include "def.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -277,6 +278,25 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
         return r;
 }
 
+static int read_credential_lines(OrderedHashmap **sysctl_options) {
+        _cleanup_free_ char *j = NULL;
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r == -ENXIO)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
+
+        j = path_join(d, "sysctl.extra");
+        if (!j)
+                return log_oom();
+
+        (void) parse_file(sysctl_options, j, /* ignore_enoent= */ true);
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -416,6 +436,10 @@ static int run(int argc, char *argv[]) {
                         if (k < 0 && r == 0)
                                 r = k;
                 }
+
+                k = read_credential_lines(&sysctl_options);
+                if (k < 0 && r == 0)
+                        r = k;
         }
 
         k = apply_all(sysctl_options);

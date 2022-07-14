@@ -5,7 +5,7 @@ set -e
 TEST_DESCRIPTION="test credentials"
 NSPAWN_ARGUMENTS="${NSPAWN_ARGUMENTS:-} --set-credential=mynspawncredential:strangevalue"
 QEMU_OPTIONS="${QEMU_OPTIONS:-} -fw_cfg  name=opt/io.systemd.credentials/myqemucredential,string=othervalue"
-KERNEL_APPEND="${KERNEL_APPEND:-} systemd.set_credential=kernelcmdlinecred:uff rd.systemd.import_credentials=no"
+KERNEL_APPEND="${KERNEL_APPEND:-} systemd.set_credential=kernelcmdlinecred:uff systemd.set_credential=sysctl.extra:kernel.domainname=sysctltest rd.systemd.import_credentials=no"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
