@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <linux/nl80211.h>
+
+#include "sd-device.h"
 
 #include "ether-addr-util.h"
 #include "netlink-util.h"
@@ -11,6 +14,52 @@
 #include "networkd-wiphy.h"
 #include "string-util.h"
 #include "wifi-util.h"
+
+int link_rfkilled(Link *link) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *s;
+        int r;
+
+        assert(link);
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->sd_device)
+                return false;
+
+        r = sd_device_get_devtype(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(s, "wlan"))
+                return false;
+
+        r = sd_device_get_syspath(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        s = strjoina(s, "/phy80211/rfkill1");
+        r = sd_device_new_from_syspath(&dev, s);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysattr_value(dev, "soft", &s);
+        if (r < 0)
+                return r;
+
+        if (streq_ptr(s, "1"))
+                return true;
+
+        r = sd_device_get_sysattr_value(dev, "hard", &s);
+        if (r < 0)
+                return r;
+
+        if (streq_ptr(s, "1"))
+                return true;
+
+        return false;
+}
 
 static int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
