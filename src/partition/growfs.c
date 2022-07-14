@@ -235,7 +235,7 @@ static int run(int argc, char *argv[]) {
 
         r = maybe_resize_underlying_device(mountfd, arg_target, devno);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
         r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
         if (r < 0)
