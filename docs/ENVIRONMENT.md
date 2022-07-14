@@ -51,6 +51,9 @@ All tools:
 * `$SYSTEMD_FSTAB` — if set, use this path instead of `/etc/fstab`. Only useful
   for debugging.
 
+* `$SYSTEMD_SYSROOT_FSTAB` — if set, use this path instead of
+  `/sysroot/etc/fstab`. Only useful for debugging `systemd-fstab-generator`.
+
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of `/etc/crypttab`. Only
   useful for debugging. Currently only supported by
   `systemd-cryptsetup-generator`.

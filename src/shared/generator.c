@@ -736,12 +736,16 @@ int generator_write_veritysetup_service_section(
         return 0;
 }
 
-void log_setup_generator(void) {
-        /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
-        if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
-                log_set_prohibit_ipc(true);
+void log_setup_generator(bool normal_invocation) {
+        if (normal_invocation) {
+                /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
+                if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
+                        log_set_prohibit_ipc(true);
 
-        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG); /* This effectively means: journal for per-user generators, kmsg otherwise */
+                /* This effectively means: journal for per-user generators, kmsg otherwise */
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+        }
+
         log_parse_environment();
         (void) log_open();
 }
