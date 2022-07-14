@@ -241,6 +241,10 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
 
         log_debug("Resizing \"%s\" to %"PRIu64" bytes...", arg_target, size);
+
+        if (arg_dry_run)
+                return 0;
+
         r = resize_fs(mountfd, size, &newsize);
         if (r < 0)
                 return log_error_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m",
