@@ -79,6 +79,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* journald: generate recognizable log events whenever we shutdown journald
+  cleanly, and when we migrate run → var. This way tools can verify that a
+  previous boot terminated cleanly, because either of these two messages must
+  be safely written to disk, then.
+
 * systemd-creds: extend encryption logic to support asymmetric
   encryption/authentication. Idea: add new verb "systemd-creds public-key"
   which generates a priv/pub key pair on the TPM2 and stores the priv key
@@ -91,6 +96,9 @@ Features:
   Then, when passing data to the machine, sign with privkey belonging to one of
   the dropped in certs and encrypted with machine pubkey, and pass to machine.
   Machine is then able to authenticate you, and confidentiality is guaranteed.
+
+* building on top of the above, the pub/priv key pair generated on the TPM2
+  should probably also one you can use to get a remote attestation quote.
 
 * bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
   all files from the set of files from the ESP/XBOOTLDR matching the entry
@@ -108,6 +116,10 @@ Features:
 * getty-generator: allow defining additional getty instances via a credential
 
 * run-generator: allow defining additional commands to run via a credential
+
+* resolved: allow defining additional /etc/hosts entries via a credential (it
+  might make sense to then synthesize a new combined /etc/hosts file in /run
+  and bind mount it on /etc/hosts for other clients that want to read it.
 
 * define a JSON format for units, separating out unit definitions from unit
   runtime state. Then, expose it:
