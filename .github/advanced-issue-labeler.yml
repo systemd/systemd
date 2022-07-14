@@ -15,7 +15,7 @@ policy:
   growfs: ['systemd-growfs']
   homed: ['systemd-homed', 'homectl', 'pam_systemd_home']
   hostname: ['systemd-hostnamed', 'hostnamectl']
-  hwdb: ['hardware database files']
+  hwdb: ['systemd-hwdb', 'hardware database files']
   import: ['systemd-import']
   journal: ['systemd-journald', 'journalctl']
   journal-remote: ['systemd-journal-remote', 'systemd-journal-upload', 'systemd-journal-gatewayd']
