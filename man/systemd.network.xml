@@ -401,12 +401,11 @@
       <varlistentry>
         <term><varname>IPv4LLStartAddress=</varname></term>
         <listitem>
-          <para>Specifies the first IPv4 link-local address to try. Takes an IPv4 address
-          for example 169.254.1.2, from the link-local address range 169.254.0.0/16.
-          This setting may be useful if the device should always have the same address
-          as long as there is no address conflict. When unset, a random address will be automatically selected.
-          Defaults to unset.
-          </para>
+          <para>Specifies the first IPv4 link-local address to try. Takes an IPv4 address for example
+          169.254.1.2, from the link-local address range: 169.254.0.0/16 except for 169.254.0.0/24 and
+          169.254.255.0/24. This setting may be useful if the device should always have the same address
+          as long as there is no address conflict. When unset, a random address will be automatically
+          selected. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 

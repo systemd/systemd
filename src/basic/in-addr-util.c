@@ -49,6 +49,20 @@ bool in4_addr_is_link_local(const struct in_addr *a) {
         return (be32toh(a->s_addr) & UINT32_C(0xFFFF0000)) == (UINT32_C(169) << 24 | UINT32_C(254) << 16);
 }
 
+bool in4_addr_is_link_local_dynamic(const struct in_addr *a) {
+        assert(a);
+
+        if (!in4_addr_is_link_local(a))
+                return false;
+
+        /* 169.254.0.0/24 and 169.254.255.0/24 must not be used for the dynamic IPv4LL assignment.
+         * See RFC 3927 Section 2.1:
+         * The IPv4 prefix 169.254/16 is registered with the IANA for this purpose. The first 256 and last
+         * 256 addresses in the 169.254/16 prefix are reserved for future use and MUST NOT be selected by a
+         * host using this dynamic configuration mechanism. */
+        return !IN_SET(be32toh(a->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);
+}
+
 bool in6_addr_is_link_local(const struct in6_addr *a) {
         assert(a);
 
