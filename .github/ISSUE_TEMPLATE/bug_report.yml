@@ -106,6 +106,7 @@ body:
         - 'systemd-growfs'
         - 'systemd-homed'
         - 'systemd-hostnamed'
+        - 'systemd-hwdb'
         - 'systemd-import'
         - 'systemd-journal-gatewayd'
         - 'systemd-journal-remote'
