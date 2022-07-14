@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <linux/nl80211.h>
 
+#include "device-private.h"
 #include "ether-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
@@ -11,6 +13,68 @@
 #include "networkd-wiphy.h"
 #include "string-util.h"
 #include "wifi-util.h"
+
+int link_rfkilled(Link *link) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *s;
+        int r;
+
+        assert(link);
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->sd_device)
+                return false;
+
+        r = sd_device_get_devtype(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(s, "wlan"))
+                return false;
+
+        r = sd_device_get_syspath(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        s = strjoina(s, "/phy80211/rfkill1");
+        r = sd_device_new_from_syspath(&dev, s);
+        if (r < 0)
+                return r;
+
+        r = device_get_sysattr_bool(dev, "soft");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (link->rfkill_state != RFKILL_SOFT) {
+                        log_link_debug(link,
+                                       "The radio transmitter is turned off by software. "
+                                       "Waiting for the transmitter being unblocked.");
+                        link->rfkill_state = RFKILL_SOFT;
+                }
+                return true;
+        }
+
+        r = device_get_sysattr_bool(dev, "hard");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (link->rfkill_state != RFKILL_HARD) {
+                        log_link_debug(link,
+                                       "The radio transmitter is forced off by something outside of the driver's control. "
+                                       "Waiting for the transmitter being turned on.");
+                        link->rfkill_state = RFKILL_HARD;
+                }
+                return true;
+        }
+
+        if (link->rfkill_state != RFKILL_UNBLOCKED) {
+                log_link_debug(link, "The radio transmitter is unblocked.");
+                link->rfkill_state = RFKILL_UNBLOCKED;
+        }
+        return false;
+}
 
 static int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
