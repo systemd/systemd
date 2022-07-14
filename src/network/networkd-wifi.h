@@ -3,7 +3,10 @@
 
 #include "sd-netlink.h"
 
+typedef struct Link Link;
 typedef struct Manager Manager;
+
+int link_rfkilled(Link *link);
 
 int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *message, Manager *manager);
 int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *message, Manager *manager);
