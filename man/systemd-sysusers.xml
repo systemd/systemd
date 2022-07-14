@@ -169,6 +169,14 @@
 
         <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><literal>sysusers.extra</literal></term>
+
+        <listitem><para>The contents of this credential may contain additional lines to operate on. The
+        credential contents should follow the same format as any other <filename>sysusers.d/</filename>
+        drop-in.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that by default the <filename>systemd-sysusers.service</filename> unit file is set up to
