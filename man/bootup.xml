@@ -225,7 +225,7 @@ emergency.service    |              |              |
     <filename>/sysroot</filename>, the
     <filename>sysroot.mount</filename> unit becomes active and
     <filename>initrd-root-fs.target</filename> is reached. The service
-    <filename>initrd-parse-etc.service</filename> scans
+    <filename>initrd-sysroot-fstab.service</filename> scans
     <filename>/sysroot/etc/fstab</filename> for a possible
     <filename>/usr/</filename> mount point and additional entries
     marked with the <emphasis>x-initrd.mount</emphasis> option. All
@@ -255,7 +255,7 @@ emergency.service    |              |              |
                        |             initrd-root-fs.target
                        |                       |
                        |                       v
-                       v            initrd-parse-etc.service
+                       v            initrd-sysroot-fstab.service
                 (custom initrd                 |
                  services...)                  v
                        |            (sysroot-usr.mount and
