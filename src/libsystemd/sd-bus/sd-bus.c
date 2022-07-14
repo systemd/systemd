@@ -49,7 +49,7 @@
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
                 log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s", \
-                          bus_message_type_to_string(_mm->header->type), \
+                          strna(bus_message_type_to_string(_mm->header->type)), \
                           strna(sd_bus_message_get_sender(_mm)),         \
                           strna(sd_bus_message_get_destination(_mm)),    \
                           strna(sd_bus_message_get_path(_mm)),           \
