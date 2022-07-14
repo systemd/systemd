@@ -226,7 +226,7 @@ static int import_credentials_boot(void) {
                         if (nfd == -EEXIST)
                                 continue;
                         if (nfd < 0)
-                                return r;
+                                return nfd;
 
                         r = copy_bytes(cfd, nfd, st.st_size, 0);
                         if (r < 0) {
@@ -325,7 +325,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         if (nfd == -EEXIST)
                 return 0;
         if (nfd < 0)
-                return r;
+                return nfd;
 
         r = loop_write(nfd, colon, l, /* do_poll= */ false);
         if (r < 0) {
@@ -417,7 +417,7 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
 
                 rfd = openat(vfd, "raw", O_RDONLY|O_CLOEXEC);
                 if (rfd < 0) {
-                        log_warning_errno(r, "Failed to open '" QEMU_FWCFG_PATH "'/%s/raw, ignoring: %m", d->d_name);
+                        log_warning_errno(errno, "Failed to open '" QEMU_FWCFG_PATH "'/%s/raw, ignoring: %m", d->d_name);
                         continue;
                 }
 
@@ -429,7 +429,7 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
                 if (nfd == -EEXIST)
                         continue;
                 if (nfd < 0)
-                        return r;
+                        return nfd;
 
                 r = copy_bytes(rfd, nfd, sz, 0);
                 if (r < 0) {
