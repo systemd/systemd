@@ -1271,6 +1271,11 @@ static int process_kernel(int argc, char* argv[]) {
         struct iovec_wrapper *iovw;
         int r;
 
+        /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
+         * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
+         * /dev/null. */
+        rearrange_stdio(STDIN_FILENO, -1, -1);
+
         log_debug("Processing coredump received from the kernel...");
 
         iovw = iovw_new();
