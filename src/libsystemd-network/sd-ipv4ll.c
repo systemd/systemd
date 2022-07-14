@@ -212,21 +212,12 @@ int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         return sd_ipv4acd_is_running(ll->acd);
 }
 
-static bool ipv4ll_address_is_valid(const struct in_addr *address) {
-        assert(address);
-
-        if (!in4_addr_is_link_local(address))
-                return false;
-
-        return !IN_SET(be32toh(address->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);
-}
-
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
         int r;
 
         assert_return(ll, -EINVAL);
         assert_return(address, -EINVAL);
-        assert_return(ipv4ll_address_is_valid(address), -EINVAL);
+        assert_return(in4_addr_is_link_local_dynamic(address), -EINVAL);
 
         r = sd_ipv4acd_set_address(ll->acd, address);
         if (r < 0)
