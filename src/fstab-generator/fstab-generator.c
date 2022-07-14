@@ -92,6 +92,7 @@ static int write_what(FILE *f, const char *what) {
 }
 
 static int add_swap(
+                const char *source,
                 const char *what,
                 struct mntent *me,
                 MountPointFlags flags) {
@@ -122,7 +123,7 @@ static int add_swap(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, fstab_path(), name, &f);
+        r = generator_open_unit_file(arg_dest, source, name, &f);
         if (r < 0)
                 return r;
 
@@ -130,7 +131,7 @@ static int add_swap(
                 "[Unit]\n"
                 "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
                 "SourcePath=%s\n",
-                fstab_path());
+                source);
 
         r = generator_write_blockdev_dependency(f, what);
         if (r < 0)
@@ -339,6 +340,7 @@ static int write_extra_dependencies(FILE *f, const char *opts) {
 }
 
 static int add_mount(
+                const char *source,
                 const char *dest,
                 const char *what,
                 const char *where,
@@ -347,8 +349,7 @@ static int add_mount(
                 const char *opts,
                 int passno,
                 MountPointFlags flags,
-                const char *post,
-                const char *source) {
+                const char *post) {
 
         _cleanup_free_ char
                 *name = NULL,
@@ -406,7 +407,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(dest, fstab_path(), name, &f);
+        r = generator_open_unit_file(dest, source, name, &f);
         if (r < 0)
                 return r;
 
@@ -536,7 +537,7 @@ static int add_mount(
 
                 f = safe_fclose(f);
 
-                r = generator_open_unit_file(dest, fstab_path(), automount_name, &f);
+                r = generator_open_unit_file(dest, source, automount_name, &f);
                 if (r < 0)
                         return r;
 
@@ -650,7 +651,7 @@ static int parse_fstab(bool initrd) {
                         nofail * MOUNT_NOFAIL;
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me, flags);
+                        k = add_swap(fstab, what, me, flags);
                 else {
                         bool rw_only, automount;
                         const char *post;
@@ -670,7 +671,8 @@ static int parse_fstab(bool initrd) {
                         else
                                 post = SPECIAL_LOCAL_FS_TARGET;
 
-                        k = add_mount(arg_dest,
+                        k = add_mount(fstab,
+                                      arg_dest,
                                       what,
                                       canonical_where ?: where,
                                       canonical_where ? where: NULL,
@@ -678,8 +680,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_opts,
                                       me->mnt_passno,
                                       flags,
-                                      post,
-                                      fstab);
+                                      post);
                 }
 
                 if (r >= 0 && k < 0)
@@ -818,7 +819,8 @@ static int add_sysroot_mount(void) {
                         return r;
         }
 
-        return add_mount(arg_dest,
+        return add_mount("/proc/cmdline",
+                         arg_dest,
                          what,
                          "/sysroot",
                          NULL,
@@ -826,8 +828,7 @@ static int add_sysroot_mount(void) {
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
                          0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
-                         SPECIAL_INITRD_ROOT_FS_TARGET,
-                         "/proc/cmdline");
+                         SPECIAL_INITRD_ROOT_FS_TARGET);
 }
 
 static int add_sysroot_usr_mount(void) {
@@ -898,7 +899,8 @@ static int add_sysroot_usr_mount(void) {
 
         log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(opts));
 
-        r = add_mount(arg_dest,
+        r = add_mount("/proc/cmdline",
+                      arg_dest,
                       what,
                       "/sysusr/usr",
                       NULL,
@@ -906,14 +908,14 @@ static int add_sysroot_usr_mount(void) {
                       opts,
                       is_device_path(what) ? 1 : 0, /* passno */
                       0,
-                      SPECIAL_INITRD_USR_FS_TARGET,
-                      "/proc/cmdline");
+                      SPECIAL_INITRD_USR_FS_TARGET);
         if (r < 0)
                 return r;
 
         log_debug("Synthesizing entry what=/sysusr/usr where=/sysrootr/usr opts=bind");
 
-        r = add_mount(arg_dest,
+        r = add_mount("/proc/cmdline",
+                      arg_dest,
                       "/sysusr/usr",
                       "/sysroot/usr",
                       NULL,
@@ -921,8 +923,7 @@ static int add_sysroot_usr_mount(void) {
                       "bind",
                       0,
                       0,
-                      SPECIAL_INITRD_FS_TARGET,
-                      "/proc/cmdline");
+                      SPECIAL_INITRD_FS_TARGET);
         if (r < 0)
                 return r;
 
@@ -966,7 +967,8 @@ static int add_volatile_var(void) {
 
         /* If requested, mount /var as tmpfs, but do so only if there's nothing else defined for this. */
 
-        return add_mount(arg_dest_late,
+        return add_mount("/proc/cmdline",
+                         arg_dest_late,
                          "tmpfs",
                          "/var",
                          NULL,
@@ -974,8 +976,7 @@ static int add_volatile_var(void) {
                          "mode=0755" TMPFS_LIMITS_VAR,
                          0,
                          0,
-                         SPECIAL_LOCAL_FS_TARGET,
-                         "/proc/cmdline");
+                         SPECIAL_LOCAL_FS_TARGET);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
