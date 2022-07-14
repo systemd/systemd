@@ -178,7 +178,7 @@ in_units = [
         ['emergency.service',                    ''],
         ['getty@.service',                       '',
          'autovt@.service'],
-        ['initrd-parse-etc.service',             'ENABLE_INITRD'],
+        ['initrd-sysroot-fstab.service',         'ENABLE_INITRD'],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
