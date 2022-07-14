@@ -268,11 +268,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         return 0;
 }
 
-int mac_smack_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
-        return 0;
-}
-
-int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
+int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags) {
         return 0;
 }
 
