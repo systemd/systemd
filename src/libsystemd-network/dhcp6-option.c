@@ -525,7 +525,7 @@ int dhcp6_option_parse(
 }
 
 int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message) {
-        assert(data);
+        assert(data || data_len == 0);
 
         if (data_len < sizeof(uint16_t))
                 return -EBADMSG;
@@ -803,7 +803,7 @@ int dhcp6_option_parse_addresses(
                 struct in6_addr **addrs,
                 size_t *count) {
 
-        assert(optval);
+        assert(optval || optlen == 0);
         assert(addrs);
         assert(count);
 
@@ -826,8 +826,8 @@ static int parse_domain(const uint8_t **data, size_t *len, char **ret) {
         int r;
 
         assert(data);
-        assert(*data);
         assert(len);
+        assert(*data || *len == 0);
         assert(ret);
 
         optval = *data;
@@ -891,7 +891,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
         _cleanup_free_ char *domain = NULL;
         int r;
 
-        assert(optval);
+        assert(optval || optlen == 0);
         assert(ret);
 
         r = parse_domain(&optval, &optlen, &domain);
@@ -910,7 +910,7 @@ int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, cha
         _cleanup_strv_free_ char **names = NULL;
         int r;
 
-        assert(optval);
+        assert(optval || optlen == 0);
         assert(ret);
 
         if (optlen <= 1)
