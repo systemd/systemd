@@ -3125,12 +3125,20 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>The service manager itself may receive system credentials that can be propagated to services
         from a hosting container manager or VM hypervisor. See the <ulink
         url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> documentation for details
-        about the former. For the latter, use the <command>qemu</command> <literal>fw_cfg</literal> node
+        about the former. For the latter, pass <ulink
+        url="https://www.dmtf.org/standards/smbios">DMI/SMBIOS</ulink> OEM string table entries (field type
+        11) with a prefix of <literal>io.systemd.credential:</literal> or
+        <literal>io.systemd.credential.binary:</literal>. In both cases a key/value pair separated by
+        <literal>=</literal> is expected, in the latter case the right-hand side is Base64 decoded when
+        parsed (thus permitting binary data to be passed in). Example qemu switch: <literal>-smbios
+        type=11,value=io.systemd.credential:xx=yy</literal>, or <literal>-smbios
+        type=11,value=io.systemd.credential.binary:rick=TmV2ZXIgR29ubmEgR2l2ZSBZb3UgVXA=</literal>. Alternatively,
+        use the <command>qemu</command> <literal>fw_cfg</literal> node
         <literal>opt/io.systemd.credentials/</literal>. Example qemu switch: <literal>-fw_cfg
         name=opt/io.systemd.credentials/mycred,string=supersecret</literal>. They may also be specified on
         the kernel command line using the <literal>systemd.set_credential=</literal> switch (see
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
-        and from the UEFI firmware environment via
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>) and from
+        the UEFI firmware environment via
         <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <para>If referencing an <constant>AF_UNIX</constant> stream socket to connect to, the connection will
