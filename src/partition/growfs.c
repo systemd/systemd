@@ -198,6 +198,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int mountfd = -1, devfd = -1;
         _cleanup_free_ char *devpath = NULL;
         uint64_t size, newsize;
+        struct stat st;
         dev_t devno;
         int r;
 
@@ -233,9 +234,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format device major/minor path: %m");
 
-        devfd = open(devpath, O_RDONLY|O_CLOEXEC);
+        devfd = open(devpath, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (devfd < 0)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", devpath);
+
+        if (fstat(devfd, &st) < 0)
+                return log_error_errno(r, "Failed to stat() device %s: %m", devpath);
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Backing device of file system is not a block device, refusing.");
 
         if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
                 return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
