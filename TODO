@@ -79,6 +79,21 @@ Janitorial Clean-ups:
 
 Features:
 
+* bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
+  all files from the set of files matching the entry token that are not
+  referenced by any.
+
+* networkd/udevd: add a way to define additional .link, .network, .netdev files
+  via the credentials logic.
+
+* fstab-generator: allow definining additional fstab-like mounts via
+  credentials (similar: crypttab-generator, verity-generator,
+  integrity-generator)
+
+* getty-generator: allow defining additional getty instances via a credential
+
+* run-generator: allow defining additional commands to run via a credential
+
 * define a JSON format for units, separating out unit definitions from unit
   runtime state. Then, expose it:
 
