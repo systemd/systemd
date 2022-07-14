@@ -222,7 +222,10 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" not backed by block device.", arg_target);
 
         r = maybe_resize_underlying_device(arg_target, devno);
-        if (r < 0)
+        /* This function can return -EPERM when growfs would otherwise succeed */
+        if (r == -EPERM)
+            log_warning_errno(r, "Unable to resize underlying device of \"%s\", continuing on: %m", arg_target);
+        else if (r < 0)
                 return r;
 
         mountfd = open(arg_target, O_RDONLY|O_CLOEXEC);
