@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-setlink.h"
+#include "networkd-wiphy.h"
 
 static int get_link_default_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return link_getlink_handler_internal(rtnl, m, link, "Failed to sync link information");
@@ -998,13 +999,16 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static bool link_is_ready_to_activate(Link *link) {
+static bool link_is_ready_to_activate(Link *link, bool up) {
         assert(link);
 
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
         if (link->set_link_messages > 0)
+                return false;
+
+        if (up && link_rfkilled(link) > 0)
                 return false;
 
         return true;
@@ -1017,7 +1021,7 @@ static int link_process_activation(Request *req, Link *link, void *userdata) {
         assert(req);
         assert(link);
 
-        if (!link_is_ready_to_activate(link))
+        if (!link_is_ready_to_activate(link, up))
                 return 0;
 
         r = link_up_or_down(link, up, req);
@@ -1095,6 +1099,9 @@ static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
                 return false;
 
         if (!link->activated)
+                return false;
+
+        if (up && link_rfkilled(link) > 0)
                 return false;
 
         return true;

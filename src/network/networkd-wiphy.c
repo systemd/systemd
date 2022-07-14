@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if_arp.h>
 #include <linux/nl80211.h>
 
 #include "device-private.h"
@@ -101,6 +102,129 @@ int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret) {
                 *ret = w;
 
         return 0;
+}
+
+static int link_get_wiphy(Link *link, Wiphy **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *phy = NULL;
+        const char *s;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        if (link->iftype != ARPHRD_ETHER)
+                return -EOPNOTSUPP;
+
+        if (!link->dev)
+                return -EOPNOTSUPP;
+
+        r = sd_device_get_devtype(link->dev, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(s, "wlan"))
+                return -EOPNOTSUPP;
+
+        r = sd_device_get_syspath(link->dev, &s);
+        if (r < 0)
+                return r;
+
+        s = strjoina(s, "/phy80211");
+        r = sd_device_new_from_syspath(&phy, s);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_sysname(phy, &s);
+        if (r < 0)
+                return r;
+
+        /* TODO:
+         * Maybe, it is better to cache the found Wiphy object in the Link object.
+         * To support that, we need to investigate what happens when the _phy_ is renamed. */
+
+        return wiphy_get_by_name(link->manager, s, ret);
+}
+
+static int rfkill_get_state(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        /* The previous values may be outdated. Let's clear cache and re-read the values. */
+        device_clear_sysattr_cache(dev);
+
+        r = device_get_sysattr_bool(dev, "soft");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0)
+                return RFKILL_SOFT;
+
+        r = device_get_sysattr_bool(dev, "hard");
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r > 0)
+                return RFKILL_HARD;
+
+        return RFKILL_UNBLOCKED;
+}
+
+static int wiphy_rfkilled(Wiphy *w) {
+        int r;
+
+        assert(w);
+
+        if (!udev_available()) {
+                if (w->rfkill_state != RFKILL_UNBLOCKED) {
+                        log_wiphy_debug(w, "Running in container, assuming the radio transmitter is unblocked.");
+                        w->rfkill_state = RFKILL_UNBLOCKED; /* To suppress the above log message, cache the state. */
+                }
+                return false;
+        }
+
+        if (!w->rfkill) {
+                if (w->rfkill_state != RFKILL_UNBLOCKED) {
+                        log_wiphy_debug(w, "No rfkill device found, assuming the radio transmitter is unblocked.");
+                        w->rfkill_state = RFKILL_UNBLOCKED; /* To suppress the above log message, cache the state. */
+                }
+                return false;
+        }
+
+        r = rfkill_get_state(w->rfkill);
+        if (r < 0)
+                return log_wiphy_debug_errno(w, r, "Could not get rfkill state: %m");
+
+        if (w->rfkill_state != r)
+                switch (r) {
+                case RFKILL_UNBLOCKED:
+                        log_wiphy_debug(w, "The radio transmitter is unblocked.");
+                        break;
+                case RFKILL_SOFT:
+                        log_wiphy_debug(w, "The radio transmitter is turned off by software.");
+                        break;
+                case RFKILL_HARD:
+                        log_wiphy_debug(w, "The radio transmitter is forced off by something outside of the driver's control.");
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+        w->rfkill_state = r; /* Cache the state to suppress the above log messages. */
+        return r != RFKILL_UNBLOCKED;
+}
+
+int link_rfkilled(Link *link) {
+        Wiphy *w;
+        int r;
+
+        assert(link);
+
+        r = link_get_wiphy(link, &w);
+        if (IN_SET(r, -EOPNOTSUPP, -ENODEV))
+                return false; /* Typically, non-wifi interface or running in container */
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Could not get phy: %m");
+
+        return wiphy_rfkilled(w);
 }
 
 static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
