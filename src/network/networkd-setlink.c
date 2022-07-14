@@ -951,17 +951,10 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         r = sd_netlink_message_get_errno(m);
         if (r == -ENETDOWN && up && link_up_dsa_slave(link) > 0)
                 log_link_message_debug_errno(link, m, r, "Could not bring up dsa slave, retrying again after dsa master becomes up");
-        else if (r < 0) {
-                const char *error_msg;
-
-                error_msg = up ?
-                        (on_activate ? "Could not bring up interface" : "Could not bring up interface, ignoring") :
-                        (on_activate ? "Could not bring down interface" : "Could not bring down interface, ignoring");
-
-                log_link_message_warning_errno(link, m, r, error_msg);
-                if (on_activate)
-                        return 0;
-        }
+        else if (r < 0)
+                log_link_message_warning_errno(link, m, r, up ?
+                                               "Could not bring up interface, ignoring" :
+                                               "Could not bring down interface, ignoring");
 
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0) {
