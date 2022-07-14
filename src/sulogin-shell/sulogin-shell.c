@@ -49,9 +49,9 @@ static int start_default_target(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_info("Starting default target");
+        log_info("Starting "SPECIAL_DEFAULT_TARGET);
 
-        /* Start these units only if we can replace base.target with it */
+        /* Start this unit only if we can replace basic.target with it */
         r = sd_bus_call_method(bus,
                                "org.freedesktop.systemd1",
                                "/org/freedesktop/systemd1",
@@ -62,7 +62,7 @@ static int start_default_target(sd_bus *bus) {
                                "ss", SPECIAL_DEFAULT_TARGET, "isolate");
 
         if (r < 0)
-                return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));
 
         return 0;
 }

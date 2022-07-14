@@ -54,7 +54,7 @@ static void start_target(const char *target, const char *mode) {
 
         log_info("Running request %s/start/%s", target, mode);
 
-        /* Start these units only if we can replace base.target with it */
+        /* Start this unit only if we can replace basic.target with it */
         r = sd_bus_call_method(bus,
                                "org.freedesktop.systemd1",
                                "/org/freedesktop/systemd1",
