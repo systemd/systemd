@@ -63,6 +63,7 @@ OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
                 return NULL;
 
         free(ctx->path);
+        free(ctx->monitored_ancestor_path);
         return mfree(ctx);
 }
 
@@ -330,14 +331,15 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
         return ret;
 }
 
-int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
+int oomd_cgroup_context_acquire(const char *path, const char *monitored_ancestor_path, OomdCGroupContext **ret) {
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
-        uid_t uid;
+        uid_t cg_uid, ancestor_cg_uid;
         int r;
 
         assert(path);
+        assert(monitored_ancestor_path);
         assert(ret);
 
         ctx = new0(OomdCGroupContext, 1);
@@ -355,10 +357,10 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Error parsing memory pressure from %s: %m", p);
 
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &uid);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get owner/group from %s: %m", path);
-        else if (uid == 0) {
+        if ((r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, path, &cg_uid)) < 0 ||
+            (r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, monitored_ancestor_path, &ancestor_cg_uid)) < 0)
+                log_debug_errno(r, "Failed to get owner/group from %s and %s: %m", path, monitored_ancestor_path);
+        else if (cg_uid == ancestor_cg_uid) {
                 /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
                  * as an optional feature of systemd-oomd (and the system might not even support them). */
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, path, "user.oomd_avoid");
@@ -408,6 +410,10 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
 
         ctx->path = strdup(empty_to_root(path));
         if (!ctx->path)
+                return -ENOMEM;
+
+        ctx->monitored_ancestor_path = strdup(empty_to_root(monitored_ancestor_path));
+        if (!ctx->monitored_ancestor_path)
                 return -ENOMEM;
 
         *ret = TAKE_PTR(ctx);
@@ -490,7 +496,12 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
         return 0;
 }
 
-int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
+int oomd_insert_cgroup_context(
+                Hashmap *old_h,
+                Hashmap *new_h,
+                const char *path,
+                const char *monitored_ancestor_path) {
+
         _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *curr_ctx = NULL;
         OomdCGroupContext *old_ctx;
         int r;
@@ -499,8 +510,9 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
         assert(path);
 
         path = empty_to_root(path);
+        monitored_ancestor_path = empty_to_root(monitored_ancestor_path);
 
-        r = oomd_cgroup_context_acquire(path, &curr_ctx);
+        r = oomd_cgroup_context_acquire(path, monitored_ancestor_path, &curr_ctx);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get OomdCGroupContext for %s: %m", path);
 
@@ -518,6 +530,18 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);
 
         r = hashmap_put(new_h, curr_ctx->path, curr_ctx);
+        if (r == -EEXIST) {
+                old_ctx = hashmap_get(new_h, curr_ctx->path);
+
+                /* Update the cgroup context if the new ancestor path is higher
+                 * in the hierarchy than the old ancestor path. */
+                if (old_ctx && !isempty(path_startswith(old_ctx->monitored_ancestor_path,
+                                                        curr_ctx->monitored_ancestor_path))) {
+                        r = hashmap_update(new_h, curr_ctx->path, curr_ctx);
+                        old_ctx = oomd_cgroup_context_free(old_ctx);
+                }
+
+        }
         if (r < 0)
                 return r;
 

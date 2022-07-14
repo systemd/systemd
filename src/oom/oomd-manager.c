@@ -113,7 +113,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                                 continue;
                 }
 
-                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path, message.path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0 && r != -EEXIST)
@@ -187,7 +187,7 @@ finish:
  * populating the hashmap.
  *
  * 'new_h' is of the form { key: cgroup paths -> value: OomdCGroupContext } */
-static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
+static int recursively_get_cgroup_context(Hashmap *new_h, const char *path, const char *monitored_ancestor_path) {
         _cleanup_free_ char *subpath = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
@@ -203,7 +203,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         if (r < 0)
                 return r;
         else if (r == 0) { /* No subgroups? We're a leaf node */
-                r = oomd_insert_cgroup_context(NULL, new_h, path);
+                r = oomd_insert_cgroup_context(NULL, new_h, path, monitored_ancestor_path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -231,9 +231,9 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                 }
 
                 if (oom_group)
-                        r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
+                        r = oomd_insert_cgroup_context(NULL, new_h, cg_path, monitored_ancestor_path);
                 else
-                        r = recursively_get_cgroup_context(new_h, cg_path);
+                        r = recursively_get_cgroup_context(new_h, cg_path, monitored_ancestor_path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -256,7 +256,7 @@ static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
 
         HASHMAP_FOREACH(ctx, *monitored_cgroups) {
                 /* Skip most errors since the cgroup we're trying to update might not exist anymore. */
-                r = oomd_insert_cgroup_context(*monitored_cgroups, new_base, ctx->path);
+                r = oomd_insert_cgroup_context(*monitored_cgroups, new_base, ctx->path, ctx->path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0 && !IN_SET(r, -EEXIST, -ENOENT))
@@ -282,7 +282,7 @@ static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, 
                 return -ENOMEM;
 
         HASHMAP_FOREACH(ctx, monitored_cgroups) {
-                r = recursively_get_cgroup_context(candidates, ctx->path);
+                r = recursively_get_cgroup_context(candidates, ctx->path, ctx->path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)

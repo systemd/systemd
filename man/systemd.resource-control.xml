@@ -1150,9 +1150,16 @@ DeviceAllow=/dev/loop-control
           <para>Allows deprioritizing or omitting this unit's cgroup as a candidate when
           <command>systemd-oomd</command> needs to act. Requires support for extended attributes (see
           <citerefentry project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
-          in order to use <option>avoid</option> or <option>omit</option>. Additionally,
-          <command>systemd-oomd</command> will ignore these extended attributes if the unit's cgroup is not
-          owned by the root user.</para>
+          in order to use <option>avoid</option> or <option>omit</option>.</para>
+
+          <para><command>systemd-oomd</command> will only respect these extended attributes if
+          the unit's cgroup owner, and the owner of the monitored ancestor cgroup are the
+          same. For example, if <filename>-.slice</filename> is monitored by <command>systemd-oomd</command>,
+          then these extended attributes would be ignored if set on descendants of
+          <filename>/user.slice/user-1000.slice/user@1000.service/</filename>. However, if no ancestors of
+          <filename>/user.slice/user-1000.slice/user@1000.service/</filename> are monitored by
+          <command>systemd-oomd</command>, then the extended attributes would be respected on the
+          descendants.</para>
 
           <para>If this property is set to <option>avoid</option>, the service manager will convey this to
           <command>systemd-oomd</command>, which will only select this cgroup if there are no other viable
