@@ -508,7 +508,7 @@ int dhcp6_option_parse(
         if (buflen < offsetof(DHCP6Option, data))
                 return -EBADMSG;
 
-        if (*offset >= buflen - offsetof(DHCP6Option, data))
+        if (*offset > buflen - offsetof(DHCP6Option, data))
                 return -EBADMSG;
 
         len = unaligned_read_be16(buf + *offset + offsetof(DHCP6Option, len));
@@ -518,7 +518,7 @@ int dhcp6_option_parse(
 
         *ret_option_code = unaligned_read_be16(buf + *offset + offsetof(DHCP6Option, code));
         *ret_option_data_len = len;
-        *ret_option_data = buf + *offset + offsetof(DHCP6Option, data);
+        *ret_option_data = len == 0 ? NULL : buf + *offset + offsetof(DHCP6Option, data);
         *offset += offsetof(DHCP6Option, data) + len;
 
         return 0;

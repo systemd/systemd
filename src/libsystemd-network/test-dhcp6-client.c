@@ -443,6 +443,48 @@ TEST(client_parse_message_issue_22099) {
         assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
 }
 
+TEST(client_parse_message_issue_24002) {
+        static const uint8_t msg[] = {
+                /* Message Type */
+                0x07,
+                /* Transaction ID */
+                0x0e, 0xa5, 0x7c,
+                /* Client ID */
+                0x00, SD_DHCP6_OPTION_CLIENTID, 0x00, 0x0e,
+                0x00, 0x02, /* DUID-EN */
+                0x00, 0x00, 0xab, 0x11, /* pen */
+                0x5c, 0x6b, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, /* id */
+                /* Server ID */
+                0x00, 0x02, 0x00, 0x1a,
+                0x00, 0x02, 0x00, 0x00, 0x05, 0x83, 0x30, 0x63, 0x3a, 0x38, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+                0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+                /* IA_PD */
+                0x00, 0x19, 0x00, 0x29,
+                0xaa, 0xbb, 0xcc, 0xdd, /* iaid */
+                0x00, 0x00, 0x03, 0x84, /* lifetime (T1) */
+                0x00, 0x00, 0x05, 0xa0, /* lifetime (T2) */
+                /* IA_PD (iaprefix suboption) */
+                0x00, 0x1a, 0x00, 0x19,
+                0x00, 0x00, 0x07, 0x08, /* preferred lifetime */
+                0x00, 0x00, 0x38, 0x40, /* valid lifetime */
+                0x38, /* prefixlen */
+                0x20, 0x03, 0x00, 0xff, 0xaa, 0xbb, 0xcc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* prefix */
+                /* Rapid commit */
+                0x00, 0x0e, 0x00, 0x00,
+        };
+        static const uint8_t duid[] = {
+                0x00, 0x00, 0xab, 0x11, 0x5c, 0x6b, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+        };
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+
+        assert_se(sd_dhcp6_client_new(&client) >= 0);
+        assert_se(sd_dhcp6_client_set_iaid(client, 0xaabbccdd) >= 0);
+        assert_se(sd_dhcp6_client_set_duid(client, 2, duid, sizeof(duid)) >= 0);
+
+        assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
+}
+
 static const uint8_t msg_information_request[] = {
         /* Message type */
         DHCP6_MESSAGE_INFORMATION_REQUEST,
