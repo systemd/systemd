@@ -79,6 +79,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add "systemd-sysext identify" verb, that you can point on any file in /usr/
+  and that determines from which overlayfs layer it originates, which image, and with
+  what it was signed.
+
 * journald: generate recognizable log events whenever we shutdown journald
   cleanly, and when we migrate run → var. This way tools can verify that a
   previous boot terminated cleanly, because either of these two messages must
