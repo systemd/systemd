@@ -33,6 +33,9 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     systemd-detect-virt -q -v
     expected_credential=myqemucredential
     expected_value=othervalue
+
+    # Verify that writing a sysctl via the kernel cmdline worked
+    [ "$(cat /proc/sys/kernel/domainname)" = "sysctltest" ]
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
