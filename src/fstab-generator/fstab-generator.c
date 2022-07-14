@@ -570,13 +570,21 @@ static int add_mount(
         return 0;
 }
 
+static const char* sysroot_fstab_path(void) {
+        return getenv("SYSTEMD_SYSROOT_FSTAB") ?: "/sysroot/etc/fstab";
+}
+
 static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
         int r = 0;
 
-        fstab = initrd ? "/sysroot/etc/fstab" : fstab_path();
+        if (initrd)
+                fstab = sysroot_fstab_path();
+        else
+                fstab = fstab_path();
+
         log_debug("Parsing %s...", fstab);
 
         f = setmntent(fstab, "re");

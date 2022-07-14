@@ -46,7 +46,7 @@
     for more information about special <filename>/etc/fstab</filename>
     mount options this generator understands.</para>
 
-    <para>One special topic is handling of symbolic links.  Historical init
+    <para>One special topic is handling of symbolic links. Historical init
     implementations supported symlinks in <filename>/etc/fstab</filename>.
     Because mount units will refuse mounts where the target is a symbolic link,
     this generator will resolve any symlinks as far as possible when processing
@@ -251,8 +251,8 @@
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <ulink url="https://systemd.io/ENVIRONMENT/">Known Environment Variables</ulink>
     </para>
   </refsect1>
-
 </refentry>
