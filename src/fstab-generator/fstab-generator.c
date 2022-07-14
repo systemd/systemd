@@ -631,13 +631,25 @@ static int parse_fstab(bool initrd) {
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
                          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-                         * target is the final directory. */
+                         * target is the final directory.
+                         *
+                         * FIXME: when chase_symlinks() learns to chase non-existent paths, use this here and
+                         *        drop the prefixing with /sysroot on error below.
+                         */
                         k = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where, NULL);
-                        if (k < 0) /* If we can't canonicalize, continue as if it wasn't a symlink */
-                                log_debug_errno(k, "Failed to read symlink target for %s, ignoring: %m", where);
-                        else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
+                        if (k < 0) {
+                                /* If we can't canonicalize, continue as if it wasn't a symlink */
+                                log_debug_errno(k, "Failed to read symlink target for %s, using as-is: %m", where);
+
+                                if (initrd) {
+                                        canonical_where = path_join("/sysroot", where);
+                                        if (!canonical_where)
+                                                return log_oom();
+                                }
+
+                        } else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
                                 canonical_where = mfree(canonical_where);
                         else
                                 log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
