@@ -819,13 +819,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Set soft and hard limits on various resources for executed processes. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details on the resource limit concept. Resource limits may be specified in two formats: either as
-        single value to set a specific soft and hard limit to the same value, or as colon-separated pair
-        <option>soft:hard</option> to set both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).
-        Use the string <option>infinity</option> to configure no limit on a specific resource. The
-        multiplicative suffixes K, M, G, T, P and E (to the base 1024) may be used for resource limits
-        measured in bytes (e.g. <literal>LimitAS=16G</literal>). For the limits referring to time values, the
-        usual time units ms, s, min, h and so on may be used (see
+        details on the process resource limit concept. Process resource limits may be specified in two formats:
+        either as single value to set a specific soft and hard limit to the same value, or as colon-separated
+        pair <option>soft:hard</option> to set both limits individually
+        (e.g. <literal>LimitAS=4G:16G</literal>).  Use the string <option>infinity</option> to configure no
+        limit on a specific resource. The multiplicative suffixes K, M, G, T, P and E (to the base 1024) may
+        be used for resource limits measured in bytes (e.g. <literal>LimitAS=16G</literal>). For the limits
+        referring to time values, the usual time units ms, s, min, h and so on may be used (see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of
         seconds is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is
@@ -875,15 +875,17 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <table>
           <title>Resource limit directives, their equivalent <command>ulimit</command> shell commands and the unit used</title>
 
-          <tgroup cols='3'>
+          <tgroup cols='4'>
             <colspec colname='directive' />
             <colspec colname='equivalent' />
             <colspec colname='unit' />
+            <colspec colname='notes' />
             <thead>
               <row>
                 <entry>Directive</entry>
                 <entry><command>ulimit</command> equivalent</entry>
                 <entry>Unit</entry>
+                <entry>Notes</entry>
               </row>
             </thead>
             <tbody>
@@ -891,81 +893,97 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitCPU=</entry>
                 <entry>ulimit -t</entry>
                 <entry>Seconds</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitFSIZE=</entry>
                 <entry>ulimit -f</entry>
                 <entry>Bytes</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitDATA=</entry>
                 <entry>ulimit -d</entry>
                 <entry>Bytes</entry>
+                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitSTACK=</entry>
                 <entry>ulimit -s</entry>
                 <entry>Bytes</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitCORE=</entry>
                 <entry>ulimit -c</entry>
                 <entry>Bytes</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitRSS=</entry>
                 <entry>ulimit -m</entry>
                 <entry>Bytes</entry>
+                <entry>Don't use. No effect on Linux.</entry>
               </row>
               <row>
                 <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
                 <entry>Number of File Descriptors</entry>
+                <entry>Don't use. Be careful when raising the soft limit above 1024, since <function>select()</function> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <function>select()</function>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
               </row>
               <row>
                 <entry>LimitAS=</entry>
                 <entry>ulimit -v</entry>
                 <entry>Bytes</entry>
+                <entry>Don't use. This limits the allowed address range, not memory use! Defaults to unlimited and should not be lowered. To limit memory use, see <varname>MemoryMax=</varname> in <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitNPROC=</entry>
                 <entry>ulimit -u</entry>
                 <entry>Number of Processes</entry>
+                <entry>This limit is enforced based on the number of processes belonging to the user. Typically it's better to track processes per service, i.e. use <varname>TasksMax=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
               </row>
               <row>
                 <entry>LimitMEMLOCK=</entry>
                 <entry>ulimit -l</entry>
                 <entry>Bytes</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitLOCKS=</entry>
                 <entry>ulimit -x</entry>
                 <entry>Number of Locks</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitSIGPENDING=</entry>
                 <entry>ulimit -i</entry>
                 <entry>Number of Queued Signals</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitMSGQUEUE=</entry>
                 <entry>ulimit -q</entry>
                 <entry>Bytes</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitNICE=</entry>
                 <entry>ulimit -e</entry>
                 <entry>Nice Level</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitRTPRIO=</entry>
                 <entry>ulimit -r</entry>
                 <entry>Realtime Priority</entry>
+                <entry>-</entry>
               </row>
               <row>
                 <entry>LimitRTTIME=</entry>
-                <entry>No equivalent</entry>
+                <entry>ulimit -R</entry>
                 <entry>Microseconds</entry>
+                <entry>-</entry>
               </row>
             </tbody>
           </tgroup>

@@ -202,8 +202,6 @@ Features:
 * ask dracut to generate usr= on the kernel cmdline so that we don't need to
   read /etc/fstab from the root fs from the initrd and do daemon-reload
 
-* document that process resource limits are bullshit
-
 * add PR_SET_DUMPABLE service setting
 
 * homed/userdb: maybe define a "companion" dir for home directories where apps
