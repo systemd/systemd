@@ -635,7 +635,7 @@ static int parse_fstab(bool initrd) {
                         k = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where, NULL);
-                        if (k < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
+                        if (k < 0) /* If we can't canonicalize, continue as if it wasn't a symlink */
                                 log_debug_errno(k, "Failed to read symlink target for %s, ignoring: %m", where);
                         else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
                                 canonical_where = mfree(canonical_where);
@@ -761,7 +761,7 @@ static int add_sysroot_mount(void) {
         }
 
         if (streq(arg_root_what, "gpt-auto")) {
-                /* This is handled by the gpt-auto generator */
+                /* This is handled by gpt-auto-generator */
                 log_debug("Skipping root directory handling, as gpt-auto was requested.");
                 return 0;
         }
