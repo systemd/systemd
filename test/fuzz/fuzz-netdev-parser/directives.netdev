@@ -24,11 +24,12 @@ Mode=
 SourceMACAddress=
 [Match]
 Architecture=
+Credential=
 Firmware=
 Host=
+KernelCommandLine=
 KernelVersion=
 Virtualization=
-KernelCommandLine=
 [GENEVE]
 DestinationPort=
 TTL=
