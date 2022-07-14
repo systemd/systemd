@@ -150,9 +150,6 @@ Features:
 * pam_systemd: on interactive logins, maybe show SUPPORT_END information at
   login time, á la motd
 
-* similar to the existing fw_cfg support, also support reading system
-  credentials from DMI vendor fields, as supported by qemu
-
 * sd-boot: instead of uncondtionally deriving the ESP to search boot loader
   spec entries in from the paths of sd-boot binary, let's optionally allow it
   to be configured on sd-boot cmdline + efi var. Usecase: embedd sd-boot in the
