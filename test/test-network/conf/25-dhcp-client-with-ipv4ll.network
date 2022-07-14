@@ -6,3 +6,4 @@ Name=veth99
 DHCP=ipv4
 LinkLocalAddressing=yes
 IPv6AcceptRA=no
+IPv4LLStartAddress=169.254.133.11
