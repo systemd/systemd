@@ -349,7 +349,7 @@ static int add_mount(
                 const char *opts,
                 int passno,
                 MountPointFlags flags,
-                const char *post) {
+                const char *target_unit) {
 
         _cleanup_free_ char
                 *name = NULL,
@@ -363,7 +363,7 @@ static int add_mount(
         assert(what);
         assert(where);
         assert(opts);
-        assert(post);
+        assert(target_unit);
         assert(source);
 
         if (streq_ptr(fstype, "autofs"))
@@ -435,10 +435,10 @@ static int add_mount(
         if (r < 0)
                 return r;
 
-        /* Order the mount unit we generate relative to the post unit, so that DefaultDependencies= on the
+        /* Order the mount unit we generate relative to target_unit, so that DefaultDependencies= on the
          * target unit won't affect us. */
-        if (post && !FLAGS_SET(flags, MOUNT_NOFAIL))
-                fprintf(f, "Before=%s\n", post);
+        if (!FLAGS_SET(flags, MOUNT_NOFAIL))
+                fprintf(f, "Before=%s\n", target_unit);
 
         if (passno != 0) {
                 r = generator_write_fsck_deps(f, dest, what, where, fstype);
@@ -506,14 +506,14 @@ static int add_mount(
         }
 
         if (flags & MOUNT_GROWFS) {
-                r = generator_hook_up_growfs(dest, where, post);
+                r = generator_hook_up_growfs(dest, where, target_unit);
                 if (r < 0)
                         return r;
         }
 
         if (!FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
                 if (!FLAGS_SET(flags, MOUNT_NOAUTO) && strv_isempty(wanted_by) && strv_isempty(required_by)) {
-                        r = generator_add_symlink(dest, post,
+                        r = generator_add_symlink(dest, target_unit,
                                                   (flags & MOUNT_NOFAIL) ? "wants" : "requires", name);
                         if (r < 0)
                                 return r;
@@ -561,7 +561,7 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_name);
 
-                r = generator_add_symlink(dest, post,
+                r = generator_add_symlink(dest, target_unit,
                                           (flags & MOUNT_NOFAIL) ? "wants" : "requires", automount_name);
                 if (r < 0)
                         return r;
@@ -662,7 +662,6 @@ static int parse_fstab(bool initrd) {
                         k = add_swap(fstab, what, me, flags);
                 else {
                         bool rw_only, automount;
-                        const char *post;
 
                         rw_only = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
                         automount = fstab_test_option(me->mnt_opts,
@@ -672,12 +671,10 @@ static int parse_fstab(bool initrd) {
                         flags |= rw_only * MOUNT_RW_ONLY |
                                  automount * MOUNT_AUTOMOUNT;
 
-                        if (initrd)
-                                post = SPECIAL_INITRD_FS_TARGET;
-                        else if (mount_is_network(me))
-                                post = SPECIAL_REMOTE_FS_TARGET;
-                        else
-                                post = SPECIAL_LOCAL_FS_TARGET;
+                        const char *target_unit =
+                                initrd ?               SPECIAL_INITRD_FS_TARGET :
+                                mount_is_network(me) ? SPECIAL_REMOTE_FS_TARGET :
+                                                       SPECIAL_LOCAL_FS_TARGET;
 
                         k = add_mount(fstab,
                                       arg_dest,
@@ -688,7 +685,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_opts,
                                       me->mnt_passno,
                                       flags,
-                                      post);
+                                      target_unit);
                 }
 
                 if (r >= 0 && k < 0)
