@@ -225,7 +225,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC);
+        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (mountfd < 0)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
 
