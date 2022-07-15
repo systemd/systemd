@@ -420,6 +420,8 @@ fail:
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event, sd_event, event_free);
+#define PROTECT_EVENT(e)                                                \
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         if (s)
@@ -3539,8 +3541,8 @@ static int process_inotify(sd_event *e) {
 }
 
 static int source_dispatch(sd_event_source *s) {
-        _cleanup_(sd_event_unrefp) sd_event *saved_event = NULL;
         EventSourceType saved_type;
+        sd_event *saved_event;
         int r = 0;
 
         assert(s);
@@ -3552,7 +3554,8 @@ static int source_dispatch(sd_event_source *s) {
 
         /* Similarly, store a reference to the event loop object, so that we can still access it after the
          * callback might have invalidated/disconnected the event source. */
-        saved_event = sd_event_ref(s->event);
+        saved_event = s->event;
+        PROTECT_EVENT(saved_event);
 
         /* Check if we hit the ratelimit for this event source, and if so, let's disable it. */
         assert(!s->ratelimited);
@@ -3753,7 +3756,7 @@ static int dispatch_exit(sd_event *e) {
                 return 0;
         }
 
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
         e->iteration++;
         e->state = SD_EVENT_EXITING;
         r = source_dispatch(p);
@@ -3847,7 +3850,7 @@ _public_ int sd_event_prepare(sd_event *e) {
         assert_return(!e->default_event_ptr || e->tid == gettid(), -EREMOTEIO);
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         if (e->exit_requested)
                 goto pending;
@@ -4177,7 +4180,7 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
         p = event_next_pending(e);
         if (p) {
-                _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+                PROTECT_EVENT(e);
 
                 e->state = SD_EVENT_RUNNING;
                 r = source_dispatch(p);
@@ -4229,7 +4232,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         }
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         r = sd_event_prepare(e);
         if (r == 0)
@@ -4259,7 +4262,7 @@ _public_ int sd_event_loop(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         while (e->state != SD_EVENT_FINISHED) {
                 r = sd_event_run(e, UINT64_MAX);
