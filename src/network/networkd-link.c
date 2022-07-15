@@ -224,6 +224,7 @@ static Link *link_free(Link *link) {
         free(link->ssid);
         free(link->previous_ssid);
         free(link->driver);
+        free(link->rfkill_syspath);
 
         unlink_and_free(link->lease_file);
         unlink_and_free(link->lldp_file);

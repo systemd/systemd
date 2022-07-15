@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <linux/nl80211.h>
 
+#include "device-private.h"
 #include "ether-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
@@ -11,6 +13,113 @@
 #include "networkd-wiphy.h"
 #include "string-util.h"
 #include "wifi-util.h"
+
+int link_rfkilled(Link *link) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *s;
+        int r;
+
+        assert(link);
+
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (!link->sd_device)
+                return false;
+
+        r = sd_device_get_devtype(link->sd_device, &s);
+        if (r < 0)
+                return r;
+
+        if (!streq_ptr(s, "wlan"))
+                return false;
+
+        if (link->rfkill_syspath &&
+            sd_device_new_from_syspath(&dev, link->rfkill_syspath) < 0)
+                /* Hmm? Previously found rfkill device is removed? */
+                link->rfkill_syspath = mfree(link->rfkill_syspath);
+
+        if (!link->rfkill_syspath) {
+                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+                _cleanup_(sd_device_unrefp) sd_device *phy = NULL;
+                sd_device *rfkill;
+
+                r = sd_device_get_syspath(link->sd_device, &s);
+                if (r < 0)
+                        return r;
+
+                s = strjoina(s, "/phy80211");
+                r = sd_device_new_from_syspath(&phy, s);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_new(&e);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_allow_uninitialized(e);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_subsystem(e, "rfkill", true);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_parent(e, phy);
+                if (r < 0)
+                        return r;
+
+                rfkill = sd_device_enumerator_get_device_first(e);
+                if (!rfkill)
+                        return -ENOENT; /* No rfkill device found. */
+
+                if (sd_device_enumerator_get_device_next(e))
+                        return -EEXIST; /* Multiple rfkill devices found. */
+
+                r = sd_device_get_syspath(rfkill, &s);
+                if (r < 0)
+                        return r;
+
+                link->rfkill_syspath = strdup(s);
+                if (!link->rfkill_syspath)
+                        return -ENOMEM;
+
+                dev = sd_device_ref(rfkill);
+                log_link_debug(link, "RFKill device found: %s", link->rfkill_syspath);
+        }
+
+        r = device_get_sysattr_bool(dev, "soft");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (link->rfkill_state != RFKILL_SOFT) {
+                        log_link_debug(link,
+                                       "The radio transmitter is turned off by software. "
+                                       "Waiting for the transmitter being unblocked.");
+                        link->rfkill_state = RFKILL_SOFT;
+                }
+                return true;
+        }
+
+        r = device_get_sysattr_bool(dev, "hard");
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (link->rfkill_state != RFKILL_HARD) {
+                        log_link_debug(link,
+                                       "The radio transmitter is forced off by something outside of the driver's control. "
+                                       "Waiting for the transmitter being turned on.");
+                        link->rfkill_state = RFKILL_HARD;
+                }
+                return true;
+        }
+
+        if (link->rfkill_state != RFKILL_UNBLOCKED) {
+                log_link_debug(link, "The radio transmitter is unblocked.");
+                link->rfkill_state = RFKILL_UNBLOCKED;
+        }
+        return false;
+}
 
 static int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
