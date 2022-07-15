@@ -13,7 +13,8 @@ BuildPackages=
         acl
         docbook-xml
         docbook-xsl
-        gcc
+        # When updating the gcc version, make sure to update the libasan/libubsan libraries in Packages as well
+        gcc-12
         gettext
         git
         gnu-efi
@@ -72,6 +73,8 @@ Packages=
         nano
         strace
         xxd
+        libasan5
+        libubsan1
         # Required to run systemd-networkd-tests.py
         python3
         iproute2
