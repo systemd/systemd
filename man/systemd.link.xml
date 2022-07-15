@@ -228,7 +228,7 @@
           <para>Matches against the hostname or machine ID of the host. See <varname>ConditionHost=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -240,7 +240,7 @@
           whether it is a specific implementation. See <varname>ConditionVirtualization=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -252,7 +252,7 @@
           <varname>ConditionKernelCommandLine=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -264,7 +264,7 @@
           expression. See <varname>ConditionKernelVersion=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -288,7 +288,7 @@
           <varname>ConditionArchitecture=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -300,7 +300,7 @@
           <varname>ConditionFirmware=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
