@@ -174,30 +174,30 @@ emergency.service    |              |              |
     available to the user.</para>
 
 <programlisting>
-    (various           (various         (various
-     timers...)         paths...)        sockets...)    (sound devices)
-         |                  |                 |               |
-         v                  v                 v               v
-   timers.target      paths.target     sockets.target    sound.target
-         |                  |                 |
-         \______________   _|_________________/         (bluetooth devices)
-                        \ /                                   |
-                         V                                    v
-                   basic.target                          bluetooth.target
-                         |
-              __________/ \_______                      (smartcard devices)
-             /                    \                           |
-             |                    |                           v
-             |                    v                      smartcard.target
-             v            graphical-session-pre.target
- (various user services)          |                       (printers)
-             |                    v                           |
-             |       (services for the graphical session)     v
-             |                    |                       printer.target
-             v                    v
-      <emphasis>default.target</emphasis>      graphical-session.target</programlisting>
+   (various           (various         (various
+    timers...)         paths...)        sockets...)    (sound devices)
+        |                  |                 |               |
+        v                  v                 v               v
+  timers.target      paths.target     sockets.target    sound.target
+        |                  |                 |
+        \______________   _|_________________/         (bluetooth devices)
+                       \ /                                   |
+                        V                                    v
+                  basic.target                          bluetooth.target
+                        |
+             __________/ \_______                      (smartcard devices)
+            /                    \                           |
+            |                    |                           v
+            |                    v                      smartcard.target
+            v            graphical-session-pre.target
+(various user services)          |                       (printers)
+            |                    v                           |
+            |       (services for the graphical session)     v
+            |                    |                       printer.target
+            v                    v
+     <emphasis>default.target</emphasis>      graphical-session.target</programlisting>
 
-  </refsect1>
+ </refsect1>
 
   <refsect1>
     <title>Bootup in the Initial RAM Disk (initrd)</title>
@@ -239,59 +239,59 @@ emergency.service    |              |              |
     <filename>/sysroot</filename>.
     </para>
 
-<programlisting>                                               : (beginning identical to above)
-                                               :
-                                               v
-                                         basic.target
-                                               |                                 emergency.service
-                        ______________________/|                                         |
-                       /                       |                                         v
-                       |            initrd-root-device.target                    <emphasis>emergency.target</emphasis>
-                       |                       |
-                       |                       v
-                       |                  sysroot.mount
-                       |                       |
-                       |                       v
-                       |             initrd-root-fs.target
-                       |                       |
-                       |                       v
-                       v            initrd-parse-etc.service
-                (custom initrd                 |
-                 services...)                  v
-                       |            (sysroot-usr.mount and
-                       |             various mounts marked
-                       |               with fstab option
-                       |              x-initrd.mount...)
-                       |                       |
-                       |                       v
-                       |                initrd-fs.target
-                       \______________________ |
-                                              \|
-                                               v
-                                          initrd.target
-                                               |
-                                               v
-                                     initrd-cleanup.service
-                                          isolates to
-                                    initrd-switch-root.target
-                                               |
-                                               v
-                        ______________________/|
-                       /                       v
-                       |        initrd-udevadm-cleanup-db.service
-                       v                       |
-                (custom initrd                 |
-                 services...)                  |
-                       \______________________ |
-                                              \|
-                                               v
-                                   initrd-switch-root.target
-                                               |
-                                               v
-                                   initrd-switch-root.service
-                                               |
-                                               v
-                                     Transition to Host OS</programlisting>
+<programlisting>                               : (beginning identical to above)
+                               :
+                               v
+                         basic.target
+                               |                       emergency.service
+        ______________________/|                               |
+       /                       |                               v
+       |            initrd-root-device.target          <emphasis>emergency.target</emphasis>
+       |                       |
+       |                       v
+       |                  sysroot.mount
+       |                       |
+       |                       v
+       |             initrd-root-fs.target
+       |                       |
+       |                       v
+       v            initrd-parse-etc.service
+(custom initrd                 |
+ services...)                  v
+       |            (sysroot-usr.mount and
+       |             various mounts marked
+       |               with fstab option
+       |              x-initrd.mount...)
+       |                       |
+       |                       v
+       |                initrd-fs.target
+       \______________________ |
+                              \|
+                               v
+                          initrd.target
+                               |
+                               v
+                     initrd-cleanup.service
+                          isolates to
+                    initrd-switch-root.target
+                               |
+                               v
+        ______________________/|
+       /                       v
+       |        initrd-udevadm-cleanup-db.service
+       v                       |
+(custom initrd                 |
+ services...)                  |
+       \______________________ |
+                              \|
+                               v
+                   initrd-switch-root.target
+                               |
+                               v
+                   initrd-switch-root.service
+                               |
+                               v
+                     Transition to Host OS</programlisting>
   </refsect1>
 
   <refsect1>
@@ -300,33 +300,40 @@ emergency.service    |              |              |
     <para>System shutdown with systemd also consists of various target
     units with some minimal ordering structure applied:</para>
 
-<programlisting>                                  (conflicts with  (conflicts with
-                                    all system     all file system
-                                     services)     mounts, swaps,
-                                         |           cryptsetup/
-                                         |           veritysetup
-                                         |          devices, ...)
-                                         |                |
-                                         v                v
-                                  shutdown.target    umount.target
-                                         |                |
-                                         \_______   ______/
-                                                 \ /
-                                                  v
-                                         (various low-level
-                                              services)
-                                                  |
-                                                  v
-                                            final.target
-                                                  |
-            _____________________________________/ \_________________________________
-           /                         |                        |                      \
-           |                         |                        |                      |
-           v                         v                        v                      v
-systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   systemd-kexec.service
-           |                         |                        |                      |
-           v                         v                        v                      v
-    <emphasis>reboot.target</emphasis>             <emphasis>poweroff.target</emphasis>            <emphasis>halt.target</emphasis>           <emphasis>kexec.target</emphasis></programlisting>
+<programlisting>                       (conflicts with  (conflicts with
+                          all system     all file system
+                           services)     mounts, swaps,
+                               |           cryptsetup/
+                               |           veritysetup
+                               |          devices, ...)
+                               |                |
+                               v                v
+                        shutdown.target    umount.target
+                               |                |
+                               \_______   ______/
+                                       \ /
+                                        v
+                               (various low-level
+                                    services)
+                                        |
+                                        v
+                                  final.target
+                                        |
+            ___________________________/ \_________________
+           /               |               |               \
+           |               |               |               |
+           v               |               |               |
+systemd-reboot.service     |               |               |
+           |               v               |               |
+           |    systemd-poweroff.service   |               |
+           v               |               v               |
+     <emphasis>reboot.target</emphasis>         |      systemd-halt.service     |
+                           v               |               v
+                   <emphasis>poweroff.target</emphasis>         |    systemd-kexec.service
+                                           v               |
+                                      <emphasis>halt.target</emphasis>          |
+                                                           v
+                                                     <emphasis>kexec.target</emphasis></programlisting>
 
     <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
 
