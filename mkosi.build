@@ -60,7 +60,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D "rootprefix=$rootprefix" \
                 -D man=false \
                 -D translations=false \
-                -D version-tag="${VERSION_TAG}"
+                -D version-tag="${VERSION_TAG}" \
+                -D mode=developer
 fi
 
 cd "$BUILDDIR"
