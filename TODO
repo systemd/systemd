@@ -79,6 +79,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* sd-boot should look for information what to boot in SMBIOS, too, so that VM
+  managers can tell sd-boot what to boot into and suchlike
+
 * PID 1 should look for an SMBIOS variable that encodes an AF_VSOCK address it
   should send sd_notify() ready notifications to. That way a VMM can boot up a
   system, and generically know when it finished booting.
@@ -128,6 +131,14 @@ Features:
 * resolved: allow defining additional /etc/hosts entries via a credential (it
   might make sense to then synthesize a new combined /etc/hosts file in /run
   and bind mount it on /etc/hosts for other clients that want to read it.
+  Similar, allow picking up DNS server IP addresses from credential.
+
+* repart: allow defining additional partitions via credential
+
+* tmpfiles: add snippet that provisions /etc/hosts, /etc/motd,
+  /root/.ssh/authorized_keys from credential
+
+* timesyncd: pick NTP server info from credential
 
 * define a JSON format for units, separating out unit definitions from unit
   runtime state. Then, expose it:
