@@ -140,6 +140,11 @@ enabled that are suitable when hacking on systemd (such as internal
 documentation consistency checks). Those are not useful when compiling for
 distribution and can be disabled by setting `-Dmode=release`.
 
+## Sanitizers in mkosi
+
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+on how to build with sanitizers enabled in mkosi.
+
 ## Fuzzers
 
 systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically
