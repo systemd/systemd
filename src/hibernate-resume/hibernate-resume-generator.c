@@ -16,7 +16,7 @@
 #include "string-util.h"
 #include "unit-name.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest = NULL;
 static char *arg_resume_device = NULL;
 static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
@@ -109,17 +109,10 @@ static int process_resume(void) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r = 0;
 
-        log_setup_generator();
-
-        if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes three or no arguments.");
-
-        if (argc > 1)
-                arg_dest = argv[1];
+        arg_dest = ASSERT_PTR(dest);
 
         /* Don't even consider resuming outside of initramfs. */
         if (!in_initrd()) {
@@ -139,4 +132,4 @@ static int run(int argc, char *argv[]) {
         return process_resume();
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_GENERATOR_FUNCTION(run);
