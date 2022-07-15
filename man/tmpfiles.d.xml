@@ -462,6 +462,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           symlinks.</para></listitem>
         </varlistentry>
       </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Type Modifiers</title>
 
       <para>If the exclamation mark (<literal>!</literal>) is used, this line is only safe to execute during
       boot, and can break a running system. Lines without the exclamation mark are presumed to be safe to
