@@ -2968,7 +2968,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
         IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
-        separated by a <literal>/</literal> character. Use multiple [IPv6PrefixRoutes] sections to configure
+        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
         multiple IPv6 prefix routes.</para></listitem>
       </varlistentry>
 
