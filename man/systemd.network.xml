@@ -2910,11 +2910,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Prefix=</varname></term>
 
-      <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
-        IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
-        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
-        multiple IPv6 prefix routes.</para></listitem>
-      </varlistentry>
+        <listitem><para>The IPv6 prefix that is to be distributed to hosts.  Similarly to configuring static
+        IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
+        <literal>/</literal> character. Use multiple [IPv6Prefix] sections to configure multiple IPv6
+        prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
+        prefix to another.</para></listitem>
 
       <varlistentry>
         <term><varname>PreferredLifetimeSec=</varname></term>
@@ -2964,12 +2964,10 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Route=</varname></term>
 
-        <listitem><para>The IPv6 route that is to be distributed to hosts.
-        Similarly to configuring static IPv6 routes, the setting is
-        configured as an IPv6 prefix routes and its prefix route length,
-        separated by a<literal>/</literal> character. Use multiple
-        <literal>[IPv6RoutePrefix]</literal> sections to configure multiple IPv6
-        prefix routes.</para></listitem>
+        <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
+        IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
+        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
+        multiple IPv6 prefix routes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
