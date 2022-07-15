@@ -2916,7 +2916,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
         prefix to another.</para></listitem>
       </varlistentry>
-      
+
       <varlistentry>
         <term><varname>PreferredLifetimeSec=</varname></term>
         <term><varname>ValidLifetimeSec=</varname></term>
