@@ -102,6 +102,44 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         return 0;
 }
 
+/* If battery percentage capacity is less than equal to 5% return success */
+int battery_is_low(void) {
+        int r;
+
+         /* We have not used battery capacity_level since value is set to full
+         * or Normal in case acpi is not working properly. In case of no battery
+         * 0 will be returned and system will be suspended for 1st cycle then hibernated */
+
+        r = read_battery_capacity_percentage();
+        if (r == -ENOENT)
+               return false;
+        if (r < 0)
+               return r;
+
+        return r <= 5;
+}
+
+/* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
+int read_battery_capacity_percentage(void) {
+        _cleanup_free_ char *bat_cap = NULL;
+        int battery_capacity, r;
+
+        r = read_one_line_file("/sys/class/power_supply/BAT0/capacity", &bat_cap);
+        if (r == -ENOENT)
+               return log_debug_errno(r, "/sys/class/power_supply/BAT0/capacity is unavailable. Assuming no battery exists: %m");
+        if (r < 0)
+               return log_debug_errno(r, "Failed to read /sys/class/power_supply/BAT0/capacity: %m");
+
+        r = safe_atoi(bat_cap, &battery_capacity);
+        if (r < 0)
+               return log_debug_errno(r, "Failed to parse battery capacity: %m");
+
+        if (battery_capacity < 0 || battery_capacity > 100)
+               return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+
+        return battery_capacity;
+}
+
 int can_sleep_state(char **types) {
         _cleanup_free_ char *text = NULL;
         int r;
