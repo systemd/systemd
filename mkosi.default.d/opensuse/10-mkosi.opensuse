@@ -75,3 +75,5 @@ Packages=
         util-linux
         # xxd
         vim
+        libasan8
+        libubsan1
