@@ -580,12 +580,12 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                 r = read_virtual_file(p, sizeof(dmi_field_header) + CREDENTIALS_TOTAL_SIZE_MAX, (char**) &data, &size);
                 if (r < 0) {
                         /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
-                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to open '%p', ignoring: %m", p);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to open '%s', ignoring: %m", p);
                         break;
                 }
 
                 if (size < offsetof(struct dmi_field_header, contents))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DMI field header of '%p' too short.", p);
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DMI field header of '%s' too short.", p);
 
                 dmi_field_header = data;
                 if (dmi_field_header->type != 11 ||
