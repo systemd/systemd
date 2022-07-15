@@ -392,7 +392,7 @@ static int scope_start(Unit *u) {
                 return r;
         }
         if (r == 0) {
-                log_unit_warning(u, "No PIDs left to attach to the scope's control group, refusing: %m");
+                log_unit_warning(u, "No PIDs left to attach to the scope's control group, refusing.");
                 scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
                 return -ECHILD;
         }
