@@ -22,6 +22,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "cpu-set-util.h"
+#include "creds-util.h"
 #include "efi-api.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -135,6 +136,46 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
 
                 if (found)
                         return true;
+        }
+
+        return false;
+}
+
+static int condition_test_credential(Condition *c, char **env) {
+        int (*gd)(const char **ret);
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CREDENTIAL);
+
+        /* For now we'll do a very simple existance check and are happy with either a regular or an encrypted
+         * credential. Given that we check the syntax of the argument we have the option to later maybe allow
+         * contents checks too without breaking compatibility, but for now let's be minimalistic. */
+
+        if (!credential_name_valid(c->parameter)) /* credentials with invalid names do not exist */
+                return false;
+
+        FOREACH_POINTER(gd, get_credentials_dir, get_encrypted_credentials_dir) {
+                _cleanup_free_ char *j = NULL;
+                const char *cd;
+
+                r = gd(&cd);
+                if (r == -ENXIO) /* no env var set */
+                        continue;
+                if (r < 0)
+                        return r;
+
+                j = path_join(cd, c->parameter);
+                if (!j)
+                        return -ENOMEM;
+
+                if (laccess(j, F_OK) >= 0)
+                        return true; /* yay! */
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* not found in this dir */
         }
 
         return false;
@@ -1099,6 +1140,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE]      = condition_test_kernel_command_line,
                 [CONDITION_KERNEL_VERSION]           = condition_test_kernel_version,
+                [CONDITION_CREDENTIAL]               = condition_test_credential,
                 [CONDITION_VIRTUALIZATION]           = condition_test_virtualization,
                 [CONDITION_SECURITY]                 = condition_test_security,
                 [CONDITION_CAPABILITY]               = condition_test_capability,
@@ -1218,6 +1260,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
+        [CONDITION_CREDENTIAL] = "ConditionCredential",
         [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_CAPABILITY] = "ConditionCapability",
         [CONDITION_AC_POWER] = "ConditionACPower",
@@ -1255,6 +1298,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
         [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
+        [CONDITION_CREDENTIAL] = "AssertCredential",
         [CONDITION_SECURITY] = "AssertSecurity",
         [CONDITION_CAPABILITY] = "AssertCapability",
         [CONDITION_AC_POWER] = "AssertACPower",

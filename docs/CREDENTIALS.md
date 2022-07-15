@@ -395,3 +395,9 @@ in `/etc/credstore/`, `/run/credstore/`,
 `/usr/lib/credstore/`. `LoadCredentialEncrypted=` will also search
 `/etc/credstore.encrypted/` and similar directories. These directories are
 hence a great place to store credentials to load on the system.
+
+## Conditionalizing Services
+
+Sometimes it makes sense to conditionalize system services and invoke them only
+if the right system credential is passed to the system. use the
+`ConditionCredential=` and `AssertCredential=` unit file settings for that.
