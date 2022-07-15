@@ -71,6 +71,8 @@ Packages=
         locales
         nano
         strace
+        libasan5
+        libubsan1
         # Required to run systemd-networkd-tests.py
         python3
         iproute2
