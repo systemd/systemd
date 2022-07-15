@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if [ "$1" = "final" ] && command -v bootctl > /dev/null; then
+if [ "$1" = "final" ] && command -v bootctl > /dev/null && [ -d "/efi" ]; then
     bootctl install
 fi
 
