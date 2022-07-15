@@ -2139,12 +2139,9 @@ static sd_event_source* event_source_free(sd_event_source *s) {
          * we still retain a valid event source object after
          * the callback. */
 
-        if (s->dispatching) {
-                if (s->type == SOURCE_IO)
-                        source_io_unregister(s);
-
+        if (s->dispatching)
                 source_disconnect(s);
-        } else
+        else
                 source_free(s);
 
         return NULL;
