@@ -79,6 +79,8 @@ Packages=
         # Sanitizers
         libasan
         libubsan
+        # xxd
+        vim-common
         # Required to run systemd-networkd-tests.py
         python
         iproute
